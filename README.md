@@ -20,3 +20,9 @@ The connection relays requests through your authenticated Jupyter session using 
 - YouTube uploads require owner-configured Google OAuth and channel authorization.
 - The GPU and browser connection window must remain running.
 - First-time Jupyter login is still required; GitHub sign-in does not replace GPU authentication.
+
+## Models & settings
+
+Open **Models & settings** even while the GPU is stopped. Each category has its own selector and per-model configuration saved in this browser. Image/video forms use these selections for new jobs. Qwen, FLUX, the larger Wan model, story generation and speech are planning presets, explicitly unavailable until installed and integrated; selecting one never falls back silently.
+
+Existing SDXL steps/guidance/seed and Wan pilot defaults work with the current backend. Custom dimensions, samplers and video settings require the prepared `model_settings_version: 1` backend release. The frontend blocks these on older backends instead of ignoring them. No GPU is started by changing settings.
