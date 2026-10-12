@@ -1,8 +1,8 @@
-# Ecco Studio
+# ECCO AI Labs Studio
 
-[**Open Ecco Studio**](https://ecco-ai-labs.github.io/ecco-studio/)
+[**Open ECCO AI Labs Studio**](https://ecco-ai-labs.github.io/ecco-studio/)
 
-Public frontend for Ecco AI Labs' image and video production workspace.
+Public frontend for ECCO AI Labs' image and video production workspace.
 
 GitHub Pages serves the interface. The Python backend, credentials, model weights and production media remain in the private GPU workspace. This repository contains no media or secrets.
 
