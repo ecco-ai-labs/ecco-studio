@@ -17,7 +17,7 @@ try{const saved=JSON.parse(localStorage.getItem('ecco-model-profiles-v1'));if(sa
 function modelSettings(id){return {...MODEL_CATALOG[id].defaults,...modelProfiles.settings[id]};}
 function modelAvailable(id){if(MODEL_CATALOG[id].pending)return false;if(['manual','silent'].includes(id))return true;if(!state)return false;const ready=state.config.models_ready;if(ready)return !!ready[id];return id==='sdxl'||(id==='wan-5b'&&state.config.wan_ready)||(id==='preview'&&state.config.ffmpeg);}
 function modelStatus(id){if(MODEL_CATALOG[id].pending)return 'Not installed / integrated — settings are planning presets only.';if(['manual','silent'].includes(id))return 'Available without a model.';if(!state)return 'GPU offline — availability will be checked when connected.';return modelAvailable(id)?'Available on connected backend.':'Unavailable on connected backend.';}
-function saveModelProfiles(){localStorage.setItem('ecco-model-profiles-v1',JSON.stringify(modelProfiles));}
+function saveModelProfiles(){localStorage.setItem('ecco-model-profiles-v1',JSON.stringify(modelProfiles));renderModelNav();}
 function modelFields(id){const m=MODEL_CATALOG[id],s=modelSettings(id);return Object.keys(m.defaults).map(k=>{const label={resolution:'Resolution',steps:'Sampling steps',cfg:'Guidance',seed:'Seed',sampler:'Sampler',scheduler:'Scheduler',temperature:'Temperature',max_tokens:'Maximum output tokens',speed:'Voice speed',language:'Language'}[k];const opts=k==='resolution'?m.sizes:k==='sampler'?['dpmpp_2m','euler']:k==='scheduler'?['karras','normal']:k==='language'?['English','Hindi']:null;const ranges={steps:[5,60,1],cfg:[1,15,0.5],seed:[0,9007199254740930,1],temperature:[0,2,0.1],max_tokens:[128,8192,128],speed:[0.5,2,0.1]};const r=ranges[k];return `<label>${label}${opts?`<select data-setting="${k}">${opts.map(v=>`<option ${s[k]===v?'selected':''}>${esc(v)}</option>`).join('')}</select>`:`<input data-setting="${k}" type="number" min="${r[0]}" max="${r[1]}" step="${r[2]}" required value="${esc(s[k])}">`}</label>`;}).join('')||'<p class="help wide">No generation settings for this option.</p>';}
 function modelsPage(){
  $('#page').innerHTML=`<p class="intro">Choose one model per production category. Settings are saved in this browser and used for new jobs. Selecting a model does not install it or start the GPU.</p><form id="models-form" class="stack"><div class="models-grid">${Object.entries(MODEL_CATEGORIES).map(([c,cat])=>{const id=modelProfiles.selected[c];return `<section class="panel form model-panel"><h2>${cat.title}</h2><label>${cat.title} model<select data-category="${c}">${cat.models.map(mid=>`<option value="${mid}" ${mid===id?'selected':''}>${esc(MODEL_CATALOG[mid].name)}${MODEL_CATALOG[mid].pending?' · not installed':''}</option>`).join('')}</select></label><p class="help model-status ${MODEL_CATALOG[id].pending?'pending':''}">${modelStatus(id)}</p><div class="model-fields" data-model="${id}">${modelFields(id)}</div>${c==='video'?'<p class="help">Wan: 24 fps, 1–5 seconds per scene. Preview: 720p, 1–30 seconds per scene. Audio is not yet integrated.</p>':''}<button type="button" class="secondary" data-reset="${id}">Reset this model’s settings</button></section>`;}).join('')}</div><div class="row"><button>Save model settings</button><p class="help" id="model-save-status" role="status">Presets for uninstalled models can be saved, but cannot run. No silent fallback to a different model.</p></div></form>`;
@@ -32,3 +32,19 @@ function attachModelControls(category,form){const cat=MODEL_CATEGORIES[category]
  function apply(){const id=modelProfiles.selected[category],s=modelSettings(id);$('#job-model-status').textContent=modelStatus(id)+(s.resolution?' '+s.resolution.replace('x',' × ')+', '+s.steps+' steps.':'');if(category==='images'){for(const k of ['steps','cfg','seed']){const el=form.elements[k];if(el)el.value=s[k];}}}
  $('#job-model').onchange=e=>{modelProfiles.selected[category]=e.target.value;saveModelProfiles();apply();};$('#edit-model-settings').onclick=()=>navigate('models');apply();
 }
+
+function renderModelNav(){
+ const root=document.getElementById('model-nav');if(!root)return;
+ const signature=JSON.stringify([modelProfiles.selected,state?.config?.models_ready]);
+ if(root.dataset.signature===signature)return;root.dataset.signature=signature;
+ root.innerHTML='<h2>Generation models</h2>'+['images','video'].map(c=>`<label for="nav-model-${c}">${c==='images'?'Image model':'Video model'}<select id="nav-model-${c}" data-nav-category="${c}">${MODEL_CATEGORIES[c].models.map(id=>`<option value="${id}" ${modelProfiles.selected[c]===id?'selected':''} ${MODEL_CATALOG[id].pending?'disabled':''}>${esc(MODEL_CATALOG[id].name)}${MODEL_CATALOG[id].pending?' · not installed':''}</option>`).join('')}</select><small>${esc(modelStatus(modelProfiles.selected[c]))}</small></label>`).join('')+'<button type="button" class="secondary" id="nav-model-settings">Model settings</button>';
+ root.querySelectorAll('[data-nav-category]').forEach(el=>el.onchange=()=>{
+  const c=el.dataset.navCategory,id=el.value;
+  const settingsSelect=document.querySelector(`#models-form [data-category="${c}"]`);
+  if(settingsSelect){settingsSelect.value=id;settingsSelect.dispatchEvent(new Event('change'));}
+  else {modelProfiles.selected[c]=id;saveModelProfiles();const job=document.getElementById('job-model');if(job&&((c==='images'&&page==='images')||(c==='video'&&page==='render'))){job.value=id;job.dispatchEvent(new Event('change'));}}
+  notice(MODEL_CATALOG[id].name+' selected for new '+(c==='images'?'images.':'videos.'));
+ });
+ document.getElementById('nav-model-settings').onclick=()=>navigate('models');
+}
+document.addEventListener('DOMContentLoaded',renderModelNav);
