@@ -23,6 +23,8 @@ GitHub Pages is the entry point; the active workspace and its API share the auth
 
 ## Models & settings
 
-Open **Models & settings** even while the GPU is stopped. Each category has its own selector and per-model configuration saved in this browser. Image/video forms use these selections for new jobs. Qwen, FLUX, the larger Wan model, story generation and speech are planning presets, explicitly unavailable until installed and integrated; selecting one never falls back silently.
+Model selectors live in the left navigation. Qwen-Image-2512 and the original SDXL/Wan 5B paths are available on the configured backend. Additional models remain disabled until installed and validated. Settings never silently fall back to a different model.
 
-Existing SDXL steps/guidance/seed and Wan pilot defaults work with the current backend. Custom dimensions, samplers and video settings require the prepared `model_settings_version: 1` backend release. The frontend blocks these on older backends instead of ignoring them. No GPU is started by changing settings.
+Generation buttons show busy feedback. Activity is a right-hand drawer. Image refinement preserves versions; instruction editing and character-sheet generation are separately gated on Qwen Edit model availability. Character references are not LoRA adapters.
+
+Billing distinguishes the current-session compute estimate from RunPod account totals. Thirty-minute account refresh requires a read-only billing key configured in the private GPU app; no credentials belong in this repository.
