@@ -8,9 +8,9 @@ GitHub Pages serves the interface. The Python backend, credentials, model weight
 
 ## Connect
 
-Open the GitHub Pages website and select **Connect GPU**. In the connection window, sign into the existing Jupyter session if necessary, then click **Connect this session**. Keep that window open while using the studio.
+Open the GitHub Pages website and select **Connect GPU**. Your authenticated Studio opens in the **same browser tab**. If needed, Jupyter asks you to sign in before opening Studio. No connection popup is required.
 
-The connection relays requests through your authenticated Jupyter session using origin-checked browser messages. No public unauthenticated GPU API is exposed. Other visitors to this public frontend cannot view your media or run jobs without their own authorized GPU session.
+GitHub Pages is the entry point; the active workspace and its API share the authenticated GPU origin. Other visitors cannot view media or run jobs without an authorized GPU session. Browser-local drafts and settings belong to their respective origins; saved stories and media are stored on the server.
 
 ## Pilot limitations
 
@@ -18,7 +18,7 @@ The connection relays requests through your authenticated Jupyter session using 
 - Storyboards are manually written and edited.
 - Automatic GitHub media sync requires a repository-scoped backend credential.
 - YouTube uploads require owner-configured Google OAuth and channel authorization.
-- The GPU and browser connection window must remain running.
+- The GPU must remain running while generating or browsing the private workspace.
 - First-time Jupyter login is still required; GitHub sign-in does not replace GPU authentication.
 
 ## Models & settings

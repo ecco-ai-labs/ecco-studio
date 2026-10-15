@@ -34,9 +34,9 @@ window.addEventListener('message',async e=>{
  if(e.data?.type==='ecco-ready'){connected=true;notice('GPU connected. Keep the connection window open.');if(await refresh())navigate('images');return;}
  if(e.data?.type!=='ecco-response')return;const item=pending.get(e.data.id);if(!item)return;clearTimeout(item.timer);pending.delete(e.data.id);if(e.data.error)item.reject(Error(e.data.error));else item.resolve(e.data.result);
 });
-function connectGPU(){connected=false;for(const item of pending.values()){clearTimeout(item.timer);item.reject(Error('Reconnecting GPU. Please retry after connecting.'));}pending.clear();bridgeWindow=window.open(gpuURL+'connect?session='+Date.now(),'ecco-gpu-connection','width=640,height=700');if(!bridgeWindow)return notice('Allow this page to open its GPU connection window, then try again.',true);notice('In the connection window, sign into Jupyter if prompted, then click Connect this session.');}
+function connectGPU(){notice('Opening your GPU workspace…');window.location.assign(gpuURL);}
 function welcome(){
- $('#page').innerHTML='<div class="panel form"><h2>Your studio, powered by your GPU</h2><p>Connect your private GPU workspace to start generating. The interface is hosted on GitHub Pages; your media stays on your GPU until you explicitly sync it.</p><button id="connect-gpu">Connect GPU</button><p class="help">A small connection window will open. If Jupyter asks for a token, first open Jupyter Lab from your Runpod pod’s Connect panel. Then click Connect this session. Keep that window open while working.</p></div>';
+ $('#page').innerHTML='<div class="panel form"><h2>Your studio, powered by your GPU</h2><p>Connect your private GPU workspace to start generating. The interface is hosted on GitHub Pages; your media stays on your GPU until you explicitly sync it.</p><button id="connect-gpu">Connect GPU</button><p class="help">Your private Studio opens in this same tab. If your session has expired, sign in to Jupyter to continue. Your saved stories and media stay on the GPU workspace.</p></div>';
  $('#connect-gpu').onclick=connectGPU;$('#wan-badge').textContent='GPU not connected';
 }
 async function hydrateMedia(){
