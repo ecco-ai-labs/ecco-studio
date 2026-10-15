@@ -2,7 +2,7 @@
 const MODEL_CATEGORIES={images:{title:'Image generation',models:['sdxl','qwen-image-2512','flux-klein-4b']},video:{title:'Video generation',models:['preview','wan-5b','wan-a14b']},story:{title:'Story & screenplay',models:['manual','qwen-story']},voice:{title:'Voice & narration',models:['silent','cosyvoice']}};
 const MODEL_CATALOG={
  'sdxl':{name:'SDXL Base 1.0',defaults:{resolution:'1024x576',steps:25,cfg:7,seed:20261011,sampler:'dpmpp_2m',scheduler:'karras'},sizes:['1024x576','1024x1024','768x1024']},
- 'qwen-image-2512':{name:'Qwen-Image-2512',pending:true,defaults:{resolution:'1664x928',steps:50,cfg:4,seed:42},sizes:['1664x928','1328x1328','928x1664']},
+ 'qwen-image-2512':{name:'Qwen-Image-2512',defaults:{resolution:'1664x928',steps:50,cfg:4,seed:42},sizes:['1664x928','1328x1328','928x1664']},
  'flux-klein-4b':{name:'FLUX.2 klein 4B Base',pending:true,defaults:{resolution:'1024x1024',steps:50,cfg:4,seed:42},sizes:['1024x1024']},
  'preview':{name:'Storyboard preview (no AI motion)',defaults:{}},
  'wan-5b':{name:'Wan 2.2 TI2V 5B',defaults:{resolution:'704x384',steps:20,cfg:5,seed:42},sizes:['704x384','1280x704']},
@@ -14,6 +14,17 @@ const MODEL_CATALOG={
 };
 let modelProfiles={selected:{images:'sdxl',video:'preview',story:'manual',voice:'silent'},settings:{}};
 try{const saved=JSON.parse(localStorage.getItem('ecco-model-profiles-v1'));if(saved){for(const c of Object.keys(MODEL_CATEGORIES)){if(MODEL_CATEGORIES[c].models.includes(saved.selected?.[c]))modelProfiles.selected[c]=saved.selected[c];}modelProfiles.settings=saved.settings||{};}}catch{}
+// Carry the user's model choices from the GitHub entry page into the same-tab workspace.
+try {
+ if(location.hash.startsWith('#preferences=')&&location.hash.length<16000){
+  const handoff=JSON.parse(decodeURIComponent(location.hash.slice(13)));
+  for(const c of Object.keys(MODEL_CATEGORIES)){const id=handoff.profiles?.selected?.[c];if(MODEL_CATEGORIES[c].models.includes(id))modelProfiles.selected[c]=id;}
+  for(const [id,m] of Object.entries(MODEL_CATALOG)){const src=handoff.profiles?.settings?.[id];if(src&&typeof src==='object'){const clean={};for(const k of Object.keys(m.defaults)){if(typeof src[k]===typeof m.defaults[k])clean[k]=src[k];}modelProfiles.settings[id]={...modelProfiles.settings[id],...clean};}}
+  localStorage.setItem('ecco-model-profiles-v1',JSON.stringify(modelProfiles));
+  if(/^[a-f0-9]{32}$/.test(handoff.story||''))localStorage.setItem('ecco-active-story',handoff.story);
+  history.replaceState(null,'',location.pathname+location.search);
+ }
+}catch{}
 function modelSettings(id){return {...MODEL_CATALOG[id].defaults,...modelProfiles.settings[id]};}
 function modelAvailable(id){if(MODEL_CATALOG[id].pending)return false;if(['manual','silent'].includes(id))return true;if(!state)return false;const ready=state.config.models_ready;if(ready)return !!ready[id];return id==='sdxl'||(id==='wan-5b'&&state.config.wan_ready)||(id==='preview'&&state.config.ffmpeg);}
 function modelStatus(id){if(MODEL_CATALOG[id].pending)return 'Not installed / integrated — settings are planning presets only.';if(['manual','silent'].includes(id))return 'Available without a model.';if(!state)return 'GPU offline — availability will be checked when connected.';return modelAvailable(id)?'Available on connected backend.':'Unavailable on connected backend.';}
