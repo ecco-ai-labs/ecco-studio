@@ -38,11 +38,11 @@
    }
    body.append(group);
   }
-  const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='+ New image library';
+  const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='+ New Label';
   create.onclick=()=>createFolder(()=>{const current=q('#image-library-nav .workspace-library');if(current)current.open=true;});body.append(create);
   const selected=folderList().find(f=>f.id===select.value);if(selected){const remove=document.createElement('button');remove.type='button';remove.onclick=()=>{if(!confirm('Move image library '+selected.name+' to Trash? Its images will be preserved.'))return;action(async()=>{await api('trash/folder',{id:selected.id});select.value='all';select.dispatchEvent(new Event('change',{bubbles:true}));await refresh();modernize();});};selectionToolbar(body,selected.name,remove);}
   box.append(d);
-  let upload=q('.workspace-upload');if(!upload){upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload image';upload.onclick=uploadDialog;}upload.hidden=false;body.insertBefore(upload,create);
+  let upload=q('.workspace-upload');if(!upload){upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload image';upload.onclick=uploadDialog;}upload.hidden=false;body.append(upload);
  }
  function storyTree(){
   const box=q('.project'),select=q('#story-picker');if(!box||!select||box.querySelector('.workspace-library'))return;
