@@ -36,7 +36,7 @@
     item.textContent='−− '+(asset.title||asset.prompt||'Untitled image');item.title=asset.title||asset.prompt||'Open image';
     item.onclick=()=>{openFolder(folder.id);const img=[...document.querySelectorAll('img[data-asset]')].find(el=>el.dataset.asset===asset.id);if(img)img.click();};group.append(item);
    }
-   const add=document.createElement('button');add.type='button';add.className='tree-create';add.textContent='+ Sublabel';add.setAttribute('aria-label','Add sublabel to '+folder.name);add.onclick=()=>createFolder(null,folder.name);group.append(add);body.append(group);
+   const add=document.createElement('button');add.type='button';add.className='tree-create';add.textContent='+';add.title='Add sublabel';add.setAttribute('aria-label','Add sublabel to '+folder.name);add.onclick=()=>createFolder(null,folder.name);group.append(add);body.append(group);
   }
   const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='+ New Label';
   create.onclick=()=>createFolder(()=>{const current=q('#image-library-nav .workspace-library');if(current)current.open=true;});body.append(create);
