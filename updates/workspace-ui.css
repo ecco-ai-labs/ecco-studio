@@ -9,3 +9,5 @@
 #workspace-library-group{margin:12px 0 8px}#workspace-library-group>.workspace-library-content{padding-left:4px}#workspace-library-group #image-library-nav{margin:0;padding:0;border:0}#workspace-library-group .project{margin:0!important}#workspace-library-group .workspace-library{margin:0 0 6px}#workspace-library-group summary{font-size:12px}.education-content{min-width:260px;padding:15px}.education-content h3{font-size:12px;margin:0 0 8px}.education-content #checklist{padding:0;list-style:none;margin:0;font-size:12px;line-height:1.9}.workspace-ribbon h1{font-size:18px}.workspace-ribbon .header-right{gap:5px}.workspace-menu>summary{padding:8px;font-size:12px}#workspace-library-group+.workspace-upload{display:block;width:100%}
 
 .workspace-library:not([open])>.workspace-library-content{display:none!important}
+
+nav>button[hidden]{display:none!important}#workspace-production-group{margin:10px 0}#workspace-production-group>summary{font-size:13px;padding:10px 5px}#workspace-production-group .workspace-library-content>button{font-size:12px;padding:10px;text-align:left}#workspace-production-group #model-nav{margin-top:12px}
