@@ -36,10 +36,14 @@ window.addEventListener('message',async e=>{
  if(e.data?.type==='ecco-ready'){connected=true;notice('GPU connected. Keep the connection window open.');if(await refresh())navigate('images');return;}
  if(e.data?.type!=='ecco-response')return;const item=pending.get(e.data.id);if(!item)return;clearTimeout(item.timer);pending.delete(e.data.id);if(e.data.error)item.reject(Error(e.data.error));else item.resolve(e.data.result);
 });
-function connectGPU(){notice('Opening your GPU workspace…');window.location.assign(gpuURL+'#preferences='+encodeURIComponent(JSON.stringify({profiles:modelProfiles,story:activeStory}))); }
+function connectGPU(){welcome();}
 function welcome(){
- $('#page').innerHTML='<div class="panel form"><h2>Your studio, powered by your GPU</h2><p>Connect your private GPU workspace to start generating. The interface is hosted on GitHub Pages; your media stays on your GPU until you explicitly sync it.</p><button id="connect-gpu">Connect GPU</button><p class="help">Your private Studio opens in this same tab. If your session has expired, sign in to Jupyter to continue. Your saved stories and media stay on the GPU workspace.</p></div>';
- $('#connect-gpu').onclick=connectGPU;$('#wan-badge').textContent='GPU not connected';
+ $('#heading').textContent='Choose your GPU';
+ $('#wan-badge').textContent='Choose a workspace';
+ EccoGPUPicker.mount($('#page'),gpu=>{
+  notice('Opening '+gpu.name+' workspace…');
+  window.location.assign(gpu.url+'#preferences='+encodeURIComponent(JSON.stringify({profiles:modelProfiles,story:activeStory})));
+ });
 }
 async function hydrateMedia(){
  if(!state)return;

@@ -1,0 +1,80 @@
+'use strict';
+// Public endpoint addresses only. Authentication stays on the selected RunPod origin.
+window.EccoGPUPicker = (() => {
+  const gpus = [
+    {id:'io8sphjo10kbuy',name:'B200',label:'ecco-b200-benchmark'},
+    {id:'1muqctw9bxvguu',name:'A100',label:'ecco-demo-a100'}
+  ].map(gpu => ({...gpu, origin:`https://${gpu.id}-8888.proxy.runpod.net`,
+    url:`https://${gpu.id}-8888.proxy.runpod.net/proxy/8765/`}));
+  let dispose = () => {};
+  function probe(url, timeout=7000) {
+    return new Promise(resolve => {
+      const image = new Image();
+      let settled = false;
+      const finish = result => {
+        if(settled) return;
+        settled = true; clearTimeout(timer);
+        image.onload = image.onerror = null;
+        resolve(result);
+      };
+      const timer = setTimeout(() => finish(false), timeout);
+      image.onload = () => finish(image.naturalWidth > 0);
+      image.onerror = () => finish(false);
+      image.referrerPolicy = 'no-referrer';
+      image.src = `${url}?ecco_health=${Date.now()}-${Math.random()}`;
+    });
+  }
+  async function check(gpu) {
+    const [studio, gateway] = await Promise.all([
+      probe(gpu.url+'logo.png'), probe(gpu.origin+'/static/favicons/favicon.ico')
+    ]);
+    if(studio) return {kind:'ready',title:'Running · Studio available',detail:'Studio is responding. Open this workspace to continue.'};
+    if(gateway) return {kind:'running',title:'Running · gateway available',detail:'The GPU workspace is responding. Studio may be starting or require sign-in.'};
+    return {kind:'unknown',title:'Unavailable from this browser',detail:'May be stopped, starting, or blocked by sign-in/network settings. Check RunPod for power status.'};
+  }
+  function mount(container, open) {
+    dispose();
+    let active=true, busy=false;
+    container.innerHTML = `<section class="gpu-picker panel" aria-labelledby="gpu-picker-title">
+      <div class="section-head"><div><span class="eyebrow">YOUR GPU WORKSPACES</span><h2 id="gpu-picker-title">Choose where to create</h2></div><button class="secondary" id="gpu-refresh">Refresh status</button></div>
+      <p>Select the GPU you want to use. Availability is checked live; nothing opens until you choose.</p>
+      <div class="gpu-grid">${gpus.map(gpu=>`<article class="gpu-card" data-gpu="${gpu.id}">
+        <h3>${gpu.name}</h3><p class="help">${gpu.label}</p>
+        <p class="gpu-status" role="status" aria-live="polite">Checking availability…</p>
+        <p class="gpu-detail help">Checking the workspace and Studio.</p>
+        <button class="gpu-open" disabled>Checking ${gpu.name}…</button>
+        <a class="small" href="https://console.runpod.io/pods?id=${gpu.id}" target="_blank" rel="noopener noreferrer">Manage ${gpu.name} in RunPod ↗</a>
+      </article>`).join('')}</div>
+      <p class="help" id="gpu-checked">Checking both GPUs…</p>
+      <p class="help">Checks show service availability, not GPU utilization or rental availability. Opening a workspace does not start a stopped GPU. If asked, sign in to its Jupyter session.</p>
+    </section>`;
+    const refresh = container.querySelector('#gpu-refresh');
+    for(const gpu of gpus) container.querySelector(`[data-gpu="${gpu.id}"] .gpu-open`).onclick=()=>open(gpu);
+    async function update() {
+      if(busy || !active) return;
+      busy=true; refresh.disabled=true; refresh.textContent='Checking…';
+      await Promise.all(gpus.map(async gpu=>{
+        const status=await check(gpu);
+        if(!active || !container.querySelector('.gpu-picker')) return;
+        const card=container.querySelector(`[data-gpu="${gpu.id}"]`);
+        card.dataset.status=status.kind;
+        card.querySelector('.gpu-status').textContent=status.title;
+        card.querySelector('.gpu-detail').textContent=status.detail;
+        const button=card.querySelector('.gpu-open');
+        button.disabled=false;
+        button.textContent=status.kind==='unknown'?`Open ${gpu.name} / sign in`:`Connect to ${gpu.name}`;
+        button.classList.toggle('secondary',status.kind==='unknown');
+      }));
+      if(active && container.querySelector('.gpu-picker')) {
+        container.querySelector('#gpu-checked').textContent='Last checked '+new Date().toLocaleTimeString()+'. Refreshes every 20 seconds.';
+        refresh.disabled=false; refresh.textContent='Refresh status';
+      }
+      busy=false;
+    }
+    refresh.onclick=update;
+    const timer=setInterval(()=>{if(document.visibilityState!=='hidden')update();},20000);
+    dispose=()=>{active=false;clearInterval(timer);};
+    update();
+  }
+  return {mount,check,gpus};
+})();

@@ -8,9 +8,11 @@ GitHub Pages serves the interface. The Python backend, credentials, model weight
 
 ## Connect
 
-Open the GitHub Pages website and select **Connect GPU**. Your authenticated Studio opens in the **same browser tab**. If needed, Jupyter asks you to sign in before opening Studio. No connection popup is required.
+Open the GitHub Pages website, review the live **B200 / A100** availability cards, and select the workspace you want. The page never automatically redirects to a fixed GPU. Checks refresh every 20 seconds and can be refreshed manually. Your authenticated Studio opens in the **same browser tab**. If needed, Jupyter asks you to sign in before opening Studio. No connection popup is required.
 
 GitHub Pages is the entry point; the active workspace and its API share the authenticated GPU origin. Other visitors cannot view media or run jobs without an authorized GPU session. Browser-local drafts and settings belong to their respective origins; saved stories and media are stored on the server.
+
+Status probes load non-sensitive Studio/logo and Jupyter favicon resources with cache-busting URLs. A successful response confirms service availability; a failed probe is shown as unavailable from this browser, not definitively stopped. Authentication, startup, and network restrictions can also prevent a probe. No RunPod API key or private data is exposed. Use the per-GPU RunPod link for authoritative power status.
 
 ## Pilot limitations
 
