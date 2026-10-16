@@ -44,3 +44,5 @@ body.workspace-entry-mode>#workspace-entry{display:flex;min-height:100vh;min-hei
 #workspace-entry .entry-logo{width:156px;height:156px;object-fit:contain;margin:0 0 24px}
 #workspace-entry h1{font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:clamp(26px,4vw,38px);font-weight:600;letter-spacing:-.6px;color:#eeebf5;margin:0 0 36px}
 #entry-tell-story{font-size:15px;padding:13px 30px;border-radius:8px;min-width:190px}
+
+#workspace-entry{position:relative}#workspace-entry .entry-copyright{position:absolute;bottom:20px;left:20px;right:20px;margin:0;font-size:11px;color:#9891ae;line-height:1.5}#workspace-copyright{font-size:10px;line-height:1.5;color:#9891ae}
