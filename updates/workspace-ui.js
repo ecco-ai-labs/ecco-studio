@@ -76,7 +76,7 @@
   const images=records().filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted&&saved.has(r.id));
   const area=document.createElement('div');area.innerHTML='<label>Use image<select id="studio-reference-image"><option value="">None — create a new image</option>'+images.map(a=>'<option value="'+html(a.id)+'">'+html((labelsFor(a.id).map(f=>f.name).join(', ')||'Library')+' / '+(a.title||'Untitled image'))+'</option>').join('')+'</select></label><img class="refine-preview" hidden alt="Selected reference image"><p class="help" data-reference-help hidden></p>';
   model.closest('label').after(area);
-  const select=area.querySelector('select'),preview=area.querySelector('img'),help=area.querySelector('p'),button=form.querySelector('[type="submit"]');
+  const select=area.querySelector('select'),preview=area.querySelector('img'),help=area.querySelector('p'),button=form.querySelector('#generate-image')||form.querySelector('button[type="submit"]');
   const originalModel=model.value,originalText=button.textContent;
   select.onchange=()=>{
    const asset=images.find(a=>a.id===select.value);preview.hidden=!asset;help.hidden=!asset;
