@@ -27,3 +27,6 @@ nav>button[hidden]{display:none!important}#workspace-production-group{margin:10p
 .workspace-library-content .tree-upload{align-self:flex-start;width:auto;padding:5px 9px;font-size:11px;border:1px solid #454065!important;border-radius:5px;margin:0 0 8px 10px}
 
 aside>#workspace-trash{margin: auto 0 0 0;align-self:flex-start;flex-shrink:0}aside>#workspace-trash+.side-bottom{margin-top:0;padding-top:12px}
+
+/* Publishing and model navigation. */
+#model-nav[hidden]{display:none!important}#workspace-publish{display:flex;align-items:center;gap:10px;width:100%;padding:10px 5px;background:transparent;border:0;text-align:left;font-size:12px}#workspace-publish:hover{background:#302a54}#workspace-publish-dialog{width:min(600px,92vw)}.workspace-publish-list{display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow:auto}.workspace-publish-list h3{font-size:13px;margin:12px 0 2px}.workspace-publish-list button{text-align:left}
