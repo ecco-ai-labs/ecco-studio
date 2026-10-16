@@ -107,14 +107,23 @@
   const select=dialog.querySelector('select[name="asset_id"]');if(select){select.value=video.id;select.disabled=true;const fixed=document.createElement('input');fixed.type='hidden';fixed.name='asset_id';fixed.value=video.id;select.after(fixed);}
   dialog.showModal();
  }
+ function uploadVideoDialog(){
+  let d=q('#workspace-upload-video-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-upload-video-dialog';document.body.append(d);}
+  d.innerHTML='<form class="form"><h2>Upload Video</h2><label>Video<input name="video" type="file" accept="video/mp4,video/webm,.mp4,.webm" required></label><p class="help">MP4 or WebM · up to 12 MB.</p><label>Story<select name="story_id">'+stories().map(story=>'<option value="'+html(story.id)+'" '+(story.id===activeStory?'selected':'')+'>'+html(story.title)+'</option>').join('')+'</select></label><video controls style="width:100%;max-height:260px" hidden></video><label class="inline-check"><input name="reviewed" type="checkbox" required><span>I have reviewed this finished video and approve adding it to Video Library.</span></label><p role="status"></p><div class="row"><button type="submit">Upload Video</button><button type="button" class="secondary">Cancel</button></div></form>';
+  let objectURL;const preview=d.querySelector('video');d.querySelector('[name="video"]').onchange=e=>{if(objectURL)URL.revokeObjectURL(objectURL);const file=e.target.files[0];preview.hidden=!file;if(file){objectURL=URL.createObjectURL(file);preview.src=objectURL;}d.querySelector('[name="reviewed"]').checked=false;};
+  d.onclose=()=>{preview.pause();if(objectURL)URL.revokeObjectURL(objectURL);};d.querySelector('[type="button"]').onclick=()=>d.close();
+  d.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,file=form.elements.video.files[0],button=form.querySelector('[type="submit"]'),status=form.querySelector('[role="status"]');if(!file)return;if(file.size>12*1024*1024){status.textContent='Choose a video no larger than 12 MB.';return;}button.disabled=true;status.textContent='Uploading video…';try{const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('Could not read video.'));reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.readAsDataURL(file);});const asset=await api('images/upload',{media:'video',name:file.name,data,story_id:form.elements.story_id.value,reviewed:form.elements.reviewed.checked});selectedVideoId=asset.id;await refresh();d.close();videoLibrary();q('#workspace-video-library').open=true;notice('Video uploaded to Video Library.');}catch(error){status.textContent=error.message;}finally{button.disabled=false;}};
+  d.showModal();
+ }
  function videoLibrary(){
   const group=q('#workspace-library-group .workspace-library-content');if(!group)return;
-  let library=q('#workspace-video-library');if(!library){library=disclosure('Video Library','ecco-video-library');library.id='workspace-video-library';group.append(library);}
+  let library=q('#workspace-video-library');if(!library){library=disclosure('Video Library','ecco-video-library');library.id='workspace-video-library';group.append(library);}const story=q('.project');if(story&&library.nextElementSibling!==story)story.before(library);
   const list=records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted&&stories().some(story=>story.id===(r.story_id||LEGACY_STORY)));
   const signature=JSON.stringify(list.map(v=>[v.id,v.title,v.upload_state]));if(library.dataset.signature===signature+selectedVideoId)return;library.dataset.signature=signature+selectedVideoId;
   const body=library.querySelector('.workspace-library-content');body.replaceChildren();
   if(!list.length){const empty=document.createElement('p');empty.className='help';empty.textContent='Reviewed and approved videos appear here.';body.append(empty);}
   for(const video of list){const button=document.createElement('button');button.type='button';button.className='tree-folder';button.textContent=video.title||'Untitled video';button.classList.toggle('selected',video.id===selectedVideoId);button.onclick=()=>{selectedVideoId=video.id;videoLibrary();notice('Selected '+(video.title||'video')+'. Click Publish on YouTube to review publishing options.');};body.append(button);}
+  const upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload Video';upload.onclick=uploadVideoDialog;body.append(upload);
  }
  function productionGroup(){
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
