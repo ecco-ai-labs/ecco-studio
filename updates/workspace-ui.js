@@ -68,7 +68,29 @@
   if(selected)selectionToolbar(body,selected.textContent,remove);
   box.append(d);
  }
- function imageLabels(){document.querySelectorAll('[data-approve]').forEach(b=>{const asset=records().find(r=>r.id===b.dataset.approve);if(asset?.media==='video')b.textContent='Approve & add to Video Library';});document.querySelectorAll('[data-trash]').forEach(b=>{b.textContent='×';b.classList.add('workspace-delete');});document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
+
+ function useInImageStudios(id){
+  const asset=records().find(a=>a.id===id&&!a.deleted);if(!asset)return;
+  persistDraft();activeStory=asset.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();
+  navigate('images');
+  editImageDialog(id);
+  const dialog=q('#edit-image-dialog'),form=q('#edit-image-form');if(!dialog||!form)return;
+  dialog.close();page='reference-edit';
+  q('#page').replaceChildren(form);
+  if(q('#heading'))q('#heading').textContent='Image Studios';
+  const title=form.querySelector('h2');if(title)title.textContent='Modify a library image';
+  const prompt=form.querySelector('[name="prompt"]');if(prompt){prompt.placeholder='Turn this person into a cartoon character. Preserve their recognizable facial features.';prompt.focus();}
+  const caption=document.createElement('p');caption.className='help';caption.textContent='Reference: '+(asset.title||'Selected library image')+'. Describe the changes you want. Your original image is preserved.';title?.after(caption);
+  const cancel=form.querySelector('#cancel-image-edit');if(cancel){cancel.textContent='Back to Image Studios';cancel.onclick=()=>navigate('images');}
+ }
+ function referenceImageButtons(){
+  document.querySelectorAll('[data-edit-image]').forEach(edit=>{
+   if(edit.parentElement.querySelector('[data-use-in-studios]'))return;
+   const button=document.createElement('button');button.type='button';button.className='small secondary';button.dataset.useInStudios=edit.dataset.editImage;button.textContent='Use in Image Studios';button.onclick=()=>useInImageStudios(button.dataset.useInStudios);edit.before(button);
+  });
+ }
+
+ function imageLabels(){referenceImageButtons();document.querySelectorAll('[data-approve]').forEach(b=>{const asset=records().find(r=>r.id===b.dataset.approve);if(asset?.media==='video')b.textContent='Approve & add to Video Library';});document.querySelectorAll('[data-trash]').forEach(b=>{b.textContent='×';b.classList.add('workspace-delete');});document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
  function ribbon(){const header=q('main > header'),right=header?.querySelector('.header-right');if(!right)return;header.classList.add('workspace-ribbon');if(!q('#workspace-menus')){const menus=document.createElement('div');menus.id='workspace-menus';for(const name of ['Billing','Account','Activity']){const d=document.createElement('details');d.className='workspace-menu';d.dataset.category=name;d.innerHTML=`<summary>${name}<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>`;d.addEventListener('toggle',()=>{if(d.open)menus.querySelectorAll('details').forEach(other=>{if(other!==d)other.open=false;});});menus.append(d);}right.append(menus);}const target=name=>q(`[data-category="${name}"] .workspace-menu-items`);const move=(node,name)=>{if(node&&node.parentElement!==target(name))target(name).append(node);};if(typeof powerButton!=='undefined')move(powerButton,'Billing');move(q('#settings'),'Account');move(q('#reconnect-gpu'),'Account');move(q('#sync'),'Activity');move(q('#open-comfyui'),'Activity');move(q('#toggle-activity'),'Activity');q('#workspace-menus').querySelectorAll('button,a').forEach(el=>{if(el.dataset.ribbonClose)return;el.dataset.ribbonClose='1';el.addEventListener('click',()=>el.closest('details').open=false);});}
  let hardwareVerifiedAt=0;
  function acceleratorDisplay(){
