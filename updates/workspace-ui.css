@@ -13,3 +13,11 @@
 nav>button[hidden]{display:none!important}#workspace-production-group{margin:10px 0}#workspace-production-group>summary{font-size:13px;padding:10px 5px}#workspace-production-group .workspace-library-content>button{font-size:12px;padding:10px;text-align:left}#workspace-production-group #model-nav{margin-top:12px}
 
 .library-selection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0 9px;border-bottom:1px solid #454057;margin-bottom:5px;font-size:11px}.library-selection-toolbar>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.library-selection-toolbar .asset-icon{flex-shrink:0}.production-heading{display:flex;gap:10px;align-items:center;font-size:13px;padding:10px 5px;margin:0;cursor:default}.production-heading span{font-size:17px;font-weight:400}
+
+/* Shared navigation treatment: indentation, restrained actions, clear selection. */
+.workspace-library-content{border-left:0!important}
+.workspace-library-content .tree-upload{background:transparent!important;border:0!important;color:#d8d3e4!important;font-size:12px;font-weight:400;box-shadow:none;text-align:left;padding:8px 10px}
+.workspace-library-content .tree-upload:hover,.workspace-library-content .tree-folder:hover,.workspace-library-content .tree-image:hover{background:#302a54!important;color:#eeebf5!important}
+.workspace-library-content .tree-folder.selected,.workspace-library-content .tree-image.selected,#workspace-production-group button.active{background:#38305e!important;color:var(--accent)!important;box-shadow:inset 3px 0 var(--accent)!important;border-radius:7px}
+.workspace-delete{background:transparent!important;border:0!important;box-shadow:none!important;color:#b1acc9!important;font-size:21px!important;font-weight:400!important;line-height:1!important;padding:4px!important;width:28px!important;min-width:28px!important;height:28px!important}
+.workspace-delete:hover{background:#3a2944!important;color:#ffa8a8!important}

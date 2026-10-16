@@ -4,7 +4,7 @@
  const q=s=>document.querySelector(s);
  const expansion=new Map();
  const trashSvg='<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></svg>';
- function selectionToolbar(body,name,button){const bar=document.createElement('div');bar.className='library-selection-toolbar';const title=document.createElement('span');title.textContent=name;bar.append(title);if(button){button.hidden=false;button.className='secondary asset-icon';button.innerHTML=trashSvg;button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);bar.append(button);}body.prepend(bar);}
+ function selectionToolbar(body,name,button){const bar=document.createElement('div');bar.className='library-selection-toolbar';const title=document.createElement('span');title.textContent=name;bar.append(title);if(button){button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);bar.append(button);}body.prepend(bar);}
  const records=()=>typeof state!=='undefined'&&state?state.records:[];
  const html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const folderList=()=>records().filter(r=>r.kind==='image_folder'&&!r.deleted).sort((a,b)=>a.created-b.created||a.id.localeCompare(b.id));
@@ -43,7 +43,7 @@
   create.onclick=()=>createFolder(()=>{const current=q('#image-library-nav .workspace-library');if(current)current.open=true;});body.append(create);
   const selected=folderList().find(f=>f.id===select.value);if(selected){const remove=document.createElement('button');remove.type='button';remove.onclick=()=>{if(!confirm('Move image library '+selected.name+' to Trash? Its images will be preserved.'))return;action(async()=>{await api('trash/folder',{id:selected.id});select.value='all';select.dispatchEvent(new Event('change',{bubbles:true}));await refresh();modernize();});};selectionToolbar(body,selected.name,remove);}
   box.append(d);
-  let upload=q('.workspace-upload');if(!upload){upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload';upload.textContent='Upload image';upload.onclick=uploadDialog;}upload.hidden=false;body.insertBefore(upload,create);
+  let upload=q('.workspace-upload');if(!upload){upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload image';upload.onclick=uploadDialog;}upload.hidden=false;body.insertBefore(upload,create);
  }
  function storyTree(){
   const box=q('.project'),select=q('#story-picker');if(!box||!select||box.querySelector('.workspace-library'))return;
@@ -55,7 +55,7 @@
   for(const option of options){const b=document.createElement('button');b.type='button';b.className='tree-folder';b.textContent='− '+option.textContent;b.classList.toggle('selected',option.value===select.value);b.onclick=()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));};body.append(b);}
   box.append(d);
  }
- function imageLabels(){document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
+ function imageLabels(){document.querySelectorAll('[data-trash]').forEach(b=>{b.textContent='×';b.classList.add('workspace-delete');});document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
  function ribbon(){const header=q('main > header'),right=header?.querySelector('.header-right');if(!right)return;header.classList.add('workspace-ribbon');if(!q('#workspace-menus')){const menus=document.createElement('div');menus.id='workspace-menus';for(const name of ['Billing','Account','Activity']){const d=document.createElement('details');d.className='workspace-menu';d.dataset.category=name;d.innerHTML=`<summary>${name}<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>`;d.addEventListener('toggle',()=>{if(d.open)menus.querySelectorAll('details').forEach(other=>{if(other!==d)other.open=false;});});menus.append(d);}right.append(menus);}const target=name=>q(`[data-category="${name}"] .workspace-menu-items`);const move=(node,name)=>{if(node&&node.parentElement!==target(name))target(name).append(node);};if(typeof powerButton!=='undefined')move(powerButton,'Billing');move(q('#settings'),'Account');move(q('#reconnect-gpu'),'Account');move(q('#sync'),'Activity');move(q('#open-comfyui'),'Activity');move(q('#toggle-activity'),'Activity');q('#workspace-menus').querySelectorAll('button,a').forEach(el=>{if(el.dataset.ribbonClose)return;el.dataset.ribbonClose='1';el.addEventListener('click',()=>el.closest('details').open=false);});}
  let hardwareVerifiedAt=0;
  function acceleratorDisplay(){
@@ -84,7 +84,7 @@
  function productionGroup(){
   const nav=q('nav[aria-label="Production stages"]');if(!nav||q('#workspace-production-group'))return;
   const buttons=[...nav.querySelectorAll('button')];
-  const group=document.createElement('section');group.id='workspace-production-group';group.innerHTML='<h2 class="production-heading"><span aria-hidden="true">+</span> Tell Your Story</h2><div class="workspace-library-content"></div>';
+  const group=disclosure('Tell Your Story','ecco-production-expanded');group.id='workspace-production-group';
   const body=group.querySelector('.workspace-library-content');
   for(const button of buttons){button.hidden=false;const title=button.dataset.page==='director'?'Story Narration':button.textContent.trim().replace(/^\d+\s*/,'');button.textContent='− '+title;body.append(button);}
   const models=q('#model-nav');if(models)body.append(models);nav.append(group);
