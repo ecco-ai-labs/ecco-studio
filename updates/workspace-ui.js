@@ -100,7 +100,7 @@
   let dialog=q('#workspace-publish-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='workspace-publish-dialog';document.body.append(dialog);}
   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Publish on YouTube</h2><button type="button" class="secondary" data-close>Close</button></div><p data-video></p><div data-publish-controls></div></div>';dialog.style.width='min(1000px,94vw)';
   dialog.querySelector('[data-video]').textContent='Selected video: '+(video.title||'Untitled video');
-  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  const preview=document.createElement('video');preview.controls=true;preview.src=media(video);preview.style.cssText='width:100%;max-height:260px';dialog.querySelector('[data-video]').after(preview);dialog.onclose=()=>preview.pause();dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   const pageNode=q('#page'),previous=[...pageNode.childNodes];previous.forEach(n=>n.remove());
   try{publishPage();dialog.querySelector('[data-publish-controls]').append(...pageNode.childNodes);}
   finally{pageNode.replaceChildren(...previous);}
@@ -114,7 +114,7 @@
   const signature=JSON.stringify(list.map(v=>[v.id,v.title,v.upload_state]));if(library.dataset.signature===signature+selectedVideoId)return;library.dataset.signature=signature+selectedVideoId;
   const body=library.querySelector('.workspace-library-content');body.replaceChildren();
   if(!list.length){const empty=document.createElement('p');empty.className='help';empty.textContent='Reviewed and approved videos appear here.';body.append(empty);}
-  for(const video of list){const button=document.createElement('button');button.type='button';button.className='tree-folder';button.textContent=video.title||'Untitled video';button.classList.toggle('selected',video.id===selectedVideoId);button.onclick=()=>{selectedVideoId=video.id;videoLibrary();let d=q('#workspace-video-preview');if(!d){d=document.createElement('dialog');d.id='workspace-video-preview';document.body.append(d);}d.innerHTML='<div class="form"><h2></h2><video controls style="width:100%;max-height:65vh"></video><button type="button" class="secondary">Close</button></div>';d.querySelector('h2').textContent=video.title||'Approved video';d.querySelector('video').src=media(video);d.querySelector('button').onclick=()=>d.close();d.onclose=()=>d.querySelector('video').pause();d.showModal();};body.append(button);}
+  for(const video of list){const button=document.createElement('button');button.type='button';button.className='tree-folder';button.textContent=video.title||'Untitled video';button.classList.toggle('selected',video.id===selectedVideoId);button.onclick=()=>{selectedVideoId=video.id;videoLibrary();notice('Selected '+(video.title||'video')+'. Click Publish on YouTube to review publishing options.');};body.append(button);}
  }
  function productionGroup(){
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
