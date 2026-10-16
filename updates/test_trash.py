@@ -11,6 +11,15 @@ class Tests(unittest.TestCase):
  def test_delete_restore_board(self):
   trash.board({'id':'board'},self.env);self.assertTrue(self.data['board']['deleted'])
   trash.board({'id':'board','restore':True},self.env);self.assertFalse(self.data['board']['deleted'])
+ def test_folder_delete_restore_preserves_images(self):
+  self.data['folder']={'id':'folder','kind':'image_folder','name':'Examples'}
+  trash.folder({'id':'folder'},self.env);self.assertTrue(self.data['folder']['deleted'])
+  self.assertIn('image',self.data)
+  trash.folder({'id':'folder','restore':True},self.env);self.assertFalse(self.data['folder']['deleted'])
+ def test_empty_folder_preserves_images(self):
+  self.data['folder']={'id':'folder','kind':'image_folder','deleted':True}
+  trash.empty({'ids':['folder'],'confirmed':True},self.env)
+  self.assertEqual(self.data['image']['kind'],'asset')
  def test_empty_requires_confirmation(self):
   with self.assertRaises(Problem):trash.empty({'ids':['image']},self.env)
   self.assertEqual(self.data['image']['kind'],'asset')

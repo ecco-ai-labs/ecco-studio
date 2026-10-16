@@ -33,9 +33,12 @@ def install(target):
     import re
     page=re.sub(r'studio\.js\?v=[^"\s]+','studio.js?v=20261016-trash',page)
     page=re.sub(r'library-ui\.js\?v=[^"\s]+','library-ui.js?v=20261016-workspace',page)
+    library=library.replace("r.kind==='image_folder')","r.kind==='image_folder'&&!r.deleted)")
     updates={'studio.py':server,'studio.html':page,'library-ui.js':library,'image_upload.py':(source/'image_upload.py').read_text()}
     updates['workspace-ui.js']=(source/'workspace-ui.js').read_text()+'\n'+(source/'trash-ui.js').read_text()
     updates['workspace-ui.css']=(source/'workspace-ui.css').read_text()
+    server=patch_once(server,"elif path=='/api/trash/board': result=__import__('trash_manager').board(body,globals())","elif path=='/api/trash/board': result=__import__('trash_manager').board(body,globals())\n            elif path=='/api/trash/folder': result=__import__('trash_manager').folder(body,globals())")
+    updates['studio.py']=server
     updates['trash_manager.py']=(source/'trash_manager.py').read_text()
     frontend=(target/'studio.js').read_text()
     frontend=patch_once(frontend,"r.kind==='board'&&(r.story_id","r.kind==='board'&&!r.deleted&&(r.story_id")
