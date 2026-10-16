@@ -36,7 +36,7 @@
     item.textContent='−− '+(asset.title||asset.prompt||'Untitled image');item.title=asset.title||asset.prompt||'Open image';
     item.onclick=()=>{openFolder(folder.id);const img=[...document.querySelectorAll('img[data-asset]')].find(el=>el.dataset.asset===asset.id);if(img)img.click();};group.append(item);
    }
-   const add=document.createElement('button');add.type='button';add.className='tree-create';add.textContent='+';add.title='Add sublabel';add.setAttribute('aria-label','Add sublabel to '+folder.name);add.onclick=()=>createFolder(null,folder.name);group.append(add);body.append(group);
+   const add=document.createElement('button');add.type='button';add.className='tree-create tree-add-child';add.textContent='+';add.title='Add sublabel';add.setAttribute('aria-label','Add sublabel to '+folder.name);add.onclick=()=>createFolder(null,folder.name);group.append(add);body.append(group);
   }
   const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='+ New Label';
   create.onclick=()=>createFolder(()=>{const current=q('#image-library-nav .workspace-library');if(current)current.open=true;});body.append(create);
@@ -101,7 +101,7 @@
    const page=button.dataset.page;
    if(['characters','review','publish'].includes(page)){button.remove();continue;}
    if(page==='models'){const activity=q('[data-category="Activity"] .workspace-menu-items');if(activity){button.hidden=false;button.textContent='Models & Settings';activity.prepend(button);}continue;}
-   button.hidden=false;const title=page==='director'?'Story Narration':button.textContent.trim().replace(/^(?:−\\s*|\\d+\\s*)/,'');button.textContent='− '+title;if(button.parentElement!==body)body.append(button);
+   button.hidden=false;const title=({director:'Story Narration',images:'Image Studio',board:'Storyboard',render:'Video Studio'})[page]||names[page]||page;button.textContent='− '+title;if(button.parentElement!==body)body.append(button);
   }
   const models=q('#model-nav');if(models)models.hidden=true;
   let publish=q('#workspace-publish');if(!publish){publish=document.createElement('button');publish.id='workspace-publish';publish.type='button';publish.title='Publish to Video';publish.setAttribute('aria-label','Publish to Video');publish.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg><span>Publish to Video</span>';publish.onclick=publishMenu;group.after(publish);}
