@@ -26,20 +26,31 @@
   const d=disclosure('Image library','ecco-image-library-tree-v2');if(wasOpen!==undefined)d.open=wasOpen;
   const body=d.querySelector('.workspace-library-content');
   const openFolder=id=>{select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));imageTree();};
-  for(const folder of folderList().slice().sort((a,b)=>{const path=f=>{const parts=f.name.split(' / ');return parts.map((_,i)=>folderList().find(x=>x.name===parts.slice(0,i+1).join(' / '))?.created||f.created);};const aa=path(a),bb=path(b);for(let i=0;i<Math.min(aa.length,bb.length);i++){if(aa[i]!==bb[i])return aa[i]-bb[i];}return aa.length-bb.length;})){
+  const folders=folderList(),byName=new Map(folders.map(f=>[f.name,f]));
+  const parentOf=f=>byName.get(f.name.split(' / ').slice(0,-1).join(' / '));
+  function appendFolder(folder,container){
    const group=document.createElement('div');group.className='tree-label-group';
-   const label=document.createElement('button');label.type='button';label.className='tree-folder';
-   const parts=folder.name.split(' / ');group.style.marginLeft=((parts.length-1)*14)+'px';label.textContent='− '+parts.at(-1);label.title=folder.name.replaceAll(' / ',' → ');label.classList.toggle('selected',folder.id===select.value);label.onclick=()=>openFolder(folder.id);group.append(label);
+   const row=document.createElement('div');row.className='tree-branch-row';
+   const children=document.createElement('div');children.className='tree-branch-children';
+   const nested=folders.filter(f=>parentOf(f)?.id===folder.id);
    const ids=new Set(links.filter(r=>r.folder_id===folder.id).map(r=>r.asset_id));
-   for(const asset of assets.filter(a=>ids.has(a.id)).sort((a,b)=>a.created-b.created)){
-    const item=document.createElement('button');item.type='button';item.className='tree-image';
-    item.textContent='−− '+(asset.title||asset.prompt||'Untitled image');item.title=asset.title||asset.prompt||'Open image';
-    item.onclick=()=>{openFolder(folder.id);const img=[...document.querySelectorAll('img[data-asset]')].find(el=>el.dataset.asset===asset.id);if(img)img.click();};group.append(item);
-   }
-   const add=document.createElement('button');add.type='button';add.className='tree-create tree-add-child';add.textContent='+';add.title='Add sublabel';add.setAttribute('aria-label','Add sublabel to '+folder.name);add.onclick=()=>createFolder(null,folder.name);group.append(add);body.append(group);
+   const images=assets.filter(a=>ids.has(a.id)).sort((a,b)=>a.created-b.created);
+   const key='label:'+folder.id;
+   if(nested.length||images.length){
+    const toggle=document.createElement('button');toggle.type='button';toggle.className='tree-branch-toggle';toggle.textContent='▸';
+    const sync=()=>{const open=expansion.get(key)===true;children.hidden=!open;toggle.textContent=open?'▾':'▸';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',(open?'Collapse ':'Expand ')+folder.name);};
+    toggle.onclick=()=>{expansion.set(key,expansion.get(key)!==true);sync();};sync();row.append(toggle);
+   }else{const spacer=document.createElement('span');spacer.className='tree-branch-spacer';row.append(spacer);}
+   const label=document.createElement('button');label.type='button';label.className='tree-folder';
+   label.textContent=parentOf(folder)?folder.name.split(' / ').at(-1):folder.name.replaceAll(' / ',' → ');label.title=folder.name.replaceAll(' / ',' → ');label.classList.toggle('selected',folder.id===select.value);
+   label.onclick=()=>openFolder(folder.id);row.append(label);group.append(row,children);
+   for(const child of nested)appendFolder(child,children);
+   for(const asset of images){const item=document.createElement('button');item.type='button';item.className='tree-image';item.textContent=asset.title||asset.prompt||'Untitled image';item.title=item.textContent;item.onclick=()=>{openFolder(folder.id);const img=[...document.querySelectorAll('img[data-asset]')].find(el=>el.dataset.asset===asset.id);if(img)img.click();};children.append(item);}
+   container.append(group);
   }
+  for(const folder of folders.filter(f=>!parentOf(f)))appendFolder(folder,body);
   const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='+ New Label';
-  create.onclick=()=>createFolder(()=>{const current=q('#image-library-nav .workspace-library');if(current)current.open=true;});body.append(create);
+  create.onclick=()=>createFolder(folder=>{const parts=folder.name.split(' / ');for(let i=1;i<parts.length;i++){const parent=folderList().find(f=>f.name===parts.slice(0,i).join(' / '));if(parent)expansion.set('label:'+parent.id,true);}box.dataset.workspaceSignature='';imageTree();const current=q('#image-library-nav .workspace-library');if(current)current.open=true;},folderList().find(f=>f.id===select.value)?.name||'');body.append(create);
   const selected=folderList().find(f=>f.id===select.value);if(selected){const remove=document.createElement('button');remove.type='button';remove.onclick=()=>{action(async()=>{await api('trash/folder',{id:selected.id});select.value='all';select.dispatchEvent(new Event('change',{bubbles:true}));await refresh();modernize();});};selectionToolbar(body,selected.name,remove);}
   box.append(d);
   let upload=q('.workspace-upload');if(!upload){upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload image';upload.onclick=uploadDialog;}upload.hidden=false;body.append(upload);
