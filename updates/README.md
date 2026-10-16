@@ -3,7 +3,7 @@
 This package updates the **GPU-hosted Studio**, which is separate from the GitHub Pages GPU picker. Publishing this directory does not install it on a running pod.
 
 Changes:
-- Expandable image and story libraries; creation controls at the top and new entries at the bottom.
+- Image library starts collapsed with a + sign. Expanded view shows − label names and indented −− image names. Create new label appears last and opens a small name dialog; new labels append at the bottom. Upload remains available outside the collapsed tree. Story library also starts collapsed.
 - Images use multiple folder labels without copying or moving their original files. Generated images, previews, and edited copies offer label selection.
 - Compact Billing, Account, and Activity dropdowns retain the existing controls and handlers.
 - Upload PNG, JPEG, or WebP images, then choose library labels or edit first. Uploaded images become normal Studio assets; edited copies use the existing editor.
