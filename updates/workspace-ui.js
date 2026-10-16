@@ -69,28 +69,39 @@
   box.append(d);
  }
 
- function useInImageStudios(id){
-  const asset=records().find(a=>a.id===id&&!a.deleted);if(!asset)return;
-  persistDraft();activeStory=asset.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();
-  navigate('images');
-  editImageDialog(id);
-  const dialog=q('#edit-image-dialog'),form=q('#edit-image-form');if(!dialog||!form)return;
-  dialog.close();page='reference-edit';
-  q('#page').replaceChildren(form);
-  if(q('#heading'))q('#heading').textContent='Image Studios';
-  const title=form.querySelector('h2');if(title)title.textContent='Modify a library image';
-  const prompt=form.querySelector('[name="prompt"]');if(prompt){prompt.placeholder='Turn this person into a cartoon character. Preserve their recognizable facial features.';prompt.focus();}
-  const caption=document.createElement('p');caption.className='help';caption.textContent='Reference: '+(asset.title||'Selected library image')+'. Describe the changes you want. Your original image is preserved.';title?.after(caption);
-  const cancel=form.querySelector('#cancel-image-edit');if(cancel){cancel.textContent='Back to Image Studios';cancel.onclick=()=>navigate('images');}
- }
- function referenceImageButtons(){
-  document.querySelectorAll('[data-edit-image]').forEach(edit=>{
-   if(edit.parentElement.querySelector('[data-use-in-studios]'))return;
-   const button=document.createElement('button');button.type='button';button.className='small secondary';button.dataset.useInStudios=edit.dataset.editImage;button.textContent='Use in Image Studios';button.onclick=()=>useInImageStudios(button.dataset.useInStudios);edit.before(button);
-  });
+
+ function imageReferencePicker(){
+  const form=q('#image-form'),model=q('#job-model');if(!form||!model||q('#studio-reference-image'))return;
+  const saved=new Set(records().filter(r=>r.kind==='library_item'&&!r.deleted).map(r=>r.asset_id));
+  const images=records().filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted&&saved.has(r.id));
+  const area=document.createElement('div');area.innerHTML='<label>Use image<select id="studio-reference-image"><option value="">None — create a new image</option>'+images.map(a=>'<option value="'+html(a.id)+'">'+html((labelsFor(a.id).map(f=>f.name).join(', ')||'Library')+' / '+(a.title||'Untitled image'))+'</option>').join('')+'</select></label><img class="refine-preview" hidden alt="Selected reference image"><p class="help" data-reference-help hidden></p>';
+  model.closest('label').after(area);
+  const select=area.querySelector('select'),preview=area.querySelector('img'),help=area.querySelector('p'),button=form.querySelector('[type="submit"]');
+  const originalModel=model.value,originalText=button.textContent;
+  select.onchange=()=>{
+   const asset=images.find(a=>a.id===select.value);preview.hidden=!asset;help.hidden=!asset;
+   model.disabled=!!asset;
+   if(asset){
+    if(!model.querySelector('option[value="qwen-image-edit-2511"]')){const o=document.createElement('option');o.value='qwen-image-edit-2511';o.textContent='Qwen Image Edit · reference image';model.append(o);}
+    model.value='qwen-image-edit-2511';preview.src=media(asset);
+    help.textContent='Describe your changes in Image prompt below. Qwen Image Edit uses this reference and preserves the original.';
+    button.textContent='Generate edited image';
+   }else{model.value=originalModel;preview.removeAttribute('src');button.textContent=originalText;}
+  };
+  form.addEventListener('submit',async e=>{
+   if(!select.value)return;e.preventDefault();e.stopImmediatePropagation();
+   const asset=records().find(a=>a.id===select.value&&!a.deleted);if(!asset){notice('This reference is no longer available.',true);return;}
+   if(!state.config.models_ready?.['qwen-image-edit-2511']){notice('Qwen Image Edit is not ready on this GPU.',true);return;}
+   const prompt=form.elements.prompt.value.trim();if(!prompt)return;
+   const style=form.elements.image_style?.value;
+   button.disabled=true;
+   try{const job=await api('image-edits',{asset_id:asset.id,story_id:activeStory,prompt:prompt+(style?' Visual style: '+style+'.':'')});
+    localStorage.setItem('ecco-image-job:'+activeStory,job.id);notice('Reference edit queued. Your original image is preserved.');navigate('images');
+   }catch(err){notice(err.message,true);}finally{button.disabled=false;}
+  },true);
  }
 
- function imageLabels(){referenceImageButtons();document.querySelectorAll('[data-approve]').forEach(b=>{const asset=records().find(r=>r.id===b.dataset.approve);if(asset?.media==='video')b.textContent='Approve & add to Video Library';});document.querySelectorAll('[data-trash]').forEach(b=>{b.textContent='×';b.classList.add('workspace-delete');});document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
+ function imageLabels(){document.querySelectorAll('[data-approve]').forEach(b=>{const asset=records().find(r=>r.id===b.dataset.approve);if(asset?.media==='video')b.textContent='Approve & add to Video Library';});document.querySelectorAll('[data-trash]').forEach(b=>{b.textContent='×';b.classList.add('workspace-delete');});document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
  function ribbon(){const header=q('main > header'),right=header?.querySelector('.header-right');if(!right)return;header.classList.add('workspace-ribbon');if(!q('#workspace-menus')){const menus=document.createElement('div');menus.id='workspace-menus';for(const name of ['Billing','Account','Activity']){const d=document.createElement('details');d.className='workspace-menu';d.dataset.category=name;d.innerHTML=`<summary>${name}<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>`;d.addEventListener('toggle',()=>{if(d.open)menus.querySelectorAll('details').forEach(other=>{if(other!==d)other.open=false;});});menus.append(d);}right.append(menus);}const target=name=>q(`[data-category="${name}"] .workspace-menu-items`);const move=(node,name)=>{if(node&&node.parentElement!==target(name))target(name).append(node);};if(typeof powerButton!=='undefined')move(powerButton,'Billing');move(q('#settings'),'Account');move(q('#reconnect-gpu'),'Account');move(q('#sync'),'Activity');move(q('#open-comfyui'),'Activity');move(q('#toggle-activity'),'Activity');q('#workspace-menus').querySelectorAll('button,a').forEach(el=>{if(el.dataset.ribbonClose)return;el.dataset.ribbonClose='1';el.addEventListener('click',()=>el.closest('details').open=false);});}
  let hardwareVerifiedAt=0;
  function acceleratorDisplay(){
@@ -106,7 +117,7 @@
   if(status)status.textContent=text;
  }
  if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
- if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='empty'){page='empty';q('#page')?.replaceChildren();if(q('#heading'))q('#heading').textContent='';document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));return;}const result=previous.apply(this,args);acceleratorDisplay();return result;};}
+ if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='empty'){page='empty';q('#page')?.replaceChildren();if(q('#heading'))q('#heading').textContent='';document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
  setInterval(acceleratorDisplay,5000);
  function libraryGroup(){
   const image=q('#image-library-nav'),story=q('.project');if(!image||!story)return;
@@ -179,7 +190,7 @@
  document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
  function creditsDialog(){let d=q('#workspace-credits-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-credits-dialog';document.body.append(d);}d.innerHTML='<div class="form"><div class="section-head"><h2>Credits &amp; Usage</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Your generation allowance and usage.</p><dl class="credits-details"><dt>Starting allowance</dt><dd>500 credits per user</dd><dt>Available balance</dt><dd>Available after sign-in is connected</dd><dt>Credits used</dt><dd>Not tracked yet</dd><dt>Renewal</dt><dd>Not configured</dd></dl><p role="status">Per-user quotas are not active yet. Google Workspace sign-in and server-side credit tracking must be connected before credits can be granted or deducted.</p></div>';d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();}
  function accountCredits(){const menu=q('[data-category="Account"] .workspace-menu-items');if(!menu||q('#workspace-credits'))return;const b=document.createElement('button');b.id='workspace-credits';b.type='button';b.textContent='Credits & Usage';b.onclick=()=>{menu.closest('details').open=false;creditsDialog();};menu.prepend(b);}
- function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();accountCredits();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
+ function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
  if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);modernize();return result;};}
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!d.contains(e.target))d.open=false;});});
