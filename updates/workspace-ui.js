@@ -84,7 +84,7 @@
   if(status)status.textContent=text;
  }
  if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
- if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}const result=previous.apply(this,args);acceleratorDisplay();return result;};}
+ if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');const result=previous.apply(this,args);acceleratorDisplay();return result;};}
  setInterval(acceleratorDisplay,5000);
  function libraryGroup(){
   const image=q('#image-library-nav'),story=q('.project');if(!image||!story)return;
@@ -149,7 +149,11 @@
   let menu=q('#education-menu');if(!menu){menu=document.createElement('details');menu.id='education-menu';menu.className='workspace-menu';menu.innerHTML='<summary>Education and Learning<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items education-content"><h3>Day 1 checklist</h3></div>';menu.addEventListener('toggle',()=>{if(menu.open)menus.querySelectorAll('details').forEach(other=>{if(other!==menu)other.open=false;});});menus.append(menu);}
   const body=menu.querySelector('.education-content');if(list.parentElement!==body){const heading=list.parentElement.querySelector('.eyebrow');if(heading)heading.remove();body.append(list);}
  }
- function welcomePage(){page='welcome';q('#heading').textContent='Welcome to Ecco AI Labs Studio';q('#page').innerHTML='<section class="panel" style="padding:48px;max-width:900px;margin:30px auto"><h2 style="font-size:32px;margin-bottom:16px">Bring your stories to life.</h2><p class="intro">Create images, shape your story, and turn your ideas into video.</p><p class="help">Start a new story from Tell Your Story, or explore your image and video libraries.</p><div class="row" style="margin-top:28px"><button type="button" id="welcome-new-story">+ New story</button><button type="button" class="secondary" id="welcome-images">Open Image Studio</button></div></section>';q('#welcome-new-story').onclick=()=>{welcomePending=false;q('#workspace-new-story')?.click();};q('#welcome-images').onclick=()=>{welcomePending=false;navigate('images');};document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));}
+ function welcomePage(){
+  page='welcome';document.body.classList.add('workspace-entry-mode');
+  let entry=q('#workspace-entry');if(!entry){entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Ecco AI Labs Studios');const logo=q('aside .brand img')||q('aside img');const brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo.png';brand.alt='Ecco AI Labs logo';const title=document.createElement('h1');title.textContent='Ecco AI Labs Studios';const button=document.createElement('button');button.id='entry-tell-story';button.type='button';button.textContent='Tell Your Story';button.onclick=()=>{welcomePending=false;document.body.classList.remove('workspace-entry-mode');navigate('director');const group=q('#workspace-production-group');if(group)group.open=true;q('#workspace-new-story')?.click();};entry.append(brand,title,button);document.body.append(entry);}
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+ }
  document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
  function modernize(){document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studio';});ribbon();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
  if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);modernize();return result;};}
