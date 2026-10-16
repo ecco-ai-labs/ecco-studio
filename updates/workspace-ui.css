@@ -46,3 +46,5 @@ body.workspace-entry-mode>#workspace-entry{display:flex;min-height:100vh;min-hei
 #entry-tell-story{font-size:15px;padding:13px 30px;border-radius:8px;min-width:190px}
 
 #workspace-entry{position:relative}#workspace-entry .entry-copyright{position:absolute;bottom:20px;left:20px;right:20px;margin:0;font-size:11px;color:#9891ae;line-height:1.5}#workspace-copyright{font-size:10px;line-height:1.5;color:#9891ae}
+
+#workspace-entry .entry-subtitle{display:block;font-size:22px;font-weight:400;letter-spacing:2px;margin-top:12px;color:#c8c1dc}
