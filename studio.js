@@ -36,14 +36,15 @@ window.addEventListener('message',async e=>{
  if(e.data?.type==='ecco-ready'){connected=true;notice('GPU connected. Keep the connection window open.');if(await refresh())navigate('images');return;}
  if(e.data?.type!=='ecco-response')return;const item=pending.get(e.data.id);if(!item)return;clearTimeout(item.timer);pending.delete(e.data.id);if(e.data.error)item.reject(Error(e.data.error));else item.resolve(e.data.result);
 });
-function connectGPU(){welcome();}
+function connectGPU(){
+ let dialog=$('#gpu-picker-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='gpu-picker-dialog';dialog.style.width='min(900px,94vw)';dialog.innerHTML='<div class="section-head"><h2>Connect a GPU workspace</h2><button type="button" class="secondary">Close</button></div><div id="gpu-picker-content"></div>';dialog.querySelector('button').onclick=()=>dialog.close();document.body.append(dialog);}
+ EccoGPUPicker.mount($('#gpu-picker-content'),gpu=>{notice('Opening '+gpu.name+' workspace…');window.location.assign(gpu.url+'#preferences='+encodeURIComponent(JSON.stringify({profiles:modelProfiles,story:activeStory})));});
+ dialog.showModal();
+}
 function welcome(){
- $('#heading').textContent='Choose your GPU';
- $('#wan-badge').textContent='Choose a workspace';
- EccoGPUPicker.mount($('#page'),gpu=>{
-  notice('Opening '+gpu.name+' workspace…');
-  window.location.assign(gpu.url+'#preferences='+encodeURIComponent(JSON.stringify({profiles:modelProfiles,story:activeStory})));
- });
+ page='welcome';document.body.classList.add('workspace-entry-mode');document.title='Ecco AI Labs Studios';
+ $('#heading').textContent='';$('#wan-badge').textContent='GPU not connected';$('#page').replaceChildren();
+ let entry=$('#workspace-entry');if(!entry){entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Welcome to Ecco AI Labs Studio');entry.innerHTML='<img class="entry-logo" src="logo.png" alt="Ecco AI Labs logo"><h1>Ecco AI Labs<span class="entry-subtitle">Studios</span></h1><button type="button" id="entry-tell-story">Tell Your Story</button><p class="entry-copyright">© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.</p>';document.body.append(entry);entry.querySelector('button').onclick=()=>{document.body.classList.remove('workspace-entry-mode');page='empty';$('#heading').textContent='';$('#page').replaceChildren();document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));};}
 }
 async function hydrateMedia(){
  if(!state)return;
@@ -122,8 +123,8 @@ async function refresh(){if(!connected)return false;try{const next=await api('st
  const jobs=state.records.filter(r=>r.kind==='job').sort((a,b)=>b.created-a.created).slice(0,12);$('#jobs').innerHTML=jobs.map(j=>`<div class="job ${j.status==='failed'?'failed':''}"><div>${esc(j.label)}<div class="detail">${new Date(j.created*1000).toLocaleTimeString()}</div></div><div>${esc(j.error||j.sync_warning||j.progress||'')}<div class="detail">${esc(j.status)}</div></div><div>${j.seconds===undefined?'—':j.seconds.toFixed(1)+' s'}</div><div>${j.estimated_compute_usd===undefined?'—':'$'+j.estimated_compute_usd.toFixed(3)}</div></div>`).join('')||'<p class="help">No jobs yet. Generate your first image to begin measuring.</p>';
  const sig=JSON.stringify(state.records.filter(r=>r.kind!=='job'));if(sig!==lastSignature){lastSignature=sig;if(page==='images')updateGallery();if(page==='render')updateVideoGallery();if(page==='review')reviewPage();if(page==='trash')trashPage();if(page==='board')renderSavedBoards();}updateVideoStatus();hydrateMedia();return true;
  }catch(e){$('#wan-badge').textContent='Offline';$('#wan-badge').className='badge pending';notice('Cannot reach the GPU app. '+e.message,true);return false;}}
-document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=> (state||b.dataset.page==='models')&&navigate(b.dataset.page));$('#settings').onclick=()=>state?connections():connectGPU();$('#close-settings').onclick=()=>$('#connection-dialog').close();$('#sync').onclick=()=>action(async()=>{if(!state.config.github_connected)throw Error('GitHub is not connected. Open Connections & storage for details.');await api('github/sync',{});notice('GitHub sync queued.');});
-const reconnectButton=document.createElement('button');reconnectButton.textContent='Reconnect GPU';reconnectButton.className='secondary';reconnectButton.id='reconnect-gpu';reconnectButton.onclick=connectGPU;document.querySelector('.header-right').prepend(reconnectButton);
+document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=> state||b.dataset.page==='models'?navigate(b.dataset.page):connectGPU());$('#settings').onclick=()=>state?connections():connectGPU();$('#close-settings').onclick=()=>$('#connection-dialog').close();$('#sync').onclick=()=>action(async()=>{if(!state.config.github_connected)throw Error('GitHub is not connected. Open Connections & storage for details.');await api('github/sync',{});notice('GitHub sync queued.');});
+const reconnectButton=document.createElement('button');reconnectButton.textContent='Connect GPUs';reconnectButton.className='secondary';reconnectButton.id='reconnect-gpu';reconnectButton.onclick=connectGPU;document.querySelector('.header-right').prepend(reconnectButton);
 welcome();setInterval(refresh,4000);
 
 function powerControls(){
