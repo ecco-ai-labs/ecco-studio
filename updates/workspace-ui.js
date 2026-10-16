@@ -78,6 +78,36 @@
   model.closest('label').after(area);
   const select=area.querySelector('select'),preview=area.querySelector('img'),help=area.querySelector('p'),button=form.querySelector('#generate-image')||form.querySelector('button[type="submit"]');
   const originalModel=model.value,originalText=button.textContent;
+  select.hidden=true;
+  const choose=document.createElement('button');choose.type='button';choose.className='secondary';choose.textContent='Browse Image Library';select.closest('label').append(choose);
+  const clear=document.createElement('button');clear.type='button';clear.className='small secondary';clear.textContent='Remove reference';clear.hidden=true;area.append(clear);
+  clear.onclick=()=>{select.value='';select.onchange();choose.textContent='Browse Image Library';clear.hidden=true;};
+  choose.onclick=()=>{
+   let dialog=q('#studio-library-picker');if(!dialog){dialog=document.createElement('dialog');dialog.id='studio-library-picker';document.body.append(dialog);}
+   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Image Library</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Open a label and select an image to use as your reference.</p><div data-library-tree></div></div>';
+   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+   const folders=folderList(),byName=new Map(folders.map(f=>[f.name,f]));
+   const parentOf=f=>byName.get(f.name.split(' / ').slice(0,-1).join(' / '));
+   const links=records().filter(r=>r.kind==='library_item'&&!r.deleted);
+   const append=(folder,container)=>{
+    const group=document.createElement('details');group.className='workspace-library';group.open=true;
+    const summary=document.createElement('summary');summary.textContent=parentOf(folder)?folder.name.split(' / ').at(-1):folder.name;group.append(summary);
+    const body=document.createElement('div');body.className='workspace-library-content';group.append(body);
+    for(const child of folders.filter(f=>parentOf(f)?.id===folder.id))append(child,body);
+    const ids=new Set(links.filter(l=>l.folder_id===folder.id).map(l=>l.asset_id));
+    const items=images.filter(a=>ids.has(a.id)).sort((a,b)=>a.created-b.created);
+    for(const asset of items){
+     const item=document.createElement('button');item.type='button';item.className='secondary';item.setAttribute('aria-label','Use '+(asset.title||'Untitled image'));
+     const thumb=document.createElement('img');thumb.src=media(asset);thumb.alt='';thumb.width=100;thumb.height=100;thumb.loading='lazy';
+     const name=document.createElement('span');name.textContent=asset.title||'Untitled image';item.append(thumb,name);
+     item.onclick=()=>{select.value=asset.id;select.onchange();choose.textContent='Change image · '+(asset.title||'Selected image');clear.hidden=false;dialog.close();};body.append(item);
+    }
+    if(!items.length&&!folders.some(f=>parentOf(f)?.id===folder.id)){const empty=document.createElement('p');empty.className='help';empty.textContent='No images in this label.';body.append(empty);}
+    container.append(group);
+   };
+   for(const folder of folders.filter(f=>!parentOf(f)))append(folder,dialog.querySelector('[data-library-tree]'));
+   dialog.showModal();
+  };
   select.onchange=()=>{
    const asset=images.find(a=>a.id===select.value);preview.hidden=!asset;help.hidden=!asset;
    model.disabled=!!asset;
