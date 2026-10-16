@@ -135,7 +135,7 @@
    const page=button.dataset.page;
    if(['characters','review','publish'].includes(page)){button.remove();continue;}
    if(page==='models'){const activity=q('[data-category="Activity"] .workspace-menu-items');if(activity){button.hidden=false;button.textContent='Models & Settings';activity.prepend(button);}continue;}
-   button.hidden=false;const title=({director:'Story Narration',images:'Image Studio',board:'Storyboard',render:'Video Studio'})[page]||names[page]||page;button.textContent='− '+title;if(button.parentElement!==body)body.append(button);
+   button.hidden=false;const title=({director:'Story Narration',images:'Image Studios',board:'Storyboard',render:'Video Studios'})[page]||names[page]||page;button.textContent='− '+title;if(button.parentElement!==body)body.append(button);
   }
   const models=q('#model-nav');if(models)models.hidden=true;
   q('#workspace-publish')?.remove();
@@ -155,7 +155,7 @@
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
  }
  document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
- function modernize(){document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studio';});ribbon();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
+ function modernize(){document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
  if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);modernize();return result;};}
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!d.contains(e.target))d.open=false;});});
