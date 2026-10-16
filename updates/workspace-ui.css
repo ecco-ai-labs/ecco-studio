@@ -25,3 +25,5 @@ nav>button[hidden]{display:none!important}#workspace-production-group{margin:10p
 .library-selected-row{position:relative;width:100%;min-width:0}.workspace-library-content .library-selected-row>.tree-folder{padding-right:36px}.library-selected-row>.workspace-delete{position:absolute;right:4px;top:50%;transform:translateY(-50%);margin:0;color:var(--accent)!important}
 
 .workspace-library-content .tree-upload{align-self:flex-start;width:auto;padding:5px 9px;font-size:11px;border:1px solid #454065!important;border-radius:5px;margin:0 0 8px 10px}
+
+aside>#workspace-trash{margin: auto 0 0 0;align-self:flex-start;flex-shrink:0}aside>#workspace-trash+.side-bottom{margin-top:0;padding-top:12px}

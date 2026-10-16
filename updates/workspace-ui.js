@@ -79,7 +79,7 @@
   if(!group){group=disclosure('Library','ecco-library-group-expanded');group.id='workspace-library-group';image.before(group);}
   const content=group.querySelector('.workspace-library-content');
   if(image.parentElement!==content)content.append(image);if(story.parentElement!==content)content.append(story);
-  const trash=q('#workspace-trash');if(trash&&trash.parentElement!==group.parentElement)group.after(trash);
+  const trash=q('#workspace-trash'),footer=q('.side-bottom');if(trash&&footer&&trash.nextElementSibling!==footer)footer.before(trash);
  }
  function productionGroup(){
   const nav=q('nav[aria-label="Production stages"]');if(!nav||q('#workspace-production-group'))return;
