@@ -38,7 +38,7 @@ aside>#workspace-trash{margin: auto 0 0 0;align-self:flex-start;flex-shrink:0}as
 
 /* Entry page: one brand and one action before entering the workspace. */
 #workspace-entry{display:none}
-body.workspace-entry-mode{display:block;min-height:100vh;background:#17152f}
+body.workspace-entry-mode{display:block;min-height:100vh;background:#201c49}
 body.workspace-entry-mode>aside,body.workspace-entry-mode>main{display:none!important}
 body.workspace-entry-mode>#workspace-entry{display:flex;min-height:100vh;min-height:100dvh;box-sizing:border-box;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center}
 #workspace-entry .entry-logo{width:156px;height:156px;object-fit:contain;margin:0 0 24px}
