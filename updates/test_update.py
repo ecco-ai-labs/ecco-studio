@@ -43,7 +43,7 @@ class InstallTests(unittest.TestCase):
     def test_guarded_idempotent_patch(self):
         with tempfile.TemporaryDirectory() as temp:
             root=pathlib.Path(temp)
-            server="import urllib.parse\ndef state(): return {'runtime':runtime_status(),}\ndef mutate():\n            if path=='/api/images': result=create_image(body)\n            elif path=='/api/trash': result=trash_asset(body)\n            if not 0<length<=1024*1024: raise Problem('large')\n"
+            server="import urllib.parse\nfiles={}\ndef state(): return {'runtime':runtime_status(),}\ndef mutate():\n            if path=='/api/images': result=create_image(body)\n            elif path=='/api/trash': result=trash_asset(body)\n            if not 0<length<=1024*1024: raise Problem('large')\n"
             (root/'studio.py').write_text(server)
             (root/'studio.html').write_text('<html><body><script src="library-ui.js?v=1"></script></body></html>')
             (root/'studio.js').write_text("const boards=()=>state.records.filter(r=>r.kind==='board'&&(r.story_id||LEGACY_STORY)===activeStory);")

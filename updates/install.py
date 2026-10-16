@@ -17,6 +17,7 @@ def install(target):
     server=patch_once(server,"if path=='/api/images': result=create_image(body)","if path=='/api/images': result=create_image(body)\n            elif path=='/api/images/upload': result=__import__('image_upload').upload(body,globals())")
     server=patch_once(server,"'runtime':runtime_status(),","'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),")
     server=patch_once(server,"elif path=='/api/trash': result=trash_asset(body)","elif path=='/api/trash': result=trash_asset(body)\n            elif path=='/api/trash/board': result=__import__('trash_manager').board(body,globals())\n            elif path=='/api/trash/draft': result=__import__('trash_manager').draft(body,globals())\n            elif path=='/api/trash/restore-draft': result=__import__('trash_manager').restore_draft(body,globals())\n            elif path=='/api/trash/empty': result=__import__('trash_manager').empty(body,globals())")
+    server=patch_once(server,"files={","files={'/workspace-ui.js':('workspace-ui.js','text/javascript'),'/workspace-ui.css':('workspace-ui.css','text/css'),")
     compile(server,str(target/'studio.py'),'exec')
     library=(target/'library-ui.js').read_text()
     library=patch_once(library,'function folderDialog(asset=null){',"function folderDialog(asset=null){if(window.EccoWorkspaceUI){return asset?window.EccoWorkspaceUI.labelDialog(asset.id):window.EccoWorkspaceUI.createFolder();}")
@@ -26,13 +27,15 @@ def install(target):
         if page.count(START)!=1 or page.count(END)!=1: raise RuntimeError('Invalid existing update markers')
         before,rest=page.split(START);_,after=rest.split(END);page=before+after
     if page.count('</body>')!=1: raise RuntimeError('Missing unique closing body tag')
-    block=START+'\n<style>\n'+(source/'workspace-ui.css').read_text()+'\n</style>\n<script>\n'+(source/'workspace-ui.js').read_text()+'\n'+(source/'trash-ui.js').read_text()+'\n</script>\n'+END
+    block=START+'\n<link rel="stylesheet" href="workspace-ui.css?v=20261016-final"><script src="workspace-ui.js?v=20261016-final"></script>\n'+END
     page=page.replace('</body>',block+'</body>')
     # Change the library URL so previously cached handlers are refreshed.
     import re
     page=re.sub(r'studio\.js\?v=[^"\s]+','studio.js?v=20261016-trash',page)
     page=re.sub(r'library-ui\.js\?v=[^"\s]+','library-ui.js?v=20261016-workspace',page)
     updates={'studio.py':server,'studio.html':page,'library-ui.js':library,'image_upload.py':(source/'image_upload.py').read_text()}
+    updates['workspace-ui.js']=(source/'workspace-ui.js').read_text()+'\n'+(source/'trash-ui.js').read_text()
+    updates['workspace-ui.css']=(source/'workspace-ui.css').read_text()
     updates['trash_manager.py']=(source/'trash_manager.py').read_text()
     frontend=(target/'studio.js').read_text()
     frontend=patch_once(frontend,"r.kind==='board'&&(r.story_id","r.kind==='board'&&!r.deleted&&(r.story_id")
