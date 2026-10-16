@@ -21,3 +21,5 @@ nav>button[hidden]{display:none!important}#workspace-production-group{margin:10p
 .workspace-library-content .tree-folder.selected,.workspace-library-content .tree-image.selected,#workspace-production-group button.active{background:#38305e!important;color:var(--accent)!important;box-shadow:inset 3px 0 var(--accent)!important;border-radius:7px}
 .workspace-delete{background:transparent!important;border:0!important;box-shadow:none!important;color:#b1acc9!important;font-size:21px!important;font-weight:400!important;line-height:1!important;padding:4px!important;width:28px!important;min-width:28px!important;height:28px!important}
 .workspace-delete:hover{background:#3a2944!important;color:#ffa8a8!important}
+
+.library-selected-row{position:relative;width:100%;min-width:0}.workspace-library-content .library-selected-row>.tree-folder{padding-right:36px}.library-selected-row>.workspace-delete{position:absolute;right:4px;top:50%;transform:translateY(-50%);margin:0;color:var(--accent)!important}
