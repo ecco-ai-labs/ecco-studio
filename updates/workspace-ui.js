@@ -96,16 +96,15 @@
  }
  function publishMenu(){
   const video=records().find(r=>r.id===selectedVideoId&&r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted);
-  if(!video){notice('Select an approved video in Video Library first.');return;}
-  persistDraft();activeStory=video.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();lastSignature='';storyControls();
+  if(video){persistDraft();activeStory=video.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();lastSignature='';storyControls();}
   let dialog=q('#workspace-publish-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='workspace-publish-dialog';document.body.append(dialog);}
   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Publish on YouTube</h2><button type="button" class="secondary" data-close>Close</button></div><p data-video></p><div data-publish-controls></div></div>';dialog.style.width='min(1000px,94vw)';
-  dialog.querySelector('[data-video]').textContent='Selected video: '+(video.title||'Untitled video');
-  const preview=document.createElement('video');preview.controls=true;preview.src=media(video);preview.style.cssText='width:100%;max-height:260px';dialog.querySelector('[data-video]').after(preview);dialog.onclose=()=>preview.pause();dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  dialog.querySelector('[data-video]').textContent=video?'Selected video: '+(video.title||'Untitled video'):'Select a reviewed, approved video from Video Library before uploading. You can connect your YouTube channel below.';
+  const preview=document.createElement('video');preview.controls=true;preview.hidden=!video;preview.src=video?media(video):'';preview.style.cssText='width:100%;max-height:260px';dialog.querySelector('[data-video]').after(preview);dialog.onclose=()=>preview.pause();dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   const pageNode=q('#page'),previous=[...pageNode.childNodes];previous.forEach(n=>n.remove());
   try{publishPage();dialog.querySelector('[data-publish-controls]').append(...pageNode.childNodes);}
   finally{pageNode.replaceChildren(...previous);}
-  const select=dialog.querySelector('select[name="asset_id"]');if(select){select.value=video.id;select.disabled=true;const fixed=document.createElement('input');fixed.type='hidden';fixed.name='asset_id';fixed.value=video.id;select.after(fixed);}
+  const select=dialog.querySelector('select[name="asset_id"]');if(select&&video){select.value=video.id;select.disabled=true;const fixed=document.createElement('input');fixed.type='hidden';fixed.name='asset_id';fixed.value=video.id;select.after(fixed);}
   dialog.showModal();
  }
  function uploadVideoDialog(){
@@ -140,8 +139,8 @@
   }
   const models=q('#model-nav');if(models)models.hidden=true;
   q('#workspace-publish')?.remove();
-  const story=q('.project'),library=q('#workspace-library-group .workspace-library-content');
-  let publish=q('#workspace-youtube');if(!publish&&library){const row=document.createElement('div');row.id='workspace-youtube-row';row.style.cssText='border-top:1px solid #454065;margin:8px 0 14px;padding-top:10px';publish=document.createElement('button');publish.id='workspace-youtube';publish.type='button';publish.className='secondary tree-upload';publish.textContent='Publish on YouTube';publish.title='Publish the selected video from Video Library';publish.style.cssText='font-size:11px;padding:5px 9px;margin-left:10px';publish.onclick=publishMenu;row.append(publish);story.after(row);}
+  const story=q('.project .workspace-library-content'),library=q('#workspace-library-group .workspace-library-content');
+  let publish=q('#workspace-youtube');if(!publish&&story){const row=document.createElement('div');row.id='workspace-youtube-row';row.style.cssText='border-top:1px solid #454065;margin:8px 0 14px;padding-top:10px';publish=document.createElement('button');publish.id='workspace-youtube';publish.type='button';publish.className='secondary tree-upload';publish.textContent='Publish on YouTube';publish.title='Publish the selected video from Video Library';publish.style.cssText='font-size:11px;padding:5px 9px;margin-left:10px';publish.onclick=publishMenu;row.append(publish);story.append(row);}
 
   if(typeof names!=='undefined')names.publish='Publish to Video';
  }
