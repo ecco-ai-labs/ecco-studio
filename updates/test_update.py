@@ -1,6 +1,8 @@
 import base64, io, pathlib, tempfile, unittest, shutil
 from PIL import Image
-import image_upload, install
+import image_upload, install, accelerator_status
+from unittest.mock import patch
+import subprocess
 
 class Problem(Exception): pass
 class UploadTests(unittest.TestCase):
@@ -41,7 +43,7 @@ class InstallTests(unittest.TestCase):
     def test_guarded_idempotent_patch(self):
         with tempfile.TemporaryDirectory() as temp:
             root=pathlib.Path(temp)
-            server="import urllib.parse\ndef mutate():\n            if path=='/api/images': result=create_image(body)\n            if not 0<length<=1024*1024: raise Problem('large')\n"
+            server="import urllib.parse\ndef state(): return {'runtime':runtime_status(),}\ndef mutate():\n            if path=='/api/images': result=create_image(body)\n            if not 0<length<=1024*1024: raise Problem('large')\n"
             (root/'studio.py').write_text(server)
             (root/'studio.html').write_text('<html><body><script src="library-ui.js?v=1"></script></body></html>')
             (root/'library-ui.js').write_text('function folderDialog(asset=null){return asset;}')
@@ -53,4 +55,19 @@ class InstallTests(unittest.TestCase):
             root=pathlib.Path(temp);(root/'studio.py').write_text('unsupported')
             with self.assertRaises(RuntimeError):install.install(root)
             self.assertEqual((root/'studio.py').read_text(),'unsupported')
+class AcceleratorTests(unittest.TestCase):
+    def test_hardware_names_not_pod_assumptions(self):
+        for name in ['NVIDIA B200', 'NVIDIA A100-SXM4-80GB', 'NVIDIA H100']:
+            with patch.object(accelerator_status.subprocess,'run',return_value=subprocess.CompletedProcess([],0,name+', 81920\n')):
+                result=accelerator_status.detect()
+                self.assertEqual(result['status'],'detected')
+                self.assertEqual(result['devices'][0]['name'],name)
+    def test_missing_or_failed_probe_is_unknown(self):
+        for error in [FileNotFoundError(),subprocess.TimeoutExpired('nvidia-smi',3)]:
+            with patch.object(accelerator_status.subprocess,'run',side_effect=error):
+                result=accelerator_status.detect()
+                self.assertEqual(result['status'],'unknown');self.assertEqual(result['devices'],[])
+    def test_empty_probe_is_unknown(self):
+        with patch.object(accelerator_status.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'')):
+            self.assertEqual(accelerator_status.detect()['status'],'unknown')
 if __name__=='__main__':unittest.main()

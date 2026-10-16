@@ -15,6 +15,7 @@ def install(target):
     server=(target/'studio.py').read_text()
     server=patch_once(server,"if not 0<length<=1024*1024:","if not 0<length<=(17*1024*1024 if urllib.parse.urlsplit(self.path).path=='/api/images/upload' else 1024*1024):")
     server=patch_once(server,"if path=='/api/images': result=create_image(body)","if path=='/api/images': result=create_image(body)\n            elif path=='/api/images/upload': result=__import__('image_upload').upload(body,globals())")
+    server=patch_once(server,"'runtime':runtime_status(),","'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),")
     compile(server,str(target/'studio.py'),'exec')
     library=(target/'library-ui.js').read_text()
     library=patch_once(library,'function folderDialog(asset=null){',"function folderDialog(asset=null){if(window.EccoWorkspaceUI){return asset?window.EccoWorkspaceUI.labelDialog(asset.id):window.EccoWorkspaceUI.createFolder();}")
@@ -30,6 +31,8 @@ def install(target):
     import re
     page=re.sub(r'library-ui\.js\?v=[^"\s]+','library-ui.js?v=20261016-workspace',page)
     updates={'studio.py':server,'studio.html':page,'library-ui.js':library,'image_upload.py':(source/'image_upload.py').read_text()}
+    updates['accelerator_status.py']=(source/'accelerator_status.py').read_text()
+    compile(updates['accelerator_status.py'],'accelerator_status.py','exec')
     compile(updates['image_upload.py'],'image_upload.py','exec')
     backup=target/('backup-workspace-'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
     backup.mkdir()

@@ -24,6 +24,10 @@ Rollback: restore `studio.py`, `studio.html`, and `library-ui.js` from the repor
 
 ## Verification and release status
 
-Run `python updates/test_update.py` and `node --check updates/workspace-ui.js` from the repository root. Eight tests cover successful import, JPEG normalization, invalid files, pixel limit, failed-save cleanup, unsupported format, repeat installation, and unsupported server protection. The patch was also applied and Python-compiled against the saved Studio source.
+Run `python updates/test_update.py` and `node --check updates/workspace-ui.js` from the repository root. Eleven tests cover successful import, JPEG normalization, invalid files, pixel limit, failed-save cleanup, unsupported format, repeat installation, and unsupported server protection, hardware identification, and failed/empty hardware probes. The patch was also applied and Python-compiled against the saved Studio source.
 
 **Not yet installed or browser-verified on the running GPU.** Browser control was unavailable and direct pod access from the implementation environment was rejected. Run an acceptance check after installation: upload → labels → folder; upload → edit → save copy → labels; add folder/story and verify ordering; collapse/reopen libraries; verify all three ribbon menus.
+
+## Accelerator identity
+
+The private Studio state includes locally detected accelerator names from `nvidia-smi`, refreshed every 15 seconds. The header and video form display the connected hardware. Failed checks report Unverified rather than claiming a pod is offline. This does not enumerate other RunPod machines or prove their power state. The exact old A100/B200 control on the live video page is not present in the saved source and still requires inspection after access is restored.
