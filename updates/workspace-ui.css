@@ -197,3 +197,5 @@ body:not(.workspace-entry-mode) :is(#workspace-menus button,#workspace-menus .wo
 body:not(.workspace-entry-mode) :is(.asset-icon,.workspace-delete,.storage-key-toggle,.tree-branch-toggle){width:32px!important;min-width:32px!important;height:32px!important;padding:6px!important}
 body:not(.workspace-entry-mode) :is(.asset-icon,.workspace-delete,.storage-key-toggle) svg{width:16px!important;height:16px!important}
 #workspace-menus .workspace-menu>summary{display:flex;align-items:center}
+
+#page .section-head>.row{display:flex!important;align-items:flex-end!important;gap:10px;flex-wrap:wrap}#page .section-head>.row>button{height:32px!important;min-height:32px!important;white-space:nowrap!important;flex:0 0 auto;align-self:flex-end}#page .library-view-label{padding:0!important;margin:0}
