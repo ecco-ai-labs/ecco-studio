@@ -275,3 +275,24 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .pdf-story-page .textLayer ::selection{background:rgba(255,214,0,.45)}
 .pdf-selected-label{display:block;font-size:12px;margin-top:10px}
 .pdf-selected-label textarea{width:100%;font-size:12px;min-height:70px}
+
+/* Education follows the same compact disclosure pattern as Library. */
+#education-menu .education-tree{padding:0;margin:4px 0;border:0;background:transparent}
+#education-menu .education-tree>summary{display:flex;align-items:center;gap:8px;padding:7px 4px;font-size:12px;background:transparent!important;color:#eeebf5!important;list-style:none;cursor:pointer}
+#education-menu .education-tree>summary::-webkit-details-marker,#education-menu .learning-day>summary::-webkit-details-marker{display:none}
+#education-menu .education-tree>summary::before{content:'+';color:var(--accent,#ffdc24);width:12px}
+#education-menu .education-tree[open]>summary::before{content:'−'}
+#education-menu .education-tree-body{padding:0 0 0 18px}
+#education-menu .education-tree button,#education-menu .education-tree button:is(:hover,:focus,:active){background:transparent!important;border:0!important;box-shadow:none!important;color:#eeebf5!important;font-size:12px!important;text-align:left;padding:5px 4px!important;width:auto}
+#education-menu .education-tree-body>button{display:block;width:100%;white-space:normal}
+#education-menu .learning-day{border:0;background:transparent;margin:5px 0}
+#education-menu .learning-day>summary{list-style:none;background:transparent!important;color:#eeebf5!important;font-size:12px;padding:5px 0;cursor:pointer}
+#education-menu .learning-activities{padding-left:12px}
+#learning-days{border-top:0;margin-top:4px;padding-top:0}
+#learning-days .learning-task{display:flex;align-items:center;gap:8px;margin:5px 0;padding:0;font-size:12px;line-height:20px}
+#learning-days .learning-task span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#learning-days .learning-task input:checked+span,#development-planner input[type=checkbox]:checked+span{text-decoration:line-through;opacity:.55}
+#learning-days .learning-add-task{display:flex;align-items:center;gap:5px;margin:7px 0}
+#learning-days .learning-add-task input{min-width:0;flex:1;width:160px}
+#learning-days .learning-rename{font-size:10px;opacity:.75}
+#learning-days .learning-rename input{display:inline-block;width:140px;margin-left:8px}
