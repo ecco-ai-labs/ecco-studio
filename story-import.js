@@ -115,25 +115,17 @@
    if(!form.elements.title.value.trim())form.elements.title.value=(title&&title!=='Untitled'?title:file.name.replace(/\.pdf$/i,'').replace(/[_-]/g,' ')).slice(0,160);
    source.value=text;form.elements.summary.value=text.length<=4000?text:text.slice(0,3997)+'…';source.dispatchEvent(new Event('input',{bubbles:true}));
    box.querySelector('details').open=true;status.textContent=text.length+' characters extracted from your selection.'+(text.length>4000?' Summary contains an excerpt; the full selection is in Source text.':'')+' Review, then save to continue.';
-   dialog.close();
+   dialog.close();form.requestSubmit();
   };
  }
  function mountBoard(){
   const title=q('#board-title');if(!title||q('#source-story-picker'))return;
-  const area=document.createElement('div');area.className='row';area.innerHTML='<label>Story<select id="source-story-picker"></select></label><button type="button" class="secondary" id="source-ai-plan">AI storyboard & shot previews</button>';
+  const area=document.createElement('div');area.className='row';area.innerHTML='<label>Story<select id="source-story-picker"></select></label>';
   title.closest('label').before(area);
   const picker=area.querySelector('select');
   for(const story of stories()){const o=document.createElement('option');o.value=story.id;o.textContent=story.title;o.selected=story.id===activeStory;picker.append(o);}
   picker.onchange=()=>{persistDraft();activeStory=picker.value;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();const source=localStorage.getItem('ecco-story-source:'+activeStory);if(source&&!draft.story)draft.story=source;storyControls();navigate('board');};
-  area.querySelector('button').onclick=()=>{persistDraft();if(draft.story.length>12000){notice('The AI planner supports 12,000 characters and up to 10 shots. Use one chapter or a shorter adaptation.',true);return;}
-   navigate('director');const form=q('#director-form');if(form){form.elements.title.value=draft.title;form.elements.story.value=draft.story;form.dispatchEvent(new Event('input',{bubbles:true}));}
-  };
-  const split=q('#split');if(split)split.onclick=()=>{
-   try{const parts=sceneTexts(draft.story);if(draft.scenes.length&&!confirm('Replace the current scene draft? Saved revisions are preserved.'))return;
-    draft.scenes=parts.map(text=>({image_id:'',seconds:3,motion:'Slow cinematic camera movement, consistent character and lighting',narration:text}));
-    persistDraft();renderScenes();notice(parts.length+' editable scenes created from paragraphs. Review timing, dialogue and camera directions; this split does not call AI.');
-   }catch(error){notice(error.message,true);}
-  };
+
  }
  function mountImage(){
   const form=q('#image-form');if(!form||q('#scene-image-source')||!draft.scenes?.length)return;
