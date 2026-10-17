@@ -69,7 +69,7 @@
   for(const story of localStories){
    const b=document.createElement('button');b.type='button';b.className='tree-folder';
    b.textContent='− '+story.title;b.title=story.genre?story.genre+' · Saved in this browser':'Saved in this browser';
-   b.onclick=()=>{document.body.classList.remove('workspace-entry-mode');storySetupPage(story.id);};
+   b.onclick=()=>{document.body.classList.remove('workspace-entry-mode');storySetupPage(story.id);page='story-library-detail';librarySelection();};
    body.append(b);
   }
   if(selected)selectionToolbar(body,selected.textContent,remove);
