@@ -182,3 +182,8 @@ body.workspace-entry-mode #workspace-entry .entry-logo-particle{animation-play-s
 .journey-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .journey-actions button{font-size:12px;padding:7px 10px}
 @media(max-width:800px){#journey-guide{align-items:flex-start;flex-direction:column}.journey-actions{justify-content:flex-start}}
+
+/* Library creation controls use the same compact type as label rows. */
+#workspace-library-group .tree-create{font-size:12px!important;font-weight:400!important;line-height:1.5!important;padding:7px 10px!important;min-height:0!important}
+#workspace-library-group .tree-create :is(span,i,svg){font-size:inherit!important;width:1em;height:1em}
+#workspace-library-group .tree-create::before,#workspace-library-group .tree-create::after{font-size:inherit!important}
