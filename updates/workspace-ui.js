@@ -315,6 +315,7 @@
    let button=target==='story-setup'?q('#workspace-new-story'):body.querySelector('button[data-page="'+target+'"]')||nav.querySelector('button[data-page="'+target+'"]');
    if(!button){button=document.createElement('button');button.type='button';button.dataset.page=target;button.onclick=()=>navigate(target);}
    if(target==='story-setup')button.id='workspace-new-story';
+   for(const duplicate of nav.querySelectorAll('button[data-page="'+target+'"]'))if(duplicate!==button)duplicate.remove();
    button.hidden=false;button.classList.add('journey-step');
    const label=(i+1)+'. '+title;if(button.textContent!==label)button.textContent=label;
    button.classList.toggle('active',page===target||(target==='board'&&page==='director'));
