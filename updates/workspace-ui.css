@@ -83,3 +83,8 @@ body.workspace-entry-mode>#workspace-entry{display:flex;min-height:100vh;min-hei
 #activity-page-toolbar #activity-edge-arrow,#activity-page-toolbar #toggle-activity.activity-edge-toggle{color:var(--accent,#ffdc24)}
 
 #image-form #edit-model-settings,#video-form #edit-model-settings{display:none!important}
+
+/* Ribbon selection and redundant workspace branding. */
+main > header .eyebrow{display:none!important}
+#workspace-menus .workspace-menu[open]>summary,#workspace-menus .workspace-menu>summary:active{background:var(--accent,#f3dc45)!important;color:#201c49!important}
+#workspace-menus .workspace-menu[open]>summary span{color:inherit!important}
