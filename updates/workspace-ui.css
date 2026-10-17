@@ -243,3 +243,17 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 
 /* Subtle separation above the navigation copyright. */
 #workspace-copyright{border-top:1px solid rgba(255,255,255,.10);padding-top:12px}
+
+/* Neutral educational content, square task checkboxes and spaced guide note. */
+.education-guide .panel,.education-guide .panel>summary,.education-guide .panel p{background:transparent!important}
+.education-guide .panel>summary{color:#eeebf5!important}
+.education-guide>.help:last-child{color:var(--accent,#ffdc24)!important;text-align:right;margin-top:24px;padding-top:8px}
+#development-planner input[type=checkbox],#learning-days input[type=checkbox]{appearance:auto!important;-webkit-appearance:checkbox!important;width:16px!important;min-width:16px!important;height:16px!important;min-height:16px!important;border-radius:2px!important;padding:0!important;accent-color:var(--accent,#ffdc24);flex:0 0 16px}
+#learning-days{border-top:1px solid rgba(255,255,255,.12);margin-top:12px;padding-top:12px}
+#education-menu .education-content{max-height:75vh;overflow-y:auto;min-width:320px}
+#learning-days .learning-day-items{padding-left:24px}
+#learning-days .learning-day-items li{display:list-item;margin:8px 0}
+#learning-days [data-day-text]{width:calc(100% - 30px);display:inline-block;margin-left:8px;font-size:12px}
+#learning-days label{font-size:12px}
+#learning-days input,#learning-days select{min-height:32px;font-size:12px}
+#education-menu #checklist[hidden],#education-menu h3[hidden]{display:none!important}
