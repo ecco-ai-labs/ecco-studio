@@ -13,11 +13,12 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'migration' / 'legacy'))
 import studio as legacy
 import audio_library
+import scene_planner
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
-    '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
+    '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
     '/api/images/upload', '/api/stories', '/api/stories/archive', '/api/boards',
     '/api/library/folders', '/api/library/save', '/api/trash', '/api/trash/board',
     '/api/trash/folder', '/api/trash/draft', '/api/trash/restore-draft',
@@ -30,6 +31,7 @@ def storage_state():
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
                     'gpu_independent': True, 'service': 'ecco-storage-api'},
         'models_ready': {}, 'video_gpus': [], 'runtime': {},
+        'ai_story_planner': {'ready': scene_planner.ready()},
         'hourly_rate': 0.081, 'github_connected': False,
         'youtube_configured': False, 'youtube_channel': None,
         'wan_ready': False, 'ffmpeg': False, 'repo': 'ecco-ai-labs/ecco-studio',
@@ -118,6 +120,8 @@ class Handler(legacy.Handler):
             if not 0 < length <= maximum: raise legacy.Problem('Request size invalid', 413)
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
+            if path == '/api/stories/plan':
+                return self.send(scene_planner.plan(body, legacy.Problem))
             audio_routes = {'/api/audio/upload': audio_library.upload,
                             '/api/audio/folders': audio_library.create_folder,
                             '/api/audio/labels': audio_library.save_labels}
