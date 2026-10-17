@@ -277,7 +277,7 @@
   let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
   const genres=['Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
   q('#page').innerHTML='<form id="story-setup-form" class="form"><label>Story name<input name="title" maxlength="160" required placeholder="Enter your story name"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story idea / summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & continue to storyboard</button></div><p role="status" data-story-status></p></form>';
-  const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');
+  const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');form.dataset.draftKey=key;
   for(const name of ['title','genre','summary'])form.elements[name].value=saved[name]||'';
   const save=()=>{const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));status.textContent='Draft saved in this browser.';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
@@ -288,7 +288,7 @@
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
     data.cloudId=created.id;saved=data;localStorage.setItem(key,JSON.stringify(data));activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);
-    draft=loadDraft();draft.title=data.title;draft.story=data.summary;persistDraft();await refresh();
+    draft=loadDraft();draft.title=data.title;draft.story=data.sourceText||data.summary;if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);persistDraft();await refresh();
     let savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');
     const id=savedId||crypto.randomUUID();
     localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));
