@@ -213,3 +213,11 @@ body:not(.workspace-entry-mode) summary:is(:active,:focus-visible),body:not(.wor
 }
 #page .section-head .library-view-label select option{background:#211d3b;color:#eeebf5}
 #page .section-head>.row>button:hover,#page .section-head .library-view-label select:hover{background:rgba(255,220,36,.2)!important}
+
+/* Library toolbar labels stay white; retain the shared yellow shading. */
+body:not(.workspace-entry-mode) #page .section-head .library-view-label select,
+body:not(.workspace-entry-mode) #page .section-head>.row>button,
+body:not(.workspace-entry-mode) #page .section-head>.row>button:is(:active,:focus,:hover){
+ color:#fff!important;
+}
+#journey-publish{margin-top:20px}
