@@ -7,8 +7,8 @@ dialogue editor, per-line voice and emotion, speed, pitch, pauses, and browser-l
 draft recovery. Playback/download rendering is prepared for an independent service.
 
 **Live generation is not enabled.** No independent authenticated API, durable job
-queue or media storage service is connected yet. The UI explicitly disables
-generation. No GPU installation, library migration, model download or real speech
+queue or media storage service is connected yet. Generate audio opens the shared GPU picker when disconnected. Once connected,
+the UI reports the missing independent audio service instead of submitting a job. No GPU installation, library migration, model download or real speech
 inference has been performed for this release.
 
 ## Ownership
@@ -82,6 +82,6 @@ Upstream inference reference: https://github.com/Aratako/MioTTS-Inference (MIT).
 Run `python -m unittest discover -s audio -p 'test_*.py'` and
 `node --check audio-studio.js`. Browser acceptance: open Audio Studio without a GPU;
 add/edit Hindi, Urdu and English lines; inspect emotion options; navigate away and
-return; confirm drafts survive and generation remains disabled without the independent
-service. Real multilingual inference and GPU-off media retrieval are pending service
+return; confirm drafts survive, Generate audio opens the GPU picker when disconnected,
+and no audio job is submitted without the independent service. Real multilingual inference and GPU-off media retrieval are pending service
 deployment and must pass before generation is advertised as available.
