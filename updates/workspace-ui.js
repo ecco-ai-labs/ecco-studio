@@ -318,9 +318,9 @@
 
 /* Compact Activity drawer control shared by image, video and storyboard pages. */
 (()=>{
+ const arrow=document.querySelector('#activity-edge-arrow')||document.querySelector('#toggle-activity.activity-edge-toggle');
  function position(){
   const page=document.querySelector('#page');
-  const arrow=document.querySelector('#activity-edge-arrow')||document.querySelector('#toggle-activity.activity-edge-toggle');
   if(!page||!arrow)return;
   let bar=page.querySelector('#activity-page-toolbar');
   if(!bar){bar=document.createElement('div');bar.id='activity-page-toolbar';const intro=page.querySelector(':scope > .intro');if(intro)intro.after(bar);else page.prepend(bar);}
