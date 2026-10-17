@@ -38,7 +38,7 @@ window.addEventListener('message',async e=>{
 });
 function connectGPU(){
  let dialog=$('#gpu-picker-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='gpu-picker-dialog';dialog.style.width='min(900px,94vw)';dialog.innerHTML='<div class="section-head"><h2>Connect a GPU workspace</h2><button type="button" class="secondary">Close</button></div><div id="gpu-picker-content"></div>';dialog.querySelector('button').onclick=()=>dialog.close();document.body.append(dialog);}
- EccoGPUPicker.mount($('#gpu-picker-content'),gpu=>{notice('Opening '+gpu.name+' workspace…');window.location.assign(gpu.url+'#preferences='+encodeURIComponent(JSON.stringify({profiles:modelProfiles,story:activeStory})));});
+ EccoGPUPicker.mount($('#gpu-picker-content'),gpu=>{notice('Opening '+gpu.name+' workspace…');window.location.assign(gpu.url+'?enter=workspace#preferences='+encodeURIComponent(JSON.stringify({profiles:modelProfiles,story:activeStory})));});
  dialog.showModal();
 }
 function welcome(){
