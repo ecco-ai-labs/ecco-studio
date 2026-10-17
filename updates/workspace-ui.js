@@ -156,7 +156,7 @@
   const text=!isConnected?'Accelerator not connected':fresh&&names.length?names.join(' + ')+' · Connected':names.length?names.join(' + ')+' · Connection unverified':'Accelerator · Unverified';
   let badge=q('#connected-accelerator');const header=q('main > header .header-right');
   if(!badge&&header){badge=document.createElement('button');badge.type='button';badge.id='connected-accelerator';badge.className='badge';badge.onclick=()=>connectGPU('accelerator-status');header.prepend(badge);}
-  if(badge){badge.classList.toggle('accelerator-connected',isConnected);badge.textContent=text;badge.title=isConnected?'Accelerator connected':'Connect an accelerator';}
+  if(badge){badge.classList.toggle('accelerator-connected',Boolean(isConnected&&fresh&&names.length));badge.textContent=text;badge.title=!isConnected?'Connect an accelerator':fresh&&names.length?'Accelerator connected and verified':'Accelerator connection is unverified';}
   const form=q('#video-form');let status=q('#video-accelerator');
   if(form&&!status){status=document.createElement('p');status.id='video-accelerator';status.className='help';status.setAttribute('role','status');form.prepend(status);}
   if(status)status.textContent=text;
