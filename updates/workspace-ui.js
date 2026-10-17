@@ -195,11 +195,22 @@
   const group=q('#workspace-library-group .workspace-library-content');if(!group)return;
   let library=q('#workspace-video-library');if(!library){library=disclosure('Video Library','ecco-video-library');library.id='workspace-video-library';group.append(library);}const story=q('.project');if(story&&library.nextElementSibling!==story)story.before(library);
   const list=records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted&&stories().some(story=>story.id===(r.story_id||LEGACY_STORY)));
+  if(!list.some(v=>v.id===selectedVideoId))selectedVideoId='';
   const signature=JSON.stringify(list.map(v=>[v.id,v.title,v.upload_state]));if(library.dataset.signature===signature+selectedVideoId)return;library.dataset.signature=signature+selectedVideoId;
   const body=library.querySelector('.workspace-library-content');body.replaceChildren();
-  if(!list.length){const empty=document.createElement('p');empty.className='help';empty.textContent='Reviewed and approved videos appear here.';body.append(empty);}
-  for(const video of list){const button=document.createElement('button');button.type='button';button.className='tree-folder';button.textContent=video.title||'Untitled video';button.classList.toggle('selected',video.id===selectedVideoId);button.onclick=()=>{selectedVideoId=video.id;videoLibrary();notice('Selected '+(video.title||'video')+'. Click Publish on YouTube to review publishing options.');};if(video.id===selectedVideoId){const row=document.createElement('div');row.className='library-selected-row';row.append(button);const remove=document.createElement('button');remove.type='button';remove.className='workspace-delete';remove.textContent='×';remove.setAttribute('aria-label','Delete video '+(video.title||'Untitled video'));remove.onclick=()=>action(async()=>{await api('trash',{asset_id:video.id});selectedVideoId='';await refresh();videoLibrary();notice('Video moved to Trash.');});row.append(remove);body.append(row);}else body.append(button);}
   const upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload Video';upload.onclick=uploadVideoDialog;body.append(upload);
+  if(!list.length){const empty=document.createElement('p');empty.className='help';empty.textContent='Reviewed and approved videos appear here.';body.append(empty);}
+  const choices=document.createElement('div');choices.className='video-publish-choices';choices.setAttribute('role','radiogroup');choices.setAttribute('aria-label','Video to publish on YouTube');body.append(choices);
+  for(const video of list){
+   const row=document.createElement('div');row.className='video-publish-row';
+   const label=document.createElement('label');label.className='video-publish-choice';
+   const radio=document.createElement('input');radio.type='radio';radio.name='youtube-library-video';radio.value=video.id;radio.checked=video.id===selectedVideoId;
+   const title=document.createElement('span');title.textContent=video.title||'Untitled video';label.append(radio,title);row.append(label);
+   radio.onchange=()=>{if(!radio.checked)return;selectedVideoId=video.id;library.dataset.signature=signature+selectedVideoId;publish.disabled=false;publish.title='Publish '+(video.title||'selected video')+' on YouTube';};
+   const remove=document.createElement('button');remove.type='button';remove.className='workspace-delete';remove.textContent='×';remove.setAttribute('aria-label','Delete video '+(video.title||'Untitled video'));remove.onclick=()=>action(async()=>{await api('trash',{asset_id:video.id});if(selectedVideoId===video.id)selectedVideoId='';await refresh();videoLibrary();notice('Video moved to Trash.');});row.append(remove);choices.append(row);
+  }
+  const footer=document.createElement('div');footer.id='workspace-youtube-row';
+  const publish=document.createElement('button');publish.id='workspace-youtube';publish.type='button';publish.className='secondary tree-upload';publish.textContent='Publish on YouTube';publish.disabled=!selectedVideoId;publish.title=selectedVideoId?'Publish the selected video on YouTube':'Select one video to publish';publish.onclick=()=>{if(!selectedVideoId)return;publishMenu();};footer.append(publish);body.append(footer);
  }
  function productionGroup(){
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
@@ -215,9 +226,6 @@
   }
   const models=q('#model-nav');if(models)models.hidden=true;
   q('#workspace-publish')?.remove();
-  const story=q('.project .workspace-library-content'),library=q('#workspace-library-group .workspace-library-content');
-  let publish=q('#workspace-youtube');if(!publish&&story){const row=document.createElement('div');row.id='workspace-youtube-row';row.style.cssText='border-top:1px solid #454065;margin:8px 0 14px;padding-top:10px';publish=document.createElement('button');publish.id='workspace-youtube';publish.type='button';publish.className='secondary tree-upload';publish.textContent='Publish on YouTube';publish.title='Publish the selected video from Video Library';publish.style.cssText='font-size:11px;padding:5px 9px;margin-left:10px';publish.onclick=publishMenu;row.append(publish);story.append(row);}
-
   if(typeof names!=='undefined')names.publish='Publish to Video';
  }
  function educationMenu(){
