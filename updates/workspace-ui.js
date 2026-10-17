@@ -318,7 +318,7 @@
    button.hidden=false;button.classList.add('journey-step');
    const label=(i+1)+'. '+title;if(button.textContent!==label)button.textContent=label;
    button.classList.toggle('active',page===target||(target==='board'&&page==='director'));
-   if(button.parentElement!==body||body.children[i]!==button)body.append(button);
+   if(button.parentElement!==body||[...body.querySelectorAll('.journey-step')][i]!==button)body.append(button);
   });
   q('#model-nav')?.setAttribute('hidden','');q('#workspace-publish')?.remove();
  }
