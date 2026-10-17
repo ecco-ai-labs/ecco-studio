@@ -23,8 +23,8 @@ function storyControls(){
 
 const names={images:'Image studio',board:'Storyboard',render:'Video studio',review:'Production library',publish:'Publish to YouTube',trash:'Trash',models:'Models & settings',characters:'Character library'};
 function notice(s,error=false){$('#notice').textContent=s;$('#notice').className=error?'error':'';const d=$('#new-story-dialog[open]');if(d){let n=d.querySelector('[role=status]');if(!n){n=document.createElement('p');n.setAttribute('role','status');d.querySelector('form').appendChild(n);}n.textContent=s;n.className=error?'error':'';}}
-const gpuURL='https://1muqctw9bxvguu-8888.proxy.runpod.net/proxy/8765/';
-const gpuOrigin=new URL(gpuURL).origin;
+let gpuURL='https://1muqctw9bxvguu-8888.proxy.runpod.net/proxy/8765/';
+let gpuOrigin=new URL(gpuURL).origin;
 let bridgeWindow=null,connected=false;
 const pending=new Map(),mediaCache=new Map(),mediaLoading=new Set();
 async function api(path,body){
@@ -33,12 +33,12 @@ async function api(path,body){
 }
 window.addEventListener('message',async e=>{
  if(e.origin!==gpuOrigin||e.source!==bridgeWindow)return;
- if(e.data?.type==='ecco-ready'){connected=true;notice('GPU connected. Keep the connection window open.');if(await refresh())navigate('images');return;}
+ if(e.data?.type==='ecco-ready'){connected=true;notice('GPU connected. Keep the connection window open.');if(await refresh())navigate('empty');return;}
  if(e.data?.type!=='ecco-response')return;const item=pending.get(e.data.id);if(!item)return;clearTimeout(item.timer);pending.delete(e.data.id);if(e.data.error)item.reject(Error(e.data.error));else item.resolve(e.data.result);
 });
 function connectGPU(){
  let dialog=$('#gpu-picker-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='gpu-picker-dialog';dialog.style.width='min(900px,94vw)';dialog.innerHTML='<div class="section-head"><h2>Connect a GPU workspace</h2><button type="button" class="secondary">Close</button></div><div id="gpu-picker-content"></div>';dialog.querySelector('button').onclick=()=>dialog.close();document.body.append(dialog);}
- EccoGPUPicker.mount($('#gpu-picker-content'),gpu=>{notice('Opening '+gpu.name+' workspace…');window.location.assign(gpu.url+'?enter=workspace#preferences='+encodeURIComponent(JSON.stringify({profiles:modelProfiles,story:activeStory})));});
+ EccoGPUPicker.mount($('#gpu-picker-content'),gpu=>{gpuURL=gpu.url;gpuOrigin=gpu.origin;connected=false;bridgeWindow=window.open(gpu.url+'connect','ecco-gpu-connection','width=640,height=520');if(!bridgeWindow){notice('Allow the GPU connection window, then select your GPU again.',true);return;}dialog.close();document.body.classList.remove('workspace-entry-mode');navigate('empty');notice('Click Connect this session in the GPU connection window. Studios stays on this GitHub page.');});
  dialog.showModal();
 }
 function welcome(){
