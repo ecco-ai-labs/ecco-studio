@@ -4,10 +4,14 @@ import math
 LANGUAGES = ['Hindi', 'Urdu', 'English', 'Tamil', 'Punjabi', 'Assamese', 'Bengali', 'Bodo', 'Dogri', 'Gujarati', 'Kannada', 'Kashmiri', 'Konkani', 'Maithili', 'Malayalam', 'Manipuri', 'Marathi', 'Nepali', 'Odia', 'Sanskrit', 'Santali', 'Sindhi', 'Telugu']
 INDIC_EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'disgust', 'fear', 'surprise']
 ENGLISH_EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'enunciated', 'confused', 'whisper']
+GENRES = ["Story Book Reading","Podcast","Movie","Theatre","Casual Conversation","Documentary","News","Interview","Educational"]
 MODEL = 'SPRINGLab/Indic-Mio'
 def validate(body):
     if body.get('model', 'indic-mio') != 'indic-mio':
         raise ValueError('Choose Indic-Mio for audio generation.')
+    genre = body.get('genre', GENRES[0])
+    if genre not in GENRES:
+        raise ValueError('Choose a supported audio genre.')
     lines = body.get('lines')
     if not isinstance(lines, list) or not 1 <= len(lines) <= 20:
         raise ValueError('Add between 1 and 20 dialogue lines.')
@@ -38,6 +42,6 @@ def validate(body):
     title = body.get('title', 'Audio recording')
     if not isinstance(title, str):
         raise ValueError('Invalid audio title.')
-    return dict(model='indic-mio', title=title.strip()[:160] or 'Audio recording', lines=clean,
+    return dict(model='indic-mio', genre=genre, title=title.strip()[:160] or 'Audio recording', lines=clean,
                 speed=bounded('speed', 1, 0.75, 1.5), pitch=bounded('pitch', 0, -4, 4),
                 pause=bounded('pause', 0.35, 0, 2))
