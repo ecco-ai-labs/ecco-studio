@@ -359,17 +359,27 @@
  window.EccoImageInstructions={compose};
 })();
 
-/* Compact Activity drawer control shared by image, video and storyboard pages. */
+/* Reveal Activity & Compute at the right edge without reserving page space. */
 (()=>{
- const arrow=document.querySelector('#activity-edge-arrow')||document.querySelector('#toggle-activity.activity-edge-toggle');
- function position(){
-  const page=document.querySelector('#page');
-  if(!page||!arrow)return;
-  let bar=page.querySelector('#activity-page-toolbar');
-  if(!bar){bar=document.createElement('div');bar.id='activity-page-toolbar';const intro=page.querySelector(':scope > .intro');if(intro)intro.after(bar);else page.prepend(bar);}
-  if(arrow.parentElement!==bar)bar.append(arrow);
- }
- new MutationObserver(position).observe(document.querySelector('#page')||document.body,{childList:true,subtree:true});position();
+ const arrow=document.querySelector('#activity-edge-arrow');
+ if(!arrow)return;
+ document.body.append(arrow);
+ const style=document.createElement('style');
+ style.textContent=`
+ body > #activity-edge-arrow{position:fixed;right:0;top:50%;width:34px;height:48px;min-width:34px;padding:0;border-radius:8px 0 0 8px;font-size:21px;color:var(--accent,#ffdc24);transform:translate(110%,-50%);opacity:0;pointer-events:none;transition:transform .2s ease,opacity .2s ease,right .25s ease}
+ body > #activity-edge-arrow.edge-near,body > #activity-edge-arrow.drawer-open,body > #activity-edge-arrow:focus-visible{transform:translate(0,-50%);opacity:1;pointer-events:auto}
+ body > #activity-edge-arrow.drawer-open{right:min(480px,calc(100vw - 48px))}
+ body > #activity-edge-arrow.has-active-jobs{width:56px}
+ @media(hover:none),(pointer:coarse){body > #activity-edge-arrow{transform:translate(0,-50%);opacity:.65;pointer-events:auto}body > #activity-edge-arrow.drawer-open{opacity:1}}
+ @media(prefers-reduced-motion:reduce){body > #activity-edge-arrow{transition:none}}
+ `;
+ document.head.append(style);
+ document.addEventListener('pointermove',event=>{
+  if(event.pointerType==='touch')return;
+  const threshold=arrow.classList.contains('edge-near')?76:16;
+  arrow.classList.toggle('edge-near',event.clientX>=document.documentElement.clientWidth-threshold);
+ },{passive:true});
+ document.documentElement.addEventListener('pointerleave',()=>arrow.classList.remove('edge-near'));
 })();
 
 /* Collapsible image control sections; edits clear only old completion notices. */
