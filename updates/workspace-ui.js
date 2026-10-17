@@ -164,6 +164,42 @@
  if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
  if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='empty'){page='empty';q('#page')?.replaceChildren();if(q('#heading'))q('#heading').textContent='';document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
  setInterval(acceleratorDisplay,5000);
+
+ function librarySelection(){
+  const selectors={'library':'#image-library-nav > details > summary','video-library':'#workspace-video-library > summary','audio-library':'#workspace-audio-library > summary','story-library':'.project > details > summary','story-library-detail':'.project > details > summary'};
+  const selected=selectors[page];
+  document.querySelectorAll('#workspace-library-group summary').forEach(el=>{
+   const active=!!selected&&el.matches(selected);el.classList.toggle('active',active);
+   if(active)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');
+  });
+  const start=q('#workspace-new-story');if(start)start.classList.toggle('active',page==='story-setup');
+ }
+ function libraryOverview(kind){
+  document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();
+  page=kind+'-library';q('#heading').textContent=kind==='video'?'Video Library':'Story Library';
+  document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));
+  if(kind==='video'){
+   const list=records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted);
+   q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><button type="button" id="video-library-upload" class="secondary">Upload Video</button></div><div class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
+   q('#video-library-upload').onclick=uploadVideoDialog;wireCards();
+  }else{
+   q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2></div><div id="story-library-list" class="form"></div>';
+   const list=q('#story-library-list'),entries=[...document.querySelectorAll('.project .workspace-library-content > button.tree-folder')];
+   for(const entry of entries){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=entry.textContent.replace(/^− /,'');b.onclick=()=>{entry.click();if(page==='story-setup')page='story-library-detail';librarySelection();};list.append(b);}
+   if(!entries.length)list.innerHTML='<p class="help">No saved stories.</p>';
+  }
+  librarySelection();
+ }
+ document.addEventListener('click',event=>{
+  const summary=event.target.closest('summary');if(!summary)return;
+  if(summary.matches('#image-library-nav > details > summary'))navigate('library');
+  else if(summary.matches('#workspace-video-library > summary'))libraryOverview('video');
+  else if(summary.matches('#workspace-audio-library > summary'))navigate('audio-library');
+  else if(summary.matches('.project > details > summary'))libraryOverview('story');
+  librarySelection();
+ });
+ new MutationObserver(librarySelection).observe(document.body,{childList:true,subtree:true});
+ const selectionStyle=document.createElement('style');selectionStyle.textContent='#workspace-library-group summary.active{color:var(--accent,#ffdc24)!important;background:#38305e;border-radius:6px;box-shadow:inset 3px 0 var(--accent,#ffdc24)}';document.head.append(selectionStyle);
  function libraryGroup(){
   const image=q('#image-library-nav'),story=q('.project');if(!image||!story)return;
   let group=q('#workspace-library-group');
