@@ -65,6 +65,13 @@
   const options=[...select.options].sort((a,b)=>(storyRecords.find(r=>r.id===a.value)?.created||0)-(storyRecords.find(r=>r.id===b.value)?.created||0));
   const selected=options.find(o=>o.value===select.value);
   for(const option of options){const b=document.createElement('button');b.type='button';b.className='tree-folder';b.textContent='− '+option.textContent;b.classList.toggle('selected',option.value===select.value);b.onclick=()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));};body.append(b);}
+  let localStories=[];try{localStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');}catch{}
+  for(const story of localStories){
+   const b=document.createElement('button');b.type='button';b.className='tree-folder';
+   b.textContent='− '+story.title;b.title=story.genre?story.genre+' · Saved in this browser':'Saved in this browser';
+   b.onclick=()=>{document.body.classList.remove('workspace-entry-mode');storySetupPage(story.id);};
+   body.append(b);
+  }
   if(selected)selectionToolbar(body,selected.textContent,remove);
   box.append(d);
  }
@@ -145,16 +152,17 @@
   const hardware=typeof state!=='undefined'?state?.config?.accelerator:null;
   const fresh=hardwareVerifiedAt&&Date.now()-hardwareVerifiedAt<45000;
   const names=hardware?.status==='detected'?hardware.devices.map(d=>d.name):[];
-  const text=fresh&&names.length?names.join(' + ')+' · Connected':names.length?names.join(' + ')+' · Connection unverified':'Accelerator · Unverified';
+  const isConnected=typeof gpuConnected==='function'&&gpuConnected();
+  const text=!isConnected?'Accelerator not connected':fresh&&names.length?names.join(' + ')+' · Connected':names.length?names.join(' + ')+' · Connection unverified':'Accelerator · Unverified';
   let badge=q('#connected-accelerator');const header=q('main > header .header-right');
-  if(!badge&&header){badge=document.createElement('span');badge.id='connected-accelerator';badge.className='badge';badge.setAttribute('role','status');header.prepend(badge);}
-  if(badge){badge.textContent=text;badge.title='Hardware detected by the connected Studio server. Connection status does not indicate whether another pod is powered off.';}
+  if(!badge&&header){badge=document.createElement('button');badge.type='button';badge.id='connected-accelerator';badge.className='badge';badge.onclick=()=>connectGPU('accelerator-status');header.prepend(badge);}
+  if(badge){badge.textContent=text;badge.title=isConnected?'Accelerator connected':'Connect an accelerator';}
   const form=q('#video-form');let status=q('#video-accelerator');
   if(form&&!status){status=document.createElement('p');status.id='video-accelerator';status.className='help';status.setAttribute('role','status');form.prepend(status);}
   if(status)status.textContent=text;
  }
  if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
- if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='empty'){page='empty';q('#page')?.replaceChildren();if(q('#heading'))q('#heading').textContent='';document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
+ if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='empty'){page='empty';q('#page')?.replaceChildren();if(q('#heading'))q('#heading').textContent='';document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
  setInterval(acceleratorDisplay,5000);
  function libraryGroup(){
   const image=q('#image-library-nav'),story=q('.project');if(!image||!story)return;
@@ -206,12 +214,45 @@
   const footer=document.createElement('div');footer.id='workspace-youtube-row';
   const publish=document.createElement('button');publish.id='workspace-youtube';publish.type='button';publish.className='secondary tree-upload';publish.textContent='Publish on YouTube';publish.disabled=!selectedVideoId;publish.title=selectedVideoId?'Publish the selected video on YouTube':'Select one video to publish';publish.onclick=()=>{if(!selectedVideoId)return;publishMenu();};footer.append(publish);body.append(footer);
  }
+
+ function storySetupPage(savedId){
+  page='story-setup';
+  q('#workspace-entry')?.remove();
+  q('#heading').textContent='Name Of Your Story';
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.id==='workspace-new-story'));
+  const key=savedId?'ecco-story-setup:'+savedId:'ecco-new-story-draft';
+  let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
+  const genres=['Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
+  q('#page').innerHTML='<form id="story-setup-form" class="form"><label>Name Of Your Story<input name="title" maxlength="160" required placeholder="Enter your story name"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story idea / summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save story</button></div><p role="status" data-story-status></p></form>';
+  const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');
+  for(const name of ['title','genre','summary'])form.elements[name].value=saved[name]||'';
+  const save=()=>{const data=Object.fromEntries(new FormData(form));localStorage.setItem(key,JSON.stringify(data));status.textContent='Draft saved in this browser.';return data;};
+  form.addEventListener('input',save);form.addEventListener('change',save);
+  form.onsubmit=async event=>{
+   event.preventDefault();
+   const data=save(),button=form.querySelector('[type="submit"]');button.disabled=true;
+   status.textContent='Saving story…';
+   try{
+    let savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');
+    const id=savedId||crypto.randomUUID();
+    localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));
+    savedStories=savedStories.filter(s=>s.id!==id);savedStories.push({id,title:data.title,genre:data.genre});
+    localStorage.setItem('ecco-saved-story-setups',JSON.stringify(savedStories));
+    savedId=id;
+    q('.project .workspace-library')?.remove();storyTree();
+    status.textContent='Saved to Story Library in this browser. Cloud storage is not connected yet.';
+   }catch(error){status.textContent='Could not save story: '+error.message;}
+
+   finally{button.disabled=false;}
+  };
+ }
+
  function productionGroup(){
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
   let group=q('#workspace-production-group');
-  if(!group){group=disclosure('Tell Your Story','ecco-production-expanded');group.id='workspace-production-group';nav.append(group);group.querySelector('summary').addEventListener('click',()=>{if(!group.open)q('#workspace-new-story')?.click();});}
+  if(!group){group=disclosure('Tell Your Story','ecco-production-expanded');group.id='workspace-production-group';nav.append(group);}
   const body=group.querySelector('.workspace-library-content');
-  let start=q('#workspace-new-story');if(!start){start=document.createElement('button');start.type='button';start.id='workspace-new-story';start.className='tree-create';start.textContent='+ Name of the New Video';start.onclick=()=>{const original=q('#new-story');if(original){original.click();const form=q('#new-story-form');if(form){form.querySelector('h2').textContent='Name of the New Video';const title=form.querySelector('input[name="title"]');title.placeholder='Name of the New Video';title.focus();}nav.querySelectorAll('button.active').forEach(b=>b.classList.remove('active'));start.classList.add('active');}else notice('Wait for the workspace to connect.');};body.prepend(start);}
+  let start=q('#workspace-new-story');if(!start){start=document.createElement('button');start.type='button';start.id='workspace-new-story';start.className='tree-create';start.textContent='+ Name Of Your Story';start.onclick=()=>navigate('story-setup');body.prepend(start);}
   for(const button of [...nav.querySelectorAll('button[data-page]')]){
    const page=button.dataset.page;
    if(['characters','review','publish'].includes(page)){button.remove();continue;}
