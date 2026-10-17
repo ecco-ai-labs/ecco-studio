@@ -327,3 +327,10 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 #workspace-menus #education-menu>summary:hover{background:#302a54}
 #workspace-menus #education-menu[open]>summary,
 #workspace-menus #education-menu>summary:is(:active,:focus-visible){background:#38305e;color:var(--accent,#ffdc24)!important;box-shadow:inset 3px 0 var(--accent,#ffdc24);border-radius:7px}
+
+/* Shared interaction treatment for every top-ribbon action. */
+.workspace-ribbon :is(button,.workspace-menu>summary){border-radius:7px}
+.workspace-ribbon :is(button:not(:disabled),.workspace-menu>summary):hover{background:#302a54!important}
+.workspace-ribbon button:not(:disabled):is(:active,:focus-visible,.active,.selected,[aria-pressed="true"],[aria-expanded="true"]),
+.workspace-ribbon .workspace-menu[open]>summary,
+.workspace-ribbon .workspace-menu>summary:is(:active,:focus-visible){background:#38305e!important;color:var(--accent,#ffdc24)!important;box-shadow:inset 3px 0 var(--accent,#ffdc24)!important;border-radius:7px}
