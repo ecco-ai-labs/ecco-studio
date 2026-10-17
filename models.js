@@ -3,7 +3,7 @@ const MODEL_CATEGORIES={images:{title:'Image generation',models:['sdxl','qwen-im
 const MODEL_CATALOG={
  'sdxl':{name:'SDXL Base 1.0',defaults:{resolution:'1024x576',steps:25,cfg:7,seed:20261011,sampler:'dpmpp_2m',scheduler:'karras'},sizes:['1024x576','1024x1024','768x1024']},
  'qwen-image-2512':{name:'Qwen-Image-2512',defaults:{resolution:'1664x928',steps:50,cfg:4,seed:42},sizes:['1664x928','1328x1328','928x1664']},
- 'flux-klein-4b':{name:'FLUX.2 klein 4B Base',pending:true,defaults:{resolution:'1024x1024',steps:50,cfg:4,seed:42},sizes:['1024x1024']},
+ 'flux-klein-4b':{name:'FLUX.2 klein 4B Base',defaults:{resolution:'1024x1024',steps:50,cfg:4,seed:42},sizes:['1024x1024']},
  'preview':{name:'Storyboard preview (no AI motion)',defaults:{}},
  'wan-5b':{name:'Wan 2.2 TI2V 5B',defaults:{resolution:'704x384',steps:20,cfg:5,seed:42},sizes:['704x384','1280x704']},
  'wan-a14b':{name:'Wan 2.2 I2V A14B',pending:true,defaults:{resolution:'1280x720',steps:20,cfg:3.5,seed:42},sizes:['1280x720']},
