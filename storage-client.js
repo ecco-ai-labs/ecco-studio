@@ -2,39 +2,75 @@
 (() => {
  'use strict';
  const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net';
+ let connecting=false,verified=false;
  let key=sessionStorage.getItem('ecco-storage-access')||'';
  const compact=document.createElement('style');compact.textContent='#storage-access-dialog{width:min(480px,calc(100vw - 32px))}#storage-access-dialog .row{justify-content:flex-end;flex-wrap:wrap;gap:8px}#storage-access-dialog .row>button{flex:0 0 auto;padding:6px 10px;font-size:12px;min-height:30px}#storage-access-dialog [data-disconnect]{margin-right:auto;background:transparent;color:var(--muted)}';document.head.append(compact);
  const gpuAPI=api;
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','youtube/connect','youtube/publish','github/sync','billing/connect','billing/refresh']);
- window.EccoStorage={get ready(){return Boolean(key);},endpoint,open:dialog};
+ window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog};
+ async function storageRequest(path,body,accessKey=key){
+  if(!accessKey)throw Error('Connect your saved workspace from Account → Storage. No GPU is needed.');
+  let response;
+  try{
+   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.timeout(path.startsWith('media/')?120000:20000),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
+   if(!response.ok){
+    let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
+    try{message=(await response.json()).error||message;}catch{}
+    throw Error(message);
+   }
+   if(path.startsWith('media/'))return {buffer:await response.arrayBuffer(),mime:response.headers.get('Content-Type')};
+   const data=await response.json();
+   if(path==='state'&&(!Array.isArray(data.records)||!data.config))throw Error('Storage returned an invalid workspace response.');
+   return data;
+  }catch(error){
+   if(error.name==='TimeoutError')throw Error('Storage did not respond within 20 seconds. Try again.');
+   if(error instanceof TypeError)throw Error('Cannot reach storage from this browser. The connection may be blocked or unavailable.');
+   throw error;
+  }
+ }
  api=async function(path,body){
   if(generation.has(path))return gpuAPI(path,body);
-  if(!key)throw Error('Connect your saved workspace from Account → Storage. No GPU is needed.');
-  const response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.timeout(path.startsWith('media/')?120000:20000),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+key,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
-  if(!response.ok){let message='Storage request failed ('+response.status+').';try{message=(await response.json()).error||message;}catch{}throw Error(message);}
-  if(path.startsWith('media/'))return {buffer:await response.arrayBuffer(),mime:response.headers.get('Content-Type')};
-  const data=await response.json();
-  if(path==='state'&&gpuConnected()){
-   try{const gpu=await gpuAPI('state');data.config={...data.config,...gpu.config,storage:data.config.storage};}
-   catch{data.config.runtime={};}
+  const data=await storageRequest(path,body);
+  if(path==='state'){
+   verified=true;
+   if(gpuConnected()){try{const gpu=await gpuAPI('state');data.config={...data.config,...gpu.config,storage:data.config.storage};}catch{data.config.runtime={};}}
   }
   return data;
  };
+ function counts(){const active=state.records.filter(r=>!r.deleted);return active.filter(r=>r.kind==='asset'&&r.media==='image').length+' images · '+active.filter(r=>r.kind==='story').length+' stories';}
+ function disconnect(){key='';verified=false;sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');}
  function dialog(){
   let modal=document.querySelector('#storage-access-dialog');
   if(!modal){modal=document.createElement('dialog');modal.id='storage-access-dialog';document.body.append(modal);}
+  if(modal.open)return;
+  if(verified&&key){
+   modal.innerHTML='<div class="form"><h2>Workspace storage</h2><p role="status">Connected · '+counts()+'</p><p class="help">Saved libraries are available independently of your GPU.</p><div class="row"><button type="button" class="secondary" data-disconnect>Disconnect</button><button type="button" data-close>Done</button></div></div>';
+   modal.querySelector('[data-close]').onclick=()=>modal.close();
+   modal.querySelector('[data-disconnect]').onclick=()=>{disconnect();modal.close();};
+   modal.showModal();return;
+  }
   modal.innerHTML='<form class="form" novalidate><h2>Workspace storage</h2><p>Your images, videos, labels and storyboards live on the RunPod network volume. GPU connection is separate.</p><label>Private storage access key<input name="key" type="password" autocomplete="off" required></label><p class="help">Kept only for this browser tab’s session. Never sent to GitHub.</p><p role="status"></p><div class="row"><button type="submit">Connect storage</button><button type="button" class="secondary" data-close>Cancel</button><button type="button" class="secondary" data-disconnect>Disconnect storage</button></div></form>';
   modal.querySelector('[data-close]').onclick=()=>modal.close();
-  modal.querySelector('[data-disconnect]').onclick=()=>{key='';sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');modal.close();};
+  modal.querySelector('[data-disconnect]').hidden=true;
   modal.querySelector('form').onsubmit=async event=>{
    event.preventDefault();const form=event.target,button=form.querySelector('[type=submit]'),status=form.querySelector('[role=status]');
    const entered=form.elements.key.value.trim();
    if(entered.length<32){status.textContent='Paste the complete private storage access key, then click Connect storage.';return;}
    button.disabled=true;button.textContent='Connecting…';status.textContent='Connecting to your saved workspace…';
-   const old=key;key=entered;
-   try{await api('state');status.textContent='Storage reached. Loading your libraries…';if(!await refresh())throw Error('Storage accepted the key, but the libraries could not load. Please try again.');sessionStorage.setItem('ecco-storage-access',key);form.elements.key.value='';modal.close();navigate('library');for(const selector of ['#workspace-library-group','#image-library-nav > details']){const section=document.querySelector(selector);if(section)section.open=true;}const images=state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted).length;const stories=state.records.filter(r=>r.kind==='story'&&!r.deleted).length;notice('Storage connected · '+images+' images · '+stories+' stories loaded.');}
-   catch(error){key=old;status.textContent=error.name==='TimeoutError'?'Storage did not respond within 20 seconds. Please try again.':error instanceof TypeError?'The browser could not reach storage. Check your network connection and try again.':error.message;}
-   finally{button.disabled=false;button.textContent='Connect storage';}
+   connecting=true;
+   const close=modal.querySelector('[data-close]');close.disabled=true;
+   try{
+    const next=await storageRequest('state',undefined,entered);
+    status.textContent='Storage reached. Loading your libraries…';
+    // Reuse this response: no second state fetch, and render failures stay visible.
+    const previousKey=key;key=entered;
+    try{await refresh(next,true);navigate('library');}catch(error){key=previousKey;throw Error('Storage connected, but the library could not display: '+error.message);}
+    sessionStorage.setItem('ecco-storage-access',key);verified=true;form.elements.key.value='';
+    for(const selector of ['#workspace-library-group','#image-library-nav > details']){const section=document.querySelector(selector);if(section)section.open=true;}
+    notice('Connected · '+counts());modal.close();
+   }catch(error){status.textContent=error.message;status.setAttribute('role','alert');}
+   finally{connecting=false;button.disabled=false;button.textContent='Connect storage';close.disabled=false;}
+
   };
   modal.showModal();
  }
