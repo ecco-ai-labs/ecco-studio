@@ -377,12 +377,35 @@
   };render();journeyGuide();librarySelection();
  }
 
+
+ function dayChecklists(body){
+  if(body.querySelector('#learning-days'))return;
+  const key='ecco-learning-days';let days,selected=0,message='';
+  try{days=JSON.parse(localStorage.getItem(key)||'null');}catch{}
+  if(!Array.isArray(days)||!days.length)days=[{name:'Day 1',items:['Generate an image','Approve an image','Save a storyboard','Render a video','Connect GitHub','Connect YouTube'].map(text=>({text,done:false}))}];
+  days=days.filter(d=>d&&typeof d.name==='string'&&Array.isArray(d.items)).map(d=>({name:d.name,items:d.items.filter(i=>i&&typeof i.text==='string').map(i=>({text:i.text,done:!!i.done}))}));
+  if(!days.length)days=[{name:'Day 1',items:[]}];
+  const root=document.createElement('section');root.id='learning-days';body.append(root);
+  const save=()=>{try{localStorage.setItem(key,JSON.stringify(days));message='Saved in this browser.';}catch{message='Could not save. Keep this page open and copy your checklist.';}};
+  const render=()=>{
+   const day=days[selected];
+   root.innerHTML='<div class="row"><label>Daily checklist<select id="learning-day-select">'+days.map((d,i)=>'<option value="'+i+'" '+(i===selected?'selected':'')+'>'+html(d.name)+'</option>').join('')+'</select></label><button type="button" class="secondary" id="learning-add-day">+ Add Day</button></div><label>Day name<input id="learning-day-name" maxlength="80" value="'+html(day.name)+'"></label><ol class="learning-day-items">'+day.items.map((item,i)=>'<li><input type="checkbox" data-day-check="'+i+'" aria-label="Complete '+html(item.text)+'" '+(item.done?'checked':'')+'><input type="text" data-day-text="'+i+'" aria-label="Checklist item '+(i+1)+'" maxlength="300" value="'+html(item.text)+'"></li>').join('')+'</ol><form id="learning-add-item"><label>New checklist item<input name="item" maxlength="300" required placeholder="Add a task for this day"></label><button type="submit" class="secondary">+ Add checklist item</button></form><p class="help" role="status">'+html(message||'Checklists are saved in this browser only.')+'</p>';
+   root.querySelector('#learning-day-select').onchange=e=>{selected=+e.target.value;render();};
+   root.querySelector('#learning-add-day').onclick=()=>{days.push({name:'Day '+(days.length+1),items:[]});selected=days.length-1;save();render();root.querySelector('#learning-day-name').focus();};
+   root.querySelector('#learning-day-name').onchange=e=>{day.name=e.target.value.trim()||'Day '+(selected+1);save();render();};
+   root.querySelectorAll('[data-day-check]').forEach(b=>b.onchange=()=>{day.items[+b.dataset.dayCheck].done=b.checked;save();root.querySelector('[role=status]').textContent=message;});
+   root.querySelectorAll('[data-day-text]').forEach(b=>b.onchange=()=>{const text=b.value.trim();if(text)day.items[+b.dataset.dayText].text=text;else b.value=day.items[+b.dataset.dayText].text;save();});
+   root.querySelector('#learning-add-item').onsubmit=e=>{e.preventDefault();const text=e.target.elements.item.value.trim();if(!text)return;day.items.push({text,done:false});save();render();root.querySelector('[name=item]').focus();};
+  };render();
+ }
+
  function educationMenu(){
   const menus=q('#workspace-menus'),list=q('#checklist');if(!menus||!list)return;
   let menu=q('#education-menu');if(!menu){menu=document.createElement('details');menu.id='education-menu';menu.className='workspace-menu';menu.innerHTML='<summary>Education and Learning<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items education-content"><h3>Day 1 checklist</h3></div>';menu.addEventListener('toggle',()=>{if(menu.open)menus.querySelectorAll('details').forEach(other=>{if(other!==menu)other.open=false;});});menus.append(menu);}
   const body=menu.querySelector('.education-content');
   if(!body.querySelector('.education-links')){const links=document.createElement('div');links.className='education-links';for(const topic of learningTopics){const b=document.createElement('button');b.type='button';b.textContent=topic.title;b.onclick=()=>learningPage(topic.id);links.append(b);}const b=document.createElement('button');b.type='button';b.textContent='Development planner';b.onclick=developmentPlanner;links.append(b);body.prepend(links);}
   if(list.parentElement!==body){const heading=list.parentElement.querySelector('.eyebrow');if(heading)heading.remove();body.append(list);}
+  list.hidden=true;const oldHeading=body.querySelector('h3');if(oldHeading)oldHeading.hidden=true;dayChecklists(body);
  }
  function welcomePage(){
   page='welcome';document.body.classList.add('workspace-entry-mode');
