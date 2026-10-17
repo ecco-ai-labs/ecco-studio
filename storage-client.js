@@ -77,7 +77,8 @@
    input.type=show?'text':'password';toggle.setAttribute('aria-pressed',String(show));toggle.setAttribute('aria-label',show?'Hide key':'Show key');toggle.title=show?'Hide key':'Show key';toggle.querySelector('[data-eye-slash]').style.display=show?'':'none';
   };
   modal.querySelector('form').onsubmit=async event=>{
-   event.preventDefault();const form=event.target,button=form.querySelector('[type=submit]'),status=form.querySelector('[role=status]');
+   event.preventDefault();const form=event.target,button=form.querySelector('[type=submit]'),status=form.querySelector('[role=status],[role=alert]');
+   status.setAttribute('role','status');status.style.color='';
    const entered=form.elements.key.value.trim();
    if(entered.length<32){status.textContent='Paste the complete private storage access key, then click Connect storage.';return;}
    button.disabled=true;button.textContent='Connecting…';status.textContent='Connecting to your saved workspace…';
