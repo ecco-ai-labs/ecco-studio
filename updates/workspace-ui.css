@@ -160,3 +160,10 @@ body.workspace-entry-mode #workspace-entry .entry-logo-particle{animation-play-s
 #workspace-copyright,#workspace-entry .entry-copyright{color:var(--accent,#ffdc24)!important}
 
 #workspace-trash,#workspace-copyright,#workspace-entry .entry-copyright{color:#fff!important}
+
+/* Activity drawer uses the navigation palette and compact controls. */
+#activity-panel{background:#201d44;color:#eeebf5;border-left:1px solid #45405e;padding:20px}
+#activity-panel button{width:auto;min-width:0;min-height:30px;padding:6px 10px;font-size:12px;line-height:1.4;flex:0 0 auto}
+#activity-panel #ecco-activity-tabs{display:flex;justify-content:flex-start;gap:8px;margin:12px 0}
+#activity-panel #ecco-activity-tabs button{flex:0 0 auto;width:auto}
+#activity-panel #close-activity{width:30px;height:30px;padding:0;font-size:18px}
