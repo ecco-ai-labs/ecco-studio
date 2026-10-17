@@ -3,6 +3,7 @@
  'use strict';
  const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net';
  let key=sessionStorage.getItem('ecco-storage-access')||'';
+ const compact=document.createElement('style');compact.textContent='#storage-access-dialog{width:min(480px,calc(100vw - 32px))}#storage-access-dialog .row{justify-content:flex-end;flex-wrap:wrap;gap:8px}#storage-access-dialog .row>button{flex:0 0 auto;padding:6px 10px;font-size:12px;min-height:30px}#storage-access-dialog [data-disconnect]{margin-right:auto;background:transparent;color:var(--muted)}';document.head.append(compact);
  const gpuAPI=api;
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','youtube/connect','youtube/publish','github/sync','billing/connect','billing/refresh']);
  window.EccoStorage={get ready(){return Boolean(key);},endpoint,open:dialog};
@@ -22,7 +23,7 @@
  function dialog(){
   let modal=document.querySelector('#storage-access-dialog');
   if(!modal){modal=document.createElement('dialog');modal.id='storage-access-dialog';document.body.append(modal);}
-  modal.innerHTML='<form class="form" novalidate><h2>Workspace storage</h2><p>Your images, videos, labels and storyboards live on the RunPod network volume. GPU connection is separate.</p><label>Private storage access key<input name="key" type="password" autocomplete="off" required></label><p class="help">Kept only for this browser tab’s session. Never sent to GitHub.</p><p role="status"></p><div class="row"><button type="submit">Connect storage</button><button type="button" data-close>Cancel</button><button type="button" data-disconnect>Disconnect storage</button></div></form>';
+  modal.innerHTML='<form class="form" novalidate><h2>Workspace storage</h2><p>Your images, videos, labels and storyboards live on the RunPod network volume. GPU connection is separate.</p><label>Private storage access key<input name="key" type="password" autocomplete="off" required></label><p class="help">Kept only for this browser tab’s session. Never sent to GitHub.</p><p role="status"></p><div class="row"><button type="submit">Connect storage</button><button type="button" class="secondary" data-close>Cancel</button><button type="button" class="secondary" data-disconnect>Disconnect storage</button></div></form>';
   modal.querySelector('[data-close]').onclick=()=>modal.close();
   modal.querySelector('[data-disconnect]').onclick=()=>{key='';sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');modal.close();};
   modal.querySelector('form').onsubmit=async event=>{
@@ -31,7 +32,7 @@
    if(entered.length<32){status.textContent='Paste the complete private storage access key, then click Connect storage.';return;}
    button.disabled=true;button.textContent='Connecting…';status.textContent='Connecting to your saved workspace…';
    const old=key;key=entered;
-   try{await api('state');status.textContent='Storage reached. Loading your libraries…';if(!await refresh())throw Error('Storage accepted the key, but the libraries could not load. Please try again.');sessionStorage.setItem('ecco-storage-access',key);form.elements.key.value='';modal.close();notice('Saved workspace connected. GPU is not required for library access.');}
+   try{await api('state');status.textContent='Storage reached. Loading your libraries…';if(!await refresh())throw Error('Storage accepted the key, but the libraries could not load. Please try again.');sessionStorage.setItem('ecco-storage-access',key);form.elements.key.value='';modal.close();navigate('library');for(const selector of ['#workspace-library-group','#image-library-nav > details']){const section=document.querySelector(selector);if(section)section.open=true;}const images=state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted).length;const stories=state.records.filter(r=>r.kind==='story'&&!r.deleted).length;notice('Storage connected · '+images+' images · '+stories+' stories loaded.');}
    catch(error){key=old;status.textContent=error.name==='TimeoutError'?'Storage did not respond within 20 seconds. Please try again.':error instanceof TypeError?'The browser could not reach storage. Check your network connection and try again.':error.message;}
    finally{button.disabled=false;button.textContent='Connect storage';}
   };
