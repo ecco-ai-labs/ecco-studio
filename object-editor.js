@@ -105,7 +105,7 @@ editImageDialog=function(aid){
    if(!loaded)throw Error('Wait for the image to load.');
    const saved=await api('object-edits',{asset_id:source.id,recipe});dirty=false;await refresh();return saved;
  }
- q('oe-save').onclick=async()=>{q('oe-save').disabled=true;try{status('Saving full-resolution edited copy…');const saved=await saveCopy();dialog.close();navigate('images');notice('Edited copy saved with '+recipe.objects.length+' object(s). Original preserved.');}catch(e){status(e.message);}finally{q('oe-save').disabled=false;}};
+ q('oe-save').onclick=async()=>{q('oe-save').disabled=true;try{status('Saving full-resolution edited copy…');const saved=await saveCopy();dialog.close();navigate('images');notice('Edited copy saved with '+recipe.objects.length+' object(s). Original preserved.');}catch(e){window.EccoErrors?.show(e);status(e.message);}finally{q('oe-save').disabled=false;}};
  q('oe-ai').onclick=async()=>{
    const o=obj(),changes=Object.entries(o.ai).filter(([,v])=>v.trim()).map(([k,v])=>k+': '+v).join('; '),extra=q('oe-instruction').value.trim();
    if(!changes&&!extra)return status('Specify an AI attribute or additional instruction.');
@@ -117,7 +117,7 @@ editImageDialog=function(aid){
      const prompt='Edit only '+o.name+' ('+types[o.type].name+'), in the region x '+b[0]+'%, y '+b[1]+'%, width '+b[2]+'%, height '+b[3]+'%. '+changes+'. '+extra+'. Preserve other objects, background, identity and composition.';
      const job=await api('image-edits',{asset_id:ref.id,story_id:asset.story_id||LEGACY_STORY,prompt});
      localStorage.setItem('ecco-image-job:'+(asset.story_id||LEGACY_STORY),job.id);dirty=false;dialog.close();await refresh();navigate('images');notice('AI edit queued. Exact region preservation requires review.');
-   }catch(e){status(e.message);}finally{q('oe-ai').disabled=!state.config.models_ready?.['qwen-image-edit-2511'];}
+   }catch(e){window.EccoErrors?.show(e);status(e.message);}finally{q('oe-ai').disabled=!state.config.models_ready?.['qwen-image-edit-2511'];}
  };
  controls();dialog.showModal();q('oe-save').disabled=true;
  const image=new Image();image.onload=()=>{w=image.naturalWidth;h=image.naturalHeight;if(w*h>20000000){status('This image exceeds the 20 megapixel editor limit.');return;}canvas.width=w;canvas.height=h;ctx.drawImage(image,0,0);base=ctx.getImageData(0,0,w,h);loaded=true;q('oe-save').disabled=false;status(w+' × '+h+' · original resolution. Paint a region to begin.');draw();};
