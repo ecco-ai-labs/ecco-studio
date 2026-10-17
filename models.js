@@ -6,7 +6,7 @@ const MODEL_CATALOG={
  'flux-klein-4b':{name:'FLUX.2 klein 4B Base',defaults:{resolution:'1024x1024',steps:50,cfg:4,seed:42},sizes:['1024x1024']},
  'preview':{name:'Storyboard preview (no AI motion)',defaults:{}},
  'wan-5b':{name:'Wan 2.2 TI2V 5B',defaults:{resolution:'704x384',steps:20,cfg:5,seed:42},sizes:['704x384','1280x704']},
- 'wan-a14b':{name:'Wan 2.2 I2V A14B',pending:true,defaults:{resolution:'1280x720',steps:20,cfg:3.5,seed:42},sizes:['1280x720']},
+ 'wan-a14b':{name:'Wan 2.2 I2V A14B',defaults:{resolution:'1280x720',steps:20,cfg:3.5,seed:42},sizes:['1280x720']},
  'manual':{name:'Manual story editor (no model)',defaults:{}},
  'qwen-story':{name:'Qwen language model — planned',pending:true,defaults:{temperature:0.7,max_tokens:2048}},
  'silent':{name:'Silent video / script only',defaults:{}},
