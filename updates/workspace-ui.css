@@ -199,3 +199,7 @@ body:not(.workspace-entry-mode) :is(.asset-icon,.workspace-delete,.storage-key-t
 #workspace-menus .workspace-menu>summary{display:flex;align-items:center}
 
 #page .section-head>.row{display:flex!important;align-items:flex-end!important;gap:10px;flex-wrap:wrap}#page .section-head>.row>button{height:32px!important;min-height:32px!important;white-space:nowrap!important;flex:0 0 auto;align-self:flex-end}#page .library-view-label{padding:0!important;margin:0}
+
+/* Uniform yellow feedback for pressed, focused and selected actions. */
+body:not(.workspace-entry-mode) button:not(:disabled):is(:active,:focus,.active,.selected,[aria-pressed="true"],[aria-selected="true"]){color:var(--accent,#ffdc24)!important;background:#38305e!important}
+body:not(.workspace-entry-mode) summary:is(:active,:focus-visible),body:not(.workspace-entry-mode) details[open]>summary{color:var(--accent,#ffdc24)!important}
