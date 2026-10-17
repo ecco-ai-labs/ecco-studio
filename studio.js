@@ -37,7 +37,7 @@ window.addEventListener('message',async e=>{
  if(e.data?.type!=='ecco-response')return;const item=pending.get(e.data.id);if(!item)return;clearTimeout(item.timer);pending.delete(e.data.id);if(e.data.error)item.reject(Error(e.data.error));else item.resolve(e.data.result);
 });
 function connectGPU(trigger){
- if(!['generate-image','generate-video','generate-audio'].includes(trigger)||gpuConnected())return;
+ if(!['generate-image','generate-video','generate-audio','accelerator-status'].includes(trigger)||gpuConnected())return;
 
  let dialog=$('#gpu-picker-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='gpu-picker-dialog';dialog.style.width='min(900px,94vw)';dialog.innerHTML='<div class="section-head"><h2>Connect a GPU workspace</h2><button type="button" class="secondary">Close</button></div><div id="gpu-picker-content"></div>';dialog.querySelector('button').onclick=()=>dialog.close();document.body.append(dialog);}
  EccoGPUPicker.mount($('#gpu-picker-content'),gpu=>{gpuURL=gpu.url;gpuOrigin=gpu.origin;connected=false;bridgeWindow=window.open(gpu.url+'connect','ecco-gpu-connection','width=640,height=520');if(!bridgeWindow){notice('Allow the GPU connection window, then select your GPU again.',true);return;}dialog.close();document.body.classList.remove('workspace-entry-mode');navigate('empty');notice('Click Connect this session in the GPU connection window. Studios stays on this GitHub page.');});
