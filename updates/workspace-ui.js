@@ -270,7 +270,7 @@
    status.textContent='Saving story…';
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
-    data.cloudId=created.id;saved=data;activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);
+    data.cloudId=created.id;saved=data;localStorage.setItem(key,JSON.stringify(data));activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);
     draft=loadDraft();draft.title=data.title;draft.story=data.summary;persistDraft();await refresh();
     let savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');
     const id=savedId||crypto.randomUUID();
