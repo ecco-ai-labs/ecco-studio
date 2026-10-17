@@ -469,7 +469,7 @@
 /* Accelerator color reflects its actual connection state. */
 (()=>{const style=document.createElement('style');style.textContent=`
 #connected-accelerator{background:transparent!important;color:#eeebf5!important;border:1px solid transparent;box-shadow:none}
-#connected-accelerator.accelerator-connected{background:var(--accent,#ffdc24)!important;color:#19152b!important}
+#connected-accelerator.accelerator-connected::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent,#ffdc24);margin-right:7px;vertical-align:middle}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
 
