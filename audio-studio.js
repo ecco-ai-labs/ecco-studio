@@ -1,0 +1,116 @@
+'use strict';
+// GitHub Pages UI. Generation and saved audio require an independent application service.
+(() => {
+ const languages=['Hindi','Urdu','English','Tamil','Punjabi','Assamese','Bengali','Bodo','Dogri','Gujarati','Kannada','Kashmiri','Konkani','Maithili','Malayalam','Manipuri','Marathi','Nepali','Odia','Sanskrit','Santali','Sindhi','Telugu'];
+ const emotions=language=>language==='English'?['neutral','happy','sad','angry','enunciated','confused','whisper']:['neutral','happy','sad','angry','disgust','fear','surprise'];
+ const q=s=>document.querySelector(s);
+ const blank=()=>({text:'',language:'Hindi',emotion:'neutral',voice:'en_female'});
+ const key=()=>`ecco-audio-draft:${activeStory}`;
+ let draft,story,signature='',submitting=false,service=null,recordings=[],lastJob=null,polling=false;
+ const serviceReady=()=>!!service;
+ MODEL_CATALOG['indic-mio']={name:'Indic-Mio · multilingual speech',license:'Apache-2.0',defaults:{}};
+ if(!MODEL_CATEGORIES.voice.models.includes('indic-mio'))MODEL_CATEGORIES.voice.models.unshift('indic-mio');
+ MODEL_CATEGORIES.voice.title='Audio & narration';
+ names.audio='Audio Studio';
+ const oldStatus=modelStatus;
+ modelStatus=function(id){return id==='indic-mio'?'Apache 2.0 · 22 Indian languages + English. '+(serviceReady()?'Independent audio service connected.':'Generation awaits the independent audio service. You can prepare your script now.'):oldStatus(id);};
+ const oldAvailable=modelAvailable;
+ modelAvailable=function(id){return id==='indic-mio'?serviceReady():oldAvailable(id);};
+ function load(){
+  story=activeStory;
+  try{draft=JSON.parse(localStorage.getItem(key()));}catch{draft=null;}
+  if(!draft||!Array.isArray(draft.lines)||!draft.lines.length)draft={title:'',speed:1,pitch:0,pause:0.35,lines:[blank()]};
+ }
+ function save(){localStorage.setItem(key(),JSON.stringify(draft));}
+ const options=(values,value)=>values.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v.charAt(0).toUpperCase()+v.slice(1))}</option>`).join('');
+ function lineHTML(line,index){
+  return `<fieldset class="audio-line" data-line="${index}"><legend>Line ${index+1}</legend><div class="audio-line-controls"><label>Language<select data-field="language">${options(languages,line.language)}</select></label><label>Voice<select data-field="voice"><option value="en_female" ${line.voice==='en_female'?'selected':''}>Voice A · feminine</option><option value="en_male" ${line.voice==='en_male'?'selected':''}>Voice B · masculine</option></select></label><label>Emotion<select data-field="emotion">${options(emotions(line.language),line.emotion)}</select></label><button type="button" class="secondary small" data-remove-line="${index}" aria-label="Remove line ${index+1}" ${draft.lines.length===1?'disabled':''}>Remove</button></div><label>Spoken text<textarea data-field="text" dir="auto" maxlength="500" rows="3" required placeholder="Write in the language you want spoken. You can mix languages within a line.">${esc(line.text)}</textarea></label></fieldset>`;
+ }
+ function drawLines(){
+  q('#audio-lines').innerHTML=draft.lines.map(lineHTML).join('');
+  q('#audio-lines').oninput=e=>{
+   const field=e.target.dataset.field,root=e.target.closest('[data-line]');if(!field||!root)return;
+   const line=draft.lines[Number(root.dataset.line)];line[field]=e.target.value;
+   if(field==='language'){
+    if(!emotions(line.language).includes(line.emotion))line.emotion='neutral';
+    root.querySelector('[data-field="emotion"]').innerHTML=options(emotions(line.language),line.emotion);
+   }
+   save();
+  };
+  q('#audio-lines').onclick=e=>{const button=e.target.closest('[data-remove-line]');if(!button)return;draft.lines.splice(Number(button.dataset.removeLine),1);save();drawLines();};
+  q('#add-audio-line').disabled=draft.lines.length>=20;
+ }
+ const audioAssets=()=>recordings.filter(a=>!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
+ function audioCard(a){return `<article class="card audio-card"><div class="card-body"><span class="badge">${esc(a.stage||'dev')}</span><h3>${esc(a.title||'Audio recording')}</h3><audio controls preload="metadata" data-audio-id="${esc(a.id)}" aria-label="${esc(a.title||'Audio recording')}"></audio><p class="help">Indic-Mio · WAV${a.duration?' · '+esc(a.duration)+' sec':''}</p><details><summary>Script</summary><p class="audio-transcript" dir="auto">${esc(a.prompt||'')}</p></details><div class="actions"><button type="button" class="small" data-download-audio="${esc(a.id)}">Download WAV</button></div></div></article>`;}
+ async function hydrateAudio(){
+  const current=service;if(!current)return;
+  for(const element of document.querySelectorAll('audio[data-audio-id]')){
+   try{const url=await current.mediaURL(element.dataset.audioId);if(current!==service)return;const parsed=new URL(url);if(parsed.protocol!=='https:')throw Error('Audio service must return a secure media URL.');element.src=parsed.href;}
+   catch(error){notice(error.message,true);}
+  }
+  document.querySelectorAll('[data-download-audio]').forEach(button=>button.onclick=async()=>{try{await current.download(button.dataset.downloadAudio);}catch(error){notice(error.message,true);}});
+ }
+ async function poll(){
+  if(!service||polling||page!=='audio')return;
+  const current=service,requestedStory=activeStory;polling=true;
+  try{
+   const next=await current.list({story_id:requestedStory});
+   if(current!==service||requestedStory!==activeStory)return;
+   recordings=next;
+   const id=localStorage.getItem('ecco-audio-job:'+requestedStory);
+   lastJob=id?await current.job(id):null;
+   update();
+  }catch(error){if(page==='audio')notice(error.message,true);}finally{polling=false;}
+ }
+ // The independent application service supplies this adapter after authentication.
+ // Never attach the legacy RunPod/Jupyter bridge here.
+ window.EccoAudioStudio={connect(adapter){
+  if(!adapter||adapter.storageIndependentOfGPU!==true||!['list','generate','job','mediaURL','download'].every(name=>typeof adapter[name]==='function'))throw Error('An authenticated, GPU-independent audio service is required.');
+  service=adapter;recordings=[];lastJob=null;signature='';update();poll();
+ },disconnect(){service=null;recordings=[];lastJob=null;signature='';update();}};
+ function update(){
+  if(page!=='audio'||!q('#audio-form'))return;
+  if(story!==activeStory){render();return;}
+  q('#audio-availability').textContent=modelStatus('indic-mio');
+  const button=q('#generate-audio');
+  button.disabled=submitting||!serviceReady();
+  button.textContent=submitting?'Submitting…':'Generate audio';
+  const job=lastJob;
+  q('#audio-job-status').textContent=job?`${job.status==='done'?'Audio saved.':job.status} ${job.error||job.progress&&job.status==='running'&&job.progress||''}`:'';
+  const list=audioAssets(),next=JSON.stringify(list);
+  if(next!==signature){signature=next;q('#audio-gallery').innerHTML=list.length?list.map(audioCard).join(''):'<p class="help">Saved recordings will appear here when the independent audio service is connected.</p>';hydrateAudio();}
+
+ }
+ function render(){
+  load();signature='';
+  q('#page').innerHTML=`<section class="audio-studio"><p class="intro">Prepare narration or bilingual dialogue with Indic-Mio. Add a line for each speaker or language. Audio generation will be enabled after the independent service is connected.</p><form id="audio-form" class="panel form"><div class="audio-heading"><div><h2>Indic-Mio</h2><p class="help">Open source · Apache 2.0</p></div><a href="https://huggingface.co/SPRINGLab/Indic-Mio" target="_blank" rel="noopener noreferrer">Model details ↗</a></div><p id="audio-availability" class="help" role="status"></p><label>Recording title<input name="title" maxlength="160" value="${esc(draft.title)}" placeholder="Scene 1 · opening dialogue"></label><div id="audio-lines"></div><button type="button" class="secondary" id="add-audio-line">+ Add dialogue line</button><div class="audio-output-controls"><label>Speed<select name="speed">${[0.75,1,1.25,1.5].map(v=>`<option value="${v}" ${Number(draft.speed)===v?'selected':''}>${v}×</option>`).join('')}</select></label><label>Pitch<select name="pitch">${[-4,-2,0,2,4].map(v=>`<option value="${v}" ${Number(draft.pitch)===v?'selected':''}>${v>0?'+':''}${v} semitones</option>`).join('')}</select></label><label>Pause between lines<select name="pause">${[0,0.35,0.75,1,2].map(v=>`<option value="${v}" ${Number(draft.pause)===v?'selected':''}>${v} seconds</option>`).join('')}</select></label></div><p class="help">Write in the original script for best pronunciation. Language selects the available emotions; it does not translate text. Use *word* for emphasis. Voice presets may carry an accent; dialect quality varies.</p><div class="row"><button id="generate-audio">Generate audio</button><span class="help">Draft saved in this browser · up to 4,000 characters</span></div><p id="audio-job-status" role="status"></p></form><section aria-label="Audio files"><div class="section-head"><h2>Audio files</h2><span class="help">Saved in this story’s library</span></div><div class="cards" id="audio-gallery"></div></section></section>`;
+  drawLines();
+  q('#add-audio-line').onclick=()=>{if(draft.lines.length<20){draft.lines.push({...blank(),voice:draft.lines.at(-1).voice==='en_female'?'en_male':'en_female',language:draft.lines.at(-1).language});save();drawLines();}};
+  q('#audio-form').addEventListener('input',e=>{if(e.target.name){draft[e.target.name]=e.target.name==='title'?e.target.value:Number(e.target.value);save();}});
+  q('#audio-form').onsubmit=async e=>{
+   e.preventDefault();save();
+   if(!serviceReady()){notice('The independent audio service must be connected before generation.',true);return;}
+   if(submitting)return;
+   if(draft.lines.reduce((n,line)=>n+line.text.length,0)>4000){notice('Keep the complete script within 4,000 characters.',true);return;}
+   submitting=true;update();
+   try{const job=await service.generate({...draft,model:'indic-mio',story_id:activeStory});localStorage.setItem('ecco-audio-job:'+activeStory,job.id);notice('Audio queued. You can keep working while it generates.');await poll();}
+   catch(error){notice(error.message,true);}
+   finally{submitting=false;update();}
+  };
+  update();poll();
+ }
+ const oldNavigate=navigate;
+ navigate=function(p){
+  if(p!=='audio')return oldNavigate.apply(this,arguments);
+  document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page='audio';
+  q('#heading').textContent='Audio Studio';
+  document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page==='audio'));
+  render();
+ };
+ setInterval(poll,4000);
+ const nav=q('nav[aria-label="Production stages"]')||q('aside nav');
+ const button=document.createElement('button');button.type='button';button.dataset.page='audio';button.textContent='− Audio Studio';button.addEventListener('click',()=>navigate('audio'));nav.append(button);
+ // Existing workspace observers move the new item into Tell Your Story.
+ const library=q('#workspace-library-group');
+ if(library){const link=document.createElement('button');link.type='button';link.className='secondary';link.textContent='Audio files';link.onclick=()=>{navigate('audio');q('#audio-gallery').scrollIntoView({behavior:'smooth'});};library.append(link);}
+})();
