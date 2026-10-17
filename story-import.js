@@ -21,19 +21,19 @@
   const form=q('#story-setup-form');if(!form||q('#story-pdf-tools'))return;
   let saved={};try{saved=JSON.parse(localStorage.getItem(form.dataset.draftKey||'ecco-new-story-draft')||'{}');}catch{}
   const box=document.createElement('section');box.id='story-pdf-tools';box.className='pdf-import-tools';
-  box.innerHTML='<div class="row"><button type="button" class="secondary" data-upload>Upload PDF</button><button type="button" class="secondary" data-preview disabled>Preview & Select</button><span data-filename></span></div><input type="file" accept=".pdf,application/pdf" hidden><p role="status"></p><details><summary>Extracted story text</summary><label>Source text<textarea name="sourceText" rows="5"></textarea></label><p class="help">Full source stays in this browser; only the 4,000-character summary currently syncs to storage. Keep the original PDF.</p></details>';
+  box.innerHTML='<div class="row"><button type="button" class="secondary" data-upload>Upload PDF</button><button type="button" class="secondary" data-preview disabled>Preview & Select</button><span data-file-wrap hidden><button type="button" class="secondary" data-remove aria-label="Remove uploaded PDF" title="Remove uploaded PDF" style="padding:2px 6px!important;min-height:24px!important">×</button> <span data-filename></span></span></div><input type="file" accept=".pdf,application/pdf" hidden><p role="status"></p><details><summary>Extracted story text</summary><label>Source text<textarea name="sourceText" rows="5"></textarea></label><p class="help">Full source stays in this browser; only the 4,000-character summary currently syncs to storage. Keep the original PDF.</p></details>';
   form.prepend(box);const input=box.querySelector('input'),status=box.querySelector('[role=status]'),source=box.querySelector('textarea'),open=box.querySelector('[data-preview]');
   source.value=saved.sourceText||'';
   box.querySelector('[data-upload]').onclick=()=>input.click();
   let task=null,doc=null,pdfjs=null,pageNumber=1,highlight='',busy=false,observer=null,epoch=0;
   let shells=[],renderQueue=[],rendering=0;
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label','Select story from PDF');
-  dialog.innerHTML='<div class="pdf-dialog-head"><strong>Select story from PDF</strong><button type="button" class="secondary" data-close>Close</button></div><div class="row pdf-page-controls"><button type="button" class="secondary" data-prev>Previous</button><label>Page <select data-page aria-label="PDF page"></select></label><span data-total></span><button type="button" class="secondary" data-next>Next</button><button type="button" class="secondary" data-add disabled>Add highlighted text</button></div><p class="help">Scroll through the PDF and drag to select text across pages. Add highlighted text, then extract your selection.</p><div class="pdf-page-scroll"></div><label class="pdf-selected-label">Selected story text<textarea data-selected rows="3" placeholder="Highlight a passage above, then Add highlighted text."></textarea></label><div class="row"><button type="button" data-extract disabled>Extract selected text as story</button><span role="status"></span></div>';
+  dialog.innerHTML='<div class="pdf-dialog-head"><strong>Select story from PDF</strong><button type="button" class="secondary" data-close>Close</button></div><div class="pdf-page-scroll"></div><label class="pdf-selected-label">Selected story text<textarea data-selected rows="3" placeholder="Highlight text in the PDF to review it here."></textarea></label><div class="row"><button type="button" data-extract disabled>Extract selected text as story</button><span role="status"></span></div>';
   document.body.append(dialog);
-  const selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]'),add=dialog.querySelector('[data-add]'),pageSelect=dialog.querySelector('[data-page]');
-  const controls=()=>{extract.disabled=!selected.value.trim()||busy;add.disabled=!highlight.trim()||busy;dialog.querySelector('[data-prev]').disabled=busy||pageNumber<=1;dialog.querySelector('[data-next]').disabled=busy||!doc||pageNumber>=doc.numPages;pageSelect.disabled=busy;};
+  const selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]');
+  const controls=()=>{extract.disabled=!selected.value.trim()||busy;};
   selected.oninput=controls;
-  const capture=()=>{const selection=window.getSelection(),layer=dialog.querySelector('.pdf-page-scroll');highlight=selection&&selection.rangeCount&&layer.contains(selection.anchorNode)&&layer.contains(selection.focusNode)?selection.toString().trim():'';controls();};
+  const capture=()=>{const selection=window.getSelection(),layer=dialog.querySelector('.pdf-page-scroll');highlight=selection&&selection.rangeCount&&layer.contains(selection.anchorNode)&&layer.contains(selection.focusNode)?selection.toString().trim():'';if(highlight)selected.value=highlight;controls();};
   dialog.querySelector('.pdf-page-scroll').addEventListener('mouseup',capture);
   dialog.querySelector('.pdf-page-scroll').addEventListener('keyup',capture);
   const scroll=dialog.querySelector('.pdf-page-scroll');
@@ -69,7 +69,7 @@
    const shell=shells[pageNumber-1];if(!shell)return;
    enqueue(shell);enqueue(shells[pageNumber]);enqueue(shells[pageNumber-2]);
    scroll.scrollTo({top:shell.offsetTop-scroll.offsetTop,behavior:'instant'});
-   pageSelect.value=String(pageNumber);controls();
+   controls();
   };
   async function preparePages(){
    const generation=epoch,first=await doc.getPage(1);
@@ -87,21 +87,13 @@
    observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting)enqueue(entry.target);},{root:scroll,rootMargin:'150% 0px'});
    shells.forEach(shell=>observer.observe(shell));draw();
   }
-  let scrollFrame=0;
-  scroll.addEventListener('scroll',()=>{
-   if(scrollFrame)return;
-   scrollFrame=requestAnimationFrame(()=>{
-    scrollFrame=0;const y=scroll.getBoundingClientRect().top+Math.min(80,scroll.clientHeight/3);
-    const visible=shells.find(shell=>shell.getBoundingClientRect().bottom>y);
-    if(visible){pageNumber=+visible.dataset.page;pageSelect.value=String(pageNumber);controls();}
-   });
-  },{passive:true});
-  dialog.querySelector('[data-prev]').onclick=()=>{if(pageNumber>1){pageNumber--;draw();}};
-  dialog.querySelector('[data-next]').onclick=()=>{if(doc&&pageNumber<doc.numPages){pageNumber++;draw();}};
-  pageSelect.onchange=()=>{pageNumber=+pageSelect.value;draw();};
-  add.onclick=()=>{if(!highlight)return;const text=[selected.value.trim(),highlight].filter(Boolean).join('\n\n');selected.value=text;highlight='';controls();note.textContent=selected.value.length+' characters selected.';};
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   open.onclick=()=>{dialog.showModal();draw();};
+  box.querySelector('[data-remove]').onclick=async()=>{
+   epoch++;observer?.disconnect();renderQueue=[];shells=[];highlight='';selected.value='';note.textContent='';status.textContent='';
+   dialog.close();scroll.replaceChildren();open.disabled=true;input.value='';box.querySelector('[data-filename]').textContent='';box.querySelector('[data-file-wrap]').hidden=true;
+   const previous=task;task=null;doc=null;controls();if(previous)await previous.destroy().catch(()=>{});
+  };
   input.onchange=async()=>{
    const file=input.files[0];if(!file)return;open.disabled=true;
    try{
@@ -111,8 +103,8 @@
     pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.worker.min.mjs';
     if(!q('#pdf-story-reader-style')){const link=document.createElement('link');link.id='pdf-story-reader-style';link.rel='stylesheet';link.href='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/web/pdf_viewer.css';document.head.append(link);}
     task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,stopAtErrors:true});doc=await task.promise;
-    pageNumber=1;selected.value='';pageSelect.replaceChildren();for(let n=1;n<=doc.numPages;n++){const option=document.createElement('option');option.value=n;option.textContent=n;pageSelect.append(option);}
-    dialog.querySelector('[data-total]').textContent='of '+doc.numPages;box.querySelector('[data-filename]').textContent=file.name;
+    pageNumber=1;selected.value='';
+    box.querySelector('[data-filename]').textContent=file.name;box.querySelector('[data-file-wrap]').hidden=false;
     open.disabled=false;status.textContent='';dialog.showModal();await preparePages();
    }catch(error){window.EccoErrors?.show(error);status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}
   };
