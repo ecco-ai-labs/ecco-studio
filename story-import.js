@@ -66,7 +66,6 @@
     pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.worker.min.mjs';
     if(!q('#pdf-story-reader-style')){const link=document.createElement('link');link.id='pdf-story-reader-style';link.rel='stylesheet';link.href='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/web/pdf_viewer.css';document.head.append(link);}
     task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,stopAtErrors:true});doc=await task.promise;
-    if(doc.numPages>100)throw Error('Use a chapter of 100 pages or fewer.');
     pageNumber=1;selected.value='';pageSelect.replaceChildren();for(let n=1;n<=doc.numPages;n++){const option=document.createElement('option');option.value=n;option.textContent=n;pageSelect.append(option);}
     dialog.querySelector('[data-total]').textContent='of '+doc.numPages;box.querySelector('[data-filename]').textContent=file.name;
     open.disabled=false;status.textContent='PDF ready. Select a passage to create your story.';dialog.showModal();await draw();
