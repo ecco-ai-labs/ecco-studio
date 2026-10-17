@@ -22,7 +22,7 @@ function storyControls(){
 }
 
 const names={images:'Image studio',board:'Storyboard',render:'Video studio',review:'Production library',publish:'Publish to YouTube',trash:'Trash',models:'Models & settings',characters:'Character library'};
-function notice(s,error=false){$('#notice').textContent=s;$('#notice').className=error?'error':'';const d=$('#new-story-dialog[open]');if(d){let n=d.querySelector('[role=status]');if(!n){n=document.createElement('p');n.setAttribute('role','status');d.querySelector('form').appendChild(n);}n.textContent=s;n.className=error?'error':'';}}
+function notice(s,error=false){if(error)window.EccoErrors?.show(s);$('#notice').textContent=s;$('#notice').className=error?'error':'';const d=$('#new-story-dialog[open]');if(d){let n=d.querySelector('[role=status]');if(!n){n=document.createElement('p');n.setAttribute('role','status');d.querySelector('form').appendChild(n);}n.textContent=s;n.className=error?'error':'';}}
 let gpuURL='https://1muqctw9bxvguu-8888.proxy.runpod.net/proxy/8765/';
 let gpuOrigin=new URL(gpuURL).origin;
 let bridgeWindow=null,connected=false;
