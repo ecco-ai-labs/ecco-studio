@@ -303,3 +303,12 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 #learning-days .learning-task input:checked+.learning-task-text{text-decoration:line-through;opacity:.55}
 #learning-days .learning-task [data-day-text]{flex:1;min-width:0;width:100%;margin:0}
 #learning-days [hidden]{display:none!important}
+
+/* Keep checklist rows inline and match the library expansion highlight. */
+#learning-days .learning-task{flex-direction:row;flex-wrap:nowrap;align-items:center}
+#learning-days .learning-task input[type=checkbox]{margin:0;align-self:center}
+#education-menu #learning-days .learning-task-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#education-menu .education-tree>summary,#education-menu .learning-day>summary{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px}
+#education-menu .education-tree>summary::before,#education-menu .learning-day>summary::before{content:'+';width:12px;flex:0 0 12px;color:inherit}
+#education-menu .education-tree[open]>summary,#education-menu .learning-day[open]>summary{background:#38305e!important;color:var(--accent,#ffdc24)!important;box-shadow:inset 3px 0 var(--accent,#ffdc24)!important;border-radius:7px}
+#education-menu .education-tree[open]>summary::before,#education-menu .learning-day[open]>summary::before{content:'−';color:var(--accent,#ffdc24)}
