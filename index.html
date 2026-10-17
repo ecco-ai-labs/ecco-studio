@@ -2,19 +2,13 @@
 <aside><a class="brand" href="./"><img class="logo" src="logo.png" alt="ECCO AI Labs logo"><div>ECCO AI Labs<span>Studios</span></div></a><div class="project">PROJECT 001<strong>The Fisherman & the Jinni</strong><span>Arabian Nights · development</span></div><nav aria-label="Production stages"><button data-page="images" class="active">01 <span>Image studio</span></button><button data-page="board">02 <span>Storyboard</span></button><button data-page="render">03 <span>Video studio</span></button><button data-page="review">04 <span>Production library</span></button><button data-page="publish">05 <span>Publish to YouTube</span></button><button data-page="models">06 <span>Models & settings</span></button><button data-page="characters"><span>07</span> Character library</button></nav><section id="model-nav" class="model-nav" aria-label="Generation models"></section><div class="side-bottom"><span class="eyebrow">DAY 1 CHECKLIST</span><ul id="checklist"></ul><button id="settings" class="secondary">Connections & storage</button><p>GitHub-hosted interface<br>Private GPU connection</p></div></aside>
 <main><header><div><h1 id="heading"></h1></div><div class="header-right"><button id="toggle-activity" class="secondary" aria-controls="activity-panel" aria-expanded="false">Activity &amp; Compute</button><span id="wan-badge" class="badge">Connecting…</span><button id="sync" class="secondary">Sync to GitHub</button></div></header><div id="notice" role="status"></div><section id="page"></section><aside id="activity-panel" class="activity-drawer" hidden aria-label="Activity and compute"><div class="section-head"><h2>Activity &amp; Compute</h2><button id="close-activity" class="secondary" aria-label="Close activity panel">×</button></div><p class="help">Estimates exclude idle time, storage and setup</p><div id="jobs"><p>No jobs yet.</p></div></aside></main>
 <dialog id="connection-dialog"><div class="section-head"><h2>Connections & storage</h2><button id="close-settings" class="secondary">Close</button></div><div id="connections"></div></dialog>
-<script src="gpu-picker.js?v=7b08cf674e6a"></script><script src="models.js?v=20261017-ui-refresh-1"></script><script src="studio.js?v=20261017-stay-on-pages"></script><script>
+<script src="gpu-picker.js?v=7b08cf674e6a"></script><script src="models.js?v=20261017-generation-only"></script><script src="studio.js?v=20261017-generation-only"></script><script>
 /* Build the same navigation before a GPU workspace is selected.
    Private records remain on the selected workspace, never on GitHub Pages. */
 document.querySelector('.project').innerHTML='<select id="story-picker" aria-label="Current story"></select><button id="new-story" hidden>New story</button>';
 const library=document.createElement('section');library.id='image-library-nav';library.innerHTML='<select id="library-folder-nav" aria-label="Image label"><option value="all">All images</option></select>';
 document.querySelector('.project').before(library);
-document.addEventListener('click',event=>{
- if(state)return;
- const button=event.target.closest('button');if(!button)return;
- if(button.closest('#workspace-library-group')||button.id==='workspace-new-story'||button.id==='new-story'||button.id==='workspace-trash'||button.id==='sync'){
-  event.preventDefault();event.stopImmediatePropagation();connectGPU();
- }
-},true);
+storyControls();
 </script>
 <script src="updates/workspace-ui.js?v=20261017-original-animation"></script>
 <script src="updates/trash-ui.js?v=20261017-ui-refresh-1"></script></body></html>
