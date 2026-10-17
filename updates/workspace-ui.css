@@ -203,3 +203,13 @@ body:not(.workspace-entry-mode) :is(.asset-icon,.workspace-delete,.storage-key-t
 /* Uniform yellow feedback for pressed, focused and selected actions. */
 body:not(.workspace-entry-mode) button:not(:disabled):is(:active,:focus,.active,.selected,[aria-pressed="true"],[aria-selected="true"]){color:var(--accent,#ffdc24)!important;background:#38305e!important}
 body:not(.workspace-entry-mode) summary:is(:active,:focus-visible),body:not(.workspace-entry-mode) details[open]>summary{color:var(--accent,#ffdc24)!important}
+
+/* One button-shaped library toolbar: layout, upload, new label. */
+#page .section-head label.library-view-label{font-size:0!important;line-height:0!important;padding:0!important;margin:0!important;min-height:32px!important;display:block}
+#page .section-head .library-view-label select,#page .section-head>.row>button{
+ width:128px!important;min-width:128px!important;max-width:128px!important;height:32px!important;min-height:32px!important;
+ padding:6px 10px!important;margin:0!important;font-size:12px!important;line-height:18px!important;font-weight:500!important;
+ color:var(--accent,#ffdc24)!important;background:rgba(255,220,36,.12)!important;border:1px solid rgba(255,220,36,.28)!important;border-radius:6px!important;box-sizing:border-box;white-space:nowrap!important;
+}
+#page .section-head .library-view-label select option{background:#211d3b;color:#eeebf5}
+#page .section-head>.row>button:hover,#page .section-head .library-view-label select:hover{background:rgba(255,220,36,.2)!important}
