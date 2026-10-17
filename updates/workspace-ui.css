@@ -322,3 +322,8 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 #workspace-menus .workspace-menu:is([data-category="Account"],[data-category="Activity"],[data-category="Billing"])>summary:hover{background:#302a54}
 #workspace-menus .workspace-menu:is([data-category="Account"],[data-category="Activity"],[data-category="Billing"])[open]>summary,
 #workspace-menus .workspace-menu:is([data-category="Account"],[data-category="Activity"],[data-category="Billing"])>summary:is(:active,:focus-visible){background:#38305e;color:var(--accent,#ffdc24)!important;box-shadow:inset 3px 0 var(--accent,#ffdc24);border-radius:7px}
+
+/* Education and Learning matches the other ribbon headings. */
+#workspace-menus #education-menu>summary:hover{background:#302a54}
+#workspace-menus #education-menu[open]>summary,
+#workspace-menus #education-menu>summary:is(:active,:focus-visible){background:#38305e;color:var(--accent,#ffdc24)!important;box-shadow:inset 3px 0 var(--accent,#ffdc24);border-radius:7px}
