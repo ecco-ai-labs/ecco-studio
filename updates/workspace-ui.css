@@ -240,3 +240,6 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 
 /* Library creation and upload actions belong in the main toolbar. */
 #workspace-library-group .tree-create,#workspace-library-group .tree-upload,#workspace-library-group .workspace-upload,#workspace-library-group #library-new-folder{display:none!important}
+
+/* Subtle separation above the navigation copyright. */
+#workspace-copyright{border-top:1px solid rgba(255,255,255,.10);padding-top:12px}
