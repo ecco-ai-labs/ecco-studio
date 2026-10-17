@@ -20,47 +20,66 @@
  function mountPDF(){
   const form=q('#story-setup-form');if(!form||q('#story-pdf-tools'))return;
   let saved={};try{saved=JSON.parse(localStorage.getItem(form.dataset.draftKey||'ecco-new-story-draft')||'{}');}catch{}
-  const box=document.createElement('section');box.id='story-pdf-tools';box.className='panel form';
-  box.innerHTML='<h3>Start from a PDF</h3><div class="row"><button type="button" class="secondary" data-upload>Upload PDF</button><button type="button" class="secondary" data-extract disabled>Extract story</button></div><input type="file" accept=".pdf,application/pdf" hidden><p role="status"></p><p class="help">Text PDFs · up to 20 MB / 100 pages. Read locally in your browser; scanned pages need OCR and are not supported yet.</p><details><summary>Review full extracted story</summary><label>Source text<textarea name="sourceText" rows="12" maxlength="60000"></textarea></label><p class="help">The summary is limited to 4,000 characters. Full source text is retained in this browser for storyboard editing; it is not yet synced to workspace storage. Keep your original PDF.</p></details>';
-  form.prepend(box);const input=box.querySelector('input'),status=box.querySelector('[role=status]'),extract=box.querySelector('[data-extract]'),source=box.querySelector('textarea');
+  const box=document.createElement('section');box.id='story-pdf-tools';box.className='pdf-import-tools';
+  box.innerHTML='<div class="row"><button type="button" class="secondary" data-upload>Upload PDF</button><button type="button" class="secondary" data-preview disabled>Preview & select</button><span data-filename></span></div><input type="file" accept=".pdf,application/pdf" hidden><p role="status"></p><details><summary>Extracted story text</summary><label>Source text<textarea name="sourceText" rows="5" maxlength="60000"></textarea></label><p class="help">Full source stays in this browser; only the 4,000-character summary currently syncs to storage. Keep the original PDF.</p></details>';
+  form.prepend(box);const input=box.querySelector('input'),status=box.querySelector('[role=status]'),source=box.querySelector('textarea'),open=box.querySelector('[data-preview]');
   source.value=saved.sourceText||'';
   box.querySelector('[data-upload]').onclick=()=>input.click();
-  input.onchange=()=>{extract.disabled=!input.files.length;status.textContent=input.files[0]?.name||'';};
-  extract.onclick=async()=>{
-   const file=input.files[0];if(!file)return;
-   if((form.elements.summary.value.trim()||source.value.trim())&&!confirm('Replace the current summary and extracted source with this PDF?'))return;
-   extract.disabled=true;let task;
+  let task=null,doc=null,pdfjs=null,pageNumber=1,highlight='',busy=false;
+  const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label','Select story from PDF');
+  dialog.innerHTML='<div class="pdf-dialog-head"><strong>Select story from PDF</strong><button type="button" class="secondary" data-close>Close</button></div><div class="row pdf-page-controls"><button type="button" class="secondary" data-prev>Previous</button><label>Page <select data-page aria-label="PDF page"></select></label><span data-total></span><button type="button" class="secondary" data-next>Next</button><button type="button" class="secondary" data-add disabled>Add highlighted text</button></div><p class="help">Drag across the PDF text to highlight a passage. Add passages from other pages if needed, then extract your selection.</p><div class="pdf-page-scroll"><div class="pdf-story-page"><canvas></canvas><div class="textLayer"></div></div></div><label class="pdf-selected-label">Selected story text<textarea data-selected rows="3" maxlength="60000" placeholder="Highlight a passage above, then Add highlighted text."></textarea></label><div class="row"><button type="button" data-extract disabled>Extract selected text as story</button><span role="status"></span></div>';
+  document.body.append(dialog);
+  const selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]'),add=dialog.querySelector('[data-add]'),pageSelect=dialog.querySelector('[data-page]');
+  const controls=()=>{extract.disabled=!selected.value.trim()||busy;add.disabled=!highlight.trim()||busy;dialog.querySelector('[data-prev]').disabled=busy||pageNumber<=1;dialog.querySelector('[data-next]').disabled=busy||!doc||pageNumber>=doc.numPages;pageSelect.disabled=busy;};
+  selected.oninput=controls;
+  const capture=()=>{const selection=window.getSelection(),layer=dialog.querySelector('.textLayer');highlight=selection&&selection.rangeCount&&layer.contains(selection.anchorNode)&&layer.contains(selection.focusNode)?selection.toString().trim():'';controls();};
+  dialog.querySelector('.pdf-page-scroll').addEventListener('mouseup',capture);
+  dialog.querySelector('.pdf-page-scroll').addEventListener('keyup',capture);
+  const draw=async()=>{
+   if(!doc||busy)return;busy=true;highlight='';controls();note.textContent='Loading page '+pageNumber+'…';
+   try{
+    const page=await doc.getPage(pageNumber),base=page.getViewport({scale:1}),scale=Math.min(1.5,760/base.width),viewport=page.getViewport({scale});
+    const shell=dialog.querySelector('.pdf-story-page'),canvas=shell.querySelector('canvas'),layer=shell.querySelector('.textLayer');
+    shell.style.width=viewport.width+'px';shell.style.height=viewport.height+'px';shell.style.setProperty('--scale-factor',scale);shell.style.setProperty('--total-scale-factor',scale);shell.style.setProperty('--user-unit',1);
+    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);layer.replaceChildren();
+    await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+    const content=await page.getTextContent();
+    await new pdfjs.TextLayer({textContentSource:content,container:layer,viewport}).render();
+    note.textContent=content.items.some(i=>i.str?.trim())?'Highlight the text you want to use.':'No selectable text on this page. A scanned PDF needs OCR first.';
+    pageSelect.value=String(pageNumber);
+   }catch(error){note.textContent='Could not preview this page: '+error.message;}
+   finally{busy=false;controls();}
+  };
+  dialog.querySelector('[data-prev]').onclick=()=>{if(pageNumber>1){pageNumber--;draw();}};
+  dialog.querySelector('[data-next]').onclick=()=>{if(doc&&pageNumber<doc.numPages){pageNumber++;draw();}};
+  pageSelect.onchange=()=>{pageNumber=+pageSelect.value;draw();};
+  add.onclick=()=>{if(!highlight)return;const text=[selected.value.trim(),highlight].filter(Boolean).join('\n\n');if(text.length>60000){note.textContent='Select up to 60,000 characters per chapter.';return;}selected.value=text;highlight='';controls();note.textContent=selected.value.length+' characters selected.';};
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  open.onclick=()=>{dialog.showModal();draw();};
+  input.onchange=async()=>{
+   const file=input.files[0];if(!file)return;open.disabled=true;
    try{
     if(file.size>20*1024*1024)throw Error('Choose a PDF smaller than 20 MB.');
-    status.textContent='Loading PDF reader…';
-    const pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.min.mjs');
+    status.textContent='Opening PDF…';
+    if(task)await task.destroy().catch(()=>{});
+    pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.min.mjs');
     pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.worker.min.mjs';
-    task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,stopAtErrors:true});
-    const doc=await task.promise;if(doc.numPages>100)throw Error('Choose a chapter of 100 pages or fewer.');
-    const pages=[];let total=0;
-    for(let n=1;n<=doc.numPages;n++){
-     status.textContent='Extracting page '+n+' of '+doc.numPages+'…';
-     const page=await doc.getPage(n),content=await page.getTextContent();let lines=[],line='',lastY=null,lastH=0;
-     for(const item of content.items){if(!('str' in item))continue;const y=item.transform?.[5],h=Math.abs(item.height||12);
-      if(lastY!==null&&y!==undefined&&Math.abs(y-lastY)>Math.max(2,h*.4)){if(line.trim())lines.push(line.trim());if(Math.abs(y-lastY)>Math.max(h,lastH)*1.7)lines.push('');line='';}
-      line+=(line?' ':'')+item.str;lastY=y;lastH=h;
-      if(item.hasEOL){if(line.trim())lines.push(line.trim());line='';}
-     }
-     if(line.trim())lines.push(line.trim());const text=lines.join('\n').trim();total+=text.length;
-     if(total>60000)throw Error('This PDF exceeds 60,000 characters. Import a chapter at a time; no text was replaced.');
-     if(!text)throw Error('Page '+n+' has no extractable text. Use a text PDF or run OCR first; partial imports are not applied.');
-     pages.push(text);page.cleanup();
-    }
-    const text=pages.join('\n\n');if(!text.trim())throw Error('No text found. This PDF may need OCR.');
-    const metadata=await doc.getMetadata().catch(()=>null),title=metadata?.info?.Title;
-    if(!form.elements.title.value.trim())form.elements.title.value=(title&&title!=='Untitled'?title:file.name.replace(/\.pdf$/i,'').replace(/[_-]/g,' ')).slice(0,160);
-    source.value=text;
-    form.elements.summary.value=text.length<=4000?text:text.slice(0,3997)+'…';
-    source.dispatchEvent(new Event('input',{bubbles:true}));
-    box.querySelector('details').open=true;
-    status.textContent=doc.numPages+' pages extracted. Review the title and summary'+(text.length>4000?' (an excerpt, not an AI summary)':'')+', then Save & continue to storyboard.';
-   }catch(error){status.textContent=error.name==='PasswordException'?'This PDF is password protected. Upload an unlocked copy.':'Could not extract story: '+error.message;}
-   finally{if(task)await task.destroy().catch(()=>{});extract.disabled=false;}
+    if(!q('#pdf-story-reader-style')){const link=document.createElement('link');link.id='pdf-story-reader-style';link.rel='stylesheet';link.href='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/web/pdf_viewer.css';document.head.append(link);}
+    task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,stopAtErrors:true});doc=await task.promise;
+    if(doc.numPages>100)throw Error('Use a chapter of 100 pages or fewer.');
+    pageNumber=1;selected.value='';pageSelect.replaceChildren();for(let n=1;n<=doc.numPages;n++){const option=document.createElement('option');option.value=n;option.textContent=n;pageSelect.append(option);}
+    dialog.querySelector('[data-total]').textContent='of '+doc.numPages;box.querySelector('[data-filename]').textContent=file.name;
+    open.disabled=false;status.textContent='PDF ready. Select a passage to create your story.';dialog.showModal();await draw();
+   }catch(error){status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}
+  };
+  extract.onclick=async()=>{
+   const text=selected.value.trim();if(!text||text.length>60000){note.textContent='Choose 1–60,000 characters.';return;}
+   if((form.elements.summary.value.trim()||source.value.trim())&&!confirm('Replace the current summary and source with your selected passage?'))return;
+   const metadata=await doc.getMetadata().catch(()=>null),title=metadata?.info?.Title,file=input.files[0];
+   if(!form.elements.title.value.trim())form.elements.title.value=(title&&title!=='Untitled'?title:file.name.replace(/\.pdf$/i,'').replace(/[_-]/g,' ')).slice(0,160);
+   source.value=text;form.elements.summary.value=text.length<=4000?text:text.slice(0,3997)+'…';source.dispatchEvent(new Event('input',{bubbles:true}));
+   box.querySelector('details').open=true;status.textContent=text.length+' characters extracted from your selection.'+(text.length>4000?' Summary contains an excerpt; the full selection is in Source text.':'')+' Review, then save to continue.';
+   dialog.close();
   };
  }
  function mountBoard(){
