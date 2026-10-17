@@ -123,7 +123,7 @@
    const asset=records().find(a=>a.id===select.value&&!a.deleted);if(!asset){notice('This reference is no longer available.',true);return;}
    if(!state.config.models_ready?.['qwen-image-edit-2511']){notice('Qwen Image Edit is not ready on this GPU.',true);return;}
    const prompt=form.elements.prompt.value.trim();if(!prompt)return;
-   const style=form.elements.image_style?.value;
+   const style='';
    if(button.disabled)return;
    const story=activeStory;
    submittingImages.add(story);
@@ -273,4 +273,58 @@
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
  window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog};
  modernize();welcomePage();
+})();
+
+
+/* Compose image instructions from the visible form for both creation and edits. */
+(()=>{
+ const fields=[
+  ['background','Background',['Family room','Studio backdrop','Garden','City street','Beach','Transparent background']],
+  ['posture','Posture',['Standing','Sitting','Lying down','Walking','Running','Jumping']],
+  ['age','Age',['Young','Adult','Older adult']],
+  ['gender','Gender',['Female','Male','Androgynous']],
+  ['ethnicity','Ethnicity',['South Asian','East Asian','Southeast Asian','Middle Eastern','Black / African','White / European','Latino / Hispanic','Mixed heritage']]
+ ];
+ const q=s=>document.querySelector(s);
+ function values(){const form=q('#image-form');if(!form)return {};const out={};for(const [key] of fields)out[key]=form.elements['image_'+key]?.value.trim()||'';return out;}
+ function genre(){const e=q('#image-style')||q('#image-form [name="image_style"]');if(!e||!e.value)return '';const label=e.selectedOptions?.[0]?.textContent?.trim()||e.value;return /as described|unspecified|keep original/i.test(label)?'':label;}
+ function compose(prompt,reference,style,settings){
+  const lines=[];
+  if(reference)lines.push('Edit the supplied reference image. The prompt and every selected control describe changes to this image, not an unrelated new image. Keep the same main subject, recognizable identity and species, except for changes explicitly requested below. Preserve unspecified details.');
+  if(prompt.trim())lines.push('Requested scene or changes: '+prompt.trim());
+  const looks={'3D animation':'Stylized three-dimensional animated-film rendering, sculpted rounded forms, expressive features, physically shaded materials and cinematic lighting','Cartoon':'Hand-drawn cartoon illustration with simplified shapes, expressive outlines and flat or cel-shaded colors','Origami':'Folded-paper art with visible creases, geometric paper planes and paper texture','Clay / claymation':'Handmade clay figures, tactile clay surfaces and stop-motion miniature-set lighting','Human / realistic portrait':'Anatomically realistic human portrait with natural skin texture and lifelike lighting','Photographic':'Photorealistic photography with natural textures and believable camera optics','Anime':'Japanese anime illustration with clean line art and cel shading','Watercolor':'Watercolor painting with translucent washes and visible paper texture','Oil painting':'Traditional oil painting with visible brushwork and rich pigments','Pixel art':'Pixel art with a limited palette and crisp deliberate pixel shapes'};
+  if(style)lines.push('Required visual style / genre: '+style+'. '+(looks[style]||'')+'. Apply this style to the entire image, including the subject and background.');
+  for(const [key,label] of fields)if(settings[key])lines.push(label+': '+settings[key]+'.');
+  if(settings.gender||settings.ethnicity)lines.push('Apply gender and ethnicity instructions only to human subjects; do not change an animal into a person.');
+  if(settings.age)lines.push('Interpret age appropriately for the subject species.');
+  lines.push('Use the selected controls as explicit requirements, overriding conflicting descriptions of those attributes in the free-text prompt.');
+  return lines.join('\n');
+ }
+ function preview(){const form=q('#image-form'),output=q('#image-effective-prompt');if(!form||!output)return;const reference=!!q('#studio-reference-image')?.value;output.value=compose(form.elements.prompt.value,reference,genre(),values());}
+ function mount(){
+  const form=q('#image-form');if(!form||q('#image-scene-controls'))return;
+  const section=document.createElement('fieldset');section.id='image-scene-controls';
+  const legend=document.createElement('legend');legend.textContent='Scene controls';section.append(legend);
+  const hint=document.createElement('p');hint.className='help';hint.textContent='Leave a box blank to keep the original detail, or leave it unspecified for a new image. Choose a suggestion or type your own.';section.append(hint);
+  for(const [key,title,options] of fields){const label=document.createElement('label');label.textContent=title;const input=document.createElement('input');input.name='image_'+key;input.placeholder='Keep original / unspecified';input.setAttribute('list','image-options-'+key);input.autocomplete='off';const list=document.createElement('datalist');list.id='image-options-'+key;for(const value of options){const option=document.createElement('option');option.value=value;list.append(option);}label.append(input,list);section.append(label);}
+  const anchor=(q('#image-style')||form.elements.prompt)?.closest('label');if(anchor)anchor.after(section);else form.prepend(section);
+  const details=document.createElement('details');details.id='image-prompt-preview';const summary=document.createElement('summary');summary.textContent='Instructions sent to the model';const output=document.createElement('textarea');output.id='image-effective-prompt';output.readOnly=true;output.rows=8;output.setAttribute('aria-label','Instructions sent to the model');details.append(summary,output);section.after(details);
+  form.addEventListener('input',preview);form.addEventListener('change',preview);form.addEventListener('click',()=>queueMicrotask(preview));preview();
+ }
+ if(typeof api==='function'){const previous=api;api=async function(path,payload,...rest){if((path==='images'||path==='image-edits')&&payload&&q('#image-form')){const settings=values(),style=genre();payload={...payload,prompt:compose(String(payload.prompt||''),path==='image-edits'||!!payload.source_asset_id,style,settings)};}return previous.call(this,path,payload,...rest);};}
+ const observer=new MutationObserver(()=>{mount();});observer.observe(q('#page')||document.body,{childList:true,subtree:true});mount();
+ window.EccoImageInstructions={compose};
+})();
+
+/* Compact Activity drawer control shared by image, video and storyboard pages. */
+(()=>{
+ function position(){
+  const page=document.querySelector('#page');
+  const arrow=document.querySelector('#activity-edge-arrow')||document.querySelector('#toggle-activity.activity-edge-toggle');
+  if(!page||!arrow)return;
+  let bar=page.querySelector('#activity-page-toolbar');
+  if(!bar){bar=document.createElement('div');bar.id='activity-page-toolbar';const intro=page.querySelector(':scope > .intro');if(intro)intro.after(bar);else page.prepend(bar);}
+  if(arrow.parentElement!==bar)bar.append(arrow);
+ }
+ new MutationObserver(position).observe(document.querySelector('#page')||document.body,{childList:true,subtree:true});position();
 })();
