@@ -48,3 +48,12 @@ body.workspace-entry-mode>#workspace-entry{display:flex;min-height:100vh;min-hei
 #workspace-entry{position:relative}#workspace-entry .entry-copyright{position:absolute;bottom:20px;left:20px;right:20px;margin:0;font-size:11px;color:#9891ae;line-height:1.5}#workspace-copyright{font-size:10px;line-height:1.5;color:#9891ae}
 
 #workspace-entry .entry-subtitle{display:block;font-size:22px;font-weight:400;letter-spacing:2px;margin-top:12px;color:#c8c1dc}
+
+
+   #activity-panel{display:block!important;position:fixed;top:0;right:0;bottom:0;width:min(480px,calc(100vw - 48px));box-sizing:border-box;z-index:90;transform:translateX(0);visibility:visible;transition:transform .25s ease,visibility .25s;overflow-y:auto}
+   #activity-panel[hidden]{display:block!important;transform:translateX(100%);visibility:hidden;pointer-events:none}
+   #toggle-activity.activity-edge-toggle{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:91;width:40px;height:64px;padding:0;border-radius:10px 0 0 10px;font-size:25px;background:#38305e;color:#eeebf5;border:1px solid #70658c;transition:right .25s ease}
+   #toggle-activity.activity-edge-toggle.drawer-open{right:min(480px,calc(100vw - 48px))}
+   body.workspace-entry-mode #toggle-activity,body.workspace-entry-mode #activity-panel{display:none!important}
+   @media(prefers-reduced-motion:reduce){#activity-panel,#toggle-activity.activity-edge-toggle{transition:none}}
+  
