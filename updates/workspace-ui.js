@@ -174,20 +174,37 @@
   });
   const start=q('#workspace-new-story');if(start)start.classList.toggle('active',page==='story-setup');
  }
+
+ function uploadStoryDialog(){
+  let d=q('#story-library-upload-dialog');if(!d){d=document.createElement('dialog');d.id='story-library-upload-dialog';document.body.append(d);}
+  d.innerHTML='<form class="form"><h2>Upload story</h2><label>Story name<input name="title" maxlength="160" required></label><label>Story file<input name="file" type="file" accept=".txt,.md,text/plain,text/markdown" required></label><p class="help">Upload a text or Markdown story, up to 4,000 characters.</p><p role="status"></p><div class="row"><button type="submit">Upload</button><button type="button" class="secondary">Cancel</button></div></form>';
+  const form=d.querySelector('form'),status=d.querySelector('[role="status"]');
+  form.elements.file.onchange=()=>{const file=form.elements.file.files[0];if(file&&!form.elements.title.value)form.elements.title.value=file.name.replace(/\.[^.]+$/,'');};
+  d.querySelector('[type="button"]').onclick=()=>d.close();
+  form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('[type="submit"]'),file=form.elements.file.files[0];if(!file)return;button.disabled=true;
+   try{if(file.size>32000)throw Error('Choose a text story up to 4,000 characters.');const summary=await file.text();if(!summary.trim()||summary.length>4000)throw Error('The story must contain 1–4,000 characters.');
+    status.textContent='Saving story…';await api('stories',{title:form.elements.title.value.trim(),summary});await refresh();q('.project .workspace-library')?.remove();storyTree();d.close();libraryOverview('story');notice('Story uploaded.');
+   }catch(error){status.textContent='Could not upload story: '+error.message;}finally{button.disabled=false;}
+  };d.showModal();
+ }
  function libraryOverview(kind){
   document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();
   page=kind+'-library';q('#heading').textContent=kind==='video'?'Video Library':'Story Library';
   document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));
   if(kind==='video'){
    const list=records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted);
-   q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><button type="button" id="video-library-upload" class="secondary">Upload Video</button></div><div class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
+   q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><div class="row"><label class="library-view-label"><select id="video-library-view" aria-label="Video library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="video-library-upload" class="secondary">Upload</button></div></div><div id="video-library-gallery" class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
    q('#video-library-upload').onclick=uploadVideoDialog;wireCards();
   }else{
-   q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2></div><div id="story-library-list" class="form"></div>';
+   q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2><div class="row"><label class="library-view-label"><select id="story-library-view" aria-label="Story library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="story-library-upload" class="secondary">Upload</button></div></div><div id="story-library-list" class="form"></div>';
    const list=q('#story-library-list'),entries=[...document.querySelectorAll('.project .workspace-library-content > button.tree-folder')];
    for(const entry of entries){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=entry.textContent.replace(/^− /,'');b.onclick=()=>{entry.click();if(page==='story-setup')page='story-library-detail';librarySelection();};list.append(b);}
    if(!entries.length)list.innerHTML='<p class="help">No saved stories.</p>';
   }
+  const view=q('#'+kind+'-library-view'),gallery=q(kind==='video'?'#video-library-gallery':'#story-library-list');
+  const applyView=()=>{gallery.classList.remove('library-small','library-large','library-list');gallery.classList.add('library-'+view.value);localStorage.setItem('ecco-'+kind+'-library-view',view.value);};
+  view.value=localStorage.getItem('ecco-'+kind+'-library-view')||'small';if(!view.value)view.value='small';view.onchange=applyView;applyView();
+  if(kind==='story')q('#story-library-upload').onclick=uploadStoryDialog;
   librarySelection();
  }
  document.addEventListener('click',event=>{
