@@ -81,3 +81,5 @@ body.workspace-entry-mode>#workspace-entry{display:flex;min-height:100vh;min-hei
 .image-control-section{border:1px solid #454065;border-radius:8px;margin:0 0 12px}.image-control-section>summary{display:list-item;cursor:pointer;padding:12px;font-size:14px;font-weight:600;color:#eeebf5}.image-control-section>summary::marker{color:var(--accent,#ffdc24)}.image-control-section[open]>summary::marker{color:#fff}.image-control-body{padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}.image-control-section:not([open])>.image-control-body{display:none}.image-control-body>#image-scene-controls{margin:0;padding:8px;grid-template-columns:1fr}.image-control-body>#image-scene-controls>legend{display:none}
 
 #activity-page-toolbar #activity-edge-arrow,#activity-page-toolbar #toggle-activity.activity-edge-toggle{color:var(--accent,#ffdc24)}
+
+#image-form #edit-model-settings,#video-form #edit-model-settings{display:none!important}
