@@ -5,7 +5,7 @@
  names.director='Tell your story';let planId=null,shown='',dirty=false,compact=localStorage.getItem('ecco-director-view')==='compact';
  const oldNavigate=navigate;navigate=function(p){if(p!=='director')return oldNavigate(p);page=p;$('#heading').textContent=names.director;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===p));show();};
  nav.onclick=()=>state&&navigate('director');
- const oldRefresh=refresh;refresh=async function(){const ok=await oldRefresh();if(ok&&page==='director')update();return ok;};
+ const oldRefresh=refresh;refresh=async function(...args){const ok=await oldRefresh(...args);if(ok&&page==='director')update();return ok;};
  const plans=()=>state.records.filter(x=>x.kind==='story_plan'&&x.story_id===activeStory).sort((a,b)=>b.created-a.created);
  const current=()=>plans().find(x=>x.id===planId)||plans()[0];
  const isBusy=p=>['running','queued'].includes(state.records.find(j=>j.id===p?.job_id)?.status);
