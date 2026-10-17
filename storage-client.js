@@ -40,22 +40,7 @@
  let errorShown=false;
  function reportError(error){
   verified=false;
-  const message=error.message||String(error);
-  const setup=document.querySelector('#storage-access-dialog[open]');
-  if(setup){
-   let status=setup.querySelector('[role=status],[role=alert]');
-   if(!status){status=document.createElement('p');setup.querySelector('.form').prepend(status);}
-   status.setAttribute('role','alert');status.textContent=message;status.style.color='#f0a697';return;
-  }
-  if(errorShown)return;
-  errorShown=true;
-  let modal=document.querySelector('#storage-error-dialog');
-  if(!modal){modal=document.createElement('dialog');modal.id='storage-error-dialog';modal.style.width='min(480px,calc(100vw - 32px))';document.body.append(modal);}
-  modal.innerHTML='<div class="form"><h2>Workspace storage error</h2><p role="alert"></p><div class="row"><button type="button" class="small" data-retry>Reconnect storage</button><button type="button" class="small secondary" data-close>Close</button></div></div>';
-  modal.querySelector('[role=alert]').textContent=message;
-  modal.querySelector('[data-close]').onclick=()=>modal.close();
-  modal.querySelector('[data-retry]').onclick=()=>{modal.close();dialog();};
-  modal.showModal();
+  window.EccoErrors.show(error,{title:'Workspace storage error',retryLabel:'Reconnect storage',retry:dialog});
  }
  function counts(){const active=state.records.filter(r=>!r.deleted);return active.filter(r=>r.kind==='asset'&&r.media==='image').length+' images · '+active.filter(r=>r.kind==='story').length+' stories';}
  function disconnect(){key='';verified=false;sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');}
@@ -93,7 +78,7 @@
     sessionStorage.setItem('ecco-storage-access',key);verified=true;errorShown=false;form.elements.key.value='';
     for(const selector of ['#workspace-library-group','#image-library-nav > details']){const section=document.querySelector(selector);if(section)section.open=true;}
     notice('Connected · '+counts());modal.close();
-   }catch(error){status.textContent=error.message;status.setAttribute('role','alert');}
+   }catch(error){window.EccoErrors.show(error);status.textContent=error.message;status.setAttribute('role','alert');}
    finally{connecting=false;button.disabled=false;button.textContent='Connect storage';close.disabled=false;}
 
   };
