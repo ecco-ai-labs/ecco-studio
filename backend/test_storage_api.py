@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from http.server import ThreadingHTTPServer
+from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('storage_api',Path(__file__).with_name('storage_api.py'))
 api=importlib.util.module_from_spec(spec);spec.loader.exec_module(api)
 class StorageTest(unittest.TestCase):
@@ -28,6 +29,22 @@ class StorageTest(unittest.TestCase):
  def test_origin_denied(self):
   with self.assertRaises(HTTPError) as error:self.call('/api/state',origin='https://untrusted.example')
   self.assertEqual(error.exception.code,403)
+ def test_ai_routes_require_workspace_auth_and_origin(self):
+  with patch.object(api.openai_assistant, 'handle') as provider:
+   for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:
+    with self.assertRaises(HTTPError) as error:self.call('/api/ai/connect',{'api_key':'test-only'},auth=auth,origin=origin)
+    self.assertEqual(error.exception.code,code)
+   provider.assert_not_called()
+ def test_ai_status_does_not_expose_key(self):
+  with patch.object(api.openai_assistant,'CONFIG_FILE',Path(self.tmp.name)/'private.json'):
+   api.openai_assistant._save({'api_key':'test-secret','verified':True,'enabled':False,'model':'gpt-6-astra'})
+   with self.call('/api/ai/status') as response:result=json.load(response)
+   self.assertTrue(result['connected']);self.assertFalse(result['enabled']);self.assertNotIn('test-secret',json.dumps(result));self.assertNotIn('api_key',result)
+ def test_scene_planning_obeys_shared_switch(self):
+  with patch.object(api.openai_assistant,'CONFIG_FILE',Path(self.tmp.name)/'private.json'),patch.object(api.openai_assistant,'_request') as provider:
+   api.openai_assistant._save({'api_key':'test-secret','verified':True,'enabled':False,'model':'gpt-6-astra'})
+   with self.assertRaises(HTTPError) as error:self.call('/api/stories/plan',{'story':'A story','count':1})
+   self.assertEqual(error.exception.code,409);provider.assert_not_called()
  def test_read_and_range_without_gpu(self):
   with self.call('/api/state') as r:
    result=json.load(r);self.assertTrue(result['config']['storage']['gpu_independent']);self.assertEqual(len(result['records']),1)
@@ -77,4 +94,5 @@ class StorageTest(unittest.TestCase):
   with self.assertRaises(HTTPError) as error:self.call('/api/media/'+'b'*32)
   self.assertEqual(error.exception.code,404)
 if __name__=='__main__':unittest.main()
+
 

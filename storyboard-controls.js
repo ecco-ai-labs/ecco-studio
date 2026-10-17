@@ -33,11 +33,12 @@
    const count=Number(q('#scene-count').value),story=draft.story.trim(),target=activeStory;
    if(!story)return notice('Add your selected story text first.',true);
    if(count<1)return notice('Choose at least one scene using the + counter.',true);
-   if(!state.config.ai_story_planner?.ready)return notice('AI scene planning is not connected yet. The CPU service needs its AI planner deployed and an OpenAI API key and model configured. Your story and scenes are saved in this browser.',true);
+   if(!state.config.ai_story_planner?.ready)return window.EccoAI?window.EccoAI.connections():notice('Connect to OpenAI and enable AI across Studio in Connections & Storage.',true);
    if(draft.scenes.some(scene=>scene.narration||scene.image_id)&&!confirm('Replace the scene draft with an AI adaptation? Saved revisions remain available.'))return;
    const snapshot=JSON.stringify(draft);split.disabled=true;split.textContent='Planning scenes…';
    try{
     const result=await api('stories/plan',{story,title:draft.title,count,seconds:Number(draft.defaultSeconds)||3});
+    if(window.EccoAI&&!window.EccoAI.enabled)throw Error('AI was disabled during planning. Your draft was preserved.');
     if(target!==activeStory||JSON.stringify(draft)!==snapshot)throw Error('The draft changed while AI was planning. Your edits were preserved; run planning again when ready.');
     if(!Array.isArray(result.scenes)||result.scenes.length!==count)throw Error('AI did not return the requested number of scenes. Your draft was preserved.');
     draft.scenes=result.scenes;draft.continuity=result.continuity||'';persistDraft();renderScenes();notice(count+' AI scenes created. Review the narration, action and individual durations.');
@@ -53,3 +54,4 @@
  }
  new MutationObserver(mount).observe(q('#page'),{childList:true,subtree:true});mount();
 })();
+

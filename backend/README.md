@@ -15,7 +15,7 @@ Source of truth: this GitHub repository. Run the storage API on the CPU-only
 - `/healthz` contains no private data. Every data request requires Bearer auth.
 - Only the GitHub Pages origin is allowed by CORS. CORS is not authentication.
 - This service does not initialize/reconcile GPU jobs, start inference, sync to
-  external accounts, or expose the original backend's static file routes.
+  external accounts automatically, or expose the original backend's static file routes.
 - The access key must be provisioned privately before starting the service.
 
 The original mutation code is retained in `migration/legacy` for schema compatibility.
@@ -38,4 +38,34 @@ validated with ffprobe; uploaded bytes are preserved in `audio-prod`. Audio labe
 use `audio_folder` records, independently of image labels, with the same recoverable
 Trash workflow. Deploy `audio_library.py` beside `storage_api.py` and refresh
 `migration/legacy/trash_manager.py` before restarting the CPU storage process.
+
+## OpenAI across Studio
+
+Deploy `openai_assistant.py` and `scene_planner.py` beside `storage_api.py` on the
+same CPU service. In the UI open **Connections & Storage → Connect to OpenAI**.
+The workspace owner supplies their own OpenAI project API key with Responses API
+permission, model access and API billing. Ecco cannot issue an OpenAI key.
+Connection performs a small billable inference test before saving the key.
+
+The single **Enable AI across Studio** control applies to story, scene planning,
+image, storyboard, audio, video review, character and publishing prompt assistance.
+AI refines editable prompts before the next action; approved video shots receive a
+read-only review. Questions or failures stop that action and preserve the draft.
+The review dialog provides original/revised text and restoration while the fields
+remain unchanged. Selected text and image references are sent to OpenAI; requests
+use `store: false`. The API key is never sent to the GPU or returned to the UI.
+
+The verified key and shared preference live in
+`/workspace/ecco-storage-private/openai.json` (0600, outside served assets).
+`ECCO_OPENAI_CONFIG_FILE` may override this private path. Never commit or serve
+this file. Disconnect clears the saved key; disabling AI retains the connection.
+All `/api/ai/*` endpoints use the existing workspace Bearer authentication and
+origin checks. Scene planning uses the same key/model/control, with no separate
+`OPENAI_API_KEY` or `ECCO_STORY_MODEL` setup. No GPU is needed for prompt assistance.
+
+Backend tests mock OpenAI and use temporary private configuration/database files.
+UI regression tests: install `jsdom@26.1.0` in a temporary test environment, then
+run `NODE_PATH=<test-environment>/node_modules node --test ai-assistant.test.cjs`.
+Live OpenAI output can only be verified after the owner connects their actual key.
+
 

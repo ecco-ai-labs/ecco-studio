@@ -572,7 +572,6 @@
    const busy=active.length>0;arrow.classList.toggle('has-active-jobs',busy);let dots=arrow.querySelector('.activity-working-dots');if(busy&&!dots){dots=document.createElement('span');dots.className='activity-working-dots';dots.setAttribute('aria-hidden','true');dots.textContent='...';arrow.append(dots);}if(!busy&&dots)dots.remove();arrow.title=busy?active.length+' generation job(s) queued or running':'Activity & Compute';
   }
   for(const job of document.querySelectorAll('#jobs .job')){const status=[...job.querySelectorAll('.detail')].find(e=>/^(running|queued)$/.test(e.textContent.trim()));if(status&&!status.querySelector('.job-working-dots')){const dots=document.createElement('span');dots.className='job-working-dots';dots.textContent=' ...';dots.setAttribute('aria-hidden','true');status.append(dots);}}
-  for(const form of document.querySelectorAll('#image-form,#video-form')){if(form.querySelector('.ai-prompt-assist'))continue;const prompt=form.elements.prompt;if(!prompt)continue;const button=document.createElement('button');button.type='button';button.className='small secondary ai-prompt-assist';button.textContent='✦ AI';button.title='AI prompt assistant · not connected';button.setAttribute('aria-label','AI prompt assistant — not connected');prompt.closest('label').after(button);button.onclick=()=>{let dialog=document.querySelector('#ai-prompt-connection');if(!dialog){dialog=document.createElement('dialog');dialog.id='ai-prompt-connection';dialog.innerHTML='<div class="form"><h2>AI prompt assistant</h2><p>Not connected yet. OpenAI API integration requires a server-side API key and separate usage billing. A self-hosted open-source text model is another option; it uses your compute.</p><p>No prompt has been sent and no generation has started.</p><button type="button">Close</button></div>';document.body.append(dialog);dialog.querySelector('button').onclick=()=>dialog.close();}dialog.showModal();};}
  }
  setInterval(update,1000);update();
 })();
@@ -598,4 +597,5 @@
 #connected-accelerator.accelerator-connected::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent,#ffdc24);margin-right:7px;vertical-align:middle}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
+
 

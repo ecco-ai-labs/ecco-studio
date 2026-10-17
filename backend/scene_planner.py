@@ -1,15 +1,12 @@
 """Text-only storyboard planning; runs on the authenticated CPU service."""
 import json
-import os
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
+import openai_assistant
 
 def ready():
-    return bool(os.getenv('OPENAI_API_KEY') and os.getenv('ECCO_STORY_MODEL'))
+    return openai_assistant.status()['enabled']
 
 def plan(body, problem):
-    if not ready():
-        raise problem('AI scene planning is not configured on the CPU service.', 503)
+    config = openai_assistant.provider_config()
     story = body.get('story')
     count = body.get('count')
     seconds = body.get('seconds', 3)
@@ -30,19 +27,9 @@ def plan(body, problem):
         'Use at most 4000 characters for narration and 2000 for motion per scene. '
         'Do not create images, audio or videos.'
     )
-    payload = {'model': os.environ['ECCO_STORY_MODEL'], 'instructions': instructions,
+    payload = {'model': config['model'], 'instructions': instructions,
                'input': story, 'store': False}
-    request = Request('https://api.openai.com/v1/responses',
-                      data=json.dumps(payload).encode(),
-                      headers={'Authorization': 'Bearer ' + os.environ['OPENAI_API_KEY'],
-                               'Content-Type': 'application/json'})
-    try:
-        with urlopen(request, timeout=150) as response:
-            result = json.load(response)
-    except HTTPError as exc:
-        raise problem('AI provider rejected the request (HTTP '+str(exc.code)+'). Check the server API configuration and usage balance.', 502) from None
-    except (URLError, TimeoutError):
-        raise problem('AI planning did not respond. Your scene draft was preserved.', 504) from None
+    result = openai_assistant._request(config['api_key'], payload)
     if result.get('status') != 'completed':
         raise problem('AI planning did not complete. Your draft was preserved.', 502)
     output = ''.join(part.get('text', '') for item in result.get('output', [])
@@ -73,3 +60,4 @@ def plan(body, problem):
         return {'scenes': clean, 'continuity': continuity}
     except (ValueError, KeyError, TypeError):
         raise problem('AI returned an incomplete scene plan. Your draft was preserved; try again.', 502) from None
+

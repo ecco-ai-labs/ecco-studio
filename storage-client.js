@@ -12,7 +12,7 @@
   if(!accessKey)throw Error('Connect your saved workspace from Account → Storage. No GPU is needed.');
   let response;
   try{
-   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('media/')?120000:20000),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
+   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:20000),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
    if(!response.ok){
     let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
     try{message=(await response.json()).error||message;}catch{}
@@ -23,7 +23,7 @@
    if(path==='state'&&(!Array.isArray(data.records)||!data.config))throw Error('Storage returned an invalid workspace response.');
    return data;
   }catch(error){
-   if(error.name==='TimeoutError')throw Error(path==='stories/plan'?'AI planning timed out. Your draft was preserved.':'Storage did not respond within 20 seconds. Try again.');
+   if(error.name==='TimeoutError')throw Error(path==='stories/plan'?'AI planning timed out. Your draft was preserved.':path.startsWith('ai/')?'The AI request timed out. Your original text is unchanged; check the connection before retrying.':'Storage did not respond within 20 seconds. Try again.');
    if(error instanceof TypeError)throw Error('Cannot reach storage from this browser. The connection may be blocked or unavailable.');
    throw error;
   }
@@ -33,7 +33,7 @@
   const data=await storageRequest(path,body);
   if(path==='state'){
    verified=true;errorShown=false;
-   if(gpuConnected()){try{const gpu=await gpuAPI('state');data.config={...data.config,...gpu.config,storage:data.config.storage};}catch{data.config.runtime={};}}
+   if(gpuConnected()){try{const gpu=await gpuAPI('state');data.config={...data.config,...gpu.config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner};}catch{data.config.runtime={};}}
   }
   return data;
  };
@@ -84,7 +84,7 @@
   };
   modal.showModal();
  }
- function mount(){const settings=document.querySelector('#settings');if(settings)settings.onclick=dialog;const target=document.querySelector('[data-category="Account"] .workspace-menu-items');if(!target||document.querySelector('#connect-storage'))return;const button=document.createElement('button');button.id='connect-storage';button.textContent='Storage';button.onclick=()=>{target.closest('details').open=false;dialog();};target.prepend(button);}
+ function mount(){const settings=document.querySelector('#settings');if(settings)settings.onclick=()=>window.EccoAI?window.EccoAI.connections():dialog();const target=document.querySelector('[data-category="Account"] .workspace-menu-items');if(!target||document.querySelector('#connect-storage'))return;const button=document.createElement('button');button.id='connect-storage';button.textContent='Storage';button.onclick=()=>{target.closest('details').open=false;dialog();};target.prepend(button);}
  const noticeBox=document.querySelector('#notice');
  function connectNotice(){
   if(!noticeBox||noticeBox.querySelector('button')||!/Connect your (?:saved )?workspace/.test(noticeBox.textContent))return;
@@ -95,3 +95,4 @@
  mount();new MutationObserver(mount).observe(document.querySelector('main > header'),{childList:true,subtree:true});
  if(key)setTimeout(()=>refresh(),0);
 })();
+
