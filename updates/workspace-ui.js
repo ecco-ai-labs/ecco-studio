@@ -303,7 +303,7 @@
  function productionGroup(){
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
   let group=q('#workspace-production-group');
-  if(!group){group=document.createElement('section');group.id='workspace-production-group';group.className='story-journey';group.innerHTML='<h2>Tell Your Story</h2><div class="workspace-library-content"></div>';nav.append(group);}
+  if(!group){group=disclosure('Tell Your Story','ecco-production-expanded');group.id='workspace-production-group';group.classList.add('story-journey');nav.append(group);}
   const body=group.querySelector('.workspace-library-content');
   for(const button of [...nav.querySelectorAll('button[data-page]')]){
    const target=button.dataset.page;
