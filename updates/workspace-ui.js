@@ -156,7 +156,7 @@
   const text=!isConnected?'Accelerator not connected':fresh&&names.length?names.join(' + ')+' · Connected':names.length?names.join(' + ')+' · Connection unverified':'Accelerator · Unverified';
   let badge=q('#connected-accelerator');const header=q('main > header .header-right');
   if(!badge&&header){badge=document.createElement('button');badge.type='button';badge.id='connected-accelerator';badge.className='badge';badge.onclick=()=>connectGPU('accelerator-status');header.prepend(badge);}
-  if(badge){badge.textContent=text;badge.title=isConnected?'Accelerator connected':'Connect an accelerator';}
+  if(badge){badge.classList.toggle('accelerator-connected',isConnected);badge.textContent=text;badge.title=isConnected?'Accelerator connected':'Connect an accelerator';}
   const form=q('#video-form');let status=q('#video-accelerator');
   if(form&&!status){status=document.createElement('p');status.id='video-accelerator';status.className='help';status.setAttribute('role','status');form.prepend(status);}
   if(status)status.textContent=text;
@@ -429,3 +429,10 @@
  function mount(){const panel=q('#activity-panel'),jobs=q('#jobs');if(!panel||!jobs||q('#ecco-activity-tabs'))return;const tabs=document.createElement('div');tabs.id='ecco-activity-tabs';tabs.className='row';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Activity panel views');tabs.innerHTML='<button type="button" role="tab" aria-selected="true" aria-controls="jobs">Activity</button><button type="button" role="tab" aria-selected="false" aria-controls="ecco-debug-view" class="secondary">Debugging</button>';const root=document.createElement('section');root.id='ecco-debug-view';root.hidden=true;root.setAttribute('role','tabpanel');jobs.before(tabs);jobs.after(root);for(const button of tabs.children)button.onclick=()=>{const debugging=button.textContent==='Debugging';jobs.hidden=debugging;root.hidden=!debugging;for(const b of tabs.children){b.setAttribute('aria-selected',String(b===button));b.classList.toggle('secondary',b!==button);}render();};}
  new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});setInterval(render,1000);mount();
 })();
+
+/* Accelerator color reflects its actual connection state. */
+(()=>{const style=document.createElement('style');style.textContent=`
+#connected-accelerator{background:transparent!important;color:#eeebf5!important;border:1px solid transparent;box-shadow:none}
+#connected-accelerator.accelerator-connected{background:var(--accent,#ffdc24)!important;color:#19152b!important}
+#connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
+`;document.head.append(style);})();
