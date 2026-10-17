@@ -109,8 +109,11 @@
  };
  setInterval(poll,4000);
  const nav=q('nav[aria-label="Production stages"]')||q('aside nav');
- const button=document.createElement('button');button.type='button';button.dataset.page='audio';button.textContent='− Audio Studio';button.addEventListener('click',()=>navigate('audio'));nav.append(button);
- // Existing workspace observers move the new item into Tell Your Story.
+ const production=q('#workspace-production-group .workspace-library-content');
+ const video=nav.querySelector('button[data-page="render"]');
+ const button=document.createElement('button');button.type='button';button.dataset.page='audio';button.textContent='− Audio Studios';button.addEventListener('click',()=>navigate('audio'));
+ // Inherit the existing production-menu styling and place Audio after Video.
+ if(video)video.after(button);else (production||nav).append(button);
  const library=q('#workspace-library-group');
  if(library){const link=document.createElement('button');link.type='button';link.className='secondary';link.textContent='Audio files';link.onclick=()=>{navigate('audio');q('#audio-gallery').scrollIntoView({behavior:'smooth'});};library.append(link);}
 })();
