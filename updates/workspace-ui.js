@@ -162,7 +162,7 @@
   if(status)status.textContent=text;
  }
  if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
- if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='empty'){page='empty';q('#page')?.replaceChildren();if(q('#heading'))q('#heading').textContent='';document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
+ if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='journey-preview'){welcomePending=false;journeyPreview();return;}if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='empty'){page='empty';q('#page')?.replaceChildren();if(q('#heading'))q('#heading').textContent='';document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
  setInterval(acceleratorDisplay,5000);
 
  function librarySelection(){
@@ -254,50 +254,86 @@
  function storySetupPage(savedId){
   page='story-setup';
   q('#workspace-entry')?.remove();
-  q('#heading').textContent='Name Of Your Story';
+  q('#heading').textContent='Describe your story';
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.id==='workspace-new-story'));
   const key=savedId?'ecco-story-setup:'+savedId:'ecco-new-story-draft';
   let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
   const genres=['Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
-  q('#page').innerHTML='<form id="story-setup-form" class="form"><label>Name Of Your Story<input name="title" maxlength="160" required placeholder="Enter your story name"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story idea / summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save story</button></div><p role="status" data-story-status></p></form>';
+  q('#page').innerHTML='<form id="story-setup-form" class="form"><label>Story name<input name="title" maxlength="160" required placeholder="Enter your story name"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story idea / summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & continue to storyboard</button></div><p role="status" data-story-status></p></form>';
   const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');
   for(const name of ['title','genre','summary'])form.elements[name].value=saved[name]||'';
-  const save=()=>{const data=Object.fromEntries(new FormData(form));localStorage.setItem(key,JSON.stringify(data));status.textContent='Draft saved in this browser.';return data;};
+  const save=()=>{const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));status.textContent='Draft saved in this browser.';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
    const data=save(),button=form.querySelector('[type="submit"]');button.disabled=true;
    status.textContent='Saving story…';
    try{
+    const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
+    data.cloudId=created.id;saved=data;activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);
+    draft=loadDraft();draft.title=data.title;draft.story=data.summary;persistDraft();await refresh();
     let savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');
     const id=savedId||crypto.randomUUID();
     localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));
-    savedStories=savedStories.filter(s=>s.id!==id);savedStories.push({id,title:data.title,genre:data.genre});
+    savedStories=savedStories.filter(s=>s.id!==id);
     localStorage.setItem('ecco-saved-story-setups',JSON.stringify(savedStories));
     savedId=id;
     q('.project .workspace-library')?.remove();storyTree();
-    status.textContent='Saved to Story Library in this browser. Cloud storage is not connected yet.';
+    status.textContent='Story saved.';navigate('board');
    }catch(error){status.textContent='Could not save story: '+error.message;}
 
    finally{button.disabled=false;}
   };
  }
 
+ const journeySteps=[
+  ['story-setup','Describe your story','Give your story a name and a short description.'],
+  ['board','Review the storyboard','Split your story into scenes, then review the action and dialogue.'],
+  ['images','Choose scene images','Generate images or choose existing images, then assign them in the storyboard.'],
+  ['audio','Create voices and sound','Prepare dialogue or narration for each scene and preview the audio.'],
+  ['render','Animate and sync','Animate your scene images. Automatic audio-driven lip-sync is not connected yet.'],
+  ['journey-preview','Preview and export','Review generated clips, download them, or open publishing. Full-film assembly and audio mixing are not connected yet.']
+ ];
+ function journeyPreview(){
+  page='journey-preview';q('#heading').textContent='Preview and export';
+  const videos=records().filter(a=>a.kind==='asset'&&a.media==='video'&&!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
+  q('#page').innerHTML='<p class="intro">Review the clips for your selected story. Use each clip’s download control to save it.</p><div class="cards">'+(videos.length?videos.map(card).join(''):'<p class="help">No videos for this story yet. Return to step 5 to generate a clip.</p>')+'</div><button type="button" class="secondary" id="journey-publish">Open publishing</button>';
+  wireCards();q('#journey-publish').onclick=()=>navigate('publish');if(typeof hydrateMedia==='function')hydrateMedia();
+ }
  function productionGroup(){
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
   let group=q('#workspace-production-group');
-  if(!group){group=disclosure('Tell Your Story','ecco-production-expanded');group.id='workspace-production-group';nav.append(group);}
+  if(!group){group=document.createElement('section');group.id='workspace-production-group';group.className='story-journey';group.innerHTML='<h2>Tell Your Story</h2><div class="workspace-library-content"></div>';nav.append(group);}
   const body=group.querySelector('.workspace-library-content');
-  let start=q('#workspace-new-story');if(!start){start=document.createElement('button');start.type='button';start.id='workspace-new-story';start.className='tree-create';start.textContent='+ Name Of Your Story';start.onclick=()=>navigate('story-setup');body.prepend(start);}
   for(const button of [...nav.querySelectorAll('button[data-page]')]){
-   const page=button.dataset.page;
-   if(['characters','review','publish'].includes(page)){button.remove();continue;}
-   if(page==='models'){const activity=q('[data-category="Activity"] .workspace-menu-items');if(activity){button.hidden=false;button.textContent='Models & Settings';activity.prepend(button);}continue;}
-   button.hidden=false;const title=({director:'Story Narration',images:'Image Studios',board:'Storyboard',render:'Video Studios'})[page]||names[page]||page;button.textContent='− '+title;if(button.parentElement!==body)body.append(button);
+   const target=button.dataset.page;
+   if(['characters','review','publish'].includes(target)){button.remove();continue;}
+   if(target==='models'){const activity=q('[data-category="Activity"] .workspace-menu-items');if(activity){button.hidden=false;button.textContent='Models & Settings';activity.prepend(button);}continue;}
+   if(!journeySteps.some(step=>step[0]===target))button.hidden=true;
   }
-  const models=q('#model-nav');if(models)models.hidden=true;
-  q('#workspace-publish')?.remove();
-  if(typeof names!=='undefined')names.publish='Publish to Video';
+  journeySteps.forEach(([target,title],i)=>{
+   let button=target==='story-setup'?q('#workspace-new-story'):body.querySelector('button[data-page="'+target+'"]')||nav.querySelector('button[data-page="'+target+'"]');
+   if(!button){button=document.createElement('button');button.type='button';button.dataset.page=target;button.onclick=()=>navigate(target);}
+   if(target==='story-setup')button.id='workspace-new-story';
+   button.hidden=false;button.classList.add('journey-step');
+   const label=(i+1)+'. '+title;if(button.textContent!==label)button.textContent=label;
+   button.classList.toggle('active',page===target||(target==='board'&&page==='director'));
+   if(button.parentElement!==body||body.children[i]!==button)body.append(button);
+  });
+  q('#model-nav')?.setAttribute('hidden','');q('#workspace-publish')?.remove();
+ }
+ function journeyGuide(){
+  const root=q('#page');if(!root)return;
+  let guide=q('#journey-guide');if(!guide){guide=document.createElement('section');guide.id='journey-guide';root.before(guide);}
+  const index=journeySteps.findIndex(step=>step[0]===page||(step[0]==='board'&&page==='director'));
+  guide.hidden=index<0||document.body.classList.contains('workspace-entry-mode');if(index<0)return;
+  const step=journeySteps[index],signature=page+':'+activeStory;
+  if(guide.dataset.signature===signature)return;guide.dataset.signature=signature;
+  guide.innerHTML='<div><small>STEP '+(index+1)+' OF 6</small><h2>'+step[1]+'</h2><p>'+step[2]+'</p></div><div class="journey-actions">'+(index?'<button type="button" class="secondary" data-back>Back</button>':'')+(index<5?'<button type="button" class="secondary" data-next>Next: '+journeySteps[index+1][1]+'</button>':'')+'</div>';
+  guide.querySelector('[data-back]')?.addEventListener('click',()=>navigate(journeySteps[index-1][0]));
+  guide.querySelector('[data-next]')?.addEventListener('click',()=>{if(page==='story-setup'){q('#story-setup-form')?.requestSubmit();return;}navigate(journeySteps[index+1][0]);});
+  if(index===1){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent=page==='director'?'Manual storyboard editor':'AI storyboard & previews';button.onclick=()=>navigate(page==='director'?'board':'director');guide.querySelector('.journey-actions').append(button);}
+  if(index===2){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent='Assign images to scenes';button.onclick=()=>navigate('board');guide.querySelector('.journey-actions').append(button);}
  }
  function educationMenu(){
   const menus=q('#workspace-menus'),list=q('#checklist');if(!menus||!list)return;
@@ -318,6 +354,7 @@
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!d.contains(e.target))d.open=false;});});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
  window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog};
+ const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
  modernize();welcomePage();
 })();
 (()=>{
