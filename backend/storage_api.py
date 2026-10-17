@@ -12,10 +12,12 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'migration' / 'legacy'))
 import studio as legacy
+import audio_library
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
+    '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
     '/api/images/upload', '/api/stories', '/api/stories/archive', '/api/boards',
     '/api/library/folders', '/api/library/save', '/api/trash', '/api/trash/board',
     '/api/trash/folder', '/api/trash/draft', '/api/trash/restore-draft',
@@ -112,10 +114,15 @@ class Handler(legacy.Handler):
             return self.send({'error': 'This storage service does not run generation or external publishing.'}, 409)
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            maximum = 17*1024*1024 if path == '/api/images/upload' else 1024*1024
+            maximum = 17*1024*1024 if path in ('/api/images/upload', '/api/audio/upload') else 1024*1024
             if not 0 < length <= maximum: raise legacy.Problem('Request size invalid', 413)
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
+            audio_routes = {'/api/audio/upload': audio_library.upload,
+                            '/api/audio/folders': audio_library.create_folder,
+                            '/api/audio/labels': audio_library.save_labels}
+            if path in audio_routes:
+                return self.send(audio_routes[path](body, vars(legacy)))
             # The inherited dispatcher only receives explicitly allowed storage operations.
             return self.mutate(path, body)
         except legacy.Problem as exc: self.send({'error': exc.message}, exc.code)
@@ -136,3 +143,4 @@ def main():
     ThreadingHTTPServer((address, port), Handler).serve_forever()
 
 if __name__ == '__main__': main()
+

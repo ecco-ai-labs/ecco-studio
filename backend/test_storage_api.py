@@ -1,4 +1,4 @@
-import importlib.util, json, sqlite3, tempfile, threading, unittest
+import base64, importlib.util, io, json, sqlite3, tempfile, threading, unittest, wave
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -39,8 +39,42 @@ class StorageTest(unittest.TestCase):
  def test_generation_rejected(self):
   with self.assertRaises(HTTPError) as error:self.call('/api/images',{'prompt':'test'})
   self.assertEqual(error.exception.code,409)
+ def audio_upload(self):
+  data=io.BytesIO()
+  with wave.open(data,'wb') as out:
+   out.setnchannels(1);out.setsampwidth(2);out.setframerate(8000);out.writeframes(b'\x00\x00'*800)
+  with self.call('/api/audio/upload',{'name':'../sample.wav','data':base64.b64encode(data.getvalue()).decode()}) as response:
+   return json.load(response),data.getvalue()
+ def test_audio_upload_playback_without_gpu(self):
+  asset,raw=self.audio_upload()
+  self.assertEqual(asset['media'],'audio');self.assertEqual(asset['title'],'sample.wav')
+  self.assertTrue(asset['path'].startswith('audio-prod/'));self.assertAlmostEqual(asset['seconds'],0.1)
+  with self.call('/api/media/'+asset['id']) as response:self.assertEqual(response.read(),raw)
+ def test_invalid_audio_leaves_no_files_or_records(self):
+  with self.assertRaises(HTTPError) as error:
+   self.call('/api/audio/upload',{'name':'fake.wav','data':base64.b64encode(b'not audio').decode()})
+  self.assertEqual(error.exception.code,400)
+  self.assertFalse(list((api.legacy.DATA/'audio-prod').iterdir()))
+  self.assertFalse([r for r in api.legacy.records() if r.get('media')=='audio'])
+ def test_audio_names_multiple_labels_and_isolation(self):
+  asset,_=self.audio_upload();folder_ids=[]
+  for name in ['Narration','Narration / Hindi']:
+   with self.call('/api/audio/folders',{'name':name}) as response:folder_ids.append(json.load(response)['id'])
+  body={'asset_id':asset['id'],'folder_ids':folder_ids,'title':'Opening narration'}
+  for _ in range(2):
+   with self.call('/api/audio/labels',body) as response:self.assertEqual(json.load(response)['title'],'Opening narration')
+  self.assertEqual(len(api.legacy.records('library_item')),2)
+  with self.call('/api/library/folders',{'name':'Narration'}) as response:image_folder=json.load(response)
+  self.assertNotIn(image_folder['id'],folder_ids)
+  with self.assertRaises(HTTPError):self.call('/api/audio/labels',{**body,'title':'Must not save','folder_ids':[image_folder['id']]})
+  self.assertEqual(api.legacy.get(asset['id'])['title'],'Opening narration')
+ def test_audio_label_trash_and_restore(self):
+  with self.call('/api/audio/folders',{'name':'Test audio'}) as response:folder=json.load(response)
+  with self.call('/api/trash/folder',{'id':folder['id']}) as response:self.assertTrue(json.load(response)['deleted'])
+  with self.call('/api/trash/folder',{'id':folder['id'],'restore':True}) as response:self.assertFalse(json.load(response)['deleted'])
  def test_escape_denied(self):
   api.legacy.save({'id':'b'*32,'kind':'asset','media':'image','path':'../outside'})
   with self.assertRaises(HTTPError) as error:self.call('/api/media/'+'b'*32)
   self.assertEqual(error.exception.code,404)
 if __name__=='__main__':unittest.main()
+

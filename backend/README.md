@@ -6,7 +6,7 @@ Source of truth: this GitHub repository. Run the storage API on the CPU-only
 
 ## Runtime
 
-- Python 3.10+; Pillow for image upload and edits; ffprobe for video upload.
+- Python 3.10+; Pillow for image upload and edits; ffprobe for video and audio upload.
 - Existing database `/workspace/ecco-studio-data/studio.sqlite`. Startup refuses
   to manufacture an empty replacement if the mount or database is missing.
 - Private access key: `/workspace/ecco-storage-private/access.key`, minimum
@@ -31,3 +31,11 @@ concurrency versions. A follow-up should consolidate all mutations here.
 Tests use a temporary database: unauthorized and wrong-origin requests are denied;
 media ranges work; label writes persist; path escape is denied; generation requests
 are rejected. Production data is not changed by these tests.
+
+Audio uses the same authenticated CPU API: `audio/upload`, `audio/folders`, and
+`audio/labels`. WAV, MP3, M4A, OGG and FLAC uploads are limited to 12 MB and
+validated with ffprobe; uploaded bytes are preserved in `audio-prod`. Audio labels
+use `audio_folder` records, independently of image labels, with the same recoverable
+Trash workflow. Deploy `audio_library.py` beside `storage_api.py` and refresh
+`migration/legacy/trash_manager.py` before restarting the CPU storage process.
+
