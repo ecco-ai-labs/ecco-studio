@@ -167,3 +167,18 @@ body.workspace-entry-mode #workspace-entry .entry-logo-particle{animation-play-s
 #activity-panel #ecco-activity-tabs{display:flex;justify-content:flex-start;gap:8px;margin:12px 0}
 #activity-panel #ecco-activity-tabs button{flex:0 0 auto;width:auto}
 #activity-panel #close-activity{width:30px;height:30px;padding:0;font-size:18px}
+
+/* Six-step story creation journey. */
+#workspace-production-group.story-journey{margin-top:20px}
+.story-journey>h2{font-size:14px;font-weight:600;margin:0 0 10px;padding:0 10px;color:var(--text,#eeebf5)}
+.story-journey>.workspace-library-content{padding:0;border:0}
+#workspace-production-group .journey-step{display:block;width:100%;text-align:left;font-size:12px;line-height:1.5;padding:9px 10px;border-radius:6px;margin:3px 0;background:transparent;color:var(--muted,#b8b4c5)}
+#workspace-production-group .journey-step.active{background:var(--accent,#ffdc24);color:#191720}
+#journey-guide{display:flex;justify-content:space-between;align-items:center;gap:18px;border-bottom:1px solid #ffffff18;padding:4px 0 18px;margin-bottom:20px}
+#journey-guide[hidden]{display:none}
+#journey-guide small{font-size:10px;letter-spacing:.12em;color:var(--accent,#ffdc24)}
+#journey-guide h2{font-size:20px;margin:5px 0}
+#journey-guide p{font-size:12px;line-height:1.6;color:var(--muted,#b8b4c5);margin:0;max-width:620px}
+.journey-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.journey-actions button{font-size:12px;padding:7px 10px}
+@media(max-width:800px){#journey-guide{align-items:flex-start;flex-direction:column}.journey-actions{justify-content:flex-start}}
