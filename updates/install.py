@@ -36,7 +36,7 @@ def install(target):
     library=library.replace("r.kind==='image_folder')","r.kind==='image_folder'&&!r.deleted)")
     updates={'studio.py':server,'studio.html':page,'library-ui.js':library,'image_upload.py':(source/'image_upload.py').read_text()}
     updates['workspace-ui.js']=(source/'workspace-ui.js').read_text()+'\n'+(source/'trash-ui.js').read_text()
-    updates['workspace-ui.css']=(source/'workspace-ui.css').read_text()
+    updates['workspace-ui.css']=(source/'workspace-ui.css').read_text().replace('url("../logo.png")', 'url("logo.png")')
     server=patch_once(server,"elif path=='/api/trash/board': result=__import__('trash_manager').board(body,globals())","elif path=='/api/trash/board': result=__import__('trash_manager').board(body,globals())\n            elif path=='/api/trash/folder': result=__import__('trash_manager').folder(body,globals())")
     updates['studio.py']=server
     updates['trash_manager.py']=(source/'trash_manager.py').read_text()
