@@ -117,6 +117,7 @@
     help.textContent='Describe your changes in Image prompt below. Qwen Image Edit uses this reference and preserves the original.';
     button.textContent='Generate edited image';
    }else{model.value=originalModel;preview.removeAttribute('src');button.textContent=originalText;}
+   document.dispatchEvent(new Event('ecco-reference-change'));
   };
   form.addEventListener('submit',async e=>{
    if(!select.value)return;e.preventDefault();e.stopImmediatePropagation();
@@ -321,6 +322,7 @@
  }
  if(typeof api==='function'){const previous=api;api=async function(path,payload,...rest){if((path==='images'||path==='image-edits')&&payload&&q('#image-form')){const settings=values(),style=genre();payload={...payload,prompt:compose(String(payload.prompt||''),path==='image-edits'||!!payload.source_asset_id,style,settings)};}return previous.call(this,path,payload,...rest);};}
  const observer=new MutationObserver(()=>{mount();});observer.observe(q('#page')||document.body,{childList:true,subtree:true});mount();
+ document.addEventListener('ecco-reference-change',preview);
  window.EccoImageInstructions={compose};
 })();
 
