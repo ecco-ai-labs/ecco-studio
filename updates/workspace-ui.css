@@ -334,3 +334,9 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .workspace-ribbon button:not(:disabled):is(:active,:focus-visible,.active,.selected,[aria-pressed="true"],[aria-expanded="true"]),
 .workspace-ribbon .workspace-menu[open]>summary,
 .workspace-ribbon .workspace-menu>summary:is(:active,:focus-visible){background:#38305e!important;color:var(--accent,#ffdc24)!important;box-shadow:inset 3px 0 var(--accent,#ffdc24)!important;border-radius:7px}
+
+/* Let readers resize the PDF preview within the browser viewport. */
+.pdf-story-dialog{resize:both;overflow:auto;min-width:min(360px,94vw);min-height:300px;max-width:96vw;max-height:94vh}
+.pdf-story-dialog[open]{display:flex;flex-direction:column;height: min(820px,90vh)}
+.pdf-story-dialog .pdf-page-scroll{flex:1 1 auto;min-height:140px;height:auto}
+.pdf-story-dialog>.pdf-dialog-head,.pdf-story-dialog>.pdf-selected-label,.pdf-story-dialog>.row{flex-shrink:0}
