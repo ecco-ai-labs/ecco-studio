@@ -359,3 +359,6 @@
  }
  new MutationObserver(mount).observe(document.querySelector('#page')||document.body,{childList:true,subtree:true});mount();
 })();
+
+/* Original animated branding, welcome screen only. */
+(()=>{function mount(){const logo=document.querySelector('#workspace-entry .entry-logo');if(!logo||logo.parentElement.classList.contains('entry-logo-motion'))return;const motion=document.createElement('div');motion.className='entry-logo-motion';logo.before(motion);motion.append(logo);for(let i=0;i<48;i++){const dot=document.createElement('span');dot.className='entry-logo-particle';dot.setAttribute('aria-hidden','true');motion.append(dot);}}new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});mount();})();
