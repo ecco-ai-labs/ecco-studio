@@ -127,7 +127,7 @@
    const style='';
    if(button.disabled)return;
    const story=activeStory;
-   submittingImages.add(story);
+   submittingImages.add(story);localStorage.removeItem('ecco-image-job:'+story);
    setGenerationBusy(button,true,'Submitting…','Generate edited image');
    const status=form.querySelector('#image-status');
    if(status)status.textContent='Sending your reference-image edit…';
@@ -337,4 +337,25 @@
   if(arrow.parentElement!==bar)bar.append(arrow);
  }
  new MutationObserver(position).observe(document.querySelector('#page')||document.body,{childList:true,subtree:true});position();
+})();
+
+
+/* Collapsible image control sections; edits clear only old completion notices. */
+(()=>{
+ const expansion=new Map();
+ function mount(){
+  const form=document.querySelector('#image-form');if(!form||form.dataset.collapsibleControls)return;
+  if(!form.querySelector('#image-scene-controls'))return;
+  form.dataset.collapsibleControls='1';
+  const children=[...form.children],heading=form.querySelector('h2');
+  const group=(title,key,nodes)=>{const present=nodes.filter(Boolean);if(!present.length)return;const details=document.createElement('details');details.className='image-control-section';details.open=expansion.get(key)??true;const summary=document.createElement('summary');summary.textContent=title;const body=document.createElement('div');body.className='image-control-body';details.append(summary,body);present[0].before(details);for(const node of present)body.append(node);details.addEventListener('toggle',()=>expansion.set(key,details.open));};
+  const at=children.indexOf(heading);if(at>0)group('Model & reference image','model',children.slice(0,at));
+  group('Style & scene controls','scene',[form.querySelector('#image-style')?.closest('label'),form.querySelector('#image-scene-controls')]);
+  group('Image prompt','prompt',[form.elements.prompt?.closest('label'),form.querySelector('#image-prompt-preview')]);
+  group('Advanced settings','advanced',[form.elements.negative?.closest('label'),form.elements.steps?.closest('.row'),form.elements.seed?.closest('label')]);
+  heading?.remove();
+  const clear=()=>{const key='ecco-image-job:'+activeStory,id=localStorage.getItem(key),job=state?.records.find(r=>r.kind==='job'&&r.id===id);if(job&&['done','failed','cancelled'].includes(job.status)){localStorage.removeItem(key);const status=form.querySelector('#image-status');if(status)status.textContent='';}};
+  form.addEventListener('input',clear);form.addEventListener('change',clear);
+ }
+ new MutationObserver(mount).observe(document.querySelector('#page')||document.body,{childList:true,subtree:true});mount();
 })();
