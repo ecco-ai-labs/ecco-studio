@@ -257,3 +257,21 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 #learning-days label{font-size:12px}
 #learning-days input,#learning-days select{min-height:32px;font-size:12px}
 #education-menu #checklist[hidden],#education-menu h3[hidden]{display:none!important}
+
+/* Compact PDF importer and selectable page preview. */
+#story-pdf-tools{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+#story-pdf-tools button,.pdf-story-dialog button{font-size:12px!important;min-height:28px!important;padding:4px 9px!important;width:auto!important}
+#story-pdf-tools summary,#story-pdf-tools .help,#story-pdf-tools [data-filename]{font-size:12px}
+.pdf-story-dialog{width:min(950px,94vw);max-height:92vh;overflow:auto;padding:16px;background:#201d44;color:#eeebf5;border:1px solid #45405e;border-radius:8px}
+.pdf-dialog-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.pdf-page-controls{align-items:center;gap:8px}.pdf-page-controls label{display:flex;align-items:center;gap:6px;font-size:12px}
+.pdf-page-controls select{width:66px;min-height:28px;padding:4px;font-size:12px}
+.pdf-story-dialog .help{font-size:12px;margin:8px 0}
+.pdf-page-scroll{height:48vh;overflow:auto;background:#131126;padding:12px;border-radius:6px}
+.pdf-story-page{position:relative;margin:0 auto;background:white;--scale-round-x:1px;--scale-round-y:1px}
+.pdf-story-page canvas{display:block}
+.pdf-story-page .textLayer{position:absolute;inset:0;overflow:clip;line-height:1;text-align:initial;user-select:text}
+.pdf-story-page .textLayer span,.pdf-story-page .textLayer br{position:absolute;color:transparent;white-space:pre;transform-origin:0 0;cursor:text}
+.pdf-story-page .textLayer ::selection{background:rgba(255,214,0,.45)}
+.pdf-selected-label{display:block;font-size:12px;margin-top:10px}
+.pdf-selected-label textarea{width:100%;font-size:12px;min-height:70px}
