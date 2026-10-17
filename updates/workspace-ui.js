@@ -12,7 +12,7 @@
  const labelsFor=id=>{const ids=new Set(records().filter(r=>r.kind==='library_item'&&r.asset_id===id&&!r.deleted).map(r=>r.folder_id));return folderList().filter(f=>ids.has(f.id));};
  function disclosure(title,key){const d=document.createElement('details');d.className='workspace-library';d.open=expansion.get(key)===true;d.innerHTML=`<summary><span class="library-symbol" aria-hidden="true"></span><span>${title}</span></summary><div class="workspace-library-content"></div>`;d.addEventListener('toggle',()=>expansion.set(key,d.open));return d;}
  function createFolder(after,parentName=''){let d=q('#workspace-folder-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-folder-dialog';document.body.append(d);}d.innerHTML='<form class="form"><h2>Create new label</h2><label>Label name<input name="name" required maxlength="80" autocomplete="off"></label><label>Parent label<select name="parent"><option value="">None (top level)</option>'+folderList().map(f=>'<option value="'+html(f.name)+'" '+(f.name===parentName?'selected':'')+'>'+html(f.name.replaceAll(' / ',' → '))+'</option>').join('')+'</select></label><p role="status"></p><div class="row"><button type="submit">Create label</button><button type="button" class="secondary">Cancel</button></div></form>';d.querySelector('[type=button]').onclick=()=>d.close();d.querySelector('form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('[type=submit]');b.disabled=true;try{if(!e.target.elements.name.value.trim())throw Error('Enter a label name.');if([e.target.elements.parent.value,e.target.elements.name.value.trim()].filter(Boolean).join(' / ').length>80)throw Error('The full label path must be 80 characters or fewer.');if(e.target.elements.name.value.includes('/'))throw Error('Use the parent selector to create nested labels.');const folder=await api('library/folders',{name:[e.target.elements.parent.value,e.target.elements.name.value.trim()].filter(Boolean).join(' / ')});if(folder.deleted)throw Error('A library with this name is in Trash. Restore it or choose another name.');await refresh();d.close();modernize();if(after)after(folder);}catch(err){d.querySelector('[role=status]').textContent=err.message;}finally{b.disabled=false;}};d.showModal();d.querySelector('input').focus();}
- function labelDialog(id){const asset=records().find(a=>a.id===id);if(!asset)return;let d=q('#workspace-label-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-label-dialog';document.body.append(d);}const selected=new Set(labelsFor(id).map(f=>f.id));d.innerHTML='<form class="form"><div class="section-head"><h2>Add labels</h2><button type="button" class="secondary small" data-create>Create new label</button></div><p class="help">Choose labels to organize this image in your library.</p><div class="workspace-label-options">'+(folderList().map(f=>`<label class="workspace-label-option"><input type="checkbox" name="labels" value="${f.id}" ${selected.has(f.id)?'checked disabled':''}><span>${html(f.name)}</span>${selected.has(f.id)?'<small>Added</small>':''}</label>`).join('')||'<p>Create your first label.</p>')+'</div><p role="status"></p><div class="row"><button type="submit">Add selected labels</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';d.querySelector('[data-close]').onclick=()=>d.close();d.querySelector('[data-create]').onclick=()=>createFolder(()=>{d.close();labelDialog(id);});d.querySelector('form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('[type=submit]');b.disabled=true;try{for(const fid of new FormData(e.target).getAll('labels'))if(!selected.has(fid))await api('library/save',{asset_id:id,folder_id:fid});await refresh();d.close();modernize();notice('Labels added. The image is available in those folders.');}catch(err){d.querySelector('[role=status]').textContent=err.message;}finally{b.disabled=false;}};d.showModal();}
+ function labelDialog(id){const asset=records().find(a=>a.id===id);if(!asset)return;let d=q('#workspace-label-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-label-dialog';document.body.append(d);}const selected=new Set(labelsFor(id).map(f=>f.id));d.innerHTML='<form class="form"><div class="section-head"><h2>Add labels</h2><button type="button" class="secondary small" data-create>Create new label</button></div><label>Image name<input name="image_name" maxlength="160" required value="'+html(asset.title&&(asset.title!==asset.prompt||asset.settings?.model==='uploaded-image')?asset.title:'')+'" placeholder="e.g. Pankaj cartoon portrait"></label><p class="help">Choose labels to organize this image in your library.</p><div class="workspace-label-options">'+(folderList().map(f=>`<label class="workspace-label-option"><input type="checkbox" name="labels" value="${f.id}" ${selected.has(f.id)?'checked disabled':''}><span>${html(f.name)}</span>${selected.has(f.id)?'<small>Added</small>':''}</label>`).join('')||'<p>Create your first label.</p>')+'</div><p role="status"></p><div class="row"><button type="submit">Save name & labels</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';d.querySelector('[data-close]').onclick=()=>d.close();d.querySelector('[data-create]').onclick=()=>createFolder(()=>{d.close();labelDialog(id);});d.querySelector('form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('[type=submit]');b.disabled=true;try{const name=e.target.elements.image_name.value.trim();if(!name)throw Error('Enter an image name.');const folderIds=[...new Set([...selected,...new FormData(e.target).getAll('labels')])];if(!folderIds.length)throw Error('Choose at least one label.');for(const fid of folderIds){const saved=await api('library/save',{asset_id:id,folder_id:fid,title:name});if(saved.image_title!==name)throw Error('Labels saved, but image naming needs the Studio service to reload its update. Your name has not been saved yet.');}await refresh();d.close();modernize();notice('Image name and labels saved.');}catch(err){d.querySelector('[role=status]').textContent=err.message;}finally{b.disabled=false;}};d.showModal();}
  function uploadDialog(){let d=q('#workspace-upload-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-upload-dialog';document.body.append(d);}d.innerHTML='<form class="form"><h2>Upload image</h2><label>Picture or object image<input type="file" name="image" accept="image/png,image/jpeg,image/webp" required></label><p class="help">PNG, JPEG or WebP · up to 12 MB and 20 megapixels. Your original upload is preserved when you edit a copy.</p><input type="hidden" name="next" value="label"><p role="status"></p><div class="row"><button type="submit">Upload image</button><button type="button" class="secondary">Cancel</button></div></form>';d.querySelector('[type=button]').onclick=()=>d.close();d.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,file=form.elements.image.files[0],button=form.querySelector('[type=submit]'),status=form.querySelector('[role=status]');if(!file)return;if(file.size>12*1024*1024){status.textContent='Choose an image no larger than 12 MB.';return;}button.disabled=true;status.textContent='Uploading image…';try{const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onerror=()=>reject(Error('Could not read this file.'));r.onload=()=>resolve(String(r.result).split(',')[1]);r.readAsDataURL(file);});const asset=await api('images/upload',{name:file.name,data,story_id:activeStory});await refresh();d.close();navigate('images');modernize();if(form.elements.next.value==='edit')editImageDialog(asset.id);else labelDialog(asset.id);notice('Image uploaded. Add labels to keep it in your library.');}catch(err){status.textContent=err.message;}finally{button.disabled=false;}};d.showModal();}
  function imageTree(){
   const box=q('#image-library-nav'),select=q('#library-folder-nav');if(!box||!select)return;
@@ -38,7 +38,7 @@
    const ids=new Set(links.filter(r=>r.folder_id===folder.id).map(r=>r.asset_id));
    const images=assets.filter(a=>ids.has(a.id)).sort((a,b)=>a.created-b.created);
    const key='label:'+folder.id;
-   if(nested.length||images.length){
+   if(nested.length){
     const toggle=document.createElement('button');toggle.type='button';toggle.className='tree-branch-toggle';toggle.textContent='▸';
     const sync=()=>{const open=expansion.get(key)===true;children.hidden=!open;toggle.textContent=open?'▾':'▸';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',(open?'Collapse ':'Expand ')+folder.name);};
     toggle.onclick=()=>{expansion.set(key,expansion.get(key)!==true);sync();};sync();row.append(toggle);
@@ -47,7 +47,7 @@
    label.textContent=parentOf(folder)?folder.name.split(' / ').at(-1):folder.name.replaceAll(' / ',' → ');label.title=folder.name.replaceAll(' / ',' → ');label.classList.toggle('selected',folder.id===select.value);
    label.onclick=()=>openFolder(folder.id);row.append(label);group.append(row,children);
    for(const child of nested)appendFolder(child,children);
-   for(const asset of images){const item=document.createElement('button');item.type='button';item.className='tree-image';item.textContent=asset.title||asset.prompt||'Untitled image';item.title=item.textContent;item.onclick=()=>{openFolder(folder.id);const img=[...document.querySelectorAll('img[data-asset]')].find(el=>el.dataset.asset===asset.id);if(img)img.click();};children.append(item);}
+
    container.append(group);
   }
   for(const folder of folders.filter(f=>!parentOf(f)))appendFolder(folder,body);
@@ -110,11 +110,12 @@
   };
   select.onchange=()=>{
    const asset=images.find(a=>a.id===select.value);preview.hidden=!asset;help.hidden=!asset;
-   model.disabled=!!asset;
+   model.disabled=false;
+   for(const option of model.options){if(option.dataset.originalDisabled===undefined)option.dataset.originalDisabled=String(option.disabled);option.disabled=asset?option.value!=='qwen-image-edit-2511':option.dataset.originalDisabled==='true';}
    if(asset){
     if(!model.querySelector('option[value="qwen-image-edit-2511"]')){const o=document.createElement('option');o.value='qwen-image-edit-2511';o.textContent='Qwen Image Edit · reference image';model.append(o);}
     model.value='qwen-image-edit-2511';preview.src=media(asset);
-    help.textContent='Describe your changes in Image prompt below. Qwen Image Edit uses this reference and preserves the original.';
+    help.textContent='Qwen Image Edit is the only reference-editing model currently connected. Other models are unavailable for this operation. Describe your changes below; the original is preserved.';
     button.textContent='Generate edited image';
    }else{model.value=originalModel;preview.removeAttribute('src');button.textContent=originalText;}
    document.dispatchEvent(new Event('ecco-reference-change'));
@@ -124,29 +125,21 @@
    const asset=records().find(a=>a.id===select.value&&!a.deleted);if(!asset){notice('This reference is no longer available.',true);return;}
    if(!state.config.models_ready?.['qwen-image-edit-2511']){notice('Qwen Image Edit is not ready on this GPU.',true);return;}
    const prompt=form.elements.prompt.value.trim();if(!prompt)return;
-   const style='';
    if(button.disabled)return;
    const story=activeStory;
    submittingImages.add(story);localStorage.removeItem('ecco-image-job:'+story);
    setGenerationBusy(button,true,'Submitting…','Generate edited image');
    const status=form.querySelector('#image-status');
    if(status)status.textContent='Sending your reference-image edit…';
-   try{const job=await api('image-edits',{asset_id:asset.id,story_id:story,prompt:prompt+(style?' Visual style: '+style+'.':'')});
-    localStorage.setItem('ecco-image-job:'+story,job.id);
-    submittingImages.delete(story);
-    await refresh();
-    notice('Reference edit queued. Your original image is preserved.');
-   }catch(err){
-    submittingImages.delete(story);
-    if(button.isConnected)setGenerationBusy(button,false,'','Generate edited image');
-    if(status?.isConnected)status.textContent=err.message+' Check Activity before retrying.';
-    notice(err.message,true);
-   }
+   try{const job=await api('image-edits',{asset_id:asset.id,story_id:story,prompt});
+    localStorage.setItem('ecco-image-job:'+story,job.id);submittingImages.delete(story);
+    await refresh();notice('Reference edit queued. Your original image is preserved.');
+   }catch(err){submittingImages.delete(story);if(button.isConnected)setGenerationBusy(button,false,'','Generate edited image');if(status?.isConnected)status.textContent=err.message;notice(err.message,true);}
   },true);
  }
 
  function imageLabels(){document.querySelectorAll('[data-approve]').forEach(b=>{const asset=records().find(r=>r.id===b.dataset.approve);if(asset?.media==='video')b.textContent='Approve & add to Video Library';});document.querySelectorAll('[data-trash]').forEach(b=>{b.textContent='×';b.classList.add('workspace-delete');});document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
- function ribbon(){const header=q('main > header'),right=header?.querySelector('.header-right');if(!right)return;header.classList.add('workspace-ribbon');if(!q('#workspace-menus')){const menus=document.createElement('div');menus.id='workspace-menus';for(const name of ['Billing','Account','Activity']){const d=document.createElement('details');d.className='workspace-menu';d.dataset.category=name;d.innerHTML=`<summary>${name}<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>`;d.addEventListener('toggle',()=>{if(d.open)menus.querySelectorAll('details').forEach(other=>{if(other!==d)other.open=false;});});menus.append(d);}right.append(menus);}const target=name=>q(`[data-category="${name}"] .workspace-menu-items`);const move=(node,name)=>{if(node&&node.parentElement!==target(name))target(name).append(node);};if(typeof powerButton!=='undefined')move(powerButton,'Billing');move(q('#settings'),'Account');move(q('#reconnect-gpu'),'Account');move(q('#sync'),'Activity');move(q('#open-comfyui'),'Activity');q('#workspace-menus').querySelectorAll('button,a').forEach(el=>{if(el.dataset.ribbonClose)return;el.dataset.ribbonClose='1';el.addEventListener('click',()=>(()=>{const menu=el.closest('details');if(menu)menu.open=false;})());});}
+ function ribbon(){const header=q('main > header'),right=header?.querySelector('.header-right');if(!right)return;header.classList.add('workspace-ribbon');if(!q('#workspace-menus')){const menus=document.createElement('div');menus.id='workspace-menus';for(const name of ['Billing','Account','Activity']){const d=document.createElement('details');d.className='workspace-menu';d.dataset.category=name;d.innerHTML=`<summary>${name}<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>`;d.addEventListener('toggle',()=>{if(d.open)menus.querySelectorAll('details').forEach(other=>{if(other!==d)other.open=false;});});menus.append(d);}right.append(menus);}const target=name=>q(`[data-category="${name}"] .workspace-menu-items`);const move=(node,name)=>{if(node&&node.parentElement!==target(name))target(name).append(node);};if(typeof powerButton!=='undefined')move(powerButton,'Billing');move(q('#settings'),'Account');move(q('#reconnect-gpu'),'Account');move(q('#sync'),'Activity');move(q('#open-comfyui'),'Activity');move(q('#toggle-activity'),'Activity');q('#workspace-menus').querySelectorAll('button,a').forEach(el=>{if(el.dataset.ribbonClose)return;el.dataset.ribbonClose='1';el.addEventListener('click',()=>el.closest('details').open=false);});}
  let hardwareVerifiedAt=0;
  function acceleratorDisplay(){
   const hardware=typeof state!=='undefined'?state?.config?.accelerator:null;
@@ -242,46 +235,45 @@
  document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
  function creditsDialog(){let d=q('#workspace-credits-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-credits-dialog';document.body.append(d);}d.innerHTML='<div class="form"><div class="section-head"><h2>Credits &amp; Usage</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Your generation allowance and usage.</p><dl class="credits-details"><dt>Starting allowance</dt><dd>500 credits per user</dd><dt>Available balance</dt><dd>Available after sign-in is connected</dd><dt>Credits used</dt><dd>Not tracked yet</dd><dt>Renewal</dt><dd>Not configured</dd></dl><p role="status">Per-user quotas are not active yet. Google Workspace sign-in and server-side credit tracking must be connected before credits can be granted or deducted.</p></div>';d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();}
  function accountCredits(){const menu=q('[data-category="Account"] .workspace-menu-items');if(!menu||q('#workspace-credits'))return;const b=document.createElement('button');b.id='workspace-credits';b.type='button';b.textContent='Credits & Usage';b.onclick=()=>{menu.closest('details').open=false;creditsDialog();};menu.prepend(b);}
-
- function activityDrawer(){
-  const panel=q('#activity-panel'),toggle=q('#toggle-activity'),close=q('#close-activity');
-  if(!panel||!toggle||!close||panel.dataset.arrowDrawer)return;
-  panel.dataset.arrowDrawer='1';
-  document.body.append(toggle);
-  toggle.classList.add('activity-edge-toggle');
-  toggle.setAttribute('aria-controls','activity-panel');
-  close.textContent='→';close.title='Close Activity & Compute';
-  close.setAttribute('aria-label','Close Activity & Compute');
-  const setOpen=open=>{
-   panel.hidden=!open;panel.inert=!open;
-   toggle.textContent=open?'→':'←';
-   toggle.title=open?'Close Activity & Compute':'Open Activity & Compute';
-   toggle.setAttribute('aria-label',toggle.title);
-   toggle.setAttribute('aria-expanded',String(open));
-   toggle.classList.toggle('drawer-open',open);
-  };
-  toggle.onclick=()=>setOpen(panel.hidden);
-  close.onclick=()=>{setOpen(false);toggle.focus();};
-  setOpen(!panel.hidden);
-  const style=document.createElement('style');
-  style.textContent=`
-   #activity-panel{display:block!important;position:fixed;top:0;right:0;bottom:0;width:min(480px,calc(100vw - 48px));box-sizing:border-box;z-index:90;transform:translateX(0);visibility:visible;transition:transform .25s ease,visibility .25s;overflow-y:auto}
-   #activity-panel[hidden]{display:block!important;transform:translateX(100%);visibility:hidden;pointer-events:none}
-   #toggle-activity.activity-edge-toggle{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:91;width:40px;height:64px;padding:0;border-radius:10px 0 0 10px;font-size:25px;background:#38305e;color:#eeebf5;border:1px solid #70658c;transition:right .25s ease}
-   #toggle-activity.activity-edge-toggle.drawer-open{right:min(480px,calc(100vw - 48px))}
-   body.workspace-entry-mode #toggle-activity,body.workspace-entry-mode #activity-panel{display:none!important}
-   @media(prefers-reduced-motion:reduce){#activity-panel,#toggle-activity.activity-edge-toggle{transition:none}}
-  `;
-  document.head.append(style);
- }
-
- function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();activityDrawer();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
+ function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
  if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);modernize();return result;};}
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!d.contains(e.target))d.open=false;});});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
  window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog};
  modernize();welcomePage();
+})();
+(()=>{
+ const icon='<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></svg>';
+ const deleted=()=>state.records.filter(r=>r.deleted&&!r.purged&&['story','board','board_draft','asset','image_folder'].includes(r.kind));
+ function trashIcon(){let b=document.querySelector('#workspace-trash');if(!b){b=document.createElement('button');b.id='workspace-trash';b.className='secondary asset-icon';b.title='Trash';b.setAttribute('aria-label','Trash');b.innerHTML=icon;b.onclick=()=>navigate('trash');document.querySelector('.side-bottom').before(b);}const old=document.querySelector('#view-trash');if(old)old.hidden=true;}
+ const oldStories=storyControls;storyControls=function(...args){const r=oldStories.apply(this,args);trashIcon();return r;};
+ const oldBoards=renderSavedBoards;renderSavedBoards=function(...args){const r=oldBoards.apply(this,args);document.querySelectorAll('[data-load-board]').forEach(load=>{const id=load.dataset.loadBoard;const record=state.records.find(r=>r.id===id);if(record?.deleted){load.parentElement.remove();return;}if(load.parentElement.querySelector('[data-delete-board]'))return;const b=document.createElement('button');b.type='button';b.className='small secondary';b.dataset.deleteBoard=id;b.setAttribute('aria-label','Delete storyboard '+record?.title);b.title='Move revision to Trash';b.textContent='×';b.classList.add('workspace-delete');b.onclick=()=>action(async()=>{await api('trash/board',{id});notice('Storyboard revision moved to Trash.');});load.after(b);});return r;};
+ const oldBoardPage=boardPage;boardPage=function(...args){const r=oldBoardPage.apply(this,args);const save=document.querySelector('#save-board');if(save){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='×';b.classList.add('workspace-delete');b.title='Delete current storyboard';b.setAttribute('aria-label','Delete current storyboard');b.onclick=()=>action(async()=>{const storyAtDelete=activeStory;await api('trash/draft',{story_id:storyAtDelete,draft:structuredClone(draft)});draft={title:currentStory().title||'',story:'',scenes:[]};persistDraft();boardPage();notice('Current storyboard moved to Trash.');});save.after(b);}return r;};
+ trashPage=function(){const items=deleted();document.querySelector('#page').innerHTML='<div class="section-head"><h2>Trash · all stories</h2><button id="empty-workspace-trash" class="secondary" '+(!items.length?'disabled':'')+'>Empty Trash ('+items.length+')</button></div><p class="help">Restore deleted items here. Empty Trash permanently removes the listed items and their local files; references to deleted images are removed from saved storyboards and characters. External copies and backups are unaffected.</p><div id="trash-items">'+items.map(r=>'<article class="panel section-head"><div><strong>'+esc(r.title||r.prompt||r.name||'Untitled image')+'</strong><p class="help">'+esc(r.kind==='board_draft'?'Current storyboard':r.kind==='board'?'Saved storyboard':r.kind==='asset'?(r.media||'Image'):r.kind)+'</p></div><button class="secondary" data-restore-item="'+r.id+'">Restore</button></article>').join('')+'</div>'+(items.length?'':'<p>Trash is empty.</p>');
+ document.querySelectorAll('[data-restore-item]').forEach(b=>b.onclick=()=>action(async()=>{const r=items.find(r=>r.id===b.dataset.restoreItem);if(r.kind==='story')await api('stories/archive',{story_id:r.id,restore:true});else if(r.kind==='asset')await api('trash',{asset_id:r.id,restore:true});else if(r.kind==='image_folder')await api('trash/folder',{id:r.id,restore:true});else if(r.kind==='board')await api('trash/board',{id:r.id,restore:true});else{const key='ecco-board-draft:'+r.story_id;const existing=JSON.parse(localStorage.getItem(key)||'null');if(existing&&(existing.scenes?.length||existing.story)){await api('trash/draft',{story_id:r.story_id,draft:existing});}const restored=await api('trash/restore-draft',{id:r.id});localStorage.setItem(key,JSON.stringify(restored.draft));if(activeStory===r.story_id)draft=restored.draft;}notice('Restored.');}));
+ document.querySelector('#empty-workspace-trash').onclick=()=>{if(!confirm('Permanently delete all '+items.length+' items shown in Trash? Their local files and image references will be removed. This cannot be undone.'))return;action(async()=>{const result=await api('trash/empty',{ids:items.map(r=>r.id),confirmed:true});notice(result.purged_count+' items permanently deleted.');});};
+ };
+ trashIcon();
+})();
+
+/* Activity drawer edge control. */
+(()=>{
+ const panel=document.querySelector('#activity-panel'),original=document.querySelector('#toggle-activity'),close=document.querySelector('#close-activity');
+ if(!panel||!original||!close||document.querySelector('#activity-edge-arrow'))return;
+ const arrow=document.createElement('button');arrow.id='activity-edge-arrow';arrow.type='button';arrow.setAttribute('aria-controls','activity-panel');document.body.append(arrow);
+ const sync=()=>{const open=!panel.hidden;panel.inert=!open;arrow.textContent=open?'→':'←';arrow.title=open?'Close Activity & Compute':'Open Activity & Compute';arrow.setAttribute('aria-label',arrow.title);arrow.setAttribute('aria-expanded',String(open));arrow.classList.toggle('drawer-open',open);};
+ arrow.onclick=()=>{original.click();sync();};close.textContent='→';close.title='Close Activity & Compute';close.setAttribute('aria-label','Close Activity & Compute');close.onclick=()=>{panel.hidden=true;original.setAttribute('aria-expanded','false');sync();arrow.focus();};
+ new MutationObserver(sync).observe(panel,{attributes:true,attributeFilter:['hidden']});sync();
+ const style=document.createElement('style');style.textContent=`
+ #toggle-activity{display:none!important}
+ #activity-panel{display:block!important;position:fixed;top:0;right:0;bottom:0;width:min(480px,calc(100vw - 48px));box-sizing:border-box;z-index:90;transform:translateX(0);visibility:visible;transition:transform .25s ease,visibility .25s;overflow-y:auto}
+ #activity-panel[hidden]{display:block!important;transform:translateX(100%);visibility:hidden;pointer-events:none}
+ #activity-edge-arrow{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:91;width:40px;height:64px;padding:0;border-radius:10px 0 0 10px;font-size:25px;background:#38305e;color:#eeebf5;border:1px solid #70658c;transition:right .25s ease}
+ #activity-edge-arrow.drawer-open{right:min(480px,calc(100vw - 48px))}
+ body.workspace-entry-mode #activity-edge-arrow,body.workspace-entry-mode #activity-panel{display:none!important}
+ @media(prefers-reduced-motion:reduce){#activity-panel,#activity-edge-arrow{transition:none}}
+ `;document.head.append(style);
 })();
 
 
@@ -339,7 +331,6 @@
  new MutationObserver(position).observe(document.querySelector('#page')||document.body,{childList:true,subtree:true});position();
 })();
 
-
 /* Collapsible image control sections; edits clear only old completion notices. */
 (()=>{
  const expansion=new Map();
@@ -350,7 +341,7 @@
   const children=[...form.children],heading=form.querySelector('h2');
   const group=(title,key,nodes)=>{const present=nodes.filter(Boolean);if(!present.length)return;const details=document.createElement('details');details.className='image-control-section';details.open=expansion.get(key)??true;const summary=document.createElement('summary');summary.textContent=title;const body=document.createElement('div');body.className='image-control-body';details.append(summary,body);present[0].before(details);for(const node of present)body.append(node);details.addEventListener('toggle',()=>expansion.set(key,details.open));};
   const at=children.indexOf(heading);if(at>0)group('Model & reference image','model',children.slice(0,at));
-  group('Style & scene controls','scene',[form.querySelector('#image-style')?.closest('label'),form.querySelector('#image-scene-controls')]);
+  {const style=form.querySelector('#image-style')?.closest('label'),scene=form.querySelector('#image-scene-controls');const trigger=document.createElement('button');trigger.type='button';trigger.className='secondary';trigger.textContent='Scene controls';trigger.setAttribute('aria-haspopup','dialog');const dialog=document.createElement('dialog');dialog.className='scene-controls-dialog';dialog.setAttribute('aria-label','Scene controls');const body=document.createElement('div');body.className='form';const title=document.createElement('h2');title.textContent='Scene controls';const close=document.createElement('button');close.type='button';close.textContent='Done';body.append(title);(style||scene).before(trigger);if(style)body.append(style);body.append(scene,close);dialog.append(body);form.append(dialog);trigger.onclick=()=>dialog.showModal();close.onclick=()=>dialog.close();dialog.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName!=='BUTTON'){e.preventDefault();dialog.close();}});const count=()=>{const n=[...scene.querySelectorAll('input')].filter(i=>i.value.trim()).length;trigger.textContent='Scene controls'+(n?' · '+n+' selected':'');};dialog.addEventListener('input',count);}
   group('Image prompt','prompt',[form.elements.prompt?.closest('label'),form.querySelector('#image-prompt-preview')]);
   group('Advanced settings','advanced',[form.elements.negative?.closest('label'),form.elements.steps?.closest('.row'),form.elements.seed?.closest('label')]);
   heading?.remove();
@@ -360,8 +351,30 @@
  new MutationObserver(mount).observe(document.querySelector('#page')||document.body,{childList:true,subtree:true});mount();
 })();
 
-/* Original animated branding, welcome screen only. */
+/* Visible background work and prompt-assistant connection status. */
+(()=>{
+ function update(){
+  const active=typeof state!=='undefined'&&state?.records?.filter(r=>r.kind==='job'&&['queued','running'].includes(r.status))||[];
+  for(const arrow of document.querySelectorAll('#activity-edge-arrow,#toggle-activity.activity-edge-toggle')){
+   const busy=active.length>0;arrow.classList.toggle('has-active-jobs',busy);let dots=arrow.querySelector('.activity-working-dots');if(busy&&!dots){dots=document.createElement('span');dots.className='activity-working-dots';dots.setAttribute('aria-hidden','true');dots.textContent='...';arrow.append(dots);}if(!busy&&dots)dots.remove();arrow.title=busy?active.length+' generation job(s) queued or running':'Activity & Compute';
+  }
+  for(const job of document.querySelectorAll('#jobs .job')){const status=[...job.querySelectorAll('.detail')].find(e=>/^(running|queued)$/.test(e.textContent.trim()));if(status&&!status.querySelector('.job-working-dots')){const dots=document.createElement('span');dots.className='job-working-dots';dots.textContent=' ...';dots.setAttribute('aria-hidden','true');status.append(dots);}}
+  for(const form of document.querySelectorAll('#image-form,#video-form')){if(form.querySelector('.ai-prompt-assist'))continue;const prompt=form.elements.prompt;if(!prompt)continue;const button=document.createElement('button');button.type='button';button.className='small secondary ai-prompt-assist';button.textContent='✦ AI';button.title='AI prompt assistant · not connected';button.setAttribute('aria-label','AI prompt assistant — not connected');prompt.closest('label').after(button);button.onclick=()=>{let dialog=document.querySelector('#ai-prompt-connection');if(!dialog){dialog=document.createElement('dialog');dialog.id='ai-prompt-connection';dialog.innerHTML='<div class="form"><h2>AI prompt assistant</h2><p>Not connected yet. OpenAI API integration requires a server-side API key and separate usage billing. A self-hosted open-source text model is another option; it uses your compute.</p><p>No prompt has been sent and no generation has started.</p><button type="button">Close</button></div>';document.body.append(dialog);dialog.querySelector('button').onclick=()=>dialog.close();}dialog.showModal();};}
+ }
+ setInterval(update,1000);update();
+})();
+
+/* Keep animated branding scoped to the welcome screen. */
 (()=>{function mount(){const logo=document.querySelector('#workspace-entry .entry-logo');if(!logo||logo.parentElement.classList.contains('entry-logo-motion'))return;const motion=document.createElement('div');motion.className='entry-logo-motion';logo.before(motion);motion.append(logo);for(let i=0;i<48;i++){const dot=document.createElement('span');dot.className='entry-logo-particle';dot.setAttribute('aria-hidden','true');motion.append(dot);}}new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});mount();})();
 
-/* Continue an explicit launcher handoff without a second welcome screen. */
-(()=>{if(new URLSearchParams(location.search).get('enter')!=='workspace')return;const enter=()=>{const button=document.querySelector('#entry-tell-story');if(!button)return false;button.click();const url=new URL(location.href);url.searchParams.delete('enter');history.replaceState(null,'',url.pathname+url.search+url.hash);return true;};if(!enter()){const observer=new MutationObserver(()=>{if(enter())observer.disconnect();});observer.observe(document.body,{childList:true,subtree:true});}})();
+/* Job diagnostics: explicit job input/output evidence, never raw configuration. */
+(()=>{
+ const q=s=>document.querySelector(s),safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ let captured={};try{captured=JSON.parse(localStorage.getItem('ecco-job-debug')||'{}');}catch{}let chosen='',signature='';
+ const oldApi=api;api=async function(path,payload,...rest){if(!['images','image-edits','videos','render'].includes(path)||!payload)return oldApi.call(this,path,payload,...rest);const submission={prompt:q('#image-form #image-effective-prompt')?.value||payload.prompt||'',model:payload.model||q('#job-model')?.value||'',reference_ids:[payload.asset_id||payload.source_asset_id].filter(Boolean),submitted_at:Date.now()};const result=await oldApi.call(this,path,payload,...rest);if(result?.id){captured[result.id]=submission;const ids=Object.keys(captured);for(const id of ids.slice(0,Math.max(0,ids.length-30)))delete captured[id];try{localStorage.setItem('ecco-job-debug',JSON.stringify(captured));}catch{}}return result;};
+ function render(){const root=q('#ecco-debug-view');if(!root||root.hidden||typeof state==='undefined'||!state)return;const jobs=state.records.filter(r=>r.kind==='job').sort((a,b)=>b.created-a.created).slice(0,30);if(!jobs.some(j=>j.id===chosen))chosen=jobs[0]?.id||'';const job=jobs.find(j=>j.id===chosen),asset=job&&state.records.find(a=>a.kind==='asset'&&(a.id===job.result||a.job_id===job.id)),input=captured[chosen],refIds=asset?.settings?.reference_ids||input?.reference_ids||[],refs=refIds.map(id=>state.records.find(a=>a.id===id)).filter(Boolean);const sig=JSON.stringify({jobs,chosen,asset,input,refs});if(sig===signature)return;signature=sig;
+ root.innerHTML='<label>Inspect job<select id="ecco-debug-job">'+jobs.map(j=>'<option value="'+safe(j.id)+'" '+(j.id===chosen?'selected':'')+'>'+safe(new Date(j.created*1000).toLocaleTimeString()+' · '+j.label+' · '+j.status)+'</option>').join('')+'</select></label>'+(job?'<dl class="debug-facts"><dt>Job ID</dt><dd>'+safe(job.id)+'</dd><dt>Status</dt><dd>'+safe(job.status)+'</dd><dt>Progress</dt><dd>'+safe(job.progress||'—')+'</dd><dt>Model</dt><dd>'+safe(asset?.settings?.model||input?.model||'Not recorded for this job')+'</dd><dt>Elapsed</dt><dd>'+safe(job.seconds===undefined?'—':job.seconds.toFixed(1)+' seconds')+'</dd><dt>Output ID</dt><dd>'+safe(asset?.id||job.result||'No output yet')+'</dd></dl>'+(job.error?'<p class="debug-error">'+safe(job.error)+'</p>':'')+'<h3>Reference image sent</h3>'+(refs.length?refs.map(a=>'<figure><img class="debug-image" src="'+safe(media(a))+'" alt="Reference: '+safe(a.title||a.id)+'"><figcaption>'+safe(a.title||a.id)+' · '+safe(a.id)+'</figcaption></figure>').join(''):'<p class="help">'+(input&&!refIds.length?'No reference image recorded in this submission.':'Reference details unavailable for this job.')+'</p>')+'<h3>Submitted prompt</h3><textarea readonly rows="8" aria-label="Submitted prompt">'+safe(asset?.prompt||input?.prompt||'Prompt not recorded for this older job. New submissions will capture it here.')+'</textarea><h3>Output preview</h3>'+(asset?.media==='image'?'<img class="debug-image" src="'+safe(media(asset))+'" alt="Generated output">':asset?.media==='video'?'<video class="debug-image" src="'+safe(media(asset))+'" controls preload="metadata"></video>':'<p class="help">No output asset available.</p>')+(asset?.settings?'<h3>Recorded generation settings</h3><pre>'+safe(JSON.stringify(asset.settings,null,2))+'</pre>':''):'<p>No generation jobs yet.</p>');q('#ecco-debug-job').onchange=e=>{chosen=e.target.value;signature='';render();};
+ }
+ function mount(){const panel=q('#activity-panel'),jobs=q('#jobs');if(!panel||!jobs||q('#ecco-activity-tabs'))return;const tabs=document.createElement('div');tabs.id='ecco-activity-tabs';tabs.className='row';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Activity panel views');tabs.innerHTML='<button type="button" role="tab" aria-selected="true" aria-controls="jobs">Activity</button><button type="button" role="tab" aria-selected="false" aria-controls="ecco-debug-view" class="secondary">Debugging</button>';const root=document.createElement('section');root.id='ecco-debug-view';root.hidden=true;root.setAttribute('role','tabpanel');jobs.before(tabs);jobs.after(root);for(const button of tabs.children)button.onclick=()=>{const debugging=button.textContent==='Debugging';jobs.hidden=debugging;root.hidden=!debugging;for(const b of tabs.children){b.setAttribute('aria-selected',String(b===button));b.classList.toggle('secondary',b!==button);}render();};}
+ new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});setInterval(render,1000);mount();
+})();
