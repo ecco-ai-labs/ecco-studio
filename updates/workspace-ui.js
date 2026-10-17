@@ -390,11 +390,24 @@
   const content=root.querySelector('div'),opened=new Set();
   const save=()=>{try{localStorage.setItem(key,JSON.stringify(days));message='Saved in this browser.';}catch{message='Could not save. Keep this page open and copy your checklist.';}};
   const render=()=>{
-   content.innerHTML=days.map((day,d)=>'<details class="learning-day" data-day="'+d+'" '+(opened.has(d)?'open':'')+'><summary>− '+html(day.name)+'</summary><div class="learning-activities">'+day.items.map((item,i)=>'<label class="learning-task"><input type="checkbox" data-day-check="'+d+':'+i+'" '+(item.done?'checked':'')+'><span>'+html(item.text)+'</span></label>').join('')+'<form data-add-item="'+d+'" class="learning-add-task"><input name="item" maxlength="300" required aria-label="New activity for '+html(day.name)+'" placeholder="New activity"><button type="submit">+ Add</button></form><label class="learning-rename">Day label<input data-day-name="'+d+'" maxlength="80" value="'+html(day.name)+'"></label></div></details>').join('')+'<button type="button" id="learning-add-day">+ Add Day</button><p class="help" role="status">'+html(message||'Saved in this browser only.')+'</p>';
+   content.innerHTML=days.map((day,d)=>'<details class="learning-day" data-day="'+d+'" '+(opened.has(d)?'open':'')+'><summary>− '+html(day.name)+'</summary><div class="learning-activities">'+day.items.map((item,i)=>'<div class="learning-task"><input type="checkbox" data-day-check="'+d+':'+i+'" aria-label="Complete '+html(item.text)+'" '+(item.done?'checked':'')+'><button type="button" class="learning-task-text" data-day-edit="'+d+':'+i+'" aria-label="Edit task: '+html(item.text)+'" title="Edit task">'+html(item.text)+'</button><input type="text" data-day-text="'+d+':'+i+'" aria-label="Edit checklist item" maxlength="300" value="'+html(item.text)+'" hidden></div>').join('')+'<form data-add-item="'+d+'" class="learning-add-task"><input name="item" maxlength="300" required aria-label="New activity for '+html(day.name)+'" placeholder="New activity"><button type="submit">+ Add</button></form><label class="learning-rename">Day label<input data-day-name="'+d+'" maxlength="80" value="'+html(day.name)+'"></label></div></details>').join('')+'<button type="button" id="learning-add-day">+ Add Day</button><p class="help" role="status">'+html(message||'Saved in this browser only.')+'</p>';
    content.querySelectorAll('[data-day]').forEach(d=>d.ontoggle=()=>{const i=+d.dataset.day;if(d.open)opened.add(i);else opened.delete(i);});
    content.querySelector('#learning-add-day').onclick=()=>{days.push({name:'Day '+(days.length+1),items:[]});opened.add(days.length-1);save();render();};
    content.querySelectorAll('[data-day-name]').forEach(input=>input.onchange=()=>{const i=+input.dataset.dayName;days[i].name=input.value.trim()||'Day '+(i+1);save();render();});
    content.querySelectorAll('[data-day-check]').forEach(b=>b.onchange=()=>{const [d,i]=b.dataset.dayCheck.split(':').map(Number);days[d].items[i].done=b.checked;save();content.querySelector('[role=status]').textContent=message;});
+   content.querySelectorAll('[data-day-edit]').forEach(button=>{
+    const [d,i]=button.dataset.dayEdit.split(':').map(Number),input=button.nextElementSibling,checkbox=button.previousElementSibling,item=days[d].items[i];
+    const finish=(commit,returnFocus=false)=>{
+     if(input.hidden)return;
+     const text=input.value.trim();
+     if(commit&&text&&text!==item.text){item.text=text;save();content.querySelector('[role=status]').textContent=message;}
+     input.value=item.text;button.textContent=item.text;button.setAttribute('aria-label','Edit task: '+item.text);checkbox.setAttribute('aria-label','Complete '+item.text);
+     input.hidden=true;button.hidden=false;if(returnFocus)button.focus();
+    };
+    button.onclick=()=>{button.hidden=true;input.hidden=false;input.focus();input.select();};
+    input.onblur=()=>finish(true);
+    input.onkeydown=event=>{if(event.key==='Enter'||event.key==='Escape'){event.preventDefault();event.stopPropagation();finish(event.key==='Enter',true);}};
+   });
    content.querySelectorAll('[data-add-item]').forEach(form=>form.onsubmit=e=>{e.preventDefault();const d=+form.dataset.addItem,text=form.elements.item.value.trim();if(!text)return;days[d].items.push({text,done:false});opened.add(d);save();render();});
   };render();
  }

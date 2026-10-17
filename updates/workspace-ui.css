@@ -296,3 +296,10 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 #learning-days .learning-add-task input{min-width:0;flex:1;width:160px}
 #learning-days .learning-rename{font-size:10px;opacity:.75}
 #learning-days .learning-rename input{display:inline-block;width:140px;margin-left:8px}
+
+/* Checklist text stays compact; editing appears only when selected. */
+#education-menu #learning-days .learning-task-text{flex:1;min-width:0;padding:0!important;font-weight:400;line-height:20px;white-space:normal;overflow-wrap:anywhere}
+#education-menu #learning-days .learning-task-text:hover{text-decoration:underline}
+#learning-days .learning-task input:checked+.learning-task-text{text-decoration:line-through;opacity:.55}
+#learning-days .learning-task [data-day-text]{flex:1;min-width:0;width:100%;margin:0}
+#learning-days [hidden]{display:none!important}
