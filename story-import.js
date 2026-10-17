@@ -47,7 +47,7 @@
     await new pdfjs.TextLayer({textContentSource:content,container:layer,viewport}).render();
     note.textContent=content.items.some(i=>i.str?.trim())?'Highlight the text you want to use.':'No selectable text on this page. A scanned PDF needs OCR first.';
     pageSelect.value=String(pageNumber);
-   }catch(error){note.textContent='Could not preview this page: '+error.message;}
+   }catch(error){window.EccoErrors?.show(error);note.textContent='Could not preview this page: '+error.message;}
    finally{busy=false;controls();}
   };
   dialog.querySelector('[data-prev]').onclick=()=>{if(pageNumber>1){pageNumber--;draw();}};
@@ -68,7 +68,7 @@
     pageNumber=1;selected.value='';pageSelect.replaceChildren();for(let n=1;n<=doc.numPages;n++){const option=document.createElement('option');option.value=n;option.textContent=n;pageSelect.append(option);}
     dialog.querySelector('[data-total]').textContent='of '+doc.numPages;box.querySelector('[data-filename]').textContent=file.name;
     open.disabled=false;status.textContent='PDF ready. Select a passage to create your story.';dialog.showModal();await draw();
-   }catch(error){status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}
+   }catch(error){window.EccoErrors?.show(error);status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}
   };
   extract.onclick=async()=>{
    const text=selected.value.trim();if(!text){note.textContent='Select story text to extract.';return;}
