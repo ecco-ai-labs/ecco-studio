@@ -221,3 +221,19 @@ body:not(.workspace-entry-mode) #page .section-head>.row>button:is(:active,:focu
  color:#fff!important;
 }
 #journey-publish{margin-top:20px}
+
+/* Match library navigation to the production workflow. */
+#workspace-library-group>.workspace-library-content{display:flex;flex-direction:column}
+#workspace-library-group>.workspace-library-content>.project{order:1}
+#workspace-library-group>.workspace-library-content>#image-library-nav{order:2}
+#workspace-library-group>.workspace-library-content>#workspace-audio-library{order:3}
+#workspace-library-group>.workspace-library-content>#workspace-video-library{order:4}
+aside>#workspace-trash{margin-left:auto;align-self:flex-end}
+/* Shared library overview modes. */
+#video-library-gallery.library-list{display:flex;flex-direction:column}
+#video-library-gallery.library-list .card{width:100%}
+#video-library-gallery.library-list video{max-height:100px}
+#video-library-gallery.library-small{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+#video-library-gallery.library-large{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+#story-library-list.library-small,#story-library-list.library-large{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+#story-library-list.library-large{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
