@@ -189,3 +189,11 @@ body.workspace-entry-mode #workspace-entry .entry-logo-particle{animation-play-s
 #workspace-library-group .tree-create::before,#workspace-library-group .tree-create::after{font-size:inherit!important}
 
 #page .section-head .row>button,#page .library-view-label,#page .library-view-label select{font-size:12px!important;font-weight:400!important;min-height:30px;padding:6px 10px!important;width:auto}
+
+/* Shared compact button sizing across Studios menus and action toolbars. */
+body:not(.workspace-entry-mode) :is(#workspace-menus button,#workspace-menus .workspace-menu>summary,#workspace-library-group button,#workspace-production-group button,main button,dialog button){
+ font-size:12px!important;line-height:18px!important;font-weight:500!important;min-height:32px!important;padding:6px 10px!important;box-sizing:border-box;
+}
+body:not(.workspace-entry-mode) :is(.asset-icon,.workspace-delete,.storage-key-toggle,.tree-branch-toggle){width:32px!important;min-width:32px!important;height:32px!important;padding:6px!important}
+body:not(.workspace-entry-mode) :is(.asset-icon,.workspace-delete,.storage-key-toggle) svg{width:16px!important;height:16px!important}
+#workspace-menus .workspace-menu>summary{display:flex;align-items:center}
