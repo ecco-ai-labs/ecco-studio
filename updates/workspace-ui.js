@@ -362,3 +362,6 @@
 
 /* Original animated branding, welcome screen only. */
 (()=>{function mount(){const logo=document.querySelector('#workspace-entry .entry-logo');if(!logo||logo.parentElement.classList.contains('entry-logo-motion'))return;const motion=document.createElement('div');motion.className='entry-logo-motion';logo.before(motion);motion.append(logo);for(let i=0;i<48;i++){const dot=document.createElement('span');dot.className='entry-logo-particle';dot.setAttribute('aria-hidden','true');motion.append(dot);}}new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});mount();})();
+
+/* Continue an explicit launcher handoff without a second welcome screen. */
+(()=>{if(new URLSearchParams(location.search).get('enter')!=='workspace')return;const enter=()=>{const button=document.querySelector('#entry-tell-story');if(!button)return false;button.click();const url=new URL(location.href);url.searchParams.delete('enter');history.replaceState(null,'',url.pathname+url.search+url.hash);return true;};if(!enter()){const observer=new MutationObserver(()=>{if(enter())observer.disconnect();});observer.observe(document.body,{childList:true,subtree:true});}})();
