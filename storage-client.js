@@ -5,7 +5,7 @@
  let key=sessionStorage.getItem('ecco-storage-access')||'';
  const gpuAPI=api;
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','youtube/connect','youtube/publish','github/sync','billing/connect','billing/refresh']);
- window.EccoStorage={get ready(){return Boolean(key);},endpoint};
+ window.EccoStorage={get ready(){return Boolean(key);},endpoint,open:dialog};
  api=async function(path,body){
   if(generation.has(path))return gpuAPI(path,body);
   if(!key)throw Error('Connect your saved workspace from Account → Storage. No GPU is needed.');
@@ -33,7 +33,14 @@
   };
   modal.showModal();
  }
- function mount(){const target=document.querySelector('[data-category="Account"] .workspace-menu-items');if(!target||document.querySelector('#connect-storage'))return;const button=document.createElement('button');button.id='connect-storage';button.textContent='Storage';button.onclick=()=>{target.closest('details').open=false;dialog();};target.prepend(button);}
+ function mount(){const settings=document.querySelector('#settings');if(settings)settings.onclick=dialog;const target=document.querySelector('[data-category="Account"] .workspace-menu-items');if(!target||document.querySelector('#connect-storage'))return;const button=document.createElement('button');button.id='connect-storage';button.textContent='Storage';button.onclick=()=>{target.closest('details').open=false;dialog();};target.prepend(button);}
+ const noticeBox=document.querySelector('#notice');
+ function connectNotice(){
+  if(!noticeBox||noticeBox.querySelector('button')||!/Connect your (?:saved )?workspace/.test(noticeBox.textContent))return;
+  const button=document.createElement('button');button.type='button';button.className='small secondary';button.textContent='Connect storage';button.onclick=dialog;noticeBox.append(' ',button);
+ }
+ if(noticeBox)new MutationObserver(connectNotice).observe(noticeBox,{childList:true});
+ connectNotice();
  mount();new MutationObserver(mount).observe(document.querySelector('main > header'),{childList:true,subtree:true});
  if(key)setTimeout(()=>refresh(),0);
 })();
