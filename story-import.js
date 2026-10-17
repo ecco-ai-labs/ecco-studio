@@ -25,31 +25,77 @@
   form.prepend(box);const input=box.querySelector('input'),status=box.querySelector('[role=status]'),source=box.querySelector('textarea'),open=box.querySelector('[data-preview]');
   source.value=saved.sourceText||'';
   box.querySelector('[data-upload]').onclick=()=>input.click();
-  let task=null,doc=null,pdfjs=null,pageNumber=1,highlight='',busy=false;
+  let task=null,doc=null,pdfjs=null,pageNumber=1,highlight='',busy=false,observer=null,epoch=0;
+  let shells=[],renderQueue=[],rendering=0;
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label','Select story from PDF');
-  dialog.innerHTML='<div class="pdf-dialog-head"><strong>Select story from PDF</strong><button type="button" class="secondary" data-close>Close</button></div><div class="row pdf-page-controls"><button type="button" class="secondary" data-prev>Previous</button><label>Page <select data-page aria-label="PDF page"></select></label><span data-total></span><button type="button" class="secondary" data-next>Next</button><button type="button" class="secondary" data-add disabled>Add highlighted text</button></div><p class="help">Drag across the PDF text to highlight a passage. Add passages from other pages if needed, then extract your selection.</p><div class="pdf-page-scroll"><div class="pdf-story-page"><canvas></canvas><div class="textLayer"></div></div></div><label class="pdf-selected-label">Selected story text<textarea data-selected rows="3" placeholder="Highlight a passage above, then Add highlighted text."></textarea></label><div class="row"><button type="button" data-extract disabled>Extract selected text as story</button><span role="status"></span></div>';
+  dialog.innerHTML='<div class="pdf-dialog-head"><strong>Select story from PDF</strong><button type="button" class="secondary" data-close>Close</button></div><div class="row pdf-page-controls"><button type="button" class="secondary" data-prev>Previous</button><label>Page <select data-page aria-label="PDF page"></select></label><span data-total></span><button type="button" class="secondary" data-next>Next</button><button type="button" class="secondary" data-add disabled>Add highlighted text</button></div><p class="help">Scroll through the PDF and drag to select text across pages. Add highlighted text, then extract your selection.</p><div class="pdf-page-scroll"></div><label class="pdf-selected-label">Selected story text<textarea data-selected rows="3" placeholder="Highlight a passage above, then Add highlighted text."></textarea></label><div class="row"><button type="button" data-extract disabled>Extract selected text as story</button><span role="status"></span></div>';
   document.body.append(dialog);
   const selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]'),add=dialog.querySelector('[data-add]'),pageSelect=dialog.querySelector('[data-page]');
   const controls=()=>{extract.disabled=!selected.value.trim()||busy;add.disabled=!highlight.trim()||busy;dialog.querySelector('[data-prev]').disabled=busy||pageNumber<=1;dialog.querySelector('[data-next]').disabled=busy||!doc||pageNumber>=doc.numPages;pageSelect.disabled=busy;};
   selected.oninput=controls;
-  const capture=()=>{const selection=window.getSelection(),layer=dialog.querySelector('.textLayer');highlight=selection&&selection.rangeCount&&layer.contains(selection.anchorNode)&&layer.contains(selection.focusNode)?selection.toString().trim():'';controls();};
+  const capture=()=>{const selection=window.getSelection(),layer=dialog.querySelector('.pdf-page-scroll');highlight=selection&&selection.rangeCount&&layer.contains(selection.anchorNode)&&layer.contains(selection.focusNode)?selection.toString().trim():'';controls();};
   dialog.querySelector('.pdf-page-scroll').addEventListener('mouseup',capture);
   dialog.querySelector('.pdf-page-scroll').addEventListener('keyup',capture);
-  const draw=async()=>{
-   if(!doc||busy)return;busy=true;highlight='';controls();note.textContent='Loading page '+pageNumber+'…';
+  const scroll=dialog.querySelector('.pdf-page-scroll');
+  async function renderPage(shell, generation){
+   if(generation!==epoch||shell.dataset.rendered)return;
+   const currentDoc=doc;
    try{
-    const page=await doc.getPage(pageNumber),base=page.getViewport({scale:1}),scale=Math.min(1.5,760/base.width),viewport=page.getViewport({scale});
-    const shell=dialog.querySelector('.pdf-story-page'),canvas=shell.querySelector('canvas'),layer=shell.querySelector('.textLayer');
+    const page=await currentDoc.getPage(+shell.dataset.page);
+    if(generation!==epoch)return;
+    const base=page.getViewport({scale:1}),scale=Math.min(1.5,760/base.width),viewport=page.getViewport({scale});
+    const canvas=shell.querySelector('canvas'),layer=shell.querySelector('.textLayer');
     shell.style.width=viewport.width+'px';shell.style.height=viewport.height+'px';shell.style.setProperty('--scale-factor',scale);shell.style.setProperty('--total-scale-factor',scale);shell.style.setProperty('--user-unit',1);
-    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);layer.replaceChildren();
+    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
     await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+    if(generation!==epoch)return;
     const content=await page.getTextContent();
+    if(generation!==epoch)return;
     await new pdfjs.TextLayer({textContentSource:content,container:layer,viewport}).render();
-    note.textContent=content.items.some(i=>i.str?.trim())?'Highlight the text you want to use.':'No selectable text on this page. A scanned PDF needs OCR first.';
-    pageSelect.value=String(pageNumber);
-   }catch(error){window.EccoErrors?.show(error);note.textContent='Could not preview this page: '+error.message;}
-   finally{busy=false;controls();}
+    shell.dataset.rendered='true';shell.removeAttribute('aria-busy');
+   }catch(error){if(generation===epoch){shell.removeAttribute('aria-busy');window.EccoErrors?.show('Could not preview page '+shell.dataset.page+': '+error.message);}}
+  }
+  function pump(){
+   while(rendering<2&&renderQueue.length){
+    const {shell,generation}=renderQueue.shift();rendering++;
+    renderPage(shell,generation).finally(()=>{rendering--;pump();});
+   }
+  }
+  function enqueue(shell){
+   if(!shell||shell.dataset.queued||shell.dataset.rendered)return;
+   shell.dataset.queued='true';renderQueue.push({shell,generation:epoch});pump();
+  }
+  const draw=()=>{
+   const shell=shells[pageNumber-1];if(!shell)return;
+   enqueue(shell);enqueue(shells[pageNumber]);enqueue(shells[pageNumber-2]);
+   scroll.scrollTo({top:shell.offsetTop-scroll.offsetTop,behavior:'instant'});
+   pageSelect.value=String(pageNumber);controls();
   };
+  async function preparePages(){
+   const generation=epoch,first=await doc.getPage(1);
+   if(generation!==epoch)return;
+   const base=first.getViewport({scale:1}),viewport=first.getViewport({scale:Math.min(1.5,760/base.width)});
+   scroll.replaceChildren();shells=[];
+   const fragment=document.createDocumentFragment();
+   for(let n=1;n<=doc.numPages;n++){
+    const shell=document.createElement('div');shell.className='pdf-story-page';shell.dataset.page=n;
+    shell.setAttribute('aria-label','Page '+n);shell.setAttribute('aria-busy','true');
+    shell.style.cssText='width:'+viewport.width+'px;height:'+viewport.height+'px;margin:0 auto 16px';
+    shell.innerHTML='<canvas></canvas><div class="textLayer"></div>';shells.push(shell);fragment.append(shell);
+   }
+   scroll.append(fragment);
+   observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting)enqueue(entry.target);},{root:scroll,rootMargin:'150% 0px'});
+   shells.forEach(shell=>observer.observe(shell));draw();
+  }
+  let scrollFrame=0;
+  scroll.addEventListener('scroll',()=>{
+   if(scrollFrame)return;
+   scrollFrame=requestAnimationFrame(()=>{
+    scrollFrame=0;const y=scroll.getBoundingClientRect().top+Math.min(80,scroll.clientHeight/3);
+    const visible=shells.find(shell=>shell.getBoundingClientRect().bottom>y);
+    if(visible){pageNumber=+visible.dataset.page;pageSelect.value=String(pageNumber);controls();}
+   });
+  },{passive:true});
   dialog.querySelector('[data-prev]').onclick=()=>{if(pageNumber>1){pageNumber--;draw();}};
   dialog.querySelector('[data-next]').onclick=()=>{if(doc&&pageNumber<doc.numPages){pageNumber++;draw();}};
   pageSelect.onchange=()=>{pageNumber=+pageSelect.value;draw();};
@@ -59,7 +105,7 @@
   input.onchange=async()=>{
    const file=input.files[0];if(!file)return;open.disabled=true;
    try{
-    status.textContent='Opening PDF…';
+    status.textContent='Opening PDF…';epoch++;observer?.disconnect();renderQueue=[];highlight='';note.textContent='';
     if(task)await task.destroy().catch(()=>{});
     pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.min.mjs');
     pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.worker.min.mjs';
@@ -67,7 +113,7 @@
     task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,stopAtErrors:true});doc=await task.promise;
     pageNumber=1;selected.value='';pageSelect.replaceChildren();for(let n=1;n<=doc.numPages;n++){const option=document.createElement('option');option.value=n;option.textContent=n;pageSelect.append(option);}
     dialog.querySelector('[data-total]').textContent='of '+doc.numPages;box.querySelector('[data-filename]').textContent=file.name;
-    open.disabled=false;status.textContent='PDF ready. Select a passage to create your story.';dialog.showModal();await draw();
+    open.disabled=false;status.textContent='';dialog.showModal();await preparePages();
    }catch(error){window.EccoErrors?.show(error);status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}
   };
   extract.onclick=async()=>{
