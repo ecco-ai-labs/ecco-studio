@@ -19,7 +19,7 @@
     if(!name||name.includes('/')||path.length>80)throw Error('Enter a label name without slashes, up to 80 characters including its parent.');
     const folder=await api('audio/folders',{name:path});if(folder.deleted)throw Error('This label is in Trash. Restore it or choose another name.');
     await refresh();d.close();sync();if(after)after(folder);
-   }catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{b.disabled=false;}
+   }catch(error){window.EccoErrors?.show(error);form.querySelector('[role=status]').textContent=error.message;}finally{b.disabled=false;}
   };d.showModal();d.querySelector('input').focus();
  }
  function labelDialog(id,pending){
@@ -34,7 +34,7 @@
    try{const title=form.elements.title.value.trim(),folder_ids=[...new Set([...existing,...new FormData(form).getAll('labels')])];
     if(!title)throw Error('Enter an audio name.');if(!folder_ids.length)throw Error('Choose at least one label.');
     await api('audio/labels',{asset_id:id,title,folder_ids});await refresh();d.close();sync();notice('Audio name and labels saved.');
-   }catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{b.disabled=false;}
+   }catch(error){window.EccoErrors?.show(error);form.querySelector('[role=status]').textContent=error.message;}finally{b.disabled=false;}
   };d.showModal();
  }
  function uploadDialog(){
@@ -48,7 +48,7 @@
    b.disabled=true;status.textContent='Uploading audio…';
    try{const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('Could not read audio.'));reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.readAsDataURL(file);});
     const asset=await api('audio/upload',{name:file.name,data,story_id:activeStory});await refresh();selected='all';d.close();navigate('audio-library');q('#workspace-audio-library').open=true;labelDialog(asset.id);notice('Audio uploaded. Add a name and labels.');
-   }catch(error){status.textContent=error.message;}finally{b.disabled=false;}
+   }catch(error){window.EccoErrors?.show(error);status.textContent=error.message;}finally{b.disabled=false;}
   };d.showModal();
  }
  function tree(){
