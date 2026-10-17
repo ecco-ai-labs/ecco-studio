@@ -145,7 +145,7 @@
  }
 
  function imageLabels(){document.querySelectorAll('[data-approve]').forEach(b=>{const asset=records().find(r=>r.id===b.dataset.approve);if(asset?.media==='video')b.textContent='Approve & add to Video Library';});document.querySelectorAll('[data-trash]').forEach(b=>{b.textContent='×';b.classList.add('workspace-delete');});document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
- function ribbon(){const header=q('main > header'),right=header?.querySelector('.header-right');if(!right)return;header.classList.add('workspace-ribbon');if(!q('#workspace-menus')){const menus=document.createElement('div');menus.id='workspace-menus';for(const name of ['Billing','Account','Activity']){const d=document.createElement('details');d.className='workspace-menu';d.dataset.category=name;d.innerHTML=`<summary>${name}<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>`;d.addEventListener('toggle',()=>{if(d.open)menus.querySelectorAll('details').forEach(other=>{if(other!==d)other.open=false;});});menus.append(d);}right.append(menus);}const target=name=>q(`[data-category="${name}"] .workspace-menu-items`);const move=(node,name)=>{if(node&&node.parentElement!==target(name))target(name).append(node);};if(typeof powerButton!=='undefined')move(powerButton,'Billing');move(q('#settings'),'Account');move(q('#reconnect-gpu'),'Account');move(q('#sync'),'Activity');move(q('#open-comfyui'),'Activity');move(q('#toggle-activity'),'Activity');q('#workspace-menus').querySelectorAll('button,a').forEach(el=>{if(el.dataset.ribbonClose)return;el.dataset.ribbonClose='1';el.addEventListener('click',()=>el.closest('details').open=false);});}
+ function ribbon(){const header=q('main > header'),right=header?.querySelector('.header-right');if(!right)return;header.classList.add('workspace-ribbon');if(!q('#workspace-menus')){const menus=document.createElement('div');menus.id='workspace-menus';for(const name of ['Billing','Account','Activity']){const d=document.createElement('details');d.className='workspace-menu';d.dataset.category=name;d.innerHTML=`<summary>${name}<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>`;d.addEventListener('toggle',()=>{if(d.open)menus.querySelectorAll('details').forEach(other=>{if(other!==d)other.open=false;});});menus.append(d);}right.append(menus);}const target=name=>q(`[data-category="${name}"] .workspace-menu-items`);const move=(node,name)=>{if(node&&node.parentElement!==target(name))target(name).append(node);};if(typeof powerButton!=='undefined')move(powerButton,'Billing');move(q('#settings'),'Account');move(q('#reconnect-gpu'),'Account');move(q('#sync'),'Activity');move(q('#open-comfyui'),'Activity');q('#workspace-menus').querySelectorAll('button,a').forEach(el=>{if(el.dataset.ribbonClose)return;el.dataset.ribbonClose='1';el.addEventListener('click',()=>el.closest('details').open=false);});}
  let hardwareVerifiedAt=0;
  function acceleratorDisplay(){
   const hardware=typeof state!=='undefined'?state?.config?.accelerator:null;
@@ -233,7 +233,40 @@
  document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
  function creditsDialog(){let d=q('#workspace-credits-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-credits-dialog';document.body.append(d);}d.innerHTML='<div class="form"><div class="section-head"><h2>Credits &amp; Usage</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Your generation allowance and usage.</p><dl class="credits-details"><dt>Starting allowance</dt><dd>500 credits per user</dd><dt>Available balance</dt><dd>Available after sign-in is connected</dd><dt>Credits used</dt><dd>Not tracked yet</dd><dt>Renewal</dt><dd>Not configured</dd></dl><p role="status">Per-user quotas are not active yet. Google Workspace sign-in and server-side credit tracking must be connected before credits can be granted or deducted.</p></div>';d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();}
  function accountCredits(){const menu=q('[data-category="Account"] .workspace-menu-items');if(!menu||q('#workspace-credits'))return;const b=document.createElement('button');b.id='workspace-credits';b.type='button';b.textContent='Credits & Usage';b.onclick=()=>{menu.closest('details').open=false;creditsDialog();};menu.prepend(b);}
- function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
+
+ function activityDrawer(){
+  const panel=q('#activity-panel'),toggle=q('#toggle-activity'),close=q('#close-activity');
+  if(!panel||!toggle||!close||panel.dataset.arrowDrawer)return;
+  panel.dataset.arrowDrawer='1';
+  document.body.append(toggle);
+  toggle.classList.add('activity-edge-toggle');
+  toggle.setAttribute('aria-controls','activity-panel');
+  close.textContent='→';close.title='Close Activity & Compute';
+  close.setAttribute('aria-label','Close Activity & Compute');
+  const setOpen=open=>{
+   panel.hidden=!open;panel.inert=!open;
+   toggle.textContent=open?'→':'←';
+   toggle.title=open?'Close Activity & Compute':'Open Activity & Compute';
+   toggle.setAttribute('aria-label',toggle.title);
+   toggle.setAttribute('aria-expanded',String(open));
+   toggle.classList.toggle('drawer-open',open);
+  };
+  toggle.onclick=()=>setOpen(panel.hidden);
+  close.onclick=()=>{setOpen(false);toggle.focus();};
+  setOpen(!panel.hidden);
+  const style=document.createElement('style');
+  style.textContent=`
+   #activity-panel{display:block!important;position:fixed;top:0;right:0;bottom:0;width:min(480px,calc(100vw - 48px));box-sizing:border-box;z-index:90;transform:translateX(0);visibility:visible;transition:transform .25s ease,visibility .25s;overflow-y:auto}
+   #activity-panel[hidden]{display:block!important;transform:translateX(100%);visibility:hidden;pointer-events:none}
+   #toggle-activity.activity-edge-toggle{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:91;width:40px;height:64px;padding:0;border-radius:10px 0 0 10px;font-size:25px;background:#38305e;color:#eeebf5;border:1px solid #70658c;transition:right .25s ease}
+   #toggle-activity.activity-edge-toggle.drawer-open{right:min(480px,calc(100vw - 48px))}
+   body.workspace-entry-mode #toggle-activity,body.workspace-entry-mode #activity-panel{display:none!important}
+   @media(prefers-reduced-motion:reduce){#activity-panel,#toggle-activity.activity-edge-toggle{transition:none}}
+  `;
+  document.head.append(style);
+ }
+
+ function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();activityDrawer();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
  if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);modernize();return result;};}
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!d.contains(e.target))d.open=false;});});
