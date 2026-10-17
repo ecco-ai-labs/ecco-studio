@@ -124,10 +124,23 @@
    if(!state.config.models_ready?.['qwen-image-edit-2511']){notice('Qwen Image Edit is not ready on this GPU.',true);return;}
    const prompt=form.elements.prompt.value.trim();if(!prompt)return;
    const style=form.elements.image_style?.value;
-   button.disabled=true;
-   try{const job=await api('image-edits',{asset_id:asset.id,story_id:activeStory,prompt:prompt+(style?' Visual style: '+style+'.':'')});
-    localStorage.setItem('ecco-image-job:'+activeStory,job.id);notice('Reference edit queued. Your original image is preserved.');navigate('images');
-   }catch(err){notice(err.message,true);}finally{button.disabled=false;}
+   if(button.disabled)return;
+   const story=activeStory;
+   submittingImages.add(story);
+   setGenerationBusy(button,true,'Submitting…','Generate edited image');
+   const status=form.querySelector('#image-status');
+   if(status)status.textContent='Sending your reference-image edit…';
+   try{const job=await api('image-edits',{asset_id:asset.id,story_id:story,prompt:prompt+(style?' Visual style: '+style+'.':'')});
+    localStorage.setItem('ecco-image-job:'+story,job.id);
+    submittingImages.delete(story);
+    await refresh();
+    notice('Reference edit queued. Your original image is preserved.');
+   }catch(err){
+    submittingImages.delete(story);
+    if(button.isConnected)setGenerationBusy(button,false,'','Generate edited image');
+    if(status?.isConnected)status.textContent=err.message+' Check Activity before retrying.';
+    notice(err.message,true);
+   }
   },true);
  }
 
