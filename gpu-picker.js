@@ -30,12 +30,12 @@ window.EccoGPUPicker = (() => {
     ]);
     if(studio) return {kind:'ready',title:'Running · Studio available',detail:'Studio is responding. Open this workspace to continue.'};
     if(gateway) return {kind:'running',title:'Running · gateway available',detail:'The GPU workspace is responding. Studio may be starting or require sign-in.'};
-    return {kind:'unknown',title:'Unavailable from this browser',detail:'May be stopped, starting, or blocked by sign-in/network settings. Check RunPod for power status.'};
+    return {kind:'unknown',title:'Unavailable from this browser',detail:'May be stopped, starting, or blocked by sign-in/network settings. Refresh to check again.'};
   }
   function mount(container, open) {
     dispose();
     let active=true, busy=false;
-    container.innerHTML = `<section class="gpu-picker panel" aria-labelledby="gpu-picker-title">
+    container.innerHTML = `<style>.gpu-picker .gpu-open:disabled{background:#525866;color:#d1d5db;opacity:.55;cursor:not-allowed;box-shadow:none;filter:grayscale(1)}</style><section class="gpu-picker panel" aria-labelledby="gpu-picker-title">
       <div class="section-head"><div><span class="eyebrow">YOUR GPU WORKSPACES</span><h2 id="gpu-picker-title">Choose where to create</h2></div><button class="secondary" id="gpu-refresh">Refresh status</button></div>
       <p>Select the GPU you want to use. Availability is checked live; nothing opens until you choose.</p>
       <div class="gpu-grid">${gpus.map(gpu=>`<article class="gpu-card" data-gpu="${gpu.id}">
@@ -43,13 +43,15 @@ window.EccoGPUPicker = (() => {
         <p class="gpu-status" role="status" aria-live="polite">Checking availability…</p>
         <p class="gpu-detail help">Checking the workspace and Studio.</p>
         <button class="gpu-open" disabled>Checking ${gpu.name}…</button>
-        <a class="small" href="https://console.runpod.io/pods?id=${gpu.id}" target="_blank" rel="noopener noreferrer">Manage ${gpu.name} in RunPod ↗</a>
       </article>`).join('')}</div>
       <p class="help" id="gpu-checked">Checking both GPUs…</p>
       <p class="help">Checks show service availability, not GPU utilization or rental availability. Opening a workspace does not start a stopped GPU. If asked, sign in to its Jupyter session.</p>
     </section>`;
     const refresh = container.querySelector('#gpu-refresh');
-    for(const gpu of gpus) container.querySelector(`[data-gpu="${gpu.id}"] .gpu-open`).onclick=()=>open(gpu);
+    for(const gpu of gpus) {
+      const button=container.querySelector(`[data-gpu="${gpu.id}"] .gpu-open`);
+      button.onclick=()=>{if(!button.disabled) open(gpu);};
+    }
     async function update() {
       if(busy || !active) return;
       busy=true; refresh.disabled=true; refresh.textContent='Checking…';
@@ -61,9 +63,9 @@ window.EccoGPUPicker = (() => {
         card.querySelector('.gpu-status').textContent=status.title;
         card.querySelector('.gpu-detail').textContent=status.detail;
         const button=card.querySelector('.gpu-open');
-        button.disabled=false;
-        button.textContent=status.kind==='unknown'?`Open ${gpu.name} / sign in`:`Connect to ${gpu.name}`;
-        button.classList.toggle('secondary',status.kind==='unknown');
+        button.disabled=status.kind!=='ready';
+        button.textContent=button.disabled?'Unavailable':`Connect to ${gpu.name}`;
+        button.classList.toggle('secondary',button.disabled);
       }));
       if(active && container.querySelector('.gpu-picker')) {
         container.querySelector('#gpu-checked').textContent='Last checked '+new Date().toLocaleTimeString()+'. Refreshes every 20 seconds.';
