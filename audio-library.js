@@ -75,7 +75,8 @@
  }
  function render(){
   const folder=folders().find(f=>f.id===selected);if(selected!=='all'&&!folder)selected='all';
-  const ids=new Set(links().filter(r=>r.folder_id===selected).map(r=>r.asset_id)),list=audio().filter(a=>selected==='all'||ids.has(a.id));
+  const descendants=new Set(folders().filter(f=>f.id===selected||(folder&&f.name.startsWith(folder.name+' / '))).map(f=>f.id));
+  const ids=new Set(links().filter(r=>descendants.has(r.folder_id)).map(r=>r.asset_id)),list=audio().filter(a=>selected==='all'||ids.has(a.id));
   let mode=localStorage.getItem('ecco-audio-library-view')||'large';if(!['small','large','list'].includes(mode))mode='large';
   q('#page').innerHTML='<div class="section-head"><div><h2>'+esc(folder?.name||'All audio')+'</h2><p class="help">'+(state.storage_pending?'Connect your saved workspace from Account → Storage.':list.length+' audio files · available across stories and sessions')+'</p></div><div class="row"><label class="library-view-label">View<select id="audio-library-view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button class="secondary" id="audio-library-upload">Upload</button><button class="secondary" id="audio-create-label">+ New Label</button></div></div><div id="audio-library-gallery" class="cards library-view-'+mode+'">'+(list.map(a=>{
    const shell=document.createElement('div');shell.innerHTML=card(a);const item=shell.firstElementChild;item.classList.add('audio-card');const actions=item.querySelector('.actions');
@@ -90,5 +91,6 @@
  function sync(){tree();if(page==='audio-library'&&pageSignature!==signature())render();}
  const oldNavigate=navigate;navigate=function(p){if(p!=='audio-library')return oldNavigate.apply(this,arguments);document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page=p;q('#heading').textContent='Audio Library';document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));treeSignature='';tree();render();};
  const oldStoryControls=storyControls;storyControls=function(...args){const result=oldStoryControls.apply(this,args);sync();return result;};
+ document.addEventListener('click',event=>{if(event.target.closest('#workspace-audio-library > summary')){selected='all';treeSignature='';}},true);
  tree();
 })();
