@@ -187,3 +187,5 @@ body.workspace-entry-mode #workspace-entry .entry-logo-particle{animation-play-s
 #workspace-library-group .tree-create{font-size:12px!important;font-weight:400!important;line-height:1.5!important;padding:7px 10px!important;min-height:0!important}
 #workspace-library-group .tree-create :is(span,i,svg){font-size:inherit!important;width:1em;height:1em}
 #workspace-library-group .tree-create::before,#workspace-library-group .tree-create::after{font-size:inherit!important}
+
+#page .section-head .row>button,#page .library-view-label,#page .library-view-label select{font-size:12px!important;font-weight:400!important;min-height:30px;padding:6px 10px!important;width:auto}
