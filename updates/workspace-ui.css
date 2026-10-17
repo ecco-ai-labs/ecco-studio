@@ -237,3 +237,6 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 #video-library-gallery.library-large{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 #story-library-list.library-small,#story-library-list.library-large{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
 #story-library-list.library-large{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+
+/* Library creation and upload actions belong in the main toolbar. */
+#workspace-library-group .tree-create,#workspace-library-group .tree-upload,#workspace-library-group .workspace-upload,#workspace-library-group #library-new-folder{display:none!important}
