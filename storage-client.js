@@ -12,7 +12,7 @@
   if(!accessKey)throw Error('Connect your saved workspace from Account → Storage. No GPU is needed.');
   let response;
   try{
-   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.timeout(path.startsWith('media/')?120000:20000),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
+   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('media/')?120000:20000),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
    if(!response.ok){
     let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
     try{message=(await response.json()).error||message;}catch{}
@@ -23,7 +23,7 @@
    if(path==='state'&&(!Array.isArray(data.records)||!data.config))throw Error('Storage returned an invalid workspace response.');
    return data;
   }catch(error){
-   if(error.name==='TimeoutError')throw Error('Storage did not respond within 20 seconds. Try again.');
+   if(error.name==='TimeoutError')throw Error(path==='stories/plan'?'AI planning timed out. Your draft was preserved.':'Storage did not respond within 20 seconds. Try again.');
    if(error instanceof TypeError)throw Error('Cannot reach storage from this browser. The connection may be blocked or unavailable.');
    throw error;
   }
