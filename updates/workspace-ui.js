@@ -193,8 +193,8 @@
   document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));
   if(kind==='video'){
    const list=records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted);
-   q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><div class="row"><label class="library-view-label"><select id="video-library-view" aria-label="Video library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="video-library-upload" class="secondary">Upload</button></div></div><div id="video-library-gallery" class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
-   q('#video-library-upload').onclick=uploadVideoDialog;wireCards();
+   q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><div class="row"><label class="library-view-label"><select id="video-library-view" aria-label="Video library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="video-library-upload" class="secondary">Upload</button><button type="button" id="video-library-publish" class="secondary">Publish</button></div></div><div id="video-library-gallery" class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
+   q('#video-library-upload').onclick=uploadVideoDialog;q('#video-library-publish').onclick=()=>{page='journey-preview';journeyPreview(true);journeyGuide();librarySelection();};wireCards();
   }else{
    q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2><div class="row"><label class="library-view-label"><select id="story-library-view" aria-label="Story library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="story-library-upload" class="secondary">Upload</button></div></div><div id="story-library-list" class="form"></div>';
    const list=q('#story-library-list'),entries=[...document.querySelectorAll('.project .workspace-library-content > button.tree-folder')];
@@ -309,12 +309,12 @@
   ['images','Choose scene images','Generate images or choose existing images, then assign them in the storyboard.'],
   ['audio','Create voices and sound','Prepare dialogue or narration for each scene and preview the audio.'],
   ['render','Animate and sync','Animate your scene images. Automatic audio-driven lip-sync is not connected yet.'],
-  ['journey-preview','Preview and export','Review generated clips, download them, or open publishing. Full-film assembly and audio mixing are not connected yet.']
+  ['journey-preview','Publish','Review generated clips, download them, or open publishing. Full-film assembly and audio mixing are not connected yet.']
  ];
- function journeyPreview(){
-  page='journey-preview';q('#heading').textContent='Preview and export';
-  const videos=records().filter(a=>a.kind==='asset'&&a.media==='video'&&!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
-  q('#page').innerHTML='<p class="intro">Review the clips for your selected story. Use each clip’s download control to save it.</p><div class="cards">'+(videos.length?videos.map(card).join(''):'<p class="help">No videos for this story yet. Return to step 5 to generate a clip.</p>')+'</div><button type="button" class="secondary" id="journey-publish">Open publishing</button>';
+ function journeyPreview(allStories=false){
+  page='journey-preview';q('#heading').textContent='Publish';
+  const videos=records().filter(a=>a.kind==='asset'&&a.media==='video'&&!a.deleted&&(allStories||(a.story_id||LEGACY_STORY)===activeStory));
+  q('#page').innerHTML='<p class="intro">Review your clips before publishing. Use each clip’s download control to save a copy.</p><div class="cards">'+(videos.length?videos.map(card).join(''):'<p class="help">No videos for this story yet. Return to step 5 to generate a clip.</p>')+'</div><button type="button" class="secondary" id="journey-publish">Open publishing</button>';
   wireCards();q('#journey-publish').onclick=()=>navigate('publish');if(typeof hydrateMedia==='function')hydrateMedia();
  }
  function productionGroup(){
