@@ -55,7 +55,7 @@
  const speakerOptions=value=>draft.speakers.map(s=>`<option value="${esc(s.id)}" ${s.id===value?'selected':''}>${esc(s.name||'Speaker')}</option>`).join('');
  function drawLines(){
   const single=draft.presentation==='single';
-  q('#audio-lines').innerHTML=single?`<div class="audio-line" data-line="0"><label>Script<textarea data-field="text" data-single-script dir="auto" maxlength="4000" rows="6" placeholder="Write the script for your narrator. You can mix languages.">${esc(draft.single_text)}</textarea></label></div>`:draft.lines.map((line,index)=>`<fieldset class="audio-line" data-line="${index}"><div class="audio-turn-heading"><label>Speaker<select data-turn-speaker>${speakerOptions(line.speaker_id)}</select></label><button type="button" class="secondary small" data-remove-turn="${index}" ${draft.lines.length===1?'disabled':''}>Remove turn</button></div><label>${esc(speaker(line.speaker_id).name||'Speaker')}’s words<textarea data-field="text" dir="auto" maxlength="4000" rows="3" placeholder="What should this speaker say?">${esc(line.text||'')}</textarea></label></fieldset>`).join('');
+  q('#audio-lines').innerHTML=single?`<div class="audio-line" data-line="0"><label>Spoken script<textarea data-field="text" data-single-script dir="auto" maxlength="4000" rows="6" placeholder="Enter exactly what the narrator should say. Use Generate script with AI to turn instructions into a script.">${esc(draft.single_text)}</textarea></label></div>`:draft.lines.map((line,index)=>`<fieldset class="audio-line" data-line="${index}"><div class="audio-turn-heading"><label>Speaker<select data-turn-speaker>${speakerOptions(line.speaker_id)}</select></label><button type="button" class="secondary small" data-remove-turn="${index}" ${draft.lines.length===1?'disabled':''}>Remove turn</button></div><label>${esc(speaker(line.speaker_id).name||'Speaker')}’s words<textarea data-field="text" dir="auto" maxlength="4000" rows="3" placeholder="What should this speaker say?">${esc(line.text||'')}</textarea></label></fieldset>`).join('');
   const add=q('#add-audio-line');add.hidden=single;add.textContent='Add speaker turn';add.disabled=draft.lines.length>=20;
   q('#audio-lines').oninput=e=>{const root=e.target.closest('[data-line]');if(!root)return;const i=Number(root.dataset.line);if(e.target.matches('[data-field=text]')){if(single)draft.single_text=e.target.value;else draft.lines[i].text=e.target.value;save();}};
   q('#audio-lines').onchange=e=>{if(!e.target.matches('[data-turn-speaker]'))return;draft.lines[Number(e.target.closest('[data-line]').dataset.line)].speaker_id=e.target.value;save();drawLines();drawControls();};
@@ -145,7 +145,7 @@
   };d.showModal();d.querySelector('textarea').focus();
  }
  const audioAssets=()=>recordings.filter(a=>!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
- function audioCard(a){return `<article class="card audio-card"><div class="card-body"><span class="badge">${esc(a.stage||'dev')}</span><h3>${esc(a.title||'Audio recording')}</h3><audio controls preload="metadata" data-audio-id="${esc(a.id)}" aria-label="${esc(a.title||'Audio recording')}"></audio><p class="help">Indic-Mio · WAV${a.duration?' · '+esc(a.duration)+' sec':''}</p><details><summary>Script</summary><p class="audio-transcript" dir="auto">${esc(a.prompt||'')}</p></details><div class="actions"><button type="button" class="small" data-download-audio="${esc(a.id)}">Download WAV</button></div></div></article>`;}
+ function audioCard(a){return `<article class="card audio-card"><div class="card-body"><span class="badge">${esc(a.stage||'dev')}</span><h3>${esc(a.title||'Audio recording')}</h3><audio controls preload="metadata" data-audio-id="${esc(a.id)}" aria-label="${esc(a.title||'Audio recording')}"></audio><p class="help">Indic-Mio · WAV${a.duration?' · '+esc(a.duration)+' sec':''}</p><details><summary>Script</summary><p class="audio-transcript" dir="auto">${esc(a.prompt||'')}</p></details><div class="actions"><button type="button" class="small" data-download-audio="${esc(a.id)}">Download WAV</button><button type="button" class="small secondary" data-delete-audio="${esc(a.id)}" aria-label="Delete ${esc(a.title||'audio recording')}">Delete</button></div></div></article>`;}
  async function hydrateAudio(){
   const current=service;if(!current)return;
   for(const element of document.querySelectorAll('audio[data-audio-id]')){
@@ -153,6 +153,11 @@
    catch(error){notice(error.message,true);}
   }
   document.querySelectorAll('[data-download-audio]').forEach(button=>button.onclick=async()=>{try{await current.download(button.dataset.downloadAudio);}catch(error){notice(error.message,true);}});
+  document.querySelectorAll('[data-delete-audio]').forEach(button=>button.onclick=async()=>{
+   button.disabled=true;
+   try{const id=button.dataset.deleteAudio;await api('trash',{asset_id:id});recordings=recordings.filter(a=>a.id!==id);update();await refresh();notice('Audio moved to Trash.');}
+   catch(error){button.disabled=false;notice(error.message,true);}
+  });
  }
  async function poll(){
   if(!service||polling||page!=='audio')return;
@@ -227,6 +232,7 @@
  // Inherit the existing production-menu styling and place Audio after Video.
  if(video)video.after(button);else (production||nav).append(button);
 })();
+
 
 
 
