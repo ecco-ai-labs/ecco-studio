@@ -273,15 +273,24 @@
   q('#workspace-entry')?.remove();
   q('#heading').textContent='Describe your story';
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.id==='workspace-new-story'));
-  const key=savedId?'ecco-story-setup:'+savedId:'ecco-new-story-draft';
+  const key=savedId?'ecco-story-setup:'+savedId:activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft';
   let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
+  if(!savedId&&activeStory){
+   if(saved.cloudId!==activeStory){
+    saved={};
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k==='ecco-new-story-draft'||k.startsWith('ecco-story-setup:')){try{const candidate=JSON.parse(localStorage.getItem(k)||'{}');if(candidate.cloudId===activeStory)saved=candidate;}catch{}}}
+   }
+   const record=stories().find(s=>s.id===activeStory),board=loadDraft();
+   saved={...saved,cloudId:activeStory,title:board.title||record?.title||'',summary:saved.summary??record?.summary??''};
+  }else if(!savedId&&saved.cloudId){saved={};}
+  localStorage.setItem(key,JSON.stringify(saved));
   persistDraft();activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);
   draft=activeStory?loadDraft():{title:saved.title||'',story:saved.sourceText||saved.summary||'',scenes:[]};persistDraft();
   const genres=['Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
   q('#page').innerHTML='<form id="story-setup-form" class="form"><label>Story Title<input name="title" maxlength="160" required placeholder="Enter your story title"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story idea / summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & continue to storyboard</button></div><p role="status" data-story-status></p></form>';
   const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');form.dataset.draftKey=key;
   for(const name of ['title','genre','summary'])form.elements[name].value=saved[name]||'';
-  const save=()=>{const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';persistDraft();status.textContent='';return data;};
+  const save=event=>{if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';persistDraft();status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
@@ -289,7 +298,7 @@
    status.textContent='Saving story…';
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
-    data.cloudId=created.id;saved=data;localStorage.setItem(key,JSON.stringify(data));activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);
+    data.cloudId=created.id;saved=data;localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);
     const nextDraft={...loadDraft(),title:data.title,story:data.sourceText||data.summary};if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));window.EccoStoryCollections.assign(created.id,data.collection_id);await refresh();activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();
     let savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');
     const id=savedId||crypto.randomUUID();
