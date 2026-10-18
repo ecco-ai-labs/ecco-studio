@@ -15,3 +15,8 @@
 #studio-ai-button{color:#fff!important;font-size:12px;padding:5px 9px;min-height:28px;background:transparent}
 #studio-ai-button[data-connected=true]{color:var(--accent,#ffdc24)!important}
 body.workspace-entry-mode #studio-ai-button{display:none!important}
+
+#studio-ai-button,#studio-storage-indicator{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;font-size:20px;flex:none;color:#fff!important;cursor:default}
+#studio-ai-button[data-connected=true],#studio-storage-indicator[data-connected=true]{color:var(--accent,#ffdc24)!important}
+body.workspace-entry-mode #studio-storage-indicator{display:none!important}
+#connect-storage[hidden],#reconnect-gpu[hidden]{display:none!important}
