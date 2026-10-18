@@ -17,7 +17,7 @@ def synthesize(request, output, runtime):
     tokenizer = AutoTokenizer.from_pretrained(runtime / 'model', local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(runtime / 'model', local_files_only=True,
                                                 torch_dtype=torch.bfloat16).eval().to('cuda')
-    codec = MioCodecModel.from_pretrained(str(runtime / 'codec')).eval().to('cuda')
+    codec = MioCodecModel.from_pretrained(config_path=str(runtime / 'codec' / 'config.yaml'), weights_path=str(runtime / 'codec' / 'model.safetensors')).eval().to('cuda')
     sample_rate = int(codec.config.sample_rate)
     clips = []
     with torch.inference_mode():
