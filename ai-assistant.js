@@ -208,7 +208,7 @@
    if(!panel){panel=document.createElement('div');panel.id='connection-indicators';panel.setAttribute('role','group');panel.setAttribute('aria-label','Connection status');header.prepend(panel);}
    for(const icon of [button,storage,accelerator])if(icon.parentElement!==panel)panel.append(icon);
    let menu=q('#connection-panel-menu');
-   if(!menu){menu=document.createElement('details');menu.id='connection-panel-menu';menu.className='workspace-menu';menu.innerHTML='<summary aria-label="Connection options"><span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>';panel.append(menu);}
+   if(!menu){menu=document.createElement('details');menu.id='connection-panel-menu';menu.className='workspace-menu';menu.innerHTML='<summary aria-label="Connection options"><span aria-hidden="true">+</span></summary><div class="workspace-menu-items"></div>';panel.append(menu);}
    const items=menu.querySelector('.workspace-menu-items');
    if(settings&&settings.parentElement!==items)items.append(settings);
    if(settings)settings.onclick=()=>{menu.open=false;connections();};
