@@ -269,6 +269,7 @@
  }
 
  function storySetupPage(savedId){
+  loadDraft(); // Repair any confirmed imported-text mismatch before restoring the description.
   page='story-setup';
   q('#workspace-entry')?.remove();
   q('#heading').textContent='Describe your story';
