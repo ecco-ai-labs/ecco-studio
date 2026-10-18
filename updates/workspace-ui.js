@@ -347,7 +347,7 @@
    if(target==='story-setup')button.id='workspace-new-story';
    for(const duplicate of nav.querySelectorAll('button[data-page="'+target+'"]'))if(duplicate!==button)duplicate.remove();
    button.hidden=false;button.classList.add('journey-step');
-   const label=(i+1)+'. '+title.replace(/\b[a-z]/g,c=>c.toUpperCase());if(button.textContent!==label)button.textContent=label;
+   const navLabels={'story-setup':'Describe Your Story',board:'StoryBoard Your Story',audio:'Create Audio for Your Story',images:'Create Images for Your Story',render:'Create Videos for Your Story'};const label=(i+1)+'. '+(navLabels[target]||title.replace(/\b[a-z]/g,c=>c.toUpperCase()));if(button.textContent!==label)button.textContent=label;
    button.classList.toggle('active',page===target||(target==='board'&&page==='director'));
    if(button.parentElement!==body||[...body.querySelectorAll('.journey-step')][i]!==button)body.append(button);
   });
