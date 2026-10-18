@@ -28,8 +28,21 @@
    const value=Number(seconds.value);if(!Number.isFinite(value)||value<1||value>30)throw Error('Choose a duration from 1 to 30 seconds.');
    draft.defaultSeconds=value;draft.scenes.forEach(scene=>scene.seconds=value);persistDraft();renderScenes();
   });
-  split.textContent='Generate with AI';
+  split.textContent='Generate with AI';split.className='secondary';
+  const toolbar=document.createElement('div');toolbar.className='row';toolbar.id='storyboard-ai-toolbar';toolbar.style.cssText='justify-content:flex-end;margin-bottom:12px';
+  q('#page .stack').before(toolbar);toolbar.append(split);
+  let selectedField=q('#story-text');
+  const selectField=element=>{
+   q('#page').querySelectorAll('.ai-selected-field').forEach(el=>el.classList.remove('ai-selected-field'));
+   selectedField=element;const target=element||controls;target.classList.add('ai-selected-field');
+  };
+  selectField(selectedField);
+  q('#page').addEventListener('focusin',event=>{
+   if(event.target.matches('#story-text,#board-title,#scenes textarea,#scenes input[data-subject-field]'))selectField(event.target);
+   else if(controls.contains(event.target))selectField(null);
+  });
   split.onclick=async()=>{
+   if(selectedField?.isConnected)return window.EccoAI.generateField(selectedField);
    const count=Number(q('#scene-count').value),story=draft.story.trim(),target=activeStory;
    if(!story)return notice('Add your selected story text first.',true);
    if(count<1)return notice('Choose at least one scene using the + counter.',true);
