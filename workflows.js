@@ -38,11 +38,32 @@
   const form=q('#story-setup-form'),select=form?.elements.genre;if(!select||form.querySelector('[data-custom-genre]'))return;
   let saved=[];try{saved=JSON.parse(localStorage.getItem('ecco-custom-genres')||'[]');}catch{}
   saved.forEach(value=>{if(![...select.options].some(o=>o.value===value))select.add(new Option(value,value),select.options.length-1);});
-  const wrap=document.createElement('div');wrap.dataset.customGenre='true';wrap.innerHTML='<label>Custom type<input name="custom_genre" maxlength="80" placeholder="For example, Finance news"></label><button type="button" class="secondary">Add to dropdown</button>';select.closest('label').after(wrap);
-  const update=()=>{wrap.hidden=select.value!=='Other';wrap.querySelector('input').required=!wrap.hidden;};
-  select.addEventListener('change',update);update();
-  try{const existing=JSON.parse(localStorage.getItem(form.dataset.draftKey)||'{}');wrap.querySelector('input').value=existing.custom_genre||'';if([...select.options].some(o=>o.value===existing.genre))select.value=existing.genre;update();}catch{}
-  wrap.querySelector('button').onclick=()=>{const value=wrap.querySelector('input').value.trim();if(!value)return notice('Enter a custom type.',true);if(!saved.includes(value)){saved.push(value);localStorage.setItem('ecco-custom-genres',JSON.stringify(saved));select.add(new Option(value,value),select.options.length-1);}select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));};
+  const wrap=document.createElement('details');wrap.dataset.customGenre='true';wrap.className='story-type-dropdown';
+  wrap.innerHTML='<summary aria-label="Story type"></summary><div class="story-type-options"><div data-types></div><div data-custom-entry hidden><input name="custom_genre" maxlength="80" placeholder="Enter a custom type" aria-label="Custom story type"><div class="row"><button type="button" class="secondary" data-use>Use once</button><button type="button" class="secondary" data-remember>Add to dropdown</button></div></div></div>';
+  select.hidden=true;select.style.display='none';select.after(wrap);
+  const summary=wrap.querySelector('summary'),choices=wrap.querySelector('[data-types]'),entry=wrap.querySelector('[data-custom-entry]'),input=entry.querySelector('input');
+  let existing={};try{existing=JSON.parse(localStorage.getItem(form.dataset.draftKey)||'{}');}catch{}
+  input.value=existing.custom_genre||'';
+  if([...select.options].some(o=>o.value===existing.genre))select.value=existing.genre;
+  const update=()=>{summary.textContent=select.value==='Other'&&input.value.trim()?input.value.trim():select.selectedOptions[0]?.textContent||'Select a genre';input.required=select.value==='Other';};
+  const choose=value=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));update();};
+  function renderOptions(){
+   choices.replaceChildren();
+   [...select.options].filter(o=>o.value).forEach(option=>{const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent=option.textContent;button.onclick=()=>{
+    if(option.value==='Other'){choose('Other');entry.hidden=false;input.focus();}
+    else{choose(option.value);entry.hidden=true;wrap.open=false;summary.focus();}
+   };choices.append(button);});
+  }
+  const use=remember=>{const value=input.value.trim();if(!value)return input.focus();
+   if(remember){if(!saved.includes(value)){saved.push(value);localStorage.setItem('ecco-custom-genres',JSON.stringify(saved));}if(![...select.options].some(o=>o.value===value))select.add(new Option(value,value),select.options.length-1);renderOptions();choose(value);}
+   else choose('Other');
+   wrap.open=false;summary.focus();
+  };
+  entry.querySelector('[data-use]').onclick=()=>use(false);entry.querySelector('[data-remember]').onclick=()=>use(true);
+  input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();use(false);}});
+  wrap.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();wrap.open=false;summary.focus();}});
+  document.addEventListener('click',event=>{if(wrap.isConnected&&!wrap.contains(event.target))wrap.open=false;});
+  select.addEventListener('change',update);entry.hidden=select.value!=='Other';renderOptions();update();
   const research=document.createElement('button');research.type='button';research.className='secondary';research.textContent='Research news & create storyboard';form.elements.summary.closest('label').after(research);
   research.onclick=()=>researchNews({prompt:form.elements.summary.value,count:10,duration:120,title:form.elements.title.value},research);
  }
