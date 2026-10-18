@@ -41,7 +41,7 @@
   const wrap=document.createElement('div');wrap.dataset.customGenre='true';wrap.innerHTML='<label>Custom type<input name="custom_genre" maxlength="80" placeholder="For example, Finance news"></label><button type="button" class="secondary">Add to dropdown</button>';select.closest('label').after(wrap);
   const update=()=>{wrap.hidden=select.value!=='Other';wrap.querySelector('input').required=!wrap.hidden;};
   select.addEventListener('change',update);update();
-  try{const existing=JSON.parse(localStorage.getItem(form.dataset.draftKey)||'{}');wrap.querySelector('input').value=existing.custom_genre||'';}catch{}
+  try{const existing=JSON.parse(localStorage.getItem(form.dataset.draftKey)||'{}');wrap.querySelector('input').value=existing.custom_genre||'';if([...select.options].some(o=>o.value===existing.genre))select.value=existing.genre;update();}catch{}
   wrap.querySelector('button').onclick=()=>{const value=wrap.querySelector('input').value.trim();if(!value)return notice('Enter a custom type.',true);if(!saved.includes(value)){saved.push(value);localStorage.setItem('ecco-custom-genres',JSON.stringify(saved));select.add(new Option(value,value),select.options.length-1);}select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));};
   const research=document.createElement('button');research.type='button';research.className='secondary';research.textContent='Research news & create storyboard';form.elements.summary.closest('label').after(research);
   research.onclick=()=>researchNews({prompt:form.elements.summary.value,count:10,duration:120,title:form.elements.title.value},research);
@@ -70,7 +70,6 @@
    for(const source of scene.sources||[]){if(!/^https?:\/\//.test(source.url))continue;const a=document.createElement('a');a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title||source.url;footer.append(a);}
    const audio=document.createElement('button');audio.type='button';audio.className='secondary';audio.textContent='Use scene for audio';audio.onclick=()=>{sessionStorage.setItem('ecco-audio-scene-transfer',String(i));navigate('audio');};footer.append(audio);card.append(footer);
   });
-  const transfer=sessionStorage.getItem('ecco-audio-scene-transfer');
  }
  function audioTransfer(){
   const value=sessionStorage.getItem('ecco-audio-scene-transfer'),box=q('#scene-audio-source');if(value===null||!box)return;
