@@ -349,6 +349,7 @@
   const root=q('#page');if(!root)return;
   let guide=q('#journey-guide');if(!guide){guide=document.createElement('section');guide.id='journey-guide';root.before(guide);}
   const index=journeySteps.findIndex(step=>step[0]===page||(step[0]==='board'&&page==='director'));
+  root.classList.toggle('story-journey-fields',index>=0||page==='story-collections'||page==='publish');
   guide.hidden=index<0||document.body.classList.contains('workspace-entry-mode');if(index<0)return;
   const step=journeySteps[index],signature=page+':'+activeStory;
   if(guide.dataset.signature===signature)return;guide.dataset.signature=signature;
