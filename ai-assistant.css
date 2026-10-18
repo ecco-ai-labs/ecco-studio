@@ -56,3 +56,6 @@ body.workspace-entry-mode #connection-indicators{display:none!important}
 #story-entry-panel [aria-pressed=true],#story-entry-panel details[open]>summary{color:var(--accent,#ffdc24)!important}
 #story-entry-panel .workspace-menu-items .row{display:flex;flex-direction:column;align-items:stretch;gap:6px}
 #story-pdf-tools[hidden]{display:none!important}
+
+#page .ai-selected-field{border-color:var(--accent,#ffdc24)!important;outline:1px solid var(--accent,#ffdc24);outline-offset:1px}
+#storyboard-ai-toolbar>button{flex:0 0 auto;width:auto}
