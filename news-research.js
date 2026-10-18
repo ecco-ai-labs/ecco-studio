@@ -4,8 +4,8 @@
  const topics=['General','Finance','Business','Technology & AI','Sports','Entertainment','Politics','Science','Health','Local'];
  const read=key=>{try{return JSON.parse(localStorage.getItem(key)||'{}');}catch{return {};}};
  function metadata(){
-  const setup=read('ecco-story-description:'+activeStory);
-  return {...setup,...draft.news};
+  const setup=read(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');
+  return {...draft.news,...setup};
  }
  function mountTopic(){
   const form=q('#story-setup-form');if(!form||q('[data-news-topic]',form))return;
