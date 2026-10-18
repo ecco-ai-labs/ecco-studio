@@ -29,7 +29,7 @@
   dialog.querySelector('h2').textContent='Connections';
   root.innerHTML='<section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><p class="help">Refines your story, image, audio and video prompts. API usage is billed separately.</p><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label><button type="button" class="secondary" data-ai-disconnect hidden>Disconnect</button></section><section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div><p class="help">Save and access your libraries independently of GPU generation.</p></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div><p class="help">Connect an accelerator when you need to generate images, audio or video.</p></section>';
   const gpu=root.querySelector('#gpu-connection');
-  gpu.querySelector('button').onclick=()=>{dialog.close();connectGPU('connections');};
+  gpu.querySelector('button').onclick=()=>{dialog.close();connectGPU('accelerator-status');};
   root.querySelector('[data-storage]').onclick=()=>{dialog.close();window.EccoStorage.open();};
   root.querySelector('#connect-openai').onclick=openKeyDialog;
   root.querySelector('[data-ai-disconnect]').onclick=async()=>{try{setConnection(await rawAPI('ai/disconnect',{}));renderConnection();}catch(error){showError(error);}};
