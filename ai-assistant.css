@@ -7,6 +7,10 @@
 #studio-ai-status[data-enabled=true]{color:var(--accent,#ffdc24)}
 #studio-ai-status button,.ai-prompt-assist{flex:0 0 auto;width:auto;align-self:flex-start;font-size:12px;padding:5px 9px;min-height:28px}
 #ai-review-dialog{width:min(760px,calc(100vw - 32px));max-height:85vh;overflow:auto}
+#ai-generation-dialog{width:min(620px,calc(100vw - 32px));max-height:85vh;overflow:auto}
+#ai-generation-dialog textarea{min-height:150px;line-height:1.5;resize:vertical}
+#ai-generation-dialog [hidden]{display:none!important}
+#ai-generation-dialog .row{justify-content:flex-end;gap:8px}
 #ai-review-dialog details{font-size:12px}#ai-review-dialog textarea{font-size:12px;min-height:120px}
 #ai-review-dialog .ai-questions{color:var(--accent,#ffdc24);white-space:pre-wrap}
 #ai-review-dialog [hidden],#studio-ai-status [hidden],#openai-connection [hidden]{display:none!important}
@@ -71,3 +75,4 @@ body:not(.workspace-entry-mode) #save-board.storyboard-save-continue{width:100%;
 
 #page .storyboard-save-row{display:block;width:100%}
 body:not(.workspace-entry-mode) #page #save-board.storyboard-save-continue{display:block;width:100%!important;max-width:none!important;box-sizing:border-box}
+
