@@ -38,7 +38,7 @@
   };
   selectField(selectedField);
   q('#page').addEventListener('focusin',event=>{
-   if(event.target.matches('#story-text,#board-title,#scenes textarea,#scenes input[data-subject-field]'))selectField(event.target);
+   if(event.target.matches('#story-text,#board-title,#scenes textarea,#scenes input[data-subject-field],#scenes input[data-field="title"]'))selectField(event.target);
    else if(controls.contains(event.target))selectField(null,event.target);
   });
   improve.onclick=()=>{toolbar.open=false;if(selectedField?.isConnected)return window.EccoAI.improveField(selectedField);notice('Select a text field to improve.',true);};
