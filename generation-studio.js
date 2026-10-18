@@ -39,15 +39,17 @@
   const kind=({images:'image','image-edits':'image','character-sheets':'image',videos:'video'})[path];
   if(kind)trackJob(kind,story,job);return job;
  };
- const record=id=>state.records.find(a=>a.id===id&&a.kind==='asset'&&a.media==='image'&&!a.deleted);
+ const record=id=>state.records.find(a=>a.id===id&&a.kind==='asset'&&['image','video'].includes(a.media)&&!a.deleted);
  const clone=x=>JSON.parse(JSON.stringify(x));
  const key=(kind,story)=>'ecco-generation-v1:'+kind+':'+story;
- const thumb=(a,extra='')=>'<img data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" alt="'+esc(a.title||'Reference image')+'" '+extra+'>';
+ const thumb=(a,extra='')=>a.media==='video'?'<video data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" aria-label="'+esc(a.title||'Reference video')+'" preload="metadata" muted playsinline></video>':'<img data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" alt="'+esc(a.title||'Reference image')+'" '+extra+'>';
+ const referenceKind=c=>c.kind==='video'&&c.data.reference_library==='video'?'video':'image';
+ const referenceIds=c=>referenceKind(c)==='video'?c.data.video_reference_ids:c.data.reference_ids;
  function read(kind,story){try{return JSON.parse(localStorage.getItem(key(kind,story))||'{}');}catch{return {};}}
  function save(c){localStorage.setItem(key(c.kind,c.story),JSON.stringify(c.data));sync(c);}
  function objectDefaults(id){const a=record(id),objects=a?.editor?.recipe?.objects;return objects?.length?objects.map(o=>({name:o.name,type:types[o.type]?o.type:'object',attributes:{...o.ai}})):[{name:'Object 1',type:'object',attributes:{}}];}
  function ensureObjects(c,id){return c.data.objects[id]||(c.data.objects[id]=objectDefaults(id));}
- function selected(c){return c.data.reference_ids.map(record).filter(Boolean);}
+ function selected(c){return referenceIds(c).map(record).filter(a=>a?.media===referenceKind(c));}
  function field(label,control){return '<label>'+esc(label)+control+'</label>';}
  function pop(c,id,title){const d=document.createElement('dialog');d.id=id;d.className='generation-dialog';d.innerHTML='<div class="form"><div class="section-head"><h2>'+esc(title)+'</h2><button type="button" class="secondary" data-close>Done</button></div><div data-body></div></div>';c.form.append(d);q('[data-close]',d).onclick=()=>d.close();return d;}
  function section(id,title,body){return '<section class="generation-section" data-section="'+id+'"><div class="generation-section-heading">'+title+'</div>'+body+'</section>';}
@@ -67,14 +69,14 @@
   const refs=selected(c),box=q('[data-selected]',c.form);
   if(box){box.innerHTML=refs.map((a,i)=>'<div class="generation-selected-item"><button type="button" class="secondary generation-thumb" data-ref-open="'+esc(a.id)+'" title="'+esc(a.title||'Reference '+(i+1))+'">'+thumb(a)+'<span>Selected '+(i+1)+'</span></button><button type="button" class="secondary generation-remove" data-ref-remove="'+esc(a.id)+'" aria-label="Remove reference '+(i+1)+'">×</button></div>').join('');
   all('[data-ref-open]',box).forEach(b=>b.onclick=()=>openControls(c,b.dataset.refOpen));
-  all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{setReferences(c,c.data.reference_ids.filter(id=>id!==b.dataset.refRemove));});
+  all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{setReferences(c,referenceIds(c).filter(id=>id!==b.dataset.refRemove));});
   }
   const text=c.kind==='audio'?all('textarea[data-field=text]',c.form).map(x=>x.value).join('\n'):q('textarea[name=prompt]',c.form)?.value||'';
   q('[data-prompt-summary]',c.form).textContent=text.trim()||'Add what you want to generate.';
   fitPrompt(c);
   q('[data-open-prompt]',c.form).textContent=text.trim()?'Edit prompt':'Add prompt';
   const referenceNote=q('[data-reference-note]',c.form);
-  if(referenceNote)referenceNote.textContent=refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
+  if(referenceNote)referenceNote.textContent=referenceKind(c)==='video'?(refs.length?'Selected videos are saved as references.':'No reference videos selected.'):refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
   if(c.kind==='image'){
    const has=refs.length>0;
    for(const opt of c.model.options)opt.disabled=has?opt.value!=='qwen-image-edit-2511':opt.value==='qwen-image-edit-2511';
@@ -83,20 +85,21 @@
   }
  }
  function setReferences(c,ids){
-  c.data.reference_ids=[...new Set(ids)].slice(0,configs[c.kind].limit);
-  for(const id of c.data.reference_ids)ensureObjects(c,id);
+  const key=referenceKind(c)==='video'?'video_reference_ids':'reference_ids';
+  c.data[key]=[...new Set(ids)].slice(0,configs[c.kind].limit);
+  for(const id of c.data[key])ensureObjects(c,id);
   save(c);document.dispatchEvent(new Event('ecco-reference-change'));
  }
  function referencePicker(c){
   let d=q('#generation-library-picker');if(d)d.remove();d=document.createElement('dialog');d.id='generation-library-picker';d.className='generation-dialog';document.body.append(d);
-  const chosen=new Set(c.data.reference_ids),limit=configs[c.kind].limit;
-  const images=state.records.filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted);
-  const folders=state.records.filter(a=>a.kind==='image_folder'&&!a.deleted);
-  d.innerHTML='<div class="form"><div class="section-head"><h2>Image Library</h2><button type="button" class="secondary" data-cancel>Cancel</button></div><div class="generation-filter-row">'+field('Search','<input type="search" data-search placeholder="Find an image">')+field('Label','<select data-label><option value="">All images</option>'+folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>').join('')+'</select>')+'</div><p class="help">Select up to '+limit+' images.</p><div class="generation-picker-grid" data-grid></div><p role="status" data-count></p><div class="row"><button type="button" data-use>Use selected images</button></div></div>';
+  const chosen=new Set(referenceIds(c)),limit=configs[c.kind].limit,kind=referenceKind(c),plural=kind+'s',library=kind==='video'?'Video Library':'Image Library';
+  const images=state.records.filter(a=>a.kind==='asset'&&a.media===kind&&!a.deleted);
+  const folders=state.records.filter(a=>a.kind===kind+'_folder'&&!a.deleted);
+  d.innerHTML='<div class="form"><div class="section-head"><h2>'+library+'</h2><button type="button" class="secondary" data-cancel>Cancel</button></div><div class="generation-filter-row">'+field('Search','<input type="search" data-search placeholder="Find '+(kind==='image'?'an image':'a video')+'">')+field('Label','<select data-label><option value="">All '+plural+'</option>'+folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>').join('')+'</select>')+'</div><p class="help">Select up to '+limit+' '+plural+'.</p><div class="generation-picker-grid" data-grid></div><p role="status" data-count></p><div class="row"><button type="button" data-use>Use selected '+plural+'</button></div></div>';
   const draw=()=>{
    const term=q('[data-search]',d).value.trim().toLowerCase(),folder=q('[data-label]',d).value;
    const shown=images.filter(a=>(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!folder||state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id&&l.folder_id===folder)));
-   q('[data-grid]',d).innerHTML=shown.map(a=>'<button type="button" class="secondary generation-picker-item" data-image="'+esc(a.id)+'" aria-pressed="'+chosen.has(a.id)+'">'+thumb(a,'loading="lazy"')+'<span>'+esc(a.title||'Untitled image')+'</span><small>'+ (chosen.has(a.id)?'Selected':'Select')+'</small></button>').join('')||'<p class="help">'+(window.EccoStorage?.ready?'No images match.':'Connect storage to browse your Image Library.')+'</p>';
+   q('[data-grid]',d).innerHTML=shown.map(a=>'<button type="button" class="secondary generation-picker-item" data-image="'+esc(a.id)+'" aria-pressed="'+chosen.has(a.id)+'">'+thumb(a,'loading="lazy"')+'<span>'+esc(a.title||'Untitled '+kind)+'</span><small>'+ (chosen.has(a.id)?'Selected':'Select')+'</small></button>').join('')||'<p class="help">'+(window.EccoStorage?.ready?'No '+plural+' match.':'Connect storage to browse your '+library+'.')+'</p>';
    q('[data-count]',d).textContent=chosen.size+' selected';
    all('[data-image]',d).forEach(b=>b.onclick=()=>{const id=b.dataset.image;if(chosen.has(id))chosen.delete(id);else if(chosen.size<limit)chosen.add(id);else{q('[data-count]',d).textContent='This model supports up to '+limit+' references.';return;}draw();});
   };
@@ -104,14 +107,14 @@
  }
  function objectInstructions(c,onlyId){
   const lines=[];
-  for(const [i,id] of c.data.reference_ids.entries()){
+  for(const [i,id] of referenceIds(c).entries()){
    if(onlyId&&id!==onlyId)continue;
    for(const object of ensureObjects(c,id)){
     const attrs=Object.entries(object.attributes||{}).filter(([k,v])=>types[object.type].fields.includes(k)&&String(v).trim());
-    if(attrs.length)lines.push((onlyId?'Reference image':'Reference image '+(i+1))+', '+object.name+' ('+types[object.type].name+'): '+attrs.map(([k,v])=>k+': '+String(v).trim()).join('; ')+'.');
+    if(attrs.length)lines.push('Reference '+referenceKind(c)+(onlyId?'':' '+(i+1))+', '+object.name+' ('+types[object.type].name+'): '+attrs.map(([k,v])=>k+': '+String(v).trim()).join('; ')+'.');
    }
   }
-  if(!c.data.reference_ids.length)for(const object of ensureObjects(c,'new')){
+  if(!referenceIds(c).length)for(const object of ensureObjects(c,'new')){
    const attrs=Object.entries(object.attributes||{}).filter(([k,v])=>types[object.type].fields.includes(k)&&String(v).trim());if(attrs.length)lines.push(object.name+' ('+types[object.type].name+'): '+attrs.map(([k,v])=>k+': '+String(v).trim()).join('; ')+'.');
   }
   return lines.join('\n');
@@ -119,16 +122,16 @@
  function compose(c,prompt,onlyId){
   const parts=[prompt.trim()],attrs=objectInstructions(c,onlyId),style=c.data.style;
   if(style)parts.push('Style: '+style+'.');if(attrs)parts.push(attrs);
-  if(c.data.reference_ids.length)parts.push('Preserve the identity and unspecified details of each referenced subject. Apply each attribute only to the named object in its specified reference.');
+  if(referenceIds(c).length)parts.push('Preserve the identity and unspecified details of each referenced subject. Apply each attribute only to the named object in its specified reference.');
   return parts.filter(Boolean).join('\n\n');
  }
  function openControls(c,reference){
-  const d=c.controls,body=q('[data-object-controls]',d);c.activeReference=reference||c.activeReference||c.data.reference_ids[0]||'new';
-  if(!c.data.reference_ids.includes(c.activeReference))c.activeReference=c.data.reference_ids[0]||'new';
+  const d=c.controls,body=q('[data-object-controls]',d),ids=referenceIds(c);c.activeReference=reference||c.activeReference||ids[0]||'new';
+  if(!ids.includes(c.activeReference))c.activeReference=ids[0]||'new';
   let oi=0;
   const render=()=>{
    const id=c.activeReference,objects=ensureObjects(c,id);oi=Math.min(oi,objects.length-1);const object=objects[oi];
-   body.innerHTML='<div class="generation-reference-tabs">'+(selected(c).map((a,i)=>'<button type="button" class="secondary generation-thumb" data-control-ref="'+esc(a.id)+'" aria-pressed="'+(a.id===id)+'">'+thumb(a)+'<span>Image '+(i+1)+'</span></button>').join('')||'<span class="help">New subject</span>')+'</div><div class="generation-filter-row">'+field('Selected object','<select data-object>'+objects.map((o,i)=>'<option value="'+i+'" '+(i===oi?'selected':'')+'>'+esc(o.name)+'</option>').join('')+'</select>')+field('Object type','<select data-type>'+Object.entries(types).map(([key,t])=>'<option value="'+key+'" '+(key===object.type?'selected':'')+'>'+t.name+'</option>').join('')+'</select>')+'</div>'+field('Object name / position','<input data-object-name maxlength="100" value="'+esc(object.name)+'" placeholder="Person on the left">')+'<div class="generation-attribute-grid">'+types[object.type].fields.map(name=>field(name,'<input data-attribute="'+esc(name)+'" value="'+esc(object.attributes[name]||'')+'" maxlength="200" placeholder="Keep original / unspecified">')).join('')+'</div><div class="row"><button type="button" class="secondary" data-add-object>Add object</button><button type="button" class="secondary" data-remove-object '+(objects.length===1?'disabled':'')+'>Remove object</button></div>';
+   body.innerHTML='<div class="generation-reference-tabs">'+(selected(c).map((a,i)=>'<button type="button" class="secondary generation-thumb" data-control-ref="'+esc(a.id)+'" aria-pressed="'+(a.id===id)+'">'+thumb(a)+'<span>Reference '+(i+1)+'</span></button>').join('')||'<span class="help">New subject</span>')+'</div><div class="generation-filter-row">'+field('Selected object','<select data-object>'+objects.map((o,i)=>'<option value="'+i+'" '+(i===oi?'selected':'')+'>'+esc(o.name)+'</option>').join('')+'</select>')+field('Object type','<select data-type>'+Object.entries(types).map(([key,t])=>'<option value="'+key+'" '+(key===object.type?'selected':'')+'>'+t.name+'</option>').join('')+'</select>')+'</div>'+field('Object name / position','<input data-object-name maxlength="100" value="'+esc(object.name)+'" placeholder="Person on the left">')+'<div class="generation-attribute-grid">'+types[object.type].fields.map(name=>field(name,'<input data-attribute="'+esc(name)+'" value="'+esc(object.attributes[name]||'')+'" maxlength="200" placeholder="Keep original / unspecified">')).join('')+'</div><div class="row"><button type="button" class="secondary" data-add-object>Add object</button><button type="button" class="secondary" data-remove-object '+(objects.length===1?'disabled':'')+'>Remove object</button></div>';
    all('[data-control-ref]',body).forEach(b=>b.onclick=()=>{c.activeReference=b.dataset.controlRef;oi=0;render();});
    q('[data-object]',body).onchange=e=>{oi=Number(e.target.value);render();};
    q('[data-type]',body).onchange=e=>{object.type=e.target.value;save(c);render();};
@@ -162,7 +165,7 @@
   if(!form||contexts.has(form))return;
   form.dataset.generationStudio=kind;form.classList.add('generation-form');
   const intro=form.closest('.grid')?.previousElementSibling;if(intro?.classList.contains('intro'))intro.remove();
-  const story=activeStory,stored=read(kind,story),c={kind,story,form,data:{reference_ids:[],objects:{},style:'',...stored},activePrompt:null};contexts.set(form,c);
+  const story=activeStory,stored=read(kind,story),c={kind,story,form,data:{reference_ids:[],video_reference_ids:[],reference_library:'image',objects:{},style:'',...stored},activePrompt:null};contexts.set(form,c);
   const model=kind==='audio'?q('[name=model]',form):q('#job-model',form),modelLabel=model.closest('label');c.model=model;model.setAttribute('aria-label','Model');
   if(kind==='image'&&!model.querySelector('[value="qwen-image-edit-2511"]'))model.add(new Option('Qwen Image Edit','qwen-image-edit-2511'));
   const promptNode=kind==='audio'?q('#audio-lines',form):kind==='image'?form.elements.prompt.closest('label'):null;
@@ -172,13 +175,13 @@
   const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);submit.textContent='Generate '+kind;if(kind==='video'&&!localStorage.getItem('ecco-video-job:'+story))status.textContent='';
   const retained=[modelLabel,promptNode,addLine,negative,board,...audioSettings,...audioReferences].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
-  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References','<button type="button" class="secondary generation-action" data-open-library>Image Library</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional controls</button>');
+  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional controls</button>');
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
   if(negative)q('[data-settings]',form).append(negative);
   for(const node of audioSettings)q('[data-settings]',form).append(node);
   for(const node of audioReferences)q('[data-audio-references]',form).append(node);
   if(board){q('[data-settings]',form).append(board);board.querySelector('select').onchange=e=>{
-   const b=boards().find(b=>b.id===e.target.value);if(!b)return;c.data.board_id=b.id;c.data.scenes=clone(b.scenes);c.data.reference_ids=[...new Set(b.scenes.map(s=>s.image_id))];setReferences(c,c.data.reference_ids);q('[data-video-seconds]',form).value=b.scenes[0]?.seconds||3;
+   const b=boards().find(b=>b.id===e.target.value);if(!b)return;c.data.reference_library='image';q('[data-reference-library]',form).value='image';c.data.board_id=b.id;c.data.scenes=clone(b.scenes);c.data.reference_ids=[...new Set(b.scenes.map(s=>s.image_id))];setReferences(c,c.data.reference_ids);q('[data-video-seconds]',form).value=b.scenes[0]?.seconds||3;
   };q('[data-settings]',form).insertAdjacentHTML('beforeend',field('Seconds per new shot','<input data-video-seconds type="number" min="1" max="30" value="'+(Number(c.data.seconds)||3)+'">'));q('[data-video-seconds]',form).oninput=e=>{c.data.seconds=Number(e.target.value);save(c);};}
   c.prompt=pop(c,'generation-prompt-dialog','Prompt');const promptBody=q('[data-body]',c.prompt);promptBody.innerHTML='<div class="generation-ai-actions"><button type="button" class="secondary" data-ai-generate>Generate with AI</button><button type="button" class="secondary" data-ai-improve>Improve using AI</button></div>';
   if(promptNode)promptBody.append(promptNode);else promptBody.insertAdjacentHTML('beforeend',field('Motion prompt','<textarea name="prompt" data-generation-prompt maxlength="1600" placeholder="Describe the movement, camera and action.">'+esc(c.data.prompt||'')+'</textarea>'));
@@ -186,6 +189,7 @@
   if(kind!=='audio'){const text=q('textarea',c.prompt);text.dataset.generationPrompt='';if(stored.prompt!==undefined)text.value=stored.prompt;text.oninput=()=>{c.data.prompt=text.value;save(c);};text.maxLength=kind==='video'?1600:4000;}
   c.controls=pop(c,'generation-controls-dialog','Additional controls');q('[data-body]',c.controls).innerHTML=(kind==='audio'?'<div data-delivery-controls></div><details class="generation-settings"><summary>Reference objects</summary><div data-object-controls></div></details>':'<div data-object-controls></div>')+field(kind==='audio'?'Writing style':'Visual style','<input data-generation-style maxlength="160" value="'+esc(c.data.style)+'" placeholder="Keep original / unspecified">');q('[data-generation-style]',c.controls).oninput=e=>{c.data.style=e.target.value;save(c);};
   form.append(footer);form.noValidate=true;
+  const librarySelect=q('[data-reference-library]',form);if(librarySelect){librarySelect.value=referenceKind(c);librarySelect.onchange=()=>{c.data.reference_library=librarySelect.value;c.activeReference=null;save(c);};}
   const libraryButton=q('[data-open-library]',form);if(libraryButton)libraryButton.onclick=()=>referencePicker(c);q('[data-open-prompt]',form).onclick=()=>{c.prompt.showModal();fitPrompt(c);q('textarea',c.prompt)?.focus();};q('[data-open-controls]',form).onclick=()=>openControls(c);
   form.addEventListener('input',()=>sync(c));form.addEventListener('focusin',e=>{const section=e.target.closest('.generation-section');if(section)all('.generation-section',form).forEach(s=>s.classList.toggle('is-focused',s===section));});
   connectModel(c);promptActions(c);if(kind==='audio')audioLines(form);
@@ -196,10 +200,11 @@
  }
  async function submitGeneration(c){
   const button=q('#generate-'+c.kind,c.form),status=q('#'+configs[c.kind].status,c.form);if(c.submitting||button.disabled)return;
+  if(c.kind==='video'&&referenceKind(c)==='video'){if(!referenceIds(c).length)referencePicker(c);else notice('Video references are saved. Generation from video references is not connected yet.',true);return;}
   if(!gpuConnected()){connectGPU(button.id);return;}
   if(!window.EccoStorage?.ready){window.EccoAI?.connections();return;}
   const text=q('textarea[name=prompt]',c.form).value.trim();
-  if(c.data.reference_ids.some(id=>!record(id))){notice('A selected reference is unavailable. Reselect it in Image Library.',true);return;}
+  if(c.data.reference_ids.some(id=>!record(id))){notice('A selected reference is unavailable. Reselect it in References.',true);return;}
   if(c.kind==='image'&&!text&&!objectInstructions(c)){q('[data-open-prompt]',c.form).click();notice('Add a prompt or choose object attributes first.',true);return;}
   if(c.kind==='video'&&!c.data.reference_ids.length){referencePicker(c);notice('Choose the images to animate.',true);return;}
   c.submitting=true;button.disabled=true;status.textContent='Preparing generation…';
@@ -234,7 +239,7 @@
   }catch(error){status.textContent=error.message;notice(error.message,true);}
   finally{c.submitting=false;tracking.delete(c.story);button.disabled=false;if(c.kind==='image')updateImageStatus();else updateVideoStatus();}
  }
- function aiContext(scope){const c=contexts.get(scope)||contexts.get(scope.closest?.('form'));if(!c)return null;return {reference_ids:[...c.data.reference_ids],context:{...(c.kind==='video'?{scenes:c.data.scenes||c.data.reference_ids.map(image_id=>({image_id})),seconds:Number(q('[data-video-seconds]',c.form)?.value)||3}:{}),style:c.data.style,scene_controls:objectInstructions(c),instructions:'Reference-specific attributes: '+objectInstructions(c),...(c.kind==='audio'?{lines:all('.audio-line',c.form).map(line=>({text:q('textarea',line).value,...Object.fromEntries(all('[data-line="'+line.dataset.line+'"] [data-field]',c.controls).map(el=>[el.dataset.field,el.value]))})),genre:c.form.elements.genre.value}:{} )}};}
+ function aiContext(scope){const c=contexts.get(scope)||contexts.get(scope.closest?.('form'));if(!c)return null;return {reference_ids:referenceIds(c).filter(id=>record(id)?.media==='image'),context:{...(c.kind==='video'?{scenes:referenceKind(c)==='video'?[]:c.data.scenes||c.data.reference_ids.map(image_id=>({image_id})),video_references:selected(c).filter(a=>a.media==='video').map(a=>({id:a.id,title:a.title||'Untitled video'})),seconds:Number(q('[data-video-seconds]',c.form)?.value)||3}:{}),style:c.data.style,scene_controls:objectInstructions(c),instructions:'Reference-specific attributes: '+objectInstructions(c),...(c.kind==='audio'?{lines:all('.audio-line',c.form).map(line=>({text:q('textarea',line).value,...Object.fromEntries(all('[data-line="'+line.dataset.line+'"] [data-field]',c.controls).map(el=>[el.dataset.field,el.value]))})),genre:c.form.elements.genre.value}:{} )}};}
  MODEL_CATALOG['qwen-image-edit-2511']={name:'Qwen Image Edit',defaults:{steps:40,cfg:3,seed:42}};
  const oldImage=imagePage;imagePage=function(){oldImage.apply(this,arguments);mount(q('#image-form'),'image');};
  const oldVideo=renderPage;renderPage=function(){oldVideo.apply(this,arguments);mount(q('#video-form'),'video');};
