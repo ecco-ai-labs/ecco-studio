@@ -64,8 +64,7 @@
   wrap.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();wrap.open=false;summary.focus();}});
   document.addEventListener('click',event=>{if(wrap.isConnected&&!wrap.contains(event.target))wrap.open=false;});
   select.addEventListener('change',update);entry.hidden=select.value!=='Other';renderOptions();update();
-  const research=document.createElement('button');research.type='button';research.className='secondary';research.textContent='Research news & create storyboard';form.elements.summary.closest('label').after(research);
-  research.onclick=()=>researchNews({prompt:form.elements.summary.value,count:10,duration:120,title:form.elements.title.value},research);
+
  }
  async function researchNews(settings,button){
   if(!settings.prompt.trim())return notice('Enter your news instructions first.',true);
