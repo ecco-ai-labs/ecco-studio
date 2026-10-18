@@ -70,7 +70,8 @@
   all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{setReferences(c,c.data.reference_ids.filter(id=>id!==b.dataset.refRemove));});
   }
   const text=c.kind==='audio'?all('textarea[data-field=text]',c.form).map(x=>x.value).join('\n'):q('textarea[name=prompt]',c.form)?.value||'';
-  q('[data-prompt-summary]',c.form).textContent=text.trim()?text.trim().slice(0,120)+(text.length>120?'…':''):'Add what you want to generate.';
+  q('[data-prompt-summary]',c.form).textContent=text.trim()||'Add what you want to generate.';
+  fitPrompt(c);
   q('[data-open-prompt]',c.form).textContent=text.trim()?'Edit prompt':'Add prompt';
   const referenceNote=q('[data-reference-note]',c.form);
   if(referenceNote)referenceNote.textContent=refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
@@ -147,7 +148,12 @@
   });
   sync(c);
  }
+ function fitPrompt(c){
+  if(!c.prompt?.open)return;
+  all('textarea',c.prompt).forEach(el=>{el.style.height='auto';el.style.height=(el.scrollHeight+el.offsetHeight-el.clientHeight)+'px';});
+ }
  function promptActions(c){
+  q('[data-close]',c.prompt).textContent='Apply';
   c.prompt.addEventListener('focusin',e=>{if(e.target.matches('textarea:not([readonly])'))c.activePrompt=e.target;});
   q('[data-ai-generate]',c.prompt).onclick=()=>window.EccoAI?.generateField((c.activePrompt?.isConnected?c.activePrompt:q('textarea:not([readonly])',c.prompt)));
   q('[data-ai-improve]',c.prompt).onclick=()=>window.EccoAI?.improveField((c.activePrompt?.isConnected?c.activePrompt:q('textarea:not([readonly])',c.prompt)));
@@ -179,7 +185,7 @@
   if(kind!=='audio'){const text=q('textarea',c.prompt);text.dataset.generationPrompt='';if(stored.prompt!==undefined)text.value=stored.prompt;text.oninput=()=>{c.data.prompt=text.value;save(c);};text.maxLength=kind==='video'?1600:4000;}
   c.controls=pop(c,'generation-controls-dialog','Additional controls');q('[data-body]',c.controls).innerHTML=(kind==='audio'?'<div data-delivery-controls></div><details class="generation-settings"><summary>Reference objects</summary><div data-object-controls></div></details>':'<div data-object-controls></div>')+field(kind==='audio'?'Writing style':'Visual style','<input data-generation-style maxlength="160" value="'+esc(c.data.style)+'" placeholder="Keep original / unspecified">');q('[data-generation-style]',c.controls).oninput=e=>{c.data.style=e.target.value;save(c);};
   form.append(footer);form.noValidate=true;
-  const libraryButton=q('[data-open-library]',form);if(libraryButton)libraryButton.onclick=()=>referencePicker(c);q('[data-open-prompt]',form).onclick=()=>{c.prompt.showModal();q('textarea',c.prompt)?.focus();};q('[data-open-controls]',form).onclick=()=>openControls(c);
+  const libraryButton=q('[data-open-library]',form);if(libraryButton)libraryButton.onclick=()=>referencePicker(c);q('[data-open-prompt]',form).onclick=()=>{c.prompt.showModal();fitPrompt(c);q('textarea',c.prompt)?.focus();};q('[data-open-controls]',form).onclick=()=>openControls(c);
   form.addEventListener('input',()=>sync(c));form.addEventListener('focusin',e=>{const section=e.target.closest('.generation-section');if(section)all('.generation-section',form).forEach(s=>s.classList.toggle('is-focused',s===section));});
   connectModel(c);promptActions(c);if(kind==='audio')audioLines(form);
   if(kind==='image'&&refinementSource){c.data.reference_ids=[refinementSource.id];q('textarea[name=prompt]',form).value=refinementSource.prompt||'';c.data.prompt=refinementSource.prompt||'';}
@@ -234,4 +240,5 @@
  document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
  window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
 })();
+
 
