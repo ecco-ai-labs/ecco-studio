@@ -49,7 +49,7 @@ def status():
     with LOCK: config = _config()
     connected = bool(config.get('api_key') and config.get('verified'))
     return {'connected': connected, 'enabled': connected and config.get('enabled') is True,
-            'model': config.get('model', DEFAULT_MODEL), 'models': list(MODELS), 'generation_modes': ['improve', 'generate']}
+            'model': config.get('model', DEFAULT_MODEL), 'models': list(MODELS), 'generation_modes': ['improve', 'generate'], 'news_research': True}
 
 def provider_config():
     with LOCK: config = _config()
@@ -237,6 +237,9 @@ def enhance(body, env):
         REQUEST_SLOTS.release()
 
 def handle(path, body, env):
+    if path in ('/api/ai/news/research', '/api/ai/news/storyboard'):
+        import news_research
+        return news_research.research(body) if path.endswith('/research') else news_research.storyboard(body)
     if path == '/api/ai/connect': return connect(body)
     if path == '/api/ai/settings': return settings(body)
     if path == '/api/ai/disconnect': return disconnect(body)
