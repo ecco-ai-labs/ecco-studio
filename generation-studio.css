@@ -14,6 +14,7 @@
 .generation-settings>summary::-webkit-details-marker{display:none}
 .generation-settings>summary::after{content:'⌄';font-size:16px}
 .generation-settings[open]>summary::after{transform:rotate(180deg)}
+.generation-references>summary{font-size:13px;font-weight:600;color:var(--accent,#ffdc24)}
 .generation-settings-body{display:flex;flex-direction:column;gap:12px;padding-top:12px}
 .generation-settings:not([open])>.generation-settings-body{display:none}
 .generation-selected,.generation-reference-tabs{display:flex;flex-wrap:wrap;gap:9px}
@@ -49,4 +50,5 @@
 .generation-dialog [hidden],.generation-form [hidden]{display:none!important}
 @media(max-width:850px){#page .grid:has(>.generation-form),#page .audio-workspace:has(>.generation-form){grid-template-columns:1fr}}
 @media(max-width:480px){.generation-filter-row,.generation-attribute-grid,.generation-delivery .audio-line-controls{grid-template-columns:1fr}.generation-picker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 
