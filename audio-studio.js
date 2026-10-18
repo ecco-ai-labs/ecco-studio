@@ -53,7 +53,7 @@
  async function hydrateAudio(){
   const current=service;if(!current)return;
   for(const element of document.querySelectorAll('audio[data-audio-id]')){
-   try{const url=await current.mediaURL(element.dataset.audioId);if(current!==service)return;const parsed=new URL(url);if(parsed.protocol!=='https:')throw Error('Audio service must return a secure media URL.');element.src=parsed.href;}
+   try{const url=await current.mediaURL(element.dataset.audioId);if(current!==service)return;const parsed=new URL(url);if(parsed.protocol!=='https:'&&!(parsed.protocol==='blob:'&&parsed.origin===location.origin))throw Error('Audio service must return a secure media URL.');element.src=parsed.href;}
    catch(error){notice(error.message,true);}
   }
   document.querySelectorAll('[data-download-audio]').forEach(button=>button.onclick=async()=>{try{await current.download(button.dataset.downloadAudio);}catch(error){notice(error.message,true);}});
@@ -104,7 +104,7 @@
    e.preventDefault();save();
    if(submitting)return;
    if(!gpuConnected()){connectGPU('generate-audio');return;}
-   if(!serviceReady()){notice('GPU connected. Audio generation still needs the independent audio service and Indic-Mio worker to be configured. Your script is saved in this browser.',true);return;}
+   if(!serviceReady()){window.EccoStorage?.open();return;}
    if(draft.lines.some(line=>!line.text.trim())){notice('Add spoken text for every dialogue line.',true);q('[data-open-prompt]')?.click();return;}
    if(draft.lines.reduce((n,line)=>n+line.text.length,0)>4000){notice('Keep the complete script within 4,000 characters.',true);return;}
    const requestedStory=activeStory;submitting=true;update();
