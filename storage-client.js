@@ -8,6 +8,29 @@
  const gpuAPI=api;
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','youtube/connect','youtube/publish','github/sync','billing/connect','billing/refresh']);
  window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,reportError};
+ const audioMedia=new Map();
+ let audioConnected=false;
+ function connectAudio(){
+  if(audioConnected||!key||!window.EccoAudioStudio)return;
+  audioConnected=true;
+  window.EccoAudioStudio.connect({
+   storageIndependentOfGPU:true,
+   list:async({story_id})=>(await storageRequest('state')).records.filter(a=>a.kind==='asset'&&a.media==='audio'&&!a.deleted&&(a.story_id||LEGACY_STORY)===story_id),
+   generate:body=>storageRequest('audio/generate',body),
+   job:id=>storageRequest('audio/jobs/'+encodeURIComponent(id)),
+   mediaURL:async id=>{
+    if(audioMedia.has(id))return audioMedia.get(id);
+    const access=key,{buffer,mime}=await storageRequest('media/'+encodeURIComponent(id));
+    if(access!==key)throw Error('Storage disconnected.');
+    const url=URL.createObjectURL(new Blob([buffer],{type:mime||'audio/wav'}));audioMedia.set(id,url);return url;
+   },
+   download:async id=>{
+    const {buffer,mime}=await storageRequest('media/'+encodeURIComponent(id));
+    const url=URL.createObjectURL(new Blob([buffer],{type:mime||'audio/wav'}));
+    const link=document.createElement('a');link.href=url;link.download='ecco-audio-'+id+'.wav';link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+   }
+  });
+ }
  async function storageRequest(path,body,accessKey=key){
   if(!accessKey)throw Error('Connect your saved workspace from Account → Storage. No GPU is needed.');
   let response;
@@ -32,7 +55,7 @@
   if(generation.has(path))return gpuAPI(path,body);
   const data=await storageRequest(path,body);
   if(path==='state'){
-   verified=true;errorShown=false;
+   verified=true;errorShown=false;connectAudio();
    if(gpuConnected()){try{const gpu=await gpuAPI('state');data.config={...data.config,...gpu.config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner};}catch{data.config.runtime={};}}
   }
   return data;
@@ -43,7 +66,7 @@
   window.EccoErrors.show(error,{title:'Workspace storage error',retryLabel:'Reconnect storage',retry:dialog});
  }
  function counts(){const active=state.records.filter(r=>!r.deleted);return active.filter(r=>r.kind==='asset'&&r.media==='image').length+' images · '+active.filter(r=>r.kind==='story').length+' stories';}
- function disconnect(){key='';verified=false;sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');}
+ function disconnect(){key='';verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');}
  function dialog(){
   let modal=document.querySelector('#storage-access-dialog');
   if(!modal){modal=document.createElement('dialog');modal.id='storage-access-dialog';document.body.append(modal);}
@@ -75,7 +98,7 @@
     // Reuse this response: no second state fetch, and render failures stay visible.
     const previousKey=key;key=entered;
     try{await refresh(next,true);navigate('library');}catch(error){key=previousKey;throw Error('Storage connected, but the library could not display: '+error.message);}
-    sessionStorage.setItem('ecco-storage-access',key);verified=true;errorShown=false;form.elements.key.value='';
+    sessionStorage.setItem('ecco-storage-access',key);verified=true;errorShown=false;connectAudio();form.elements.key.value='';
     for(const selector of ['#workspace-library-group','#image-library-nav > details']){const section=document.querySelector(selector);if(section)section.open=true;}
     notice('Connected · '+counts());modal.close();
    }catch(error){window.EccoErrors.show(error);status.textContent=error.message;status.setAttribute('role','alert');}
