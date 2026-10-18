@@ -38,3 +38,15 @@ body.workspace-entry-mode #connection-indicators{display:none!important}
 #connection-panel-menu>summary{min-height:26px;padding:0 4px;justify-content:center}
 #connection-panel-menu{margin-left:2px}
 [data-category="Account"] [data-category="Billing"]>.workspace-menu-items{position:static;box-shadow:none;border:0;min-width:0}
+
+/* Keep AI assistance beside the field label, without adding another panel. */
+.ai-prompt-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-width:0}
+.ai-prompt-label{min-width:0}
+.ai-prompt-toolbar>.ai-prompt-assist{align-self:center;margin:0;padding:3px 7px;min-height:24px;line-height:1.3;font-size:11px;font-weight:500;white-space:nowrap;border:1px solid transparent;background:transparent;box-shadow:none;color:var(--muted,#b8b0cd)}
+.ai-prompt-toolbar>.ai-prompt-assist:hover,.ai-prompt-toolbar>.ai-prompt-assist:focus-visible{color:var(--accent,#ffdc24);border-color:var(--accent,#ffdc24);background:#38305e}
+.ai-prompt-toolbar>.ai-prompt-assist:disabled{opacity:.55}
+#ai-review-dialog [data-suggestion]{min-height:180px;resize:vertical;line-height:1.5}
+#ai-review-dialog .ai-review-notes{white-space:pre-wrap}
+#ai-review-dialog [data-apply-status]{color:var(--accent,#ffdc24)}
+#ai-review-dialog .row{justify-content:flex-end;gap:8px}
+@media(max-width:480px){.ai-prompt-toolbar{gap:6px}.ai-prompt-toolbar>.ai-prompt-assist{font-size:10px;padding:3px 5px}}
