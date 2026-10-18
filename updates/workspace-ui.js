@@ -7,6 +7,9 @@
  let welcomePending=true;
  function selectionToolbar(body,name,button){const selected=body.querySelector('.tree-folder.selected');if(!selected||!button)return;const row=document.createElement('div');row.className='library-selected-row';selected.before(row);row.append(selected);button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);row.append(button);}
  const records=()=>typeof state!=='undefined'&&state?state.records:[];
+ // Keep the library overview, sidebar and reference picker on the same saved videos.
+ const videoLibraryAssets=()=>{const storyIds=new Set(stories().map(story=>story.id));return records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted&&storyIds.has(r.story_id||LEGACY_STORY));};
+ window.EccoVideoLibrary={assets:videoLibraryAssets};
  const html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const folderList=()=>records().filter(r=>r.kind==='image_folder'&&!r.deleted).sort((a,b)=>a.created-b.created||a.id.localeCompare(b.id));
  const labelsFor=id=>{const ids=new Set(records().filter(r=>r.kind==='library_item'&&r.asset_id===id&&!r.deleted).map(r=>r.folder_id));return folderList().filter(f=>ids.has(f.id));};
@@ -192,7 +195,7 @@
   page=kind+'-library';q('#heading').textContent=kind==='video'?'Video Library':'Story Library';
   document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));
   if(kind==='video'){
-   const list=records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted);
+   const list=videoLibraryAssets();
    q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><div class="row"><label class="library-view-label"><select id="video-library-view" aria-label="Video library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="video-library-upload" class="secondary">Upload</button><button type="button" id="video-library-publish" class="secondary">Publish</button></div></div><div id="video-library-gallery" class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
    q('#video-library-upload').onclick=uploadVideoDialog;q('#video-library-publish').onclick=()=>{page='journey-preview';journeyPreview(true);journeyGuide();librarySelection();};wireCards();
   }else{
@@ -226,7 +229,7 @@
   const trash=q('#workspace-trash'),footer=q('.side-bottom');if(trash&&footer&&trash.nextElementSibling!==footer)footer.before(trash);
  }
  function publishMenu(){
-  const video=records().find(r=>r.id===selectedVideoId&&r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted);
+  const video=videoLibraryAssets().find(r=>r.id===selectedVideoId);
   if(video){persistDraft();activeStory=video.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();lastSignature='';storyControls();}
   let dialog=q('#workspace-publish-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='workspace-publish-dialog';document.body.append(dialog);}
   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Publish on YouTube</h2><button type="button" class="secondary" data-close>Close</button></div><p data-video></p><div data-publish-controls></div></div>';dialog.style.width='min(1000px,94vw)';
@@ -249,7 +252,7 @@
  function videoLibrary(){
   const group=q('#workspace-library-group .workspace-library-content');if(!group)return;
   let library=q('#workspace-video-library');if(!library){library=disclosure('Video Library','ecco-video-library');library.id='workspace-video-library';group.append(library);}const story=q('.project');if(story&&library.nextElementSibling!==story)story.before(library);
-  const list=records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted&&stories().some(story=>story.id===(r.story_id||LEGACY_STORY)));
+  const list=videoLibraryAssets();
   if(!list.some(v=>v.id===selectedVideoId))selectedVideoId='';
   const signature=JSON.stringify(list.map(v=>[v.id,v.title,v.upload_state]));if(library.dataset.signature===signature+selectedVideoId)return;library.dataset.signature=signature+selectedVideoId;
   const body=library.querySelector('.workspace-library-content');body.replaceChildren();
@@ -623,6 +626,7 @@
 #connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
+
 
 
 

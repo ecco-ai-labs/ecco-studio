@@ -44,7 +44,8 @@
  const key=(kind,story)=>'ecco-generation-v1:'+kind+':'+story;
  const thumb=(a,extra='')=>a.media==='video'?'<video data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" aria-label="'+esc(a.title||'Reference video')+'" preload="metadata" muted playsinline></video>':'<img data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" alt="'+esc(a.title||'Reference image')+'" '+extra+'>';
  const referenceKind=c=>c.kind==='video'&&c.data.reference_library==='video'?'video':'image';
- const referenceIds=c=>referenceKind(c)==='video'?c.data.video_reference_ids:c.data.reference_ids;
+ const libraryVideos=()=>window.EccoVideoLibrary?.assets()||[];
+ const referenceIds=c=>{if(referenceKind(c)!=='video')return c.data.reference_ids;const available=new Set(libraryVideos().map(a=>a.id));return c.data.video_reference_ids.filter(id=>available.has(id));};
  function read(kind,story){try{return JSON.parse(localStorage.getItem(key(kind,story))||'{}');}catch{return {};}}
  function save(c){localStorage.setItem(key(c.kind,c.story),JSON.stringify(c.data));sync(c);}
  function objectDefaults(id){const a=record(id),objects=a?.editor?.recipe?.objects;return objects?.length?objects.map(o=>({name:o.name,type:types[o.type]?o.type:'object',attributes:{...o.ai}})):[{name:'Object 1',type:'object',attributes:{}}];}
@@ -86,20 +87,21 @@
  }
  function setReferences(c,ids){
   const key=referenceKind(c)==='video'?'video_reference_ids':'reference_ids';
-  c.data[key]=[...new Set(ids)].slice(0,configs[c.kind].limit);
+  const available=key==='video_reference_ids'?new Set(libraryVideos().map(a=>a.id)):null;
+  c.data[key]=[...new Set(ids)].filter(id=>!available||available.has(id)).slice(0,configs[c.kind].limit);
   for(const id of c.data[key])ensureObjects(c,id);
   save(c);document.dispatchEvent(new Event('ecco-reference-change'));
  }
  function referencePicker(c){
   let d=q('#generation-library-picker');if(d)d.remove();d=document.createElement('dialog');d.id='generation-library-picker';d.className='generation-dialog';document.body.append(d);
   const chosen=new Set(referenceIds(c)),limit=configs[c.kind].limit,kind=referenceKind(c),plural=kind+'s',library=kind==='video'?'Video Library':'Image Library';
-  const images=state.records.filter(a=>a.kind==='asset'&&a.media===kind&&!a.deleted);
+  const images=kind==='video'?libraryVideos():state.records.filter(a=>a.kind==='asset'&&a.media===kind&&!a.deleted);
   const folders=state.records.filter(a=>a.kind===kind+'_folder'&&!a.deleted);
   d.innerHTML='<div class="form"><div class="section-head"><h2>'+library+'</h2><button type="button" class="secondary" data-cancel>Cancel</button></div><div class="generation-filter-row">'+field('Search','<input type="search" data-search placeholder="Find '+(kind==='image'?'an image':'a video')+'">')+field('Label','<select data-label><option value="">All '+plural+'</option>'+folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>').join('')+'</select>')+'</div><p class="help">Select up to '+limit+' '+plural+'.</p><div class="generation-picker-grid" data-grid></div><p role="status" data-count></p><div class="row"><button type="button" data-use>Use selected '+plural+'</button></div></div>';
   const draw=()=>{
    const term=q('[data-search]',d).value.trim().toLowerCase(),folder=q('[data-label]',d).value;
    const shown=images.filter(a=>(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!folder||state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id&&l.folder_id===folder)));
-   q('[data-grid]',d).innerHTML=shown.map(a=>'<button type="button" class="secondary generation-picker-item" data-image="'+esc(a.id)+'" aria-pressed="'+chosen.has(a.id)+'">'+thumb(a,'loading="lazy"')+'<span>'+esc(a.title||'Untitled '+kind)+'</span><small>'+ (chosen.has(a.id)?'Selected':'Select')+'</small></button>').join('')||'<p class="help">'+(window.EccoStorage?.ready?'No '+plural+' match.':'Connect storage to browse your '+library+'.')+'</p>';
+   q('[data-grid]',d).innerHTML=shown.map(a=>'<button type="button" class="secondary generation-picker-item" data-image="'+esc(a.id)+'" aria-pressed="'+chosen.has(a.id)+'">'+thumb(a,'loading="lazy"')+'<span>'+esc(a.title||'Untitled '+kind)+'</span><small>'+ (chosen.has(a.id)?'Selected':'Select')+'</small></button>').join('')||'<p class="help">'+(window.EccoStorage?.ready?(kind==='video'&&!images.length?'No saved videos in Video Library.':'No '+plural+' match.'):'Connect storage to browse your '+library+'.')+'</p>';
    q('[data-count]',d).textContent=chosen.size+' selected';
    all('[data-image]',d).forEach(b=>b.onclick=()=>{const id=b.dataset.image;if(chosen.has(id))chosen.delete(id);else if(chosen.size<limit)chosen.add(id);else{q('[data-count]',d).textContent='This model supports up to '+limit+' references.';return;}draw();});
   };
@@ -246,6 +248,7 @@
  document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
  window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
 })();
+
 
 
 
