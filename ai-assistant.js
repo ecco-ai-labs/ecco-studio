@@ -168,6 +168,9 @@
    button.dataset.connected=String(!!connection.connected);
    button.setAttribute('aria-label',connection.connected?'AI connected':'AI not connected');
   }
+  let storage=q('#studio-storage-indicator');
+  if(!storage&&header){storage=document.createElement('span');storage.id='studio-storage-indicator';storage.setAttribute('role','img');storage.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>';header.append(storage);}
+  if(storage){if(button&&storage.nextElementSibling!==button)button.before(storage);const connected=!!window.EccoStorage?.ready;storage.dataset.connected=String(connected);storage.setAttribute('aria-label',connected?'Storage connected':'Storage not connected');}
   for(const id of ['connect-storage','reconnect-gpu']){const extra=document.getElementById(id);if(extra)extra.hidden=true;}
   const pageRoot=q('#page');let bar=q('#studio-ai-status');
   const show=pageRoot&&(Object.keys(forms).some(id=>pageRoot.querySelector('#'+id))||['board','director','characters'].includes(page));
@@ -176,5 +179,6 @@
  }
  window.EccoAI={connections,open:openKeyDialog,get enabled(){return connection.enabled;},refresh:readStatus};
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;setTimeout(()=>{scheduled=false;mount();},0);}).observe(document.body,{childList:true,subtree:true});
+ setInterval(mount,2000);
  mount();if(window.EccoStorage?.ready)readStatus().catch(()=>{});
 })();
