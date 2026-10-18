@@ -27,7 +27,7 @@
  function connections(){
   const dialog=q('#connection-dialog'),root=q('#connections');
   dialog.querySelector('h2').textContent='Connections';
-  root.innerHTML='<section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI · OpenAI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><p class="help" data-ai-status>Checking connection…</p><p class="help">Refines your story, image, audio and video prompts. Usage is billed to your OpenAI project.</p><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label><button type="button" class="secondary" data-ai-disconnect hidden>Disconnect</button></section><section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div><p class="help">Save and access your libraries independently of GPU generation.</p></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div><p class="help">Connect an accelerator when you need to generate images, audio or video.</p></section>';
+  root.innerHTML='<section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><p class="help">Refines your story, image, audio and video prompts. API usage is billed separately.</p><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label><button type="button" class="secondary" data-ai-disconnect hidden>Disconnect</button></section><section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div><p class="help">Save and access your libraries independently of GPU generation.</p></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div><p class="help">Connect an accelerator when you need to generate images, audio or video.</p></section>';
   const gpu=root.querySelector('#gpu-connection');
   gpu.querySelector('button').onclick=()=>{dialog.close();connectGPU('connections');};
   root.querySelector('[data-storage]').onclick=()=>{dialog.close();window.EccoStorage.open();};
@@ -39,11 +39,10 @@
    catch(error){showError(error);}finally{renderConnection();}
   };
   if(!dialog.open)dialog.showModal();
-  renderConnection();readStatus().then(renderConnection).catch(error=>{root.querySelector('[data-ai-status]').textContent='OpenAI connection unavailable.';showError(error);});
+  renderConnection();readStatus().then(renderConnection).catch(showError);
  }
  function renderConnection(){
   const root=q('#openai-connection');if(!root)return;
-  root.querySelector('[data-ai-status]').textContent=connection.connected?'Connected · '+connection.model+(connection.enabled?' · AI enabled across Studio':' · AI disabled'):'Not connected';
   const control=root.querySelector('#enable-studio-ai');control.checked=!!connection.enabled;control.disabled=!connection.connected;
   root.querySelector('[data-ai-disconnect]').hidden=!connection.connected;
   const button=root.querySelector('#connect-openai');button.textContent=connection.connected?'Connected':'Connect';button.dataset.connected=String(!!connection.connected);
@@ -178,6 +177,11 @@
    let panel=q('#connection-indicators');
    if(!panel){panel=document.createElement('div');panel.id='connection-indicators';panel.setAttribute('role','group');panel.setAttribute('aria-label','Connection status');header.prepend(panel);}
    for(const icon of [button,storage,accelerator])if(icon.parentElement!==panel)panel.append(icon);
+   let menu=q('#connection-panel-menu');
+   if(!menu){menu=document.createElement('details');menu.id='connection-panel-menu';menu.className='workspace-menu';menu.innerHTML='<summary aria-label="Connection options"><span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>';panel.append(menu);}
+   const items=menu.querySelector('.workspace-menu-items');
+   if(settings&&settings.parentElement!==items)items.append(settings);
+   if(settings)settings.onclick=()=>{menu.open=false;connections();};
   }
   for(const id of ['connect-storage','reconnect-gpu']){const extra=document.getElementById(id);if(extra)extra.hidden=true;}
   const pageRoot=q('#page');let bar=q('#studio-ai-status');
