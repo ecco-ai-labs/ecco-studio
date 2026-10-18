@@ -2,28 +2,43 @@
 
 ## Release status
 
-The Pages interface adds Indic-Mio to Models & Settings and provides a multilingual
-dialogue editor, per-line voice and emotion, speed, pitch, pauses, and browser-local
-draft recovery. Playback/download rendering is prepared for an independent service.
-
-**Live generation is not enabled.** No independent authenticated API, durable job
-queue or media storage service is connected yet. Generate audio opens the shared GPU picker when disconnected. Once connected,
-the UI reports the missing independent audio service instead of submitting a job. No GPU installation, library migration, model download or real speech
-inference has been performed for this release.
+Live audio generation is connected through the authenticated CPU storage API.
+The interface stays on GitHub Pages. Indic-Mio inference runs on the GPU; jobs,
+scripts, and generated WAV assets persist on the network volume independently.
+An English-and-Hindi request passed generation, checksum-verified asset commit,
+and authenticated media retrieval on 2026-10-18.
 
 ## Ownership
 
 | Part | Location |
 | --- | --- |
-| Full interface and source | `ecco-ai-labs/ecco-studio`, GitHub Pages |
-| Accounts, story/audio metadata and jobs | Independent authenticated application service; deployment pending |
-| Saved audio and source assets | Private storage independent of GPU lifecycle; deployment pending |
-| GPU | Disposable inference worker with temporary inputs, outputs and model cache |
+| Interface and source | GitHub Pages / this repository |
+| Authentication, metadata, job finalization and media access | CPU storage API |
+| Durable queue | /workspace/ecco-audio/queue on the shared network volume |
+| Saved audio | /workspace/ecco-studio-data/audio-dev, written by the CPU service |
+| Model weights and dependencies | /workspace/ecco-audio |
+| GPU | queue_worker.py invokes disposable speech inference subprocesses |
 
-Do not install this interface on a GPU. Do not attach Audio Studio to the legacy
-Jupyter bridge, `/workspace/ecco-studio-data`, or the GPU's SQLite database.
-The existing network volume alone does not provide independent application access.
-The migration work is tracked separately in PR #1.
+Only the CPU service writes authoritative audio metadata. The GPU worker does not
+open the Studio database or hold the storage access key. The current service uses
+one workspace access key; per-user authorization is not yet implemented.
+
+## Runtime
+
+Deploy backend/audio_jobs.py with storage_api.py and audio/audio_queue.py plus
+audio/audio_schema.py on the CPU service. The coordinator validates requests,
+limits outstanding jobs to four, verifies WAV metadata/checksums and finalizes
+assets with deterministic IDs. Finalization is retry-safe.
+
+On the GPU, deploy audio_worker.py, audio_schema.py, audio_queue.py, queue_worker.py
+and start_worker.sh to /workspace/ecco-audio. start_worker.sh uses the existing
+/opt/ecco-runtime-venv runtime plus isolated dependencies at /workspace/ecco-audio/deps.
+The persistent runtime boot.sh starts it after restoring the Python runtime.
+A shared file lock serializes inference; a heartbeat exposes readiness.
+A crashed running job becomes an explicit error on worker restart; queued work is
+retained. Models are released after each inference subprocess finishes.
+Download snapshots with install_models.py; exact revisions are saved in models/manifest.json.
+Completed recordings can be listed, played and downloaded while the GPU is off.
 
 ## Application adapter
 
@@ -34,7 +49,7 @@ The adapter must expose `storageIndependentOfGPU: true` and these asynchronous m
 - `generate(request)`: validate ownership and the schema below, durably queue the
   job, return `{id}`. This is the only operation that may require GPU compute.
 - `job(id)`: return `{id,status,error?,progress?}`; `done` means durable output verified.
-- `mediaURL(assetId)`: return an authorized, expiring HTTPS playback URL.
+- `mediaURL(assetId)`: return an authenticated same-origin Blob URL or authorized HTTPS playback URL.
 - `download(assetId)`: perform an authenticated WAV download.
 
 Call `disconnect()` on sign-out. This adapter is a wiring contract, not a security
@@ -51,10 +66,9 @@ validation is in `audio_schema.py`; the service must also validate story ownersh
 
 `audio_worker.py` is a command-line inference implementation, not an app server or
 database. It loads Indic-Mio and MioCodec from explicitly supplied local model
-directories. Its output path must be temporary scratch space. The job coordinator
-must upload the result to private durable storage, verify bytes/checksum and audio
-metadata, and atomically commit the asset before reporting completion. Retries need
-leases and idempotency; worker loss must never erase authoritative data.
+directories. Its output goes to the private queue directory. The job coordinator
+copies the result into independent private media storage, verify bytes/checksum and audio
+metadata, and atomically commit the asset before reporting completion. The shared worker lock and deterministic asset IDs prevent concurrent inference and duplicate finalization.
 
 Dependencies: Python 3.12+, CUDA PyTorch/torchaudio, `requirements.txt`, and FFmpeg.
 The supplied runtime directory must contain `model/` (SPRINGLab/Indic-Mio), `codec/`
