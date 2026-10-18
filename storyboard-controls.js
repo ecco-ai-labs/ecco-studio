@@ -13,7 +13,7 @@
  }
  function mount(){
   const split=q('#split');if(!split||q('#scene-count-controls'))return;
-  q('#page>.intro').textContent='Choose your scene count and timing, then use AI to adapt the story into scenes. Review and edit each scene before choosing images.';
+  q('#page>.intro')?.remove();
   const controls=document.createElement('div');controls.id='scene-count-controls';controls.className='row';
   controls.innerHTML='<label>Scenes<span class="row"><button type="button" class="secondary" data-less aria-label="Remove last scene">−</button><input id="scene-count" type="number" min="0" max="60" step="1" aria-label="Number of scenes" style="width:76px"><button type="button" class="secondary" data-more aria-label="Add scene">+</button></span></label><label>All scenes (seconds)<input id="scene-default-seconds" type="number" min="1" max="30" step="1" style="width:110px"></label>';
   split.parentElement.before(controls);sync();
