@@ -340,3 +340,15 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .pdf-story-dialog[open]{display:flex;flex-direction:column;height: min(820px,90vh)}
 .pdf-story-dialog .pdf-page-scroll{flex:1 1 auto;min-height:140px;height:auto}
 .pdf-story-dialog>.pdf-dialog-head,.pdf-story-dialog>.pdf-selected-label,.pdf-story-dialog>.row{flex-shrink:0}
+
+/* Custom story types are edited within the dropdown. */
+.story-type-dropdown{position:relative;font-size:12px}
+.story-type-dropdown>summary{cursor:pointer;padding:9px 12px;border:1px solid #45405e;border-radius:6px;background:#252039;color:#eeebf5}
+.story-type-options{position:absolute;left:0;right:0;top:100%;z-index:30;padding:8px;background:#252039;border:1px solid #605679;border-radius:6px;box-shadow:0 10px 24px #0006}
+.story-type-options [data-types]{max-height:220px;overflow:auto;display:flex;flex-direction:column}
+.story-type-options [data-types]>button{text-align:left;background:transparent;color:#eeebf5;border:0}
+.story-type-options [data-types]>button:hover{background:#38305e;color:var(--accent,#ffdc24)}
+.story-type-options [data-custom-entry]{padding-top:8px;border-top:1px solid #45405e}
+.story-type-options input{width:100%;box-sizing:border-box;font-size:12px}
+.story-type-options .row{margin-top:8px;gap:8px}
+.story-type-options [hidden],.story-type-dropdown:not([open])>.story-type-options{display:none!important}
