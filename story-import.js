@@ -24,7 +24,17 @@
   box.innerHTML='<div class="row"><button type="button" class="secondary" data-upload>Upload PDF</button><button type="button" class="secondary" data-preview disabled>Preview & Select</button><span data-file-wrap hidden><button type="button" class="secondary" data-remove aria-label="Remove uploaded PDF" title="Remove uploaded PDF" style="padding:2px 6px!important;min-height:24px!important">×</button> <span data-filename></span></span></div><input type="file" accept=".pdf,application/pdf" hidden><p role="status"></p><details><summary>Extracted story text</summary><label>Source text<textarea name="sourceText" rows="5"></textarea></label><p class="help">Full source stays in this browser; only the 4,000-character summary currently syncs to storage. Keep the original PDF.</p></details>';
   form.prepend(box);const input=box.querySelector('input'),status=box.querySelector('[role=status]'),source=box.querySelector('textarea'),open=box.querySelector('[data-preview]');
   source.value=saved.sourceText||'';
-  box.querySelector('[data-upload]').onclick=()=>input.click();
+  const panel=document.createElement('div');panel.id='story-entry-panel';panel.setAttribute('role','group');panel.setAttribute('aria-label','Story creation options');
+  panel.innerHTML='<details class="workspace-menu"><summary>Upload<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div></details><button type="button" class="secondary" data-story-ai>Generate using AI</button><button type="button" class="secondary" data-story-manual aria-pressed="true">Manual</button>';
+  form.before(panel);
+  const menu=panel.querySelector('details'),items=panel.querySelector('.workspace-menu-items'),row=box.querySelector('.row');items.append(row);
+  box.hidden=true;
+  const mode=value=>{panel.dataset.mode=value;panel.querySelector('[data-story-manual]').setAttribute('aria-pressed',String(value==='manual'));panel.querySelector('[data-story-ai]').setAttribute('aria-pressed',String(value==='ai'));box.hidden=value!=='upload';};
+  mode('manual');
+  panel.querySelector('[data-upload]').onclick=()=>{mode('upload');menu.open=false;input.click();};
+  panel.querySelector('[data-preview]').addEventListener('click',()=>{mode('upload');menu.open=false;});
+  panel.querySelector('[data-story-manual]').onclick=()=>{mode('manual');menu.open=false;form.elements.summary.focus();};
+  panel.querySelector('[data-story-ai]').onclick=async()=>{mode('ai');menu.open=false;await window.EccoAI.generateStory(form);};
   let task=null,doc=null,pdfjs=null,pageNumber=1,highlight='',busy=false,observer=null,epoch=0;
   let shells=[],renderQueue=[],rendering=0;
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label','Select story from PDF');
@@ -89,9 +99,9 @@
   }
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   open.onclick=()=>{dialog.showModal();draw();};
-  box.querySelector('[data-remove]').onclick=async()=>{
+  panel.querySelector('[data-remove]').onclick=async()=>{
    epoch++;observer?.disconnect();renderQueue=[];shells=[];highlight='';selected.value='';note.textContent='';status.textContent='';
-   dialog.close();scroll.replaceChildren();open.disabled=true;input.value='';box.querySelector('[data-filename]').textContent='';box.querySelector('[data-file-wrap]').hidden=true;
+   dialog.close();scroll.replaceChildren();open.disabled=true;input.value='';panel.querySelector('[data-filename]').textContent='';panel.querySelector('[data-file-wrap]').hidden=true;
    const previous=task;task=null;doc=null;controls();if(previous)await previous.destroy().catch(()=>{});
   };
   input.onchange=async()=>{
@@ -104,7 +114,7 @@
     if(!q('#pdf-story-reader-style')){const link=document.createElement('link');link.id='pdf-story-reader-style';link.rel='stylesheet';link.href='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/web/pdf_viewer.css';document.head.append(link);}
     task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,stopAtErrors:true});doc=await task.promise;
     pageNumber=1;selected.value='';
-    box.querySelector('[data-filename]').textContent=file.name;box.querySelector('[data-file-wrap]').hidden=false;
+    panel.querySelector('[data-filename]').textContent=file.name;panel.querySelector('[data-file-wrap]').hidden=false;
     open.disabled=false;status.textContent='';dialog.showModal();await preparePages();
    }catch(error){window.EccoErrors?.show(error);status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}
   };
