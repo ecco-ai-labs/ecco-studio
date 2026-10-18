@@ -68,3 +68,6 @@ body.workspace-entry-mode #connection-indicators{display:none!important}
 :is(#storyboard-ai-toolbar,#story-description-ai) .storyboard-ai-actions>button{display:block;width:100%;text-align:left;margin:3px 0;white-space:nowrap}
 #page:has(:is(#storyboard-ai-toolbar,#story-description-ai)) .ai-prompt-assist{display:none!important}
 body:not(.workspace-entry-mode) #save-board.storyboard-save-continue{width:100%;padding:14px 20px!important;min-height:48px!important;font-size:14px!important}
+
+#page .storyboard-save-row{display:block;width:100%}
+body:not(.workspace-entry-mode) #page #save-board.storyboard-save-continue{display:block;width:100%!important;max-width:none!important;box-sizing:border-box}
