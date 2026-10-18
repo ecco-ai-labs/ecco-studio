@@ -10,3 +10,8 @@
 #ai-review-dialog details{font-size:12px}#ai-review-dialog textarea{font-size:12px;min-height:120px}
 #ai-review-dialog .ai-questions{color:var(--accent,#ffdc24);white-space:pre-wrap}
 #ai-review-dialog [hidden],#studio-ai-status [hidden],#openai-connection [hidden]{display:none!important}
+
+#studio-ai-status[hidden]{display:none!important}
+#studio-ai-button{color:#fff!important;font-size:12px;padding:5px 9px;min-height:28px;background:transparent}
+#studio-ai-button[data-connected=true]{color:var(--accent,#ffdc24)!important}
+body.workspace-entry-mode #studio-ai-button{display:none!important}
