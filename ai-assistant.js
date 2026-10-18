@@ -140,7 +140,7 @@
   dialog.innerHTML='<div class="form"><h2>'+(review.generateStory?'Generate using AI':'Improve with AI')+'</h2><p class="help">'+esc(review.label)+'</p>'+(questions.length?'<p class="ai-questions">'+esc(questions.join('\n'))+'</p>':'')+'<p class="help ai-review-notes">'+esc(notes.join('\n'))+'</p><details><summary>Original</summary><label>Original text<textarea readonly>'+esc(review.original)+'</textarea></label></details><label>AI suggestion<textarea data-suggestion maxlength="'+review.maxLength+'">'+esc(review.suggestion)+'</textarea></label><p role="status" data-apply-status></p><div class="row"><button type="button" class="secondary" data-cancel>Cancel</button><button type="button" data-apply>Apply</button></div></div>';
   const input=dialog.querySelector('[data-suggestion]'),apply=dialog.querySelector('[data-apply]'),status=dialog.querySelector('[data-apply-status]');
   input.oninput=()=>{review.suggestion=input.value;};
-  apply.disabled=review.applied||questions.length>0;
+  apply.disabled=review.applied;
   if(review.applied){input.readOnly=true;status.textContent='Suggestion applied.';dialog.querySelector('[data-cancel]').textContent='Close';}
   apply.onclick=()=>{
    try{
@@ -149,7 +149,7 @@
     review.element.value=input.value;
     review.element.dispatchEvent(new Event('input',{bubbles:true}));review.element.dispatchEvent(new Event('change',{bubbles:true}));
     review.suggestion=input.value;review.applied=true;showBusy('AI suggestion applied');dialog.close();review.element.focus();mount();
-   }catch(error){status.textContent=error.message;apply.disabled=true;}
+   }catch(error){status.textContent=error.message;showError(error);}
   };
   dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();
   if(!dialog.open)dialog.showModal();input.focus();
