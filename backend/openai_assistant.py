@@ -49,7 +49,7 @@ def status():
     with LOCK: config = _config()
     connected = bool(config.get('api_key') and config.get('verified'))
     return {'connected': connected, 'enabled': connected and config.get('enabled') is True,
-            'model': config.get('model', DEFAULT_MODEL), 'models': list(MODELS)}
+            'model': config.get('model', DEFAULT_MODEL), 'models': list(MODELS), 'generation_modes': ['improve', 'generate']}
 
 def provider_config():
     with LOCK: config = _config()

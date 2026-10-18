@@ -123,6 +123,7 @@
   if(busy)return;
   if(!window.EccoStorage?.ready||!connection.enabled){connections();return;}
   const {element,scope,stage}=binding;
+  if(binding.generateField&&scope.dataset.generationStudio&&!connection.generation_modes?.includes('generate')){showError('Generate with AI needs the prepared AI service update. Improve using AI is available now.');return;}
   if(!element.value.trim()&&!binding.generateField){element.focus();notice('Enter an idea or prompt first, then choose Improve with AI.',true);return;}
   const details=snapshotFor(binding),review={...binding,original:element.value,version:connectionVersion,story:activeStory,snapshot:JSON.stringify(details),maxLength:element.maxLength>0?element.maxLength:100000,applied:false};
   const fieldId=('field_'+(element.name||element.dataset.field||element.dataset.dfield||element.id||'prompt')).replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,100);
