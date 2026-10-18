@@ -102,7 +102,7 @@
  function snapshotFor(binding){
   const context=contextFor(binding.scope,binding.stage);
   // Keep the target field's role clear, especially negative prompts and individual dialogue lines.
-  context.instructions='Editable field: '+binding.label;
+  context.instructions=binding.generateStory?'Generate a complete story summary from the instructions in this field. Follow the supplied title and genre. Return the story itself, not a rewritten prompt. Editable field: '+binding.label:'Editable field: '+binding.label;
   if(binding.scope.id==='image-form')context.summary=binding.scope.querySelector('[name="prompt"]')?.value||'';
   if(binding.scope.id==='workflow-form'){
    context.title=binding.scope.querySelector('[name="name"]')?.value||'';
@@ -137,7 +137,7 @@
   if(!lastReview)return;
   let dialog=q('#ai-review-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='ai-review-dialog';document.body.append(dialog);}
   const review=lastReview,questions=review.result.questions||[],notes=review.result.notes||[];
-  dialog.innerHTML='<div class="form"><h2>Improve with AI</h2><p class="help">'+esc(review.label)+'</p>'+(questions.length?'<p class="ai-questions">'+esc(questions.join('\n'))+'</p>':'')+'<p class="help ai-review-notes">'+esc(notes.join('\n'))+'</p><details><summary>Original</summary><label>Original text<textarea readonly>'+esc(review.original)+'</textarea></label></details><label>AI suggestion<textarea data-suggestion maxlength="'+review.maxLength+'">'+esc(review.suggestion)+'</textarea></label><p role="status" data-apply-status></p><div class="row"><button type="button" class="secondary" data-cancel>Cancel</button><button type="button" data-apply>Apply</button></div></div>';
+  dialog.innerHTML='<div class="form"><h2>'+(review.generateStory?'Generate using AI':'Improve with AI')+'</h2><p class="help">'+esc(review.label)+'</p>'+(questions.length?'<p class="ai-questions">'+esc(questions.join('\n'))+'</p>':'')+'<p class="help ai-review-notes">'+esc(notes.join('\n'))+'</p><details><summary>Original</summary><label>Original text<textarea readonly>'+esc(review.original)+'</textarea></label></details><label>AI suggestion<textarea data-suggestion maxlength="'+review.maxLength+'">'+esc(review.suggestion)+'</textarea></label><p role="status" data-apply-status></p><div class="row"><button type="button" class="secondary" data-cancel>Cancel</button><button type="button" data-apply>Apply</button></div></div>';
   const input=dialog.querySelector('[data-suggestion]'),apply=dialog.querySelector('[data-apply]'),status=dialog.querySelector('[data-apply-status]');
   input.oninput=()=>{review.suggestion=input.value;};
   apply.disabled=review.applied||questions.length>0;
@@ -213,7 +213,7 @@
   if(show&&!bar){bar=document.createElement('div');bar.id='studio-ai-status';bar.innerHTML='<span data-ai-message></span><button type="button" class="small secondary" data-review>View AI review</button>';pageRoot.prepend(bar);bar.querySelector('[data-review]').onclick=reviewDialog;}
   if(bar){bar.hidden=!progressMessage&&!lastReview;bar.dataset.enabled=String(!!connection.enabled);const text=progressMessage,label=bar.querySelector('[data-ai-message]');if(label.textContent!==text)label.textContent=text;bar.querySelector('[data-review]').hidden=!lastReview;}
  }
- window.EccoAI={connections,open:openKeyDialog,get enabled(){return connection.enabled;},refresh:readStatus};
+ window.EccoAI={connections,open:openKeyDialog,generateStory:form=>{const element=form.elements.summary;return improve({element,scope:form,stage:'story',label:'Story idea / summary',generateStory:true});},get enabled(){return connection.enabled;},refresh:readStatus};
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;setTimeout(()=>{scheduled=false;mount();},0);}).observe(document.body,{childList:true,subtree:true});
  setInterval(()=>{mount();if(q('#connection-dialog')?.open)renderConnection();},2000);
  mount();if(window.EccoStorage?.ready)readStatus().catch(()=>{});
