@@ -72,7 +72,7 @@
   }
   const scene=q('#image-scene-controls');
   if(stage==='image'&&scene){context.style=q('#image-style')?.value||'';context.scene_controls=[...scene.querySelectorAll('input,select')].map(x=>({label:x.closest('label')?.textContent.trim(),value:x.value}));}
-  if(stage==='storyboard'&&page==='board')context.scenes=structuredClone(draft.scenes);
+  if(stage==='storyboard'&&page==='board'){context.title=q('#board-title')?.value||draft.title;context.summary=q('#story-text')?.value||'';context.scenes=structuredClone(draft.scenes);}
   if(stage==='audio')context.lines=[...scope.querySelectorAll('.audio-line')].map(line=>Object.fromEntries([...line.querySelectorAll('[data-field]')].map(x=>[x.dataset.field,x.value])));
   return context;
  }
@@ -89,7 +89,7 @@
    for(const element of scope.querySelectorAll(selector))if(!element.readOnly&&element.type!=='hidden')result.set(element,{scope,stage,element});
   };
   for(const [id,[stage,selector]] of Object.entries(forms))add(q('#'+id),stage,selector);
-  add(q('#page'),'storyboard','#story-text,#scenes textarea[data-field="motion"],#scenes textarea[data-field="narration"],#scenes input[data-subject-field="description"],#scenes input[data-subject-field="action"]');
+  add(q('#page'),'storyboard','#board-title,#story-text,#scenes textarea[data-field="motion"],#scenes textarea[data-field="narration"],#scenes input[data-subject-field="description"],#scenes input[data-subject-field="action"]');
   for(const shot of document.querySelectorAll('.director-shot'))add(shot,'storyboard','textarea[data-dfield]');
   const objectPrompt=q('#oe-instruction');add(objectPrompt?.closest('dialog'),'image','#oe-instruction,#oe-ai-fields input');
   return result;
@@ -102,7 +102,7 @@
  function snapshotFor(binding){
   const context=contextFor(binding.scope,binding.stage);
   // Keep the target field's role clear, especially negative prompts and individual dialogue lines.
-  context.instructions=binding.generateStory?'Generate a complete story summary from the instructions in this field. Follow the supplied title and genre. Return the story itself, not a rewritten prompt. Editable field: '+binding.label:'Editable field: '+binding.label;
+  context.instructions=binding.generateField?'Generate content for only the selected field: '+binding.label+'. Use the current story title and script as context. Return only the requested field content. Do not replace other fields.':binding.generateStory?'Generate a complete story summary from the instructions in this field. Follow the supplied title and genre. Return the story itself, not a rewritten prompt. Editable field: '+binding.label:'Editable field: '+binding.label;
   if(binding.scope.id==='image-form')context.summary=binding.scope.querySelector('[name="prompt"]')?.value||'';
   if(binding.scope.id==='workflow-form'){
    context.title=binding.scope.querySelector('[name="name"]')?.value||'';
@@ -119,12 +119,12 @@
   if(busy)return;
   if(!window.EccoStorage?.ready||!connection.enabled){connections();return;}
   const {element,scope,stage}=binding;
-  if(!element.value.trim()){element.focus();notice('Enter an idea or prompt first, then choose Improve with AI.',true);return;}
+  if(!element.value.trim()&&!binding.generateField){element.focus();notice('Enter an idea or prompt first, then choose Improve with AI.',true);return;}
   const details=snapshotFor(binding),review={...binding,original:element.value,version:connectionVersion,story:activeStory,snapshot:JSON.stringify(details),maxLength:element.maxLength>0?element.maxLength:100000,applied:false};
   const fieldId=('field_'+(element.name||element.dataset.field||element.dataset.dfield||element.id||'prompt')).replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,100);
   busy=true;binding.pending=true;showBusy('AI is improving '+binding.label.toLowerCase()+'…');mountPromptControls();
   try{
-   const result=await rawAPI('ai/enhance',{stage,story_id:['story-setup-form','new-story-form','director-form','workflow-form'].includes(scope.id)?null:activeStory,fields:[{id:fieldId,text:review.original,max_length:review.maxLength}],...details,review_only:false});
+   const result=await rawAPI('ai/enhance',{stage,story_id:['story-setup-form','new-story-form','director-form','workflow-form'].includes(scope.id)?null:activeStory,fields:[{id:fieldId,text:review.original||(binding.generateField?'Generate '+binding.label+' for '+(draft.title||'the selected story'):''),max_length:review.maxLength}],...details,review_only:false});
    validReview(review);
    if(!Array.isArray(result.revisions)||result.revisions.length!==1||result.revisions[0].id!==fieldId||typeof result.revisions[0].text!=='string'||result.revisions[0].text.length>review.maxLength)throw Error('AI returned an invalid suggestion. Your original text is unchanged.');
    review.result=result;review.suggestion=result.revisions[0].text;lastReview=review;
@@ -137,7 +137,7 @@
   if(!lastReview)return;
   let dialog=q('#ai-review-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='ai-review-dialog';document.body.append(dialog);}
   const review=lastReview,questions=review.result.questions||[],notes=review.result.notes||[];
-  dialog.innerHTML='<div class="form"><h2>'+(review.generateStory?'Generate using AI':'Improve with AI')+'</h2><p class="help">'+esc(review.label)+'</p>'+(questions.length?'<p class="ai-questions">'+esc(questions.join('\n'))+'</p>':'')+'<p class="help ai-review-notes">'+esc(notes.join('\n'))+'</p><details><summary>Original</summary><label>Original text<textarea readonly>'+esc(review.original)+'</textarea></label></details><label>AI suggestion<textarea data-suggestion maxlength="'+review.maxLength+'">'+esc(review.suggestion)+'</textarea></label><p role="status" data-apply-status></p><div class="row"><button type="button" class="secondary" data-cancel>Cancel</button><button type="button" data-apply>Apply</button></div></div>';
+  dialog.innerHTML='<div class="form"><h2>'+(review.generateField?'Generate with AI':review.generateStory?'Generate using AI':'Improve with AI')+'</h2><p class="help">'+esc(review.label)+'</p>'+(questions.length?'<p class="ai-questions">'+esc(questions.join('\n'))+'</p>':'')+'<p class="help ai-review-notes">'+esc(notes.join('\n'))+'</p><details><summary>Original</summary><label>Original text<textarea readonly>'+esc(review.original)+'</textarea></label></details><label>AI suggestion<textarea data-suggestion maxlength="'+review.maxLength+'">'+esc(review.suggestion)+'</textarea></label><p role="status" data-apply-status></p><div class="row"><button type="button" class="secondary" data-cancel>Cancel</button><button type="button" data-apply>Apply</button></div></div>';
   const input=dialog.querySelector('[data-suggestion]'),apply=dialog.querySelector('[data-apply]'),status=dialog.querySelector('[data-apply-status]');
   input.oninput=()=>{review.suggestion=input.value;};
   apply.disabled=review.applied;
@@ -213,7 +213,7 @@
   if(show&&!bar){bar=document.createElement('div');bar.id='studio-ai-status';bar.innerHTML='<span data-ai-message></span><button type="button" class="small secondary" data-review>View AI review</button>';pageRoot.prepend(bar);bar.querySelector('[data-review]').onclick=reviewDialog;}
   if(bar){bar.hidden=!progressMessage&&!lastReview;bar.dataset.enabled=String(!!connection.enabled);const text=progressMessage,label=bar.querySelector('[data-ai-message]');if(label.textContent!==text)label.textContent=text;bar.querySelector('[data-review]').hidden=!lastReview;}
  }
- window.EccoAI={connections,open:openKeyDialog,generateStory:form=>{const element=form.elements.summary;return improve({element,scope:form,stage:'story',label:'Story idea / summary',generateStory:true});},get enabled(){return connection.enabled;},refresh:readStatus};
+ window.EccoAI={generateField:element=>{const binding=bindings().get(element);if(!binding)return notice('Select an editable text field first.',true);return improve({...binding,label:promptControls.get(element)?.label||fieldName(element),generateField:true});},connections,open:openKeyDialog,generateStory:form=>{const element=form.elements.summary;return improve({element,scope:form,stage:'story',label:'Story idea / summary',generateStory:true});},get enabled(){return connection.enabled;},refresh:readStatus};
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;setTimeout(()=>{scheduled=false;mount();},0);}).observe(document.body,{childList:true,subtree:true});
  setInterval(()=>{mount();if(q('#connection-dialog')?.open)renderConnection();},2000);
  mount();if(window.EccoStorage?.ready)readStatus().catch(()=>{});
