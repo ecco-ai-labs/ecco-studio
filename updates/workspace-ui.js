@@ -282,25 +282,27 @@
     for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k==='ecco-new-story-draft'||k.startsWith('ecco-story-setup:')){try{const candidate=JSON.parse(localStorage.getItem(k)||'{}');if(candidate.cloudId===activeStory)saved=candidate;}catch{}}}
    }
    const record=stories().find(s=>s.id===activeStory),board=loadDraft();
-   saved={...saved,cloudId:activeStory,title:board.title||record?.title||'',summary:saved.summary??record?.summary??''};
+   saved={...saved,cloudId:activeStory,story_format:saved.story_format||board.story_format,title:board.title||record?.title||'',summary:saved.summary??record?.summary??''};
   }else if(!savedId&&saved.cloudId){saved={};}
+  saved.story_format=['audio','video'].includes(saved.story_format)?saved.story_format:(saved.cloudId?'video':'');
   localStorage.setItem(key,JSON.stringify(saved));
   persistDraft();activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);
-  draft=activeStory?loadDraft():{title:saved.title||'',story:saved.sourceText||saved.summary||'',scenes:[]};persistDraft();
+  draft=activeStory?loadDraft():{title:saved.title||'',story:saved.sourceText||saved.summary||'',scenes:[]};draft.story_format=saved.story_format;persistDraft();
   const genres=['Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
-  q('#page').innerHTML='<form id="story-setup-form" class="form"><label>Story Title<input name="title" maxlength="160" required placeholder="Enter your story title"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story Idea / Summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & Continue to Storyboard</button></div><p role="status" data-story-status></p></form>';
+  q('#page').innerHTML='<form id="story-setup-form" class="form"><label data-story-format>Story Format<select name="story_format" required><option value="">Choose Audio or Video</option><option value="audio">Audio</option><option value="video">Video</option></select></label><label>Story Title<input name="title" maxlength="160" required placeholder="Enter your story title"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story Idea / Summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & Continue to Storyboard</button></div><p role="status" data-story-status></p></form>';
   const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');form.dataset.draftKey=key;
-  for(const name of ['title','genre','summary'])form.elements[name].value=saved[name]||'';
-  const save=event=>{if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';persistDraft();status.textContent='';return data;};
+  for(const name of ['story_format','title','genre','summary'])form.elements[name].value=saved[name]||'';
+  const save=event=>{if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){productionGroup();journeyGuide();}status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
+   if(!form.reportValidity())return;
    const data=save(),button=form.querySelector('[type="submit"]');button.disabled=true;
    status.textContent='Saving story…';
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
     data.cloudId=created.id;saved=data;localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);
-    const nextDraft={...loadDraft(),title:data.title,story:data.sourceText||data.summary};if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));window.EccoStoryCollections.assign(created.id,data.collection_id);await refresh();activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();
+    const nextDraft={...loadDraft(),title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));window.EccoStoryCollections.assign(created.id,data.collection_id);await refresh();activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();
     let savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');
     const id=savedId||crypto.randomUUID();
     localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));
@@ -323,6 +325,15 @@
   ['render','Animate and sync','Animate your scene images. Automatic audio-driven lip-sync is not connected yet.'],
   ['journey-preview','Publish','Review generated clips, download them, or open publishing. Full-film assembly and audio mixing are not connected yet.']
  ];
+ function storyFormat(){
+  const field=q('#story-setup-form [name=story_format]');if(field)return field.value;
+  const read=key=>{try{return JSON.parse(localStorage.getItem(key)||'{}');}catch{return {};}};
+  const saved=read(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');
+  const board=read(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft');
+  const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
+  return ['audio','video'].includes(value)?value:activeStory?'video':'';
+ }
+ function currentJourneySteps(){const format=storyFormat();return format==='audio'?journeySteps.slice(0,3):format==='video'?journeySteps:journeySteps.slice(0,1);}
  function journeyPreview(allStories=false){
   page='journey-preview';q('#heading').textContent='Publish';
   const videos=records().filter(a=>a.kind==='asset'&&a.media==='video'&&!a.deleted&&(allStories||(a.story_id||LEGACY_STORY)===activeStory));
@@ -330,6 +341,7 @@
   wireCards();q('#journey-publish').onclick=()=>navigate('publish');if(typeof hydrateMedia==='function')hydrateMedia();
  }
  function productionGroup(){
+  const steps=currentJourneySteps();
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
   let group=q('#workspace-production-group');
   if(!group){group=disclosure('Tell Your Story','ecco-production-expanded');group.id='workspace-production-group';group.classList.add('story-journey');nav.append(group);}
@@ -338,10 +350,10 @@
    const target=button.dataset.page;
    if(['characters','review','publish'].includes(target)){button.remove();continue;}
    if(target==='models'){const activity=q('[data-category="Activity"] .workspace-menu-items');if(activity){button.hidden=false;button.textContent='Models & Settings';activity.prepend(button);}continue;}
-   if(target!=='story-collections'&&!journeySteps.some(step=>step[0]===target))button.hidden=true;
+   if(target!=='story-collections'&&!steps.some(step=>step[0]===target))button.hidden=true;
   }
   body.querySelector('[data-page="story-collections"]')?.remove();
-  journeySteps.forEach(([target,title],i)=>{
+  steps.forEach(([target,title],i)=>{
    let button=target==='story-setup'?q('#workspace-new-story'):body.querySelector('button[data-page="'+target+'"]')||nav.querySelector('button[data-page="'+target+'"]');
    if(!button){button=document.createElement('button');button.type='button';button.dataset.page=target;button.onclick=()=>navigate(target);}
    if(target==='story-setup')button.id='workspace-new-story';
@@ -354,18 +366,19 @@
   q('#model-nav')?.setAttribute('hidden','');q('#workspace-publish')?.remove();
  }
  function journeyGuide(){
+  const steps=currentJourneySteps(),format=storyFormat();
   const root=q('#page');if(!root)return;
   let guide=q('#journey-guide');if(!guide){guide=document.createElement('section');guide.id='journey-guide';root.before(guide);}
-  const index=journeySteps.findIndex(step=>step[0]===page||(step[0]==='board'&&page==='director'));
+  const index=steps.findIndex(step=>step[0]===page||(step[0]==='board'&&page==='director'));
   root.classList.toggle('story-journey-fields',index>=0||page==='story-collections'||page==='publish');
   guide.hidden=index<0||document.body.classList.contains('workspace-entry-mode');if(index<0)return;
-  const step=journeySteps[index],signature=page+':'+activeStory;
+  const step=steps[index],signature=page+':'+activeStory+':'+format;
   if(guide.dataset.signature===signature)return;guide.dataset.signature=signature;
-  guide.innerHTML='<div><small>STEP '+(index+1)+' OF 6</small><h2>'+step[1]+'</h2><p>'+step[2]+'</p></div><div class="journey-actions">'+(index?'<button type="button" class="secondary" data-back>Back</button>':'')+(index<5?'<button type="button" class="secondary" data-next>Next: '+journeySteps[index+1][1]+'</button>':'')+'</div>';
-  guide.querySelector('[data-back]')?.addEventListener('click',()=>navigate(journeySteps[index-1][0]));
-  guide.querySelector('[data-next]')?.addEventListener('click',()=>{if(page==='story-setup'){q('#story-setup-form')?.requestSubmit();return;}navigate(journeySteps[index+1][0]);});
-  if(index===1){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent=page==='director'?'Manual storyboard editor':'AI storyboard & previews';button.onclick=()=>navigate(page==='director'?'board':'director');guide.querySelector('.journey-actions').append(button);}
-  if(index===2){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent='Assign images to scenes';button.onclick=()=>navigate('board');guide.querySelector('.journey-actions').append(button);}
+  guide.innerHTML='<div><small>STEP '+(index+1)+' OF '+steps.length+'</small><h2>'+step[1]+'</h2><p>'+step[2]+'</p></div><div class="journey-actions">'+(index?'<button type="button" class="secondary" data-back>Back</button>':'')+(index<steps.length-1?'<button type="button" class="secondary" data-next>Next: '+steps[index+1][1]+'</button>':'')+'</div>';
+  guide.querySelector('[data-back]')?.addEventListener('click',()=>navigate(steps[index-1][0]));
+  guide.querySelector('[data-next]')?.addEventListener('click',()=>{if(page==='story-setup'){q('#story-setup-form')?.requestSubmit();return;}navigate(steps[index+1][0]);});
+  if(format==='video'&&index===1){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent=page==='director'?'Manual storyboard editor':'AI storyboard & previews';button.onclick=()=>navigate(page==='director'?'board':'director');guide.querySelector('.journey-actions').append(button);}
+  if(format==='video'&&step[0]==='images'){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent='Assign images to scenes';button.onclick=()=>navigate('board');guide.querySelector('.journey-actions').append(button);}
  }
 
  const learningTopics=[{"id":"workflow","title":"How to: the six story steps","sections":[["1 · Describe your story","Open Tell Your Story → Describe your story. Enter a name and short summary: who is the main character, what do they want, and how does the story end? Choose Save & Continue to Storyboard. Workspace storage must be connected to save."],["2 · Review the storyboard","Break the story into scenes with one clear action each. Review the visual description, dialogue and duration. Use the AI storyboard option or edit manually. Save a storyboard revision before rendering."],["3 · Create voices and sound","Prepare narration or dialogue for each scene. Choose an available audio model and its supported voice or language options. Generate or upload audio, listen to it, and check pronunciation, pacing and duration."],["4 · Choose scene images","Select an image model, describe the subject, action, setting and style, then generate and review a frame. To edit an existing picture, select Use image below the model selector, browse Image Library and check the reference preview. Describe what to change and what to preserve. Use Assign images to scenes to place approved images in the storyboard."],["5 · Animate and sync","Choose a saved storyboard revision and an available video model. Start with a short clip. Connect an accelerator when generation requires it, submit once, and monitor Activity. Current generated video clips are silent: automatic audio assembly and lip sync are not yet connected."],["6 · Publish","Review the clips for your story, check motion and timing, and download copies using the clip controls. Open publishing for YouTube options. Select a reviewed, approved video and connect the intended channel before publishing. Full-film assembly and audio mixing are not yet connected."]]},{"id":"models","title":"Model Configuration Options","sections":[["Model selection","Choose a model suited to the task: new image, reference-image edit, audio or video. A listed model may not be installed or ready on every accelerator. Check availability before generating."],["Prompt and reference","Describe subject, action, setting, composition and style. For edits, attach the picture through Use image; mentioning a picture in the prompt does not attach it. Use a negative prompt, where supported, for unwanted features."],["Steps and guidance","Begin with the model defaults. More sampling steps usually take longer and do not guarantee better quality. Guidance controls prompt adherence in supported models; excessive values can produce artifacts. Change one setting at a time."],["Seed","Keep the seed, model and settings fixed when comparing prompt changes. A seed helps repeat experiments, but results can still vary across model versions and hardware."],["Size, duration and change strength","Larger images and longer clips generally require more memory and time. Test small or short outputs first. Where available, lower change strength usually preserves more of an image-guided source. Follow the selected model’s displayed limits."]]},{"id":"activity","title":"Activity Monitoring","sections":[["Open Activity & Compute","Use Activity in the top ribbon or the activity tab at the workspace edge. Find the relevant job by its time and status."],["Read job status","Queued means waiting; running means processing; done means processing finished. Check the progress message: loading a model may take time before generation progresses."],["Avoid duplicate submissions","After a job is accepted, monitor it instead of clicking Generate again. If submission appears uncertain, check Activity first."],["Find completed output","Check the selected story and the appropriate library. If a completed result is missing, open Debugging and inspect the output ID and preview."],["Compute versus storage","Generation needs an accelerator. Browsing saved work needs workspace storage to remain available independently. Estimates may exclude idle time, storage and setup. Do not shut down an accelerator while a needed job is running."]]},{"id":"debugging","title":"Debugging Steps","sections":[["1 · Identify the failing action","Record the action, timestamp, story, selected model, job ID and exact error. Distinguish storage connection, accelerator connection and generation failures."],["2 · Check workspace storage","Open Account → Storage. Confirm the intended endpoint and use the key visibility control to check for accidental spaces or terminal text. A 401 means credentials were rejected. Cannot reach workspace storage means a connectivity or service problem; re-entering a key does not fix an unreachable service."],["3 · Inspect the job","Open Activity & Compute → Debugging and select the job. Check status, progress, model, submitted prompt, reference image and output preview. Older jobs may lack some recorded details."],["4 · Check references and resources","If an edit ignores your picture, check Reference image sent and reselect the intended picture through Use image. For memory errors, try a smaller supported size or shorter clip. A 404 at a GPU proxy can mean the required service or route is not running."],["5 · Recover missing work","Check the selected story, labels, library view and Trash. Save editable work before refreshing. Refreshing the browser is not job cancellation; inspect Activity before resubmitting."],["6 · Share useful diagnostics","Share reproduction steps, timestamp, browser, model, job ID and a redacted error screenshot. Never share private access keys, passwords or Authorization headers. Record successful settings for future reference."]]}];
@@ -452,7 +465,7 @@
  function creditsDialog(){let d=q('#workspace-credits-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-credits-dialog';document.body.append(d);}d.innerHTML='<div class="form"><div class="section-head"><h2>Credits &amp; Usage</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Your generation allowance and usage.</p><dl class="credits-details"><dt>Starting allowance</dt><dd>500 credits per user</dd><dt>Available balance</dt><dd>Available after sign-in is connected</dd><dt>Credits used</dt><dd>Not tracked yet</dd><dt>Renewal</dt><dd>Not configured</dd></dl><p role="status">Per-user quotas are not active yet. Google Workspace sign-in and server-side credit tracking must be connected before credits can be granted or deducted.</p></div>';d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();}
  function accountCredits(){const menu=q('[data-category="Account"] .workspace-menu-items');if(!menu||q('#workspace-credits'))return;const b=document.createElement('button');b.id='workspace-credits';b.type='button';b.textContent='Credits & Usage';b.onclick=()=>{menu.closest('details').open=false;creditsDialog();};menu.prepend(b);}
  function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
- if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);modernize();return result;};}
+ if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);const picker=q('#story-picker'),selectStory=picker?.onchange;if(selectStory)picker.onchange=function(event){const selected=selectStory.call(this,event);if(storyFormat()==='audio')navigate('board');return selected;};modernize();return result;};}
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!e.composedPath().includes(d))d.open=false;});});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
@@ -610,6 +623,7 @@
 #connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
+
 
 
 
