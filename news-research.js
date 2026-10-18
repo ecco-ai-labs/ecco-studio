@@ -19,7 +19,7 @@
   const choose=value=>{input.value=value;q('summary',menu).textContent=value;menu.open=false;input.dispatchEvent(new Event('change',{bubbles:true}));};
   const draw=()=>{const box=q('[data-choices]',menu);box.replaceChildren();for(const name of [...new Set([...topics,...custom,input.value,'Other'])]){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=name;b.onclick=()=>{if(name==='Other'){q('[data-entry]',menu).hidden=false;q('[data-entry] input',menu).focus();}else choose(name);};box.append(b);}};
   for(const [selector,remember] of [['[data-once]',false],['[data-save]',true]])q(selector,menu).onclick=()=>{const value=q('[data-entry] input',menu).value.trim();if(!value)return;if(remember){custom=[...new Set([...custom,value])];localStorage.setItem('ecco-news-topics',JSON.stringify(custom));}choose(value);draw();};
-  const sync=()=>{label.hidden=!/^news$/i.test(genre.value);draft.news={genre:genre.value,news_topic:input.value};persistDraft();};
+  const sync=()=>{label.hidden=!/^news$/i.test(genre.value);label.style.setProperty('display',label.hidden?'none':'flex','important');draft.news={genre:genre.value,news_topic:input.value};persistDraft();};
   form.addEventListener('change',sync);q('summary',menu).textContent=input.value;draw();sync();
  }
  function openResearch(){
