@@ -176,11 +176,12 @@
   if(page!=='audio'||!q('#audio-form'))return;
   if(story!==activeStory){render();return;}
   const button=q('#generate-audio');
-  button.disabled=submitting;
-  button.textContent=submitting?'Submitting…':'Generate audio';
   const currentId=window.EccoGeneration?.jobId('audio',activeStory,lastJob);
-  const job=lastJob?.id===currentId?lastJob:null;
-  q('#audio-job-status').textContent=job?`${job.status==='done'?'Audio saved.':job.status} ${job.error||job.progress&&job.status==='running'&&job.progress||''}`:'';
+  const job=lastJob?.id===currentId?lastJob:state?.records.find(r=>r.id===currentId);
+  const busy=submitting||['queued','running'].includes(job?.status);
+  const label=submitting?'Submitting…':job?.status==='queued'?'Queued…':'Running Generation';
+  setGenerationBusy(button,busy,label,'Generate audio');
+  q('#audio-job-status').textContent=submitting?'Submitting…':job?({queued:'Queued',running:'Running Generation',done:'Audio saved.',failed:'Generation failed',error:'Generation failed'}[job.status]||job.status)+(job.error?' · '+job.error:''):'';
   const list=window.EccoGeneration?.results('audio',audioAssets(),activeStory,lastJob)||[],next=JSON.stringify(list);
   if(next!==signature){
    signature=next;
@@ -198,12 +199,12 @@
   q('#audio-form').addEventListener('input',e=>{if(e.target.name){draft[e.target.name]=['title','model','genre'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
   q('#audio-form').onsubmit=async e=>{
    e.preventDefault();save();
-   if(submitting)return;
+   if(submitting||q('#generate-audio').disabled)return;
    if(!gpuConnected()){connectGPU('generate-audio');return;}
    if(!serviceReady()){window.EccoStorage?.open();return;}
    let lines;try{lines=requestLines();}catch(error){notice(error.message,true);q('[data-open-prompt]')?.click();return;}
    const requestedStory=activeStory;submitting=true;update();
-   try{const job=await service.generate({model:draft.model,genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,lines,story_id:requestedStory});window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);update();notice('Audio queued. You can keep working while it generates.');await poll();}
+   try{const job=await service.generate({model:draft.model,genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,lines,story_id:requestedStory});window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);if(activeStory===requestedStory)lastJob=job;update();refresh();notice('Audio queued. You can keep working while it generates.');await poll();}
    catch(error){notice(error.message,true);}
    finally{submitting=false;update();}
   };
