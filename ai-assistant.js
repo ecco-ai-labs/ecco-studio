@@ -26,8 +26,10 @@
  api=async function(path,...args){const value=await rawAPI(path,...args);if(path==='state'&&value.config?.ai)setConnection(value.config.ai);return value;};
  function connections(){
   const dialog=q('#connection-dialog'),root=q('#connections');
-  dialog.querySelector('h2').textContent='Connections & Storage';
+  dialog.querySelector('h2').textContent='Connections';
   root.innerHTML='<section class="connection"><h3>Workspace storage</h3><p class="help">'+(window.EccoStorage?.ready?'Connected to the independent workspace service.':'Connect workspace storage to save work and configure OpenAI.')+'</p><button type="button" class="secondary small" data-storage>Open workspace storage</button></section><section class="connection" id="openai-connection"><h3>OpenAI</h3><p class="help" data-ai-status>Checking connection…</p><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studio</span></label><p class="help">Refines prompts before saving or generating: story, storyboard, image, audio and video. Selected text and image references are sent to OpenAI. API usage is billed to your OpenAI project.</p><div class="row"><button type="button" class="secondary small" id="connect-openai">Connect to OpenAI</button><button type="button" class="secondary small" data-ai-disconnect hidden>Disconnect OpenAI</button></div></section>';
+  const gpu=document.createElement('section');gpu.className='connection';gpu.innerHTML='<h3>GPU</h3><button type="button" class="secondary small" data-gpu-connect>Connect GPU</button>';root.append(gpu);
+  gpu.querySelector('button').onclick=()=>{dialog.close();connectGPU('connections');};
   root.querySelector('[data-storage]').onclick=()=>{dialog.close();window.EccoStorage.open();};
   root.querySelector('#connect-openai').onclick=openKeyDialog;
   root.querySelector('[data-ai-disconnect]').onclick=async()=>{try{setConnection(await rawAPI('ai/disconnect',{}));renderConnection();}catch(error){showError(error);}};
@@ -104,7 +106,7 @@
  }
  async function enhance(scope,stage,fields,extra={}){
   if(busy)throw Error('An AI review is already running. Wait for it to finish.');
-  if(!connection.enabled){connections();throw Error('Enable AI across Studio in Connections & Storage first.');}
+  if(!connection.enabled){connections();throw Error('Enable AI across Studio in Connections first.');}
   if(!fields.length||!fields.some(f=>f.text.trim()))throw Error('Enter your idea or prompt before using AI.');
   const version=connectionVersion,storyAtStart=activeStory,context=extra.context||contextFor(scope,stage),snapshot=JSON.stringify(context);
   busy=true;showBusy('AI is reviewing '+stage+' prompts…');
@@ -156,24 +158,17 @@
   catch(error){showError(error);}finally{if(!forwarded&&button.isConnected)button.disabled=false;}
  },true);
  function mount(){
-  const settings=q('#settings');if(settings){if(settings.textContent!=='Connections & Storage')settings.textContent='Connections & Storage';settings.onclick=connections;}
+  const settings=q('#settings');if(settings){if(settings.textContent!=='Connections')settings.textContent='Connections';settings.onclick=connections;}
   document.querySelectorAll('.ai-prompt-assist').forEach(button=>button.remove());
   const accelerator=q('#connected-accelerator'),header=q('main > header .header-right');
   let button=q('#studio-ai-button');
-  if(!button&&header){button=document.createElement('button');button.id='studio-ai-button';button.type='button';button.className='secondary';button.textContent='✦ AI';header.append(button);}
+  if(!button&&header){button=document.createElement('span');button.id='studio-ai-button';button.textContent='✦';button.setAttribute('role','img');header.append(button);}
   if(button){
-   if(accelerator&&accelerator.nextElementSibling!==button)accelerator.after(button);
+   if(accelerator&&accelerator.previousElementSibling!==button)accelerator.before(button);
    button.dataset.connected=String(!!connection.connected);
-   button.title=connection.connected?'AI assistance':'Connect to OpenAI';
-   button.setAttribute('aria-label',connection.connected?'AI assistance — connected':'AI assistance — not connected');button.disabled=busy;
-   button.onclick=()=>{
-    if(!connection.enabled)return connections();
-    const form=Object.keys(forms).map(id=>document.getElementById(id)).find(form=>form&&q('#page')?.contains(form));
-    if(form)return assistForm(form).then(reviewDialog).catch(showError);
-    if(page==='board'&&q('#story-text'))return enhance(q('#page'),'storyboard',collect(q('#page'),'storyboard','#story-text,textarea[data-field="motion"],textarea[data-field="narration"]')).then(reviewDialog).catch(showError);
-    connections();
-   };
+   button.setAttribute('aria-label',connection.connected?'AI connected':'AI not connected');
   }
+  for(const id of ['connect-storage','reconnect-gpu']){const extra=document.getElementById(id);if(extra)extra.hidden=true;}
   const pageRoot=q('#page');let bar=q('#studio-ai-status');
   const show=pageRoot&&(Object.keys(forms).some(id=>pageRoot.querySelector('#'+id))||['board','director','characters'].includes(page));
   if(show&&!bar){bar=document.createElement('div');bar.id='studio-ai-status';bar.innerHTML='<span data-ai-message></span><button type="button" class="small secondary" data-review>View AI review</button>';pageRoot.prepend(bar);bar.querySelector('[data-review]').onclick=reviewDialog;}
