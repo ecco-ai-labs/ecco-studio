@@ -59,3 +59,15 @@ test('audio spinner remains active through queued/running and clears on completi
   if(state==='failed')assert.equal(status.textContent,'Generation failed · Worker failed');
  }
 });
+
+test('Delete moves generated audio to recoverable Trash and removes its review card',async()=>{
+ const source=fs.readFileSync(__dirname+'/audio-studio.js','utf8');
+ const hydrate=source.slice(source.indexOf(' async function hydrateAudio(){'),source.indexOf(' async function poll(){'));
+ const calls=[],button={dataset:{deleteAudio:'asset1'}};
+ const context={service:{},document:{querySelectorAll:selector=>selector==='[data-delete-audio]'?[button]:[]},
+  recordings:[{id:'asset1'},{id:'asset2'}],api:async(...args)=>calls.push(args),update(){},refresh:async()=>{},notice(){}};
+ vm.createContext(context);vm.runInContext(hydrate+'\nthis.hydrate=hydrateAudio;',context);
+ await context.hydrate();await button.onclick();
+ assert.equal(calls[0][0],'trash');assert.equal(calls[0][1].asset_id,'asset1');
+ assert.equal(context.recordings.length,1);assert.equal(context.recordings[0].id,'asset2');
+});
