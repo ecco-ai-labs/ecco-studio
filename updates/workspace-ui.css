@@ -361,3 +361,8 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 #page.story-journey-fields label select{color:var(--text,#eeebf5)}
 
 #workspace-menus [data-category="Billing"]>summary>span[aria-hidden="true"]{margin-left:auto}
+
+/* Keep the scene count and duration together at the right edge. */
+#scene-count-controls{justify-content:flex-end;align-items:flex-end;gap:12px;flex-wrap:nowrap}
+#scene-count-controls>label{flex:0 0 auto}
+
