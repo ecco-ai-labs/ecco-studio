@@ -138,11 +138,6 @@
    draft={title:settings.title||result.title,story:result.scenes.map(s=>s.narration).join('\n\n'),scenes:result.scenes,workflow:settings,defaultSeconds:settings.duration/settings.count};persistDraft();navigate('board');
   }catch(error){notice(error.message,true);}finally{button.disabled=false;button.textContent=old;}
  }
- function board(){
-  if(!q('#scene-count-controls')||q('#workflow-research'))return;
-  const b=document.createElement('button');b.id='workflow-research';b.type='button';b.className='secondary';b.textContent='Research current news';q('#scene-count-controls').append(b);
-  b.onclick=()=>researchNews({...draft.workflow,prompt:draft.workflow?.prompt||draft.story,title:draft.title,count:draft.scenes.length||draft.workflow?.count||10,duration:draft.workflow?.duration||120},b);
- }
  function sourceLinks(){
   const root=q('#scenes');if(!root)return;
   root.querySelectorAll('.scene').forEach((card,i)=>{const scene=draft.scenes[i];if(!scene||card.querySelector('[data-scene-next]'))return;
@@ -156,7 +151,7 @@
   sessionStorage.removeItem('ecco-audio-scene-transfer');box.querySelector('select').value=value;box.querySelector('button').click();
  }
  let pending=false;
- function mount(){nav();genres();board();sourceLinks();audioTransfer();}
+ function mount(){nav();genres();sourceLinks();audioTransfer();}
  new MutationObserver(()=>{if(pending)return;pending=true;queueMicrotask(()=>{pending=false;mount();});}).observe(document.body,{childList:true,subtree:true});
  mount();window.EccoWorkflows={show};
 })();
