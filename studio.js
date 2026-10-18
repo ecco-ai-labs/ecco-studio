@@ -6,7 +6,31 @@ let activeStory=localStorage.getItem('ecco-active-story')||'';
 const defaultDraft={title:'',story:'',scenes:[]};
 function stories(){if(state.storage_pending)return [];const explicit=state.records.filter(r=>r.kind==='story');const legacy=explicit.find(r=>r.id===LEGACY_STORY);return [...(!legacy?[{id:LEGACY_STORY,title:'The Fisherman and the Jinni'}]:[]),...explicit.filter(r=>!r.deleted).sort((a,b)=>a.created-b.created)];}
 function currentStory(){return stories().find(s=>s.id===activeStory)||stories()[0]||{id:null,title:'No active story'};}
-function loadDraft(){const story=stories().find(s=>s.id===activeStory);let saved=localStorage.getItem(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft');return saved?JSON.parse(saved):{title:story?.title||'',story:story?.summary||'',scenes:[]};}
+function loadDraft(){const story=stories().find(s=>s.id===activeStory);let saved=localStorage.getItem(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft');return repairWeeklyNewsDraft(saved?JSON.parse(saved):{title:story?.title||'',story:story?.summary||'',scenes:[]},story);}
+
+// Repair the confirmed News / Weekly News import mix-up without deleting its backup.
+function repairWeeklyNewsDraft(value,record){
+ const normalize=text=>String(text||'').replace(/\s+/g,' ').trim().toLowerCase();
+ const merchant=text=>normalize(text).startsWith('the story of the merchant and the genius');
+ let collections;try{collections=JSON.parse(localStorage.getItem('ecco-story-collections-v1')||'{}');}catch{return value;}
+ const parent=collections.collections?.find(c=>c.id===collections.members?.[activeStory]);
+ if(normalize(parent?.name)!=='news'||![value.title,record?.title].some(t=>normalize(t)==='weekly news'))return value;
+ const keys=[];for(let i=0;i<localStorage.length;i++)keys.push(localStorage.key(i));
+ const setups=[];
+ for(const key of keys){if(key==='ecco-new-story-draft'||key.startsWith('ecco-story-setup:')||key==='ecco-story-description:'+activeStory){try{const data=JSON.parse(localStorage.getItem(key)||'{}');if(data.cloudId===activeStory)setups.push({key,data});}catch{}}}
+ const contaminated=merchant(value.story)||setups.some(s=>merchant(s.data.sourceText)||merchant(s.data.summary))||merchant(localStorage.getItem('ecco-story-source:'+activeStory));
+ if(!contaminated)return value;
+ const backupKey='ecco-story-recovery:merchant-mixup:'+activeStory;
+ if(!localStorage.getItem(backupKey))localStorage.setItem(backupKey,JSON.stringify({draft:value,setups,source:localStorage.getItem('ecco-story-source:'+activeStory),savedAt:new Date().toISOString()}));
+ const replacement=[...setups.map(s=>s.data.summary),record?.summary].find(t=>String(t||'').trim()&&!merchant(t))||'';
+ const original=normalize(value.story);
+ const next=merchant(value.story)?{...value,story:replacement,scenes:(value.scenes||[]).filter(scene=>{const narration=normalize(scene.narration);return !narration||!original.includes(narration);})}:value;
+ for(const {key,data} of setups){if(merchant(data.sourceText))data.sourceText='';if(merchant(data.summary))data.summary=replacement;localStorage.setItem(key,JSON.stringify(data));}
+ if(merchant(localStorage.getItem('ecco-story-source:'+activeStory)))localStorage.removeItem('ecco-story-source:'+activeStory);
+ localStorage.setItem('ecco-board-draft:'+activeStory,JSON.stringify(next));
+ return next;
+}
+
 let draft=loadDraft();
 let refinementSource=null;
 function storyControls(){
