@@ -66,7 +66,7 @@
   save.onclick=()=>{
    try{
     localStorage.setItem(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft',JSON.stringify(draft));
-    savedBoard=null;navigate('images');
+    savedBoard=null;navigate('audio');
    }catch(error){notice('Could not save the storyboard draft: '+error.message,true);}
   };
  }
