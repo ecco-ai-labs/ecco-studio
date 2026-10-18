@@ -28,7 +28,7 @@
    const value=Number(seconds.value);if(!Number.isFinite(value)||value<1||value>30)throw Error('Choose a duration from 1 to 30 seconds.');
    draft.defaultSeconds=value;draft.scenes.forEach(scene=>scene.seconds=value);persistDraft();renderScenes();
   });
-  split.textContent='Create scenes with AI';
+  split.textContent='Generate with AI';
   split.onclick=async()=>{
    const count=Number(q('#scene-count').value),story=draft.story.trim(),target=activeStory;
    if(!story)return notice('Add your selected story text first.',true);
@@ -43,7 +43,7 @@
     if(!Array.isArray(result.scenes)||result.scenes.length!==count)throw Error('AI did not return the requested number of scenes. Your draft was preserved.');
     draft.scenes=result.scenes;draft.continuity=result.continuity||'';persistDraft();renderScenes();notice(count+' AI scenes created. Review the narration, action and individual durations.');
    }catch(error){notice(error.message,true);}
-   finally{split.disabled=false;split.textContent='Create scenes with AI';}
+   finally{split.disabled=false;split.textContent='Generate with AI';}
   };
   q('#save-board').onclick=()=>action(async()=>{
    if(!draft.scenes.length)throw Error('Add at least one scene before saving a storyboard revision.');
