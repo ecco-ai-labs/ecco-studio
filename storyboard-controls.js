@@ -62,7 +62,7 @@
    }catch(error){notice(error.message,true);}
    finally{split.disabled=false;split.textContent='Generate with AI';}
   };
-  const save=q('#save-board');save.textContent='Save & Continue';save.classList.add('storyboard-save-continue');
+  const save=q('#save-board');save.textContent='Save & Continue to Create Voices and Sounds';save.classList.add('storyboard-save-continue');save.parentElement.classList.add('storyboard-save-row');
   save.onclick=()=>{
    try{
     localStorage.setItem(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft',JSON.stringify(draft));
