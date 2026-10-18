@@ -157,17 +157,27 @@
  },true);
  function mount(){
   const settings=q('#settings');if(settings){if(settings.textContent!=='Connections & Storage')settings.textContent='Connections & Storage';settings.onclick=connections;}
-  for(const [id,[stage,selector]] of Object.entries(forms)){
-   const form=document.getElementById(id);if(!form)continue;
-   let button=form.querySelector('.ai-prompt-assist');
-   if(!button){button=document.createElement('button');button.type='button';button.className='small secondary ai-prompt-assist';button.textContent='✦ AI';form.append(button);}
-   button.title=connection.enabled?'Review prompts with AI':'Connect to OpenAI';button.setAttribute('aria-label','AI assistance for '+stage);
-   button.onclick=()=>{if(!connection.enabled)return connections();assistForm(form).then(reviewDialog).catch(showError);};button.disabled=busy;
+  document.querySelectorAll('.ai-prompt-assist').forEach(button=>button.remove());
+  const accelerator=q('#connected-accelerator'),header=q('main > header .header-right');
+  let button=q('#studio-ai-button');
+  if(!button&&header){button=document.createElement('button');button.id='studio-ai-button';button.type='button';button.className='secondary';button.textContent='✦ AI';header.append(button);}
+  if(button){
+   if(accelerator&&accelerator.nextElementSibling!==button)accelerator.after(button);
+   button.dataset.connected=String(!!connection.connected);
+   button.title=connection.connected?'AI assistance':'Connect to OpenAI';
+   button.setAttribute('aria-label',connection.connected?'AI assistance — connected':'AI assistance — not connected');button.disabled=busy;
+   button.onclick=()=>{
+    if(!connection.enabled)return connections();
+    const form=Object.keys(forms).map(id=>document.getElementById(id)).find(form=>form&&q('#page')?.contains(form));
+    if(form)return assistForm(form).then(reviewDialog).catch(showError);
+    if(page==='board'&&q('#story-text'))return enhance(q('#page'),'storyboard',collect(q('#page'),'storyboard','#story-text,textarea[data-field="motion"],textarea[data-field="narration"]')).then(reviewDialog).catch(showError);
+    connections();
+   };
   }
   const pageRoot=q('#page');let bar=q('#studio-ai-status');
   const show=pageRoot&&(Object.keys(forms).some(id=>pageRoot.querySelector('#'+id))||['board','director','characters'].includes(page));
   if(show&&!bar){bar=document.createElement('div');bar.id='studio-ai-status';bar.innerHTML='<span data-ai-message></span><button type="button" class="small secondary" data-review>View AI review</button>';pageRoot.prepend(bar);bar.querySelector('[data-review]').onclick=reviewDialog;}
-  if(bar){bar.dataset.enabled=String(!!connection.enabled);const text=progressMessage||(connection.enabled?'AI enabled · prompts reviewed before saving or generating':'AI disabled · Connections & Storage'),label=bar.querySelector('[data-ai-message]');if(label.textContent!==text)label.textContent=text;bar.querySelector('[data-review]').hidden=!lastReview;}
+  if(bar){bar.hidden=!progressMessage&&!lastReview;bar.dataset.enabled=String(!!connection.enabled);const text=progressMessage,label=bar.querySelector('[data-ai-message]');if(label.textContent!==text)label.textContent=text;bar.querySelector('[data-review]').hidden=!lastReview;}
  }
  window.EccoAI={connections,open:openKeyDialog,get enabled(){return connection.enabled;},refresh:readStatus};
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;setTimeout(()=>{scheduled=false;mount();},0);}).observe(document.body,{childList:true,subtree:true});
