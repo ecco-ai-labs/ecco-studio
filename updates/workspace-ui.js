@@ -288,7 +288,7 @@
   localStorage.setItem(key,JSON.stringify(saved));
   persistDraft();activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);
   draft=activeStory?loadDraft():{title:saved.title||'',story:saved.sourceText||saved.summary||'',scenes:[]};draft.story_format=saved.story_format;persistDraft();
-  const genres=['Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
+  const genres=['News','Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
   q('#page').innerHTML='<form id="story-setup-form" class="form"><label data-story-format>Story Format<select name="story_format" required><option value="">Choose Audio or Video</option><option value="audio">Audio</option><option value="video">Video</option></select></label><label>Story Title<input name="title" maxlength="160" required placeholder="Enter your story title"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story Idea / Summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & Continue to Storyboard</button></div><p role="status" data-story-status></p></form>';
   const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');form.dataset.draftKey=key;
   for(const name of ['story_format','title','genre','summary'])form.elements[name].value=saved[name]||'';
