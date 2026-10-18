@@ -3,7 +3,7 @@
 const fmt=s=>{s=Math.max(0,Math.round(s||0));return Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s';};
 let lastSuccess=Date.now();
 const oldRefresh=refresh;refresh=async function(...args){const ok=await oldRefresh(...args);if(ok)lastSuccess=Date.now();return ok;};
-function job(){const id=localStorage.getItem('ecco-video-job:'+activeStory),list=state?.records||[];return list.filter(j=>j.kind==='job'&&j.video_job&&j.story_id===activeStory).sort((a,b)=>b.created-a.created)[0]||list.find(j=>j.kind==='job'&&j.id===id)||list.find(j=>j.id===assets().find(a=>a.media==='video')?.job_id);}
+function job(){const id=window.EccoGeneration?.jobId('video');return id?state?.records.find(j=>j.kind==='job'&&j.id===id):null;}
 function draw(){if(page!=='render'||!state)return;const j=job();let c=$('#video-live-progress');if(!j){c?.remove();return;}if(!c){c=document.createElement('section');c.id='video-live-progress';c.className='panel video-live-progress';$('#video-gallery').before(c);}
  const busy=['queued','running'].includes(j.status),done=j.status==='done',stale=Date.now()-lastSuccess>10000,elapsed=busy?(Date.now()/1000-(j.started||j.created)):(j.seconds||0),pct=done?100:Math.min(99,j.overall_percent||0),stage=stale?'Connection interrupted — reconnecting':j.cancel_requested&&busy?'Cancelling — waiting for current operation to stop':done?'Video ready':j.status==='cancelled'?'Cancelled':j.status==='failed'?'Failed':j.stage||j.progress||'Preparing model';
  const estimated=busy&&!stale&&j.eta_seconds!=null?Math.max(5,j.eta_seconds):null,remaining=done?'0m 00s':!busy?'—':estimated==null?'Estimating…':'~'+fmt(estimated*.8)+'–'+fmt(estimated*1.25);
@@ -16,4 +16,5 @@ setInterval(draw,1000);
 // Additional active-video polling; the standard app refresh continues elsewhere.
 let polling=false;setInterval(async()=>{if(page!=='render'||polling||!['queued','running'].includes(job()?.status))return;polling=true;try{await refresh();}finally{polling=false;}},2500);
 })();
+
 

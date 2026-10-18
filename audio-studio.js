@@ -82,9 +82,10 @@
   const button=q('#generate-audio');
   button.disabled=submitting;
   button.textContent=submitting?'Submitting…':'Generate audio';
-  const job=lastJob;
+  const currentId=window.EccoGeneration?.jobId('audio',activeStory,lastJob);
+  const job=lastJob?.id===currentId?lastJob:null;
   q('#audio-job-status').textContent=job?`${job.status==='done'?'Audio saved.':job.status} ${job.error||job.progress&&job.status==='running'&&job.progress||''}`:'';
-  const list=audioAssets(),next=JSON.stringify(list);
+  const list=window.EccoGeneration?.results('audio',audioAssets(),activeStory,lastJob)||[],next=JSON.stringify(list);
   if(next!==signature){
    signature=next;
    const empty=q('[data-audio-empty]');if(empty)empty.hidden=!!list.length;
@@ -106,8 +107,8 @@
    if(!serviceReady()){notice('GPU connected. Audio generation still needs the independent audio service and Indic-Mio worker to be configured. Your script is saved in this browser.',true);return;}
    if(draft.lines.some(line=>!line.text.trim())){notice('Add spoken text for every dialogue line.',true);q('[data-open-prompt]')?.click();return;}
    if(draft.lines.reduce((n,line)=>n+line.text.length,0)>4000){notice('Keep the complete script within 4,000 characters.',true);return;}
-   submitting=true;update();
-   try{const job=await service.generate({...draft,model:draft.model,story_id:activeStory});localStorage.setItem('ecco-audio-job:'+activeStory,job.id);notice('Audio queued. You can keep working while it generates.');await poll();}
+   const requestedStory=activeStory;submitting=true;update();
+   try{const job=await service.generate({...draft,model:draft.model,story_id:requestedStory});window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);update();notice('Audio queued. You can keep working while it generates.');await poll();}
    catch(error){notice(error.message,true);}
    finally{submitting=false;update();}
   };
@@ -130,4 +131,5 @@
  // Inherit the existing production-menu styling and place Audio after Video.
  if(video)video.after(button);else (production||nav).append(button);
 })();
+
 

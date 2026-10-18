@@ -11,6 +11,34 @@
  };
  const configs={image:{form:'image-form',noun:'image',limit:3,status:'image-status'},audio:{form:'audio-form',noun:'audio',limit:8,status:'audio-job-status'},video:{form:'video-form',noun:'video',limit:8,status:'video-status'}};
  const contexts=new WeakMap();
+ // Review only the latest generation requested in this page session, never library history.
+ const currentJobs=new Map(),jobKey=(kind,story)=>kind+':'+story;
+ function jobId(kind,story=activeStory,knownJob){
+  const key=jobKey(kind,story);if(currentJobs.has(key))return currentJobs.get(key);
+  const saved=localStorage.getItem('ecco-'+kind+'-job:'+story);
+  const job=knownJob?.id===saved?knownJob:state.records.find(r=>r.kind==='job'&&r.id===saved);
+  // Resume an unfinished generation after reload, but do not restore completed previews.
+  if(job&&['queued','running'].includes(job.status)){currentJobs.set(key,job.id);return job.id;}
+  return null;
+ }
+ function results(kind,list,story=activeStory,knownJob){
+  const id=jobId(kind,story,knownJob);if(!id)return [];
+  const job=knownJob?.id===id?knownJob:state.records.find(r=>r.kind==='job'&&r.id===id);
+  const ids=Array.isArray(job?.result)?job.result:[job?.result];
+  return list.filter(a=>!a.deleted&&a.media===kind&&(a.story_id||LEGACY_STORY)===story&&(a.job_id===id||ids.includes(a.id)));
+ }
+ function trackJob(kind,story,job){
+  if(!job?.id)return;currentJobs.set(jobKey(kind,story),job.id);
+  if(story!==activeStory)return;
+  if(kind==='image'&&typeof updateGallery==='function')updateGallery();
+  if(kind==='video'&&typeof updateVideoGallery==='function')updateVideoGallery();
+ }
+ const previousApi=api;
+ api=async function(path,body,...args){
+  const story=body?.story_id||activeStory,job=await previousApi.call(this,path,body,...args);
+  const kind=({images:'image','image-edits':'image','character-sheets':'image',videos:'video'})[path];
+  if(kind)trackJob(kind,story,job);return job;
+ };
  const record=id=>state.records.find(a=>a.id===id&&a.kind==='asset'&&a.media==='image'&&!a.deleted);
  const clone=x=>JSON.parse(JSON.stringify(x));
  const key=(kind,story)=>'ecco-generation-v1:'+kind+':'+story;
@@ -125,7 +153,7 @@
  function mount(form,kind){
   if(!form||contexts.has(form))return;
   form.dataset.generationStudio=kind;form.classList.add('generation-form');
-  const intro=form.closest('.grid')?.previousElementSibling;if(intro?.classList.contains('intro'))intro.textContent='Choose a model, add references and a prompt, then generate.';
+  const intro=form.closest('.grid')?.previousElementSibling;if(intro?.classList.contains('intro'))intro.remove();
   const story=activeStory,stored=read(kind,story),c={kind,story,form,data:{reference_ids:[],objects:{},style:'',...stored},activePrompt:null};contexts.set(form,c);
   const model=kind==='audio'?q('[name=model]',form):q('#job-model',form),modelLabel=model.closest('label');c.model=model;model.setAttribute('aria-label','Model');
   if(kind==='image'&&!model.querySelector('[value="qwen-image-edit-2511"]'))model.add(new Option('Qwen Image Edit','qwen-image-edit-2511'));
@@ -136,7 +164,7 @@
   const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);submit.textContent='Generate '+kind;if(kind==='video'&&!localStorage.getItem('ecco-video-job:'+story))status.textContent='';
   const retained=[modelLabel,promptNode,addLine,negative,board,...audioSettings].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
-  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Settings</summary><div class="generation-settings-body" data-settings></div></details>')+section('references','Reference Image','<button type="button" class="secondary generation-action" data-open-library>Image Library</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>')+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional controls</button>');
+  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+section('references','Reference Image','<button type="button" class="secondary generation-action" data-open-library>Image Library</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>')+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional controls</button>');
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
   if(negative)q('[data-settings]',form).append(negative);
   for(const node of audioSettings)q('[data-settings]',form).append(node);
@@ -154,7 +182,7 @@
   connectModel(c);promptActions(c);if(kind==='audio')audioLines(form);
   if(kind==='image'&&refinementSource){c.data.reference_ids=[refinementSource.id];q('textarea[name=prompt]',form).value=refinementSource.prompt||'';c.data.prompt=refinementSource.prompt||'';}
   if(kind!=='audio')form.onsubmit=e=>{e.preventDefault();submitGeneration(c);};
-  if(kind==='video'){submit.disabled=false;updateVideoStatus();const hint=q('#video-gallery .empty .help');if(hint)hint.textContent='Select images or load a storyboard in Settings, then generate video.';}
+  if(kind==='video'){submit.disabled=false;updateVideoStatus();const hint=q('#video-gallery .empty .help');if(hint)hint.textContent='Select images or load a storyboard in Model Settings, then generate video.';}
   sync(c);
  }
  async function submitGeneration(c){
@@ -185,7 +213,7 @@
     const scenes=sequence.map(saved=>{
      const id=saved.image_id,asset=record(id);
      if(asset.stage!=='prod'||(asset.story_id||LEGACY_STORY)!==c.story)throw Error('Video references must be approved images from the selected story.');
-     const seconds=saved?.seconds||Number(q('[data-video-seconds]',c.form).value)||3;if(seconds>limit)throw Error('This model supports up to '+limit+' seconds per shot. Update Settings or the storyboard.');
+     const seconds=saved?.seconds||Number(q('[data-video-seconds]',c.form).value)||3;if(seconds>limit)throw Error('This model supports up to '+limit+' seconds per shot. Update Model Settings or the storyboard.');
      const motion=compose(c,text||saved?.motion||'Natural, consistent movement',id);if(motion.length>2000)throw Error('Shorten the motion prompt or object attributes to 2,000 characters per shot.');
      return {...saved,image_id:id,seconds,motion,narration:saved?.narration||''};
     });
@@ -202,5 +230,6 @@
  const oldImage=imagePage;imagePage=function(){oldImage.apply(this,arguments);mount(q('#image-form'),'image');};
  const oldVideo=renderPage;renderPage=function(){oldVideo.apply(this,arguments);mount(q('#video-form'),'video');};
  document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
- window.EccoGeneration={mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
+ window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
 })();
+

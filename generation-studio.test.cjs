@@ -23,3 +23,54 @@ test('audio delivery controls remain wired after moving into the shared popup, i
 test('Generate and Improve use the selected prompt, references and full audio delivery context, with review before Apply',async()=>{for(const kind of ['image','audio','video']){const x=await setup(kind);await x.refs(['car']);x.q('[data-open-prompt]').click();const field=x.q('#generation-prompt-dialog textarea');field.value='My brief';field.dispatchEvent(new x.w.Event('input',{bubbles:true}));field.focus();x.q('[data-ai-generate]').click();await tick();const req=x.calls.find(c=>c.path==='ai/enhance').body;assert.equal(req.mode,'generate');assert.equal(req.stage,kind);assert.deepEqual(Array.from(req.reference_ids),['car']);assert.equal(field.value,'My brief');if(kind==='audio'){assert.equal(req.context.lines[0].language,'Hindi');assert.equal(req.context.lines[0].voice,'en_female');}x.q('[data-apply]').click();assert.equal(field.value,'AI result');x.q('[data-ai-improve]').click();await tick();assert.equal(x.calls.filter(c=>c.path==='ai/enhance').at(-1).body.mode,'improve');x.close();}});
 
 test('loading a storyboard preserves repeated reference shots and their individual timing',async()=>{const x=await setup('video');await x.refs(['car']);x.c.data.board_id='original';x.c.data.scenes=[{image_id:'car',seconds:2,motion:'Move left',narration:'First'},{image_id:'car',seconds:4,motion:'Stop',narration:'Second'}];x.form.dispatchEvent(new x.w.Event('submit',{cancelable:true}));await tick();const scenes=x.calls.find(c=>c.path==='boards').body.scenes;assert.equal(scenes.length,2);assert.deepEqual(Array.from(scenes,s=>s.seconds),[2,4]);assert.match(scenes[0].motion,/Move left/);assert.match(scenes[1].motion,/Stop/);x.close();});
+
+test('review areas exclude saved history and replace the previous output with the latest job only',async()=>{
+ for(const kind of ['image','video','audio']){
+  const x=await setup(kind),g=x.w.EccoGeneration;
+  const old={id:'old',kind:'asset',media:kind,story_id:'story-a',job_id:'old-job'};
+  const fresh={...old,id:'fresh',job_id:'fresh-job'},other={...fresh,id:'other',story_id:'story-b'};
+  x.w.state.records.push(old,{id:'old-job',kind:'job',status:'done',result:'old'});
+  x.w.localStorage.setItem('ecco-'+kind+'-job:story-a','old-job');
+  assert.equal(g.results(kind,[old]).length,0);
+  g.trackJob(kind,'story-a',{id:'fresh-job'});
+  assert.deepEqual(Array.from(g.results(kind,[old,fresh,other]),a=>a.id),['fresh']);
+  g.trackJob(kind,'story-a',{id:'next-job'});
+  assert.equal(g.results(kind,[old,fresh]).length,0);
+  x.w.state.records.push({id:'next-job',kind:'job',status:'done',result:'result-without-job-id'});
+  assert.deepEqual(Array.from(g.results(kind,[{...fresh,id:'result-without-job-id',job_id:undefined}]),a=>a.id),['result-without-job-id']);
+  assert.equal(g.results(kind,[{...fresh,deleted:true}]).length,0);
+  assert.equal(x.w.state.records.find(a=>a.id==='old'),old,'Saved library record is unchanged');x.close();
+ }
+});
+test('unfinished jobs resume, while completed jobs from a previous session stay hidden',async()=>{
+ const x=await setup(),g=x.w.EccoGeneration;
+ x.w.localStorage.setItem('ecco-image-job:story-a','unfinished');
+ const job={id:'unfinished',kind:'job',status:'running'};x.w.state.records.push(job);
+ assert.equal(g.jobId('image'),'unfinished');job.status='done';job.result='finished';
+ assert.deepEqual(Array.from(g.results('image',[{id:'finished',media:'image',story_id:'story-a'}]),a=>a.id),['finished']);
+ x.close();
+});
+test('real image and video gallery renderers show only the newly requested result, including after approval',async()=>{
+ for(const kind of ['image','video']){
+  const x=await setup(kind),w=x.w;w.$=s=>w.document.querySelector(s);
+  w.assets=()=>w.state.records.filter(a=>a.kind==='asset');w.card=a=>'<article data-output="'+a.id+'"></article>';w.empty=()=>'<p>Empty</p>';w.wireCards=()=>{};
+  const count=w.document.createElement('span');count.id='image-count';x.form.after(count);
+  const name=kind==='image'?'updateGallery':'updateVideoGallery';
+  w.eval(read('studio.js').split('\n').find(line=>line.startsWith('function '+name+'(')));
+  w[name]();assert.equal(x.q('#'+kind+'-gallery [data-output]'),null);
+  await w.api(kind==='image'?'images':'videos',{story_id:'story-a'});
+  w.state.records.push({id:'new-output',kind:'asset',media:kind,story_id:'story-a',job_id:'new-'+(kind==='image'?'images':'videos'),stage:'prod'});
+  w[name]();assert.equal(x.q('#'+kind+'-gallery [data-output]').dataset.output,'new-output');assert.equal(x.q('#'+kind+'-gallery').children.length,1);x.close();
+ }
+});
+test('audio hides past recordings and displays the result from its new generation',async()=>{
+ const x=await setup('audio'),w=x.w;
+ const old={id:'old-audio',kind:'asset',media:'audio',story_id:'story-a',job_id:'old-audio-job'};
+ let recordings=[old],job={id:'old-audio-job',status:'done',result:'old-audio'};
+ w.localStorage.setItem('ecco-audio-job:story-a',job.id);
+ w.EccoAudioStudio.connect({storageIndependentOfGPU:true,list:async()=>recordings,job:async()=>job,mediaURL:async()=>'https://example.invalid/audio.wav',download:async()=>{},generate:async()=>{job={id:'new-audio-job',status:'done',result:'new-audio'};recordings=[old,{...old,id:'new-audio',job_id:job.id}];return job;}});
+ await tick();assert.equal(x.q('#audio-gallery'),null);assert.equal(x.q('#audio-job-status').textContent,'');
+ const text=x.q('[data-field=text]');text.value='Hello';text.dispatchEvent(new w.Event('input',{bubbles:true}));x.form.dispatchEvent(new w.Event('submit',{cancelable:true}));await tick();
+ assert.deepEqual([...x.q('#audio-gallery').querySelectorAll('audio')].map(a=>a.dataset.audioId),['new-audio']);x.close();
+});
+
