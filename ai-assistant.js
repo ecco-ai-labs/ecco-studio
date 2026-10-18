@@ -2,7 +2,7 @@
 /* One workspace control; prompts go through the authenticated CPU service. */
 (() => {
  const q=s=>document.querySelector(s), rawAPI=api;
- let connection={connected:false,enabled:false,model:'gpt-6-astra'}, busy=false,lastReview=null,progressMessage='',connectionVersion=0;
+ let connection={connected:false,enabled:false,model:'gpt-6.1-sol'}, busy=false,lastReview=null,progressMessage='',connectionVersion=0;
  const skipSubmit=new WeakSet(),skipClick=new WeakSet();
  const forms={
   'story-setup-form':['story','textarea[name="summary"]'],
@@ -51,7 +51,7 @@
  function openKeyDialog(){
   if(!window.EccoStorage?.ready){showError('Connect workspace storage first, then return to Connect to OpenAI. No GPU is required.');return;}
   let dialog=q('#openai-key-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='openai-key-dialog';document.body.append(dialog);}
-  dialog.innerHTML='<form class="form"><h2>Connect to OpenAI</h2><label>OpenAI project API key<input type="password" name="api_key" required autocomplete="off" spellcheck="false" placeholder="sk-…"></label><p class="help">Create a key in your <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI API account</a>. It is sent over HTTPS to this workspace’s private application server and is never saved in browser storage or GitHub.</p><label>AI model<select name="model"><option value="gpt-6-astra">GPT-6 Astra</option><option value="gpt-6.1-sol">GPT-6.1 Sol</option></select></label><p class="help">Connecting runs a small API test and enables AI across Studio. An API account with billing and model access is required.</p><p role="status"></p><div class="row"><button type="submit">Verify & connect</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';
+  dialog.innerHTML='<form class="form"><h2>Connect to OpenAI</h2><label>OpenAI project API key<input type="password" name="api_key" required autocomplete="off" spellcheck="false" placeholder="sk-…"></label><p class="help">Create a key in your <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI API account</a>. It is sent over HTTPS to this workspace’s private application server and is never saved in browser storage or GitHub.</p><label>AI model<select name="model"><option value="gpt-6.1-sol">GPT-6.1 Sol</option><option value="gpt-6-astra">GPT-6 Astra</option></select></label><p class="help">Connecting runs a small API test and enables AI across Studio. An API account with billing and model access is required.</p><p role="status"></p><div class="row"><button type="submit">Verify & connect</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';
   const form=dialog.querySelector('form');form.elements.model.value=connection.model;
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   dialog.onclose=()=>{form.elements.api_key.value='';};

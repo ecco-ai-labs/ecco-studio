@@ -11,8 +11,8 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 CONFIG_FILE = Path(os.getenv('ECCO_OPENAI_CONFIG_FILE', '/workspace/ecco-storage-private/openai.json'))
-DEFAULT_MODEL = 'gpt-6-astra'
-MODELS = ('gpt-6-astra', 'gpt-6.1-sol')
+DEFAULT_MODEL = 'gpt-6.1-sol'
+MODELS = ('gpt-6.1-sol', 'gpt-6-astra')
 STAGES = frozenset(('story', 'storyboard', 'image', 'video', 'audio', 'character', 'publish'))
 LOCK = threading.RLock()
 REQUEST_SLOTS = threading.BoundedSemaphore(2)
