@@ -32,3 +32,5 @@ body.workspace-entry-mode #connection-indicators{display:none!important}
 #connections button[data-connected=true]{color:var(--accent,#ffdc24)!important;border-color:var(--accent,#ffdc24)!important}
 #connections .help{margin:8px 0 0;line-height:1.5}
 #connections [data-ai-disconnect]{margin-left:auto;display:block}
+
+#connection-dialog > .section-head > h2{font-size:18px;color:var(--accent,#ffdc24)}
