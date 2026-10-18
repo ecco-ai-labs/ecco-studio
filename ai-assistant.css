@@ -20,3 +20,15 @@ body.workspace-entry-mode #studio-ai-button{display:none!important}
 #studio-ai-button[data-connected=true],#studio-storage-indicator[data-connected=true]{color:var(--accent,#ffdc24)!important}
 body.workspace-entry-mode #studio-storage-indicator{display:none!important}
 #connect-storage[hidden],#reconnect-gpu[hidden]{display:none!important}
+
+#connection-indicators{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid rgba(190,180,215,.22);border-radius:10px;background:linear-gradient(180deg,#302a43,#242031);box-shadow:inset 0 1px 3px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.04);flex:none}
+#connection-indicators>span{width:24px;height:26px;min-height:26px}
+body.workspace-entry-mode #connection-indicators{display:none!important}
+#connections .connection{padding:16px 0;border-bottom:1px solid rgba(190,180,215,.15)}
+#connections .connection:last-child{border-bottom:0}
+#connections .connection-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+#connections .connection-heading h3{margin:0}
+#connection-dialog button{box-sizing:border-box;width:112px!important;min-height:32px!important;height:32px!important;padding:5px 10px!important;font-size:12px!important;white-space:nowrap}
+#connections button[data-connected=true]{color:var(--accent,#ffdc24)!important;border-color:var(--accent,#ffdc24)!important}
+#connections .help{margin:8px 0 0;line-height:1.5}
+#connections [data-ai-disconnect]{margin-left:auto;display:block}
