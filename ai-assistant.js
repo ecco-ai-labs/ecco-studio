@@ -5,7 +5,7 @@
  let connection={connected:false,enabled:false,model:'gpt-6.1-sol'}, busy=false,lastReview=null,progressMessage='',connectionVersion=0;
  const promptControls=new Map();let promptId=0;
  const forms={
-  'story-setup-form':['story','textarea[name="summary"]'],
+  'story-setup-form':['story','input[name="title"],textarea[name="summary"]'],
   'new-story-form':['story','textarea[name="summary"]'],
   'director-form':['storyboard','textarea[name="story"]'],
   'video-form':['video','textarea[name="prompt"]'],
@@ -189,9 +189,23 @@
    entry.button.setAttribute('aria-busy',String(entry.pending));
   }
  }
+
+ function mountStoryAI(){
+  const form=q('#story-setup-form');if(!form||q('#story-description-ai'))return;
+  const menu=document.createElement('details');menu.id='story-description-ai';menu.className='storyboard-ai-floating';
+  menu.innerHTML='<summary aria-label="AI assistance">AI</summary><div class="storyboard-ai-actions"><button type="button" class="secondary" data-generate>Generate with AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div>';
+  q('#page').append(menu);
+  let selected=form.elements.summary;
+  const choose=element=>{form.querySelectorAll('.ai-selected-field').forEach(el=>el.classList.remove('ai-selected-field'));selected=element;selected.classList.add('ai-selected-field');};
+  choose(selected);
+  form.addEventListener('focusin',event=>{if(event.target.matches('input[name="title"],textarea[name="summary"]'))choose(event.target);});
+  menu.querySelector('[data-generate]').onclick=()=>{menu.open=false;window.EccoAI.generateField(selected);};
+  menu.querySelector('[data-improve]').onclick=()=>{menu.open=false;window.EccoAI.improveField(selected);};
+ }
+
  function mount(){
   const settings=q('#settings');if(settings){if(settings.textContent!=='Connections')settings.textContent='Connections';settings.onclick=connections;}
-  mountPromptControls();
+  mountPromptControls();mountStoryAI();
   const accelerator=q('#connected-accelerator'),header=q('main > header .header-right');
   let button=q('#studio-ai-button');
   if(!button&&header){button=document.createElement('span');button.id='studio-ai-button';button.textContent='✦';button.setAttribute('role','img');header.append(button);}
