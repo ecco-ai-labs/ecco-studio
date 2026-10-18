@@ -8,6 +8,15 @@
  const gpuAPI=api;
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','youtube/connect','youtube/publish','github/sync','billing/connect','billing/refresh']);
  window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,reportError};
+ // Present CPU-owned audio jobs through the shared Activity job view.
+ // This is a UI projection only; the durable record stays audio_job.
+ function audioJobView(job){
+  if(job.kind!=='audio_job')return job;
+  const status=job.status==='error'?'failed':job.status;
+  return {...job,kind:'job',source_kind:'audio_job',label:'Audio · '+(job.title||'Recording'),status,
+   progress:status==='running'?'Running Generation':status==='queued'?'Queued':status==='done'?'Audio saved.':job.progress,
+   result:job.asset_ids||job.asset_id};
+ }
  const audioMedia=new Map();
  let audioConnected=false;
  function connectAudio(){
@@ -44,6 +53,8 @@
    if(path.startsWith('media/'))return {buffer:await response.arrayBuffer(),mime:response.headers.get('Content-Type')};
    const data=await response.json();
    if(path==='state'&&(!Array.isArray(data.records)||!data.config))throw Error('Storage returned an invalid workspace response.');
+   if(path==='state')data.records=data.records.map(audioJobView);
+   if(path==='audio/generate'||path.startsWith('audio/jobs/'))return audioJobView(data);
    return data;
   }catch(error){
    if(error.name==='TimeoutError')throw Error(path==='stories/plan'?'AI planning timed out. Your draft was preserved.':path.startsWith('ai/')?'The AI request timed out. Your original text is unchanged; check the connection before retrying.':'Storage did not respond within 20 seconds. Try again.');
