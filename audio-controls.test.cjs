@@ -1,0 +1,101 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {JSDOM,VirtualConsole}=require('jsdom');
+const tick=()=>new Promise(resolve=>setTimeout(resolve,35));
+async function setup(storage={}){
+ const html=fs.readFileSync(__dirname+'/index.html','utf8');
+ const scripts=[...html.matchAll(/<script(?:\s+src="([^"]+)")?[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]?fs.readFileSync(__dirname+'/'+m[1].split('?')[0],'utf8'):m[2]);
+ const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
+ const dom=new JSDOM(html.replace(/<script[\s\S]*?<\/script>/g,''),{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/',pretendToBeVisual:true,virtualConsole:vc}),w=dom.window;
+ const observers=[],Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);observers.push(this);}};
+ w.structuredClone=structuredClone;w.setInterval=()=>0;w.fetch=()=>Promise.reject(Error('No network in UI test'));w.matchMedia=()=>({matches:false,addEventListener(){}});w.HTMLElement.prototype.scrollIntoView=function(){};w.HTMLMediaElement.prototype.pause=function(){};
+ w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};w.confirm=()=>true;
+ w.localStorage.setItem('ecco-story-collections-v1',JSON.stringify({collections:[{id:'collection',name:'Stories'}],members:{}}));
+ for(const [key,value] of Object.entries(storage))w.localStorage.setItem(key,value);
+ w.eval(scripts.join('\n;\n')+`\nwindow.testUI={navigate:p=>navigate(p),refreshStories:()=>storyControls(),addRecords:items=>state.records.push(...items),selectStory(id){activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();},getDraft:()=>draft,setGPU:ready=>{gpuConnected=()=>ready;}};
+ state={records:[{id:'audio-story',kind:'story',title:'Audio Story'},{id:'video-story',kind:'story',title:'Video Story'}],config:{models_ready:{}},storage_pending:false};
+ window.testCalls=[];api=async(path,body)=>{window.testCalls.push({path,body});if(path==='stories'){const record={id:'created-story',kind:'story',...body};state.records.push(record);return record;}return {};};refresh=async()=>true;`);
+ await tick();w.document.querySelector('#entry-tell-story')?.click();
+ const q=s=>w.document.querySelector(s),nav=()=>[...w.document.querySelectorAll('#workspace-production-group .journey-step')].filter(b=>!b.hidden).map(b=>b.dataset.page);
+ const choose=async value=>{const field=q('[name=story_format]');field.value=value;field.dispatchEvent(new w.Event('change',{bubbles:true}));await tick();};
+ return {w,q,nav,choose,errors,close:()=>{observers.forEach(observer=>observer.disconnect());w.close();},async go(p){w.testUI.navigate(p);await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
+}
+const input=(x,selector,value,event='input')=>{const field=x.q(selector);assert.ok(field,selector);field.value=value;field.dispatchEvent(new x.w.Event(event,{bubbles:true}));return field;};
+const audioDraft=x=>JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:audio-story'));
+const connect=x=>{const calls=[],adapter={storageIndependentOfGPU:true,list:async()=>[],generate:async body=>{calls.push(body);return{id:'test-job'};},job:async()=>({id:'test-job',status:'done',asset_id:'test-audio'}),mediaURL:async()=> 'https://media.example.test/audio.wav',download:async()=>{}};x.w.testUI.setGPU(true);x.w.EccoAudioStudio.connect(adapter);return{calls,adapter};};
+test('Audio controls use named speakers, all 23 model languages, two real voices and AI delivery guidance',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');x.q('[data-open-controls]').click();
+ assert.equal(x.q('#generation-controls-dialog h2').textContent,'Additional Controls');
+ assert.equal(x.q('[data-audio-presentation]').value,'single');
+ assert.equal(x.q('[data-speaker-field=language]').options.length,23);
+ for(const language of ['Hindi','Urdu','English','Tamil','Punjabi'])assert.ok([...x.q('[data-speaker-field=language]').options].some(o=>o.value===language));
+ assert.deepEqual([...x.q('[data-speaker-field=voice]').options].map(o=>o.value),['en_female','en_male']);
+ input(x,'[data-audio-presentation]','conversation','change');
+ assert.equal(x.w.document.querySelectorAll('[data-speaker-tab]').length,2);
+ assert.doesNotMatch(x.q('#audio-form').textContent,/Line [12]/);
+ input(x,'[data-speaker-field=language]','English','change');
+ assert.ok([...x.q('[data-speaker-field=dialect]').options].some(o=>o.value==='Irish English'));
+ assert.ok([...x.q('[data-speaker-field=dialect]').options].some(o=>o.value==='Australian English'));
+ assert.ok([...x.q('[data-speaker-field=dialect]').options].some(o=>o.value==='British English'));
+ input(x,'[data-speaker-field=language]','Hindi','change');input(x,'[data-speaker-field=mixed_language]','Punjabi','change');input(x,'[data-speaker-field=voice]','en_male','change');
+ input(x,'[data-speaker-field=delivery]','Speak softly with a feminine delivery.');
+ const context=x.w.EccoGeneration.aiContext(x.q('#audio-form')).context;
+ assert.match(context.instructions,/Hindi mixed naturally with Punjabi/);assert.match(context.instructions,/Speak softly with a feminine delivery/);
+ assert.match(x.q('.audio-direction-note').textContent,/does not offer exact accent control/);
+ assert.deepEqual(x.errors,[]);x.close();
+});
+test('Existing multilingual dialogue survives migration and mode switching; single and conversation drafts remain editable',async()=>{
+ const original={title:'Saved dialogue',lines:[{text:'नमस्ते।',language:'Hindi',voice:'en_male',emotion:'happy'},{text:'Welcome!',language:'English',voice:'en_female',emotion:'neutral'}]};
+ const x=await setup({'ecco-active-story':'audio-story','ecco-audio-draft:audio-story':JSON.stringify(original)});await x.go('audio');
+ assert.equal(x.q('[data-audio-presentation]').value,'conversation');assert.equal(x.w.document.querySelectorAll('#audio-lines textarea').length,2);
+ assert.equal(x.q('#audio-lines textarea').value,original.lines[0].text);
+ input(x,'[data-audio-presentation]','single','change');assert.match(x.q('[data-single-script]').value,/नमस्ते/);assert.match(x.q('[data-single-script]').value,/Welcome/);
+ input(x,'[data-single-script]','Single narrator draft.');input(x,'[data-audio-presentation]','conversation','change');
+ assert.deepEqual([...x.w.document.querySelectorAll('#audio-lines textarea')].map(e=>e.value),original.lines.map(l=>l.text));
+ input(x,'[data-audio-presentation]','single','change');assert.equal(x.q('[data-single-script]').value,'Single narrator draft.');
+ await x.go('images');await x.go('audio');assert.equal(x.q('[data-single-script]').value,'Single narrator draft.');assert.equal(audioDraft(x).speakers[0].voice,'en_male');
+ assert.deepEqual(x.errors,[]);x.close();
+});
+test('A long single script becomes valid existing-service speech segments without exposing line controls',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const {calls}=connect(x);
+ const text='नमस्ते दुनिया। '.repeat(60).trim();input(x,'[data-single-script]',text);input(x,'[data-speaker-field=voice]','en_male','change');
+ x.q('#audio-form').requestSubmit();await tick();
+ assert.equal(calls.length,1);assert.ok(calls[0].lines.length>1);assert.ok(calls[0].lines.every(l=>l.text.length<=500&&l.voice==='en_male'));
+ assert.equal(calls[0].lines.map(l=>l.text).join(' '),text);assert.equal(calls[0].story_id,'audio-story');
+ assert.ok(calls[0].lines.every(l=>Object.keys(l).sort().join(',')==='emotion,language,text,voice'));
+ assert.deepEqual(x.errors,[]);x.close();
+});
+test('Conversation generation assigns each turn to its selected speaker and keeps direction notes out of spoken text',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const {calls}=connect(x);
+ input(x,'[data-audio-presentation]','conversation','change');input(x,'#audio-lines textarea','Hello from the host.');x.q('#add-audio-line').click();
+ const second=x.w.document.querySelectorAll('#audio-lines textarea')[1];second.value='Hello from the guest.';second.dispatchEvent(new x.w.Event('input',{bubbles:true}));
+ x.q('[data-speaker-tab="speaker-1"]').click();input(x,'[data-speaker-field=language]','English','change');input(x,'[data-speaker-field=dialect]','Irish English','change');input(x,'[data-speaker-field=delivery]','Friendly and confident.');
+ x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,1);
+ assert.deepEqual(Array.from(calls[0].lines,l=>({text:l.text,voice:l.voice,language:l.language})),[{text:'Hello from the host.',voice:'en_female',language:'Hindi'},{text:'Hello from the guest.',voice:'en_male',language:'English'}]);
+ assert.doesNotMatch(JSON.stringify(calls[0]),/Friendly|Irish/);assert.match(x.w.EccoAudioStudio.aiContext().instructions,/Irish English/);assert.equal(x.w.EccoGeneration.aiContext(x.q('#audio-form'),second).context.language,'English');
+ assert.deepEqual(x.errors,[]);x.close();
+});
+test('Voice preview is explicit, uses selected voice settings and does not change the script or main generation',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const {calls}=connect(x);
+ input(x,'[data-single-script]','Keep my script.');input(x,'[data-speaker-field=voice]','en_male','change');input(x,'[data-speaker-field=emotion]','happy','change');
+ x.q('[data-preview-voice]').click();assert.equal(calls.length,0);assert.equal(x.q('#audio-voice-preview-dialog audio').hidden,true);
+ x.q('#audio-voice-preview-generate').click();assert.equal(calls.length,0);
+ input(x,'#audio-voice-preview-dialog textarea','नमस्ते!');x.q('#audio-voice-preview-generate').click();await tick();
+ assert.equal(calls.length,1);assert.equal(calls[0].lines[0].voice,'en_male');assert.equal(calls[0].lines[0].emotion,'happy');assert.equal(calls[0].lines[0].text,'नमस्ते!');
+ assert.equal(x.q('#audio-voice-preview-dialog audio').hidden,false);assert.equal(x.q('#audio-voice-preview-dialog audio').src,'https://media.example.test/audio.wav');
+ assert.equal(x.q('[data-single-script]').value,'Keep my script.');assert.equal(x.w.localStorage.getItem('ecco-audio-job:audio-story'),null);
+ x.q('#audio-voice-preview-dialog [data-close]').click();assert.equal(x.q('#audio-voice-preview-dialog'),null);
+ assert.deepEqual(x.errors,[]);x.close();
+});
+test('Late preview results cannot open media after leaving Audio',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const {adapter}=connect(x);let finish,mediaCalls=0;
+ adapter.job=()=>new Promise(resolve=>finish=resolve);adapter.mediaURL=async()=>{mediaCalls++;return 'https://media.example.test/audio.wav';};
+ x.q('[data-preview-voice]').click();input(x,'#audio-voice-preview-dialog textarea','Hello.');x.q('#audio-voice-preview-generate').click();await tick();
+ await x.go('images');finish({status:'done',asset_id:'late-audio'});await tick();assert.equal(mediaCalls,0);assert.equal(x.q('#audio-voice-preview-dialog'),null);assert.deepEqual(x.errors,[]);x.close();
+});
+test('Scene narration imports into one script and preserves existing text',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const text='A longer scene narration. '.repeat(30);
+ x.w.EccoAudioStudio.importScript(text);assert.equal(x.q('[data-single-script]').value,text);assert.equal(x.w.document.querySelectorAll('#audio-lines textarea').length,1);
+ assert.throws(()=>x.w.EccoAudioStudio.importScript('Replace me'),/already has text/);assert.equal(x.q('[data-single-script]').value,text);assert.deepEqual(x.errors,[]);x.close();
+});

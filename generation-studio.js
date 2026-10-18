@@ -128,6 +128,7 @@
   return parts.filter(Boolean).join('\n\n');
  }
  function openControls(c,reference){
+  if(c.kind==='audio'){window.EccoAudioStudio?.controls(q('[data-delivery-controls]',c.controls));if(!c.controls.open)c.controls.showModal();return;}
   const d=c.controls,body=q('[data-object-controls]',d),ids=referenceIds(c);c.activeReference=reference||c.activeReference||ids[0]||'new';
   if(!ids.includes(c.activeReference))c.activeReference=ids[0]||'new';
   let oi=0;
@@ -145,13 +146,7 @@
  }
  function audioLines(form){
   const c=contexts.get(form);if(!c||c.kind!=='audio')return;
-  const controls=q('[data-delivery-controls]',c.controls);controls.replaceChildren();
-  all('.audio-line',form).forEach(line=>{
-   const row=q('.audio-line-controls',line);if(!row)return;
-   const remove=q('[data-remove-line]',row);if(remove)line.append(remove);
-   const wrapper=document.createElement('fieldset');wrapper.className='generation-delivery';wrapper.dataset.line=line.dataset.line;wrapper.innerHTML='<legend>Line '+(Number(line.dataset.line)+1)+'</legend>';wrapper.append(row);controls.append(wrapper);
-  });
-  sync(c);
+  window.EccoAudioStudio?.controls(q('[data-delivery-controls]',c.controls));sync(c);
  }
  function fitPrompt(c){
   if(!c.prompt?.open)return;
@@ -177,7 +172,7 @@
   const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);submit.textContent='Generate '+kind;if(kind==='video'&&!localStorage.getItem('ecco-video-job:'+story))status.textContent='';
   const retained=[modelLabel,promptNode,addLine,negative,board,...audioSettings,...audioReferences].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
-  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional controls</button>');
+  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional Controls</button>');
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
   if(negative)q('[data-settings]',form).append(negative);
   for(const node of audioSettings)q('[data-settings]',form).append(node);
@@ -189,7 +184,9 @@
   if(promptNode)promptBody.append(promptNode);else promptBody.insertAdjacentHTML('beforeend',field('Motion prompt','<textarea name="prompt" data-generation-prompt maxlength="1600" placeholder="Describe the movement, camera and action.">'+esc(c.data.prompt||'')+'</textarea>'));
   if(addLine)promptBody.append(addLine);
   if(kind!=='audio'){const text=q('textarea',c.prompt);text.dataset.generationPrompt='';if(stored.prompt!==undefined)text.value=stored.prompt;text.oninput=()=>{c.data.prompt=text.value;save(c);};text.maxLength=kind==='video'?1600:4000;}
-  c.controls=pop(c,'generation-controls-dialog','Additional controls');q('[data-body]',c.controls).innerHTML=(kind==='audio'?'<div data-delivery-controls></div><details class="generation-settings"><summary>Reference objects</summary><div data-object-controls></div></details>':'<div data-object-controls></div>')+field(kind==='audio'?'Writing style':'Visual style','<input data-generation-style maxlength="160" value="'+esc(c.data.style)+'" placeholder="Keep original / unspecified">');q('[data-generation-style]',c.controls).oninput=e=>{c.data.style=e.target.value;save(c);};
+  c.controls=pop(c,'generation-controls-dialog','Additional Controls');q('[data-close]',c.controls).textContent='Apply';
+  q('[data-body]',c.controls).innerHTML=kind==='audio'?'<div data-delivery-controls></div>':'<div data-object-controls></div>'+field('Visual style','<input data-generation-style maxlength="160" value="'+esc(c.data.style)+'" placeholder="Keep original / unspecified">');
+  const styleControl=q('[data-generation-style]',c.controls);if(styleControl)styleControl.oninput=e=>{c.data.style=e.target.value;save(c);};
   form.append(footer);form.noValidate=true;
   const librarySelect=q('[data-reference-library]',form);if(librarySelect){librarySelect.value=referenceKind(c);librarySelect.onchange=()=>{c.data.reference_library=librarySelect.value;c.activeReference=null;save(c);};}
   const libraryButton=q('[data-open-library]',form);if(libraryButton)libraryButton.onclick=()=>referencePicker(c);q('[data-open-prompt]',form).onclick=()=>{c.prompt.showModal();fitPrompt(c);q('textarea',c.prompt)?.focus();};q('[data-open-controls]',form).onclick=()=>openControls(c);
@@ -241,13 +238,14 @@
   }catch(error){status.textContent=error.message;notice(error.message,true);}
   finally{c.submitting=false;tracking.delete(c.story);button.disabled=false;if(c.kind==='image')updateImageStatus();else updateVideoStatus();}
  }
- function aiContext(scope){const c=contexts.get(scope)||contexts.get(scope.closest?.('form'));if(!c)return null;return {reference_ids:referenceIds(c).filter(id=>record(id)?.media==='image'),context:{...(c.kind==='video'?{scenes:referenceKind(c)==='video'?[]:c.data.scenes||c.data.reference_ids.map(image_id=>({image_id})),video_references:selected(c).filter(a=>a.media==='video').map(a=>({id:a.id,title:a.title||'Untitled video'})),seconds:Number(q('[data-video-seconds]',c.form)?.value)||3}:{}),style:c.data.style,scene_controls:objectInstructions(c),instructions:'Reference-specific attributes: '+objectInstructions(c),...(c.kind==='audio'?{lines:all('.audio-line',c.form).map(line=>({text:q('textarea',line).value,...Object.fromEntries(all('[data-line="'+line.dataset.line+'"] [data-field]',c.controls).map(el=>[el.dataset.field,el.value]))})),genre:c.form.elements.genre.value}:{} )}};}
+ function aiContext(scope,element){const c=contexts.get(scope)||contexts.get(scope.closest?.('form'));if(!c)return null;return {reference_ids:referenceIds(c).filter(id=>record(id)?.media==='image'),context:{...(c.kind==='video'?{scenes:referenceKind(c)==='video'?[]:c.data.scenes||c.data.reference_ids.map(image_id=>({image_id})),video_references:selected(c).filter(a=>a.media==='video').map(a=>({id:a.id,title:a.title||'Untitled video'})),seconds:Number(q('[data-video-seconds]',c.form)?.value)||3}:{}),style:c.data.style,scene_controls:objectInstructions(c),instructions:'Reference-specific attributes: '+objectInstructions(c),...(c.kind==='audio'?{...window.EccoAudioStudio?.aiContext(element),genre:c.form.elements.genre.value}:{} )}};}
  MODEL_CATALOG['qwen-image-edit-2511']={name:'Qwen Image Edit',defaults:{steps:40,cfg:3,seed:42}};
  const oldImage=imagePage;imagePage=function(){oldImage.apply(this,arguments);mount(q('#image-form'),'image');};
  const oldVideo=renderPage;renderPage=function(){oldVideo.apply(this,arguments);mount(q('#video-form'),'video');};
  document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
  window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
 })();
+
 
 
 

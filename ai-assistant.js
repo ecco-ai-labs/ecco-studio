@@ -133,7 +133,7 @@
   return requestGeneration({label:binding.label,key:binding.stage+':'+(binding.element.id||binding.element.name||binding.element.dataset.field||binding.label),isValid:()=>binding.element.isConnected&&binding.scope.isConnected&&binding.element.value===original&&JSON.stringify(snapshotFor(binding))===snapshot,onGenerate:options=>improve({...binding,generationRequest:options})});
  }
  function snapshotFor(binding){
-  const shared=window.EccoGeneration?.aiContext(binding.scope);
+  const shared=window.EccoGeneration?.aiContext(binding.scope,binding.element);
   const context={...contextFor(binding.scope,binding.stage),...shared?.context};
   // Keep the target field's role clear, especially negative prompts and individual dialogue lines.
   context.instructions=binding.generateField?'Generate content for only the selected field: '+binding.label+'. Use the current story title and script as context. Return only the requested field content. Do not replace other fields.':binding.generateStory?'Generate a complete story summary from the instructions in this field. Follow the supplied title and genre. Return the story itself, not a rewritten prompt. Editable field: '+binding.label:'Editable field: '+binding.label;
@@ -271,5 +271,6 @@
  setInterval(()=>{mount();if(q('#connection-dialog')?.open)renderConnection();},2000);
  mount();if(window.EccoStorage?.ready)readStatus().catch(()=>{});
 })();
+
 
 
