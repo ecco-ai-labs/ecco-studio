@@ -359,3 +359,5 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 #page.story-journey-fields label input,
 #page.story-journey-fields label textarea,
 #page.story-journey-fields label select{color:var(--text,#eeebf5)}
+
+#workspace-menus [data-category="Billing"]>summary>span[aria-hidden="true"]{margin-left:auto}
