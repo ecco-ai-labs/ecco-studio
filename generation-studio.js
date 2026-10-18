@@ -73,9 +73,9 @@
   all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{setReferences(c,referenceIds(c).filter(id=>id!==b.dataset.refRemove));});
   }
   const text=c.kind==='audio'?all('textarea[data-field=text]',c.form).map(x=>x.value).join('\n'):q('textarea[name=prompt]',c.form)?.value||'';
-  q('[data-prompt-summary]',c.form).textContent=text.trim()||'Add what you want to generate.';
+  q('[data-prompt-summary]',c.form).textContent=text.trim()||(c.kind==='audio'?'Write the words to be spoken, or generate a script with AI.':'Add what you want to generate.');
   fitPrompt(c);
-  q('[data-open-prompt]',c.form).textContent=text.trim()?'Edit prompt':'Add prompt';
+  q('[data-open-prompt]',c.form).textContent=c.kind==='audio'?(text.trim()?'Edit script':'Write script'):(text.trim()?'Edit prompt':'Add prompt');
   const referenceNote=q('[data-reference-note]',c.form);
   if(referenceNote)referenceNote.textContent=referenceKind(c)==='video'?(refs.length?'Selected videos are saved as references.':'No reference videos selected.'):refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
   if(c.kind==='image'){
@@ -172,7 +172,7 @@
   const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);submit.textContent='Generate '+kind;if(kind==='video'&&!localStorage.getItem('ecco-video-job:'+story))status.textContent='';
   const retained=[modelLabel,promptNode,addLine,negative,board,...audioSettings,...audioReferences].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
-  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional Controls</button>');
+  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt',kind==='audio'?'Spoken script':'Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional Controls</button>');
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
   if(negative)q('[data-settings]',form).append(negative);
   for(const node of audioSettings)q('[data-settings]',form).append(node);
@@ -180,7 +180,8 @@
   if(board){q('[data-settings]',form).append(board);board.querySelector('select').onchange=e=>{
    const b=boards().find(b=>b.id===e.target.value);if(!b)return;c.data.reference_library='image';q('[data-reference-library]',form).value='image';c.data.board_id=b.id;c.data.scenes=clone(b.scenes);c.data.reference_ids=[...new Set(b.scenes.map(s=>s.image_id))];setReferences(c,c.data.reference_ids);q('[data-video-seconds]',form).value=b.scenes[0]?.seconds||3;
   };q('[data-settings]',form).insertAdjacentHTML('beforeend',field('Seconds per new shot','<input data-video-seconds type="number" min="1" max="30" value="'+(Number(c.data.seconds)||3)+'">'));q('[data-video-seconds]',form).oninput=e=>{c.data.seconds=Number(e.target.value);save(c);};}
-  c.prompt=pop(c,'generation-prompt-dialog','Prompt');const promptBody=q('[data-body]',c.prompt);promptBody.innerHTML='<div class="generation-ai-actions"><button type="button" class="secondary" data-ai-generate>Generate with AI</button><button type="button" class="secondary" data-ai-improve>Improve using AI</button></div>';
+  c.prompt=pop(c,'generation-prompt-dialog',kind==='audio'?'Spoken script':'Prompt');const promptBody=q('[data-body]',c.prompt);promptBody.innerHTML='<div class="generation-ai-actions"><button type="button" class="secondary" data-ai-generate>Generate with AI</button><button type="button" class="secondary" data-ai-improve>Improve using AI</button></div>';
+  if(kind==='audio'){q('[data-ai-generate]',c.prompt).textContent='Generate script with AI';promptBody.insertAdjacentHTML('beforeend','<p class="help">Only the spoken script is read aloud. Use Generate script with AI for instructions about what to write.</p>');}
   if(promptNode)promptBody.append(promptNode);else promptBody.insertAdjacentHTML('beforeend',field('Motion prompt','<textarea name="prompt" data-generation-prompt maxlength="1600" placeholder="Describe the movement, camera and action.">'+esc(c.data.prompt||'')+'</textarea>'));
   if(addLine)promptBody.append(addLine);
   if(kind!=='audio'){const text=q('textarea',c.prompt);text.dataset.generationPrompt='';if(stored.prompt!==undefined)text.value=stored.prompt;text.oninput=()=>{c.data.prompt=text.value;save(c);};text.maxLength=kind==='video'?1600:4000;}
@@ -245,6 +246,7 @@
  document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
  window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
 })();
+
 
 
 
