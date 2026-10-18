@@ -125,6 +125,7 @@
  function mount(form,kind){
   if(!form||contexts.has(form))return;
   form.dataset.generationStudio=kind;form.classList.add('generation-form');
+  const intro=form.closest('.grid')?.previousElementSibling;if(intro?.classList.contains('intro'))intro.textContent='Choose a model, add references and a prompt, then generate.';
   const story=activeStory,stored=read(kind,story),c={kind,story,form,data:{reference_ids:[],objects:{},style:'',...stored},activePrompt:null};contexts.set(form,c);
   const model=kind==='audio'?q('[name=model]',form):q('#job-model',form),modelLabel=model.closest('label');c.model=model;model.setAttribute('aria-label','Model');
   if(kind==='image'&&!model.querySelector('[value="qwen-image-edit-2511"]'))model.add(new Option('Qwen Image Edit','qwen-image-edit-2511'));
@@ -132,7 +133,7 @@
   const addLine=q('#add-audio-line',form),negative=form.elements.negative?.closest('label'),audioSettings=kind==='audio'?[form.elements.genre.closest('label'),form.elements.title.closest('label'),q('.audio-output-controls',form)]:[];
   const board=kind==='video'?form.elements.board_id.closest('label'):null;
   const submit=q('#generate-'+kind,form),status=q('#'+configs[kind].status,form);
-  const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);
+  const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);submit.textContent='Generate '+kind;if(kind==='video'&&!localStorage.getItem('ecco-video-job:'+story))status.textContent='';
   const retained=[modelLabel,promptNode,addLine,negative,board,...audioSettings].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
   form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Settings</summary><div class="generation-settings-body" data-settings></div></details>')+section('references','Reference Image','<button type="button" class="secondary generation-action" data-open-library>Image Library</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>')+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional controls</button>');
@@ -153,6 +154,7 @@
   connectModel(c);promptActions(c);if(kind==='audio')audioLines(form);
   if(kind==='image'&&refinementSource){c.data.reference_ids=[refinementSource.id];q('textarea[name=prompt]',form).value=refinementSource.prompt||'';c.data.prompt=refinementSource.prompt||'';}
   if(kind!=='audio')form.onsubmit=e=>{e.preventDefault();submitGeneration(c);};
+  if(kind==='video'){submit.disabled=false;updateVideoStatus();const hint=q('#video-gallery .empty .help');if(hint)hint.textContent='Select images or load a storyboard in Settings, then generate video.';}
   sync(c);
  }
  async function submitGeneration(c){
