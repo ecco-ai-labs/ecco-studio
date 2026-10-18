@@ -65,13 +65,15 @@
  }
  function sync(c){
   const refs=selected(c),box=q('[data-selected]',c.form);
-  box.innerHTML=refs.map((a,i)=>'<div class="generation-selected-item"><button type="button" class="secondary generation-thumb" data-ref-open="'+esc(a.id)+'" title="'+esc(a.title||'Reference '+(i+1))+'">'+thumb(a)+'<span>Selected '+(i+1)+'</span></button><button type="button" class="secondary generation-remove" data-ref-remove="'+esc(a.id)+'" aria-label="Remove reference '+(i+1)+'">×</button></div>').join('');
+  if(box){box.innerHTML=refs.map((a,i)=>'<div class="generation-selected-item"><button type="button" class="secondary generation-thumb" data-ref-open="'+esc(a.id)+'" title="'+esc(a.title||'Reference '+(i+1))+'">'+thumb(a)+'<span>Selected '+(i+1)+'</span></button><button type="button" class="secondary generation-remove" data-ref-remove="'+esc(a.id)+'" aria-label="Remove reference '+(i+1)+'">×</button></div>').join('');
   all('[data-ref-open]',box).forEach(b=>b.onclick=()=>openControls(c,b.dataset.refOpen));
   all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{setReferences(c,c.data.reference_ids.filter(id=>id!==b.dataset.refRemove));});
+  }
   const text=c.kind==='audio'?all('textarea[data-field=text]',c.form).map(x=>x.value).join('\n'):q('textarea[name=prompt]',c.form)?.value||'';
   q('[data-prompt-summary]',c.form).textContent=text.trim()?text.trim().slice(0,120)+(text.length>120?'…':''):'Add what you want to generate.';
   q('[data-open-prompt]',c.form).textContent=text.trim()?'Edit prompt':'Add prompt';
-  q('[data-reference-note]',c.form).textContent=refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
+  const referenceNote=q('[data-reference-note]',c.form);
+  if(referenceNote)referenceNote.textContent=refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
   if(c.kind==='image'){
    const has=refs.length>0;
    for(const opt of c.model.options)opt.disabled=has?opt.value!=='qwen-image-edit-2511':opt.value==='qwen-image-edit-2511';
@@ -164,7 +166,7 @@
   const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);submit.textContent='Generate '+kind;if(kind==='video'&&!localStorage.getItem('ecco-video-job:'+story))status.textContent='';
   const retained=[modelLabel,promptNode,addLine,negative,board,...audioSettings].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
-  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+section('references','Reference Image','<button type="button" class="secondary generation-action" data-open-library>Image Library</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>')+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional controls</button>');
+  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'':section('references','Reference Image','<button type="button" class="secondary generation-action" data-open-library>Image Library</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt','Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional controls</button>');
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
   if(negative)q('[data-settings]',form).append(negative);
   for(const node of audioSettings)q('[data-settings]',form).append(node);
@@ -177,7 +179,7 @@
   if(kind!=='audio'){const text=q('textarea',c.prompt);text.dataset.generationPrompt='';if(stored.prompt!==undefined)text.value=stored.prompt;text.oninput=()=>{c.data.prompt=text.value;save(c);};text.maxLength=kind==='video'?1600:4000;}
   c.controls=pop(c,'generation-controls-dialog','Additional controls');q('[data-body]',c.controls).innerHTML=(kind==='audio'?'<div data-delivery-controls></div><details class="generation-settings"><summary>Reference objects</summary><div data-object-controls></div></details>':'<div data-object-controls></div>')+field(kind==='audio'?'Writing style':'Visual style','<input data-generation-style maxlength="160" value="'+esc(c.data.style)+'" placeholder="Keep original / unspecified">');q('[data-generation-style]',c.controls).oninput=e=>{c.data.style=e.target.value;save(c);};
   form.append(footer);form.noValidate=true;
-  q('[data-open-library]',form).onclick=()=>referencePicker(c);q('[data-open-prompt]',form).onclick=()=>{c.prompt.showModal();q('textarea',c.prompt)?.focus();};q('[data-open-controls]',form).onclick=()=>openControls(c);
+  const libraryButton=q('[data-open-library]',form);if(libraryButton)libraryButton.onclick=()=>referencePicker(c);q('[data-open-prompt]',form).onclick=()=>{c.prompt.showModal();q('textarea',c.prompt)?.focus();};q('[data-open-controls]',form).onclick=()=>openControls(c);
   form.addEventListener('input',()=>sync(c));form.addEventListener('focusin',e=>{const section=e.target.closest('.generation-section');if(section)all('.generation-section',form).forEach(s=>s.classList.toggle('is-focused',s===section));});
   connectModel(c);promptActions(c);if(kind==='audio')audioLines(form);
   if(kind==='image'&&refinementSource){c.data.reference_ids=[refinementSource.id];q('textarea[name=prompt]',form).value=refinementSource.prompt||'';c.data.prompt=refinementSource.prompt||'';}
