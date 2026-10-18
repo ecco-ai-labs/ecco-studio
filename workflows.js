@@ -11,11 +11,14 @@
  function show(id){
   page='workflow-library';q('#heading').textContent='Workflow Library';
   const w=rows().find(r=>r.id===id)||defaults();
-  q('#page').innerHTML='<div class="section-head"><h2>'+esc(w.name)+'</h2><button type="button" id="workflow-new" class="secondary">New workflow</button></div><form id="workflow-form" class="form panel"><label>Name<input name="name" required maxlength="160"></label><label>Research / story instructions<textarea name="prompt" rows="4" required></textarea></label><div class="row"><label>News items / scenes<input name="count" type="number" min="1" max="60"></label><label>Total seconds<input name="duration" type="number" min="10" max="1800"></label></div><label>Avatar from Image Library<select name="avatar_id"></select></label><label>Voice / language<input name="voice" placeholder="English news presenter"></label><label>YouTube channel<input name="channel" placeholder="Channel URL or ID"></label><details><summary>Schedule and automation</summary><div class="row"><label>Daily at<input name="time" type="time"></label><label>Timezone<select name="timezone"><option value="America/Los_Angeles">Pacific local time (changes with daylight saving)</option><option value="Etc/GMT+8">PST fixed UTC−8</option><option value="UTC">UTC</option></select></label></div><label>Approved quality sample<select name="approved_video_id"></select></label><label style="display:flex;flex-direction:row;gap:8px"><input name="schedule_requested" type="checkbox" style="width:auto">Request unattended generation and publishing after services are connected</label><p class="help">Not scheduled. Audio, avatar lip-sync, video assembly and the automation runner must be connected before unattended publishing can run.</p></details><div class="row"><button type="submit">Save workflow</button><button type="button" class="secondary" id="workflow-start">Start this story</button></div><p role="status" id="workflow-save-status"></p></form><section class="panel"><h3>Workflow</h3><p>Research → review 10 scenes → scene audio → avatar video → approve sample → YouTube</p><p class="help">10 items in 1–2 minutes gives each item about 6–12 seconds. Longer narration needs more time.</p></section>';
-  const form=q('#workflow-form');form.elements.avatar_id.innerHTML=options(images(),w.avatar_id);form.elements.approved_video_id.innerHTML=options(videos(),w.approved_video_id);
+  q('#page').innerHTML='<div class="section-head"><h2>'+esc(w.name)+'</h2><button type="button" id="workflow-new" class="secondary">New workflow</button></div><form id="workflow-form" class="form panel"><label>Name<input name="name" required maxlength="160"></label><label>Research / story instructions<textarea name="prompt" rows="4" required></textarea></label><div class="row"><label>News items / scenes<input name="count" type="number" min="1" max="60"></label><label>Total seconds<input name="duration" type="number" min="10" max="1800"></label></div><div><button type="button" class="secondary" id="workflow-avatar-picker">Avatar from Image Library</button><p id="workflow-avatar-summary" class="help"></p></div><label>Voice / language<input name="voice" placeholder="English news presenter"></label><label>YouTube channel<input name="channel" placeholder="Channel URL or ID"></label><details><summary>Schedule and automation</summary><div class="row"><label>Daily at<input name="time" type="time"></label><label>Timezone<select name="timezone"><option value="America/Los_Angeles">Pacific local time (changes with daylight saving)</option><option value="Etc/GMT+8">PST fixed UTC−8</option><option value="UTC">UTC</option></select></label></div><label>Approved quality sample<select name="approved_video_id"></select></label><label style="display:flex;flex-direction:row;gap:8px"><input name="schedule_requested" type="checkbox" style="width:auto">Request unattended generation and publishing after services are connected</label><p class="help">Not scheduled. Audio, avatar lip-sync, video assembly and the automation runner must be connected before unattended publishing can run.</p></details><div class="row"><button type="submit">Save workflow</button><button type="button" class="secondary" id="workflow-start">Start this story</button></div><p role="status" id="workflow-save-status"></p></form><section class="panel"><h3>Workflow</h3><p>Research → review 10 scenes → scene audio → avatar video → approve sample → YouTube</p><p class="help">10 items in 1–2 minutes gives each item about 6–12 seconds. Longer narration needs more time.</p></section>';
+  let avatarIds=[...new Set(Array.isArray(w.avatar_ids)?w.avatar_ids:[w.avatar_id].filter(Boolean))];
+  const form=q('#workflow-form');form.elements.approved_video_id.innerHTML=options(videos(),w.approved_video_id);
   for(const [name,value]of Object.entries(w))if(form.elements[name]){if(form.elements[name].type==='checkbox')form.elements[name].checked=!!value;else form.elements[name].value=value;}
-  const data=()=>({...w,...Object.fromEntries(new FormData(form)),count:+form.elements.count.value,duration:+form.elements.duration.value,schedule_requested:form.elements.schedule_requested.checked});
+  const data=()=>({...w,...Object.fromEntries(new FormData(form)),avatar_ids:[...avatarIds],avatar_id:avatarIds[0]||'',count:+form.elements.count.value,duration:+form.elements.duration.value,schedule_requested:form.elements.schedule_requested.checked});
   form.oninput=()=>{localSave(data());q('#workflow-save-status').textContent='Draft saved in this browser. Not scheduled.';};
+  const avatarSummary=()=>{q('#workflow-avatar-summary').textContent=avatarIds.length?avatarIds.length+' selected · '+avatarIds.map(id=>images().find(a=>a.id===id)?.title||'Unavailable image').join(', '):'No images selected';};avatarSummary();
+  q('#workflow-avatar-picker').onclick=()=>pickAvatars(avatarIds,ids=>{avatarIds=ids;avatarSummary();form.oninput();});
   form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;try{
    const value=data();localSave(value);
    if(!state.config.workflows?.available)throw Error('Workflow draft saved in this browser. Workspace saving requires the workflow backend update; no schedule is running.');
@@ -29,6 +32,41 @@
    draft={title:value.name,story:value.prompt,scenes:[],defaultSeconds:value.duration/value.count,workflow:value};persistDraft();navigate('board');
   }catch(error){notice(error.message,true);}finally{button.disabled=false;}};
  }
+
+ function pickAvatars(selected,onSelect){
+  q('#workflow-avatar-dialog')?.remove();
+  const dialog=document.createElement('dialog');dialog.id='workflow-avatar-dialog';dialog.setAttribute('aria-label','Choose avatar images');
+  dialog.style.cssText='width:min(900px,92vw);max-height:85vh;overflow:auto';
+  dialog.innerHTML='<div class="form"><div class="section-head"><h2>Image Library</h2><button type="button" class="secondary" data-cancel>×</button></div><p>Select one or more images.</p><div data-tree></div><div class="row"><button type="button" data-apply>Use selected images</button><button type="button" class="secondary" data-cancel>Cancel</button><span data-count role="status"></span></div></div>';
+  document.body.append(dialog);
+  const available=images(),chosen=new Set(selected.filter(id=>available.some(a=>a.id===id)));
+  const folders=state.records.filter(r=>r.kind==='image_folder'&&!r.deleted).sort((a,b)=>a.created-b.created||a.id.localeCompare(b.id));
+  const byName=new Map(folders.map(f=>[f.name,f])),parent=f=>byName.get(f.name.split(' / ').slice(0,-1).join(' / '));
+  const links=state.records.filter(r=>r.kind==='library_item'&&!r.deleted),inputs=[];
+  const count=()=>{dialog.querySelector('[data-count]').textContent=chosen.size+' selected';for(const input of inputs)input.checked=chosen.has(input.value);};
+  const addImages=(items,body)=>{const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px';body.append(grid);
+   for(const asset of items.sort((a,b)=>a.created-b.created)){
+    const label=document.createElement('label');label.style.cssText='display:flex;flex-direction:column;gap:6px;cursor:pointer;padding:8px;background:#38305e;border-radius:8px';
+    const input=document.createElement('input');input.type='checkbox';input.value=asset.id;input.style.width='auto';input.setAttribute('aria-label',asset.title||'Untitled image');inputs.push(input);
+    const thumb=document.createElement('img');thumb.src=media(asset);thumb.alt='';thumb.loading='lazy';thumb.style.cssText='width:100%;height:120px;object-fit:contain';
+    const title=document.createElement('span');title.textContent=asset.title||'Untitled image';
+    input.onchange=()=>{input.checked?chosen.add(asset.id):chosen.delete(asset.id);count();};label.append(input,thumb,title);grid.append(label);
+   }
+  };
+  const append=(folder,container)=>{const group=document.createElement('details');group.className='workspace-library';group.open=true;const summary=document.createElement('summary');summary.textContent=parent(folder)?folder.name.split(' / ').at(-1):folder.name;group.append(summary);
+   const body=document.createElement('div');body.className='workspace-library-content';group.append(body);
+   for(const child of folders.filter(f=>parent(f)?.id===folder.id))append(child,body);
+   const ids=new Set(links.filter(l=>l.folder_id===folder.id).map(l=>l.asset_id));addImages(available.filter(a=>ids.has(a.id)),body);container.append(group);
+  };
+  const tree=dialog.querySelector('[data-tree]');for(const f of folders.filter(f=>!parent(f)))append(f,tree);
+  const labeled=new Set(links.filter(l=>folders.some(f=>f.id===l.folder_id)).map(l=>l.asset_id)),unlabeled=available.filter(a=>!labeled.has(a.id));
+  if(unlabeled.length){const heading=document.createElement('h3');heading.textContent='Unlabelled images';tree.append(heading);addImages(unlabeled,tree);}
+  if(!available.length)tree.textContent='No images in your library yet.';
+  dialog.querySelectorAll('[data-cancel]').forEach(b=>{b.setAttribute('aria-label',b.textContent==='×'?'Close image library':'Cancel');b.onclick=()=>dialog.close();});
+  dialog.querySelector('[data-apply]').onclick=()=>{onSelect([...chosen]);dialog.close();};
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});count();dialog.showModal();
+ }
+
  function nav(){
   const root=q('#workspace-library-group>.workspace-library-content');if(!root)return;
   let group=q('#workflow-library');if(!group){group=document.createElement('details');group.id='workflow-library';group.className='workspace-library';group.style.order='0';group.innerHTML='<summary><span class="library-symbol"></span><span>Workflow Library</span></summary><div class="workspace-library-content"></div>';root.prepend(group);group.querySelector('summary').addEventListener('click',()=>{if(!group.open)show();});}
