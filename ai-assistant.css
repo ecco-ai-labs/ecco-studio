@@ -34,3 +34,7 @@ body.workspace-entry-mode #connection-indicators{display:none!important}
 #connections [data-ai-disconnect]{margin-left:auto;display:block}
 
 #connection-dialog > .section-head > h2{font-size:18px;color:var(--accent,#ffdc24)}
+
+#connection-panel-menu>summary{min-height:26px;padding:0 4px;justify-content:center}
+#connection-panel-menu{margin-left:2px}
+[data-category="Account"] [data-category="Billing"]>.workspace-menu-items{position:static;box-shadow:none;border:0;min-width:0}
