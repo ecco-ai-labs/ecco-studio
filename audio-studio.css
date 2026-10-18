@@ -28,3 +28,8 @@
 #audio-voice-preview-dialog{width:min(560px,calc(100vw - 32px))}
 #audio-voice-preview-dialog textarea{min-height:100px}
 #audio-voice-preview-dialog audio{width:100%}
+
+/* Hide the empty review placeholder once a recording exists. */
+.audio-studio [hidden]{display:none!important}
+#audio-review-results{min-width:0}
+#audio-review-results #audio-gallery{grid-template-columns:minmax(0,1fr)}
