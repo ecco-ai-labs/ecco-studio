@@ -59,7 +59,7 @@
   const next=signature();if(next===treeSignature)return;treeSignature=next;
   const body=library.querySelector('.workspace-library-content');body.replaceChildren();
   const open=id=>{selected=id;navigate('audio-library');};
-  const all=document.createElement('button');all.type='button';all.className='tree-folder';all.textContent='All audio';all.classList.toggle('selected',selected==='all'&&page==='audio-library');all.onclick=()=>open('all');body.append(all);
+  const all=document.createElement('button');all.type='button';all.className='tree-folder';all.textContent='All Audio';all.classList.toggle('selected',selected==='all'&&page==='audio-library');all.onclick=()=>open('all');body.append(all);
   const list=folders(),byName=new Map(list.map(f=>[f.name,f])),parentOf=f=>byName.get(f.name.split(' / ').slice(0,-1).join(' / '));
   function append(folder,container){
    const group=document.createElement('div');group.className='tree-label-group';const row=document.createElement('div');row.className='tree-branch-row';const children=document.createElement('div');children.className='tree-branch-children';
