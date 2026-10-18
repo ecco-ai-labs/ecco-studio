@@ -13,12 +13,14 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'migration' / 'legacy'))
 import studio as legacy
 import audio_library
+import audio_jobs
 import openai_assistant
 import scene_planner
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
+    '/api/audio/generate',
     '/api/ai/news/research', '/api/ai/news/storyboard',
     '/api/ai/connect', '/api/ai/settings', '/api/ai/disconnect', '/api/ai/enhance',
     '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
@@ -75,6 +77,9 @@ class Handler(legacy.Handler):
         if not self.authorized(): return
         try:
             if path == '/api/state': return self.send(storage_state())
+            if path == '/api/audio/status': return self.send({'ready': audio_jobs.queue.ready()})
+            if path.startswith('/api/audio/jobs/'):
+                return self.send(audio_jobs.job_status(path.split('/')[-1], vars(legacy)))
             if path == '/api/ai/status': return self.send(openai_assistant.status())
             if path.startswith('/api/media/'):
                 asset = legacy.get(path.split('/')[-1], 'asset')
@@ -126,6 +131,8 @@ class Handler(legacy.Handler):
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
             if path.startswith('/api/ai/'):
                 return self.send(openai_assistant.handle(path, body, vars(legacy)))
+            if path == '/api/audio/generate':
+                return self.send(audio_jobs.generate(body, vars(legacy)))
             if path == '/api/stories/plan':
                 return self.send(scene_planner.plan(body, legacy.Problem))
             audio_routes = {'/api/audio/upload': audio_library.upload,
@@ -149,6 +156,7 @@ def main():
     # Never run legacy.initialize(): it would mark GPU jobs interrupted from this CPU.
     # Never run billing, inference, or automatic external synchronization here.
     legacy.github_token = lambda: None
+    audio_jobs.start(vars(legacy))
     address = os.getenv('ECCO_STORAGE_BIND', '127.0.0.1')
     port = int(os.getenv('ECCO_STORAGE_PORT', '8888'))
     print('Ecco storage service ready; GPU independent; authentication required', flush=True)
