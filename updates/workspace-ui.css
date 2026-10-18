@@ -352,3 +352,10 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .story-type-options input{width:100%;box-sizing:border-box;font-size:12px}
 .story-type-options .row{margin-top:8px;gap:8px}
 .story-type-options [hidden],.story-type-dropdown:not([open])>.story-type-options{display:none!important}
+
+/* Shared field-label color for Tell Your Story. */
+#page.story-journey-fields label,
+#page.story-journey-fields .ai-prompt-label{color:var(--accent,#ffdc24)!important}
+#page.story-journey-fields label input,
+#page.story-journey-fields label textarea,
+#page.story-journey-fields label select{color:var(--text,#eeebf5)}
