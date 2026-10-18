@@ -10,7 +10,3 @@
 #ai-review-dialog details{font-size:12px}#ai-review-dialog textarea{font-size:12px;min-height:120px}
 #ai-review-dialog .ai-questions{color:var(--accent,#ffdc24);white-space:pre-wrap}
 #ai-review-dialog [hidden],#studio-ai-status [hidden],#openai-connection [hidden]{display:none!important}
-
-#studio-ai-status[hidden]{display:none!important}
-.ai-prompt-assist{color:#fff!important}
-.ai-prompt-assist[data-connected=true]{color:var(--accent,#ffdc24)!important}
