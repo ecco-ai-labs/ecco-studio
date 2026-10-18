@@ -15,14 +15,12 @@
   const split=q('#split');if(!split||q('#scene-count-controls'))return;
   q('#page>.intro')?.remove();
   const controls=document.createElement('div');controls.id='scene-count-controls';controls.className='row';
-  controls.innerHTML='<label>Scenes<span class="row"><button type="button" class="secondary" data-less aria-label="Remove last scene">−</button><input id="scene-count" type="number" min="0" max="60" step="1" aria-label="Number of scenes" style="width:76px"><button type="button" class="secondary" data-more aria-label="Add scene">+</button></span></label><label>All scenes (seconds)<input id="scene-default-seconds" type="number" min="1" max="30" step="1" style="width:110px"></label>';
+  controls.innerHTML='<label>Scenes<input id="scene-count" type="number" min="0" max="60" step="1" aria-label="Number of scenes" style="width:76px"></label><label>Seconds per Scenes<input id="scene-default-seconds" type="number" min="1" max="30" step="1" style="width:110px"></label>';
   split.parentElement.before(controls);sync();
   const count=q('#scene-count'),seconds=q('#scene-default-seconds');
   seconds.value=Number(draft.defaultSeconds)||3;
   const safely=fn=>{try{fn();}catch(error){notice(error.message,true);sync();}};
   count.onchange=()=>safely(()=>resize(Number(count.value)));
-  controls.querySelector('[data-more]').onclick=()=>safely(()=>resize(draft.scenes.length+1));
-  controls.querySelector('[data-less]').onclick=()=>safely(()=>resize(Math.max(0,draft.scenes.length-1)));
   q('#add-scene').hidden=true;
   seconds.onchange=()=>safely(()=>{
    const value=Number(seconds.value);if(!Number.isFinite(value)||value<1||value>30)throw Error('Choose a duration from 1 to 30 seconds.');
@@ -34,14 +32,14 @@
   q('#page').append(toolbar);toolbar.querySelector('div').append(split);
   const improve=document.createElement('button');improve.type='button';improve.className='secondary';improve.textContent='Improve with AI';toolbar.querySelector('div').append(improve);
   let selectedField=q('#story-text');
-  const selectField=element=>{
+  const selectField=(element,target=element)=>{
    q('#page').querySelectorAll('.ai-selected-field').forEach(el=>el.classList.remove('ai-selected-field'));
-   selectedField=element;const target=element||controls;target.classList.add('ai-selected-field');
+   selectedField=element;target?.classList.add('ai-selected-field');
   };
   selectField(selectedField);
   q('#page').addEventListener('focusin',event=>{
    if(event.target.matches('#story-text,#board-title,#scenes textarea,#scenes input[data-subject-field]'))selectField(event.target);
-   else if(controls.contains(event.target))selectField(null);
+   else if(controls.contains(event.target))selectField(null,event.target);
   });
   improve.onclick=()=>{toolbar.open=false;if(selectedField?.isConnected)return window.EccoAI.improveField(selectedField);notice('Select a text field to improve.',true);};
   split.onclick=async()=>{
@@ -49,7 +47,7 @@
    if(selectedField?.isConnected)return window.EccoAI.generateField(selectedField);
    const count=Number(q('#scene-count').value),story=draft.story.trim(),target=activeStory;
    if(!story)return notice('Add your selected story text first.',true);
-   if(count<1)return notice('Choose at least one scene using the + counter.',true);
+   if(count<1)return notice('Choose at least one scene.',true);
    if(!state.config.ai_story_planner?.ready)return window.EccoAI?window.EccoAI.connections():notice('Connect to OpenAI and enable AI across Studio in Connections & Storage.',true);
    if(draft.scenes.some(scene=>scene.narration||scene.image_id)&&!confirm('Replace the scene draft with an AI adaptation? Saved revisions remain available.'))return;
    const snapshot=JSON.stringify(draft);split.disabled=true;split.textContent='Planning scenes…';
@@ -72,4 +70,5 @@
  }
  new MutationObserver(mount).observe(q('#page'),{childList:true,subtree:true});mount();
 })();
+
 
