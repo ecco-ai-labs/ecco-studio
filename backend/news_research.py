@@ -21,7 +21,7 @@ def request(config, payload, parse_json=True):
     if not ai.REQUEST_SLOTS.acquire(blocking=False):
         raise ai.AssistantError('AI is busy. Please try again shortly.', 429)
     try:
-        result = ai._request(config['api_key'], {'model': config['model'], 'store': False, 'max_output_tokens': 16000, **payload})
+        result = ai._request(config['api_key'], {'model': config['model'], 'store': False, 'reasoning': {'effort': 'low'}, 'max_output_tokens': 16000, **payload})
         raw = ai._output(result).strip()
         if not parse_json: return raw, result
         if raw.startswith('```'): raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
