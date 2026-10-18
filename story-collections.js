@@ -25,7 +25,7 @@
   const list=q('#collection-titles'),titles=stories().filter(story=>(data.members[story.id]||'')===selected);
   for(const story of titles){const row=document.createElement('div');row.className='row';const open=document.createElement('button');open.type='button';open.className='secondary';open.textContent=titleName(story);open.onclick=()=>selectTitle(story.id);const move=document.createElement('select');move.setAttribute('aria-label','Story for '+story.title);options(move,data.members[story.id],'Unassigned');move.onchange=()=>{assign(story.id,move.value);show();};row.append(open,move);list.append(row);}
   if(!titles.length)list.textContent='No Story Titles here yet.';
-  q('#collection-new-title').onclick=()=>{localStorage.removeItem('ecco-new-story-draft');navigate('story-setup');};
+  q('#collection-new-title').onclick=()=>{persistDraft();activeStory='';localStorage.setItem('ecco-active-story','');localStorage.removeItem('ecco-new-story-draft');navigate('story-setup');};
  }
  function mount(){
   const form=q('#story-setup-form');if(form&&!form.elements.collection_id){const label=document.createElement('label');label.textContent='Story';const picker=document.createElement('select');picker.name='collection_id';label.append(picker);form.prepend(label);let saved={};try{saved=JSON.parse(localStorage.getItem(form.dataset.draftKey)||'{}');}catch{}options(picker,saved.collection_id||selected);picker.required=true;}
@@ -35,7 +35,7 @@
    const current=read(),collection=current.members[activeStory]||'';options(parent,collection,'Unassigned');
    const update=()=>{const membership=read().members;source.replaceChildren(new Option('Choose a Story Title',''));for(const story of stories().filter(s=>(membership[s.id]||'')===parent.value))source.add(new Option(titleName(story),story.id));source.value=activeStory;};update();
    parent.onchange=()=>{selected=parent.value;localStorage.setItem('ecco-selected-collection',selected);update();const first=source.options[1];if(first)selectTitle(first.value);else show();};
-   source.onchange=()=>{if(source.value)selectTitle(source.value);};
+   source.onchange=()=>selectTitle(source.value);
   }
  }
  window.EccoStoryCollections={assign,show};
