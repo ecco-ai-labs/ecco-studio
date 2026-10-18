@@ -29,8 +29,10 @@
    draft.defaultSeconds=value;draft.scenes.forEach(scene=>scene.seconds=value);persistDraft();renderScenes();
   });
   split.textContent='Generate with AI';split.className='secondary';
-  const toolbar=document.createElement('div');toolbar.className='row';toolbar.id='storyboard-ai-toolbar';toolbar.style.cssText='justify-content:flex-end;margin-bottom:12px';
-  q('#page .stack').before(toolbar);toolbar.append(split);
+  const toolbar=document.createElement('details');toolbar.id='storyboard-ai-toolbar';toolbar.className='storyboard-ai-floating';
+  toolbar.innerHTML='<summary aria-label="AI assistance">AI</summary><div class="storyboard-ai-actions"></div>';
+  q('#page').append(toolbar);toolbar.querySelector('div').append(split);
+  const improve=document.createElement('button');improve.type='button';improve.className='secondary';improve.textContent='Improve with AI';toolbar.querySelector('div').append(improve);
   let selectedField=q('#story-text');
   const selectField=element=>{
    q('#page').querySelectorAll('.ai-selected-field').forEach(el=>el.classList.remove('ai-selected-field'));
@@ -41,7 +43,9 @@
    if(event.target.matches('#story-text,#board-title,#scenes textarea,#scenes input[data-subject-field]'))selectField(event.target);
    else if(controls.contains(event.target))selectField(null);
   });
+  improve.onclick=()=>{toolbar.open=false;if(selectedField?.isConnected)return window.EccoAI.improveField(selectedField);notice('Select a text field to improve.',true);};
   split.onclick=async()=>{
+   toolbar.open=false;
    if(selectedField?.isConnected)return window.EccoAI.generateField(selectedField);
    const count=Number(q('#scene-count').value),story=draft.story.trim(),target=activeStory;
    if(!story)return notice('Add your selected story text first.',true);
@@ -58,12 +62,13 @@
    }catch(error){notice(error.message,true);}
    finally{split.disabled=false;split.textContent='Generate with AI';}
   };
-  q('#save-board').onclick=()=>action(async()=>{
-   if(!draft.scenes.length)throw Error('Add at least one scene before saving a storyboard revision.');
-   const missing=draft.scenes.map((s,i)=>!approvedImages().some(a=>a.id===s.image_id)?i+1:null).filter(Boolean);
-   if(missing.length)throw Error('Your draft is saved in this browser. Choose an approved image for scene'+(missing.length>1?'s ':' ')+missing.join(', ')+' before saving a render-ready revision.');
-   savedBoard=await api('boards',{...draft,story_id:activeStory});notice('Storyboard revision saved.');
-  });
+  const save=q('#save-board');save.textContent='Save & Continue';save.classList.add('storyboard-save-continue');
+  save.onclick=()=>{
+   try{
+    localStorage.setItem(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft',JSON.stringify(draft));
+    savedBoard=null;navigate('images');
+   }catch(error){notice('Could not save the storyboard draft: '+error.message,true);}
+  };
  }
  new MutationObserver(mount).observe(q('#page'),{childList:true,subtree:true});mount();
 })();
