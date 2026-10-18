@@ -155,8 +155,8 @@
   const isConnected=typeof gpuConnected==='function'&&gpuConnected();
   const text=!isConnected?'Accelerator not connected':fresh&&names.length?names.join(' + ')+' · Connected':names.length?names.join(' + ')+' · Connection unverified':'Accelerator · Unverified';
   let badge=q('#connected-accelerator');const header=q('main > header .header-right');
-  if(!badge&&header){badge=document.createElement('button');badge.type='button';badge.id='connected-accelerator';badge.className='badge';badge.onclick=()=>connectGPU('accelerator-status');header.prepend(badge);}
-  if(badge){badge.classList.toggle('accelerator-connected',Boolean(isConnected&&fresh&&names.length));badge.textContent=text;badge.title=!isConnected?'Connect an accelerator':fresh&&names.length?'Accelerator connected and verified':'Accelerator connection is unverified';}
+  if(!badge&&header){badge=document.createElement('span');badge.id='connected-accelerator';badge.className='badge';badge.setAttribute('role','img');header.prepend(badge);}
+  if(badge){badge.classList.toggle('accelerator-connected',Boolean(isConnected&&fresh&&names.length));if(!badge.querySelector('svg'))badge.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></svg>';badge.setAttribute('aria-label',isConnected&&fresh&&names.length?'GPU connected':'GPU not connected');}
   const form=q('#video-form');let status=q('#video-accelerator');
   if(form&&!status){status=document.createElement('p');status.id='video-accelerator';status.className='help';status.setAttribute('role','status');form.prepend(status);}
   if(status)status.textContent=text;
@@ -593,8 +593,8 @@
 
 /* Accelerator color reflects its actual connection state. */
 (()=>{const style=document.createElement('style');style.textContent=`
-#connected-accelerator{background:transparent!important;color:#eeebf5!important;border:1px solid transparent;box-shadow:none}
-#connected-accelerator.accelerator-connected::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent,#ffdc24);margin-right:7px;vertical-align:middle}
+#connected-accelerator{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;background:transparent!important;color:#fff!important;border:0;box-shadow:none;cursor:default;flex:none}
+#connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
 
