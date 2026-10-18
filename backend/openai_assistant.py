@@ -195,8 +195,10 @@ def enhance(body, env):
     stage = body.get('stage')
     if stage not in STAGES: raise AssistantError('Unknown AI production step.')
     fields = _fields(body)
+    mode = body.get('mode', 'improve')
+    if mode not in ('improve', 'generate'): raise AssistantError('Choose Generate or Improve.')
     context, images = _context(body, env)
-    user = {'stage': stage, 'review_only': body.get('review_only') is True, 'fields': fields, 'context': context}
+    user = {'stage': stage, 'mode': mode, 'review_only': body.get('review_only') is True, 'fields': fields, 'context': context}
     if len(json.dumps(user)) > 180000: raise AssistantError('Review this production step in smaller sections.', 413)
     schema = {'type': 'object', 'additionalProperties': False,
               'properties': {'revisions': {'type': 'array', 'items': {'type': 'object', 'additionalProperties': False,
@@ -205,7 +207,10 @@ def enhance(body, env):
                   'notes': {'type': 'array', 'items': {'type': 'string'}},
                   'questions': {'type': 'array', 'items': {'type': 'string'}}},
               'required': ['revisions', 'notes', 'questions']}
-    payload = {'model': config['model'], 'instructions': INSTRUCTIONS, 'store': False,
+    instructions = INSTRUCTIONS
+    if mode == 'generate':
+        instructions += '''\nThe user explicitly chose Generate with AI. Create ready-to-use content for the supplied field from their brief, selected references and controls. For image and video fields write a generation prompt; for audio fields write only speakable dialogue or narration. If the brief is empty, use the selected references and saved story. You may add ordinary creative detail consistent with that context, but never invent reference IDs, real-person identities or model capabilities. Preserve requested language and attributes. If no usable brief or context exists, ask one concise question. Return content for only the supplied field.'''
+    payload = {'model': config['model'], 'instructions': instructions, 'store': False,
                'input': [{'role': 'user', 'content': [{'type': 'input_text', 'text': json.dumps(user, ensure_ascii=False)}, *images]}],
                'reasoning': {'effort': 'low'}, 'max_output_tokens': 16000,
                'text': {'format': {'type': 'json_schema', 'name': 'ecco_prompt_review', 'strict': True, 'schema': schema}}}
@@ -237,3 +242,4 @@ def handle(path, body, env):
     if path == '/api/ai/disconnect': return disconnect(body)
     if path == '/api/ai/enhance': return enhance(body, env)
     raise AssistantError('Unknown AI action.', 404)
+

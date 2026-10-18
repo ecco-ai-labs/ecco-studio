@@ -8,6 +8,7 @@
   'story-setup-form':['story','textarea[name="summary"]'],
   'new-story-form':['story','textarea[name="summary"]'],
   'director-form':['storyboard','textarea[name="story"]'],
+  'video-form':['video','textarea[name="prompt"]'],
   'image-form':['image','textarea[name="prompt"],input[name="negative"]'],
   'edit-image-form':['image','textarea[name="prompt"]'],
   'compose-characters':['image','textarea[name="prompt"]'],
@@ -77,7 +78,8 @@
   return context;
  }
  function referencesFor(scope,context){
-  const references=[scope.querySelector('#studio-reference-image')?.value];
+  const shared=window.EccoGeneration?.aiContext(scope);
+  const references=shared?[...shared.reference_ids]:[scope.querySelector('#studio-reference-image')?.value];
   if(scope.id==='image-form'&&refinementSource)references.push(refinementSource.id);
   for(const scene of context.scenes||[])if(scene.image_id&&!references.includes(scene.image_id))references.push(scene.image_id);
   const characterIds=[...scope.querySelectorAll('[name=character_ids]:checked')].map(x=>x.value);
@@ -100,9 +102,11 @@
   return label?[...label.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join(' ').trim()||'Prompt':'Prompt';
  }
  function snapshotFor(binding){
-  const context=contextFor(binding.scope,binding.stage);
+  const shared=window.EccoGeneration?.aiContext(binding.scope);
+  const context={...contextFor(binding.scope,binding.stage),...shared?.context};
   // Keep the target field's role clear, especially negative prompts and individual dialogue lines.
   context.instructions=binding.generateField?'Generate content for only the selected field: '+binding.label+'. Use the current story title and script as context. Return only the requested field content. Do not replace other fields.':binding.generateStory?'Generate a complete story summary from the instructions in this field. Follow the supplied title and genre. Return the story itself, not a rewritten prompt. Editable field: '+binding.label:'Editable field: '+binding.label;
+  if(shared)context.instructions+=' '+shared.context.instructions;
   if(binding.scope.id==='image-form')context.summary=binding.scope.querySelector('[name="prompt"]')?.value||'';
   if(binding.scope.id==='workflow-form'){
    context.title=binding.scope.querySelector('[name="name"]')?.value||'';
@@ -122,15 +126,15 @@
   if(!element.value.trim()&&!binding.generateField){element.focus();notice('Enter an idea or prompt first, then choose Improve with AI.',true);return;}
   const details=snapshotFor(binding),review={...binding,original:element.value,version:connectionVersion,story:activeStory,snapshot:JSON.stringify(details),maxLength:element.maxLength>0?element.maxLength:100000,applied:false};
   const fieldId=('field_'+(element.name||element.dataset.field||element.dataset.dfield||element.id||'prompt')).replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,100);
-  busy=true;binding.pending=true;showBusy('AI is improving '+binding.label.toLowerCase()+'…');mountPromptControls();
+  busy=true;binding.pending=true;showBusy('AI is '+(binding.generateField?'generating ':'improving ')+binding.label.toLowerCase()+'…');document.dispatchEvent(new CustomEvent('ecco-ai-busy',{detail:{busy:true,generate:!!binding.generateField}}));mountPromptControls();
   try{
-   const result=await rawAPI('ai/enhance',{stage,story_id:['story-setup-form','new-story-form','director-form','workflow-form'].includes(scope.id)?null:activeStory,fields:[{id:fieldId,text:review.original||(binding.generateField?'Generate '+binding.label+' for '+(draft.title||'the selected story'):''),max_length:review.maxLength}],...details,review_only:false});
+   const result=await rawAPI('ai/enhance',{stage,mode:binding.generateField?'generate':'improve',story_id:['story-setup-form','new-story-form','director-form','workflow-form'].includes(scope.id)?null:activeStory,fields:[{id:fieldId,text:review.original||(binding.generateField?'Generate '+binding.label+' for '+(draft.title||'the selected story'):''),max_length:review.maxLength}],...details,review_only:false});
    validReview(review);
    if(!Array.isArray(result.revisions)||result.revisions.length!==1||result.revisions[0].id!==fieldId||typeof result.revisions[0].text!=='string'||result.revisions[0].text.length>review.maxLength)throw Error('AI returned an invalid suggestion. Your original text is unchanged.');
    review.result=result;review.suggestion=result.revisions[0].text;lastReview=review;
    showBusy(result.questions?.length?'AI needs clarification':'AI suggestion ready');reviewDialog();
   }catch(error){showBusy('AI suggestion stopped · your text is unchanged');showError(error);}
-  finally{busy=false;binding.pending=false;mount();}
+  finally{busy=false;binding.pending=false;document.dispatchEvent(new CustomEvent('ecco-ai-busy',{detail:{busy:false}}));mount();}
  }
  function showBusy(message){progressMessage=message;const bar=q('#studio-ai-status');if(bar)bar.querySelector('[data-ai-message]').textContent=message;}
  function reviewDialog(){
@@ -165,6 +169,7 @@
    }
   }
   for(const [element,binding] of current){
+   if(element.closest('[data-generation-studio]'))continue;
    let entry=promptControls.get(element);
    if(!entry){
     const label=fieldName(element),toolbar=document.createElement('span'),labelNode=document.createElement('span'),button=document.createElement('button');
@@ -213,8 +218,9 @@
   if(show&&!bar){bar=document.createElement('div');bar.id='studio-ai-status';bar.innerHTML='<span data-ai-message></span><button type="button" class="small secondary" data-review>View AI review</button>';pageRoot.prepend(bar);bar.querySelector('[data-review]').onclick=reviewDialog;}
   if(bar){bar.hidden=!progressMessage&&!lastReview;bar.dataset.enabled=String(!!connection.enabled);const text=progressMessage,label=bar.querySelector('[data-ai-message]');if(label.textContent!==text)label.textContent=text;bar.querySelector('[data-review]').hidden=!lastReview;}
  }
- window.EccoAI={generateField:element=>{const binding=bindings().get(element);if(!binding)return notice('Select an editable text field first.',true);return improve({...binding,label:promptControls.get(element)?.label||fieldName(element),generateField:true});},connections,open:openKeyDialog,generateStory:form=>{const element=form.elements.summary;return improve({element,scope:form,stage:'story',label:'Story idea / summary',generateStory:true});},get enabled(){return connection.enabled;},refresh:readStatus};
+ window.EccoAI={improveField:element=>{const binding=bindings().get(element);if(!binding)return notice('Select an editable prompt first.',true);return improve({...binding,label:promptControls.get(element)?.label||fieldName(element)});},generateField:element=>{const binding=bindings().get(element);if(!binding)return notice('Select an editable text field first.',true);return improve({...binding,label:promptControls.get(element)?.label||fieldName(element),generateField:true});},connections,open:openKeyDialog,generateStory:form=>{const element=form.elements.summary;return improve({element,scope:form,stage:'story',label:'Story idea / summary',generateStory:true});},get enabled(){return connection.enabled;},refresh:readStatus};
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;setTimeout(()=>{scheduled=false;mount();},0);}).observe(document.body,{childList:true,subtree:true});
  setInterval(()=>{mount();if(q('#connection-dialog')?.open)renderConnection();},2000);
  mount();if(window.EccoStorage?.ready)readStatus().catch(()=>{});
 })();
+

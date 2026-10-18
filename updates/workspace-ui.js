@@ -78,7 +78,7 @@
 
 
  function imageReferencePicker(){
-  const form=q('#image-form'),model=q('#job-model');if(!form||!model||q('#studio-reference-image'))return;
+  const form=q('#image-form'),model=q('#job-model');if(!form||form.dataset.generationStudio||!model||q('#studio-reference-image'))return;
   const saved=new Set(records().filter(r=>r.kind==='library_item'&&!r.deleted).map(r=>r.asset_id));
   const images=records().filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted&&saved.has(r.id));
   const area=document.createElement('div');area.innerHTML='<label>Use image<select id="studio-reference-image"><option value="">None — create a new image</option>'+images.map(a=>'<option value="'+html(a.id)+'">'+html((labelsFor(a.id).map(f=>f.name).join(', ')||'Library')+' / '+(a.title||'Untitled image'))+'</option>').join('')+'</select></label><img class="refine-preview" hidden alt="Selected reference image"><p class="help" data-reference-help hidden></p>';
@@ -158,7 +158,7 @@
   if(!badge&&header){badge=document.createElement('span');badge.id='connected-accelerator';badge.className='badge';badge.setAttribute('role','img');header.prepend(badge);}
   if(badge){badge.classList.toggle('accelerator-connected',Boolean(isConnected&&fresh&&names.length));if(!badge.querySelector('svg'))badge.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></svg>';badge.setAttribute('aria-label',isConnected&&fresh&&names.length?'GPU connected':'GPU not connected');}
   const form=q('#video-form');let status=q('#video-accelerator');
-  if(form&&!status){status=document.createElement('p');status.id='video-accelerator';status.className='help';status.setAttribute('role','status');form.prepend(status);}
+  if(form&&!form.dataset.generationStudio&&!status){status=document.createElement('p');status.id='video-accelerator';status.className='help';status.setAttribute('role','status');form.prepend(status);}
   if(status)status.textContent=text;
  }
  if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
@@ -522,7 +522,7 @@
  }
  function preview(){const form=q('#image-form'),output=q('#image-effective-prompt');if(!form||!output)return;const reference=!!q('#studio-reference-image')?.value;output.value=compose(form.elements.prompt.value,reference,genre(),values());}
  function mount(){
-  const form=q('#image-form');if(!form||q('#image-scene-controls'))return;
+  const form=q('#image-form');if(!form||form.dataset.generationStudio||q('#image-scene-controls'))return;
   const section=document.createElement('fieldset');section.id='image-scene-controls';
   const legend=document.createElement('legend');legend.textContent='Scene controls';section.append(legend);
   const hint=document.createElement('p');hint.className='help';hint.textContent='Leave a box blank to keep the original detail, or leave it unspecified for a new image. Choose a suggestion or type your own.';section.append(hint);
@@ -531,7 +531,7 @@
   const details=document.createElement('details');details.id='image-prompt-preview';const summary=document.createElement('summary');summary.textContent='Instructions sent to the model';const output=document.createElement('textarea');output.id='image-effective-prompt';output.readOnly=true;output.rows=8;output.setAttribute('aria-label','Instructions sent to the model');details.append(summary,output);section.after(details);
   form.addEventListener('input',preview);form.addEventListener('change',preview);form.addEventListener('click',()=>queueMicrotask(preview));preview();
  }
- if(typeof api==='function'){const previous=api;api=async function(path,payload,...rest){if((path==='images'||path==='image-edits')&&payload&&q('#image-form')){const settings=values(),style=genre();payload={...payload,prompt:compose(String(payload.prompt||''),path==='image-edits'||!!payload.source_asset_id,style,settings)};}return previous.call(this,path,payload,...rest);};}
+ if(typeof api==='function'){const previous=api;api=async function(path,payload,...rest){if((path==='images'||path==='image-edits')&&payload&&q('#image-form')&&!q('#image-form').dataset.generationStudio){const settings=values(),style=genre();payload={...payload,prompt:compose(String(payload.prompt||''),path==='image-edits'||!!payload.source_asset_id,style,settings)};}return previous.call(this,path,payload,...rest);};}
  const observer=new MutationObserver(()=>{mount();});observer.observe(q('#page')||document.body,{childList:true,subtree:true});mount();
  document.addEventListener('ecco-reference-change',preview);
  window.EccoImageInstructions={compose};
@@ -564,7 +564,7 @@
 (()=>{
  const expansion=new Map();
  function mount(){
-  const form=document.querySelector('#image-form');if(!form||form.dataset.collapsibleControls)return;
+  const form=document.querySelector('#image-form');if(!form||form.dataset.generationStudio||form.dataset.collapsibleControls)return;
   if(!form.querySelector('#image-scene-controls'))return;
   form.dataset.collapsibleControls='1';
   const children=[...form.children],heading=form.querySelector('h2');
@@ -599,7 +599,7 @@
 (()=>{
  const q=s=>document.querySelector(s),safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let captured={};try{captured=JSON.parse(localStorage.getItem('ecco-job-debug')||'{}');}catch{}let chosen='',signature='';
- const oldApi=api;api=async function(path,payload,...rest){if(!['images','image-edits','videos','render'].includes(path)||!payload)return oldApi.call(this,path,payload,...rest);const submission={prompt:q('#image-form #image-effective-prompt')?.value||payload.prompt||'',model:payload.model||q('#job-model')?.value||'',reference_ids:[payload.asset_id||payload.source_asset_id].filter(Boolean),submitted_at:Date.now()};const result=await oldApi.call(this,path,payload,...rest);if(result?.id){captured[result.id]=submission;const ids=Object.keys(captured);for(const id of ids.slice(0,Math.max(0,ids.length-30)))delete captured[id];try{localStorage.setItem('ecco-job-debug',JSON.stringify(captured));}catch{}}return result;};
+ const oldApi=api;api=async function(path,payload,...rest){if(!['images','image-edits','videos','render'].includes(path)||!payload)return oldApi.call(this,path,payload,...rest);const submission={prompt:q('#image-form #image-effective-prompt')?.value||payload.prompt||'',model:payload.model||q('#job-model')?.value||'',reference_ids:payload.asset_ids||[payload.asset_id||payload.source_asset_id].filter(Boolean),submitted_at:Date.now()};const result=await oldApi.call(this,path,payload,...rest);if(result?.id){captured[result.id]=submission;const ids=Object.keys(captured);for(const id of ids.slice(0,Math.max(0,ids.length-30)))delete captured[id];try{localStorage.setItem('ecco-job-debug',JSON.stringify(captured));}catch{}}return result;};
  function render(){const root=q('#ecco-debug-view');if(!root||root.hidden||typeof state==='undefined'||!state)return;const jobs=state.records.filter(r=>r.kind==='job').sort((a,b)=>b.created-a.created).slice(0,30);if(!jobs.some(j=>j.id===chosen))chosen=jobs[0]?.id||'';const job=jobs.find(j=>j.id===chosen),asset=job&&state.records.find(a=>a.kind==='asset'&&(a.id===job.result||a.job_id===job.id)),input=captured[chosen],refIds=asset?.settings?.reference_ids||input?.reference_ids||[],refs=refIds.map(id=>state.records.find(a=>a.id===id)).filter(Boolean);const sig=JSON.stringify({jobs,chosen,asset,input,refs});if(sig===signature)return;signature=sig;
  root.innerHTML='<label>Inspect job<select id="ecco-debug-job">'+jobs.map(j=>'<option value="'+safe(j.id)+'" '+(j.id===chosen?'selected':'')+'>'+safe(new Date(j.created*1000).toLocaleTimeString()+' · '+j.label+' · '+j.status)+'</option>').join('')+'</select></label>'+(job?'<dl class="debug-facts"><dt>Job ID</dt><dd>'+safe(job.id)+'</dd><dt>Status</dt><dd>'+safe(job.status)+'</dd><dt>Progress</dt><dd>'+safe(job.progress||'—')+'</dd><dt>Model</dt><dd>'+safe(asset?.settings?.model||input?.model||'Not recorded for this job')+'</dd><dt>Elapsed</dt><dd>'+safe(job.seconds===undefined?'—':job.seconds.toFixed(1)+' seconds')+'</dd><dt>Output ID</dt><dd>'+safe(asset?.id||job.result||'No output yet')+'</dd></dl>'+(job.error?'<p class="debug-error">'+safe(job.error)+'</p>':'')+'<h3>Reference image sent</h3>'+(refs.length?refs.map(a=>'<figure><img class="debug-image" src="'+safe(media(a))+'" alt="Reference: '+safe(a.title||a.id)+'"><figcaption>'+safe(a.title||a.id)+' · '+safe(a.id)+'</figcaption></figure>').join(''):'<p class="help">'+(input&&!refIds.length?'No reference image recorded in this submission.':'Reference details unavailable for this job.')+'</p>')+'<h3>Submitted prompt</h3><textarea readonly rows="8" aria-label="Submitted prompt">'+safe(asset?.prompt||input?.prompt||'Prompt not recorded for this older job. New submissions will capture it here.')+'</textarea><h3>Output preview</h3>'+(asset?.media==='image'?'<img class="debug-image" src="'+safe(media(asset))+'" alt="Generated output">':asset?.media==='video'?'<video class="debug-image" src="'+safe(media(asset))+'" controls preload="metadata"></video>':'<p class="help">No output asset available.</p>')+(asset?.settings?'<h3>Recorded generation settings</h3><pre>'+safe(JSON.stringify(asset.settings,null,2))+'</pre>':''):'<p>No generation jobs yet.</p>');q('#ecco-debug-job').onchange=e=>{chosen=e.target.value;signature='';render();};
  }
@@ -613,5 +613,6 @@
 #connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
+
 
 

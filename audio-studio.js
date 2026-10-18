@@ -35,7 +35,7 @@
  }
  function drawLines(){
   q('#audio-lines').innerHTML=draft.lines.map(lineHTML).join('');
-  q('#audio-lines').oninput=e=>{
+  q('#audio-form').oninput=e=>{
    const field=e.target.dataset.field,root=e.target.closest('[data-line]');if(!field||!root)return;
    const line=draft.lines[Number(root.dataset.line)];line[field]=e.target.value;
    if(field==='language'){
@@ -46,6 +46,7 @@
   };
   q('#audio-lines').onclick=e=>{const button=e.target.closest('[data-remove-line]');if(!button)return;draft.lines.splice(Number(button.dataset.removeLine),1);save();drawLines();};
   q('#add-audio-line').disabled=draft.lines.length>=20;
+  window.EccoGeneration?.audioLines(q('#audio-form'));
  }
  const audioAssets=()=>recordings.filter(a=>!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
  function audioCard(a){return `<article class="card audio-card"><div class="card-body"><span class="badge">${esc(a.stage||'dev')}</span><h3>${esc(a.title||'Audio recording')}</h3><audio controls preload="metadata" data-audio-id="${esc(a.id)}" aria-label="${esc(a.title||'Audio recording')}"></audio><p class="help">Indic-Mio · WAV${a.duration?' · '+esc(a.duration)+' sec':''}</p><details><summary>Script</summary><p class="audio-transcript" dir="auto">${esc(a.prompt||'')}</p></details><div class="actions"><button type="button" class="small" data-download-audio="${esc(a.id)}">Download WAV</button></div></div></article>`;}
@@ -86,8 +87,9 @@
   const list=audioAssets(),next=JSON.stringify(list);
   if(next!==signature){
    signature=next;
+   const empty=q('[data-audio-empty]');if(empty)empty.hidden=!!list.length;
    q('#audio-gallery')?.remove();
-   if(list.length){q('.audio-workspace').insertAdjacentHTML('beforeend',`<div class="cards" id="audio-gallery">${list.map(audioCard).join('')}</div>`);hydrateAudio();}
+   if(list.length){(q('#audio-review-results')||q('.audio-workspace')).insertAdjacentHTML('beforeend',`<div class="cards" id="audio-gallery">${list.map(audioCard).join('')}</div>`);hydrateAudio();}
   }
 
  }
@@ -102,12 +104,14 @@
    if(submitting)return;
    if(!gpuConnected()){connectGPU('generate-audio');return;}
    if(!serviceReady()){notice('GPU connected. Audio generation still needs the independent audio service and Indic-Mio worker to be configured. Your script is saved in this browser.',true);return;}
+   if(draft.lines.some(line=>!line.text.trim())){notice('Add spoken text for every dialogue line.',true);q('[data-open-prompt]')?.click();return;}
    if(draft.lines.reduce((n,line)=>n+line.text.length,0)>4000){notice('Keep the complete script within 4,000 characters.',true);return;}
    submitting=true;update();
    try{const job=await service.generate({...draft,model:draft.model,story_id:activeStory});localStorage.setItem('ecco-audio-job:'+activeStory,job.id);notice('Audio queued. You can keep working while it generates.');await poll();}
    catch(error){notice(error.message,true);}
    finally{submitting=false;update();}
   };
+  if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Review audio</h2></div><div class="empty" data-audio-empty><strong>Your audio starts here</strong><p class="help">Add a script and generate audio.</p></div>';q('.audio-workspace').append(review);}
   update();poll();
  }
  const oldNavigate=navigate;
@@ -126,3 +130,4 @@
  // Inherit the existing production-menu styling and place Audio after Video.
  if(video)video.after(button);else (production||nav).append(button);
 })();
+

@@ -382,7 +382,7 @@ def trash_asset(body):
 def qwen_edit_ready():
     return qwen_ready() and (COMFY_ROOT/'models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors').is_file()
 
-def edit_graph(prompt,files,ident,seed=42):
+def edit_graph(prompt,files,ident,seed=42,steps=40,cfg=3):
     g={'1':node('UNETLoader',unet_name='qwen_image_edit_2511_fp8mixed.safetensors',weight_dtype='default'),
        '2':node('ModelSamplingAuraFlow',model=['1',0],shift=3.1),
        '3':node('CFGNorm',model=['2',0],strength=1.0),
@@ -395,37 +395,47 @@ def edit_graph(prompt,files,ident,seed=42):
               '7':node('TextEncodeQwenImageEditPlus',clip=['4',0],vae=['5',0],prompt='',**refs),
               '8':node('FluxKontextImageScale',image=['20',0]),
               '9':node('VAEEncode',pixels=['8',0],vae=['5',0]),
-              '10':node('KSampler',model=['3',0],positive=['6',0],negative=['7',0],latent_image=['9',0],seed=seed,steps=40,cfg=3,sampler_name='euler',scheduler='simple',denoise=1),
+              '10':node('KSampler',model=['3',0],positive=['6',0],negative=['7',0],latent_image=['9',0],seed=seed,steps=steps,cfg=cfg,sampler_name='euler',scheduler='simple',denoise=1),
               '11':node('VAEDecode',samples=['10',0],vae=['5',0]),
               '12':node('SaveImage',images=['11',0],filename_prefix='ecco-studio/'+ident)})
     return g
 
-def edited_asset(jid,source_ids,prompt,sid,seed=42,extra=None):
+def edited_asset(jid,source_ids,prompt,sid,seed=42,extra=None,steps=40,cfg=3):
     aid=uuid.uuid4().hex;targets=[]
     try:
         for i,source in enumerate(source_ids):
             a=get(source,'asset')
             if a.get('deleted'):raise Problem('A reference image is in Trash')
             target=COMFY_ROOT/'input'/f'ecco-edit-{aid}-{i}.png';shutil.copyfile(asset_path(a),target);targets.append(target)
-        graph=edit_graph(prompt,[p.name for p in targets],aid,seed)
+        graph=edit_graph(prompt,[p.name for p in targets],aid,seed,steps,cfg)
         output=comfy_execute(graph,jid)[0];rel=f'image-dev/{aid}.png';shutil.copyfile(output,DATA/rel)
-        return save(dict(id=aid,kind='asset',created=time.time(),media='image',stage='dev',story_id=sid,path=rel,prompt=prompt,settings={'model':'qwen-image-edit-2511','steps':40,'cfg':3,'seed':seed,'reference_ids':source_ids},job_id=jid,sync='pending',workflow=graph,**(extra or {})))
+        return save(dict(id=aid,kind='asset',created=time.time(),media='image',stage='dev',story_id=sid,path=rel,prompt=prompt,settings={'model':'qwen-image-edit-2511','steps':steps,'cfg':cfg,'seed':seed,'reference_ids':source_ids},job_id=jid,sync='pending',workflow=graph,**(extra or {})))
     finally:
         for target in targets:target.unlink(missing_ok=True)
 
 def create_edit(body):
     if not qwen_edit_ready():raise Problem('Instruction-edit model is not installed. Additional persistent model storage is required.',503)
     sid=story_id(body);prompt=text(body.get('prompt'))
-    if body.get('character_ids'):
+    supplied=body.get('asset_ids')
+    if supplied is not None:
+        if body.get('character_ids'):raise Problem('Choose image references or character references, not both')
+        if not isinstance(supplied,list) or not 1<=len(supplied)<=3 or any(not isinstance(x,str) for x in supplied) or len(set(supplied))!=len(supplied):raise Problem('Select one to three distinct reference images')
+        refs=[]
+        for aid in supplied:
+            a=get(aid,'asset')
+            if a.get('media')!='image' or a.get('deleted'):raise Problem('Choose reference images outside Trash')
+            refs.append(a['id'])
+    elif body.get('character_ids'):
         ids=body['character_ids']
         if not isinstance(ids,list) or not 1<=len(ids)<=3:raise Problem('Select one to three characters')
         chars=[get(x,'character') for x in ids];refs=[c['image_ids'][0] for c in chars]
         prompt=' '.join(f'Reference image {i+1} is {c["name"]}: {c["description"]}.' for i,c in enumerate(chars))+' '+prompt
     else:
         a=get(body.get('asset_id',''),'asset')
-        if a.get('media')!='image' or a.get('story_id',LEGACY_STORY)!=sid:raise Problem('Choose an image from this story')
+        if a.get('media')!='image' or a.get('deleted') or a.get('story_id',LEGACY_STORY)!=sid:raise Problem('Choose an image from this story')
         refs=[a['id']]
-    return launch('Instruction edit / compose scene',lambda jid:edited_asset(jid,refs,prompt,sid)['id'])
+    settings={'seed':number(body.get('seed',42),0,2**53-1,True),'steps':number(body.get('steps',40),5,60,True),'cfg':number(body.get('cfg',3),1,15)}
+    return launch('Instruction edit / compose scene',lambda jid:edited_asset(jid,refs,prompt,sid,**settings)['id'])
 
 def create_character_sheet(body):
     if not qwen_edit_ready():raise Problem('Character sheets require the instruction-edit model and additional persistent storage.',503)
@@ -664,7 +674,7 @@ def runtime_status():
 
 def state():
     channel_file=DATA/'youtube-channel.json'
-    return {'csrf':CSRF,'records':records(),'config':{'video_gpus':__import__('gpu_dispatch').options(),'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),'session_cost':session_cost(),'billing':billing_status(),'model_settings_version':1,'models_ready':{'qwen-story':__import__('story_director').planner_ready(),'qwen-image-2512':qwen_ready(),'qwen-image-edit-2511':qwen_edit_ready(),'sdxl':(COMFY_ROOT/'models/checkpoints/sd_xl_base_1.0.safetensors').is_file(),'wan-5b':wan_ready(),'wan-a14b':wan_a14b_ready(),'preview':bool(shutil.which('ffmpeg'))},'repo':REPO,'channel':'https://www.youtube.com/@EccoAILabs','hourly_rate':RATE,'github_connected':bool(github_token()),'youtube_configured':bool(secret_file('YOUTUBE_CLIENT_SECRET_FILE')),'youtube_channel':json.loads(channel_file.read_text()) if channel_file.exists() else None,'wan_ready':wan_ready(),'ffmpeg':bool(shutil.which('ffmpeg'))}}
+    return {'csrf':CSRF,'records':records(),'config':{'video_gpus':__import__('gpu_dispatch').options(),'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),'session_cost':session_cost(),'billing':billing_status(),'model_settings_version':1,'generation_controls_version':1,'models_ready':{'qwen-story':__import__('story_director').planner_ready(),'qwen-image-2512':qwen_ready(),'qwen-image-edit-2511':qwen_edit_ready(),'sdxl':(COMFY_ROOT/'models/checkpoints/sd_xl_base_1.0.safetensors').is_file(),'wan-5b':wan_ready(),'wan-a14b':wan_a14b_ready(),'preview':bool(shutil.which('ffmpeg'))},'repo':REPO,'channel':'https://www.youtube.com/@EccoAILabs','hourly_rate':RATE,'github_connected':bool(github_token()),'youtube_configured':bool(secret_file('YOUTUBE_CLIENT_SECRET_FILE')),'youtube_channel':json.loads(channel_file.read_text()) if channel_file.exists() else None,'wan_ready':wan_ready(),'ffmpeg':bool(shutil.which('ffmpeg'))}}
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt,*args): pass # OAuth codes must never enter access logs.
@@ -764,3 +774,4 @@ if __name__=='__main__':
     threading.Thread(target=billing_worker,daemon=True).start()
     print('ECCO AI Labs Studio listening on 127.0.0.1:8765 behind authenticated proxy',flush=True)
     ThreadingHTTPServer(('127.0.0.1',8765),Handler).serve_forever()
+

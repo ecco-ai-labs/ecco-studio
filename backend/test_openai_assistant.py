@@ -59,6 +59,15 @@ class AssistantTest(unittest.TestCase):
         self.assertNotIn('PRIVATE', json.dumps(payload)); self.assertNotIn(self.key, json.dumps(payload))
         self.assertFalse(payload['store']); self.assertTrue(payload['text']['format']['strict'])
         self.assertEqual(result['revisions'][0]['id'], 'prompt')
+    def test_generation_is_explicit_and_default_stays_improve(self):
+        self.connect()
+        for mode in ('generate', 'improve'):
+            with patch.object(ai, '_request', return_value=self.result()) as request:
+                ai.enhance({**self.body, 'mode': mode}, self.env)
+            self.assertEqual('explicitly chose Generate' in request.call_args.args[1]['instructions'], mode == 'generate')
+        with patch.object(ai, '_request') as request:
+            with self.assertRaises(ai.AssistantError): ai.enhance({**self.body, 'mode': 'unknown'}, self.env)
+            request.assert_not_called()
     def test_invalid_ids_duplicates_and_oversized_revisions_rejected(self):
         self.connect()
         for revisions in ([{'id':'other','text':'Text'}], [{'id':'prompt','text':'a'},{'id':'prompt','text':'b'}], [{'id':'prompt','text':'x'*2001}], [{'id':'prompt','text':''}]):
@@ -96,3 +105,4 @@ class AssistantTest(unittest.TestCase):
         request.assert_not_called()
 
 if __name__ == '__main__': unittest.main()
+
