@@ -27,8 +27,8 @@
  function connections(){
   const dialog=q('#connection-dialog'),root=q('#connections');
   dialog.querySelector('h2').textContent='Connections';
-  root.innerHTML='<section class="connection"><h3>Workspace storage</h3><p class="help">'+(window.EccoStorage?.ready?'Connected to the independent workspace service.':'Connect workspace storage to save work and configure OpenAI.')+'</p><button type="button" class="secondary small" data-storage>Open workspace storage</button></section><section class="connection" id="openai-connection"><h3>OpenAI</h3><p class="help" data-ai-status>Checking connection…</p><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studio</span></label><p class="help">Refines prompts before saving or generating: story, storyboard, image, audio and video. Selected text and image references are sent to OpenAI. API usage is billed to your OpenAI project.</p><div class="row"><button type="button" class="secondary small" id="connect-openai">Connect to OpenAI</button><button type="button" class="secondary small" data-ai-disconnect hidden>Disconnect OpenAI</button></div></section>';
-  const gpu=document.createElement('section');gpu.className='connection';gpu.innerHTML='<h3>GPU</h3><button type="button" class="secondary small" data-gpu-connect>Connect GPU</button>';root.append(gpu);
+  root.innerHTML='<section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI · OpenAI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><p class="help" data-ai-status>Checking connection…</p><p class="help">Refines your story, image, audio and video prompts. Usage is billed to your OpenAI project.</p><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label><button type="button" class="secondary" data-ai-disconnect hidden>Disconnect</button></section><section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div><p class="help">Save and access your libraries independently of GPU generation.</p></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div><p class="help">Connect an accelerator when you need to generate images, audio or video.</p></section>';
+  const gpu=root.querySelector('#gpu-connection');
   gpu.querySelector('button').onclick=()=>{dialog.close();connectGPU('connections');};
   root.querySelector('[data-storage]').onclick=()=>{dialog.close();window.EccoStorage.open();};
   root.querySelector('#connect-openai').onclick=openKeyDialog;
@@ -46,7 +46,10 @@
   root.querySelector('[data-ai-status]').textContent=connection.connected?'Connected · '+connection.model+(connection.enabled?' · AI enabled across Studio':' · AI disabled'):'Not connected';
   const control=root.querySelector('#enable-studio-ai');control.checked=!!connection.enabled;control.disabled=!connection.connected;
   root.querySelector('[data-ai-disconnect]').hidden=!connection.connected;
-  root.querySelector('#connect-openai').textContent=connection.connected?'Update OpenAI connection':'Connect to OpenAI';
+  const button=root.querySelector('#connect-openai');button.textContent=connection.connected?'Connected':'Connect';button.dataset.connected=String(!!connection.connected);
+  const storage=q('#connections [data-storage]'),gpu=q('#connections [data-gpu-connect]');
+  if(storage){const ready=!!window.EccoStorage?.ready;storage.dataset.connected=String(ready);storage.textContent=ready?'Connected':'Connect';}
+  if(gpu){const ready=!!q('#connected-accelerator')?.classList.contains('accelerator-connected');gpu.dataset.connected=String(ready);gpu.textContent=ready?'Connected':'Connect';}
  }
  function openKeyDialog(){
   if(!window.EccoStorage?.ready){showError('Connect workspace storage first, then return to Connect to OpenAI. No GPU is required.');return;}
@@ -171,6 +174,11 @@
   let storage=q('#studio-storage-indicator');
   if(!storage&&header){storage=document.createElement('span');storage.id='studio-storage-indicator';storage.setAttribute('role','img');storage.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>';header.append(storage);}
   if(storage){if(button&&button.nextElementSibling!==storage)button.after(storage);const connected=!!window.EccoStorage?.ready;storage.dataset.connected=String(connected);storage.setAttribute('aria-label',connected?'Storage connected':'Storage not connected');}
+  if(header&&button&&storage&&accelerator){
+   let panel=q('#connection-indicators');
+   if(!panel){panel=document.createElement('div');panel.id='connection-indicators';panel.setAttribute('role','group');panel.setAttribute('aria-label','Connection status');header.prepend(panel);}
+   for(const icon of [button,storage,accelerator])if(icon.parentElement!==panel)panel.append(icon);
+  }
   for(const id of ['connect-storage','reconnect-gpu']){const extra=document.getElementById(id);if(extra)extra.hidden=true;}
   const pageRoot=q('#page');let bar=q('#studio-ai-status');
   const show=pageRoot&&(Object.keys(forms).some(id=>pageRoot.querySelector('#'+id))||['board','director','characters'].includes(page));
@@ -179,6 +187,6 @@
  }
  window.EccoAI={connections,open:openKeyDialog,get enabled(){return connection.enabled;},refresh:readStatus};
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;setTimeout(()=>{scheduled=false;mount();},0);}).observe(document.body,{childList:true,subtree:true});
- setInterval(mount,2000);
+ setInterval(()=>{mount();if(q('#connection-dialog')?.open)renderConnection();},2000);
  mount();if(window.EccoStorage?.ready)readStatus().catch(()=>{});
 })();
