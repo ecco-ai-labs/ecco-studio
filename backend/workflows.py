@@ -19,9 +19,13 @@ def save(body, g):
     at = str(body.get('time', '05:00'))
     if not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', at):
         raise problem('Choose a valid schedule time.')
-    avatar = body.get('avatar_id', '')
-    if avatar:
-        asset = g['get'](avatar, 'asset')
+    avatars = body.get('avatar_ids', [body['avatar_id']] if body.get('avatar_id') else [])
+    if not isinstance(avatars, list) or any(not isinstance(value, str) or not value for value in avatars):
+        raise problem('Choose valid avatar images.')
+    avatars = list(dict.fromkeys(avatars))
+    avatar = avatars[0] if avatars else ''
+    for avatar_id in avatars:
+        asset = g['get'](avatar_id, 'asset')
         if asset.get('deleted') or asset.get('media') != 'image':
             raise problem('Choose an available avatar image.')
     approved = body.get('approved_video_id', '')
@@ -33,7 +37,7 @@ def save(body, g):
     with g['LOCK']:
         record = g['get'](rid, 'workflow') if rid else g['new']('workflow')
         record.update(name=name, prompt=prompt, count=count, duration=duration,
-                      avatar_id=avatar, voice=str(body.get('voice', ''))[:160],
+                      avatar_id=avatar, avatar_ids=avatars, voice=str(body.get('voice', ''))[:160],
                       channel=str(body.get('channel', ''))[:200], time=at, timezone=zone,
                       approved_video_id=approved, schedule_requested=body.get('schedule_requested') is True,
                       status='blocked', blockers=['Audio generation service not connected',
