@@ -65,7 +65,9 @@ def generate(body, env):
         audio_start=float(body.get('audio_start',0));audio_end=float(body.get('audio_end',duration))
         if not math.isfinite(audio_start) or not math.isfinite(audio_end) or audio_start<0 or audio_end>duration+.01 or audio_end<=audio_start: raise env['Problem']('Invalid audio boundaries.')
         duration=audio_end-audio_start
-        if not 0.2<=duration<=10.01: raise env['Problem']('Choose dialogue between 0.2 and 10 seconds for this shot.')
+        limit=float(body.get('max_clip_seconds',10))
+        if not math.isfinite(limit) or not 1<=limit<=1200: raise env['Problem']('Maximum seconds per clip must be between 1 and 1200.')
+        if not 0.2<=duration<=limit+.01: raise env['Problem']('Dialogue exceeds the selected maximum seconds per clip.')
         resolution = body.get('resolution','832x480')
         if resolution not in ('832x480','1280x720'): raise env['Problem']('Unsupported LongCat resolution.')
         seed = int(body.get('seed',42))
@@ -80,7 +82,7 @@ def generate(body, env):
             subprocess.run(['ffmpeg','-y','-v','error','-ss',str(audio_start),'-i',str(audio_path),'-t',str(duration),'-ac','1','-ar','16000','-f','wav',str(directory/'audio-source')],check=True,timeout=30)
         else:
             shutil.copyfile(audio_path,directory/'audio-source')
-        request = dict(prompt=prompt,pod=pod,resolution=resolution,seed=seed,duration=duration)
+        request = dict(prompt=prompt,pod=pod,resolution=resolution,seed=seed,duration=duration,max_clip_seconds=limit)
         job = dict(id=jid,kind='longcat_job',media='video',model=MODEL,story_id=sid,
                    title='LongCat dialogue shot',label='Video · LongCat',created=time.time(),
                    status='queued',progress='Queued',request=request,submission_hash=signature)
@@ -168,4 +170,5 @@ def worker():
         time.sleep(2)
 
 if __name__=='__main__': worker()
+
 
