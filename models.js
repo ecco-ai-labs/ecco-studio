@@ -7,7 +7,7 @@ const MODEL_CATALOG={
  'preview':{name:'Storyboard preview (no AI motion)',defaults:{}},
  'wan-5b':{name:'Wan 2.2 TI2V 5B',defaults:{resolution:'704x384',steps:20,cfg:5,seed:42},sizes:['704x384','1280x704']},
  'wan-a14b':{name:'Wan 2.2 I2V A14B',defaults:{resolution:'1280x720',steps:20,cfg:3.5,seed:42},sizes:['1280x720']},
- 'longcat-avatar-1.5':{name:'LongCat-Video-Avatar 1.5',pending:true,pendingLabel:'setup pending',statusText:'Model setup pending. Audio-driven video generation is not connected yet.',defaults:{resolution:'1280x720',steps:8,cfg:4,seed:42},sizes:['832x480','1280x720']},
+ 'longcat-avatar-1.5':{name:'LongCat-Video-Avatar 1.5',pending:true,pendingLabel:'storage required',statusText:'Download paused: shared storage quota exceeded. Model files are incomplete; audio-driven inference integration is also pending.',defaults:{resolution:'1280x720',steps:8,cfg:4,seed:42},sizes:['832x480','1280x720']},
  'manual':{name:'Manual story editor (no model)',defaults:{}},
  'qwen-story':{name:'Qwen language model — planned',pending:true,defaults:{temperature:0.7,max_tokens:2048}},
  'silent':{name:'Silent video / script only',defaults:{}},
