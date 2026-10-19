@@ -404,3 +404,14 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 body:not(.workspace-entry-mode) .story-format-options>button{padding:6px 12px!important;min-height:30px!important;font-size:12px!important;border:1px solid transparent!important;border-radius:6px!important;background:transparent!important;color:#d8d3e4!important}
 body:not(.workspace-entry-mode) .story-format-options>button.is-selected{border-color:var(--accent,#ffdc24)!important;color:var(--accent,#ffdc24)!important;background:#39304f!important}
 .story-format-options>button:focus-visible{outline:2px solid var(--accent,#ffdc24);outline-offset:2px}
+
+/* Match Image Library's small, large and list previews. */
+#story-library-list.library-small{grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
+#story-library-list.library-large{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+#story-library-list.library-small .text-library-preview{height:120px;aspect-ratio:auto}
+#story-library-list.library-large .text-library-preview{height:280px;aspect-ratio:auto}
+#story-library-list.library-list{gap:8px}
+#story-library-list.library-list .card{min-height:85px;padding:8px}
+#story-library-list.library-list .text-library-preview{width:72px;height:72px}
+#story-library-list .text-library-preview{color:var(--accent,#ffdc24)}
+#story-library-list .text-library-open:hover strong,#story-library-list .text-library-open:focus-visible strong{color:var(--accent,#ffdc24)}
