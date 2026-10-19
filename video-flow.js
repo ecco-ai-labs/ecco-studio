@@ -45,7 +45,7 @@
   }
   function drawBoards(){
    const select=q('[data-board]',root),list=boardOptions(),previous=select.value||data.board_id;
-   select.replaceChildren();select.add(new Option(list.length?'Choose a storyboard':'No saved storyboard — add shots below',''));
+   select.replaceChildren();if(!list.length)select.add(new Option('No saved storyboards',''));
    for(const b of list)select.add(new Option((b.title||'Storyboard')+' · '+b.scenes.length+' shots'+(b.created?' · '+new Date(b.created*1000).toLocaleString():''),b.id));
    select.value=list.some(b=>b.id===previous)?previous:(list[0]?.id||'');
   }
