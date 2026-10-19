@@ -3,7 +3,7 @@
 (() => {
  const languages=['Hindi','Urdu','English','Tamil','Punjabi','Assamese','Bengali','Bodo','Dogri','Gujarati','Kannada','Kashmiri','Konkani','Maithili','Malayalam','Manipuri','Marathi','Nepali','Odia','Sanskrit','Santali','Sindhi','Telugu'];
  // Add future audio models here; the selector and catalog share these identifiers.
- const voices=[{id:'en_female',name:'Voice A · feminine'},{id:'en_male',name:'Voice B · masculine'}];
+ const voices=[{id:'en_female',name:'Voice A · feminine'},{id:'en_male',name:'Voice B · masculine'},{id:'jp_female',name:'Voice C · feminine · Japanese source'},{id:'jp_male',name:'Voice D · masculine · Japanese source'}];
  const audioModels=[{id:'indic-mio',name:'Simple Audio Model',license:'Apache-2.0',languages,voices}];
  const genres=["Story Book Reading","Podcast","Movie","Theatre","Casual Conversation","Documentary","News","Interview","Educational"];
  const emotions=language=>language==='English'?['neutral','happy','sad','angry','enunciated','confused','whisper']:['neutral','happy','sad','angry','disgust','fear','surprise'];
