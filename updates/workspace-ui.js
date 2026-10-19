@@ -110,7 +110,7 @@
    const key='label:'+folder.id;
    if(nested.length){
     const toggle=document.createElement('button');toggle.type='button';toggle.className='tree-branch-toggle';toggle.textContent='▸';
-    const sync=()=>{const open=expansion.get(key)===true;children.hidden=!open;toggle.textContent=open?'▾':'▸';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',(open?'Collapse ':'Expand ')+folder.name);};
+    const sync=()=>{const open=expansion.get(key)===true;children.hidden=!open;row.dataset.libraryMarker=open?'−':'+';toggle.textContent=open?'−':'+';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',(open?'Collapse ':'Expand ')+folder.name);};
     toggle.onclick=()=>{expansion.set(key,expansion.get(key)!==true);sync();};sync();row.append(toggle);
    }else{const spacer=document.createElement('span');spacer.className='tree-branch-spacer';row.append(spacer);}
    const label=document.createElement('button');label.type='button';label.className='tree-folder';
