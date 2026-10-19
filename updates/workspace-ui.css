@@ -485,3 +485,11 @@ body>aside #workspace-library-group .tree-branch-row .tree-folder::before,
 body>aside #workspace-library-group .tree-branch-toggle::before{display:none!important}
 body>aside #workspace-library-group .tree-branch-row .tree-folder{padding-left:0!important}
 body>aside #workspace-library-group .tree-branch-toggle{position:absolute;left:0;top:0;height:100%!important;width:26px!important;min-width:26px!important;padding:0!important;background:transparent!important;z-index:1}
+
+/* No bullets in Library: leaf entries use a yellow minus. */
+body>aside #workspace-library-group :is(.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice)::before{
+ content:'−';width:12px;height:18px;line-height:18px;font-size:17px;font-weight:400;
+ text-align:center;border-radius:0;color:var(--accent,#ffdc24)!important;background:transparent!important;
+}
+body>aside #workspace-library-group .tree-create::before{content:'+'}
+body>aside #workspace-library-group .tree-branch-row .tree-folder::before{display:none!important}
