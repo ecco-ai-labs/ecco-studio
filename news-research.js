@@ -26,29 +26,29 @@
   q('#news-research-dialog')?.remove();
   const target=activeStory,origin=q('#storyboard-ai-toolbar'),initial=metadata();
   const d=document.createElement('dialog');d.id='news-research-dialog';d.className='generation-dialog';
-  d.innerHTML='<div class="form"><div class="section-head"><h2>Research the Web</h2><button type="button" class="secondary" data-close aria-label="Close research">×</button></div><label><span style="color:var(--accent)">Research Prompt</span><textarea data-prompt rows="4"></textarea></label><div class="row"><label><span style="color:var(--accent)">Items</span><input data-count type="number" min="1" max="60" step="1" value="10"></label><label><span style="color:var(--accent)">Date Range</span><select data-range><option>Past 24 Hours</option><option>Past 7 Days</option><option>Past 30 Days</option></select></label></div><button type="button" class="secondary" data-research>Research</button><p role="status" data-status></p><div data-results></div><button type="button" data-create hidden>Create Storyboard</button></div>';
-  const animation=document.createElement('style');
-  animation.textContent='#news-research-dialog .news-research-dots{display:inline-flex;margin-left:1px}#news-research-dialog .news-research-dots>span{display:inline-block;animation:ecco-research-dot 1.2s ease-in-out infinite}#news-research-dialog .news-research-dots>span:nth-child(2){animation-delay:.15s}#news-research-dialog .news-research-dots>span:nth-child(3){animation-delay:.3s}@keyframes ecco-research-dot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-3px);opacity:1}}@media(prefers-reduced-motion:reduce){#news-research-dialog .news-research-dots>span{animation:none;opacity:1}}';
-  d.append(animation);
+  d.innerHTML='<div class="form"><div class="section-head"><h2>Research the Web</h2><div style="display:flex;gap:6px;align-items:center"><button type="button" class="secondary" data-stop aria-label="Stop AI" title="Stop AI" disabled><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" fill="currentColor"/></svg></button><button type="button" class="secondary" data-close aria-label="Close research">×</button></div></div><label><span style="color:var(--accent)">Research Prompt</span><textarea data-prompt rows="4"></textarea></label><div class="row"><label><span style="color:var(--accent)">Items</span><input data-count type="number" min="1" max="60" step="1" value="10"></label><label><span style="color:var(--accent)">Date Range</span><select data-range><option>Past 24 Hours</option><option>Past 7 Days</option><option>Past 30 Days</option></select></label></div><button type="button" class="secondary" data-research>Research</button><p role="status" data-status></p><div data-results></div><button type="button" data-create hidden>Create Storyboard</button></div>';
   document.body.append(d);
   const prompt=q('[data-prompt]',d),count=q('[data-count]',d),range=q('[data-range]',d),status=q('[data-status]',d),run=q('[data-research]',d),create=q('[data-create]',d);
   const defaultPrompt=()=>`Find the top ${count.value} ${initial.news_topic||'General'} news stories from around the world within the ${range.value.toLowerCase()}. Include reliable source links and publication dates. Do not repeat the same event.`;
-  let defaultText=defaultPrompt(),result=null,busy=false;
+  let defaultText=defaultPrompt(),result=null,busy=false,operation=null;
   prompt.value=defaultText;
   const reset=()=>{result=null;create.hidden=true;q('[data-results]',d).replaceChildren();status.textContent='';};
   [count,range].forEach(el=>el.onchange=()=>{if(prompt.value===defaultText){defaultText=defaultPrompt();prompt.value=defaultText;}reset();});prompt.oninput=reset;
   const valid=()=>{if(!d.open||!origin.isConnected||activeStory!==target)throw Error('The selected story changed. Reopen research for the current story.');if(!window.EccoStorage?.ready||!window.EccoAI?.enabled)throw Error('Connect storage and enable AI in Connections.');};
-  const setBusy=value=>{busy=value;[run,create,prompt,count,range,...d.querySelectorAll('[data-item]')].forEach(el=>el.disabled=value);};
+  const setBusy=(value,button=run)=>{busy=value;[run,create,prompt,count,range,...d.querySelectorAll('[data-item]')].forEach(el=>el.disabled=value);setGenerationBusy(run,value&&button===run,'Research','Research');setGenerationBusy(create,value&&button===create,'Create Storyboard','Create Storyboard');run.disabled=create.disabled=value;q('[data-stop]',d).disabled=!value;};
+  const stop=()=>{if(!operation)return;const previous=operation;operation=null;previous.abort();setBusy(false);status.textContent='Stopped.';};
+  const finish=token=>{if(operation!==token)return;operation=null;setBusy(false);};
+  q('[data-stop]',d).onclick=stop;
   const error=e=>{status.textContent='';notice(e.message,true);};
-  q('[data-close]',d).onclick=()=>d.close();d.addEventListener('close',()=>d.remove(),{once:true});
+  q('[data-close]',d).onclick=()=>d.close();d.addEventListener('close',()=>{stop();d.remove();},{once:true});
   run.onclick=async()=>{
    if(busy)return;
+   const token=new AbortController();operation=token;
    try{
     valid();const n=Number(count.value);if(!Number.isInteger(n)||n<1||n>60)throw Error('Choose 1–60 news items.');if(!prompt.value.trim())throw Error('Enter research instructions.');
-    reset();setBusy(true);status.textContent='Connecting to research…';
-    const capability=await api('ai/status');valid();if(!capability.news_research)throw Error('Web research requires an update to the CPU workspace API. Your story is unchanged.');
-    status.innerHTML='Researching the web<span class="news-research-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>';
-    result=await api('ai/news/research',{prompt:prompt.value.trim(),count:n,date_range:range.value});valid();
+    reset();setBusy(true);
+    const capability=await api('ai/status',undefined,{signal:token.signal});if(operation!==token)return;valid();if(!capability.news_research)throw Error('Web research requires an update to the CPU workspace API. Your story is unchanged.');
+    const response=await api('ai/news/research',{prompt:prompt.value.trim(),count:n,date_range:range.value},{signal:token.signal});if(operation!==token)return;valid();result=response;
     if(!Array.isArray(result.research?.items)||result.research.items.length!==n||!result.signature)throw Error('Research returned an incomplete result.');
     const box=q('[data-results]',d);result.research.items.forEach((item,i)=>{
      const card=document.createElement('section');card.className='panel';
@@ -58,21 +58,22 @@
      for(const source of item.sources||[]){if(!/^https?:\/\//i.test(source.url))continue;const p=document.createElement('p'),link=document.createElement('a');link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=source.title||source.url;p.append(link,document.createTextNode(' · '+(source.published_at||'Publication date unavailable')));card.append(p);}
      box.append(card);
     });create.hidden=false;status.textContent=n+' news items found. Select items to create shots.';
-   }catch(e){result=null;create.hidden=true;error(e);}finally{setBusy(false);}
+   }catch(e){if(operation===token&&!token.signal.aborted){result=null;create.hidden=true;error(e);}}finally{finish(token);}
   };
   create.onclick=async()=>{
    if(busy||!result)return;
+   const token=new AbortController();operation=token;
    try{
     valid();const selected=[...d.querySelectorAll('[data-item]:checked')].map(el=>Number(el.dataset.item));if(!selected.length)throw Error('Select at least one news item.');
     if((draft.story?.trim()||draft.scenes?.some(s=>s.narration||s.image_id||s.motion))&&!confirm('Replace the current narration and scene draft with the selected news items?'))return;
-    const snapshot=JSON.stringify(draft);setBusy(true);status.textContent='Creating one shot per selected news item…';
-    const planned=await api('ai/news/storyboard',{...result,selected,seconds:Number(draft.defaultSeconds)||3});valid();
+    const snapshot=JSON.stringify(draft);setBusy(true,create);status.textContent='';
+    const planned=await api('ai/news/storyboard',{...result,selected,seconds:Number(draft.defaultSeconds)||3},{signal:token.signal});if(operation!==token)return;valid();
     if(JSON.stringify(draft)!==snapshot)throw Error('Your draft changed during generation. Your edits were preserved.');
     if(!Array.isArray(planned.scenes)||planned.scenes.length!==selected.length)throw Error('AI did not return one shot per selected item.');
     const next={...draft,scenes:planned.scenes,story:planned.scenes.map(s=>s.narration).join('\n\n'),news:{...initial,researched_at:planned.researched_at}};
     localStorage.setItem(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft',JSON.stringify(next));draft=next;savedBoard=null;
     q('#story-text').value=draft.story;renderScenes();d.close();
-   }catch(e){error(e);}finally{setBusy(false);}
+   }catch(e){if(operation===token&&!token.signal.aborted)error(e);}finally{finish(token);}
   };
   d.showModal();
  }
