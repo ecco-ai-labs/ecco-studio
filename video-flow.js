@@ -98,7 +98,7 @@
    ['focus','Focus',['Keep subject sharp','Shallow depth of field','Deep focus','Focus on eyes','Rack focus to background','Rack focus to subject','Soft background','Follow subject focus']]
   ];
   function openShotControls(shot,index){
-   const dialog=document.createElement('dialog');dialog.className='generation-dialog';dialog.setAttribute('aria-label','Shot controls');
+   const dialog=document.createElement('dialog');dialog.className='generation-dialog';dialog.id='video-shot-controls';dialog.setAttribute('aria-label','Shot controls');
    dialog.innerHTML='<form class="form"><div class="section-head"><h2>Shot controls</h2><button type="button" data-close aria-label="Close shot controls">×</button></div><label>Video prompt<textarea data-video-prompt rows="3" maxlength="2000" placeholder="Describe the action and setting for this shot."></textarea></label><div class="row"><button type="button" data-ai-generate>Generate with AI</button><button type="button" data-ai-improve>Improve with AI</button></div><div class="generation-attribute-grid" data-fields></div><label>Seconds<input data-seconds type="number" min="0.2" step="0.01" required></label><div class="row"><button type="submit">Apply</button></div></form>';
    const prompt=q('[data-video-prompt]',dialog);prompt.value=shot.video_prompt??data.brief??'';dialog.eccoAIContext=()=>({...root.eccoAIContext(prompt),context:{...root.eccoAIContext(prompt).context,scenes:[shot]}});q('[data-ai-generate]',dialog).onclick=()=>window.EccoAI?.generateField(prompt);q('[data-ai-improve]',dialog).onclick=()=>window.EccoAI?.improveField(prompt);
    const fields=q('[data-fields]',dialog);
