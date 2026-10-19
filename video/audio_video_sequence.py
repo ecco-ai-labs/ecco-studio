@@ -50,7 +50,8 @@ def generate(body, env):
                 raise env['Problem']('This request ID belongs to another video.',409)
             return renderer.public(existing)
         sid = env['story_id'](body)
-        audio = env['get'](body.get('audio_id',''),'asset')
+        from video_audio_inputs import prepare
+        audio = prepare(body.get('audio_ids') or [body.get('audio_id','')], env, renderer)
         image = env['get'](body.get('image_id',''),'asset')
         if audio.get('deleted') or audio.get('media')!='audio' or image.get('deleted') or image.get('media')!='image':
             raise env['Problem']('Choose an available recording and avatar.')
@@ -63,7 +64,16 @@ def generate(body, env):
             raise env['Problem']('Choose 480p or 720p.')
         if any(j['status'] in ('queued','running') for j in env['records']('audio_video_job')):
             raise env['Problem']('An audio video sequence is already running.',429)
-        request = {k:body[k] for k in ('audio_id','image_id','gpu')}
+        for clip in clips:
+            image_id = body['shots'][clip['shot']].get('image_id') or image['id']
+            shot_image = env['get'](image_id, 'asset')
+            if shot_image.get('deleted') or shot_image.get('media') != 'image':
+                raise env['Problem']('A shot avatar is unavailable.')
+            clip['image_id'] = image_id
+        request = {k:body[k] for k in ('image_id','gpu')}
+        request['audio_id'] = audio['id']
+        request['source_audio_ids'] = body.get('audio_ids') or [audio['id']]
+        request['video_reference_ids'] = body.get('video_reference_ids', [])
         request.update(resolution=body.get('resolution','832x480'),seed=int(body.get('seed',42)),clips=clips,duration=duration,shots=body['shots'])
         job = dict(id=jid,kind='audio_video_job',media='video',model=renderer.MODEL,story_id=sid,
                    title=audio.get('title','Audio video'),created=time.time(),status='queued',
@@ -123,7 +133,7 @@ def advance(job, env):
     clip=request['clips'][index]
     try:
         child=renderer.generate(dict(story_id=job['story_id'],audio_id=request['audio_id'],
-            image_id=request['image_id'],gpu=request['gpu'],prompt=clip['prompt'],
+            image_id=clip.get('image_id',request['image_id']),gpu=request['gpu'],prompt=clip['prompt'],
             resolution=request['resolution'],seed=request['seed'],
             audio_start=clip['start'],audio_end=clip['end'],
             request_id=hashlib.sha256((job['id']+':'+str(index)).encode()).hexdigest()[:32]),env)
