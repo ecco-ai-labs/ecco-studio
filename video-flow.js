@@ -60,15 +60,16 @@
    const box=q('[data-shots]',root);box.replaceChildren();
    const select=q('[data-shot]',root),wasOpen=select.open;select.replaceChildren();
    shotIndex=Math.max(0,Math.min(shotIndex,data.shots.length-1));
-   const summary=document.createElement('summary');summary.textContent=data.shots.length?'Edit shot: '+(shotIndex+1)+'. '+(data.shots[shotIndex].title||'Shot '+(shotIndex+1)):'Shots';select.append(summary);
+   const summary=document.createElement('summary');summary.textContent='Choose shots to include in video'+(activeShots().length?' · '+activeShots().length+' shots selected':'');select.append(summary);
    const choices=document.createElement('div');choices.className='form';choices.style.cssText='max-height:260px;overflow:auto;padding:8px;gap:6px';
    data.shots.forEach((s,i)=>{
     const line=document.createElement('div');line.style.cssText='display:flex;align-items:center;gap:8px';
     const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=s.selected!==false;checkbox.style.cssText='width:14px;height:14px;min-width:14px;margin:0;flex:none';checkbox.setAttribute('aria-label','Include shot '+(i+1)+' in video');
     checkbox.onchange=()=>{s.selected=checkbox.checked;balance();persist();drawShots();drawDirections();};
     const edit=document.createElement('button');edit.type='button';edit.className='secondary small';edit.style.cssText='flex:1;text-align:left';edit.textContent=(i+1)+'. '+(s.title||'Shot '+(i+1));edit.setAttribute('aria-pressed',String(i===shotIndex));
-    edit.onclick=()=>{shotIndex=i;select.open=false;drawShots();drawDirections();};
-    line.append(checkbox,edit);choices.append(line);
+    edit.onclick=()=>{checkbox.checked=!checkbox.checked;checkbox.dispatchEvent(new Event('change'));};
+    const controls=document.createElement('button');controls.type='button';controls.className='secondary small';controls.textContent='Shot Controls';controls.setAttribute('aria-label','Shot controls for shot '+(i+1));controls.onclick=()=>{shotIndex=i;drawShots();openShotControls(s,i);};
+    line.append(checkbox,edit,controls);choices.append(line);
    });
    const add=document.createElement('button');add.type='button';add.className='secondary small';add.textContent='+ Add shot';
    add.onclick=()=>{data.shots.push(newShot(data.shots.length));shotIndex=data.shots.length-1;data.directions=[];persist();select.open=false;drawShots();drawDirections();};
@@ -81,7 +82,7 @@
     data.image_ids.forEach(id=>{const a=find(id,'image');if(a)image.add(new Option(title(a),id));});
     image.value=s.image_id||data.image_ids[0]||'';s.image_id=image.value;image.onchange=()=>{s.image_id=image.value;persist();};
     q('[data-remove-shot]',row).onclick=()=>{data.shots.splice(i,1);data.directions=[];persist();drawShots();drawDirections();};
-    box.append(row);
+    choices.append(row);
    });timing();
   }
   const shotControlOptions=[
@@ -172,7 +173,7 @@
 
   q('[data-open-script]',root).onclick=()=>{
    const dialog=document.createElement('dialog');dialog.id='video-audio-script';dialog.className='generation-dialog';dialog.setAttribute('aria-label','Audio script');
-   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Audio script</h2><button type="button" data-close aria-label="Close audio script">×</button></div><p class="help" data-source></p><label>Script<textarea data-script-editor aria-label="Audio script" maxlength="4000" rows="10"></textarea></label><div class="row"><button type="button" class="secondary" data-generate>Generate with AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div><p class="help">To hear edited words or lip-sync them, generate a new recording in Audio Studio and select it here.</p><div class="row"><button type="button" data-apply>Apply</button></div></div>';
+   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Audio script</h2><button type="button" data-close aria-label="Close audio script">×</button></div><p class="help" data-source></p><label>Script<textarea data-script-editor aria-label="Audio script" maxlength="4000" rows="10"></textarea></label><div class="row"><button type="button" class="secondary" data-generate>Generate with AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div><div class="row"><button type="button" data-apply>Apply</button></div></div>';
    const input=q('[data-script-editor]',dialog),savedField=q('[data-transcript]',root),scriptKey=JSON.stringify(data.audio_ids);
    input.value=savedField.value;q('[data-source]',dialog).textContent=q('[data-script-source]',root).textContent;
    input.classList.add('ai-selected-field');
