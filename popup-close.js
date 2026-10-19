@@ -23,7 +23,7 @@
    for(const button of dialog.querySelectorAll('button')){
     if(button.closest('dialog')!==dialog||button.classList.contains('ecco-popup-close'))continue;
     const text=button.textContent.trim(),label=button.getAttribute('aria-label')||'';
-    if(/^(?:×|✕|x|close)$/i.test(text)||/^close(?:\s|$)/i.test(label))button.setAttribute('data-ecco-replaced-close','');
+    if(/^(?:×|✕|x|close|cancel)$/i.test(text)||/^(?:close|cancel)(?:\s|$)/i.test(label))button.setAttribute('data-ecco-replaced-close','');
    }
    if([...dialog.children].some(el=>el.classList.contains('ecco-popup-close')))continue;
    const close=document.createElement('button');close.type='button';close.className='ecco-popup-close';
