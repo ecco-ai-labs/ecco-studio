@@ -206,13 +206,14 @@
  }
  const audioAssets=()=>recordings.filter(a=>!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
  const audioActionIcon=name=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+({download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',trash:'<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>'}[name])+'</svg>';
- function audioCard(a){return `<article class="card audio-card"><div class="asset-corner-actions"><button type="button" class="asset-icon" data-download-audio="${esc(a.id)}" title="Download WAV" aria-label="Download ${esc(a.title||'audio recording')}">${audioActionIcon('download')}</button><button type="button" class="asset-icon" data-delete-audio="${esc(a.id)}" title="Move to Trash" aria-label="Delete ${esc(a.title||'audio recording')}">${audioActionIcon('trash')}</button></div><div class="audio-card-preview"><audio controls preload="metadata" data-audio-id="${esc(a.id)}" aria-label="${esc(a.title||'Audio recording')}"></audio></div><div class="card-body"><span class="badge">${esc(a.stage||'dev')}</span><h3>${esc(a.title||'Audio recording')}</h3><p class="help">Indic-Mio · WAV${a.duration?' · '+esc(a.duration)+' sec':''}</p><details><summary>Script</summary><p class="audio-transcript" dir="auto">${esc(a.prompt||'')}</p></details></div></article>`;}
+ function audioCard(a){return `<article class="card audio-card"><div class="asset-corner-actions"><button type="button" class="asset-icon" data-download-audio="${esc(a.id)}" title="Download WAV" aria-label="Download ${esc(a.title||'audio recording')}">${audioActionIcon('download')}</button><button type="button" class="asset-icon" data-delete-audio="${esc(a.id)}" title="Move to Trash" aria-label="Delete ${esc(a.title||'audio recording')}">${audioActionIcon('trash')}</button></div><div class="audio-card-preview"><audio controls preload="metadata" data-audio-id="${esc(a.id)}" aria-label="${esc(a.title||'Audio recording')}"></audio></div><div class="card-body"><button type="button" class="small secondary" data-save-audio="${esc(a.id)}">Add to Audio Library</button><span class="badge">${esc(a.stage||'dev')}</span><h3>${esc(a.title||'Audio recording')}</h3><p class="help">Indic-Mio · WAV${a.duration?' · '+esc(a.duration)+' sec':''}</p><details><summary>Script</summary><p class="audio-transcript" dir="auto">${esc(a.prompt||'')}</p></details></div></article>`;}
  async function hydrateAudio(){
   const current=service;if(!current)return;
   for(const element of document.querySelectorAll('audio[data-audio-id]')){
    try{const url=await current.mediaURL(element.dataset.audioId);if(current!==service)return;const parsed=new URL(url);if(parsed.protocol!=='https:'&&!(parsed.protocol==='blob:'&&parsed.origin===location.origin))throw Error('Audio service must return a secure media URL.');element.src=parsed.href;}
    catch(error){notice(error.message,true);}
   }
+  document.querySelectorAll('[data-save-audio]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{await refresh();if(!window.EccoAudioLibrary)throw Error('Audio Library is unavailable. Refresh and try again.');window.EccoAudioLibrary.add(button.dataset.saveAudio);}catch(error){notice(error.message,true);}finally{button.disabled=false;}});
   document.querySelectorAll('[data-download-audio]').forEach(button=>button.onclick=async()=>{try{await current.download(button.dataset.downloadAudio);}catch(error){notice(error.message,true);}});
   document.querySelectorAll('[data-delete-audio]').forEach(button=>button.onclick=async()=>{
    button.disabled=true;
@@ -251,7 +252,6 @@
   const list=window.EccoGeneration?.results('audio',audioAssets(),activeStory,lastJob)||[],next=JSON.stringify(list);
   if(next!==signature){
    signature=next;
-   const empty=q('[data-audio-empty]');if(empty)empty.hidden=!!list.length;
    q('#audio-gallery')?.remove();
    if(list.length){(q('#audio-review-results')||q('.audio-workspace')).insertAdjacentHTML('beforeend',`<div class="cards" id="audio-gallery">${list.map(audioCard).join('')}</div>`);hydrateAudio();}
   }
@@ -274,7 +274,7 @@
    catch(error){notice(error.message,true);}
    finally{submitting=false;update();}
   };
-  if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Review audio</h2></div><div class="empty" data-audio-empty><strong>Your audio starts here</strong><p class="help">Add a script and generate audio.</p></div>';q('.audio-workspace').append(review);}
+  if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Review audio</h2></div>';q('.audio-workspace').append(review);}
   mountScenePicker();update();poll();
  }
  const oldNavigate=navigate;
