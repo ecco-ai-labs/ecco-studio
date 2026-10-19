@@ -459,11 +459,11 @@ body.story-choice-mode #activity-edge-arrow,body.story-choice-mode #activity-pan
 #story-choice-screen .entry-logo-particle{animation-play-state:running}
 
 /* Align the two primary sidebar disclosures and their label columns. */
-:is(#workspace-library-group,#workspace-production-group)>summary{
+body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary{
  display:flex!important;align-items:center;gap:10px!important;
  padding:10px 5px!important;margin:0!important;font-size:13px!important;
 }
-:is(#workspace-library-group,#workspace-production-group)>summary::before{display:none!important}
-:is(#workspace-library-group,#workspace-production-group)>summary>.library-symbol{
+body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary::before{display:none!important}
+body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary>.library-symbol{
  display:inline-block!important;position:static!important;flex:0 0 12px;width:12px;text-align:center;
 }
