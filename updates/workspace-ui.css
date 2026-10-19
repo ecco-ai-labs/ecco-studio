@@ -441,6 +441,6 @@ body:not(.workspace-entry-mode) .story-source-controls>button,.story-source-cont
 
 /* Keep the parent disclosure separate and leave room between item bullets and labels. */
 #workspace-library-group>summary::before{display:none}
-body:not(.workspace-entry-mode) #workspace-library-group :is(.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice){padding-left:26px!important}
+body:not(.workspace-entry-mode) #workspace-library-group.workspace-library :is(.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice){padding-left:26px!important}
 body:not(.workspace-entry-mode) #workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.tree-folder,
 body:not(.workspace-entry-mode) #workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.library-selected-row>.tree-folder{padding-left:0!important}
