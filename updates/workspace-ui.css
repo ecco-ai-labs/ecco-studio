@@ -449,7 +449,8 @@ body:not(.workspace-entry-mode) #workspace-library-group .tree-branch-row:has(>.
 body.story-choice-mode{display:block}
 body.story-choice-mode>aside{display:none!important}
 body.story-choice-mode>main{margin-left:0!important;width:100%;max-width:none}
-body.story-choice-mode>main>header,body.story-choice-mode #activity-edge-arrow,body.story-choice-mode #activity-panel{display:none!important}
+body.story-choice-mode>main>header{display:flex!important}
+body.story-choice-mode #activity-edge-arrow,body.story-choice-mode #activity-panel{display:none!important}
 #story-choice-screen{min-height:calc(100dvh - 64px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:24px}
 #story-choice-screen .story-choice-actions{display:flex;flex-direction:column;gap:12px;align-items:stretch;max-width:100%}
 #story-choice-screen button{background:#2563eb;color:#fff;font-size:12px;line-height:1.4;padding:7px 10px;min-height:30px;border-radius:6px;box-shadow:none}
