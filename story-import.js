@@ -145,23 +145,7 @@
    field.value=[draft.title,'Scene: '+scene.narration,scene.motion,scene.shot_size,scene.camera_angle,scene.camera_move].filter(Boolean).join('\n');field.dispatchEvent(new Event('input',{bubbles:true}));notice('Scene prompt loaded. Choose the model, reference and style, then Generate. Approve and assign the result in the storyboard.');
   };area.append(select,b);form.prepend(area);
  }
- function mountAudio(){
-  const form=q('#audio-form');if(!form||q('#scene-audio-source')||!draft.scenes?.length)return;
-  const area=document.createElement('div');area.id='scene-audio-source';area.className='row';const select=document.createElement('select');select.setAttribute('aria-label','Storyboard scene for audio');
-  draft.scenes.forEach((s,i)=>{const o=document.createElement('option');o.value=i;o.textContent='Scene '+(i+1)+' · '+s.narration.slice(0,65);select.append(o);});
-  const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='Use scene narration';
-  b.onclick=()=>{
-   if(window.EccoAudioStudio?.importScript){
-    try{window.EccoAudioStudio.importScript(draft.scenes[+select.value].narration);form.elements.title.value=draft.title+' · Scene '+(+select.value+1);form.elements.title.dispatchEvent(new Event('input',{bubbles:true}));notice('Narration loaded. Review the voice and delivery in Additional Controls.');}catch(error){notice(error.message,true);}return;
-   }
-   let text=draft.scenes[+select.value].narration,parts=[];while(text.length>500){let cut=text.lastIndexOf(' ',500);if(cut<1)cut=500;parts.push(text.slice(0,cut));text=text.slice(cut).trim();}if(text)parts.push(text);
-   const existing=[...q('#audio-lines').querySelectorAll('textarea')];if(existing.some(x=>x.value.trim())){notice('This audio draft already has text. Clear it or save it before importing a scene.',true);return;}
-   if(parts.length>20){notice('Use a shorter narration segment: the audio editor supports 20 lines of 500 characters.',true);return;}
-   while(q('#audio-lines').querySelectorAll('textarea').length<parts.length)q('#add-audio-line').click();
-   [...q('#audio-lines').querySelectorAll('textarea')].forEach((field,i)=>{field.value=parts[i]||'';field.dispatchEvent(new Event('input',{bubbles:true}));});
-   form.elements.title.value=draft.title+' · Scene '+(+select.value+1);form.elements.title.dispatchEvent(new Event('input',{bubbles:true}));notice('Narration loaded. Review speaker, language and emotion for each line. Audio generation requires the audio service.');
-  };area.append(select,b);form.prepend(area);
- }
+ function mountAudio(){window.EccoAudioStudio?.mountScenePicker();}
  function mount(){mountPDF();mountBoard();mountImage();mountAudio();}
  new MutationObserver(mount).observe(q('#page'),{childList:true,subtree:true});mount();
 })();
