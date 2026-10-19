@@ -9,6 +9,7 @@
   const panel=document.createElement('section');panel.id='audio-video-story';panel.className='generation-section form';
   panel.innerHTML='<div data-audio-video-fields hidden class="form"><label hidden>Recording<select data-recording></select></label><audio controls data-playback preload="metadata"></audio><details open><summary>Recorded audio script</summary><textarea data-transcript readonly rows="5" aria-label="Recorded audio script"></textarea><p class="help">These are the words saved with this recording. The original audio is reused unchanged.</p></details><div class="row"><button type="button" class="secondary" data-load-shots>Load current storyboard shots</button><button type="button" class="secondary" data-avatar>Choose avatar from Image Library</button></div><p data-avatar-name class="help"></p><p class="help">Select shots and edit their camera direction below. Initial timings are evenly distributed estimates; listen to the audio and adjust the boundaries. Editing visuals does not regenerate speech.</p><div data-shots class="form"></div><p data-timing role="status"></p></div>';
   q('[data-section=references]',form).append(panel);
+  const oldAudio=q('[aria-label="Dialogue audio"]',form);if(oldAudio)oldAudio.closest('label').parentElement.remove();
   const model=q('#job-model',form),library=q('[data-reference-library]',form),fields=q('[data-audio-video-fields]',panel),picker=q('[data-recording]',panel);
   const data={enabled:false,audio_id:'',avatar_id:'',shots:[],...saved};
   const persist=()=>localStorage.setItem(key(story),JSON.stringify(data));
@@ -43,7 +44,7 @@
   };
   const normalSubmit=form.onsubmit;
   form.onsubmit=async event=>{
-   if(!data.enabled)return normalSubmit.call(form,event);
+   if(!data.enabled){if(model.value==='longcat-avatar-1.5'){event.preventDefault();notice('Choose a recording using References → Audio Library → Browse Library.',true);return;}return normalSubmit.call(form,event);}
    event.preventDefault();const button=q('#generate-video',form),status=q('#video-status',form);if(ctx.submitting)return;
    try{
     if((ctx.data.audio_reference_ids||[]).length>1)throw Error('Your audio selections are saved. This renderer currently supports one recording per render; multi-audio assembly is not connected yet.');
