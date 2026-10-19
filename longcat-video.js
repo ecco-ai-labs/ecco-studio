@@ -5,7 +5,7 @@
  card=function(asset){const html=previousCard(asset);return asset.mode==='longcat'?html.replace('Pan / zoom storyboard preview · silent video','LongCat · synchronized dialogue audio'):html;};
  const originalAvailable=modelAvailable,originalStatus=modelStatus;
  modelAvailable=function(mid){if(mid!==id)return originalAvailable(mid);const pod=localStorage.getItem('ecco-selected-gpu');return !!state?.config?.longcat?.workers?.some(w=>w.pod===pod&&w.ready);};
- modelStatus=function(mid){if(mid!==id)return originalStatus(mid);return modelAvailable(id)?'Ready · audio-driven video on the selected B200.':'Weights installed. Connect a B200 running the LongCat worker.';};
+ modelStatus=function(mid){if(mid!==id)return originalStatus(mid);return modelAvailable(id)?'':'Weights installed. Connect a B200 running the LongCat worker.';};
  const previousApi=api;
  api=async function(path,body,...args){
   const result=await previousApi.call(this,path,body,...args);
