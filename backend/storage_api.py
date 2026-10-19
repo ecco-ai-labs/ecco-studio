@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'migration' / 'legacy'))
 import studio as legacy
 import audio_library
+import library_rename
 import audio_jobs
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'video'))
 import longcat_jobs
@@ -23,6 +24,7 @@ import scene_planner
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
+    '/api/library/rename',
     '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
     '/api/ai/news/research', '/api/ai/news/storyboard',
     '/api/ai/connect', '/api/ai/settings', '/api/ai/disconnect', '/api/ai/enhance',
@@ -37,7 +39,7 @@ WRITE_ROUTES = frozenset({
 def storage_state():
     return {'records': legacy.records(), 'storage_pending': False, 'config': {
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
-                    'gpu_independent': True, 'service': 'ecco-storage-api'},
+                    'rename_available': True, 'gpu_independent': True, 'service': 'ecco-storage-api'},
         'longcat': longcat_jobs.status(), 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
         'ai_story_planner': {'ready': scene_planner.ready()},
         'hourly_rate': 0.081, 'github_connected': False,
@@ -138,6 +140,7 @@ class Handler(legacy.Handler):
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
             if path.startswith('/api/ai/'):
                 return self.send(openai_assistant.handle(path, body, vars(legacy)))
+            if path == '/api/library/rename': return self.send(library_rename.rename(body, vars(legacy)))
             if path == '/api/gpu/request': return self.send(gpu_relay.submit(body))
             if path == '/api/longcat/generate':
                 return self.send(longcat_jobs.generate(body, vars(legacy)))
@@ -174,5 +177,6 @@ def main():
     ThreadingHTTPServer((address, port), Handler).serve_forever()
 
 if __name__ == '__main__': main()
+
 
 
