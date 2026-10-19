@@ -3,6 +3,7 @@ import hashlib
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -25,6 +26,8 @@ def generate(body, env):
         target = queue.availability()['compute'][request['compute']]
         if not target['ready']:
             raise env['Problem'](target['reason'], 503)
+        if request['model'] not in target['models']:
+            raise env['Problem']('This audio model is not enabled on ' + request['compute'].upper() + '. Choose another compute target.', 503)
         active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running')]
         if len(active) >= 4:
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
@@ -71,7 +74,8 @@ def job_status(jid, env):
                 story_id=job['story_id'], path='audio-dev/' + target.name, title=job['title'],
                 prompt='\n'.join(line['text'] for line in request['lines']), source='generated',
                 job_id=jid, seconds=duration, duration=round(duration, 2), sha256=digest,
-                settings={**request, 'sample_rate': rate, 'channels': channels}, sync='pending')
+                settings={**request, 'sample_rate': rate, 'channels': channels,
+                          'worker_pod': status.get('worker_pod', ''), 'worker_compute': status.get('compute', request.get('compute', 'b200'))}, sync='pending')
             # Job and asset IDs must be distinct in the legacy records table.
             asset['id'] = hashlib.sha256(('audio-asset:' + jid).encode()).hexdigest()[:32]
             env['save'](asset)
@@ -84,6 +88,11 @@ def job_status(jid, env):
         return public(job)
 
 def start(env):
+    root = queue.ROOT.parent
+    launcher = root / 'start_cpu_worker.sh'
+    if launcher.is_file() and (root / 'cpu-ready-models.json').is_file():
+        with (root / 'cpu-worker.log').open('ab') as log:
+            subprocess.Popen(['/bin/bash', str(launcher)], stdout=log, stderr=log, start_new_session=True)
     def loop():
         while True:
             try:
@@ -95,4 +104,5 @@ def start(env):
                 traceback.print_exc()
             time.sleep(3)
     threading.Thread(target=loop, daemon=True, name='audio-finalizer').start()
+
 

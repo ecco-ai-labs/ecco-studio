@@ -4,7 +4,7 @@
 
 Live audio generation is connected through the authenticated CPU storage API.
 The interface stays on GitHub Pages. Indic-Mio, Chatterbox Multilingual and IndicF5
-inference run on the GPU; jobs,
+inference run on the selected CPU or GPU worker; jobs,
 scripts, and generated WAV assets persist on the network volume independently.
 An English-and-Hindi request passed generation, checksum-verified asset commit,
 and authenticated media retrieval on 2026-10-18.
@@ -18,7 +18,7 @@ and authenticated media retrieval on 2026-10-18.
 | Durable queue | /workspace/ecco-audio/queue on the shared network volume |
 | Saved audio | /workspace/ecco-studio-data/audio-dev, written by the CPU service |
 | Model weights and dependencies | /workspace/ecco-audio |
-| GPU | queue_worker.py invokes disposable speech inference subprocesses |
+| CPU / GPU workers | queue_worker.py invokes disposable speech inference subprocesses |
 
 Only the CPU service writes authoritative audio metadata. The GPU worker does not
 open the Studio database or hold the storage access key. The current service uses
@@ -35,7 +35,7 @@ On the GPU, deploy audio_worker.py, audio_schema.py, audio_queue.py, queue_worke
 and start_worker.sh to /workspace/ecco-audio. start_worker.sh uses the existing
 /opt/ecco-runtime-venv runtime plus isolated dependencies at /workspace/ecco-audio/deps.
 The persistent runtime boot.sh starts it after restoring the Python runtime.
-A shared file lock serializes inference; a heartbeat exposes readiness.
+A separate file lock for each compute target serializes its inference; heartbeats expose per-model readiness.
 A crashed running job becomes an explicit error on worker restart; queued work is
 retained. Models are released after each inference subprocess finishes.
 Download snapshots with install_models.py; exact revisions are saved in models/manifest.json.
@@ -46,9 +46,10 @@ Completed recordings can be listed, played and downloaded while the GPU is off.
 After authenticated service setup, call `window.EccoAudioStudio.connect(adapter)`.
 The adapter must expose `storageIndependentOfGPU: true` and these asynchronous methods:
 
+- `status()`: current compute availability and supported model IDs.
 - `list({story_id})`: the authorized user's audio assets (array).
 - `generate(request)`: validate ownership and the schema below, durably queue the
-  job, return `{id}`. This is the only operation that may require GPU compute.
+  job, return `{id}`. The request explicitly selects CPU, A100, or B200.
 - `job(id)`: return `{id,status,error?,progress?}`; `done` means durable output verified.
 - `mediaURL(assetId)`: return an authenticated same-origin Blob URL or authorized HTTPS playback URL.
 - `download(assetId)`: perform an authenticated WAV download.
@@ -59,7 +60,7 @@ every operation, isolate users, and protect storage credentials. Never include
 credentials in this public repository, browser-local storage, or a GPU job payload.
 
 Asset fields used by the UI: `id`, `story_id`, `title`, `prompt`, `stage`, `duration`,
-`deleted`. Request fields: `model` (`indic-mio`, `chatterbox`, or `indicf5`), `story_id`, `title`, `lines` (each has
+`deleted`. Request fields: `compute` (`cpu`, `a100`, or `b200`), `model` (`indic-mio`, `chatterbox`, or `indicf5`), `story_id`, `title`, `lines` (each has
 `text`, `language`, `voice`, `emotion`), `speed`, `pitch`, `pause`. Server-side request
 validation is in `audio_schema.py`; the service must also validate story ownership.
 
@@ -69,7 +70,7 @@ validation is in `audio_schema.py`; the service must also validate story ownersh
 database. It loads Indic-Mio and MioCodec from explicitly supplied local model
 directories. Its output goes to the private queue directory. The job coordinator
 copies the result into independent private media storage, verify bytes/checksum and audio
-metadata, and atomically commit the asset before reporting completion. The shared worker lock and deterministic asset IDs prevent concurrent inference and duplicate finalization.
+metadata, and atomically commit the asset before reporting completion. Per-compute locks and deterministic asset IDs prevent duplicate inference and finalization.
 
 Dependencies: Python 3.12+, CUDA PyTorch/torchaudio, `requirements.txt`, and FFmpeg.
 The supplied runtime directory must contain `model/` (SPRINGLab/Indic-Mio), `codec/`
@@ -97,8 +98,8 @@ Upstream inference reference: https://github.com/Aratako/MioTTS-Inference (MIT).
 Run `python -m unittest discover -s audio -p 'test_*.py'` and
 `node --check audio-studio.js`. Browser acceptance: open Audio Studio without a GPU;
 add/edit Hindi, Urdu and English lines; inspect emotion options; navigate away and
-return; confirm drafts survive, Generate audio opens the GPU picker when disconnected,
-and no audio job is submitted without the independent service. Run
+return; confirm drafts survive, compute defaults to CPU, and only the selected live
+worker can receive generation or preview jobs. No GPU fallback is permitted. Run
 `backend/verify_audio_models_live.py` on the CPU pod to verify new-model generation,
 durable asset commit, and authenticated WAV playback before release.
 
@@ -135,3 +136,32 @@ default and reference voices, 5.46 seconds) and IndicF5 (Hindi, Tamil and Punjab
 three reference voices, 7.57 seconds). Both outputs were saved as mono 24 kHz WAV
 assets and retrieved through authenticated media playback. Twelve UI tests and
 fifteen schema, dispatch and durable-job tests also passed.
+
+
+## CPU audio service
+
+The CPU coordinator launches a separate audio worker when the CPU launcher and
+validated-model manifest exist. It does not load inference models into the API.
+CPU runtimes use PyTorch 2.8 CPU wheels, one inference thread, and lower process
+priority. Existing model weights are reused; GPU runtimes are unchanged.
+
+1. Deploy worker sources and `model_catalog.json` to `/workspace/ecco-audio`.
+2. Run `bash install_cpu_models.sh` on the CPU pod. It installs isolated model
+   environments under `/opt/ecco-audio-cpu` and saves `cpu-runtime.tar.gz` on the
+   shared volume for restoration after a pod restart.
+3. Run `python3.12 verify_cpu_models.py`. Each successful CPU-only WAV test adds
+   that model to `cpu-ready-models.json`; unverified models remain unavailable.
+4. Run `bash start_cpu_worker.sh` or restart the updated storage API. The launcher
+   uses a per-pod lock, restores the runtime if needed, and supervises the worker.
+
+CPU readiness requires a fresh heartbeat and a verified model ID. Changing compute
+never starts or rents a pod and never falls back to another machine. Completed
+assets record the compute target and worker pod. Long CPU jobs are slower than
+GPU jobs; the existing 30-minute timeout still applies.
+
+On 2026-10-19, all three CPU-only tests passed on the existing two-core, 8 GB
+CPU pod: Indic-Mio (4.59 seconds of audio in 39.08 seconds), Chatterbox
+(3.63 seconds in 117.65 seconds), and IndicF5 (3.16 seconds in 423.63 seconds).
+An authenticated Indic-Mio job completed on the CPU pod in 33.61 seconds, saved
+a 4.62-second mono 24 kHz WAV, and passed checksum verification through the
+media endpoint. These short-test timings are observations, not latency promises.

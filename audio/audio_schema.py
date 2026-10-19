@@ -17,7 +17,7 @@ def validate(body):
     if not isinstance(model_id, str) or model_id not in MODELS:
         raise ValueError('Choose a supported audio model.')
     model = MODELS[model_id]
-    compute = body.get('compute', 'a100')
+    compute = body.get('compute', 'cpu')
     if not isinstance(compute, str) or compute not in ('a100', 'cpu', 'b200'):
         raise ValueError('Choose a supported audio compute target.')
     genre = body.get('genre', GENRES[0])
@@ -65,6 +65,7 @@ def validate(body):
     if model_id == 'chatterbox':
         result['exaggeration'] = bounded('exaggeration', .5, 0, 2)
     return result
+
 
 
 

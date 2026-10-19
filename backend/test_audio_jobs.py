@@ -29,6 +29,20 @@ class AudioJobsTest(unittest.TestCase):
         with self.assertRaises(Problem) as error:
             jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
         self.assertEqual(error.exception.code, 503)
+    def test_cpu_requires_a_live_worker_and_verified_model(self):
+        jobs.queue.write(jobs.queue.ROOT / 'worker-cpu.json', {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']})
+        status = jobs.queue.availability()
+        self.assertTrue(status['compute']['cpu']['ready'])
+        self.assertEqual(status['compute']['cpu']['models'], ['indic-mio'])
+        self.assertTrue(jobs.queue.ready('cpu', 'indic-mio'))
+        self.assertFalse(jobs.queue.ready('cpu', 'chatterbox'))
+        with self.assertRaises(Problem):
+            jobs.generate({'compute': 'cpu', 'model': 'chatterbox', 'lines': [{'text': 'Hello'}]}, self.env)
+        self.assertFalse(self.records)
+        job = jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
+        self.assertEqual(job['compute'], 'cpu')
+        jobs.queue.write(jobs.queue.ROOT / 'worker-cpu.json', {'updated': time.time()-60, 'compute': 'cpu', 'models': ['indic-mio']})
+        self.assertFalse(jobs.queue.ready('cpu'))
     def test_selected_compute_never_falls_back_to_b200(self):
         body = {'lines': [{'text': 'Hello'}]}
         jobs.queue.write(jobs.queue.ROOT / 'worker-b200.json', {'updated': time.time(), 'compute': 'b200'})
@@ -38,7 +52,7 @@ class AudioJobsTest(unittest.TestCase):
             self.assertEqual(error.exception.code, 503)
         self.assertFalse(self.records)
         jobs.queue.write(jobs.queue.ROOT / 'worker-a100.json', {'updated': time.time(), 'compute': 'a100'})
-        job = jobs.generate(body, self.env)
+        job = jobs.generate(dict(body, compute='a100'), self.env)
         self.assertEqual(job['compute'], 'a100')
         request = jobs.queue.read(jobs.queue.ROOT / job['id'] / 'request.json')
         self.assertEqual(request['compute'], 'a100')
@@ -48,7 +62,7 @@ class AudioJobsTest(unittest.TestCase):
         self.assertFalse(jobs.queue.ready('a100'))
         self.assertFalse(jobs.queue.availability()['compute']['cpu']['ready'])
     def test_commit_and_idempotent_offline_playback(self):
-        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'a100'})
+        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']})
         job = jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
         self.assertNotIn('request', job)
         directory = jobs.queue.ROOT / job['id']
@@ -67,7 +81,7 @@ class AudioJobsTest(unittest.TestCase):
         self.assertTrue((self.env['DATA'] / assets[0]['path']).is_file())
         self.assertEqual(assets[0]['duration'], 1)
     def test_checksum_mismatch_never_marks_done(self):
-        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'a100'})
+        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']})
         job = jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
         d = jobs.queue.ROOT / job['id']
         (d / 'output.wav').write_bytes(b'broken')
@@ -78,4 +92,5 @@ class AudioJobsTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 

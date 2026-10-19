@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from audio_schema import MODELS, validate
-from audio_worker import assemble
+from audio_worker import assemble, inference_device
 
 
 def reference(runtime, voice):
@@ -20,13 +20,13 @@ def reference(runtime, voice):
 def synthesize(request, output, runtime):
     import numpy as np
     import torch
-    if not torch.cuda.is_available():
-        raise RuntimeError('A CUDA GPU is required for audio generation.')
-    torch.set_num_threads(4)
+    device = inference_device(request, torch)
+    if device == 'cuda':
+        torch.set_num_threads(4)
     clips = []
     if request['model'] == 'chatterbox':
         from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-        model = ChatterboxMultilingualTTS.from_local(runtime / 'chatterbox', 'cuda', t3_model='v3')
+        model = ChatterboxMultilingualTTS.from_local(runtime / 'chatterbox', device, t3_model='v3')
         original = copy.deepcopy(model.conds)
         rate = model.sr
         for line in request['lines']:
@@ -41,13 +41,13 @@ def synthesize(request, output, runtime):
         from f5_tts.model import DiT
         from f5_tts.infer.utils_infer import load_model, load_vocoder, infer_process
         model = load_model(DiT, dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4),
-                           vocab_file=str(runtime / 'indicf5/checkpoints/vocab.txt'), device='cuda')
+                           vocab_file=str(runtime / 'indicf5/checkpoints/vocab.txt'), device=device)
         weights = load_file(str(runtime / 'indicf5/model.safetensors'), device='cpu')
         prefix = 'ema_model._orig_mod.'
         model.load_state_dict({k[len(prefix):]: v for k, v in weights.items() if k.startswith(prefix)}, strict=True)
         del weights
         model.eval()
-        vocoder = load_vocoder(is_local=True, local_path=str(runtime / 'vocos'), device='cuda')
+        vocoder = load_vocoder(is_local=True, local_path=str(runtime / 'vocos'), device=device)
         transcripts = json.loads((runtime / 'reference-voices/transcripts.json').read_text())
         rate = 24000
         for line in request['lines']:
@@ -55,7 +55,7 @@ def synthesize(request, output, runtime):
             text = transcripts.get(line['voice'], '').strip()
             if not text:
                 raise RuntimeError('This reference voice needs a transcript.')
-            clip, returned_rate, _ = infer_process(str(ref), text, line['text'], model, vocoder, device='cuda')
+            clip, returned_rate, _ = infer_process(str(ref), text, line['text'], model, vocoder, device=device)
             if returned_rate != rate:
                 raise RuntimeError('Unexpected IndicF5 sample rate.')
             clips.append(np.asarray(clip, dtype=np.float32))
@@ -74,3 +74,4 @@ if __name__ == '__main__':
     parser.add_argument('--runtime', required=True, type=Path)
     args = parser.parse_args()
     synthesize(validate(json.loads(args.request.read_text())), args.output, args.runtime)
+

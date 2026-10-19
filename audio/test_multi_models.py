@@ -3,6 +3,8 @@ import math
 from pathlib import Path
 from unittest import TestCase, main
 from unittest.mock import patch
+from unittest.mock import Mock
+from audio_worker import inference_device
 
 from audio_schema import validate, MODELS
 from queue_worker import worker_command, compute_from_name, owns, recover_jobs
@@ -11,9 +13,27 @@ import tempfile
 
 
 class MultiModelRequests(TestCase):
+    def test_cpu_inference_never_queries_or_uses_cuda(self):
+        torch = Mock()
+        self.assertEqual(inference_device({'compute': 'cpu'}, torch), 'cpu')
+        torch.cuda.is_available.assert_not_called()
+        torch.set_num_threads.assert_called_once()
+        torch.cuda.is_available.return_value = False
+        with self.assertRaises(RuntimeError):
+            inference_device({'compute': 'b200'}, torch)
+
+    def test_cpu_dispatch_uses_cpu_only_interpreters_and_environment(self):
+        with patch('pathlib.Path.is_file', return_value=True), patch.dict('os.environ', {'PYTHONPATH': 'gpu-deps', 'CUDA_VISIBLE_DEVICES': '0'}):
+            for model in MODELS:
+                command, env = worker_command({'model': model, 'compute': 'cpu'}, Path('/tmp/cpu-job'))
+                self.assertTrue(command[0].endswith('cpu-' + model + '-venv/bin/python'))
+                self.assertEqual(env['CUDA_VISIBLE_DEVICES'], '')
+                self.assertEqual(env['OMP_NUM_THREADS'], '1')
+                self.assertNotIn('PYTHONPATH', env)
+
     def test_compute_validation_and_hardware_detection(self):
         body = {'lines': [{'text': 'Hello'}]}
-        self.assertEqual(validate(body)['compute'], 'a100')
+        self.assertEqual(validate(body)['compute'], 'cpu')
         for compute in ('a100', 'cpu', 'b200'):
             self.assertEqual(validate(dict(body, compute=compute))['compute'], compute)
         for compute in ('', 'any', '../../worker', None, {}, []):
@@ -88,3 +108,4 @@ class MultiModelRequests(TestCase):
 
 if __name__ == '__main__':
     main()
+

@@ -13,7 +13,7 @@
  function showComputeStatus(){
   const note=q('[data-audio-compute-status]');if(!note||!draft)return;
   const target=computeStatus?.compute?.[draft.compute];
-  note.textContent=draft.compute==='cpu'&&!target?.ready?'CPU audio generation is not enabled yet.':!service?'Connect workspace storage to check availability.':target?.ready?draft.compute.toUpperCase()+' connected':target?.reason||'Checking '+draft.compute.toUpperCase()+' availability…';
+  note.textContent=!service?'Connect workspace storage to check availability.':target?.ready?(target.models&&!target.models.includes(draft.model)?model().name+' is not available on '+draft.compute.toUpperCase()+'.':draft.compute.toUpperCase()+' connected'):target?.reason||'Checking '+draft.compute.toUpperCase()+' availability…';
  }
  async function checkCompute(){
   if(!service){computeStatus=null;showComputeStatus();return null;}
@@ -24,9 +24,11 @@
   if(result?.routing_version!==1)throw Error('The audio service needs an update to support compute selection.');
   computeStatus=result;computeChecked=Date.now();showComputeStatus();return result;
  }
- async function requireCompute(compute){
+ async function requireCompute(compute,modelId){
   const result=await checkCompute();
-  if(!result?.compute?.[compute]?.ready)throw Error(result?.compute?.[compute]?.reason||compute.toUpperCase()+' audio worker is not connected.');
+  const target=result?.compute?.[compute];
+  if(!target?.ready)throw Error(target?.reason||compute.toUpperCase()+' audio worker is not connected.');
+  if(target.models&&!target.models.includes(modelId))throw Error('This audio model is not enabled on '+compute.toUpperCase()+'. Choose another compute target.');
  }
  for(const model of audioModels){
   MODEL_CATALOG[model.id]={name:model.name,license:model.license,defaults:{}};
@@ -36,7 +38,7 @@
  try{const chosen=JSON.parse(localStorage.getItem('ecco-model-profiles-v1'))?.selected?.voice;if(audioModels.some(m=>m.id===chosen))modelProfiles.selected.voice=chosen;}catch{}
  names.audio='Audio Studio';
  const oldStatus=modelStatus;
- modelStatus=function(id){const item=audioModels.find(m=>m.id===id);return item?item.license+' · '+item.languages.length+' languages. '+(serviceReady()?'Audio service connected.':'Connect storage and GPU to generate audio.'):oldStatus(id);};
+ modelStatus=function(id){const item=audioModels.find(m=>m.id===id);return item?item.license+' · '+item.languages.length+' languages. '+(serviceReady()?'Audio service connected.':'Connect workspace storage to generate audio.'):oldStatus(id);};
  const oldAvailable=modelAvailable;
  modelAvailable=function(id){return audioModels.some(m=>m.id===id)?serviceReady():oldAvailable(id);};
  const dialects={English:['Indian English','British English','Irish English','Australian English','American English','Scottish English'],Hindi:['Standard Hindi','Delhi Hindi','Punjabi-influenced Hindi'],Urdu:['Standard Urdu','Lucknow Urdu','Hyderabadi Urdu'],Punjabi:['Majhi','Malwai','Doabi'],Tamil:['Standard Tamil','Chennai Tamil','Sri Lankan Tamil']};
@@ -75,7 +77,7 @@
  }
  function changeModel(value){
   for(const item of draft.speakers){item.model_settings||={};item.model_settings[draft.model]={language:item.language,voice:item.voice,emotion:item.emotion,mixed_language:item.mixed_language};if(item.model_settings[value])Object.assign(item,item.model_settings[value]);}
-  draft.model=value;modelProfiles.selected.voice=value;saveModelProfiles();normalizeSpeakers();save();drawControls();clearPreview();q('#audio-voice-preview-dialog')?.close();
+  draft.model=value;modelProfiles.selected.voice=value;saveModelProfiles();normalizeSpeakers();save();drawControls();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();
  }
  const modelParameters=()=>draft.model==='chatterbox'?{exaggeration:Number(draft.exaggeration??0.5)}:{};
  function save(){localStorage.setItem(key(),JSON.stringify(draft));}
@@ -216,7 +218,7 @@
    const current=service,started=Date.now();button.disabled=true;player.hidden=true;player.removeAttribute('src');status.textContent='Generating voice preview…';
    const fail=error=>{if(valid()){status.textContent=error.message||'Could not create the voice preview.';button.disabled=false;}};
    try{
-    await requireCompute(settings.compute);if(!valid()||current!==service)return;
+    await requireCompute(settings.compute,settings.model);if(!valid()||current!==service)return;
     const job=await current.generate({...settings,lines:[{text,...voice}]});if(!valid()||current!==service)return;
     const check=async()=>{if(!valid()||current!==service)return;try{
      const result=await current.job(job.id);if(!valid()||current!==service)return;
@@ -302,7 +304,7 @@
    if(!serviceReady()){window.EccoStorage?.open();return;}
    let lines;try{lines=requestLines();}catch(error){notice(error.message,true);q('[data-open-prompt]')?.click();return;}
    const requestedStory=activeStory;submitting=true;update();
-   try{const current=service,request={model:draft.model,compute:draft.compute,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,lines,story_id:requestedStory};await requireCompute(request.compute);if(current!==service)throw Error('Storage disconnected.');const job=await current.generate(request);window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);if(activeStory===requestedStory)lastJob=job;update();refresh();notice('Audio queued. You can keep working while it generates.');await poll();}
+   try{const current=service,request={model:draft.model,compute:draft.compute,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,lines,story_id:requestedStory};await requireCompute(request.compute,request.model);if(current!==service)throw Error('Storage disconnected.');const job=await current.generate(request);window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);if(activeStory===requestedStory)lastJob=job;update();refresh();notice('Audio queued. You can keep working while it generates.');await poll();}
    catch(error){notice(error.message,true);}
    finally{submitting=false;update();}
   };
@@ -325,6 +327,7 @@
  // Inherit the existing production-menu styling and place Audio after Video.
  if(video)video.after(button);else (production||nav).append(button);
 })();
+
 
 
 

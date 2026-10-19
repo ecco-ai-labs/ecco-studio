@@ -1,10 +1,19 @@
 """On-demand Indic-Mio inference. All paths are explicitly supplied temporary worker files."""
 import argparse
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
 import tempfile
+
+def inference_device(request, torch):
+    if request.get('compute') == 'cpu':
+        torch.set_num_threads(max(1, min(4, int(os.getenv('ECCO_AUDIO_CPU_THREADS', '1')))))
+        return 'cpu'
+    if not torch.cuda.is_available():
+        raise RuntimeError('The selected GPU is not available on this audio worker.')
+    return 'cuda'
 
 def assemble(clips, request, output, sample_rate):
     """Apply delivery DSP to speech first; insert exact silence in the final sample rate."""
@@ -34,12 +43,12 @@ def synthesize(request, output, runtime):
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from miocodec import MioCodecModel
 
-    if not torch.cuda.is_available():
-        raise RuntimeError('A CUDA GPU is required for this audio worker.')
+    device = inference_device(request, torch)
     tokenizer = AutoTokenizer.from_pretrained(runtime / 'model', local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(runtime / 'model', local_files_only=True,
-                                                torch_dtype=torch.bfloat16).eval().to('cuda')
-    codec = MioCodecModel.from_pretrained(config_path=str(runtime / 'codec' / 'config.yaml'), weights_path=str(runtime / 'codec' / 'model.safetensors')).eval().to('cuda')
+                                                torch_dtype=torch.float32 if device == 'cpu' else torch.bfloat16,
+                                                low_cpu_mem_usage=True).eval().to(device)
+    codec = MioCodecModel.from_pretrained(config_path=str(runtime / 'codec' / 'config.yaml'), weights_path=str(runtime / 'codec' / 'model.safetensors')).eval().to(device)
     sample_rate = int(codec.config.sample_rate)
     clips = []
     with torch.inference_mode():
@@ -47,7 +56,7 @@ def synthesize(request, output, runtime):
             prompt_text = line['text'] + (f" <{line['emotion']}>" if line['emotion'] != 'neutral' else '')
             prompt = tokenizer.apply_chat_template([{'role': 'user', 'content': prompt_text}],
                                                     tokenize=False, add_generation_prompt=True)
-            inputs = tokenizer(prompt, return_tensors='pt').to('cuda')
+            inputs = tokenizer(prompt, return_tensors='pt').to(device)
             tokens = model.generate(**inputs, max_new_tokens=2048, do_sample=True, temperature=0.9,
                                     top_p=0.9, pad_token_id=tokenizer.eos_token_id)
             generated = tokens[0, inputs['input_ids'].shape[1]:]
@@ -60,9 +69,9 @@ def synthesize(request, output, runtime):
             embedding = torch.load(runtime / 'presets' / (line['voice'] + '.pt'), map_location='cpu', weights_only=True)
             if isinstance(embedding, dict):
                 embedding = embedding.get('global_embedding', embedding.get('embedding'))
-            embedding = torch.as_tensor(embedding).squeeze().flatten().to('cuda')
+            embedding = torch.as_tensor(embedding).squeeze().flatten().to(device)
             waveform = codec.decode(global_embedding=embedding,
-                                    content_token_indices=torch.tensor(codes, device='cuda', dtype=torch.long))
+                                    content_token_indices=torch.tensor(codes, device=device, dtype=torch.long))
             clip = waveform.squeeze().float().cpu().numpy()
             if clip.ndim != 1 or not len(clip) or not np.isfinite(clip).all():
                 raise RuntimeError('The codec returned invalid audio.')
@@ -77,4 +86,5 @@ if __name__ == '__main__':
     args = p.parse_args()
     from audio_schema import validate
     synthesize(validate(json.loads(args.request.read_text())), args.output, args.runtime)
+
 

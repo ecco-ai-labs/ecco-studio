@@ -6,6 +6,7 @@ import time
 import uuid
 
 ROOT = Path(os.getenv('ECCO_AUDIO_QUEUE', '/workspace/ecco-audio/queue'))
+MODELS = ('indic-mio', 'chatterbox', 'indicf5')
 
 def write(path, data):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -27,20 +28,26 @@ def workers():
     result = []
     for path in ROOT.glob('worker-*.json'):
         worker = read(path, {})
-        if (isinstance(worker, dict) and worker.get('compute') in ('a100', 'b200')
+        if (isinstance(worker, dict) and worker.get('compute') in ('cpu', 'a100', 'b200')
                 and isinstance(worker.get('updated'), (int, float))
                 and 0 <= time.time() - worker['updated'] < 30):
             result.append(worker)
     return result
 
-def ready(compute=None):
-    return any(compute is None or w['compute'] == compute for w in workers())
+def supported(worker):
+    models = worker.get('models', [] if worker['compute'] == 'cpu' else MODELS)
+    return [model for model in MODELS if isinstance(models, (list, tuple)) and model in models]
+
+def ready(compute=None, model=None):
+    return any((compute is None or w['compute'] == compute) and supported(w)
+               and (model is None or model in supported(w)) for w in workers())
 
 def availability():
-    live = {w['compute'] for w in workers()}
-    compute = {target: {'ready': target in live,
-                       'reason': '' if target in live else target.upper() + ' audio worker is not connected.'}
-               for target in ('a100', 'b200')}
-    compute['cpu'] = {'ready': False, 'reason': 'CPU audio generation is not enabled yet. Select A100.'}
-    return {'routing_version': 1, 'ready': bool(live), 'compute': compute}
+    live, compute = workers(), {}
+    for target in ('cpu', 'a100', 'b200'):
+        models = sorted({model for w in live if w['compute'] == target for model in supported(w)})
+        compute[target] = {'ready': bool(models), 'models': models,
+                           'reason': '' if models else target.upper() + ' audio worker is not connected.'}
+    return {'routing_version': 1, 'ready': any(v['ready'] for v in compute.values()), 'compute': compute}
+
 
