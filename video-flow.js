@@ -65,16 +65,16 @@
    data.shots.forEach((s,i)=>{
     const line=document.createElement('div');line.style.cssText='display:flex;align-items:center;gap:8px';
     const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=s.selected!==false;checkbox.style.cssText='width:14px;height:14px;min-width:14px;margin:0;flex:none';checkbox.setAttribute('aria-label','Include shot '+(i+1)+' in video');
-    checkbox.onchange=()=>{s.selected=checkbox.checked;balance();persist();drawShots();drawDirections();};
+    checkbox.onchange=()=>{s.selected=checkbox.checked;if(checkbox.checked)shotIndex=i;balance();persist();drawShots();drawDirections();};
     const edit=document.createElement('button');edit.type='button';edit.className='secondary small';edit.style.cssText='flex:1;text-align:left';edit.textContent=(i+1)+'. '+(s.title||'Shot '+(i+1));edit.setAttribute('aria-pressed',String(i===shotIndex));
     edit.onclick=()=>{checkbox.checked=!checkbox.checked;checkbox.dispatchEvent(new Event('change'));};
-    const controls=document.createElement('button');controls.type='button';controls.className='secondary small';controls.textContent='Shot Controls';controls.setAttribute('aria-label','Shot controls for shot '+(i+1));controls.onclick=()=>{shotIndex=i;drawShots();openShotControls(s,i);};
+    const controls=document.createElement('button');controls.type='button';controls.className='secondary small';controls.textContent='Shot Controls';controls.hidden=s.selected===false;controls.setAttribute('aria-label','Shot controls for shot '+(i+1));controls.onclick=()=>{shotIndex=i;drawShots();openShotControls(s,i);};
     line.append(checkbox,edit,controls);choices.append(line);
    });
    const add=document.createElement('button');add.type='button';add.className='secondary small';add.textContent='+ Add shot';
    add.onclick=()=>{data.shots.push(newShot(data.shots.length));shotIndex=data.shots.length-1;data.directions=[];persist();select.open=false;drawShots();drawDirections();};
    choices.append(add);select.append(choices);select.open=wasOpen;
-   data.shots.forEach((s,i)=>{if(i!==shotIndex)return;
+   data.shots.forEach((s,i)=>{if(i!==shotIndex||s.selected===false)return;
     const row=document.createElement('fieldset');row.className='form';
     row.innerHTML='<label>Avatar for this shot<select data-image></select></label><div class="row"><button type="button" class="secondary small" data-shot-controls>Shot controls</button><button type="button" class="small secondary" data-remove-shot>Remove shot</button></div>';
     q('[data-shot-controls]',row).onclick=()=>openShotControls(s,i);
