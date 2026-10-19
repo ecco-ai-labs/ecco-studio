@@ -75,11 +75,11 @@
    }
   });
  }
- async function storageRequest(path,body,accessKey=key){
+ async function storageRequest(path,body,accessKey=key,options={}){
   if(!accessKey)throw Error('Connect your saved workspace from Account → Storage. No GPU is needed.');
   let response;
   try{
-   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:20000),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
+   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
    if(!response.ok){
     let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
     try{message=(await response.json()).error||message;}catch{}
@@ -97,10 +97,10 @@
    throw error;
   }
  }
- api=async function(path,body){
+ api=async function(path,body,options={}){
   if(inference.has(path))return inferenceRequest(path,body);
   if(generation.has(path))return gpuAPI(path,body);
-  const data=await storageRequest(path,body);
+  const data=await storageRequest(path,body,key,options);
   if(path==='state'){
    verified=true;errorShown=false;connectAudio();
    acceptGPUHealth(data.config.gpu_relay);
