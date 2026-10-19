@@ -438,3 +438,9 @@ body:not(.workspace-entry-mode) .story-source-controls>button,.story-source-cont
 #workspace-library-group .video-publish-choice:has(input:checked){color:var(--accent,#ffdc24)}
 #workspace-library-group .video-publish-choice:has(input:focus-visible){outline:1px solid var(--accent,#ffdc24);outline-offset:2px}
 
+
+/* Keep the parent disclosure separate and leave room between item bullets and labels. */
+#workspace-library-group>summary::before{display:none}
+body:not(.workspace-entry-mode) #workspace-library-group :is(.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice){padding-left:26px!important}
+body:not(.workspace-entry-mode) #workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.tree-folder,
+body:not(.workspace-entry-mode) #workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.library-selected-row>.tree-folder{padding-left:0!important}
