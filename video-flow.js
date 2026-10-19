@@ -25,7 +25,7 @@
   const section=(n,t,body)=>'<section class="generation-section form" data-step="'+n+'"><div class="generation-section-heading">'+n+'. '+t+'</div>'+body+'</section>';
   root.innerHTML=section(2,'Library','<div class="row"><select aria-label="Library" data-library><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select><button type="button" class="secondary" data-browse>Browse library</button></div><div data-list="image" class="generation-selected"></div><div data-list="video" class="generation-selected"></div><div data-list="audio" class="form"></div><p class="help" data-audio-hint></p>')+
    section(3,'Audio script','<p class="help" data-script-source>Select audio above to load the exact words used to generate it.</p><textarea aria-label="Audio script" data-transcript maxlength="4000" rows="5" placeholder="Your selected recording’s original script will appear here."></textarea><p class="help">AI edits the script text. To hear edited words or lip-sync them, generate a new recording in Audio Studio and select it here.</p>')+
-   section(4,'Shots','<label>Storyboard<select data-board aria-label="Storyboard"></select></label><div class="row"><button type="button" class="secondary" data-load>Load selected storyboard</button><button type="button" class="secondary" data-add>Add shot</button></div><label>Edit shot<select data-shot aria-label="Edit shot"></select></label><div data-shots class="form"></div><p data-timing class="help"></p>')+
+   section(4,'Shots','<label>Storyboard<select data-board aria-label="Storyboard"></select></label><label>Edit shot<select data-shot aria-label="Edit shot"></select></label><div data-shots class="form"></div><p data-timing class="help"></p>')+
    section(5,'Video prompt','<label>Describe the action and setting<textarea data-brief rows="3" maxlength="2000" placeholder="For example: The selected avatar presents the selected audio in a newsroom, looking into the camera."></textarea></label><button type="button" class="secondary" data-write>Improve shot prompts with AI · optional</button><p class="help">Use this for visual instructions. The audio script above supplies the spoken words.</p><div data-directions class="form"></div><p role="status" data-ai-status></p>');
   button.textContent='Generate video';
   const legacyBoard=q('[name="board_id"]',form);if(legacyBoard){legacyBoard.required=false;legacyBoard.closest('label').hidden=true;}
@@ -48,7 +48,6 @@
    select.replaceChildren();select.add(new Option(list.length?'Choose a storyboard':'No saved storyboard — add shots below',''));
    for(const b of list)select.add(new Option((b.title||'Storyboard')+' · '+b.scenes.length+' shots'+(b.created?' · '+new Date(b.created*1000).toLocaleString():''),b.id));
    select.value=list.some(b=>b.id===previous)?previous:(list[0]?.id||'');
-   q('[data-load]',root).disabled=!list.length;
   }
   function loadBoard(){
    drawBoards();const board=boardOptions().find(b=>b.id===q('[data-board]',root).value);
@@ -59,7 +58,7 @@
   function drawShots(){
    const box=q('[data-shots]',root);box.replaceChildren();
    const select=q('[data-shot]',root);select.replaceChildren();data.shots.forEach((s,i)=>select.add(new Option((i+1)+'. '+(s.title||'Shot '+(i+1))+(s.selected===false?' · excluded':''),String(i))));
-   shotIndex=Math.max(0,Math.min(shotIndex,data.shots.length-1));select.value=String(shotIndex);select.onchange=()=>{shotIndex=Number(select.value);drawShots();drawDirections();};
+   shotIndex=Math.max(0,Math.min(shotIndex,data.shots.length-1));select.value=String(shotIndex);select.add(new Option('+ Add shot','__add__'));select.onchange=()=>{if(select.value==='__add__'){data.shots.push(newShot(data.shots.length));shotIndex=data.shots.length-1;data.directions=[];persist();}else shotIndex=Number(select.value);drawShots();drawDirections();};
    data.shots.forEach((s,i)=>{if(i!==shotIndex)return;
     const row=document.createElement('fieldset');row.className='form';
     row.innerHTML='<label>Include in video<select data-selected><option value="yes">Yes</option><option value="no">No</option></select></label><label>Avatar for this shot<select data-image></select></label><label>Action<textarea data-motion rows="2" maxlength="800"></textarea></label><div class="generation-attribute-grid">'+
@@ -135,8 +134,7 @@
   q('[data-transcript]',root).oninput=event=>{data.script_drafts=data.script_drafts||{};data.script_drafts[JSON.stringify(data.audio_ids)]=event.target.value;persist();};
   q('[data-library]',root).onchange=drawLists;
   q('[data-browse]',root).onclick=()=>picker(q('[data-library]',root).value);
-  q('[data-load]',root).onclick=loadBoard;
-  q('[data-add]',root).onclick=()=>{data.shots.push(newShot(data.shots.length));data.directions=[];persist();drawShots();drawDirections();};
+  q('[data-board]',root).onchange=loadBoard;
   const brief=q('[data-brief]',root);brief.value=data.brief||'';brief.oninput=()=>{data.brief=brief.value;persist();};
   model.addEventListener('change',()=>{persist();drawLists();});
   const write=q('[data-write]',root),aiStatus=q('[data-ai-status]',root);
