@@ -155,7 +155,7 @@
  function promptActions(c){
   q('[data-close]',c.prompt).textContent='Apply';
   c.prompt.addEventListener('focusin',e=>{if(e.target.matches('textarea:not([readonly])'))c.activePrompt=e.target;});
-  q('[data-ai-generate]',c.prompt).onclick=()=>window.EccoAI?.generateField((c.activePrompt?.isConnected?c.activePrompt:q('textarea:not([readonly])',c.prompt)));
+  q('[data-ai-generate]',c.prompt).onclick=()=>c.kind==='audio'?window.EccoAudioStudio?.generateScript():window.EccoAI?.generateField((c.activePrompt?.isConnected?c.activePrompt:q('textarea:not([readonly])',c.prompt)));
   q('[data-ai-improve]',c.prompt).onclick=()=>window.EccoAI?.improveField((c.activePrompt?.isConnected?c.activePrompt:q('textarea:not([readonly])',c.prompt)));
  }
  function mount(form,kind){
