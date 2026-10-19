@@ -138,20 +138,12 @@
    draft={title:settings.title||result.title,story:result.scenes.map(s=>s.narration).join('\n\n'),scenes:result.scenes,workflow:settings,defaultSeconds:settings.duration/settings.count};persistDraft();navigate('board');
   }catch(error){notice(error.message,true);}finally{button.disabled=false;button.textContent=old;}
  }
- function sourceLinks(){
-  const root=q('#scenes');if(!root)return;
-  root.querySelectorAll('.scene').forEach((card,i)=>{const scene=draft.scenes[i];if(!scene||card.querySelector('[data-scene-next]'))return;
-   const footer=document.createElement('div');footer.dataset.sceneNext='true';footer.className='row';
-   for(const source of scene.sources||[]){if(!/^https?:\/\//.test(source.url))continue;const a=document.createElement('a');a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title||source.url;footer.append(a);}
-   const audio=document.createElement('button');audio.type='button';audio.className='secondary';audio.textContent='Use scene for audio';audio.onclick=()=>{sessionStorage.setItem('ecco-audio-scene-transfer',String(i));navigate('audio');};const narration=card.querySelector('textarea[data-field="narration"]');if(narration){audio.style.cssText='align-self:flex-start;width:auto';narration.closest('label').after(audio);}else footer.append(audio);card.append(footer);
-  });
- }
  function audioTransfer(){
   const value=sessionStorage.getItem('ecco-audio-scene-transfer'),box=q('#scene-audio-source');if(value===null||!box)return;
   sessionStorage.removeItem('ecco-audio-scene-transfer');box.querySelector('select').value=value;box.querySelector('button').click();
  }
  let pending=false;
- function mount(){nav();genres();sourceLinks();audioTransfer();}
+ function mount(){nav();genres();audioTransfer();}
  new MutationObserver(()=>{if(pending)return;pending=true;queueMicrotask(()=>{pending=false;mount();});}).observe(document.body,{childList:true,subtree:true});
  mount();window.EccoWorkflows={show};
 })();
