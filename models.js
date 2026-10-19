@@ -1,7 +1,7 @@
 'use strict';
 const MODEL_CATEGORIES={images:{title:'Image generation',models:['sdxl','qwen-image-2512','flux-klein-4b','z-image','trellis-2']},assets3d:{title:'3D asset generation',models:['trellis-2']},video:{title:'Video generation',models:['preview','wan-5b','wan-a14b','longcat-avatar-1.5']},story:{title:'Story & screenplay',models:['manual','qwen-story']},voice:{title:'Voice & narration',models:['silent','cosyvoice']}};
 const MODEL_CATALOG={
- 'z-image':{name:'Z-Image 6B',pending:true,pendingLabel:'integration pending',statusText:'Downloaded to persistent GPU workspace (20.55 GB). Image generation integration is not ready.',defaults:{resolution:'1024x1024',steps:50,cfg:4,seed:42},sizes:['1024x1024','1280x720','720x1280']},
+ 'z-image':{name:'Z-Image 6B',defaults:{resolution:'1024x1024',steps:50,cfg:4,seed:42},sizes:['1024x1024','1280x720','720x1280']},
  'trellis-2':{name:'TRELLIS.2 4B',pending:true,pendingLabel:'model access required',statusText:'Weights downloaded. Required DINOv3 encoder access was denied by Hugging Face. Authorize facebook/dinov3-vitl16-pretrain-lvd1689m before runtime setup and image-to-3D verification can finish.',defaults:{}},
  'sdxl':{name:'SDXL Base 1.0',defaults:{resolution:'1024x576',steps:25,cfg:7,seed:20261011,sampler:'dpmpp_2m',scheduler:'karras'},sizes:['1024x576','1024x1024','768x1024']},
  'qwen-image-2512':{name:'Qwen-Image-2512',defaults:{resolution:'1664x928',steps:50,cfg:4,seed:42},sizes:['1664x928','1328x1328','928x1664']},
