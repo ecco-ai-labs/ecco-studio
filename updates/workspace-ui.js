@@ -106,7 +106,7 @@
    const nested=folders.filter(f=>parentOf(f)?.id===folder.id);
    const ids=new Set(links.filter(r=>r.folder_id===folder.id).map(r=>r.asset_id));
    const images=assets.filter(a=>ids.has(a.id)).sort((a,b)=>a.created-b.created);
-   row.dataset.libraryMarker=(nested.length||images.length)?'+':'−';
+   row.dataset.libraryMarker=nested.length?'+':'−';
    const key='label:'+folder.id;
    if(nested.length){
     const toggle=document.createElement('button');toggle.type='button';toggle.className='tree-branch-toggle';toggle.textContent='▸';
