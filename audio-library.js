@@ -30,10 +30,10 @@
   d.querySelector('[data-close]').onclick=()=>d.close();
   d.querySelector('[data-create]').onclick=()=>{const form=d.querySelector('form'),pending={title:form.elements.title.value,labels:[...new Set([...existing,...new FormData(form).getAll('labels')])]};createLabel(folder=>{pending.labels.push(folder.id);d.close();labelDialog(id,pending);});};
   d.querySelector('form').onsubmit=async e=>{
-   e.preventDefault();const form=e.target,b=form.querySelector('[type=submit]');b.disabled=true;
+   e.preventDefault();const form=e.target,b=form.querySelector('[type=submit]'),originPage=page;b.disabled=true;
    try{const title=form.elements.title.value.trim(),folder_ids=[...new Set([...existing,...new FormData(form).getAll('labels')])];
     if(!title)throw Error('Enter an audio name.');if(!folder_ids.length)throw Error('Choose at least one label.');
-    await api('audio/labels',{asset_id:id,title,folder_ids});await refresh();d.close();sync();notice('Audio name and labels saved.');
+    await api('audio/labels',{asset_id:id,title,folder_ids});await refresh();d.close();sync();if(page===originPage)notice('Audio name and labels saved.');
    }catch(error){window.EccoErrors?.show(error);form.querySelector('[role=status]').textContent=error.message;}finally{b.disabled=false;}
   };d.showModal();
  }
@@ -89,7 +89,7 @@
   wireCards();document.querySelectorAll('[data-audio-label]').forEach(b=>b.onclick=()=>labelDialog(b.dataset.audioLabel));hydrateMedia();pageSignature=signature();
  }
  function sync(){tree();if(page==='audio-library'&&pageSignature!==signature())render();}
- const oldNavigate=navigate;navigate=function(p){if(p!=='audio-library')return oldNavigate.apply(this,arguments);document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page=p;q('#heading').textContent='Audio Library';document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));treeSignature='';tree();render();};
+ const oldNavigate=navigate;navigate=function(p){if(p!==page)notice('');if(p!=='audio-library')return oldNavigate.apply(this,arguments);document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page=p;q('#heading').textContent='Audio Library';document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));treeSignature='';tree();render();};
  const oldStoryControls=storyControls;storyControls=function(...args){const result=oldStoryControls.apply(this,args);sync();return result;};
  document.addEventListener('click',event=>{if(event.target.closest('#workspace-audio-library > summary')){selected='all';treeSignature='';}},true);
  window.EccoAudioLibrary={add:labelDialog};
