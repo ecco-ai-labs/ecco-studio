@@ -73,11 +73,11 @@
   all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{const kind=record(b.dataset.refRemove)?.media||referenceKind(c),scope={...c,data:{...c.data,reference_library:kind}};setReferences(c,referenceIds(scope).filter(id=>id!==b.dataset.refRemove),kind);});
   }
   const text=c.kind==='audio'?all('textarea[data-field=text]',c.form).map(x=>x.value).join('\n'):q('textarea[name=prompt]',c.form)?.value||'';
-  q('[data-prompt-summary]',c.form).textContent=text.trim()||(c.kind==='audio'?'Write the words to be spoken, or generate a script with AI.':'Add what you want to generate.');
+  q('[data-prompt-summary]',c.form).textContent=text.trim();
   fitPrompt(c);
   q('[data-open-prompt]',c.form).textContent=c.kind==='audio'?(text.trim()?'Edit script':'Write script'):(text.trim()?'Edit prompt':'Add prompt');
   const referenceNote=q('[data-reference-note]',c.form);
-  if(referenceNote)referenceNote.textContent=referenceKind(c)==='audio'?(refs.length?'Original recording, script and storyboard are reused.':'Choose a recording from Audio Library.'):referenceKind(c)==='video'?(refs.length?'Selected videos are saved as references.':'No reference videos selected.'):refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
+  if(referenceNote){referenceNote.textContent='';referenceNote.hidden=true;}
   if(c.kind==='image'){
    const has=refs.length>0;
    for(const opt of c.model.options)opt.disabled=has?opt.value!=='qwen-image-edit-2511':opt.value==='qwen-image-edit-2511';
