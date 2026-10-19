@@ -25,6 +25,7 @@ window.EccoGPUPicker = (() => {
     });
   }
   async function check(gpu) {
+    if(window.EccoGPUConnection){try{return await window.EccoGPUConnection.check(gpu);}catch{return {kind:"unknown",title:"Unavailable",detail:window.EccoStorage?.ready?"Checking connection. Try again shortly.":"Connect your workspace in Account → Storage first."};}}
     const [studio, gateway] = await Promise.all([
       probe(gpu.url+'logo.png'), probe(gpu.origin+'/static/favicons/favicon.ico')
     ]);
@@ -37,7 +38,7 @@ window.EccoGPUPicker = (() => {
     let active=true, busy=false;
     container.innerHTML = `<style>.gpu-picker .gpu-open:disabled{background:#525866;color:#d1d5db;opacity:.55;cursor:not-allowed;box-shadow:none;filter:grayscale(1)}</style><section class="gpu-picker panel" aria-labelledby="gpu-picker-title">
       <div class="section-head"><div><span class="eyebrow">YOUR GPU WORKSPACES</span><h2 id="gpu-picker-title">Choose where to create</h2></div><button class="secondary" id="gpu-refresh">Refresh status</button></div>
-      <p>Select the GPU you want to use. Availability is checked live; nothing opens until you choose.</p>
+      <p>Select the GPU you want to use. Connection stays within Studio.</p>
       <div class="gpu-grid">${gpus.map(gpu=>`<article class="gpu-card" data-gpu="${gpu.id}">
         <h3>${gpu.name}</h3><p class="help">${gpu.label}</p>
         <p class="gpu-status" role="status" aria-live="polite">Checking availability…</p>
@@ -45,7 +46,7 @@ window.EccoGPUPicker = (() => {
         <button class="gpu-open" disabled>Checking ${gpu.name}…</button>
       </article>`).join('')}</div>
       <p class="help" id="gpu-checked">Checking both GPUs…</p>
-      <p class="help">Checks show service availability, not GPU utilization or rental availability. Opening a workspace does not start a stopped GPU. If asked, sign in to its Jupyter session.</p>
+      <p class="help">Availability is checked automatically. Selecting a GPU does not start a stopped pod.</p>
     </section>`;
     const refresh = container.querySelector('#gpu-refresh');
     for(const gpu of gpus) {
