@@ -13,7 +13,7 @@ async function setup(storage={}){
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};w.confirm=()=>true;
  w.localStorage.setItem('ecco-story-collections-v1',JSON.stringify({collections:[{id:'collection',name:'Stories'}],members:{}}));
  for(const [key,value] of Object.entries(storage))w.localStorage.setItem(key,value);
- w.eval(scripts.join('\n;\n')+`\nwindow.testUI={navigate:p=>navigate(p),refreshStories:()=>storyControls(),addRecords:items=>state.records.push(...items),selectStory(id){activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();},getDraft:()=>draft,setGPU:ready=>{gpuConnected=()=>ready;}};
+ w.eval(scripts.join('\n;\n')+`\nwindow.testUI={setAPI:fn=>{api=fn;},navigate:p=>navigate(p),refreshStories:()=>storyControls(),addRecords:items=>state.records.push(...items),selectStory(id){activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();},getDraft:()=>draft,setGPU:ready=>{gpuConnected=()=>ready;}};
  state={records:[{id:'audio-story',kind:'story',title:'Audio Story'},{id:'video-story',kind:'story',title:'Video Story'}],config:{models_ready:{}},storage_pending:false};
  window.testCalls=[];api=async(path,body)=>{window.testCalls.push({path,body});if(path==='stories'){const record={id:'created-story',kind:'story',...body};state.records.push(record);return record;}return {};};refresh=async()=>true;`);
  await tick();w.document.querySelector('#entry-tell-story')?.click();
@@ -98,4 +98,21 @@ test('Scene narration imports into one script and preserves existing text',async
  const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const text='A longer scene narration. '.repeat(30);
  x.w.EccoAudioStudio.importScript(text);assert.equal(x.q('[data-single-script]').value,text);assert.equal(x.w.document.querySelectorAll('#audio-lines textarea').length,1);
  assert.throws(()=>x.w.EccoAudioStudio.importScript('Replace me'),/already has text/);assert.equal(x.q('[data-single-script]').value,text);assert.deepEqual(x.errors,[]);x.close();
+});
+
+test('Selected scenes become one ordered audio plan with per-scene voices and separate title pause',async()=>{
+ const scenes=[{title:'First news',narration:'Fact one.'},{title:'Second news',narration:'Fact two.'},{title:'Third news',narration:'Fact three.'}];
+ const x=await setup({'ecco-active-story':'audio-story','ecco-board-draft:audio-story':JSON.stringify({scenes})});await x.go('audio');const {calls}=connect(x);
+ x.q('[data-select-scenes]').click();x.w.document.querySelectorAll('#audio-scenes-dialog input').forEach(el=>el.checked=true);x.q('#audio-scenes-dialog [data-apply]').click();assert.equal(audioDraft(x).source_scenes.length,3);
+ x.w.EccoAI={enabled:true};x.w.EccoStorage={ready:true};x.w.plan={opening:{text:'आज की तीन खबरें।',voice:'en_female'},segments:[{scene_number:1,text:'पहली खबर।',voice:'en_female'},{scene_number:2,text:'दूसरी खबर।',voice:'en_male'},{scene_number:3,text:'तीसरी खबर।',voice:'en_female'}]};
+ x.w.testUI.setAPI(async(path,body)=>{x.w.aiRequest=body;return {revisions:[{id:'audio_plan',text:JSON.stringify(x.w.plan)}],questions:[]};});
+ x.w.EccoAudioStudio.generateScript();input(x,'[data-instructions]','Hindi with Urdu and English. First female, second male.');x.q('#audio-script-instructions form').requestSubmit();await tick();
+ assert.ok(x.w.aiRequest,x.w.document.body.textContent.slice(-2500));assert.deepEqual(Array.from(x.w.aiRequest.context.scenes,s=>s.scene_number),[1,2,3]);assert.match(x.w.aiRequest.context.instructions,/First female, second male/);
+ assert.equal(audioDraft(x).presentation,'conversation');assert.equal(x.q('[data-opening-text]').value,'आज की तीन खबरें।');assert.equal(x.w.document.querySelectorAll('[data-turn-speaker]').length,3);
+ x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,1);assert.equal(calls[0].lines.length,4);assert.deepEqual(Array.from(calls[0].lines,l=>l.voice),['en_female','en_female','en_male','en_female']);assert.equal(calls[0].lines[1].pause_before,2);assert.doesNotMatch(JSON.stringify(calls[0].lines),/First female|Hindi with Urdu/);
+ assert.deepEqual(x.errors,[]);x.close();
+});
+test('Changed source scenes are rejected before script generation',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story','ecco-board-draft:audio-story':JSON.stringify({scenes:[{title:'Original',narration:'Original facts.'}]})});await x.go('audio');x.q('[data-select-scenes]').click();x.q('#audio-scenes-dialog input').checked=true;x.q('#audio-scenes-dialog [data-apply]').click();
+ x.w.localStorage.setItem('ecco-board-draft:audio-story',JSON.stringify({scenes:[{title:'Different',narration:'Other facts.'}]}));x.w.EccoAudioStudio.generateScript();assert.equal(x.q('#audio-script-instructions'),null);assert.equal(audioDraft(x).single_text,'');x.close();
 });
