@@ -221,7 +221,7 @@
   if(status)status.textContent=text;
  }
  if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
- if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='journey-preview'){welcomePending=false;journeyPreview();return;}if(args[0]==='story-collections'){welcomePending=false;window.EccoStoryCollections.show();return;}if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='story-library'){welcomePending=false;libraryOverview('story');return;}if(args[0]==='empty'){workspaceStart();return;}if(args[0]==='board'&&!activeStory&&!newStoryStarted){workspaceStart();return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
+ if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]!==page)notice('');if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='journey-preview'){welcomePending=false;journeyPreview();return;}if(args[0]==='story-collections'){welcomePending=false;window.EccoStoryCollections.show();return;}if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='story-library'){welcomePending=false;libraryOverview('story');return;}if(args[0]==='empty'){workspaceStart();return;}if(args[0]==='board'&&!activeStory&&!newStoryStarted){workspaceStart();return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
  setInterval(acceleratorDisplay,5000);
 
  function librarySelection(){
@@ -248,14 +248,14 @@
  }
  function libraryOverview(kind){
   document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();
-  page=kind+'-library';q('#heading').textContent=kind==='video'?'Video Library':'Story Library';
+  notice('');page=kind+'-library';q('#heading').textContent=kind==='video'?'Video Library':'Story Library';
   document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));
   if(kind==='video'){
    const list=videoLibraryAssets();
    q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><div class="row"><label class="library-view-label"><select id="video-library-view" aria-label="Video library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="video-library-upload" class="secondary">Upload</button><button type="button" id="video-library-publish" class="secondary">Publish</button></div></div><div id="video-library-gallery" class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
    q('#video-library-upload').onclick=uploadVideoDialog;q('#video-library-publish').onclick=()=>{page='journey-preview';journeyPreview(true);journeyGuide();librarySelection();};wireCards();
   }else{
-   q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2><div class="row"><label class="library-view-label"><select id="story-library-view" aria-label="Story library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="story-library-upload" class="secondary">Upload</button></div></div><div id="story-library-list" class="form"></div>';
+   q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2><div class="row"><label class="library-view-label"><select id="story-library-view" aria-label="Story library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="story-library-upload" class="secondary">Upload</button></div></div><div id="story-library-list" class="cards text-library-gallery"></div>';
    const list=q('#story-library-list'),collections=readStory('ecco-story-collections-v1'),groups=new Map((collections.collections||[]).map(group=>[group.id,group.name]));
    const entries=stories().map(story=>({...story,collection:groups.get(collections.members?.[story.id])||'Unassigned'}));
    const add=(entry,local=false)=>{const item=libraryCard({id:entry.id,title:entry.title,detail:local?'Draft':entry.collection,open:()=>{if(local)storySetupPage(entry.id);else openStory(entry.id);librarySelection();},remove:()=>local?deleteLocalStory(entry.id):deleteStory(entry.id)});item.querySelector('.text-library-open').dataset[local?'localStoryId':'storyId']=entry.id;list.append(item);};
