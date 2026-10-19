@@ -70,7 +70,7 @@
    group.append(row,children);for(const child of nested)append(child,children);container.append(group);
   }
   for(const folder of list.filter(f=>!parentOf(f)))append(folder,body);
-  const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='+ New Label';create.onclick=()=>createLabel(folder=>{selected=folder.id;for(const parent of folders())if(folder.name.startsWith(parent.name+' / '))expanded.add(parent.id);treeSignature='';navigate('audio-library');library.open=true;},list.find(f=>f.id===selected)?.name||'');body.append(create);
+  const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='New Label';create.onclick=()=>createLabel(folder=>{selected=folder.id;for(const parent of folders())if(folder.name.startsWith(parent.name+' / '))expanded.add(parent.id);treeSignature='';navigate('audio-library');library.open=true;},list.find(f=>f.id===selected)?.name||'');body.append(create);
   const upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload Audio';upload.onclick=uploadDialog;body.append(upload);
  }
  function render(){
@@ -95,3 +95,4 @@
  window.EccoAudioLibrary={add:labelDialog};
  tree();
 })();
+

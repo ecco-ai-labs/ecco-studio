@@ -418,3 +418,23 @@ body:not(.workspace-entry-mode) .story-format-options>button.is-selected{border-
 .story-source-controls{display:inline-flex;align-items:center;gap:4px;border:1px solid #554a6b;border-radius:9px;padding:7px;background:#252039}
 body:not(.workspace-entry-mode) .story-source-controls>button,.story-source-controls>.workspace-menu>summary{padding:6px 10px!important;min-height:30px!important;font-size:12px!important;box-sizing:border-box}
 .story-source-controls>.workspace-menu>summary>span{font-size:11px}
+
+/* One marker for every Library navigation item; main-area preview cards stay intact. */
+#workspace-library-group .workspace-library>summary>.library-symbol,
+#workspace-library-group .text-library-row .text-library-preview{display:none!important}
+#workspace-library-group :is(.workspace-library>summary,.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice){position:relative;padding-left:26px!important}
+#workspace-library-group :is(.workspace-library>summary,.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice)::before,
+#workspace-library-group .tree-branch-toggle::before{content:'';position:absolute;left:10px;top:50%;width:5px;height:5px;border-radius:50%;background:#fff;transform:translateY(-50%);pointer-events:none}
+#workspace-library-group :is(.workspace-library[open]>summary,summary.active,.tree-folder.selected,.tree-image.selected,.tree-create:focus,.tree-upload:focus,.tree-folder:focus,.tree-image:focus,.video-publish-choice:has(input:checked))::before,
+#workspace-library-group .tree-branch-row:has(.tree-folder.selected)>.tree-branch-toggle::before{background:var(--accent,#ffdc24)}
+#workspace-library-group .text-library-row .text-library-open.selected{color:var(--accent,#ffdc24)!important}
+#workspace-library-group .tree-branch-spacer{display:none}
+#workspace-library-group .tree-branch-toggle{position:relative;width:26px!important;min-width:26px!important;flex-basis:26px;font-size:0!important}
+#workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.tree-folder,
+#workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.library-selected-row>.tree-folder{padding-left:0!important}
+#workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.tree-folder::before,
+#workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.library-selected-row>.tree-folder::before{display:none}
+#workspace-library-group .video-publish-choice>input{position:absolute;width:1px!important;height:1px!important;clip-path:inset(50%);overflow:hidden}
+#workspace-library-group .video-publish-choice:has(input:checked){color:var(--accent,#ffdc24)}
+#workspace-library-group .video-publish-choice:has(input:focus-visible){outline:1px solid var(--accent,#ffdc24);outline-offset:2px}
+

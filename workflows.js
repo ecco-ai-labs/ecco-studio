@@ -103,7 +103,7 @@
  function nav(){
   const root=q('#workspace-library-group>.workspace-library-content');if(!root)return;
   let group=q('#workflow-library');if(!group){group=document.createElement('details');group.id='workflow-library';group.className='workspace-library';group.style.order='0';group.innerHTML='<summary><span class="library-symbol"></span><span>Workflow Library</span></summary><div class="workspace-library-content"></div>';root.prepend(group);group.querySelector('summary').addEventListener('click',()=>{showLibrary();});}
-  const signature=JSON.stringify(rows().map(w=>[w.id,w.name]));if(group.dataset.signature!==signature){group.dataset.signature=signature;const content=group.querySelector('div');content.replaceChildren();for(const w of rows()){const item=window.EccoWorkspaceUI.libraryCard({id:w.id,title:w.name||'Untitled workflow',kind:'workflow',compact:true,open:()=>show(w.id),remove:()=>removeWorkflow(w.id)});item.querySelector('.text-library-open').classList.add('tree-folder');content.append(item);}const b=document.createElement('button');b.type='button';b.className='tree-folder';b.textContent='+ New workflow';b.onclick=()=>show();content.append(b);}
+  const signature=JSON.stringify(rows().map(w=>[w.id,w.name]));if(group.dataset.signature!==signature){group.dataset.signature=signature;const content=group.querySelector('div');content.replaceChildren();for(const w of rows()){const item=window.EccoWorkspaceUI.libraryCard({id:w.id,title:w.name||'Untitled workflow',kind:'workflow',compact:true,open:()=>show(w.id),remove:()=>removeWorkflow(w.id)});item.querySelector('.text-library-open').classList.add('tree-folder');content.append(item);}const b=document.createElement('button');b.type='button';b.className='tree-folder';b.textContent='New workflow';b.onclick=()=>show();content.append(b);}
  }
  function genres(){
   const form=q('#story-setup-form'),select=form?.elements.genre;if(!select||form.querySelector('[data-custom-genre]'))return;
@@ -159,4 +159,5 @@
  mount();window.EccoWorkflows={show,showLibrary};
  const previousNavigate=navigate;navigate=function(target,...args){if(target==='workflow-library')return showLibrary();return previousNavigate(target,...args);};
 })();
+
 

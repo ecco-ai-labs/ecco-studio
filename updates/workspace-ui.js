@@ -15,7 +15,8 @@
   const button=document.createElement('button');button.type='button';button.className='text-library-open';button.setAttribute('aria-label','Open '+title);
   const icon=kind==='workflow'?'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M6 9v9h9M9 6h9v9"/>':'<path d="M3 4h7a3 3 0 0 1 3 3v14a4 4 0 0 0-4-2H3V4Zm18 0h-5a3 3 0 0 0-3 3v14a4 4 0 0 1 4-2h4V4Z"/>';
   button.innerHTML='<span class="text-library-preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'+icon+'</svg></span><span class="text-library-caption"><strong></strong><small></small></span>';
-  button.querySelector('strong').textContent=title;button.querySelector('small').textContent=detail;button.onclick=open;
+  button.querySelector('strong').textContent=title;button.querySelector('small').textContent=detail;
+  button.onclick=()=>{const library=compact?button.closest('.workspace-library'):null;open();if(library){library.querySelectorAll('.text-library-open.selected').forEach(node=>node.classList.remove('selected'));const row=[...library.querySelectorAll('.text-library-row')].find(node=>node.dataset.libraryId===id);row?.querySelector('.text-library-open').classList.add('selected');}};
   const deletion=document.createElement('button');deletion.type='button';deletion.className='secondary workspace-delete text-library-delete';deletion.textContent='×';deletion.setAttribute('aria-label','Delete '+title);deletion.title='Move '+title+' to Trash';deletion.onclick=async()=>{deletion.disabled=true;try{await remove();}catch(error){window.EccoErrors?.show(error);}finally{deletion.disabled=false;}};
   item.append(button,deletion);return item;
  }
@@ -112,7 +113,7 @@
    container.append(group);
   }
   for(const folder of folders.filter(f=>!parentOf(f)))appendFolder(folder,body);
-  const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='+ New Label';
+  const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='New Label';
   create.onclick=()=>createFolder(folder=>{const parts=folder.name.split(' / ');for(let i=1;i<parts.length;i++){const parent=folderList().find(f=>f.name===parts.slice(0,i).join(' / '));if(parent)expansion.set('label:'+parent.id,true);}box.dataset.workspaceSignature='';imageTree();const current=q('#image-library-nav .workspace-library');if(current)current.open=true;},folderList().find(f=>f.id===select.value)?.name||'');body.append(create);
   const selected=folderList().find(f=>f.id===select.value);if(selected){const remove=document.createElement('button');remove.type='button';remove.onclick=()=>{action(async()=>{await api('trash/folder',{id:selected.id});select.value='all';select.dispatchEvent(new Event('change',{bubbles:true}));await refresh();modernize();});};selectionToolbar(body,selected.name,remove);}
   box.append(d);
@@ -243,7 +244,7 @@
  setInterval(acceleratorDisplay,5000);
 
  function librarySelection(){
-  const selectors={'library':'#image-library-nav > details > summary','video-library':'#workspace-video-library > summary','audio-library':'#workspace-audio-library > summary','story-library':'.project > details > summary','story-library-detail':'.project > details > summary'};
+  const selectors={'library':'#image-library-nav > details > summary','video-library':'#workspace-video-library > summary','audio-library':'#workspace-audio-library > summary','story-library':'.project > details > summary','story-library-detail':'.project > details > summary','workflow-library':'#workflow-library > summary','workflow-detail':'#workflow-library > summary'};
   const selected=selectors[page];
   document.querySelectorAll('#workspace-library-group summary').forEach(el=>{
    const active=!!selected&&el.matches(selected);el.classList.toggle('active',active);
@@ -741,6 +742,7 @@
 #connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
+
 
 
 
