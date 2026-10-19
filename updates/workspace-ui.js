@@ -61,7 +61,11 @@
   storyControls();navigate('board');productionGroup();journeyGuide();
  }
  function workspaceStart(){
-  page='empty';q('#heading').textContent='';q('#page').replaceChildren();
+  page='empty';document.body.classList.remove('workspace-entry-mode');q('#heading').textContent='What do you want to do today?';
+  const choices=document.createElement('section');choices.className='row';choices.setAttribute('aria-label','Story choices');choices.style.cssText='display:flex;flex-wrap:wrap;gap:12px';
+  const create=document.createElement('button');create.type='button';create.textContent='Tell a New Story';create.onclick=startNewStory;
+  const resume=document.createElement('button');resume.type='button';resume.className='secondary';resume.textContent='Continue with a Story';resume.onclick=()=>navigate('story-library');
+  choices.append(create,resume);q('#page').replaceChildren(choices);
   document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
  }
  function selectionToolbar(body,name,button){const selected=body.querySelector('.tree-folder.selected');if(!selected||!button)return;const row=document.createElement('div');row.className='library-selected-row';selected.before(row);row.append(selected);button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);row.append(button);}
@@ -549,20 +553,19 @@
  function welcomePage(){
   page='welcome';document.body.classList.add('workspace-entry-mode');
   let entry=q('#workspace-entry');
-  if(entry&&!entry.querySelector('#entry-continue-story')){entry.remove();entry=null;}
+  if(entry?.querySelector('#entry-continue-story')){entry.remove();entry=null;}
   if(!entry){
    entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Ecco AI Labs Studios');
    const logo=q('aside .brand img')||q('aside img'),brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo.png';brand.alt='Ecco AI Labs logo';
-   const title=document.createElement('h1');title.textContent='What do you want to do today?';
+   const title=document.createElement('h1');title.innerHTML='Ecco AI Labs<span class="entry-subtitle">Studios</span>';
    const choices=document.createElement('div');choices.className='row';choices.style.cssText='display:flex;flex-wrap:wrap;justify-content:center;gap:12px';
-   const create=document.createElement('button');create.id='entry-tell-story';create.type='button';create.textContent='Tell a new story';
+   const create=document.createElement('button');create.id='entry-tell-story';create.type='button';create.textContent='Tell Your Story';
    const resume=document.createElement('button');resume.id='entry-continue-story';resume.type='button';resume.className='secondary';resume.textContent='Continue with current story';resume.style.cssText='font-size:15px;padding:13px 30px;border-radius:8px';
-   choices.append(create,resume);
+   choices.append(create);
    const copyright=document.createElement('p');copyright.className='entry-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';
    entry.append(brand,title,choices,copyright);document.body.append(entry);
   }
-  q('#entry-tell-story').onclick=()=>{welcomePending=false;startNewStory();};
-  q('#entry-continue-story').onclick=()=>{welcomePending=false;navigate('story-library');};
+  q('#entry-tell-story').onclick=()=>{welcomePending=false;document.body.classList.remove('workspace-entry-mode');navigate('empty');};
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
  }
  document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
