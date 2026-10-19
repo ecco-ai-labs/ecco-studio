@@ -42,7 +42,7 @@ window.EccoGPUPicker = (() => {
       <div class="gpu-grid">${gpus.map(gpu=>`<article class="gpu-card" data-gpu="${gpu.id}">
         <h3>${gpu.name}</h3><p class="help">${gpu.label}</p>
         <p class="gpu-status" role="status" aria-live="polite">Checking availability…</p>
-        <p class="gpu-detail help">Checking the workspace and Studio.</p>
+        
         <button class="gpu-open" disabled>Checking ${gpu.name}…</button>
       </article>`).join('')}</div>
       <p class="help" id="gpu-checked">Checking both GPUs…</p>
