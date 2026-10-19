@@ -422,9 +422,9 @@ body:not(.workspace-entry-mode) .story-source-controls>button,.story-source-cont
 /* One marker for every Library navigation item; main-area preview cards stay intact. */
 #workspace-library-group .workspace-library>summary>.library-symbol,
 #workspace-library-group .text-library-row .text-library-preview{display:none!important}
-#workspace-library-group :is(.workspace-library>summary,.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice){position:relative;padding-left:26px!important}
-#workspace-library-group :is(.workspace-library>summary,.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice)::before,
-#workspace-library-group .tree-branch-toggle::before{content:'';position:absolute;left:10px;top:50%;width:5px;height:5px;border-radius:50%;background:#fff;transform:translateY(-50%);pointer-events:none}
+#workspace-library-group :is(.workspace-library>summary,.tree-folder,.tree-image,.text-library-open,.tree-create,.tree-upload,.video-publish-choice){position:relative;padding-left:26px!important}
+#workspace-library-group :is(.workspace-library>summary,.tree-folder,.tree-image,.text-library-open,.tree-create,.tree-upload,.video-publish-choice)::before,
+#workspace-library-group .tree-branch-toggle::before{content:'−';position:absolute;left:8px;top:50%;width:12px;height:18px;line-height:18px;font-size:17px;border-radius:0;color:var(--accent,#ffdc24);background:transparent;transform:translateY(-50%);pointer-events:none}
 #workspace-library-group :is(.workspace-library[open]>summary,summary.active,.tree-folder.selected,.tree-image.selected,.tree-create:focus,.tree-upload:focus,.tree-folder:focus,.tree-image:focus,.video-publish-choice:has(input:checked))::before,
 #workspace-library-group .tree-branch-row:has(.tree-folder.selected)>.tree-branch-toggle::before{background:var(--accent,#ffdc24)}
 #workspace-library-group .text-library-row .text-library-open.selected{color:var(--accent,#ffdc24)!important}
@@ -441,7 +441,7 @@ body:not(.workspace-entry-mode) .story-source-controls>button,.story-source-cont
 
 /* Keep the parent disclosure separate and leave room between item bullets and labels. */
 #workspace-library-group>summary::before{display:none}
-body:not(.workspace-entry-mode) #workspace-library-group.workspace-library :is(.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice){padding-left:26px!important}
+body:not(.workspace-entry-mode) #workspace-library-group.workspace-library :is(.tree-folder,.tree-image,.text-library-open,.tree-create,.tree-upload,.video-publish-choice){padding-left:26px!important}
 body:not(.workspace-entry-mode) #workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.tree-folder,
 body:not(.workspace-entry-mode) #workspace-library-group .tree-branch-row:has(>.tree-branch-toggle)>.library-selected-row>.tree-folder{padding-left:0!important}
 
@@ -487,7 +487,7 @@ body>aside #workspace-library-group .tree-branch-row .tree-folder{padding-left:0
 body>aside #workspace-library-group .tree-branch-toggle{position:absolute;left:0;top:0;height:100%!important;width:26px!important;min-width:26px!important;padding:0!important;background:transparent!important;z-index:1}
 
 /* No bullets in Library: leaf entries use a yellow minus. */
-body>aside #workspace-library-group :is(.tree-folder,.tree-image,.tree-create,.tree-upload,.video-publish-choice)::before{
+body>aside #workspace-library-group :is(.tree-folder,.tree-image,.text-library-open,.tree-create,.tree-upload,.video-publish-choice)::before{
  content:'−';width:12px;height:18px;line-height:18px;font-size:17px;font-weight:400;
  text-align:center;border-radius:0;color:var(--accent,#ffdc24)!important;background:transparent!important;
 }
