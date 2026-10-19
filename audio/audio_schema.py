@@ -32,6 +32,11 @@ def validate(body):
         if voice not in ('en_female', 'en_male'):
             raise ValueError('Choose one of the available voices.')
         clean.append(dict(text=text.strip(), language=language, emotion=emotion, voice=voice))
+        if 'pause_before' in line:
+            pause = line['pause_before']
+            if isinstance(pause, bool) or not isinstance(pause, (int, float)) or not math.isfinite(pause) or not 0 <= pause <= 10:
+                raise ValueError('pause_before must be between 0 and 10 seconds.')
+            clean[-1]['pause_before'] = pause
     if sum(len(line['text']) for line in clean) > 4000:
         raise ValueError('Keep the complete script within 4,000 characters.')
     def bounded(key, default, low, high):
@@ -45,3 +50,4 @@ def validate(body):
     return dict(model='indic-mio', genre=genre, title=title.strip()[:160] or 'Audio recording', lines=clean,
                 speed=bounded('speed', 1, 0.75, 1.5), pitch=bounded('pitch', 0, -4, 4),
                 pause=bounded('pause', 0.35, 0, 2))
+
