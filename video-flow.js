@@ -99,8 +99,8 @@
   ];
   function openShotControls(shot,index){
    const dialog=document.createElement('dialog');dialog.className='generation-dialog';dialog.id='video-shot-controls';dialog.setAttribute('aria-label','Shot controls');
-   dialog.innerHTML='<form class="form"><div class="section-head"><h2>Shot controls</h2><button type="button" data-close aria-label="Close shot controls">×</button></div><label>Video prompt<textarea data-video-prompt rows="3" maxlength="2000" placeholder="Describe the action and setting for this shot."></textarea></label><div class="row"><button type="button" data-ai-generate>Generate with AI</button><button type="button" data-ai-improve>Improve with AI</button></div><div class="generation-attribute-grid" data-fields></div><label>Seconds<input data-seconds type="number" min="0.2" step="0.01" required></label><div class="row"><button type="submit">Apply</button></div></form>';
-   const prompt=q('[data-video-prompt]',dialog);prompt.value=shot.video_prompt??data.brief??'';dialog.eccoAIContext=()=>({...root.eccoAIContext(prompt),context:{...root.eccoAIContext(prompt).context,scenes:[promptShot(shot)]}});q('[data-ai-generate]',dialog).onclick=()=>window.EccoAI?.generateField(prompt);q('[data-ai-improve]',dialog).onclick=()=>window.EccoAI?.improveField(prompt);
+   dialog.innerHTML='<form class="form"><div class="section-head"><h2>Shot controls</h2><button type="button" data-close aria-label="Close shot controls">×</button></div><label>Video prompt<textarea data-video-prompt rows="3" maxlength="2000" placeholder="Describe the action and setting for this shot."></textarea></label><div class="generation-attribute-grid" data-fields></div><label>Seconds<input data-seconds type="number" min="0.2" step="0.01" required></label><div class="row"><button type="submit">Apply</button></div></form>';
+   const prompt=q('[data-video-prompt]',dialog);prompt.value=shot.video_prompt??data.brief??'';dialog.eccoAIContext=()=>({...root.eccoAIContext(prompt),context:{...root.eccoAIContext(prompt).context,scenes:[promptShot(shot)]}});dialog.append(aiMenu);choosePrompt(prompt);dialog.addEventListener('focusin',event=>{if(event.target.matches('textarea'))choosePrompt(event.target);});
    const fields=q('[data-fields]',dialog);
    for(const [key,label,options] of shotControlOptions){
     const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('select');input.dataset.control=key;
@@ -109,7 +109,7 @@
    q('[data-seconds]',dialog).value=shot.seconds||3;
    q('[data-close]',dialog).onclick=()=>dialog.close();
    q('form',dialog).onsubmit=event=>{event.preventDefault();if(!data.shots.includes(shot)){dialog.close();return;}for(const input of dialog.querySelectorAll('[data-control]'))shot[input.dataset.control]=input.value;shot.video_prompt=prompt.value;shot.seconds=Number(q('[data-seconds]',dialog).value);data.directions=[];data.analyzed='';persist();drawShots();drawDirections();dialog.close();};
-   dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
+   dialog.onclose=()=>{root.append(aiMenu);aiMenu.open=false;choosePrompt(brief);dialog.remove();};document.body.append(dialog);dialog.showModal();
   }
   function drawDirections(){
    const box=q('[data-directions]',root);box.replaceChildren();
@@ -176,7 +176,8 @@
   const aiMenu=document.createElement('details');aiMenu.className='storyboard-ai-floating';aiMenu.id='video-flow-ai';
   aiMenu.innerHTML='<summary aria-label="AI assistance">AI</summary><div class="storyboard-ai-actions"><button type="button" class="secondary" data-generate>Generate with AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div>';
   root.append(aiMenu);let selectedPrompt=brief;
-  root.addEventListener('focusin',event=>{if(event.target.matches('textarea')){root.querySelectorAll('.ai-selected-field').forEach(el=>el.classList.remove('ai-selected-field'));selectedPrompt=event.target;selectedPrompt.classList.add('ai-selected-field');}});
+  const choosePrompt=element=>{document.querySelectorAll('#video-flow .ai-selected-field,#video-shot-controls .ai-selected-field').forEach(el=>el.classList.remove('ai-selected-field'));selectedPrompt=element;selectedPrompt.classList.add('ai-selected-field');};
+  root.addEventListener('focusin',event=>{if(event.target.matches('textarea'))choosePrompt(event.target);});
   const selectedField=()=>selectedPrompt.isConnected?selectedPrompt:brief;
   q('[data-generate]',aiMenu).onclick=()=>{aiMenu.open=false;window.EccoAI?.generateField(selectedField());};
   q('[data-improve]',aiMenu).onclick=()=>{aiMenu.open=false;window.EccoAI?.improveField(selectedField());};
