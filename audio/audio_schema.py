@@ -29,7 +29,7 @@ def validate(body):
             raise ValueError('Choose a supported language.')
         if emotion not in (ENGLISH_EMOTIONS if language == 'English' else INDIC_EMOTIONS):
             raise ValueError('This emotion is not supported for the selected language.')
-        if voice not in ('en_female', 'en_male'):
+        if voice not in ('en_female', 'en_male', 'jp_female', 'jp_male'):
             raise ValueError('Choose one of the available voices.')
         clean.append(dict(text=text.strip(), language=language, emotion=emotion, voice=voice))
         if 'pause_before' in line:
