@@ -95,6 +95,7 @@
   for(const shot of document.querySelectorAll('.director-shot'))add(shot,'storyboard','textarea[data-dfield]');
   add(q('#video-flow [data-step="3"]'),'audio','textarea[data-transcript]');
   add(q('#video-flow'),'video','textarea[data-brief],textarea[data-motion],textarea[data-shot-direction]');
+  add(q('#video-shot-controls'),'video','textarea[data-video-prompt]');
   const objectPrompt=q('#oe-instruction');add(objectPrompt?.closest('dialog'),'image','#oe-instruction,#oe-ai-fields input');
   return result;
  }
@@ -135,7 +136,7 @@
   return requestGeneration({label:binding.label,key:binding.stage+':'+(binding.element.id||binding.element.name||binding.element.dataset.field||binding.label),isValid:()=>binding.element.isConnected&&binding.scope.isConnected&&binding.element.value===original&&JSON.stringify(snapshotFor(binding))===snapshot,onGenerate:options=>improve({...binding,generationRequest:options})});
  }
  function snapshotFor(binding){
-  const flow=binding.element.closest('#video-flow')?.eccoAIContext?.(binding.element);
+  const flow=(binding.element.closest('#video-flow')||binding.element.closest('#video-shot-controls'))?.eccoAIContext?.(binding.element);
   const shared=flow||window.EccoGeneration?.aiContext(binding.scope,binding.element);
   const context={...contextFor(binding.scope,binding.stage),...shared?.context};
   // Keep the target field's role clear, especially negative prompts and individual dialogue lines.
