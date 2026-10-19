@@ -76,8 +76,30 @@ def generate(body, env):
         request['video_reference_ids'] = body.get('video_reference_ids', [])
         request.update(resolution=body.get('resolution','832x480'),seed=int(body.get('seed',42)),clips=clips,duration=duration,shots=body['shots'])
         job = dict(id=jid,kind='audio_video_job',media='video',model=renderer.MODEL,story_id=sid,
-                   title=audio.get('title','Audio video'),created=time.time(),status='queued',
+                   title=audio.get('title','Audio video'),label='Video · LongCat sequence',created=time.time(),status='queued',
                    progress='Queued',request=request,children=[],submission_hash=signature)
+        env['save'](job)
+        return renderer.public(job)
+
+
+def control(body, env):
+    action = body.get('action')
+    if action not in ('pause', 'resume', 'stop'):
+        raise env['Problem']('Choose pause, resume or stop.')
+    with LOCK:
+        job = env['get'](body.get('job_id', ''), 'audio_video_job')
+        if job.get('status') in ('done', 'failed', 'error', 'cancelled'):
+            return renderer.public(job)
+        if job.get('stop_requested'):
+            return renderer.public(job)
+        if action == 'stop':
+            job.update(stop_requested=True, pause_requested=False,
+                       progress='Stopping after current clip')
+        elif action == 'pause':
+            job.update(pause_requested=True, progress='Pausing after current clip')
+        else:
+            job.update(pause_requested=False, status='running' if job.get('children') else 'queued',
+                       progress='Resuming sequence')
         env['save'](job)
         return renderer.public(job)
 
@@ -120,12 +142,24 @@ def assemble(job, env):
 
 
 def advance(job, env):
+    with LOCK:
+        job = env['get'](job['id'], 'audio_video_job')
+        if job.get('status') not in ('queued', 'running', 'paused'): return
+        _advance(job, env)
+
+def _advance(job, env):
     request=job['request']
     if job['children']:
         child=env['get'](job['children'][-1],'longcat_job')
         if child['status'] in ('queued','running'): return
-        if child['status'] in ('failed','error'):
+        if child['status'] in ('failed','error') and not job.get('stop_requested'):
             job.update(status='failed',error=child.get('error','A video clip failed.'));env['save'](job);return
+    if job.get('stop_requested'):
+        job.update(status='cancelled', progress='Stopped; completed clips retained', finished=time.time())
+        env['save'](job); return
+    if job.get('pause_requested'):
+        job.update(status='paused', progress='Paused between clips')
+        env['save'](job); return
     index=len(job['children'])
     if index==len(request['clips']):
         job.update(progress='Assembling video with the original recording');env['save'](job)
@@ -150,9 +184,10 @@ def start(env):
     def loop():
         while True:
             for job in env['records']('audio_video_job'):
-                if job.get('status') not in ('queued','running'): continue
+                if job.get('status') not in ('queued','running','paused'): continue
                 try: advance(job,env)
                 except Exception as error:
                     job.update(status='failed',error='Audio video assembly failed: '+str(error)[:240]);env['save'](job)
             time.sleep(3)
     threading.Thread(target=loop,daemon=True,name='audio-video-sequences').start()
+
