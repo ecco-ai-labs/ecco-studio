@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import time
 from longcat_jobs import ROOT,run_shot,write,read
+write(ROOT/'validated.json',{'passed':False,'reason':'Validation in progress'})
 d=ROOT/'validation';d.mkdir(exist_ok=True)
 assets=ROOT/'source/assets/avatar/single'
 shutil.copyfile(assets/'man.png',d/'image.png')
