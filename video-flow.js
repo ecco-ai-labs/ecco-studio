@@ -24,7 +24,7 @@
   const root=document.createElement('div');root.className='form';root.id='video-flow';form.insertBefore(root,footer);
   const section=(n,t,body)=>'<section class="generation-section form" data-step="'+n+'"><div class="generation-section-heading">'+n+'. '+t+'</div>'+body+'</section>';
   root.innerHTML=section(2,'Library','<div class="row"><select aria-label="Library" data-library><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select><button type="button" class="secondary" data-browse>Browse library</button></div><div data-list="image" class="generation-selected"></div><div data-list="video" class="generation-selected"></div><div data-list="audio" class="form"></div><p class="help" data-audio-hint></p>')+
-   section(3,'Audio script','<p class="help" data-script-source>Select audio above to load the exact words used to generate it.</p><textarea aria-label="Audio script" data-transcript maxlength="4000" rows="5" placeholder="Your selected recording’s original script will appear here."></textarea><p class="help">AI edits the script text. To hear edited words or lip-sync them, generate a new recording in Audio Studio and select it here.</p>')+
+   section(3,'Audio script','<button type="button" class="secondary" data-open-script>Edit audio script</button><div hidden><p data-script-source></p><textarea aria-label="Audio script" data-transcript maxlength="4000"></textarea></div>')+
    section(4,'Shots','<label>Storyboard<select data-board aria-label="Storyboard"></select></label><details data-shot aria-label="Shots" class="generation-settings"></details><div data-shots class="form"></div><p data-timing class="help"></p>')+
    '<div data-directions hidden></div><p role="status" data-ai-status></p>';
   button.textContent='Generate video';
@@ -169,6 +169,21 @@
    dialog.onclose=()=>dialog.remove();document.body.append(dialog);draw();dialog.showModal();await reloadLibrary();
   }
   q('[data-transcript]',root).oninput=event=>{data.script_drafts=data.script_drafts||{};data.script_drafts[JSON.stringify(data.audio_ids)]=event.target.value;persist();};
+
+  q('[data-open-script]',root).onclick=()=>{
+   const dialog=document.createElement('dialog');dialog.id='video-audio-script';dialog.className='generation-dialog';dialog.setAttribute('aria-label','Audio script');
+   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Audio script</h2><button type="button" data-close aria-label="Close audio script">×</button></div><p class="help" data-source></p><label>Script<textarea data-script-editor aria-label="Audio script" maxlength="4000" rows="10"></textarea></label><div class="row"><button type="button" class="secondary" data-generate>Generate with AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div><p class="help">To hear edited words or lip-sync them, generate a new recording in Audio Studio and select it here.</p><div class="row"><button type="button" data-apply>Apply</button></div></div>';
+   const input=q('[data-script-editor]',dialog),savedField=q('[data-transcript]',root),scriptKey=JSON.stringify(data.audio_ids);
+   input.value=savedField.value;q('[data-source]',dialog).textContent=q('[data-script-source]',root).textContent;
+   input.classList.add('ai-selected-field');
+   dialog.eccoAIContext=()=>{const context=root.eccoAIContext(savedField);context.context.lines=[{text:input.value}];return context;};
+   q('[data-generate]',dialog).onclick=()=>window.EccoAI?.generateField(input);
+   q('[data-improve]',dialog).onclick=()=>window.EccoAI?.improveField(input);
+   q('[data-close]',dialog).onclick=()=>dialog.close();
+   q('[data-apply]',dialog).onclick=()=>{if(scriptKey!==JSON.stringify(data.audio_ids)||!root.isConnected){dialog.close();return;}savedField.value=input.value;savedField.dispatchEvent(new Event('input',{bubbles:true}));dialog.close();};
+   dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();input.focus();
+  };
+
   q('[data-library]',root).onchange=drawLists;
   q('[data-browse]',root).onclick=()=>picker(q('[data-library]',root).value);
   q('[data-board]',root).onchange=loadBoard;
