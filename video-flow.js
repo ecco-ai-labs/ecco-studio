@@ -74,16 +74,41 @@
    choices.append(add);select.append(choices);select.open=wasOpen;
    data.shots.forEach((s,i)=>{if(i!==shotIndex)return;
     const row=document.createElement('fieldset');row.className='form';
-    row.innerHTML='<label>Avatar for this shot<select data-image></select></label><label>Action<textarea data-motion rows="2" maxlength="800"></textarea></label><div class="generation-attribute-grid">'+
-     [['eye','Eye movement / expression'],['lip','Mouth / delivery'],['camera_move','Camera movement'],['camera_angle','Camera angle'],['shot_size','Framing'],['seconds','Seconds']].map(([f,l])=>'<label>'+l+'<input data-field="'+f+'" '+(f==='seconds'?'type="number" min="0.2" step="0.01"':'maxlength="160"')+'></label>').join('')+'</div><button type="button" class="small secondary" data-remove-shot>Remove shot</button>';
+    row.innerHTML='<label>Avatar for this shot<select data-image></select></label><label>Action<textarea data-motion rows="2" maxlength="800"></textarea></label><div class="row"><button type="button" class="secondary small" data-shot-controls>Shot controls</button><button type="button" class="small secondary" data-remove-shot>Remove shot</button></div>';
+    q('[data-shot-controls]',row).onclick=()=>openShotControls(s,i);
     const image=q('[data-image]',row);image.add(new Option('Choose avatar',''));
     data.image_ids.forEach(id=>{const a=find(id,'image');if(a)image.add(new Option(title(a),id));});
     image.value=s.image_id||data.image_ids[0]||'';s.image_id=image.value;image.onchange=()=>{s.image_id=image.value;persist();};
     const motion=q('[data-motion]',row);motion.value=s.motion||'';motion.oninput=()=>{s.motion=motion.value;persist();};
-    row.querySelectorAll('[data-field]').forEach(el=>{const f=el.dataset.field;el.value=s[f]||'';el.oninput=()=>{s[f]=f==='seconds'?Number(el.value):el.value;persist();timing();};});
     q('[data-remove-shot]',row).onclick=()=>{data.shots.splice(i,1);data.directions=[];persist();drawShots();drawDirections();};
     box.append(row);
    });timing();
+  }
+  const shotControlOptions=[
+   ['eye','Eye movement / expression',['Look toward camera; natural blinking','Maintain eye contact','Look left','Look right','Look upward','Look downward','Follow a moving subject','Brief glance away','Wide-eyed surprise','Narrowed eyes','Eyes gently closed','Slow blinking']],
+   ['lip','Mouth / delivery',['Synchronize with speech','Subtle lip movement','Clear articulation','Conversational delivery','Animated delivery','Whispering expression','Shouting expression','Soft smile while speaking','Serious delivery','Laughing between phrases','Closed mouth when silent','Minimal mouth movement']],
+   ['camera_move','Camera movement',['Locked-off camera','Slow push-in','Slow pull-back','Pan left','Pan right','Tilt up','Tilt down','Track left','Track right','Orbit subject','Handheld movement','Crane upward']],
+   ['camera_angle','Camera angle',['Eye level','Low angle','High angle','Overhead','Ground level','Dutch angle','Over the shoulder','Front view','Three-quarter view','Side profile','Rear view','Point of view']],
+   ['shot_size','Framing',['Extreme close-up','Close-up','Medium close-up','Medium shot','Medium wide shot','Full-body shot','Wide shot','Extreme wide shot','Two-shot','Group shot','Centered composition','Rule of thirds']],
+   ['head_movement','Head movement',['Keep steady','Subtle natural motion','Nod gently','Shake head gently','Tilt left','Tilt right','Turn left','Turn right']],
+   ['emotion','Emotion',['Neutral','Happy','Confident','Curious','Thoughtful','Surprised','Sad','Angry','Excited','Concerned','Calm','Playful']],
+   ['gestures','Hand gestures',['Hands still','Subtle conversational gestures','Open palms','Point toward subject','Wave','Fold hands','Count on fingers','Expressive gestures']],
+   ['posture','Posture',['Preserve reference posture','Stand upright','Sit upright','Relaxed stance','Lean forward','Lean back','Walk slowly','Turn toward camera']],
+   ['lighting','Lighting',['Preserve reference lighting','Soft daylight','Studio key light','Warm indoor light','Golden hour','Cool moonlight','Backlighting','Dramatic side light']],
+   ['focus','Focus',['Keep subject sharp','Shallow depth of field','Deep focus','Focus on eyes','Rack focus to background','Rack focus to subject','Soft background','Follow subject focus']]
+  ];
+  function openShotControls(shot,index){
+   const dialog=document.createElement('dialog');dialog.className='generation-dialog';dialog.setAttribute('aria-label','Shot controls');
+   dialog.innerHTML='<form class="form"><div class="section-head"><h2>Shot controls</h2><button type="button" data-close aria-label="Close shot controls">×</button></div><div class="generation-attribute-grid" data-fields></div><label>Seconds<input data-seconds type="number" min="0.2" step="0.01" required></label><div class="row"><button type="submit">Apply</button></div></form>';
+   const fields=q('[data-fields]',dialog);
+   for(const [key,label,options] of shotControlOptions){
+    const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('select');input.dataset.control=key;
+    input.add(new Option('Keep original / unspecified',''));const values=[...new Set([shot[key],...options].filter(Boolean))];values.forEach(value=>input.add(new Option(value,value)));input.value=shot[key]||'';wrap.append(input);fields.append(wrap);
+   }
+   q('[data-seconds]',dialog).value=shot.seconds||3;
+   q('[data-close]',dialog).onclick=()=>dialog.close();
+   q('form',dialog).onsubmit=event=>{event.preventDefault();if(!data.shots.includes(shot)){dialog.close();return;}for(const input of dialog.querySelectorAll('[data-control]'))shot[input.dataset.control]=input.value;shot.seconds=Number(q('[data-seconds]',dialog).value);data.directions=[];data.analyzed='';persist();drawShots();drawDirections();dialog.close();};
+   dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
   }
   function drawDirections(){
    const box=q('[data-directions]',root);box.replaceChildren();
@@ -149,7 +174,7 @@
   const brief=q('[data-brief]',root);brief.value=data.brief||'';brief.oninput=()=>{data.brief=brief.value;persist();};
   model.addEventListener('change',()=>{persist();drawLists();});
   const write=q('[data-write]',root),aiStatus=q('[data-ai-status]',root);
-  const shotPrompt=s=>[s.motion,'Eyes: '+s.eye,'Mouth: '+s.lip,'Camera: '+s.camera_move,s.camera_angle,s.shot_size].filter(Boolean).join('. ');
+  const shotPrompt=s=>[s.motion,...shotControlOptions.filter(([key])=>s[key]).map(([key,label])=>label+': '+s[key])].filter(Boolean).join('. ');
   write.onclick=async()=>{
    if(write.disabled)return;
    const shots=activeShots(),snapshot=fingerprint();if(!shots.length){aiStatus.textContent='Add a shot first.';return;}
@@ -200,3 +225,4 @@
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});
  mount();
 })();
+
