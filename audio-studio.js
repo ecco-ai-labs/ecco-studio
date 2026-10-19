@@ -55,10 +55,10 @@
  const speakerOptions=value=>draft.speakers.map(s=>`<option value="${esc(s.id)}" ${s.id===value?'selected':''}>${esc(s.name||'Speaker')}</option>`).join('');
  function drawLines(){
   const single=draft.presentation==='single';
-  q('#audio-lines').innerHTML=single?`<div class="audio-line" data-line="0"><label>Spoken script<textarea data-field="text" data-single-script dir="auto" maxlength="4000" rows="6" placeholder="Enter exactly what the narrator should say. Use Generate script with AI to turn instructions into a script.">${esc(draft.single_text)}</textarea></label></div>`:draft.lines.map((line,index)=>`<fieldset class="audio-line" data-line="${index}"><div class="audio-turn-heading"><label>Speaker<select data-turn-speaker>${speakerOptions(line.speaker_id)}</select></label><button type="button" class="secondary small" data-remove-turn="${index}" ${draft.lines.length===1?'disabled':''}>Remove turn</button></div><label>${esc(speaker(line.speaker_id).name||'Speaker')}’s words<textarea data-field="text" dir="auto" maxlength="4000" rows="3" placeholder="What should this speaker say?">${esc(line.text||'')}</textarea></label></fieldset>`).join('');
+  q('#audio-lines').innerHTML=`<label>Opening Title<input data-opening-text maxlength="300" value="${esc(draft.opening_text||'')}" placeholder="Optional spoken opening title"></label><label>Pause After Opening Title (Seconds)<input data-opening-pause type="number" min="0" max="10" step="0.1" value="${draft.opening_pause??2}"></label>${single?'':`<label>Opening Speaker<select data-opening-speaker>${speakerOptions(draft.opening_speaker||draft.speakers[0].id)}</select></label>`}`+(single?`<div class="audio-line" data-line="0"><label>Spoken script<textarea data-field="text" data-single-script dir="auto" maxlength="4000" rows="6" placeholder="Enter exactly what the narrator should say. Use Generate script with AI to turn instructions into a script.">${esc(draft.single_text)}</textarea></label></div>`:draft.lines.map((line,index)=>`<fieldset class="audio-line" data-line="${index}"><div class="audio-turn-heading">${line.scene_title?`<span style="color:var(--accent)">${esc(line.scene_title)}</span>`:''}<label>Speaker<select data-turn-speaker>${speakerOptions(line.speaker_id)}</select></label><button type="button" class="secondary small" data-remove-turn="${index}" ${draft.lines.length===1?'disabled':''}>Remove turn</button></div><label>${esc(speaker(line.speaker_id).name||'Speaker')}’s words<textarea data-field="text" dir="auto" maxlength="4000" rows="3" placeholder="What should this speaker say?">${esc(line.text||'')}</textarea></label></fieldset>`).join(''));
   const add=q('#add-audio-line');add.hidden=single;add.textContent='Add speaker turn';add.disabled=draft.lines.length>=20;
-  q('#audio-lines').oninput=e=>{const root=e.target.closest('[data-line]');if(!root)return;const i=Number(root.dataset.line);if(e.target.matches('[data-field=text]')){if(single)draft.single_text=e.target.value;else draft.lines[i].text=e.target.value;save();}};
-  q('#audio-lines').onchange=e=>{if(!e.target.matches('[data-turn-speaker]'))return;draft.lines[Number(e.target.closest('[data-line]').dataset.line)].speaker_id=e.target.value;save();drawLines();drawControls();};
+  q('#audio-lines').oninput=e=>{if(e.target.matches('[data-opening-text],[data-opening-pause]')){draft[e.target.matches('[data-opening-text]')?'opening_text':'opening_pause']=e.target.matches('[data-opening-text]')?e.target.value:Number(e.target.value);save();return;}const root=e.target.closest('[data-line]');if(!root)return;const i=Number(root.dataset.line);if(e.target.matches('[data-field=text]')){if(single)draft.single_text=e.target.value;else draft.lines[i].text=e.target.value;save();}};
+  q('#audio-lines').onchange=e=>{if(e.target.matches('[data-opening-speaker]')){draft.opening_speaker=e.target.value;save();return;}if(!e.target.matches('[data-turn-speaker]'))return;draft.lines[Number(e.target.closest('[data-line]').dataset.line)].speaker_id=e.target.value;save();drawLines();drawControls();};
   q('#audio-lines').onclick=e=>{const button=e.target.closest('[data-remove-turn]');if(!button)return;draft.lines.splice(Number(button.dataset.removeTurn),1);save();drawLines();drawControls();};
   window.EccoGeneration?.audioLines(q('#audio-form'));
  }
@@ -93,8 +93,12 @@
  }
  function requestLines(){
   if(turns().some(t=>!t.text?.trim()))throw Error('Add the script for each speaker turn in Prompt.');
-  if(turns().reduce((n,t)=>n+t.text.length,0)>4000)throw Error('Keep the complete script within 4,000 characters.');
+  if(turns().reduce((n,t)=>n+t.text.length,0)+(draft.opening_text||'').length>4000)throw Error('Keep the complete script within 4,000 characters.');
   const lines=turns().flatMap(t=>{const s=speaker(t.speaker_id);return splitText(t.text).map(text=>({text,voice:s.voice,language:s.language,emotion:s.emotion}));});
+  if(draft.opening_text?.trim()){
+   const s=draft.presentation==='single'?draft.speakers[0]:speaker(draft.opening_speaker),pause=Number(draft.opening_pause??2);if(!Number.isFinite(pause)||pause<0||pause>10)throw Error('Choose a title pause between 0 and 10 seconds.');
+   lines[0].pause_before=pause;lines.unshift({text:draft.opening_text.trim(),voice:s.voice,language:s.language,emotion:s.emotion});
+  }
   if(lines.length>20)throw Error('Shorten the script or combine some speaker turns. This model accepts up to 20 speech segments.');
   return lines;
  }
@@ -102,13 +106,69 @@
   if(!draft)return {};
   const directions=activeSpeakers().map(s=>`${s.name}: ${s.language}${s.mixed_language?' mixed naturally with '+s.mixed_language:''}; ${model().voices.find(v=>v.id===s.voice)?.name}; ${s.emotion} emotion${s.dialect?'; requested dialect/accent: '+(s.dialect==='other'?s.custom_dialect:s.dialect):''}${s.delivery?'; speaking direction: '+s.delivery:''}.`).join('\n');
   const target=draft.presentation==='conversation'&&element?.closest('.audio-line')?speaker(draft.lines[Number(element.closest('.audio-line').dataset.line)]?.speaker_id):draft.speakers[0];
-  return {language:target.language,lines:turns().map(t=>({text:t.text,speaker:speaker(t.speaker_id).name,language:speaker(t.speaker_id).language,voice:speaker(t.speaker_id).voice})),instructions:`Audio format: ${draft.presentation==='single'?'single narrator':'conversation'}. Speaker directions:\n${directions}\nSelected speaker: ${target.name}. Write this field in ${target.language}${target.mixed_language?' mixed with '+target.mixed_language:''}.\nWrite only spoken words for the selected field, without speaker labels or stage directions. Preserve the speaker assignments; do not treat delivery instructions as spoken text.`};
+  return {scenes:selectedScenes(),language:target.language,lines:turns().map(t=>({text:t.text,speaker:speaker(t.speaker_id).name,language:speaker(t.speaker_id).language,voice:speaker(t.speaker_id).voice})),instructions:`Audio format: ${draft.presentation==='single'?'single narrator':'conversation'}. Speaker directions:\n${directions}\nSelected speaker: ${target.name}. Write this field in ${target.language}${target.mixed_language?' mixed with '+target.mixed_language:''}.\nWrite only spoken words for the selected field, without speaker labels or stage directions. Preserve the speaker assignments; do not treat delivery instructions as spoken text.`};
  }
  function importScript(text){
   if(turns().some(t=>t.text?.trim()))throw Error('This audio draft already has text. Clear it or save it before importing a scene.');
   if(text.length>4000)throw Error('Keep the complete script within 4,000 characters.');
   if(draft.presentation==='single')draft.single_text=text;else draft.lines=[{text,speaker_id:draft.speakers[0].id}];save();drawLines();drawControls();
  }
+ const boardScenes=()=>{try{return JSON.parse(localStorage.getItem(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft')||'{}').scenes||[];}catch{return [];}};
+ const selectedScenes=()=>boardScenes().flatMap((s,i)=>(draft.source_scenes||[]).some(ref=>ref.index===i&&ref.fingerprint===JSON.stringify([s.title||'',s.narration||'']))?[{title:s.title||'Scene '+(i+1),narration:s.narration||'',scene_number:i+1}]:[]);
+ function mountScenePicker(){
+  const form=q('#audio-form');if(!form||q('#scene-audio-source'))return;
+  const area=document.createElement('div');area.id='scene-audio-source';area.className='form';
+  area.innerHTML='<button type="button" class="secondary" data-select-scenes>Select Scenes</button><p class="help" data-scene-selection></p>';
+  (q('[data-audio-references]')||form).append(area);
+  const summary=()=>{area.querySelector('[data-scene-selection]').textContent=selectedScenes().length+' scenes selected · storyboard order';};summary();
+  area.querySelector('button').onclick=()=>{
+   const scenes=boardScenes(),target=activeStory,snapshot=JSON.stringify(scenes);
+   q('#audio-scenes-dialog')?.remove();const dialog=document.createElement('dialog');dialog.id='audio-scenes-dialog';dialog.className='generation-dialog';
+   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Select Scenes</h2><button type="button" class="secondary" data-close>Close</button></div><div data-scenes></div><button type="button" data-apply>Apply</button></div>';
+   const list=dialog.querySelector('[data-scenes]');
+   scenes.forEach((s,i)=>{const label=document.createElement('label');label.style.cssText='display:flex;flex-direction:row;gap:8px;margin:12px 0;color:var(--accent)';const input=document.createElement('input');input.type='checkbox';input.value=String(i);input.style.width='auto';input.checked=selectedScenes().some(ref=>ref.scene_number===i+1);const text=document.createElement('span');text.textContent='Scene '+(i+1)+' · '+(s.title||s.narration||'Untitled');label.append(input,text);list.append(label);});
+   if(!scenes.length)list.textContent='Add scenes in StoryBoard Your Story first.';
+   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+   dialog.querySelector('[data-apply]').onclick=()=>{if(target!==activeStory||JSON.stringify(boardScenes())!==snapshot){notice('The storyboard changed. Reopen Select Scenes.',true);return;}draft.source_scenes=[...dialog.querySelectorAll('input:checked')].map(el=>{const index=Number(el.value),s=scenes[index];return {index,fingerprint:JSON.stringify([s.title||'',s.narration||''])};});save();summary();dialog.close();};
+   dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
+  };
+ }
+ function generateScript(){
+  const scenes=selectedScenes();if(!scenes.length){notice('Select storyboard scenes under References first.',true);return;}
+  if(scenes.length!==(draft.source_scenes||[]).length){notice('A selected scene changed. Reselect scenes before generating.',true);return;}
+  q('#audio-script-instructions')?.remove();const dialog=document.createElement('dialog');dialog.id='audio-script-instructions';dialog.className='generation-dialog';
+  dialog.innerHTML='<form class="form"><div class="section-head"><h2>Generate Script with AI</h2><button type="button" class="secondary" data-close>Close</button></div><label>Instructions<textarea data-instructions rows="5" maxlength="4000" placeholder="Describe language, news delivery and how to combine the selected scenes. These instructions will not be spoken."></textarea></label><label>Pause After Opening Title (Seconds)<input data-pause type="number" min="0" max="10" step="0.1"></label><p class="help">Language, voice and delivery come from Additional Controls. Review the generated spoken script before Generate Audio.</p><button type="submit">Generate Script</button><p role="status"></p></form>';
+  const instructions=dialog.querySelector('[data-instructions]'),pause=dialog.querySelector('[data-pause]'),button=dialog.querySelector('[type=submit]'),status=dialog.querySelector('[role=status]');instructions.value=draft.script_instructions||'';pause.value=draft.opening_pause??2;
+  instructions.oninput=()=>{draft.script_instructions=instructions.value;save();};pause.onchange=()=>{draft.opening_pause=Number(pause.value);save();};
+  const target=activeStory,form=q('#audio-form');dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
+  dialog.querySelector('form').onsubmit=async event=>{
+   event.preventDefault();if(button.disabled)return;
+   try{
+    if(!window.EccoStorage?.ready||!window.EccoAI?.enabled)throw Error('Connect AI and storage in Connections first.');
+    if((turns().some(t=>t.text?.trim())||draft.opening_text?.trim())&&!confirm('Replace the current spoken script with a script from the selected scenes?'))return;
+    draft.script_instructions=instructions.value;draft.opening_pause=Number(pause.value);save();const snapshot=JSON.stringify(draft),sourceSnapshot=JSON.stringify(boardScenes());
+    button.disabled=true;button.textContent='Generating Script…';status.textContent='Combining selected scenes and adapting the language…';
+    const direction=aiContext();
+    const voiceChoices=model().voices.map(v=>({id:v.id,name:v.name}));
+    const contract='Return audio_plan as JSON only: {"opening":{"text":"one spoken sentence introducing the recording title","voice":"en_female"},"segments":[{"scene_number":1,"text":"spoken news script","voice":"en_female"}]}. Include exactly one segment per selected scene, in supplied order, with its original scene_number. Use only voices from the available list. Apply requested female/male assignments to the corresponding scenes. Default to '+draft.speakers[0].voice+' unless instructed otherwise. The opening must be at most 300 characters; total spoken text at most 4000 characters. Write only supported facts from selected scenes; no additional facts from saved stories. Translate/adapt to the requested languages and delivery. Text fields contain spoken words only: no labels, markup or pause instructions. The application inserts silence separately. User language instructions override the default language.';
+    const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:target||null,fields:[{id:'audio_plan',text:contract,max_length:16000}],context:{...direction,title:draft.title||currentStory().title,scenes,instructions:contract+'\nAvailable voices: '+JSON.stringify(voiceChoices)+'\nSpeaker settings: '+direction.instructions+'\nUser instructions: '+instructions.value},review_only:false});
+    if(!dialog.open||!form.isConnected||target!==activeStory||JSON.stringify(draft)!==snapshot||JSON.stringify(boardScenes())!==sourceSnapshot)throw Error('The script or scenes changed while AI was working. Your edits were preserved.');
+    if(result.questions?.length)throw Error(result.questions.join(' '));
+    if(result.revisions?.length!==1||result.revisions[0].id!=='audio_plan')throw Error('AI returned an incomplete audio plan. Your draft was preserved.');
+    let plan;try{plan=JSON.parse(result.revisions[0].text.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));}catch{throw Error('AI returned an unreadable audio plan. Your draft was preserved.');}
+    const validPart=part=>part&&typeof part.text==='string'&&part.text.trim()&&model().voices.some(v=>v.id===part.voice);
+    if(!validPart(plan.opening)||plan.opening.text.length>300||!Array.isArray(plan.segments)||plan.segments.length!==scenes.length||plan.segments.some((part,i)=>!validPart(part)||part.scene_number!==scenes[i].scene_number)||[plan.opening,...plan.segments].reduce((n,p)=>n+p.text.length,0)>4000)throw Error('AI returned an invalid scene or speaker assignment. Your draft was preserved.');
+    const settings={...draft.speakers[0]},assigned=new Map();
+    for(const voice of new Set([plan.opening.voice,...plan.segments.map(p=>p.voice)])){let item=draft.speakers.find(s=>s.voice===voice);if(!item){item=newSpeaker(Date.now()+draft.speakers.length,{...settings,id:'voice-'+voice,voice,name:model().voices.find(v=>v.id===voice).name});draft.speakers.push(item);}assigned.set(voice,item.id);}
+    draft.opening_text=plan.opening.text.trim();draft.opening_speaker=assigned.get(plan.opening.voice);
+    draft.lines=plan.segments.map((part,i)=>({text:part.text.trim(),speaker_id:assigned.get(part.voice),scene_title:scenes[i].title}));draft.single_text=draft.lines.map(l=>l.text).join('\n\n');
+    if(assigned.size>1)draft.presentation='conversation';else{draft.presentation='single';const primary=speaker(assigned.values().next().value);draft.speakers=[primary,...draft.speakers.filter(s=>s.id!==primary.id)];}
+    save();drawLines();drawControls();dialog.close();const context=window.EccoGeneration?.context(form);if(context?.prompt&&!context.prompt.open)context.prompt.showModal();
+   }catch(error){notice(error.message,true);status.textContent='';}finally{button.disabled=false;button.textContent='Generate Script';}
+  };
+  document.body.append(dialog);dialog.showModal();instructions.focus();
+ }
+
  let preview=null;
  function clearPreview(){if(!preview)return;clearTimeout(preview.timer);const player=preview.dialog.querySelector('audio');if(player?.src){player.pause();player.removeAttribute('src');}preview=null;}
  function previewVoice(selected){
@@ -174,7 +234,7 @@
  }
  // The independent application service supplies this adapter after authentication.
  // Never attach the legacy RunPod/Jupyter bridge here.
- window.EccoAudioStudio={controls:drawControls,aiContext,importScript,connect(adapter){
+ window.EccoAudioStudio={generateScript,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
   if(!adapter||adapter.storageIndependentOfGPU!==true||!['list','generate','job','mediaURL','download'].every(name=>typeof adapter[name]==='function'))throw Error('An authenticated, GPU-independent audio service is required.');
   service=adapter;recordings=[];lastJob=null;signature='';update();poll();
  },disconnect(){clearPreview();q('#audio-voice-preview-dialog')?.close();service=null;recordings=[];lastJob=null;signature='';update();}};
@@ -215,7 +275,7 @@
    finally{submitting=false;update();}
   };
   if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Review audio</h2></div><div class="empty" data-audio-empty><strong>Your audio starts here</strong><p class="help">Add a script and generate audio.</p></div>';q('.audio-workspace').append(review);}
-  update();poll();
+  mountScenePicker();update();poll();
  }
  const oldNavigate=navigate;
  navigate=function(p){
@@ -233,6 +293,7 @@
  // Inherit the existing production-menu styling and place Audio after Video.
  if(video)video.after(button);else (production||nav).append(button);
 })();
+
 
 
 
