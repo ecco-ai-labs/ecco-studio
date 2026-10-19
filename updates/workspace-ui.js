@@ -543,8 +543,20 @@
  }
  function welcomePage(){
   page='welcome';document.body.classList.add('workspace-entry-mode');
-  let entry=q('#workspace-entry');if(!entry){entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Ecco AI Labs Studios');const logo=q('aside .brand img')||q('aside img');const brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo.png';brand.alt='Ecco AI Labs logo';const title=document.createElement('h1');title.innerHTML='Ecco AI Labs<span class="entry-subtitle">Studios</span>';const button=document.createElement('button');button.id='entry-tell-story';button.type='button';button.textContent='Tell Your Story';button.onclick=()=>{welcomePending=false;document.body.classList.remove('workspace-entry-mode');navigate('empty');};const copyright=document.createElement('p');copyright.className='entry-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';entry.append(brand,title,button,copyright);document.body.append(entry);}
-  q('#entry-tell-story').onclick=()=>{welcomePending=false;document.body.classList.remove('workspace-entry-mode');navigate('empty');};
+  let entry=q('#workspace-entry');
+  if(!entry){
+   entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Ecco AI Labs Studios');
+   const logo=q('aside .brand img')||q('aside img'),brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo.png';brand.alt='Ecco AI Labs logo';
+   const title=document.createElement('h1');title.textContent='What do you want to do today?';
+   const choices=document.createElement('div');choices.className='row';choices.style.cssText='display:flex;flex-wrap:wrap;justify-content:center;gap:12px';
+   const create=document.createElement('button');create.id='entry-tell-story';create.type='button';create.textContent='Tell a new story';
+   const resume=document.createElement('button');resume.id='entry-continue-story';resume.type='button';resume.className='secondary';resume.textContent='Continue with current story';resume.style.cssText='font-size:15px;padding:13px 30px;border-radius:8px';
+   choices.append(create,resume);
+   const copyright=document.createElement('p');copyright.className='entry-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';
+   entry.append(brand,title,choices,copyright);document.body.append(entry);
+  }
+  q('#entry-tell-story').onclick=()=>{welcomePending=false;startNewStory();};
+  q('#entry-continue-story').onclick=()=>{welcomePending=false;navigate('story-library');};
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
  }
  document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
