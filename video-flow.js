@@ -26,7 +26,7 @@
   root.innerHTML=section(2,'Library','<div class="row"><select aria-label="Library" data-library><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select><button type="button" class="secondary" data-browse>Browse library</button></div><div data-list="image" class="generation-selected"></div><div data-list="video" class="generation-selected"></div><div data-list="audio" class="form"></div><p class="help" data-audio-hint></p>')+
    section(3,'Audio script','<p class="help" data-script-source>Select audio above to load the exact words used to generate it.</p><textarea aria-label="Audio script" data-transcript maxlength="4000" rows="5" placeholder="Your selected recording’s original script will appear here."></textarea><p class="help">AI edits the script text. To hear edited words or lip-sync them, generate a new recording in Audio Studio and select it here.</p>')+
    section(4,'Shots','<label>Storyboard<select data-board aria-label="Storyboard"></select></label><details data-shot aria-label="Shots" class="generation-settings"></details><div data-shots class="form"></div><p data-timing class="help"></p>')+
-   section(5,'Video prompt','<label>Describe the action and setting<textarea data-brief rows="3" maxlength="2000" placeholder="For example: The selected avatar presents the selected audio in a newsroom, looking into the camera."></textarea></label><div data-directions class="form"></div><p role="status" data-ai-status></p>');
+   '<div data-directions hidden></div><p role="status" data-ai-status></p>';
   button.textContent='Generate video';
   const legacyBoard=q('[name="board_id"]',form);if(legacyBoard){legacyBoard.required=false;legacyBoard.closest('label').hidden=true;}
   let shotIndex=0;
@@ -99,7 +99,8 @@
   ];
   function openShotControls(shot,index){
    const dialog=document.createElement('dialog');dialog.className='generation-dialog';dialog.setAttribute('aria-label','Shot controls');
-   dialog.innerHTML='<form class="form"><div class="section-head"><h2>Shot controls</h2><button type="button" data-close aria-label="Close shot controls">×</button></div><div class="generation-attribute-grid" data-fields></div><label>Seconds<input data-seconds type="number" min="0.2" step="0.01" required></label><div class="row"><button type="submit">Apply</button></div></form>';
+   dialog.innerHTML='<form class="form"><div class="section-head"><h2>Shot controls</h2><button type="button" data-close aria-label="Close shot controls">×</button></div><label>Video prompt<textarea data-video-prompt rows="3" maxlength="2000" placeholder="Describe the action and setting for this shot."></textarea></label><div class="row"><button type="button" data-ai-generate>Generate with AI</button><button type="button" data-ai-improve>Improve with AI</button></div><div class="generation-attribute-grid" data-fields></div><label>Seconds<input data-seconds type="number" min="0.2" step="0.01" required></label><div class="row"><button type="submit">Apply</button></div></form>';
+   const prompt=q('[data-video-prompt]',dialog);prompt.value=shot.video_prompt??data.brief??'';dialog.eccoAIContext=()=>({...root.eccoAIContext(prompt),context:{...root.eccoAIContext(prompt).context,scenes:[shot]}});q('[data-ai-generate]',dialog).onclick=()=>window.EccoAI?.generateField(prompt);q('[data-ai-improve]',dialog).onclick=()=>window.EccoAI?.improveField(prompt);
    const fields=q('[data-fields]',dialog);
    for(const [key,label,options] of shotControlOptions){
     const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('select');input.dataset.control=key;
@@ -107,7 +108,7 @@
    }
    q('[data-seconds]',dialog).value=shot.seconds||3;
    q('[data-close]',dialog).onclick=()=>dialog.close();
-   q('form',dialog).onsubmit=event=>{event.preventDefault();if(!data.shots.includes(shot)){dialog.close();return;}for(const input of dialog.querySelectorAll('[data-control]'))shot[input.dataset.control]=input.value;shot.seconds=Number(q('[data-seconds]',dialog).value);data.directions=[];data.analyzed='';persist();drawShots();drawDirections();dialog.close();};
+   q('form',dialog).onsubmit=event=>{event.preventDefault();if(!data.shots.includes(shot)){dialog.close();return;}for(const input of dialog.querySelectorAll('[data-control]'))shot[input.dataset.control]=input.value;shot.video_prompt=prompt.value;shot.seconds=Number(q('[data-seconds]',dialog).value);data.directions=[];data.analyzed='';persist();drawShots();drawDirections();dialog.close();};
    dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
   }
   function drawDirections(){
@@ -171,7 +172,7 @@
   q('[data-library]',root).onchange=drawLists;
   q('[data-browse]',root).onclick=()=>picker(q('[data-library]',root).value);
   q('[data-board]',root).onchange=loadBoard;
-  const brief=q('[data-brief]',root);brief.value=data.brief||'';brief.oninput=()=>{data.brief=brief.value;persist();};
+  const brief=q('[data-transcript]',root);
   const aiMenu=document.createElement('details');aiMenu.className='storyboard-ai-floating';aiMenu.id='video-flow-ai';
   aiMenu.innerHTML='<summary aria-label="AI assistance">AI</summary><div class="storyboard-ai-actions"><button type="button" class="secondary" data-generate>Generate with AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div>';
   root.append(aiMenu);let selectedPrompt=brief;
@@ -182,7 +183,7 @@
   root.eccoAIContext=element=>({reference_ids:[...data.image_ids],video_reference_ids:[...data.video_ids],context:{model:model.value,summary:data.brief,scenes:element.matches('[data-motion],[data-shot-direction]')?[data.shots[shotIndex]]:activeShots(),lines:[{text:q('[data-transcript]',root).value}],instructions:element.matches('[data-transcript]')?'Write only spoken script text.':'Write visual instructions only. Preserve recorded speech; do not invent dialogue.'}});
   model.addEventListener('change',()=>{persist();drawLists();});
   const aiStatus=q('[data-ai-status]',root);let writingDirections=false;
-  const shotPrompt=s=>[s.motion,...shotControlOptions.filter(([key])=>s[key]).map(([key,label])=>label+': '+s[key])].filter(Boolean).join('. ');
+  const shotPrompt=s=>[s.video_prompt??data.brief,s.motion,...shotControlOptions.filter(([key])=>s[key]).map(([key,label])=>label+': '+s[key])].filter(Boolean).join('. ');
   const writeDirections=async()=>{
    if(writingDirections)return false;
    const shots=activeShots(),snapshot=fingerprint();if(!shots.length){aiStatus.textContent='Add a shot first.';return;}
@@ -211,7 +212,7 @@
     ctx.submitting=true;setGenerationBusy(button,true,'Generating video…','Generate video');status.textContent='Preparing video…';
     if(data.analyzed!==fingerprint()||data.directions.length!==shots.length){
      if(data.video_ids.length){status.textContent='Analyzing video references…';if(!await writeDirections())throw Error(aiStatus.textContent||'Could not analyze reference videos.');}
-     else{data.directions=shots.map(s=>[data.brief,shotPrompt(s)].filter(Boolean).join('. '));data.analyzed=fingerprint();persist();drawDirections();}
+     else{data.directions=shots.map(s=>[shotPrompt(s)].filter(Boolean).join('. '));data.analyzed=fingerprint();persist();drawDirections();}
     }
     let job;
     if(data.audio_ids.length){
