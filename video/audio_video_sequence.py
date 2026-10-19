@@ -12,18 +12,21 @@ import longcat_jobs as renderer
 LOCK = threading.RLock()
 
 
-def plan(shots, duration):
+def plan(shots, duration, max_clip_seconds=10):
     if not isinstance(shots, list) or not 1 <= len(shots) <= 60:
         raise ValueError('Select between 1 and 60 shots.')
     if not math.isfinite(duration) or not .2 <= duration <= 1200:
         raise ValueError('Choose a recording between 0.2 seconds and 20 minutes.')
+    max_clip_seconds = float(max_clip_seconds)
+    if not math.isfinite(max_clip_seconds) or not 1 <= max_clip_seconds <= 1200:
+        raise ValueError('Maximum seconds per clip must be between 1 and 1200.')
     clips, cursor = [], 0.
     for index, shot in enumerate(shots):
         seconds = float(shot.get('seconds', 0))
         prompt = str(shot.get('prompt', '')).strip()
         if not math.isfinite(seconds) or seconds < .2 or not 1 <= len(prompt) <= 4000:
             raise ValueError('Each shot needs at least 0.2 seconds and a motion prompt.')
-        count = math.ceil(seconds / 10)
+        count = math.ceil(seconds / max_clip_seconds)
         for part in range(count):
             start = cursor + seconds * part / count
             end = cursor + seconds * (part + 1) / count
@@ -58,7 +61,7 @@ def generate(body, env):
         if not any(w['pod']==body.get('gpu') for w in renderer.status()['workers']):
             raise env['Problem']('LongCat is not ready on the selected accelerator.',503)
         duration = float(renderer.probe(env['asset_path'](audio))['format']['duration'])
-        try: clips = plan(body.get('shots'),duration)
+        try: clips = plan(body.get('shots'),duration,body.get('max_clip_seconds',10))
         except (ValueError, TypeError, AttributeError) as error: raise env['Problem'](str(error))
         if body.get('resolution','832x480') not in ('832x480','1280x720'):
             raise env['Problem']('Choose 480p or 720p.')
@@ -74,6 +77,7 @@ def generate(body, env):
         request['audio_id'] = audio['id']
         request['source_audio_ids'] = body.get('audio_ids') or [audio['id']]
         request['video_reference_ids'] = body.get('video_reference_ids', [])
+        request['max_clip_seconds'] = float(body.get('max_clip_seconds',10))
         request.update(resolution=body.get('resolution','832x480'),seed=int(body.get('seed',42)),clips=clips,duration=duration,shots=body['shots'])
         job = dict(id=jid,kind='audio_video_job',media='video',model=renderer.MODEL,story_id=sid,
                    title=audio.get('title','Audio video'),label='Video · LongCat sequence',created=time.time(),status='queued',
@@ -169,7 +173,7 @@ def _advance(job, env):
         child=renderer.generate(dict(story_id=job['story_id'],audio_id=request['audio_id'],
             image_id=clip.get('image_id',request['image_id']),gpu=request['gpu'],prompt=clip['prompt'],
             resolution=request['resolution'],seed=request['seed'],
-            audio_start=clip['start'],audio_end=clip['end'],
+            audio_start=clip['start'],audio_end=clip['end'],max_clip_seconds=request.get('max_clip_seconds',10),
             request_id=hashlib.sha256((job['id']+':'+str(index)).encode()).hexdigest()[:32]),env)
     except env['Problem'] as error:
         if error.code in (429,503):
