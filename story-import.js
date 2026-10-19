@@ -27,6 +27,17 @@
   const panel=document.createElement('div');panel.id='story-entry-panel';panel.setAttribute('role','group');panel.setAttribute('aria-label','Story creation options');
   panel.innerHTML='<details class="workspace-menu"><summary>Upload<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div></details><button type="button" class="secondary" data-story-manual aria-pressed="true">Manual</button>';
   form.before(panel);
+  const format=form.elements.story_format;
+  if(format){
+   format.closest('label').classList.add('story-format-source');format.tabIndex=-1;format.setAttribute('aria-hidden','true');
+   const control=document.createElement('div');control.className='story-format-control';control.setAttribute('role','group');control.setAttribute('aria-label','Story Format');
+   control.innerHTML='<span>Story Format</span><div class="story-format-options"><button type="button" class="secondary" data-story-format-option="audio" aria-pressed="false">Audio</button><button type="button" class="secondary" data-story-format-option="video" aria-pressed="false">Video</button></div>';
+   const buttons=[...control.querySelectorAll('button')];
+   const sync=()=>buttons.forEach(button=>{const selected=button.dataset.storyFormatOption===format.value;button.setAttribute('aria-pressed',String(selected));button.classList.toggle('is-selected',selected);});
+   buttons.forEach(button=>button.onclick=()=>{format.value=button.dataset.storyFormatOption;format.dispatchEvent(new Event('change',{bubbles:true}));});
+   format.addEventListener('input',sync);format.addEventListener('change',sync);format.addEventListener('invalid',event=>{event.preventDefault();buttons[0].focus();notice('Choose Audio or Video.');});
+   panel.prepend(control);sync();
+  }
   const menu=panel.querySelector('details'),items=panel.querySelector('.workspace-menu-items'),row=box.querySelector('.row');items.append(row);
   box.hidden=true;
   const mode=value=>{panel.dataset.mode=value;panel.querySelector('[data-story-manual]').setAttribute('aria-pressed',String(value==='manual'));box.hidden=value!=='upload';};
@@ -149,4 +160,5 @@
  function mount(){mountPDF();mountBoard();mountImage();mountAudio();}
  new MutationObserver(mount).observe(q('#page'),{childList:true,subtree:true});mount();
 })();
+
 

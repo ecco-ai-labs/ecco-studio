@@ -29,7 +29,8 @@
   d.innerHTML='<div class="form"><div class="section-head"><h2>Research the Web</h2><div style="display:flex;gap:6px;align-items:center"><button type="button" class="secondary" data-stop aria-label="Stop AI" title="Stop AI" disabled><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" fill="currentColor"/></svg></button><button type="button" class="secondary" data-close aria-label="Close research">×</button></div></div><label><span style="color:var(--accent)">Research Prompt</span><textarea data-prompt rows="4"></textarea></label><div class="row"><label><span style="color:var(--accent)">Items</span><input data-count type="number" min="1" max="60" step="1" value="10"></label><label><span style="color:var(--accent)">Date Range</span><select data-range><option>Past 24 Hours</option><option>Past 7 Days</option><option>Past 30 Days</option></select></label></div><button type="button" class="secondary" data-research>Research</button><p role="status" data-status></p><div data-results></div><button type="button" data-create hidden>Create Storyboard</button></div>';
   document.body.append(d);
   const prompt=q('[data-prompt]',d),count=q('[data-count]',d),range=q('[data-range]',d),status=q('[data-status]',d),run=q('[data-research]',d),create=q('[data-create]',d);
-  const defaultPrompt=()=>`Find the top ${count.value} ${initial.news_topic||'General'} news stories from around the world within the ${range.value.toLowerCase()}. Include reliable source links and publication dates. Do not repeat the same event.`;
+  const script=q('#story-text')?.value.trim()||draft.story?.trim()||'';
+  const defaultPrompt=()=>script||`Find the top ${count.value} ${initial.news_topic||'General'} news stories from around the world within the ${range.value.toLowerCase()}. Include reliable source links and publication dates. Do not repeat the same event.`;
   let defaultText=defaultPrompt(),result=null,busy=false,operation=null;
   prompt.value=defaultText;
   const reset=()=>{result=null;create.hidden=true;q('[data-results]',d).replaceChildren();status.textContent='';};
@@ -65,7 +66,6 @@
    const token=new AbortController();operation=token;
    try{
     valid();const selected=[...d.querySelectorAll('[data-item]:checked')].map(el=>Number(el.dataset.item));if(!selected.length)throw Error('Select at least one news item.');
-    if((draft.story?.trim()||draft.scenes?.some(s=>s.narration||s.image_id||s.motion))&&!confirm('Replace the current narration and scene draft with the selected news items?'))return;
     const snapshot=JSON.stringify(draft);setBusy(true,create);status.textContent='';
     const planned=await api('ai/news/storyboard',{...result,selected,seconds:Number(draft.defaultSeconds)||3},{signal:token.signal});if(operation!==token)return;valid();
     if(JSON.stringify(draft)!==snapshot)throw Error('Your draft changed during generation. Your edits were preserved.');
@@ -83,3 +83,4 @@
  }
  new MutationObserver(mount).observe(q('#page'),{childList:true,subtree:true});mount();
 })();
+

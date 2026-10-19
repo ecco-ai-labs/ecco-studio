@@ -6,6 +6,65 @@
  let selectedVideoId='';
  let welcomePending=true;
  let selectedJourneyStory; // No story has been explicitly chosen on initial load.
+ let newStoryStarted=false;
+ const readStory=key=>readStoryData(key);
+ const localTrashItems=()=>readStory('ecco-local-library-trash').items||[];
+ function trashLocalItem(kind,id,title,data){const items=localTrashItems().filter(item=>!(item.kind===kind&&item.id===id));items.push({kind,id,title,data});localStorage.setItem('ecco-local-library-trash',JSON.stringify({items}));}
+ function libraryCard({id,title,detail='',kind='story',open,remove,compact=false}){
+  const item=document.createElement('article');item.className=compact?'text-library-row':'card text-library-card';item.dataset.libraryId=id;
+  const button=document.createElement('button');button.type='button';button.className='text-library-open';button.setAttribute('aria-label','Open '+title);
+  const icon=kind==='workflow'?'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M6 9v9h9M9 6h9v9"/>':'<path d="M3 4h7a3 3 0 0 1 3 3v14a4 4 0 0 0-4-2H3V4Zm18 0h-5a3 3 0 0 0-3 3v14a4 4 0 0 1 4-2h4V4Z"/>';
+  button.innerHTML='<span class="text-library-preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'+icon+'</svg></span><span class="text-library-caption"><strong></strong><small></small></span>';
+  button.querySelector('strong').textContent=title;button.querySelector('small').textContent=detail;button.onclick=open;
+  const deletion=document.createElement('button');deletion.type='button';deletion.className='secondary workspace-delete text-library-delete';deletion.textContent='×';deletion.setAttribute('aria-label','Delete '+title);deletion.title='Move '+title+' to Trash';deletion.onclick=async()=>{deletion.disabled=true;try{await remove();}catch(error){window.EccoErrors?.show(error);}finally{deletion.disabled=false;}};
+  item.append(button,deletion);return item;
+ }
+ async function deleteStory(id){
+  await api('stories/archive',{story_id:id});
+  if(activeStory===id){activeStory='';localStorage.removeItem('ecco-active-story');draft={...defaultDraft,scenes:[]};selectedJourneyStory=undefined;newStoryStarted=false;}
+  await refresh();storyControls();libraryOverview('story');notice('Story moved to Trash.');
+ }
+ function deleteLocalStory(id){
+  const saved=localStoryDrafts().find(item=>item.id===id);if(!saved)return;
+  const localId=saved.localDraftId||(id==='pending'?crypto.randomUUID():id);trashLocalItem('story-draft',localId,saved.title,saved);
+  localStorage.removeItem('ecco-story-setup:'+localId);
+  const pending=readStory('ecco-new-story-draft');
+  if(id==='pending'||pending.localDraftId===localId){localStorage.removeItem('ecco-new-story-draft');localStorage.removeItem('ecco-board-new-draft');if(!activeStory){draft={...defaultDraft,scenes:[]};selectedJourneyStory=undefined;newStoryStarted=false;}}
+  storyControls();libraryOverview('story');notice('Draft moved to Trash.');
+ }
+ function localStoryDrafts(){
+  const rows=[];
+  for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key.startsWith('ecco-story-setup:'))continue;const saved=readStory(key);if(!saved.cloudId&&(saved.title||saved.summary||saved.sourceText||saved.boardDraft?.scenes?.length))rows.push({id:key.slice('ecco-story-setup:'.length),...saved});}
+  const pending=readStory('ecco-new-story-draft'),board=readStory('ecco-board-new-draft');
+  if(!pending.cloudId&&(pending.title||pending.summary||pending.sourceText||board.story||board.scenes?.length)){
+   const current={...pending,id:'pending',title:pending.title||board.title||'Untitled draft',boardDraft:board};
+   const duplicate=rows.findIndex(row=>row.id===pending.localDraftId);if(duplicate>=0)rows.splice(duplicate,1);rows.push(current);
+  }
+  return rows;
+ }
+ function preserveNewStoryDraft(force=false){
+  if(activeStory&&!force)return;
+  const saved=readStory('ecco-new-story-draft'),board=readStory('ecco-board-new-draft');
+  if(saved.cloudId||!(saved.title||saved.summary||saved.sourceText||board.story||board.scenes?.length))return;
+  const id=saved.localDraftId||crypto.randomUUID(),data={...saved,localDraftId:id,title:saved.title||board.title||'Untitled draft',boardDraft:board};
+  localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));
+ }
+ function startNewStory(){
+  preserveNewStoryDraft(true);if(activeStory)persistDraft();activeStory='';localStorage.removeItem('ecco-active-story');
+  localStorage.setItem('ecco-new-story-draft','{}');draft={...defaultDraft,scenes:[]};persistDraft();
+  selectedJourneyStory=undefined;newStoryStarted=true;storyControls();navigate('story-setup');
+ }
+ function openStory(id){
+  if(!stories().some(story=>story.id===id))return;
+  preserveNewStoryDraft();if(activeStory||newStoryStarted)persistDraft();activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();selectedJourneyStory=id;lastSignature='';
+  storyControls();navigate('board');productionGroup();journeyGuide();
+ }
+ function workspaceStart(){
+  page='empty';q('#heading').textContent='Tell Your Story';
+  q('#page').innerHTML='<div class="form"><p>Choose a story to work on.</p><a href="#story-library" id="open-story-library">Open Story Library</a><div><button type="button" class="secondary" id="start-new-story">New Story</button></div></div>';
+  q('#open-story-library').onclick=event=>{event.preventDefault();libraryOverview('story');};q('#start-new-story').onclick=startNewStory;
+  document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
+ }
  function selectionToolbar(body,name,button){const selected=body.querySelector('.tree-folder.selected');if(!selected||!button)return;const row=document.createElement('div');row.className='library-selected-row';selected.before(row);row.append(selected);button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);row.append(button);}
  const records=()=>typeof state!=='undefined'&&state?state.records:[];
  // Keep the library overview, sidebar and reference picker on the same saved videos.
@@ -68,15 +127,11 @@
   const storyRecords=records().filter(r=>r.kind==='story'&&!r.deleted);
   const options=[...select.options].filter(option=>option.value).sort((a,b)=>(storyRecords.find(r=>r.id===a.value)?.created||0)-(storyRecords.find(r=>r.id===b.value)?.created||0));
   const selected=options.find(o=>o.value===select.value);
-  for(const option of options){const b=document.createElement('button');b.type='button';b.className='tree-folder';b.textContent='− '+option.textContent;b.classList.toggle('selected',option.value===select.value);b.onclick=()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));};body.append(b);}
-  let localStories=[];try{localStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');}catch{}
+  for(const option of options){const item=libraryCard({id:option.value,title:option.textContent,compact:true,open:()=>openStory(option.value),remove:()=>deleteStory(option.value)});const b=item.querySelector('.text-library-open');b.classList.add('tree-folder');b.classList.toggle('selected',option.value===select.value);body.append(item);}
+  const localStories=localStoryDrafts();
   for(const story of localStories){
-   const b=document.createElement('button');b.type='button';b.className='tree-folder';
-   b.textContent='− '+story.title;b.title=story.genre?story.genre+' · Saved in this browser':'Saved in this browser';
-   b.onclick=()=>{document.body.classList.remove('workspace-entry-mode');storySetupPage(story.id);page='story-library-detail';librarySelection();};
-   body.append(b);
+   const item=libraryCard({id:story.id,title:story.title,detail:'Draft',compact:true,open:()=>{document.body.classList.remove('workspace-entry-mode');storySetupPage(story.id);librarySelection();},remove:()=>deleteLocalStory(story.id)});item.querySelector('.text-library-open').classList.add('tree-folder');body.append(item);
   }
-  if(selected)selectionToolbar(body,selected.textContent,remove);
   box.append(d);
  }
 
@@ -166,7 +221,7 @@
   if(status)status.textContent=text;
  }
  if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
- if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='journey-preview'){welcomePending=false;journeyPreview();return;}if(args[0]==='story-collections'){welcomePending=false;window.EccoStoryCollections.show();return;}if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='empty'){page='empty';q('#page')?.replaceChildren();if(q('#heading'))q('#heading').textContent='';document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
+ if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='journey-preview'){welcomePending=false;journeyPreview();return;}if(args[0]==='story-collections'){welcomePending=false;window.EccoStoryCollections.show();return;}if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='story-library'){welcomePending=false;libraryOverview('story');return;}if(args[0]==='empty'){workspaceStart();return;}if(args[0]==='board'&&!activeStory&&!newStoryStarted){workspaceStart();return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
  setInterval(acceleratorDisplay,5000);
 
  function librarySelection(){
@@ -201,9 +256,13 @@
    q('#video-library-upload').onclick=uploadVideoDialog;q('#video-library-publish').onclick=()=>{page='journey-preview';journeyPreview(true);journeyGuide();librarySelection();};wireCards();
   }else{
    q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2><div class="row"><label class="library-view-label"><select id="story-library-view" aria-label="Story library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" id="story-library-upload" class="secondary">Upload</button></div></div><div id="story-library-list" class="form"></div>';
-   const list=q('#story-library-list'),entries=[...document.querySelectorAll('.project .workspace-library-content button.tree-folder')];
-   for(const entry of entries){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=entry.textContent.replace(/^− /,'');b.onclick=()=>{entry.click();if(page==='story-setup')page='story-library-detail';librarySelection();};list.append(b);}
-   if(!entries.length)list.innerHTML='<p class="help">No saved stories.</p>';
+   const list=q('#story-library-list'),collections=readStory('ecco-story-collections-v1'),groups=new Map((collections.collections||[]).map(group=>[group.id,group.name]));
+   const entries=stories().map(story=>({...story,collection:groups.get(collections.members?.[story.id])||'Unassigned'}));
+   const add=(entry,local=false)=>{const item=libraryCard({id:entry.id,title:entry.title,detail:local?'Draft':entry.collection,open:()=>{if(local)storySetupPage(entry.id);else openStory(entry.id);librarySelection();},remove:()=>local?deleteLocalStory(entry.id):deleteStory(entry.id)});item.querySelector('.text-library-open').dataset[local?'localStoryId':'storyId']=entry.id;list.append(item);};
+   for(const name of [...new Set(entries.map(entry=>entry.collection))]){const heading=document.createElement('h3');heading.textContent=name;list.append(heading);entries.filter(entry=>entry.collection===name).forEach(entry=>add(entry));}
+   const drafts=localStoryDrafts();if(drafts.length){const heading=document.createElement('h3');heading.textContent='Drafts';list.append(heading);drafts.forEach(entry=>add(entry,true));}
+   if(!entries.length&&!drafts.length)list.innerHTML='<p class="help">'+(state.storage_pending?'Connect storage to see your saved stories.':'No saved stories.')+'</p>';
+   const create=document.createElement('button');create.type='button';create.className='secondary';create.textContent='New Story';create.onclick=startNewStory;q('#story-library-upload').before(create);
   }
   const view=q('#'+kind+'-library-view'),gallery=q(kind==='video'?'#video-library-gallery':'#story-library-list');
   const applyView=()=>{gallery.classList.remove('library-small','library-large','library-list');gallery.classList.add('library-'+view.value);localStorage.setItem('ecco-'+kind+'-library-view',view.value);};
@@ -273,25 +332,25 @@
  }
 
  function storySetupPage(savedId){
-  loadDraft(); // Repair any confirmed imported-text mismatch before restoring the description.
+  if(!savedId&&!activeStory&&!newStoryStarted){startNewStory();return;}
+  const localSelection=savedId==='pending'?{...readStory('ecco-new-story-draft'),boardDraft:readStory('ecco-board-new-draft')}:savedId?readStory('ecco-story-setup:'+savedId):null;
+  if(savedId){preserveNewStoryDraft();persistDraft();newStoryStarted=true;}
   page='story-setup';
   q('#workspace-entry')?.remove();
   q('#heading').textContent='Describe your story';
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.id==='workspace-new-story'));
-  const key=savedId?'ecco-story-setup:'+savedId:activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft';
-  let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
+  const key=savedId&&savedId!=='pending'?'ecco-story-setup:'+savedId:activeStory&&!savedId?'ecco-story-description:'+activeStory:'ecco-new-story-draft';
+  let saved=localSelection||storyDescription();
   if(!savedId&&activeStory){
-   if(saved.cloudId!==activeStory){
-    saved={};
-    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k==='ecco-new-story-draft'||k.startsWith('ecco-story-setup:')){try{const candidate=JSON.parse(localStorage.getItem(k)||'{}');if(candidate.cloudId===activeStory)saved=candidate;}catch{}}}
-   }
-   const record=stories().find(s=>s.id===activeStory),board=loadDraft();
+   const record=stories().find(story=>story.id===activeStory),board=loadDraft();
    saved={...saved,cloudId:activeStory,story_format:saved.story_format||board.story_format,title:board.title||record?.title||'',summary:saved.summary??record?.summary??''};
-  }else if(!savedId&&saved.cloudId){saved={};}
+  }
   saved.story_format=['audio','video'].includes(saved.story_format)?saved.story_format:(saved.cloudId?'video':'');
   localStorage.setItem(key,JSON.stringify(saved));
-  persistDraft();activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);
-  draft=activeStory?loadDraft():{...loadDraft(),title:saved.title||'',story:saved.sourceText||saved.summary||''};draft.story_format=saved.story_format;persistDraft();
+  activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);
+  const localBoard=savedId?saved.boardDraft:readStory('ecco-board-new-draft');
+  draft=activeStory?loadDraft():{...(localBoard||defaultDraft),story_id:'',title:saved.title||'',story:saved.sourceText||saved.summary||localBoard?.story||'',scenes:structuredClone(localBoard?.scenes||[])};draft.story_format=saved.story_format;persistDraft();
+  if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));
   const genres=['News','Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
   q('#page').innerHTML='<form id="story-setup-form" class="form"><label data-story-format>Story Format<select name="story_format" required><option value="">Choose Audio or Video</option><option value="audio">Audio</option><option value="video">Video</option></select></label><label>Story Title<input name="title" maxlength="160" required placeholder="Enter your story title"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story Idea / Summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & Continue to Storyboard</button></div><p role="status" data-story-status></p></form>';
   const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');form.dataset.draftKey=key;
@@ -299,25 +358,30 @@
   if(savedId)selectedJourneyStory=activeStory;
   // Restoring draft text is not a format choice in a new browser session.
   if(selectedJourneyStory!==activeStory)form.elements.story_format.value='';
-  const save=event=>{if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
+  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
    if(!form.reportValidity())return;
-   const data=save(),button=form.querySelector('[type="submit"]');button.disabled=true;
+   const data=save(),targetStory=activeStory,targetDraft=structuredClone(draft),button=form.querySelector('[type="submit"]');button.disabled=true;
    status.textContent='Saving story…';
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
-    data.cloudId=created.id;saved=data;localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);
-    const nextDraft={...loadDraft(),title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));window.EccoStoryCollections.assign(created.id,data.collection_id);await refresh();activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();
-    let savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');
-    const id=savedId||crypto.randomUUID();
+    data.cloudId=created.id;saved=data;
+    const nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};
+    localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));
+    localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));
+    if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);
+    window.EccoStoryCollections.assign(created.id,data.collection_id);
+    const id=savedId&&savedId!=='pending'?savedId:data.localDraftId||crypto.randomUUID();
     localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));
-    savedStories=savedStories.filter(s=>s.id!==id);
-    localStorage.setItem('ecco-saved-story-setups',JSON.stringify(savedStories));
-    savedId=id;
-    q('.project .workspace-library')?.remove();storyTree();
-    status.textContent='Story saved.';navigate('board');
+    const savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]').filter(story=>story.id!==id);
+    localStorage.setItem('ecco-saved-story-setups',JSON.stringify(savedStories));savedId=id;
+    const stillEditing=form.isConnected&&activeStory===targetStory;
+    if(stillEditing){localStorage.setItem(key,JSON.stringify(data));activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();}
+    await refresh();
+    if(!stillEditing||!form.isConnected||activeStory!==created.id)return;
+    q('.project .workspace-library')?.remove();storyTree();status.textContent='Story saved.';navigate('board');
    }catch(error){window.EccoErrors?.show(error);status.textContent='Could not save story: '+error.message;}
 
    finally{button.disabled=false;}
@@ -466,6 +530,7 @@
  function welcomePage(){
   page='welcome';document.body.classList.add('workspace-entry-mode');
   let entry=q('#workspace-entry');if(!entry){entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Ecco AI Labs Studios');const logo=q('aside .brand img')||q('aside img');const brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo.png';brand.alt='Ecco AI Labs logo';const title=document.createElement('h1');title.innerHTML='Ecco AI Labs<span class="entry-subtitle">Studios</span>';const button=document.createElement('button');button.id='entry-tell-story';button.type='button';button.textContent='Tell Your Story';button.onclick=()=>{welcomePending=false;document.body.classList.remove('workspace-entry-mode');navigate('empty');};const copyright=document.createElement('p');copyright.className='entry-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';entry.append(brand,title,button,copyright);document.body.append(entry);}
+  q('#entry-tell-story').onclick=()=>{welcomePending=false;document.body.classList.remove('workspace-entry-mode');navigate('empty');};
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
  }
  document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
@@ -476,7 +541,7 @@
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!e.composedPath().includes(d))d.open=false;});});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
- window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog,selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
+ window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
  const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
  modernize();welcomePage();
 })();
@@ -491,6 +556,21 @@
  document.querySelector('#empty-workspace-trash').onclick=()=>{if(!confirm('Permanently delete all '+items.length+' items shown in Trash? Their local files and image references will be removed. This cannot be undone.'))return;action(async()=>{const result=await api('trash/empty',{ids:items.map(r=>r.id),confirmed:true});notice(result.purged_count+' items permanently deleted.');});};
  };
  trashIcon();
+})();
+
+/* Browser-owned drafts and workflows use the same reversible Trash view. */
+(()=>{
+ const previous=trashPage;
+ trashPage=function(...args){
+  const result=previous.apply(this,args),items=window.EccoWorkspaceUI.localTrashItems();if(!items.length)return result;
+  const section=document.createElement('section');section.className='form';section.innerHTML='<h3>Saved in this browser</h3>';
+  for(const item of items){const row=document.createElement('article');row.className='panel section-head';const label=document.createElement('strong');label.textContent=item.title;const restore=document.createElement('button');restore.type='button';restore.className='secondary';restore.textContent='Restore';restore.setAttribute('aria-label','Restore '+item.title);restore.onclick=()=>{
+   if(item.kind==='workflow'){const drafts=JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').filter(draft=>draft.id!==item.id);drafts.push(item.data);localStorage.setItem('ecco-workflow-drafts',JSON.stringify(drafts));}
+   else{const id=crypto.randomUUID();localStorage.setItem('ecco-story-setup:'+id,JSON.stringify({...item.data,id,localDraftId:id}));}
+   localStorage.setItem('ecco-local-library-trash',JSON.stringify({items:window.EccoWorkspaceUI.localTrashItems().filter(other=>other.id!==item.id||other.kind!==item.kind)}));storyControls();trashPage();notice('Restored.');
+  };row.append(label,restore);section.append(row);}
+  document.querySelector('#page').append(section);document.querySelector('#empty-workspace-trash').textContent='Empty workspace Trash';return result;
+ };
 })();
 
 /* Activity drawer edge control. */
@@ -630,6 +710,7 @@
 #connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
+
 
 
 
