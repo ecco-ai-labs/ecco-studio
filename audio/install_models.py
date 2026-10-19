@@ -13,7 +13,7 @@ for name, repo in [('model', 'SPRINGLab/Indic-Mio'), ('codec', 'Aratako/MioCodec
     manifest[name] = {'repository': repo, 'revision': revision}
 preset_revision = '2763e0910b251510c6b6a432e5f605d57c5e7ff5'
 (root / 'presets').mkdir(exist_ok=True)
-for voice in ['en_female', 'en_male']:
+for voice in ['en_female', 'en_male', 'jp_female', 'jp_male']:
     with urlopen(f'https://raw.githubusercontent.com/Aratako/MioTTS-Inference/{preset_revision}/presets/{voice}.pt', timeout=60) as response:
         (root / 'presets' / (voice + '.pt')).write_bytes(response.read())
 manifest['presets'] = preset_revision
