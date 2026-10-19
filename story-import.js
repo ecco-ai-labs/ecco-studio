@@ -25,7 +25,7 @@
   form.prepend(box);const input=box.querySelector('input'),status=box.querySelector('[role=status]'),source=box.querySelector('textarea'),open=box.querySelector('[data-preview]');
   source.value=saved.sourceText||'';
   const panel=document.createElement('div');panel.id='story-entry-panel';panel.setAttribute('role','group');panel.setAttribute('aria-label','Story creation options');
-  panel.innerHTML='<details class="workspace-menu"><summary>Upload<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div></details><button type="button" class="secondary" data-story-manual aria-pressed="true">Manual</button>';
+  panel.innerHTML='<div class="story-source-controls" role="group" aria-label="Story source"><button type="button" class="secondary" data-story-library>Story Library</button><button type="button" class="secondary" data-story-manual aria-pressed="false">Manual</button><details class="workspace-menu"><summary>Upload<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div></details></div>';
   form.before(panel);
   const format=form.elements.story_format;
   if(format){
@@ -45,6 +45,7 @@
   panel.querySelector('[data-upload]').onclick=()=>{mode('upload');menu.open=false;input.click();};
   panel.querySelector('[data-preview]').addEventListener('click',()=>{mode('upload');menu.open=false;});
   panel.querySelector('[data-story-manual]').onclick=()=>{mode('manual');menu.open=false;form.elements.summary.focus();};
+  panel.querySelector('[data-story-library]').onclick=()=>navigate('story-library');
   let task=null,doc=null,pdfjs=null,pageNumber=1,highlight='',busy=false,observer=null,epoch=0;
   let shells=[],renderQueue=[],rendering=0;
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label','Select story from PDF');

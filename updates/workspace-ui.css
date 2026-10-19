@@ -415,3 +415,6 @@ body:not(.workspace-entry-mode) .story-format-options>button.is-selected{border-
 #story-library-list.library-list .text-library-preview{width:72px;height:72px}
 #story-library-list .text-library-preview{color:var(--accent,#ffdc24)}
 #story-library-list .text-library-open:hover strong,#story-library-list .text-library-open:focus-visible strong{color:var(--accent,#ffdc24)}
+.story-source-controls{display:inline-flex;align-items:center;gap:4px;border:1px solid #554a6b;border-radius:9px;padding:7px;background:#252039}
+body:not(.workspace-entry-mode) .story-source-controls>button,.story-source-controls>.workspace-menu>summary{padding:6px 10px!important;min-height:30px!important;font-size:12px!important;box-sizing:border-box}
+.story-source-controls>.workspace-menu>summary>span{font-size:11px}

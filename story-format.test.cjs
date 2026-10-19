@@ -131,8 +131,8 @@ test('a remembered unsaved Audio draft does not choose the new session format or
 test('entry links to a story-only icon library without selecting a story',async()=>{
  const records=[{id:'arabian',kind:'story',title:'Arabian Nights',summary:'A tale of a merchant and a genie.'},{id:'news',kind:'story',title:'Finance News',summary:'Today’s finance headlines.'}];
  const x=await setup({}, {autoConnect:true,records});
- x.q('#entry-tell-story').click();await tick();assert.ok(x.q('#open-story-library'));assert.equal(x.w.testUI.activeStory(),'');
- x.q('#open-story-library').click();await tick();assert.equal(x.q('#heading').textContent,'Story Library');assert.equal(x.q('#story-library-list .text-library-card').querySelector('svg')!==null,true);
+ x.q('#entry-tell-story').click();await tick();assert.equal(x.q('#heading').textContent,'');assert.equal(x.q('#open-story-library'),null);assert.equal(x.q('#page').textContent.trim(),'');assert.equal(x.w.testUI.activeStory(),'');
+ await x.go('story-setup');x.q('[data-story-library]').click();await tick();assert.equal(x.q('#heading').textContent,'Story Library');assert.equal(x.q('#story-library-list .text-library-card').querySelector('svg')!==null,true);
  assert.equal(x.q('#story-library-list').querySelectorAll('.text-library-card').length,2);assert.equal(x.q('#image-form'),null);assert.equal(x.w.testUI.activeStory(),'');
  x.q('[data-story-id="arabian"]').click();await tick();assert.equal(x.q('#heading').textContent,'Storyboard');assert.equal(x.q('#story-text').value,'A tale of a merchant and a genie.');assert.equal(x.q('#image-form'),null);
  await x.go('story-library');x.q('[data-story-id="news"]').click();await tick();assert.equal(x.q('#story-text').value,'Today’s finance headlines.');
@@ -190,7 +190,7 @@ test('selecting a saved story does not empty a separate unfinished draft; deleti
 
 test('Story Format is a separate Audio/Video toggle immediately before Upload with no default',async()=>{
  const x=await setup();await x.go('story-setup');const panel=x.q('#story-entry-panel'),control=x.q('.story-format-control');
- assert.equal(panel.firstElementChild,control);assert.match(control.nextElementSibling.textContent,/Upload/);
+ assert.equal(panel.firstElementChild,control);assert.equal(control.nextElementSibling.className,'story-source-controls');assert.deepEqual([...control.nextElementSibling.children].map(node=>node.textContent.trim()),['Story Library','Manual','Upload⌄Upload PDFPreview & Select×']);
  assert.equal(control.querySelectorAll('[aria-pressed="true"]').length,0);
  control.querySelector('[data-story-format-option="audio"]').click();await tick();assert.equal(x.q('[name=story_format]').value,'audio');assert.equal(x.nav().length,3);assert.equal(control.querySelector('[aria-pressed="true"]').textContent,'Audio');
  control.querySelector('[data-story-format-option="video"]').click();await tick();assert.equal(x.q('[name=story_format]').value,'video');assert.equal(x.nav().length,6);assert.deepEqual(x.errors,[]);x.close();
@@ -207,4 +207,9 @@ test('creating a storyboard from research applies selected results without a rep
  });
  x.w.EccoWorkspaceUI.openStory('audio-story');await tick();x.q('[data-web-research]').click();await tick();x.q('[data-research]').click();await tick();x.q('[data-create]').click();await tick();
  assert.match(x.q('#story-text').value,/Updated narration 0/);assert.equal(x.w.testUI.getDraft().scenes.length,10);assert.equal(x.q('#news-research-dialog').open,false);assert.deepEqual(x.errors,[]);x.close();
+});
+
+
+test('the Story Library control beside Manual and Upload opens the library without selecting a story',async()=>{
+ const x=await setup();await x.go('story-setup');x.q('[data-story-library]').click();await tick();assert.equal(x.q('#heading').textContent,'Story Library');assert.equal(x.w.testUI.activeStory(),'');assert.equal(x.q('#story-setup-form'),null);assert.deepEqual(x.errors,[]);x.close();
 });

@@ -60,9 +60,7 @@
   storyControls();navigate('board');productionGroup();journeyGuide();
  }
  function workspaceStart(){
-  page='empty';q('#heading').textContent='Tell Your Story';
-  q('#page').innerHTML='<div class="form"><p>Choose a story to work on.</p><a href="#story-library" id="open-story-library">Open Story Library</a><div><button type="button" class="secondary" id="start-new-story">New Story</button></div></div>';
-  q('#open-story-library').onclick=event=>{event.preventDefault();libraryOverview('story');};q('#start-new-story').onclick=startNewStory;
+  page='empty';q('#heading').textContent='';q('#page').replaceChildren();
   document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
  }
  function selectionToolbar(body,name,button){const selected=body.querySelector('.tree-folder.selected');if(!selected||!button)return;const row=document.createElement('div');row.className='library-selected-row';selected.before(row);row.append(selected);button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);row.append(button);}
