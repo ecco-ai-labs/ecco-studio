@@ -27,6 +27,13 @@ class Controls(unittest.TestCase):
   self.assertEqual(self.rows['parent']['status'],'running')
   self.assertEqual(self.rows['parent']['children'],['child'])
   self.assertFalse(self.rows['parent']['pause_requested'])
+ def test_configurable_clip_plan(self):
+  shots=[{'seconds':131.012333,'prompt':'Presenter speaks'}]
+  self.assertEqual(len(sequence.plan(shots,131.012333)),14)
+  self.assertEqual(len(sequence.plan(shots,131.012333,20)),7)
+  self.assertEqual(len(sequence.plan(shots,131.012333,60)),3)
+  for invalid in (0,float('nan'),1201):
+   with self.assertRaises(ValueError): sequence.plan(shots,131.012333,invalid)
  def test_stop_is_not_undone_by_resume(self):
   sequence.control({'job_id':'parent','action':'stop'},self.env)
   sequence.control({'job_id':'parent','action':'resume'},self.env)
