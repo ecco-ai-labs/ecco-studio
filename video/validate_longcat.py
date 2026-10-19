@@ -13,5 +13,8 @@ request=dict(prompt='The same man in the reference speaks naturally into his mic
 started=time.time(); run_shot(d,request)
 result=read(d/'status.json',{})
 if result.get('status')!='complete': raise RuntimeError('Generation did not complete')
+frames=subprocess.check_output(['ffmpeg','-v','error','-i',str(d/'output.mp4'),'-an','-vf','fps=1','-f','framemd5','-'],text=True)
+hashes={line.split(',')[-1].strip() for line in frames.splitlines() if line and not line.startswith('#')}
+if len(hashes)<3: raise RuntimeError('Validation clip has no sustained frame motion')
 write(ROOT/'validated.json',dict(passed=True,gpu='B200',seconds=time.time()-started,output=str(d/'output.mp4'),checked=time.time(),**result))
 print('LONGCAT_VALIDATION_PASSED',json.dumps(result),flush=True)
