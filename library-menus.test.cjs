@@ -13,7 +13,7 @@ function setup(ready=true){
 const tick=()=>new Promise(r=>setTimeout(r,0));
 test('every header and saved label has a menu; menu click does not collapse the tree',()=>{
  const d=setup(),w=d.window;assert.equal(w.document.querySelectorAll('.library-more').length,3);
- const button=w.document.querySelector('summary .library-more');button.click();
+ const button=w.document.querySelector('details > .library-more');button.click();
  assert.equal(w.document.querySelector('#workspace-library-group').open,true);
  assert.equal(w.document.querySelector('[role=menuitem]').textContent,'Rename');
 });
@@ -28,7 +28,7 @@ test('backend not deployed: no fake success and existing name retained',async()=
  assert.equal(w.calls.length,0);assert.match(w.document.querySelector('[role=alert]').textContent,/storage service update/);assert.equal(w.state.records[0].name,'People');
 });
 test('heading rename persists and Escape closes menu',async()=>{
- const d=setup(),w=d.window;w.document.querySelector('summary .library-more').click();w.document.querySelector('[role=menuitem]').click();w.document.querySelector('input').value='My Library';w.document.querySelector('form').dispatchEvent(new w.Event('submit',{cancelable:true}));await tick();
+ const d=setup(),w=d.window;w.document.querySelector('details > .library-more').click();w.document.querySelector('[role=menuitem]').click();w.document.querySelector('input').value='My Library';w.document.querySelector('form').dispatchEvent(new w.Event('submit',{cancelable:true}));await tick();
  assert.equal(JSON.parse(w.localStorage.getItem('ecco-library-heading-names')).Library,'My Library');
- w.document.querySelector('summary .library-more').click();w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape'}));assert.equal(w.document.querySelector('[role=menu]'),null);
+ w.document.querySelector('details > .library-more').click();w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape'}));assert.equal(w.document.querySelector('[role=menu]'),null);
 });
