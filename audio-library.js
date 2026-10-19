@@ -59,11 +59,13 @@
   const next=signature();if(next===treeSignature)return;treeSignature=next;
   const body=library.querySelector('.workspace-library-content');body.replaceChildren();
   const open=id=>{selected=id;navigate('audio-library');};
-  const all=document.createElement('button');all.type='button';all.className='tree-folder';all.textContent='All Audio';all.classList.toggle('selected',selected==='all'&&page==='audio-library');all.onclick=()=>open('all');body.append(all);
+  const all=document.createElement('button');all.type='button';all.className='tree-folder';all.textContent='All Audio';all.dataset.libraryMarker=audio().length?'+':'−';all.classList.toggle('selected',selected==='all'&&page==='audio-library');all.onclick=()=>open('all');body.append(all);
   const list=folders(),byName=new Map(list.map(f=>[f.name,f])),parentOf=f=>byName.get(f.name.split(' / ').slice(0,-1).join(' / '));
   function append(folder,container){
    const group=document.createElement('div');group.className='tree-label-group';const row=document.createElement('div');row.className='tree-branch-row';const children=document.createElement('div');children.className='tree-branch-children';
    const nested=list.filter(f=>parentOf(f)?.id===folder.id);
+   const ids=new Set(links().filter(r=>r.folder_id===folder.id).map(r=>r.asset_id));
+   row.dataset.libraryMarker=(nested.length||audio().some(a=>ids.has(a.id)))?'+':'−';
    if(nested.length){const toggle=document.createElement('button');toggle.type='button';toggle.className='tree-branch-toggle';const show=()=>{const open=expanded.has(folder.id);children.hidden=!open;toggle.textContent=open?'▾':'▸';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',(open?'Collapse ':'Expand ')+folder.name);};toggle.onclick=()=>{if(expanded.has(folder.id))expanded.delete(folder.id);else expanded.add(folder.id);show();};show();row.append(toggle);}else{const spacer=document.createElement('span');spacer.className='tree-branch-spacer';row.append(spacer);}
    const button=document.createElement('button');button.type='button';button.className='tree-folder';button.textContent=parentOf(folder)?folder.name.split(' / ').at(-1):folder.name.replaceAll(' / ',' → ');button.title=folder.name;button.classList.toggle('selected',selected===folder.id);button.onclick=()=>open(folder.id);row.append(button);
    if(selected===folder.id){const wrapper=document.createElement('div');wrapper.className='library-selected-row';button.before(wrapper);wrapper.append(button);const remove=document.createElement('button');remove.type='button';remove.className='secondary asset-icon workspace-delete';remove.textContent='×';remove.title='Move '+folder.name+' to Trash';remove.setAttribute('aria-label','Delete '+folder.name);remove.onclick=()=>action(async()=>{await api('trash/folder',{id:folder.id});selected='all';await refresh();sync();});wrapper.append(remove);}
