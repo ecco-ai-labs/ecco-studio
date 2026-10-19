@@ -61,11 +61,14 @@
   storyControls();navigate('board');productionGroup();journeyGuide();
  }
  function workspaceStart(){
-  page='empty';document.body.classList.remove('workspace-entry-mode');q('#heading').textContent='What do you want to do today?';
-  const choices=document.createElement('section');choices.className='row';choices.setAttribute('aria-label','Story choices');choices.style.cssText='display:flex;flex-wrap:wrap;gap:12px';
-  const create=document.createElement('button');create.type='button';create.textContent='Tell a New Story';create.onclick=startNewStory;
-  const resume=document.createElement('button');resume.type='button';resume.className='secondary';resume.textContent='Continue with a Story';resume.onclick=()=>navigate('story-library');
-  choices.append(create,resume);q('#page').replaceChildren(choices);
+  page='empty';document.body.classList.remove('workspace-entry-mode');document.body.classList.add('story-choice-mode');q('#heading').textContent='';
+  const choices=document.createElement('section');choices.id='story-choice-screen';choices.setAttribute('aria-label','Story choices');
+  const source=q('#workspace-entry .entry-logo-motion')||q('#workspace-entry .entry-logo');
+  if(source)choices.append(source.cloneNode(true));
+  const actions=document.createElement('div');actions.className='story-choice-actions';
+  const create=document.createElement('button');create.type='button';create.textContent='Create a New Story';create.onclick=()=>{document.body.classList.remove('story-choice-mode');startNewStory();};
+  const resume=document.createElement('button');resume.type='button';resume.textContent='Continue with an Existing Story';resume.onclick=()=>{document.body.classList.remove('story-choice-mode');navigate('story-library');};
+  actions.append(create,resume);choices.append(actions);q('#page').replaceChildren(choices);
   document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
  }
  function selectionToolbar(body,name,button){const selected=body.querySelector('.tree-folder.selected');if(!selected||!button)return;const row=document.createElement('div');row.className='library-selected-row';selected.before(row);row.append(selected);button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);row.append(button);}
