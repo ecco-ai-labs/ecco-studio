@@ -228,8 +228,8 @@
     const button=e.currentTarget,status=drawer.querySelector('.billing-refresh-status');
     if(button.disabled)return;
     button.disabled=true;button.setAttribute('aria-busy','true');status.hidden=false;status.textContent='Refreshing…';
-    try{await api('billing/refresh',{});await refresh(null,true);updateBillingDrawer();status.textContent='Updated';}
-    catch(error){status.textContent='Could not refresh. Try again.';status.title=error.message||'Refresh failed';}
+    try{const latest=await api('state');await refresh(latest,true);updateBillingDrawer();const billing=latest.config?.billing;status.textContent=billing?.last_success?'Total last updated '+new Date(billing.last_success*1000).toLocaleTimeString():latest.config?.session_cost?'Session refreshed. Account total unavailable.':'Costs unavailable. Check GPU connection.';status.title=billing?.last_error||'';}
+    catch(error){status.textContent=error.message||'Could not refresh. Try again.';status.title=status.textContent;}
     finally{button.disabled=false;button.removeAttribute('aria-busy');}
    };
    account.addEventListener('pointerleave',()=>billingDrawer(false));
