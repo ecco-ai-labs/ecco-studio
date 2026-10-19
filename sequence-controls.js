@@ -29,3 +29,24 @@
  }
  setInterval(draw,1000);draw();
 })();
+
+// Display existing restrictions without changing generation parameters.
+(()=>{
+ function draw(){
+  for(const form of document.querySelectorAll('.generation-form')){
+   const kind=form.dataset.generationStudio,id=form.querySelector('#job-model,[name=model]')?.value;
+   const host=form.querySelector('[data-settings]');if(!host)continue;
+   let box=host.querySelector('[data-model-limits]');if(!box){box=document.createElement('div');box.dataset.modelLimits='';box.className='help';host.append(box);}
+   let limits=[];
+   if(kind==='audio')limits=['Studio: up to 20 spoken lines, 500 characters per line and 4,000 characters per request.'];
+   else if(id==='longcat-avatar-1.5')limits=['Studio: maximum seconds per clip is your saved choice (default 10). Up to 60 shots and 20 minutes of source audio per sequence.','Shorter clips reduce retry work; longer clips reduce repeated loading. Longer clip sizes are not yet benchmarked.'];
+   else if(id==='wan-a14b')limits=['Studio: 1–6 seconds per shot; up to 60 seconds per render.'];
+   else if(id==='wan-5b')limits=['Studio: 1–5 seconds per shot; up to 60 seconds per render.'];
+   else if(kind==='image')limits=['Studio: one output per job; up to 4,000 characters for the combined prompt. Resolution choices and sampling-step ranges are shown above.'];
+   else if(id==='preview')limits=['Studio: 1–30 seconds per scene.'];
+   const text=limits.join(' ');if(box.dataset.text===text)continue;box.dataset.text=text;box.replaceChildren();
+   if(text){const title=document.createElement('strong');title.textContent='Model limits';const p=document.createElement('p');p.textContent=text;box.append(title,p);}
+  }
+ }
+ setInterval(draw,1000);draw();
+})();
