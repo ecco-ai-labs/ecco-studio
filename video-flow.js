@@ -81,7 +81,7 @@
   }
   function drawLists(){
    for(const kind of ['image','video','audio']){
-    const box=q('[data-list="'+kind+'"]',root);box.replaceChildren();
+    const box=q('[data-list="'+kind+'"]',root);box.replaceChildren();box.hidden=kind!==q('[data-library]',root).value;box.style.display=box.hidden?'none':'';
     data[idsKey[kind]].forEach((id,i)=>{
      const a=find(id,kind),card=document.createElement('div');card.className='generation-selected-item';
      const label=document.createElement('span');label.textContent=kind[0].toUpperCase()+kind.slice(1)+' Library: '+(a?title(a):'Unavailable selection');
@@ -131,6 +131,7 @@
    q('[data-use]',dialog).onclick=()=>{const changed=JSON.stringify(data[idsKey[kind]])!==JSON.stringify([...chosen]);data[idsKey[kind]]=[...chosen];if(changed&&kind==='audio')loadBoard();if(!data.shots.length)loadBoard();persist();drawLists();drawShots();dialog.close();};
    dialog.onclose=()=>dialog.remove();document.body.append(dialog);draw();dialog.showModal();await reloadLibrary();
   }
+  q('[data-library]',root).onchange=drawLists;
   q('[data-browse]',root).onclick=()=>picker(q('[data-library]',root).value);
   q('[data-load]',root).onclick=loadBoard;
   q('[data-add]',root).onclick=()=>{data.shots.push(newShot(data.shots.length));data.directions=[];persist();drawShots();drawDirections();};
