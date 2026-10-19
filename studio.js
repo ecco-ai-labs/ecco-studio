@@ -179,7 +179,7 @@ function updateVideoStatus(){
  const j=state.records.find(r=>r.kind==='job'&&r.id===id);if(!j){if(id){setGenerationBusy(button,true,'Queued…',idle);el.textContent='Job accepted. Waiting for its status…';}return;}
  const busy=['queued','running'].includes(j.status);setGenerationBusy(button,busy,j.status==='queued'?'Queued…':'Generating video…',idle);button.disabled=busy||(!button.closest('[data-generation-studio]')&&!boards().length);
  if(j.status==='queued')el.textContent='Queued. Waiting for the shared GPU. Do not submit again.';
- else if(j.status==='running')el.textContent='Generating video · '+(j.progress||'Preparing models')+'. Motion rendering can take a few minutes. This page updates automatically.';
+ else if(j.status==='running')el.textContent='';
  else if(j.status==='done')el.textContent='✓ Video ready — press Play under Review videos.'+(j.seconds?' Render time: '+j.seconds.toFixed(1)+' seconds.':'');
  else el.textContent='Video '+j.status+': '+(j.error||'Check Activity for details.');
 }
