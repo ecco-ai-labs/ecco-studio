@@ -548,6 +548,7 @@
  function welcomePage(){
   page='welcome';document.body.classList.add('workspace-entry-mode');
   let entry=q('#workspace-entry');
+  if(entry&&!entry.querySelector('#entry-continue-story')){entry.remove();entry=null;}
   if(!entry){
    entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Ecco AI Labs Studios');
    const logo=q('aside .brand img')||q('aside img'),brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo.png';brand.alt='Ecco AI Labs logo';
