@@ -7,14 +7,14 @@
   const form=q('#video-form');if(!form||q('#audio-video-story',form)||!window.EccoGeneration?.context(form))return;
   const story=activeStory,ctx=window.EccoGeneration.context(form),saved=read(key(story),{});
   const panel=document.createElement('section');panel.id='audio-video-story';panel.className='generation-section form';
-  panel.innerHTML='<label class="row"><input type="checkbox" data-use-audio style="width:auto">Create video from existing audio</label><div data-audio-video-fields hidden class="form"><label>Recording<select data-recording></select></label><audio controls data-playback preload="metadata"></audio><details open><summary>Recorded audio script</summary><textarea data-transcript readonly rows="5" aria-label="Recorded audio script"></textarea><p class="help">These are the words saved with this recording. The original audio is reused unchanged.</p></details><div class="row"><button type="button" class="secondary" data-load-shots>Load current storyboard shots</button><button type="button" class="secondary" data-avatar>Choose avatar from Image Library</button></div><p data-avatar-name class="help"></p><p class="help">Select shots and edit their camera direction below. Initial timings are evenly distributed estimates; listen to the audio and adjust the boundaries. Editing visuals does not regenerate speech.</p><div data-shots class="form"></div><p data-timing role="status"></p></div>';
-  form.prepend(panel);
-  const model=q('#job-model',form),enable=q('[data-use-audio]',panel),fields=q('[data-audio-video-fields]',panel),picker=q('[data-recording]',panel);
+  panel.innerHTML='<div data-audio-video-fields hidden class="form"><label hidden>Recording<select data-recording></select></label><audio controls data-playback preload="metadata"></audio><details open><summary>Recorded audio script</summary><textarea data-transcript readonly rows="5" aria-label="Recorded audio script"></textarea><p class="help">These are the words saved with this recording. The original audio is reused unchanged.</p></details><div class="row"><button type="button" class="secondary" data-load-shots>Load current storyboard shots</button><button type="button" class="secondary" data-avatar>Choose avatar from Image Library</button></div><p data-avatar-name class="help"></p><p class="help">Select shots and edit their camera direction below. Initial timings are evenly distributed estimates; listen to the audio and adjust the boundaries. Editing visuals does not regenerate speech.</p><div data-shots class="form"></div><p data-timing role="status"></p></div>';
+  q('[data-section=references]',form).append(panel);
+  const model=q('#job-model',form),library=q('[data-reference-library]',form),fields=q('[data-audio-video-fields]',panel),picker=q('[data-recording]',panel);
   const data={enabled:false,audio_id:'',avatar_id:'',shots:[],...saved};
   const persist=()=>localStorage.setItem(key(story),JSON.stringify(data));
   const recording=()=>assets('audio').find(a=>a.id===data.audio_id),selected=()=>data.shots.filter(s=>s.selected);
   const duration=()=>Number(recording()?.seconds||recording()?.duration||0);
-  const sourceBoard=()=>{const local=read(story?'ecco-board-draft:'+story:'ecco-board-new-draft',null);if(local?.scenes?.length)return local;return [...boards()].filter(b=>b.story_id===story).sort((a,b)=>b.created-a.created)[0]||{scenes:[]};};
+  const sourceBoard=()=>{const sid=recording()?.story_id||story;const local=read(sid?'ecco-board-draft:'+sid:'ecco-board-new-draft',null);if(local?.scenes?.length)return local;return [...boards()].filter(b=>b.story_id===sid).sort((a,b)=>b.created-a.created)[0]||{scenes:[]};};
   function balance(){const list=selected();if(!list.length)return;const each=Math.floor(duration()/list.length*1000)/1000;list.forEach((s,i)=>s.seconds=i===list.length-1?duration()-each*(list.length-1):each);}
   function timing(){const total=selected().reduce((n,s)=>n+Number(s.seconds||0),0);q('[data-timing]',panel).textContent=selected().length+' shots · '+total.toFixed(2)+'s visuals / '+duration().toFixed(2)+'s original audio';}
   function drawShots(){
@@ -32,8 +32,8 @@
    const player=q('[data-playback]',panel);if(audio){player.dataset.asset=audio.id;player.src=media(audio);hydrateMedia();}else{player.removeAttribute('src');delete player.dataset.asset;}
    if(rebalance)balance();persist();drawShots();
   }
-  picker.add(new Option('Choose generated audio',''));assets('audio').filter(a=>(a.story_id||LEGACY_STORY)===story).sort((a,b)=>b.created-a.created).forEach(a=>picker.add(new Option(a.title||'Audio recording',a.id)));
-  if(!data.audio_id)data.audio_id=picker.options[1]?.value||'';picker.value=data.audio_id;picker.onchange=()=>audioChanged();
+  picker.add(new Option('Choose generated audio',''));assets('audio').sort((a,b)=>b.created-a.created).forEach(a=>picker.add(new Option(a.title||'Audio recording',a.id)));
+  picker.value=data.audio_id;picker.onchange=()=>audioChanged();
   q('[data-load-shots]',panel).onclick=loadShots;
   function avatarName(){const avatar=assets('image').find(a=>a.id===data.avatar_id);q('[data-avatar-name]',panel).textContent=avatar?'Avatar: '+(avatar.title||'Selected image'):'Choose one avatar to use across the selected shots.';}
   q('[data-avatar]',panel).onclick=()=>{
@@ -59,9 +59,21 @@
     localStorage.setItem('ecco-video-job:'+story,job.id);window.EccoGeneration.trackJob('video',story,job);status.textContent='Queued · reusing your original audio.';await refresh();
    }catch(error){status.textContent=error.message;notice(error.message,true);}finally{ctx.submitting=false;setGenerationBusy(button,false,'','Generate video');}
   };
-  enable.checked=data.enabled;
-  const toggle=()=>{data.enabled=enable.checked;fields.hidden=!data.enabled;if(data.enabled){model.value='longcat-avatar-1.5';model.dispatchEvent(new Event('change',{bubbles:true}));}persist();};
-  enable.onchange=toggle;toggle();if(!data.shots.length)loadShots();audioChanged(false);avatarName();
+  // Audio is a source in the existing References dropdown, not a separate mode.
+  if(data.enabled&&!ctx.data.audio_reference_ids?.length&&data.audio_id){ctx.data.audio_reference_ids=[data.audio_id];ctx.data.reference_library='audio';library.value='audio';}
+  function syncSource(){
+   data.enabled=library.value==='audio';fields.hidden=!data.enabled;panel.hidden=!data.enabled;
+   if(data.enabled){
+    const id=ctx.data.audio_reference_ids?.[0]||'',changed=id!==data.audio_id;
+    picker.value=id;audioChanged(changed);
+    if(changed)loadShots();
+    model.value='longcat-avatar-1.5';model.dispatchEvent(new Event('change',{bubbles:true}));
+   }
+   persist();
+  }
+  document.addEventListener('ecco-reference-change',()=>{if(form.isConnected)syncSource();});
+  syncSource();if(!data.shots.length)loadShots();avatarName();
+
  }
  function links(){
   document.querySelectorAll('[data-save-audio]').forEach(existing=>{
