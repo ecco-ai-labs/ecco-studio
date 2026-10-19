@@ -184,6 +184,8 @@ def _context(body, env):
                             {'type': 'input_image', 'image_url': 'data:image/jpeg;base64,' + base64.b64encode(data.getvalue()).decode(), 'detail': 'auto'}])
         except (OSError, ValueError, ImportError):
             raise AssistantError('A selected image could not be read for AI review. The prompt has not been changed.', 422) from None
+    from video_reference_context import content as video_content
+    content.extend(video_content(body.get("video_reference_ids", []), env, AssistantError))
     return context, content
 
 def enhance(body, env):
