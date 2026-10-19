@@ -39,13 +39,13 @@
   const kind=({images:'image','image-edits':'image','character-sheets':'image',videos:'video'})[path];
   if(kind)trackJob(kind,story,job);return job;
  };
- const record=id=>state.records.find(a=>a.id===id&&a.kind==='asset'&&['image','video'].includes(a.media)&&!a.deleted);
+ const record=id=>state.records.find(a=>a.id===id&&a.kind==='asset'&&['image','video','audio'].includes(a.media)&&!a.deleted);
  const clone=x=>JSON.parse(JSON.stringify(x));
  const key=(kind,story)=>'ecco-generation-v1:'+kind+':'+story;
- const thumb=(a,extra='')=>a.media==='video'?'<video data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" aria-label="'+esc(a.title||'Reference video')+'" preload="metadata" muted playsinline></video>':'<img data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" alt="'+esc(a.title||'Reference image')+'" '+extra+'>';
- const referenceKind=c=>c.kind==='video'&&c.data.reference_library==='video'?'video':'image';
+ const thumb=(a,extra='')=>a.media==='audio'?'<span aria-label="Audio recording">♫</span>':a.media==='video'?'<video data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" aria-label="'+esc(a.title||'Reference video')+'" preload="metadata" muted playsinline></video>':'<img data-asset="'+esc(a.id)+'" src="'+esc(media(a))+'" alt="'+esc(a.title||'Reference image')+'" '+extra+'>';
+ const referenceKind=c=>c.kind==='video'&&['video','audio'].includes(c.data.reference_library)?c.data.reference_library:'image';
  const libraryVideos=()=>window.EccoVideoLibrary?.assets()||[];
- const referenceIds=c=>{if(referenceKind(c)!=='video')return c.data.reference_ids;const available=new Set(libraryVideos().map(a=>a.id));return c.data.video_reference_ids.filter(id=>available.has(id));};
+ const referenceIds=c=>{if(referenceKind(c)==='audio')return c.data.audio_reference_ids||[];if(referenceKind(c)!=='video')return c.data.reference_ids;const available=new Set(libraryVideos().map(a=>a.id));return c.data.video_reference_ids.filter(id=>available.has(id));};
  function read(kind,story){try{return JSON.parse(localStorage.getItem(key(kind,story))||'{}');}catch{return {};}}
  function save(c){localStorage.setItem(key(c.kind,c.story),JSON.stringify(c.data));sync(c);}
  function objectDefaults(id){const a=record(id),objects=a?.editor?.recipe?.objects;return objects?.length?objects.map(o=>({name:o.name,type:types[o.type]?o.type:'object',attributes:{...o.ai}})):[{name:'Object 1',type:'object',attributes:{}}];}
@@ -69,7 +69,7 @@
  function sync(c){
   const refs=selected(c),box=q('[data-selected]',c.form);
   if(box){box.innerHTML=refs.map((a,i)=>'<div class="generation-selected-item"><button type="button" class="secondary generation-thumb" data-ref-open="'+esc(a.id)+'" title="'+esc(a.title||'Reference '+(i+1))+'">'+thumb(a)+'<span>Selected '+(i+1)+'</span></button><button type="button" class="secondary generation-remove" data-ref-remove="'+esc(a.id)+'" aria-label="Remove reference '+(i+1)+'">×</button></div>').join('');
-  all('[data-ref-open]',box).forEach(b=>b.onclick=()=>openControls(c,b.dataset.refOpen));
+  all('[data-ref-open]',box).forEach(b=>b.onclick=()=>referenceKind(c)==='audio'?referencePicker(c):openControls(c,b.dataset.refOpen));
   all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{setReferences(c,referenceIds(c).filter(id=>id!==b.dataset.refRemove));});
   }
   const text=c.kind==='audio'?all('textarea[data-field=text]',c.form).map(x=>x.value).join('\n'):q('textarea[name=prompt]',c.form)?.value||'';
@@ -77,7 +77,7 @@
   fitPrompt(c);
   q('[data-open-prompt]',c.form).textContent=c.kind==='audio'?(text.trim()?'Edit script':'Write script'):(text.trim()?'Edit prompt':'Add prompt');
   const referenceNote=q('[data-reference-note]',c.form);
-  if(referenceNote)referenceNote.textContent=referenceKind(c)==='video'?(refs.length?'Selected videos are saved as references.':'No reference videos selected.'):refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
+  if(referenceNote)referenceNote.textContent=referenceKind(c)==='audio'?(refs.length?'Original recording, script and storyboard are reused.':'Choose a recording from Audio Library.'):referenceKind(c)==='video'?(refs.length?'Selected videos are saved as references.':'No reference videos selected.'):refs.length?(c.kind==='audio'?'Selected images guide AI script writing.':c.kind==='video'?'Selected images become shots in this order.':'Selected images guide the result.'):'No reference images selected.';
   if(c.kind==='image'){
    const has=refs.length>0;
    for(const opt of c.model.options)opt.disabled=has?opt.value!=='qwen-image-edit-2511':opt.value==='qwen-image-edit-2511';
@@ -86,18 +86,18 @@
   }
  }
  function setReferences(c,ids){
-  const key=referenceKind(c)==='video'?'video_reference_ids':'reference_ids';
+  const key=referenceKind(c)==='audio'?'audio_reference_ids':referenceKind(c)==='video'?'video_reference_ids':'reference_ids';
   const available=key==='video_reference_ids'?new Set(libraryVideos().map(a=>a.id)):null;
-  c.data[key]=[...new Set(ids)].filter(id=>!available||available.has(id)).slice(0,configs[c.kind].limit);
-  for(const id of c.data[key])ensureObjects(c,id);
+  c.data[key]=[...new Set(ids)].filter(id=>!available||available.has(id)).slice(0,referenceKind(c)==='audio'?1:configs[c.kind].limit);
+  if(referenceKind(c)!=='audio')for(const id of c.data[key])ensureObjects(c,id);
   save(c);document.dispatchEvent(new Event('ecco-reference-change'));
  }
  function referencePicker(c){
   let d=q('#generation-library-picker');if(d)d.remove();d=document.createElement('dialog');d.id='generation-library-picker';d.className='generation-dialog';document.body.append(d);
-  const chosen=new Set(referenceIds(c)),limit=configs[c.kind].limit,kind=referenceKind(c),plural=kind+'s',library=kind==='video'?'Video Library':'Image Library';
+  const chosen=new Set(referenceIds(c)),kind=referenceKind(c),limit=kind==='audio'?1:configs[c.kind].limit,plural=kind==='audio'?'recordings':kind+'s',library=kind==='audio'?'Audio Library':kind==='video'?'Video Library':'Image Library';
   const images=kind==='video'?libraryVideos():state.records.filter(a=>a.kind==='asset'&&a.media===kind&&!a.deleted);
   const folders=state.records.filter(a=>a.kind===kind+'_folder'&&!a.deleted);
-  d.innerHTML='<div class="form"><div class="section-head"><h2>'+library+'</h2><button type="button" class="secondary" data-cancel>Cancel</button></div><div class="generation-filter-row">'+field('Search','<input type="search" data-search placeholder="Find '+(kind==='image'?'an image':'a video')+'">')+field('Label','<select data-label><option value="">All '+plural+'</option>'+folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>').join('')+'</select>')+'</div><p class="help">Select up to '+limit+' '+plural+'.</p><div class="generation-picker-grid" data-grid></div><p role="status" data-count></p><div class="row"><button type="button" data-use>Use selected '+plural+'</button></div></div>';
+  d.innerHTML='<div class="form"><div class="section-head"><h2>'+library+'</h2><button type="button" class="secondary" data-cancel>Cancel</button></div><div class="generation-filter-row">'+field('Search','<input type="search" data-search placeholder="Find '+(kind==='audio'?'a recording':kind==='image'?'an image':'a video')+'">')+field('Label','<select data-label><option value="">All '+plural+'</option>'+folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>').join('')+'</select>')+'</div><p class="help">Select up to '+limit+' '+plural+'.</p><div class="generation-picker-grid" data-grid></div><p role="status" data-count></p><div class="row"><button type="button" data-use>Use selected '+plural+'</button></div></div>';
   const draw=()=>{
    const term=q('[data-search]',d).value.trim().toLowerCase(),folder=q('[data-label]',d).value;
    const shown=images.filter(a=>(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!folder||state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id&&l.folder_id===folder)));
@@ -110,7 +110,7 @@
  function objectInstructions(c,onlyId){
   const lines=[];
   for(const [i,id] of referenceIds(c).entries()){
-   if(onlyId&&id!==onlyId)continue;
+   if(referenceKind(c)==='audio')continue;if(onlyId&&id!==onlyId)continue;
    for(const object of ensureObjects(c,id)){
     const attrs=Object.entries(object.attributes||{}).filter(([k,v])=>types[object.type].fields.includes(k)&&String(v).trim());
     if(attrs.length)lines.push('Reference '+referenceKind(c)+(onlyId?'':' '+(i+1))+', '+object.name+' ('+types[object.type].name+'): '+attrs.map(([k,v])=>k+': '+String(v).trim()).join('; ')+'.');
@@ -162,7 +162,7 @@
   if(!form||contexts.has(form))return;
   form.dataset.generationStudio=kind;form.classList.add('generation-form');
   const intro=form.closest('.grid')?.previousElementSibling;if(intro?.classList.contains('intro'))intro.remove();
-  const story=activeStory,stored=read(kind,story),c={kind,story,form,data:{reference_ids:[],video_reference_ids:[],reference_library:'image',objects:{},style:'',...stored},activePrompt:null};contexts.set(form,c);
+  const story=activeStory,stored=read(kind,story),c={kind,story,form,data:{reference_ids:[],video_reference_ids:[],audio_reference_ids:[],reference_library:'image',objects:{},style:'',...stored},activePrompt:null};contexts.set(form,c);
   const model=kind==='audio'?q('[name=model]',form):q('#job-model',form),modelLabel=model.closest('label');c.model=model;model.setAttribute('aria-label','Model');
   if(kind==='image'&&!model.querySelector('[value="qwen-image-edit-2511"]'))model.add(new Option('Qwen Image Edit','qwen-image-edit-2511'));
   const promptNode=kind==='audio'?q('#audio-lines',form):kind==='image'?form.elements.prompt.closest('label'):null;
@@ -172,7 +172,7 @@
   const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);submit.textContent='Generate '+kind;if(kind==='video'&&!localStorage.getItem('ecco-video-job:'+story))status.textContent='';
   const retained=[modelLabel,promptNode,addLine,negative,board,...audioSettings,...audioReferences].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
-  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt',kind==='audio'?'Spoken script':'Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional Controls</button>');
+  form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt',kind==='audio'?'Spoken script':'Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional Controls</button>');
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
   if(negative)q('[data-settings]',form).append(negative);
   for(const node of audioSettings)q('[data-settings]',form).append(node);
@@ -189,7 +189,7 @@
   q('[data-body]',c.controls).innerHTML=kind==='audio'?'<div data-delivery-controls></div>':'<div data-object-controls></div>'+field('Visual style','<input data-generation-style maxlength="160" value="'+esc(c.data.style)+'" placeholder="Keep original / unspecified">');
   const styleControl=q('[data-generation-style]',c.controls);if(styleControl)styleControl.oninput=e=>{c.data.style=e.target.value;save(c);};
   form.append(footer);form.noValidate=true;
-  const librarySelect=q('[data-reference-library]',form);if(librarySelect){librarySelect.value=referenceKind(c);librarySelect.onchange=()=>{c.data.reference_library=librarySelect.value;c.activeReference=null;save(c);};}
+  const librarySelect=q('[data-reference-library]',form);if(librarySelect){librarySelect.value=referenceKind(c);librarySelect.onchange=()=>{c.data.reference_library=librarySelect.value;c.activeReference=null;save(c);document.dispatchEvent(new Event('ecco-reference-change'));};}
   const libraryButton=q('[data-open-library]',form);if(libraryButton)libraryButton.onclick=()=>referencePicker(c);q('[data-open-prompt]',form).onclick=()=>{c.prompt.showModal();fitPrompt(c);q('textarea',c.prompt)?.focus();};q('[data-open-controls]',form).onclick=()=>openControls(c);
   form.addEventListener('input',()=>sync(c));form.addEventListener('focusin',e=>{const section=e.target.closest('.generation-section');if(section)all('.generation-section',form).forEach(s=>s.classList.toggle('is-focused',s===section));});
   connectModel(c);promptActions(c);if(kind==='audio')audioLines(form);
