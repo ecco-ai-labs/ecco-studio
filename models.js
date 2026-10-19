@@ -1,6 +1,8 @@
 'use strict';
-const MODEL_CATEGORIES={images:{title:'Image generation',models:['sdxl','qwen-image-2512','flux-klein-4b']},video:{title:'Video generation',models:['preview','wan-5b','wan-a14b','longcat-avatar-1.5']},story:{title:'Story & screenplay',models:['manual','qwen-story']},voice:{title:'Voice & narration',models:['silent','cosyvoice']}};
+const MODEL_CATEGORIES={images:{title:'Image generation',models:['sdxl','qwen-image-2512','flux-klein-4b','z-image']},assets3d:{title:'3D asset generation',models:['trellis-2']},video:{title:'Video generation',models:['preview','wan-5b','wan-a14b','longcat-avatar-1.5']},story:{title:'Story & screenplay',models:['manual','qwen-story']},voice:{title:'Voice & narration',models:['silent','cosyvoice']}};
 const MODEL_CATALOG={
+ 'z-image':{name:'Z-Image 6B',pending:true,pendingLabel:'not downloaded',statusText:'Download pending. Image generation integration is not ready.',defaults:{resolution:'1024x1024',steps:50,cfg:4,seed:42},sizes:['1024x1024','1280x720','720x1280']},
+ 'trellis-2':{name:'TRELLIS.2 4B',pending:true,pendingLabel:'not downloaded',statusText:'Download pending. Converts a reference image into a textured 3D asset; a dedicated 3D generation workflow is not yet integrated.',defaults:{}},
  'sdxl':{name:'SDXL Base 1.0',defaults:{resolution:'1024x576',steps:25,cfg:7,seed:20261011,sampler:'dpmpp_2m',scheduler:'karras'},sizes:['1024x576','1024x1024','768x1024']},
  'qwen-image-2512':{name:'Qwen-Image-2512',defaults:{resolution:'1664x928',steps:50,cfg:4,seed:42},sizes:['1664x928','1328x1328','928x1664']},
  'flux-klein-4b':{name:'FLUX.2 klein 4B Base',defaults:{resolution:'1024x1024',steps:50,cfg:4,seed:42},sizes:['1024x1024']},
@@ -13,7 +15,7 @@ const MODEL_CATALOG={
  'silent':{name:'Silent video / script only',defaults:{}},
  'cosyvoice':{name:'CosyVoice — planned',pending:true,defaults:{speed:1,language:'English'}}
 };
-let modelProfiles={selected:{images:'sdxl',video:'preview',story:'manual',voice:'silent'},settings:{}};
+let modelProfiles={selected:{images:'sdxl',assets3d:'trellis-2',video:'preview',story:'manual',voice:'silent'},settings:{}};
 let activeModelCategory=null;
 try{const saved=JSON.parse(localStorage.getItem('ecco-model-profiles-v1'));if(saved){for(const c of Object.keys(MODEL_CATEGORIES)){if(MODEL_CATEGORIES[c].models.includes(saved.selected?.[c]))modelProfiles.selected[c]=saved.selected[c];}modelProfiles.settings=saved.settings||{};}}catch{}
 // Carry the user's model choices from the GitHub entry page into the same-tab workspace.
