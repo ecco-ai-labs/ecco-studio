@@ -4,6 +4,28 @@ import json
 import re
 import subprocess
 from pathlib import Path
+import tempfile
+
+def assemble(clips, request, output, sample_rate):
+    """Apply delivery DSP to speech first; insert exact silence in the final sample rate."""
+    import numpy as np
+    import soundfile as sf
+    ratio = 2 ** (request['pitch'] / 12)
+    filters = f'asetrate={round(sample_rate*ratio)},aresample={sample_rate},atempo={request["speed"]/ratio:.6f}'
+    final = []
+    with tempfile.TemporaryDirectory(prefix='ecco-speech-') as directory:
+        for index, clip in enumerate(clips):
+            raw, processed = Path(directory)/'raw.wav', Path(directory)/'processed.wav'
+            sf.write(raw, clip, sample_rate, subtype='PCM_16')
+            subprocess.run(['ffmpeg', '-nostdin', '-y', '-v', 'error', '-i', str(raw), '-af', filters,
+                            '-c:a', 'pcm_s16le', str(processed)], check=True, timeout=120)
+            spoken, rate = sf.read(processed, dtype='float32')
+            if rate != sample_rate: raise RuntimeError('Unexpected output sample rate.')
+            if index:
+                pause = request['lines'][index].get('pause_before', request['pause'])
+                final.append(np.zeros(round(pause * sample_rate), dtype=np.float32))
+            final.append(spoken)
+        sf.write(output, np.concatenate(final), sample_rate, subtype='PCM_16')
 
 def synthesize(request, output, runtime):
     import numpy as np
@@ -44,19 +66,8 @@ def synthesize(request, output, runtime):
             clip = waveform.squeeze().float().cpu().numpy()
             if clip.ndim != 1 or not len(clip) or not np.isfinite(clip).all():
                 raise RuntimeError('The codec returned invalid audio.')
-            if index:
-                clips.append(np.zeros(round(request['pause'] * sample_rate), dtype=np.float32))
             clips.append(clip)
-    raw = output.with_suffix('.raw.wav')
-    try:
-        sf.write(raw, np.concatenate(clips), sample_rate, subtype='PCM_16')
-        # Pitch and pace are real DSP controls; emotion comes from the model.
-        ratio = 2 ** (request['pitch'] / 12)
-        filters = f'asetrate={round(sample_rate*ratio)},aresample={sample_rate},atempo={request["speed"]/ratio:.6f}'
-        subprocess.run(['ffmpeg', '-nostdin', '-y', '-v', 'error', '-i', str(raw), '-af', filters,
-                        '-c:a', 'pcm_s16le', str(output)], check=True, timeout=120)
-    finally:
-        raw.unlink(missing_ok=True)
+    assemble(clips, request, output, sample_rate)
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
@@ -66,3 +77,4 @@ if __name__ == '__main__':
     args = p.parse_args()
     from audio_schema import validate
     synthesize(validate(json.loads(args.request.read_text())), args.output, args.runtime)
+
