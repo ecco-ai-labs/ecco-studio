@@ -24,13 +24,13 @@ async function setup(storage={}){
 const input=(x,selector,value,event='input')=>{const field=x.q(selector);assert.ok(field,selector);field.value=value;field.dispatchEvent(new x.w.Event(event,{bubbles:true}));return field;};
 const audioDraft=x=>JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:audio-story'));
 const connect=x=>{const calls=[],adapter={storageIndependentOfGPU:true,list:async()=>[],generate:async body=>{calls.push(body);return{id:'test-job'};},job:async()=>({id:'test-job',status:'done',asset_id:'test-audio'}),mediaURL:async()=> 'https://media.example.test/audio.wav',download:async()=>{}};x.w.testUI.setGPU(true);x.w.EccoAudioStudio.connect(adapter);return{calls,adapter};};
-test('Audio controls use named speakers, all 23 model languages, two real voices and AI delivery guidance',async()=>{
+test('Audio controls use named speakers, all 23 model languages, four real voices and AI delivery guidance',async()=>{
  const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');x.q('[data-open-controls]').click();
  assert.equal(x.q('#generation-controls-dialog h2').textContent,'Additional Controls');
  assert.equal(x.q('[data-audio-presentation]').value,'single');
  assert.equal(x.q('[data-speaker-field=language]').options.length,23);
  for(const language of ['Hindi','Urdu','English','Tamil','Punjabi'])assert.ok([...x.q('[data-speaker-field=language]').options].some(o=>o.value===language));
- assert.deepEqual([...x.q('[data-speaker-field=voice]').options].map(o=>o.value),['en_female','en_male']);
+ assert.deepEqual([...x.q('[data-speaker-field=voice]').options].map(o=>o.value),['en_female','en_male','jp_female','jp_male']);
  input(x,'[data-audio-presentation]','conversation','change');
  assert.equal(x.w.document.querySelectorAll('[data-speaker-tab]').length,2);
  assert.doesNotMatch(x.q('#audio-form').textContent,/Line [12]/);
