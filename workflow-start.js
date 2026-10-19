@@ -5,7 +5,7 @@
  function start(){
   page='workflow-create';
   q('#heading').textContent='New Workflow';
-  q('#page').innerHTML='<section class="panel form" id="workflow-start"><h2>Step 1 · What do you want to create?</h2><fieldset><legend>Workflow type</legend><div class="row"><label class="row"><input type="radio" name="workflow-type" value="audio" style="width:auto">Audio</label><label class="row"><input type="radio" name="workflow-type" value="video" style="width:auto">Video</label></div></fieldset><p class="help">Choose the output, then configure the workflow steps.</p><div class="row"><button type="button" data-continue disabled>Continue</button><button type="button" class="secondary" data-cancel>Cancel</button></div><p role="alert"></p></section>';
+  q('#page').innerHTML='<section class="panel form" id="workflow-start"><h2>Step 1 · What do you want to create?</h2><fieldset><legend>Workflow type</legend><div class="row"><label class="row"><input type="radio" name="workflow-type" value="audio" style="width:auto">Audio</label><label class="row"><input type="radio" name="workflow-type" value="video" style="width:auto">Video</label></div></fieldset><div class="row"><button type="button" data-continue disabled>Continue</button><button type="button" class="secondary" data-cancel>Cancel</button></div><p role="alert"></p></section>';
   const root=q('#workflow-start'),next=root.querySelector('[data-continue]');
   root.addEventListener('change',()=>{next.disabled=!root.querySelector('input:checked');});
   root.querySelector('[data-cancel]').onclick=()=>window.EccoWorkflows.showLibrary();
