@@ -31,7 +31,7 @@
   if(format){
    format.closest('label').classList.add('story-format-source');format.tabIndex=-1;format.setAttribute('aria-hidden','true');
    const control=document.createElement('div');control.className='story-format-control';control.setAttribute('role','group');control.setAttribute('aria-label','Story Format');
-   control.innerHTML='<span>Story Format</span><div class="story-format-options"><button type="button" class="secondary" data-story-format-option="audio" aria-pressed="false">Audio</button><button type="button" class="secondary" data-story-format-option="video" aria-pressed="false">Video</button></div>';
+   control.innerHTML='<div class="story-format-options"><button type="button" class="secondary" data-story-format-option="audio" aria-pressed="false">Audio</button><button type="button" class="secondary" data-story-format-option="video" aria-pressed="false">Video</button></div>';
    const buttons=[...control.querySelectorAll('button')];
    const sync=()=>buttons.forEach(button=>{const selected=button.dataset.storyFormatOption===format.value;button.setAttribute('aria-pressed',String(selected));button.classList.toggle('is-selected',selected);});
    buttons.forEach(button=>button.onclick=()=>{format.value=button.dataset.storyFormatOption;format.dispatchEvent(new Event('change',{bubbles:true}));});
