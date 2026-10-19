@@ -46,7 +46,7 @@ window.EccoGPUPicker = (() => {
         <button class="gpu-open" disabled>Checking ${gpu.name}…</button>
       </article>`).join('')}</div>
       <p class="help" id="gpu-checked">Checking both GPUs…</p>
-      <p class="help">Availability is checked automatically. Selecting a GPU does not start a stopped pod.</p>
+      
     </section>`;
     const refresh = container.querySelector('#gpu-refresh');
     for(const gpu of gpus) {
