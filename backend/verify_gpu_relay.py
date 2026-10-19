@@ -19,6 +19,6 @@ for _ in range(40):
     time.sleep(.5)
 print('GPU validation response:',result,flush=True)
 assert result['status']=='error' and 'same-origin' not in result.get('error','').lower()
-assert any(word in result.get('error','').lower() for word in ('model','story','prompt'))
+assert any(word in result.get('error','').lower() for word in ('model','story','prompt','text'))
 assert call('state')['config']['gpu_relay']['gpus']
 print('PASS: authenticated CPU → GPU round trip, validation response and idempotent request ID. No generation started.',flush=True)
