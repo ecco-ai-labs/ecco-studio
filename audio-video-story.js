@@ -46,6 +46,10 @@
    if(!data.enabled)return normalSubmit.call(form,event);
    event.preventDefault();const button=q('#generate-video',form),status=q('#video-status',form);if(ctx.submitting)return;
    try{
+    if((ctx.data.audio_reference_ids||[]).length>1)throw Error('Your audio selections are saved. This renderer currently supports one recording per render; multi-audio assembly is not connected yet.');
+    if((ctx.data.video_reference_ids||[]).length)throw Error('Your video selections are saved. Combining existing video clips with audio-driven shots is not connected yet.');
+    if((ctx.data.reference_ids||[]).length>1)throw Error('Your image selections are saved. This renderer currently uses one avatar across the selected shots.');
+    if(!data.avatar_id&&ctx.data.reference_ids?.length===1)data.avatar_id=ctx.data.reference_ids[0];
     if(!recording())throw Error('Choose an existing audio recording.');
     if(!selected().length)throw Error('Select at least one storyboard shot.');
     if(!assets('image').some(a=>a.id===data.avatar_id))throw Error('Choose an avatar from Image Library.');
@@ -62,7 +66,7 @@
   // Audio is a source in the existing References dropdown, not a separate mode.
   if(data.enabled&&!ctx.data.audio_reference_ids?.length&&data.audio_id){ctx.data.audio_reference_ids=[data.audio_id];ctx.data.reference_library='audio';library.value='audio';}
   function syncSource(){
-   data.enabled=library.value==='audio';fields.hidden=!data.enabled;panel.hidden=!data.enabled;
+   data.enabled=(ctx.data.audio_reference_ids||[]).length>0;fields.hidden=!data.enabled;panel.hidden=!data.enabled;
    if(data.enabled){
     const id=ctx.data.audio_reference_ids?.[0]||'',changed=id!==data.audio_id;
     picker.value=id;audioChanged(changed);
