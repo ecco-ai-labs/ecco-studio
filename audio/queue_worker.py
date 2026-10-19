@@ -9,6 +9,25 @@ import time
 import traceback
 from audio_queue import ROOT, read, write
 
+def worker_command(request, directory):
+    model = request.get('model', 'indic-mio')
+    base = Path(__file__).parent
+    if model == 'indic-mio':
+        python, script = sys.executable, base / 'audio_worker.py'
+    elif model in ('chatterbox', 'indicf5'):
+        python, script = str(base / (model + '-venv/bin/python')), base / 'extra_worker.py'
+        if not Path(python).is_file():
+            raise RuntimeError('The selected audio model runtime is not installed on this worker.')
+    else:
+        raise ValueError('Unsupported audio model.')
+    env = dict(os.environ)
+    if model != 'indic-mio':
+        env.pop('PYTHONPATH', None)
+        env['HF_HOME'] = str(base / 'hf-cache')
+        env['HF_HUB_OFFLINE'] = '1'
+    return [python, str(script), '--request', str(directory / 'request.json'),
+            '--runtime', str(base / 'models'), '--output', str(directory / 'output.wav')], env
+
 def main():
     ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)
     # One inference at a time across pods sharing this volume. flock releases on crash.
@@ -33,9 +52,8 @@ def main():
             write(d / 'status.json', {'status': 'running', 'progress': 'Generating speech', 'started': time.time()})
             try:
                 with (d / 'worker.log').open('wb') as log:
-                    process = subprocess.Popen([sys.executable, str(Path(__file__).with_name('audio_worker.py')),
-                        '--request', str(d / 'request.json'), '--runtime', '/workspace/ecco-audio/models',
-                        '--output', str(d / 'output.wav')], stdout=log, stderr=subprocess.STDOUT)
+                    command, env = worker_command(request, d)
+                    process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
                     started = time.monotonic()
                     while process.poll() is None:
                         write(heartbeat, {'updated': time.time(), 'pod': pod})
@@ -57,3 +75,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

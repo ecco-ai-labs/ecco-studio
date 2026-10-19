@@ -3,7 +3,8 @@
 ## Release status
 
 Live audio generation is connected through the authenticated CPU storage API.
-The interface stays on GitHub Pages. Indic-Mio inference runs on the GPU; jobs,
+The interface stays on GitHub Pages. Indic-Mio, Chatterbox Multilingual and IndicF5
+inference run on the GPU; jobs,
 scripts, and generated WAV assets persist on the network volume independently.
 An English-and-Hindi request passed generation, checksum-verified asset commit,
 and authenticated media retrieval on 2026-10-18.
@@ -58,7 +59,7 @@ every operation, isolate users, and protect storage credentials. Never include
 credentials in this public repository, browser-local storage, or a GPU job payload.
 
 Asset fields used by the UI: `id`, `story_id`, `title`, `prompt`, `stage`, `duration`,
-`deleted`. Request fields: `model: "indic-mio"`, `story_id`, `title`, `lines` (each has
+`deleted`. Request fields: `model` (`indic-mio`, `chatterbox`, or `indicf5`), `story_id`, `title`, `lines` (each has
 `text`, `language`, `voice`, `emotion`), `speed`, `pitch`, `pause`. Server-side request
 validation is in `audio_schema.py`; the service must also validate story ownership.
 
@@ -97,5 +98,40 @@ Run `python -m unittest discover -s audio -p 'test_*.py'` and
 `node --check audio-studio.js`. Browser acceptance: open Audio Studio without a GPU;
 add/edit Hindi, Urdu and English lines; inspect emotion options; navigate away and
 return; confirm drafts survive, Generate audio opens the GPU picker when disconnected,
-and no audio job is submitted without the independent service. Real multilingual inference and GPU-off media retrieval are pending service
-deployment and must pass before generation is advertised as available.
+and no audio job is submitted without the independent service. Run
+`backend/verify_audio_models_live.py` on the CPU pod to verify new-model generation,
+durable asset commit, and authenticated WAV playback before release.
+
+
+## Additional audio models
+
+`model_catalog.json` is the server catalog; `audio-models.js` contains the same
+public UI catalog and is checked against it in tests. Both model menus share it.
+
+| Model ID | Languages | Controls |
+| --- | --- | --- |
+| indic-mio | 22 Indian languages + English | Existing presets and emotion tags |
+| chatterbox | 23 languages, including Hindi and English | Default/reference voice, expressiveness |
+| indicf5 | 11 Indian languages, including Hindi, Tamil and Punjabi | Reference voice |
+
+Urdu remains available through Indic-Mio. Chatterbox and IndicF5 are not advertised
+as Urdu models. Reference voices are the seven official IndicF5 examples; labels
+describe their source voices, not guaranteed output accents. Dialect and delivery
+notes guide AI script writing. Pitch, speed and pauses use the same WAV assembly.
+
+`install_extra_models.sh` creates isolated environments while retaining the pod's
+CUDA PyTorch version. `extra_worker.py` loads local checkpoints; no model-card code
+is executed dynamically. The IndicF5 vocoder is downloaded separately. Run
+`prepare_reference_voices.py` once in the IndicF5 environment to fetch the official
+examples and transcribe references. The ASR model is only an installation tool.
+
+The queue dispatches only allowlisted model IDs to their own interpreter, removes
+the Indic-Mio dependency path, and releases model VRAM after every job. Deploy the
+new catalog/schema on both the GPU and CPU coordinator. Back up prior files before
+activation. Speech tests and authenticated API generation must pass before release.
+
+On 2026-10-19, authenticated API tests passed for Chatterbox (English and Hindi,
+default and reference voices, 5.46 seconds) and IndicF5 (Hindi, Tamil and Punjabi,
+three reference voices, 7.57 seconds). Both outputs were saved as mono 24 kHz WAV
+assets and retrieved through authenticated media playback. Twelve UI tests and
+fifteen schema, dispatch and durable-job tests also passed.

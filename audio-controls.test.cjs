@@ -17,6 +17,7 @@ async function setup(storage={}){
  state={records:[{id:'audio-story',kind:'story',title:'Audio Story'},{id:'video-story',kind:'story',title:'Video Story'}],config:{models_ready:{}},storage_pending:false};
  window.testCalls=[];api=async(path,body)=>{window.testCalls.push({path,body});if(path==='stories'){const record={id:'created-story',kind:'story',...body};state.records.push(record);return record;}return {};};refresh=async()=>true;`);
  await tick();w.document.querySelector('#entry-tell-story')?.click();
+ if(storage['ecco-active-story'])w.testUI.selectStory(storage['ecco-active-story']);
  const q=s=>w.document.querySelector(s),nav=()=>[...w.document.querySelectorAll('#workspace-production-group .journey-step')].filter(b=>!b.hidden).map(b=>b.dataset.page);
  const choose=async value=>{const field=q('[name=story_format]');field.value=value;field.dispatchEvent(new w.Event('change',{bubbles:true}));await tick();};
  return {w,q,nav,choose,errors,close:()=>{observers.forEach(observer=>observer.disconnect());w.close();},async go(p){w.testUI.navigate(p);await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
@@ -115,4 +116,33 @@ test('Selected scenes become one ordered audio plan with per-scene voices and se
 test('Changed source scenes are rejected before script generation',async()=>{
  const x=await setup({'ecco-active-story':'audio-story','ecco-board-draft:audio-story':JSON.stringify({scenes:[{title:'Original',narration:'Original facts.'}]})});await x.go('audio');x.q('[data-select-scenes]').click();x.q('#audio-scenes-dialog input').checked=true;x.q('#audio-scenes-dialog [data-apply]').click();
  x.w.localStorage.setItem('ecco-board-draft:audio-story',JSON.stringify({scenes:[{title:'Different',narration:'Other facts.'}]}));x.w.EccoAudioStudio.generateScript();assert.equal(x.q('#audio-script-instructions'),null);assert.equal(audioDraft(x).single_text,'');x.close();
+});
+
+
+test('All three audio models appear in generation and Models & Settings with synchronized selection',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');
+ assert.deepEqual([...x.q('[name=model]').options].map(o=>o.value),['indic-mio','chatterbox','indicf5']);
+ input(x,'[name=model]','chatterbox','change');await x.go('models');
+ assert.equal(x.q('[data-category=voice]').value,'chatterbox');
+ input(x,'[data-category=voice]','indicf5','change');await x.go('audio');
+ assert.equal(x.q('[name=model]').value,'indicf5');assert.equal(x.q('[data-speaker-field=language]').options.length,11);
+ assert.equal(x.q('[data-speaker-field=voice]').options.length,7);assert.equal(x.q('[data-speaker-field=emotion]'),null);
+ assert.deepEqual(x.errors,[]);x.close();
+});
+test('Switching audio models preserves script and restores model-specific speaker choices',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');
+ input(x,'[data-single-script]','Keep this exact narration.');input(x,'[data-speaker-field=language]','Urdu','change');input(x,'[data-speaker-field=voice]','en_male','change');
+ input(x,'[name=model]','chatterbox','change');assert.equal(x.q('[data-speaker-field=language]').options.length,23);
+ assert.equal(x.q('[data-speaker-field=voice]').options.length,8);assert.equal(x.q('[data-speaker-field=language]').value,'Hindi');
+ assert.ok(![...x.q('[data-speaker-field=language]').options].some(o=>o.value==='Urdu'));
+ input(x,'[name=model]','indic-mio','change');assert.equal(x.q('[data-speaker-field=language]').value,'Urdu');assert.equal(x.q('[data-speaker-field=voice]').value,'en_male');
+ assert.equal(x.q('[data-single-script]').value,'Keep this exact narration.');assert.deepEqual(x.errors,[]);x.close();
+});
+test('Chatterbox generation and preview carry model, voice, language and expressiveness',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const {calls}=connect(x);
+ input(x,'[name=model]','chatterbox','change');input(x,'[data-speaker-field=language]','English','change');input(x,'[data-speaker-field=voice]','mar_m','change');
+ input(x,'[data-expressiveness]','0.8');input(x,'[data-single-script]','Welcome to Ecco.');x.q('#audio-form').requestSubmit();await tick();
+ assert.equal(calls[0].model,'chatterbox');assert.equal(calls[0].exaggeration,0.8);assert.equal(calls[0].lines[0].voice,'mar_m');assert.equal(calls[0].lines[0].language,'English');
+ x.q('[data-preview-voice]').click();input(x,'#audio-voice-preview-dialog textarea','Hello.');x.q('#audio-voice-preview-generate').click();await tick();
+ assert.equal(calls[1].model,'chatterbox');assert.equal(calls[1].exaggeration,0.8);assert.deepEqual(x.errors,[]);x.close();
 });

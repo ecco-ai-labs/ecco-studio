@@ -1,5 +1,9 @@
 """Portable audio request validation. No storage, API or GPU ownership."""
 import math
+import json
+from pathlib import Path
+
+MODELS = {m['id']: m for m in json.loads(Path(__file__).with_name('model_catalog.json').read_text())}
 
 LANGUAGES = ['Hindi', 'Urdu', 'English', 'Tamil', 'Punjabi', 'Assamese', 'Bengali', 'Bodo', 'Dogri', 'Gujarati', 'Kannada', 'Kashmiri', 'Konkani', 'Maithili', 'Malayalam', 'Manipuri', 'Marathi', 'Nepali', 'Odia', 'Sanskrit', 'Santali', 'Sindhi', 'Telugu']
 INDIC_EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'disgust', 'fear', 'surprise']
@@ -7,8 +11,12 @@ ENGLISH_EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'enunciated', 'confused'
 GENRES = ["Story Book Reading","Podcast","Movie","Theatre","Casual Conversation","Documentary","News","Interview","Educational"]
 MODEL = 'SPRINGLab/Indic-Mio'
 def validate(body):
-    if body.get('model', 'indic-mio') != 'indic-mio':
-        raise ValueError('Choose Indic-Mio for audio generation.')
+    if not isinstance(body, dict):
+        raise ValueError('Invalid audio request.')
+    model_id = body.get('model', 'indic-mio')
+    if not isinstance(model_id, str) or model_id not in MODELS:
+        raise ValueError('Choose a supported audio model.')
+    model = MODELS[model_id]
     genre = body.get('genre', GENRES[0])
     if genre not in GENRES:
         raise ValueError('Choose a supported audio genre.')
@@ -22,14 +30,15 @@ def validate(body):
         text = line.get('text', '')
         language = line.get('language', 'Hindi')
         emotion = line.get('emotion', 'neutral')
-        voice = line.get('voice', 'en_female')
+        voice = line.get('voice', model['voices'][0]['id'])
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 500:
             raise ValueError('Each line needs 1–500 characters.')
-        if language not in LANGUAGES:
-            raise ValueError('Choose a supported language.')
-        if emotion not in (ENGLISH_EMOTIONS if language == 'English' else INDIC_EMOTIONS):
+        if language not in model['languages']:
+            raise ValueError('Choose a language supported by ' + model['name'] + '.')
+        allowed_emotions = (ENGLISH_EMOTIONS if language == 'English' else INDIC_EMOTIONS) if model['emotions'] else ['neutral']
+        if emotion not in allowed_emotions:
             raise ValueError('This emotion is not supported for the selected language.')
-        if voice not in ('en_female', 'en_male', 'jp_female', 'jp_male'):
+        if voice not in [v['id'] for v in model['voices']]:
             raise ValueError('Choose one of the available voices.')
         clean.append(dict(text=text.strip(), language=language, emotion=emotion, voice=voice))
         if 'pause_before' in line:
@@ -47,7 +56,11 @@ def validate(body):
     title = body.get('title', 'Audio recording')
     if not isinstance(title, str):
         raise ValueError('Invalid audio title.')
-    return dict(model='indic-mio', genre=genre, title=title.strip()[:160] or 'Audio recording', lines=clean,
+    result = dict(model=model_id, genre=genre, title=title.strip()[:160] or 'Audio recording', lines=clean,
                 speed=bounded('speed', 1, 0.75, 1.5), pitch=bounded('pitch', 0, -4, 4),
                 pause=bounded('pause', 0.35, 0, 2))
+    if model_id == 'chatterbox':
+        result['exaggeration'] = bounded('exaggeration', .5, 0, 2)
+    return result
+
 
