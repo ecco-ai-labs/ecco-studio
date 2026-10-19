@@ -19,7 +19,7 @@
  function show(){
   page='story-collections';q('#heading').textContent='Story';
   document.querySelectorAll('.journey-step').forEach(b=>b.classList.toggle('active',b.dataset.page==='story-collections'));
-  const data=read();q('#page').innerHTML='<div class="form"><label>Story<select id="collection-select"></select></label><p class="help">Collection organization is saved in this browser. Story content stays in workspace storage.</p><div class="section-head"><h2>Story Titles</h2><button type="button" id="collection-new-title" class="secondary">New Story Title</button></div><div id="collection-titles" class="form"></div></div>';
+  const data=read();q('#page').innerHTML='<div class="form"><label>Story<select id="collection-select"></select></label><div class="section-head"><h2>Story Titles</h2><button type="button" id="collection-new-title" class="secondary">New Story Title</button></div><div id="collection-titles" class="form"></div></div>';
   const picker=q('#collection-select');options(picker,selected,'Unassigned Story Titles');
   picker.onchange=()=>{selected=picker.value;localStorage.setItem('ecco-selected-collection',selected);show();};
   const list=q('#collection-titles'),titles=stories().filter(story=>(data.members[story.id]||'')===selected);
