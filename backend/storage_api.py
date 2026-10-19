@@ -14,13 +14,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'migration' / 'lega
 import studio as legacy
 import audio_library
 import audio_jobs
+import gpu_relay
 import openai_assistant
 import scene_planner
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
-    '/api/audio/generate',
+    '/api/audio/generate', '/api/gpu/request',
     '/api/ai/news/research', '/api/ai/news/storyboard',
     '/api/ai/connect', '/api/ai/settings', '/api/ai/disconnect', '/api/ai/enhance',
     '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
@@ -35,7 +36,7 @@ def storage_state():
     return {'records': legacy.records(), 'storage_pending': False, 'config': {
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
                     'gpu_independent': True, 'service': 'ecco-storage-api'},
-        'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
+        'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
         'ai_story_planner': {'ready': scene_planner.ready()},
         'hourly_rate': 0.081, 'github_connected': False,
         'youtube_configured': False, 'youtube_channel': None,
@@ -77,6 +78,10 @@ class Handler(legacy.Handler):
         if not self.authorized(): return
         try:
             if path == '/api/state': return self.send(storage_state())
+            if path == '/api/gpu/status': return self.send(gpu_relay.status())
+            if path.startswith('/api/gpu/requests/'):
+                parts = path.split('/')
+                return self.send(gpu_relay.result(parts[-2], parts[-1]))
             if path == '/api/audio/status': return self.send({'ready': audio_jobs.queue.ready()})
             if path.startswith('/api/audio/jobs/'):
                 return self.send(audio_jobs.job_status(path.split('/')[-1], vars(legacy)))
@@ -131,6 +136,7 @@ class Handler(legacy.Handler):
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
             if path.startswith('/api/ai/'):
                 return self.send(openai_assistant.handle(path, body, vars(legacy)))
+            if path == '/api/gpu/request': return self.send(gpu_relay.submit(body))
             if path == '/api/audio/generate':
                 return self.send(audio_jobs.generate(body, vars(legacy)))
             if path == '/api/stories/plan':
