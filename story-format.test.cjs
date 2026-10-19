@@ -13,7 +13,7 @@ async function setup(storage={}){
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};w.confirm=()=>true;
  w.localStorage.setItem('ecco-story-collections-v1',JSON.stringify({collections:[{id:'collection',name:'Stories'}],members:{}}));
  for(const [key,value] of Object.entries(storage))w.localStorage.setItem(key,value);
- w.eval(scripts.join('\n;\n')+`\nwindow.testUI={navigate:p=>navigate(p),refreshStories:()=>storyControls(),selectStory(id){activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();},getDraft:()=>draft};
+ w.eval(scripts.join('\n;\n')+`\nwindow.testUI={navigate:p=>navigate(p),refreshStories:()=>storyControls(),selectStory(id){activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();window.EccoWorkspaceUI.selectJourneyStory(id);},getDraft:()=>draft};
  state={records:[{id:'audio-story',kind:'story',title:'Audio Story'},{id:'video-story',kind:'story',title:'Video Story'}],config:{models_ready:{}},storage_pending:false};
  window.testCalls=[];api=async(path,body)=>{window.testCalls.push({path,body});if(path==='stories'){const record={id:'created-story',kind:'story',...body};state.records.push(record);return record;}return {};};refresh=async()=>true;`);
  await tick();
@@ -24,7 +24,7 @@ async function setup(storage={}){
 test('new stories require a format and immediately show the matching steps without duplicates',async()=>{
  const x=await setup();await x.go('story-setup');
  assert.equal(x.q('[name=story_format]').required,true);assert.equal(x.q('[name=story_format]').validity.valueMissing,true);
- assert.deepEqual(x.nav(),['story-setup']);assert.equal(x.q('#story-setup-form').querySelector(':scope > label').dataset.storyFormat,'');
+ assert.deepEqual(x.nav(),['story-setup','board','audio','images','render','journey-preview']);assert.equal(x.q('#story-setup-form').querySelector(':scope > label').dataset.storyFormat,'');
  await x.choose('audio');assert.deepEqual(x.nav(),['story-setup','board','audio']);
  await x.choose('video');assert.deepEqual(x.nav(),['story-setup','board','audio','images','render','journey-preview']);
  await x.choose('audio');assert.deepEqual(x.nav(),['story-setup','board','audio']);assert.match(x.q('#journey-guide').textContent,/STEP 1 OF 3/);
@@ -41,7 +41,7 @@ test('saving an audio story retains its format and finishes the journey at Audio
  x.q('#journey-guide [data-next]').click();await tick();assert.ok(x.q('#audio-form'));assert.match(x.q('#journey-guide').textContent,/STEP 3 OF 3/);
  assert.equal(x.q('#journey-guide [data-next]'),null);assert.equal(x.q('#journey-guide').textContent.includes('Assign images'),false);
  const saved=x.snapshot();assert.deepEqual(x.errors,[]);x.close();
- const restored=await setup(saved);await restored.go('audio');assert.deepEqual(restored.nav(),['story-setup','board','audio']);assert.match(restored.q('#journey-guide').textContent,/STEP 3 OF 3/);restored.close();
+ const restored=await setup(saved);assert.equal(restored.nav().length,6);restored.w.testUI.selectStory('created-story');await restored.go('audio');assert.deepEqual(restored.nav(),['story-setup','board','audio']);assert.match(restored.q('#journey-guide').textContent,/STEP 3 OF 3/);restored.close();
 });
 test('switching saved stories restores each journey and leaves their scene drafts intact',async()=>{
  const saved={'ecco-story-description:audio-story':JSON.stringify({cloudId:'audio-story',story_format:'audio',title:'Audio Story'}),'ecco-board-draft:audio-story':JSON.stringify({title:'Audio Story',story:'Narration',story_format:'audio',scenes:[{narration:'Keep me',seconds:3,image_id:''}]}),'ecco-story-description:video-story':JSON.stringify({cloudId:'video-story',story_format:'video',title:'Video Story'})};
@@ -60,4 +60,22 @@ test('opening an audio story from Story Library goes to its storyboard instead o
  x.w.testUI.refreshStories();await tick();
  [...x.w.document.querySelectorAll('.project .tree-folder')].find(button=>button.textContent.includes('Audio Story')).click();await tick();
  assert.equal(x.q('#heading').textContent,'Storyboard');assert.equal(x.q('#image-form'),null);assert.deepEqual(x.nav(),['story-setup','board','audio']);assert.match(x.q('#journey-guide').textContent,/STEP 2 OF 3/);assert.deepEqual(x.errors,[]);x.close();
+});
+
+
+test('entry and libraries keep the full menu until an Audio story is explicitly selected',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story','ecco-story-description:audio-story':JSON.stringify({cloudId:'audio-story',story_format:'audio',title:'Audio Story'})});
+ assert.equal(x.nav().length,6);
+ x.q('#entry-tell-story').click();await tick();assert.equal(x.nav().length,6);
+ await x.go('library');assert.equal(x.nav().length,6);
+ x.w.testUI.refreshStories();await tick();
+ [...x.w.document.querySelectorAll('.project .tree-folder')].find(button=>button.textContent.includes('Audio Story')).click();await tick();
+ assert.deepEqual(x.nav(),['story-setup','board','audio']);
+ x.w.testUI.selectStory('video-story');await x.go('board');assert.equal(x.nav().length,6);
+ assert.deepEqual(x.errors,[]);x.close();
+});
+test('clearing Audio format restores all six steps',async()=>{
+ const x=await setup();await x.go('story-setup');await x.choose('audio');assert.equal(x.nav().length,3);
+ await x.choose('');assert.equal(x.nav().length,6);assert.match(x.q('#journey-guide').textContent,/STEP 1 OF 6/);
+ assert.deepEqual(x.errors,[]);x.close();
 });

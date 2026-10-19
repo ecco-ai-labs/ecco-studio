@@ -15,7 +15,7 @@
   select.replaceChildren(new Option(empty,''));for(const c of read().collections)select.add(new Option(c.name,c.id));select.add(new Option('+ New Story','__new_story__'));select.value=value||'';select.dataset.previous=select.value;select.dataset.emptyLabel=empty;
   if(!select.dataset.createBound){select.dataset.createBound='1';const handle=e=>{if(select.value==='__new_story__'){e.stopImmediatePropagation();select.value=select.dataset.previous||'';createStory(select);}else select.dataset.previous=select.value;};select.addEventListener('input',e=>{if(select.value==='__new_story__')e.stopImmediatePropagation();});select.addEventListener('change',handle);}
  }
- function selectTitle(id){persistDraft();activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();selected=read().members[id]||'';localStorage.setItem('ecco-selected-collection',selected);storyControls();navigate('board');}
+ function selectTitle(id){persistDraft();activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();window.EccoWorkspaceUI?.selectJourneyStory(id);selected=read().members[id]||'';localStorage.setItem('ecco-selected-collection',selected);storyControls();navigate('board');}
  function show(){
   page='story-collections';q('#heading').textContent='Story';
   document.querySelectorAll('.journey-step').forEach(b=>b.classList.toggle('active',b.dataset.page==='story-collections'));
@@ -41,4 +41,5 @@
  window.EccoStoryCollections={assign,show};
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});mount();
 })();
+
 

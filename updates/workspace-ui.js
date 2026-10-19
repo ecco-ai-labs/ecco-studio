@@ -5,6 +5,7 @@
  const expansion=new Map();
  let selectedVideoId='';
  let welcomePending=true;
+ let selectedJourneyStory; // No story has been explicitly chosen on initial load.
  function selectionToolbar(body,name,button){const selected=body.querySelector('.tree-folder.selected');if(!selected||!button)return;const row=document.createElement('div');row.className='library-selected-row';selected.before(row);row.append(selected);button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);row.append(button);}
  const records=()=>typeof state!=='undefined'&&state?state.records:[];
  // Keep the library overview, sidebar and reference picker on the same saved videos.
@@ -295,6 +296,7 @@
   q('#page').innerHTML='<form id="story-setup-form" class="form"><label data-story-format>Story Format<select name="story_format" required><option value="">Choose Audio or Video</option><option value="audio">Audio</option><option value="video">Video</option></select></label><label>Story Title<input name="title" maxlength="160" required placeholder="Enter your story title"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story Idea / Summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & Continue to Storyboard</button></div><p role="status" data-story-status></p></form>';
   const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');form.dataset.draftKey=key;
   for(const name of ['story_format','title','genre','summary'])form.elements[name].value=saved[name]||'';
+  selectedJourneyStory=activeStory;
   const save=event=>{if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){productionGroup();journeyGuide();}status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
@@ -304,8 +306,8 @@
    status.textContent='Saving story…';
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
-    data.cloudId=created.id;saved=data;localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);
-    const nextDraft={...loadDraft(),title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));window.EccoStoryCollections.assign(created.id,data.collection_id);await refresh();activeStory=created.id;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();
+    data.cloudId=created.id;saved=data;localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);
+    const nextDraft={...loadDraft(),title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));window.EccoStoryCollections.assign(created.id,data.collection_id);await refresh();activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();
     let savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');
     const id=savedId||crypto.randomUUID();
     localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));
@@ -336,7 +338,7 @@
   const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
   return ['audio','video'].includes(value)?value:activeStory?'video':'';
  }
- function currentJourneySteps(){const format=storyFormat();return format==='audio'?journeySteps.slice(0,3):format==='video'?journeySteps:journeySteps.slice(0,1);}
+ function currentJourneySteps(){return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
  function journeyPreview(allStories=false){
   page='journey-preview';q('#heading').textContent='Publish';
   const videos=records().filter(a=>a.kind==='asset'&&a.media==='video'&&!a.deleted&&(allStories||(a.story_id||LEGACY_STORY)===activeStory));
@@ -375,7 +377,7 @@
   const index=steps.findIndex(step=>step[0]===page||(step[0]==='board'&&page==='director'));
   root.classList.toggle('story-journey-fields',index>=0||page==='story-collections'||page==='publish');
   guide.hidden=index<0||document.body.classList.contains('workspace-entry-mode');if(index<0)return;
-  const step=steps[index],signature=page+':'+activeStory+':'+format;
+  const step=steps[index],signature=page+':'+activeStory+':'+format+':'+steps.length;
   if(guide.dataset.signature===signature)return;guide.dataset.signature=signature;
   guide.innerHTML='<div><small>STEP '+(index+1)+' OF '+steps.length+'</small><h2>'+step[1]+'</h2><p>'+step[2]+'</p></div><div class="journey-actions">'+(index?'<button type="button" class="secondary" data-back>Back</button>':'')+(index<steps.length-1?'<button type="button" class="secondary" data-next>Next: '+steps[index+1][1]+'</button>':'')+'</div>';
   guide.querySelector('[data-back]')?.addEventListener('click',()=>navigate(steps[index-1][0]));
@@ -468,11 +470,11 @@
  function creditsDialog(){let d=q('#workspace-credits-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-credits-dialog';document.body.append(d);}d.innerHTML='<div class="form"><div class="section-head"><h2>Credits &amp; Usage</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Your generation allowance and usage.</p><dl class="credits-details"><dt>Starting allowance</dt><dd>500 credits per user</dd><dt>Available balance</dt><dd>Available after sign-in is connected</dd><dt>Credits used</dt><dd>Not tracked yet</dd><dt>Renewal</dt><dd>Not configured</dd></dl><p role="status">Per-user quotas are not active yet. Google Workspace sign-in and server-side credit tracking must be connected before credits can be granted or deducted.</p></div>';d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();}
  function accountCredits(){const menu=q('[data-category="Account"] .workspace-menu-items');if(!menu||q('#workspace-credits'))return;const b=document.createElement('button');b.id='workspace-credits';b.type='button';b.textContent='Credits & Usage';b.onclick=()=>{menu.closest('details').open=false;creditsDialog();};menu.prepend(b);}
  function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
- if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);const picker=q('#story-picker'),selectStory=picker?.onchange;if(selectStory)picker.onchange=function(event){const selected=selectStory.call(this,event);if(storyFormat()==='audio')navigate('board');return selected;};modernize();return result;};}
+ if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);const picker=q('#story-picker'),selectStory=picker?.onchange;if(selectStory)picker.onchange=function(event){const selected=selectStory.call(this,event);selectedJourneyStory=activeStory;productionGroup();journeyGuide();if(storyFormat()==='audio')navigate('board');return selected;};modernize();return result;};}
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!e.composedPath().includes(d))d.open=false;});});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
- window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog};
+ window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog,selectJourneyStory(id){selectedJourneyStory=id;productionGroup();journeyGuide();}};
  const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
  modernize();welcomePage();
 })();
@@ -626,6 +628,7 @@
 #connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
+
 
 
 
