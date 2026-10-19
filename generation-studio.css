@@ -52,3 +52,7 @@
 @media(max-width:480px){.generation-filter-row,.generation-attribute-grid,.generation-delivery .audio-line-controls{grid-template-columns:1fr}.generation-picker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 
+
+/* Shared duration styling in model settings and shot controls. */
+label:has(>[data-video-seconds]),label:has(>[data-setting="max_clip_seconds"]),label:has(>[data-seconds]){color:#d1cbe7;font-size:12px;font-weight:400;line-height:1.5;gap:7px}
+input:is([data-video-seconds],[data-setting="max_clip_seconds"],[data-seconds]){color:#edf2ec;background:#1b1839;border:1px solid #51496f;border-radius:6px;padding:10px 12px;font-size:12px;min-height:36px}
