@@ -25,7 +25,7 @@
   const section=(n,t,body)=>'<section class="generation-section form" data-step="'+n+'"><div class="generation-section-heading">'+n+'. '+t+'</div>'+body+'</section>';
   root.innerHTML=section(2,'Library','<div class="row"><select aria-label="Library" data-library><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select><button type="button" class="secondary" data-browse>Browse library</button></div><div data-list="image" class="generation-selected"></div><div data-list="video" class="generation-selected"></div><div data-list="audio" class="form"></div><p class="help" data-audio-hint></p>')+
    section(3,'Audio script','<p class="help" data-script-source>Select audio above to load the exact words used to generate it.</p><textarea aria-label="Audio script" data-transcript maxlength="4000" rows="5" placeholder="Your selected recording’s original script will appear here."></textarea><p class="help">AI edits the script text. To hear edited words or lip-sync them, generate a new recording in Audio Studio and select it here.</p>')+
-   section(4,'Shots','<label>Storyboard<select data-board aria-label="Storyboard"></select></label><label>Edit shot<select data-shot aria-label="Edit shot"></select></label><div data-shots class="form"></div><p data-timing class="help"></p>')+
+   section(4,'Shots','<label>Storyboard<select data-board aria-label="Storyboard"></select></label><details data-shot aria-label="Shots" class="generation-settings"></details><div data-shots class="form"></div><p data-timing class="help"></p>')+
    section(5,'Video prompt','<label>Describe the action and setting<textarea data-brief rows="3" maxlength="2000" placeholder="For example: The selected avatar presents the selected audio in a newsroom, looking into the camera."></textarea></label><button type="button" class="secondary" data-write>Improve shot prompts with AI · optional</button><p class="help">Use this for visual instructions. The audio script above supplies the spoken words.</p><div data-directions class="form"></div><p role="status" data-ai-status></p>');
   button.textContent='Generate video';
   const legacyBoard=q('[name="board_id"]',form);if(legacyBoard){legacyBoard.required=false;legacyBoard.closest('label').hidden=true;}
@@ -57,14 +57,25 @@
   }
   function drawShots(){
    const box=q('[data-shots]',root);box.replaceChildren();
-   const select=q('[data-shot]',root);select.replaceChildren();data.shots.forEach((s,i)=>select.add(new Option((i+1)+'. '+(s.title||'Shot '+(i+1))+(s.selected===false?' · excluded':''),String(i))));
-   shotIndex=Math.max(0,Math.min(shotIndex,data.shots.length-1));select.value=String(shotIndex);select.add(new Option('+ Add shot','__add__'));select.onchange=()=>{if(select.value==='__add__'){data.shots.push(newShot(data.shots.length));shotIndex=data.shots.length-1;data.directions=[];persist();}else shotIndex=Number(select.value);drawShots();drawDirections();};
+   const select=q('[data-shot]',root),wasOpen=select.open;select.replaceChildren();
+   shotIndex=Math.max(0,Math.min(shotIndex,data.shots.length-1));
+   const summary=document.createElement('summary');summary.textContent=data.shots.length?'Edit shot: '+(shotIndex+1)+'. '+(data.shots[shotIndex].title||'Shot '+(shotIndex+1)):'Shots';select.append(summary);
+   const choices=document.createElement('div');choices.className='form';choices.style.cssText='max-height:260px;overflow:auto;padding:8px;gap:6px';
+   data.shots.forEach((s,i)=>{
+    const line=document.createElement('div');line.style.cssText='display:flex;align-items:center;gap:8px';
+    const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=s.selected!==false;checkbox.style.cssText='width:14px;height:14px;min-width:14px;margin:0;flex:none';checkbox.setAttribute('aria-label','Include shot '+(i+1)+' in video');
+    checkbox.onchange=()=>{s.selected=checkbox.checked;balance();persist();drawShots();drawDirections();};
+    const edit=document.createElement('button');edit.type='button';edit.className='secondary small';edit.style.cssText='flex:1;text-align:left';edit.textContent=(i+1)+'. '+(s.title||'Shot '+(i+1));edit.setAttribute('aria-pressed',String(i===shotIndex));
+    edit.onclick=()=>{shotIndex=i;select.open=false;drawShots();drawDirections();};
+    line.append(checkbox,edit);choices.append(line);
+   });
+   const add=document.createElement('button');add.type='button';add.className='secondary small';add.textContent='+ Add shot';
+   add.onclick=()=>{data.shots.push(newShot(data.shots.length));shotIndex=data.shots.length-1;data.directions=[];persist();select.open=false;drawShots();drawDirections();};
+   choices.append(add);select.append(choices);select.open=wasOpen;
    data.shots.forEach((s,i)=>{if(i!==shotIndex)return;
     const row=document.createElement('fieldset');row.className='form';
-    row.innerHTML='<label>Include in video<select data-selected><option value="yes">Yes</option><option value="no">No</option></select></label><label>Avatar for this shot<select data-image></select></label><label>Action<textarea data-motion rows="2" maxlength="800"></textarea></label><div class="generation-attribute-grid">'+
+    row.innerHTML='<label>Avatar for this shot<select data-image></select></label><label>Action<textarea data-motion rows="2" maxlength="800"></textarea></label><div class="generation-attribute-grid">'+
      [['eye','Eye movement / expression'],['lip','Mouth / delivery'],['camera_move','Camera movement'],['camera_angle','Camera angle'],['shot_size','Framing'],['seconds','Seconds']].map(([f,l])=>'<label>'+l+'<input data-field="'+f+'" '+(f==='seconds'?'type="number" min="0.2" step="0.01"':'maxlength="160"')+'></label>').join('')+'</div><button type="button" class="small secondary" data-remove-shot>Remove shot</button>';
-    q('[data-selected]',row).value=s.selected!==false?'yes':'no';
-    q('[data-selected]',row).onchange=e=>{s.selected=e.target.value==='yes';balance();persist();drawShots();};
     const image=q('[data-image]',row);image.add(new Option('Choose avatar',''));
     data.image_ids.forEach(id=>{const a=find(id,'image');if(a)image.add(new Option(title(a),id));});
     image.value=s.image_id||data.image_ids[0]||'';s.image_id=image.value;image.onchange=()=>{s.image_id=image.value;persist();};
