@@ -24,7 +24,7 @@
   const root=document.createElement('div');root.className='form';root.id='video-flow';form.insertBefore(root,footer);
   const section=(n,t,body)=>'<section class="generation-section form" data-step="'+n+'"><div class="generation-section-heading">'+n+'. '+t+'</div>'+body+'</section>';
   root.innerHTML=section(2,'Library','<div class="row"><select aria-label="Library" data-library><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select><button type="button" class="secondary" data-browse>Browse library</button></div><div data-list="image" class="generation-selected"></div><div data-list="video" class="generation-selected"></div><div data-list="audio" class="form"></div><p class="help" data-audio-hint></p>')+
-   section(3,'Audio script','<p class="help" data-script-source>Select audio above to load the exact words used to generate it.</p><textarea aria-label="Original audio script" data-transcript readonly rows="5" placeholder="Your selected recording’s original script will appear here."></textarea><p class="help">The selected recording is used verbatim for speech and lip sync. No new dialogue is generated.</p>')+
+   section(3,'Audio script','<p class="help" data-script-source>Select audio above to load the exact words used to generate it.</p><textarea aria-label="Audio script" data-transcript maxlength="4000" rows="5" placeholder="Your selected recording’s original script will appear here."></textarea><p class="help">AI edits the script text. To hear edited words or lip-sync them, generate a new recording in Audio Studio and select it here.</p>')+
    section(4,'Shots','<label>Storyboard<select data-board aria-label="Storyboard"></select></label><div class="row"><button type="button" class="secondary" data-load>Load selected storyboard</button><button type="button" class="secondary" data-add>Add shot</button></div><label>Edit shot<select data-shot aria-label="Edit shot"></select></label><div data-shots class="form"></div><p data-timing class="help"></p>')+
    section(5,'Video prompt','<label>Describe the action and setting<textarea data-brief rows="3" maxlength="2000" placeholder="For example: The selected avatar presents the selected audio in a newsroom, looking into the camera."></textarea></label><button type="button" class="secondary" data-write>Improve shot prompts with AI · optional</button><p class="help">Use this for visual instructions. The audio script above supplies the spoken words.</p><div data-directions class="form"></div><p role="status" data-ai-status></p>');
   button.textContent='Generate video';
@@ -92,7 +92,8 @@
     });
    }
    const scripts=data.audio_ids.map(id=>audioScript(find(id,'audio')));
-   q('[data-transcript]',root).value=scripts.filter(Boolean).join('\n\n');
+   const scriptKey=JSON.stringify(data.audio_ids);data.script_drafts=data.script_drafts||{};
+   q('[data-transcript]',root).value=data.script_drafts[scriptKey]??scripts.filter(Boolean).join('\n\n');
    q('[data-script-source]',root).textContent=!scripts.length?'Select audio in Library to load its original script.':scripts.some(t=>!t)?'Some selected recordings have no saved generation script. Their audio will still be used unchanged.':'Original audio script · '+data.audio_ids.map(id=>title(find(id,'audio'))).join(' → ');
    q('[data-audio-hint]',root).textContent='Choose images for your avatars, optional videos for visual reference, and audio for speech. Selections remain when switching libraries.';
    hydrateMedia();timing();
@@ -131,6 +132,7 @@
    q('[data-use]',dialog).onclick=()=>{const changed=JSON.stringify(data[idsKey[kind]])!==JSON.stringify([...chosen]);data[idsKey[kind]]=[...chosen];if(changed&&kind==='audio')loadBoard();if(!data.shots.length)loadBoard();persist();drawLists();drawShots();dialog.close();};
    dialog.onclose=()=>dialog.remove();document.body.append(dialog);draw();dialog.showModal();await reloadLibrary();
   }
+  q('[data-transcript]',root).oninput=event=>{data.script_drafts=data.script_drafts||{};data.script_drafts[JSON.stringify(data.audio_ids)]=event.target.value;persist();};
   q('[data-library]',root).onchange=drawLists;
   q('[data-browse]',root).onclick=()=>picker(q('[data-library]',root).value);
   q('[data-load]',root).onclick=loadBoard;
