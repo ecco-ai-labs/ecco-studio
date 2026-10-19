@@ -67,7 +67,9 @@ def create_folder(body, env):
     name = name.strip()
     fid = hashlib.sha256(('audio-folder:' + name.casefold()).encode()).hexdigest()[:32]
     with env['LOCK']:
-        existing = next((f for f in env['records']('audio_folder') if f['id'] == fid), None)
+        all_folders = env['records']('audio_folder')
+        existing = next((f for f in all_folders if f['name'].casefold() == name.casefold()), None)
+        if any(f['id'] == fid for f in all_folders): fid = uuid.uuid4().hex
         if existing:
             return existing
         return env['save'](dict(id=fid, kind='audio_folder', created=time.time(), name=name))
@@ -93,3 +95,4 @@ def save_labels(body, env):
             env['save'](dict(id=rid, kind='library_item', created=time.time(),
                              asset_id=asset['id'], folder_id=folder['id']))
         return asset
+
