@@ -50,7 +50,8 @@
   try{draft=JSON.parse(localStorage.getItem(key()));}catch{draft=null;}
   if(!draft||!Array.isArray(draft.lines)||!draft.lines.length)draft={title:'',speed:1,pitch:0,pause:0.35,lines:[blank()]};
   draft={title:'',speed:1,pitch:0,pause:0.35,...draft};
-  if(!['a100','cpu'].includes(draft.compute))draft.compute='a100';
+  // Each visit starts on CPU; a GPU is used only after an explicit selection.
+  draft.compute='cpu';
   if(!audioModels.some(m=>m.id===draft.model))draft.model=audioModels[0].id;
   if(audioModels.some(m=>m.id===modelProfiles.selected.voice))draft.model=modelProfiles.selected.voice;
   if(!genres.includes(draft.genre))draft.genre=genres[0];
@@ -290,7 +291,7 @@
  function render(){
   clearPreview();q('#audio-voice-preview-dialog')?.close();load();signature='';
   q('#page').innerHTML=`<section class="audio-studio"><p class="intro">Prepare narration or a conversation with named speakers.</p><div class="grid audio-workspace"><form id="audio-form" class="panel form"><div class="audio-model-controls model-summary"><label>Audio model<select name="model">${audioModels.map(model=>`<option value="${esc(model.id)}" ${draft.model===model.id?'selected':''}>${esc(model.name)}</option>`).join('')}</select></label><label>Genre<select name="genre">${options(genres,draft.genre)}</select></label></div><label>Recording title<input name="title" maxlength="160" value="${esc(draft.title)}" placeholder="Scene 1 · opening dialogue"></label><div id="audio-lines"></div><button type="button" class="secondary" id="add-audio-line">Add speaker turn</button><div class="audio-output-controls"><label>Speed<select name="speed">${[0.75,1,1.25,1.5].map(v=>`<option value="${v}" ${Number(draft.speed)===v?'selected':''}>${v}×</option>`).join('')}</select></label><label>Pitch<select name="pitch">${[-4,-2,0,2,4].map(v=>`<option value="${v}" ${Number(draft.pitch)===v?'selected':''}>${v>0?'+':''}${v} semitones</option>`).join('')}</select></label><label>Pause<select name="pause">${[0,0.35,0.75,1,2].map(v=>`<option value="${v}" ${Number(draft.pause)===v?'selected':''}>${v} seconds</option>`).join('')}</select></label></div><p class="help">Write in the original script for best pronunciation. Language does not translate text. Controls and voice choices follow the selected model. Voice presets may carry an accent; dialect quality varies.</p><div class="row"><button id="generate-audio">Generate audio</button><span class="help">Draft saved in this browser · up to 4,000 characters</span></div><p id="audio-job-status" role="status"></p></form></div></section>`;
-  q('#audio-form').insertAdjacentHTML('afterbegin',`<div data-audio-compute><select name="compute" aria-label="Audio compute" aria-describedby="audio-compute-status"><option value="a100" ${draft.compute==='a100'?'selected':''}>A100</option><option value="cpu" ${draft.compute==='cpu'?'selected':''}>CPU</option></select><p id="audio-compute-status" class="help" data-audio-compute-status role="status"></p></div>`);
+  q('#audio-form').insertAdjacentHTML('afterbegin',`<div data-audio-compute><select name="compute" aria-label="Audio compute" aria-describedby="audio-compute-status"><option value="cpu" ${draft.compute==='cpu'?'selected':''}>CPU</option><option value="a100" ${draft.compute==='a100'?'selected':''}>A100</option><option value="b200" ${draft.compute==='b200'?'selected':''}>B200</option></select><p id="audio-compute-status" class="help" data-audio-compute-status role="status"></p></div>`);
   drawLines();
   q('#add-audio-line').onclick=()=>{if(draft.presentation==='conversation'&&draft.lines.length<20){const previous=draft.lines.at(-1).speaker_id,next=draft.speakers[(draft.speakers.findIndex(s=>s.id===previous)+1)%draft.speakers.length];draft.lines.push({text:'',speaker_id:next.id});save();drawLines();drawControls();}};
   q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'){draft[e.target.name]=['title','model','genre','compute'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
@@ -324,6 +325,7 @@
  // Inherit the existing production-menu styling and place Audio after Video.
  if(video)video.after(button);else (production||nav).append(button);
 })();
+
 
 
 

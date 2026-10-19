@@ -23,28 +23,32 @@ async function setup(storage={}){
  return {w,q,nav,choose,errors,close:()=>{observers.forEach(observer=>observer.disconnect());w.close();},async go(p){w.testUI.navigate(p);await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
 }
 const input=(x,selector,value,event='input')=>{const field=x.q(selector);assert.ok(field,selector);field.value=value;field.dispatchEvent(new x.w.Event(event,{bubbles:true}));return field;};
-test('Audio compute sits between Model and Settings and References, defaults to A100, and persists CPU per story',async()=>{
- const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');
+test('Audio compute offers CPU, A100 and B200, starts on CPU on every visit, and preserves its position',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story','ecco-audio-draft:audio-story':JSON.stringify({compute:'a100',lines:[{text:'Saved script.'}]})});await x.go('audio');
  assert.deepEqual([...x.q('#audio-form').querySelectorAll(':scope > .generation-section')].slice(0,3).map(s=>s.dataset.section),['model','compute','references']);
- assert.equal(x.q('[name=compute]').value,'a100');
- assert.deepEqual([...x.q('[name=compute]').options].map(o=>[o.value,o.textContent]),[['a100','A100'],['cpu','CPU']]);
- input(x,'[name=compute]','cpu','change');assert.equal(audioDraft(x).compute,'cpu');
+ assert.equal(x.q('[name=compute]').value,'cpu');
+ assert.deepEqual([...x.q('[name=compute]').options].map(o=>[o.value,o.textContent]),[['cpu','CPU'],['a100','A100'],['b200','B200']]);
  assert.match(x.q('[data-audio-compute-status]').textContent,/not enabled/);
- await x.go('images');assert.equal(x.q('[name=compute]'),null);await x.go('audio');assert.equal(x.q('[name=compute]').value,'cpu');
- const snapshot=x.snapshot();x.close();const reloaded=await setup(snapshot);await reloaded.go('audio');assert.equal(reloaded.q('[name=compute]').value,'cpu');
- reloaded.w.testUI.selectStory('video-story');await reloaded.go('audio');assert.equal(reloaded.q('[name=compute]').value,'a100');reloaded.close();
+ input(x,'[name=compute]','b200','change');assert.equal(audioDraft(x).compute,'b200');
+ const snapshot=x.snapshot();await x.go('images');assert.equal(x.q('[name=compute]'),null);await x.go('audio');assert.equal(x.q('[name=compute]').value,'cpu');
+ x.close();const reloaded=await setup(snapshot);await reloaded.go('audio');assert.equal(reloaded.q('[name=compute]').value,'cpu');
+ reloaded.w.testUI.selectStory('video-story');await reloaded.go('audio');assert.equal(reloaded.q('[name=compute]').value,'cpu');reloaded.close();
 });
-test('Audio and previews use A100 independently of image GPU, and never fall back when the selected compute is unavailable',async()=>{
+test('Audio and previews honor explicit A100 or B200 choices and never fall back from unavailable compute',async()=>{
  const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const {calls,adapter}=connect(x);x.w.testUI.setGPU(false);
- input(x,'[data-single-script]','नमस्ते।');x.q('#generate-audio').click();await tick();assert.equal(calls.length,1);assert.equal(calls[0].compute,'a100');assert.equal(x.q('#gpu-picker-dialog'),null);
- x.q('[data-preview-voice]').click();input(x,'#audio-voice-preview-dialog textarea','नमस्ते।');x.q('#audio-voice-preview-generate').click();await tick();assert.equal(calls[1].compute,'a100');x.q('#audio-voice-preview-dialog [data-close]').click();
- input(x,'[name=compute]','cpu','change');x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,2);assert.match(x.q('#notice').textContent,/CPU audio generation is not enabled/);
- input(x,'[name=compute]','a100','change');adapter.status=async()=>({routing_version:1,compute:{a100:{ready:false},b200:{ready:true}}});x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,2);assert.match(x.q('#notice').textContent,/A100 audio worker is not connected/);
- adapter.status=async()=>({ready:true});x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,2);assert.match(x.q('#notice').textContent,/needs an update/);
+ input(x,'[data-single-script]','नमस्ते।');
+ for(const target of ['a100','b200']){
+  input(x,'[name=compute]',target,'change');x.q('#generate-audio').click();await tick();assert.equal(calls.at(-1).compute,target);assert.equal(x.q('#gpu-picker-dialog'),null);
+  x.q('[data-preview-voice]').click();input(x,'#audio-voice-preview-dialog textarea','नमस्ते।');x.q('#audio-voice-preview-generate').click();await tick();assert.equal(calls.at(-1).compute,target);x.q('#audio-voice-preview-dialog [data-close]').click();
+ }
+ assert.equal(calls.length,4);
+ input(x,'[name=compute]','cpu','change');x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,4);assert.match(x.q('#notice').textContent,/CPU audio generation is not enabled/);
+ input(x,'[name=compute]','a100','change');adapter.status=async()=>({routing_version:1,compute:{a100:{ready:false},b200:{ready:true}}});x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,4);assert.match(x.q('#notice').textContent,/A100 audio worker is not connected/);
+ adapter.status=async()=>({ready:true});x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,4);assert.match(x.q('#notice').textContent,/needs an update/);
  x.close();
 });
 const audioDraft=x=>JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:audio-story'));
-const connect=x=>{const calls=[],adapter={storageIndependentOfGPU:true,status:async()=>({routing_version:1,compute:{a100:{ready:true},cpu:{ready:false,reason:'CPU audio generation is not enabled yet.'},b200:{ready:true}}}),list:async()=>[],generate:async body=>{calls.push(body);return{id:'test-job'};},job:async()=>({id:'test-job',status:'done',asset_id:'test-audio'}),mediaURL:async()=> 'https://media.example.test/audio.wav',download:async()=>{}};x.w.testUI.setGPU(true);x.w.EccoAudioStudio.connect(adapter);return{calls,adapter};};
+const connect=x=>{const calls=[],adapter={storageIndependentOfGPU:true,status:async()=>({routing_version:1,compute:{a100:{ready:true},cpu:{ready:false,reason:'CPU audio generation is not enabled yet.'},b200:{ready:true}}}),list:async()=>[],generate:async body=>{calls.push(body);return{id:'test-job'};},job:async()=>({id:'test-job',status:'done',asset_id:'test-audio'}),mediaURL:async()=> 'https://media.example.test/audio.wav',download:async()=>{}};input(x,'[name=compute]','a100','change');x.w.testUI.setGPU(true);x.w.EccoAudioStudio.connect(adapter);return{calls,adapter};};
 test('Audio controls use named speakers, all 23 model languages, four real voices and AI delivery guidance',async()=>{
  const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');x.q('[data-open-controls]').click();
  assert.equal(x.q('#generation-controls-dialog h2').textContent,'Additional Controls');
@@ -166,3 +170,4 @@ test('Chatterbox generation and preview carry model, voice, language and express
  x.q('[data-preview-voice]').click();input(x,'#audio-voice-preview-dialog textarea','Hello.');x.q('#audio-voice-preview-generate').click();await tick();
  assert.equal(calls[1].model,'chatterbox');assert.equal(calls[1].exaggeration,0.8);assert.deepEqual(x.errors,[]);x.close();
 });
+
