@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -40,6 +41,14 @@ def public(job):
 
 def generate(body, env):
     with LOCK:
+        supplied_id = body.get('request_id')
+        signature = hashlib.sha256(json.dumps(body,sort_keys=True).encode()).hexdigest()
+        if supplied_id:
+            if not isinstance(supplied_id,str) or not re.fullmatch('[a-f0-9]{32}',supplied_id): raise env['Problem']('Invalid request ID.')
+            existing = next((j for j in env['records']('longcat_job') if j['id']==supplied_id),None)
+            if existing:
+                if existing.get('submission_hash')!=signature: raise env['Problem']('Request ID conflict.',409)
+                return public(existing)
         sid = env['story_id'](body)
         pod = str(body.get('gpu',''))
         if not any(w['pod']==pod for w in status()['workers']):
@@ -53,22 +62,28 @@ def generate(body, env):
                 raise env['Problem']('Select an available '+kind+' from your library.')
         audio_path = env['asset_path'](audio)
         duration = float(probe(audio_path)['format']['duration'])
-        if not 0.2<=duration<=10: raise env['Problem']('Choose dialogue between 0.2 and 10 seconds for this shot.')
+        audio_start=float(body.get('audio_start',0));audio_end=float(body.get('audio_end',duration))
+        if not math.isfinite(audio_start) or not math.isfinite(audio_end) or audio_start<0 or audio_end>duration+.01 or audio_end<=audio_start: raise env['Problem']('Invalid audio boundaries.')
+        duration=audio_end-audio_start
+        if not 0.2<=duration<=10.01: raise env['Problem']('Choose dialogue between 0.2 and 10 seconds for this shot.')
         resolution = body.get('resolution','832x480')
         if resolution not in ('832x480','1280x720'): raise env['Problem']('Unsupported LongCat resolution.')
         seed = int(body.get('seed',42))
         if not 0<=seed<=2147483647: raise env['Problem']('Seed must be between 0 and 2147483647.')
         if any(j.get('status') in ('queued','running') for j in env['records']('longcat_job')):
             raise env['Problem']('A LongCat shot is already running. Wait for it to finish.',429)
-        jid = uuid.uuid4().hex; directory = QUEUE/jid
+        jid = supplied_id or uuid.uuid4().hex; directory = QUEUE/jid
         directory.mkdir(parents=True,mode=0o700)
         # The browser provides asset IDs only; private filesystem paths never leave this service.
         shutil.copyfile(env['asset_path'](image),directory/'image.png')
-        shutil.copyfile(audio_path,directory/'audio-source')
+        if audio_start or 'audio_end' in body:
+            subprocess.run(['ffmpeg','-y','-v','error','-ss',str(audio_start),'-i',str(audio_path),'-t',str(duration),'-ac','1','-ar','16000','-f','wav',str(directory/'audio-source')],check=True,timeout=30)
+        else:
+            shutil.copyfile(audio_path,directory/'audio-source')
         request = dict(prompt=prompt,pod=pod,resolution=resolution,seed=seed,duration=duration)
         job = dict(id=jid,kind='longcat_job',media='video',model=MODEL,story_id=sid,
                    title='LongCat dialogue shot',label='Video · LongCat',created=time.time(),
-                   status='queued',progress='Queued',request=request)
+                   status='queued',progress='Queued',request=request,submission_hash=signature)
         env['save'](job)
         write(directory/'status.json',{'status':'queued'})
         write(directory/'request.json',request)
@@ -153,3 +168,4 @@ def worker():
         time.sleep(2)
 
 if __name__=='__main__': worker()
+
