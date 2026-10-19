@@ -467,3 +467,21 @@ body>aside :is(#workspace-library-group,#workspace-production-group).workspace-l
 body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary>.library-symbol{
  display:inline-block!important;position:static!important;flex:0 0 12px;width:12px;text-align:center;
 }
+
+/* Library categories and label contents use yellow signs instead of bullets. */
+body>aside #workspace-library-group .workspace-library>summary>.library-symbol{display:none!important}
+body>aside #workspace-library-group .workspace-library>summary::before,
+body>aside #workspace-library-group .tree-branch-row::before,
+body>aside #workspace-library-group [data-library-marker].tree-folder::before{
+ content:'+'!important;display:block!important;position:absolute;left:8px;top:50%;
+ transform:translateY(-50%);width:12px;height:18px;line-height:18px;
+ font-size:17px;font-weight:400;text-align:center;border-radius:0;
+ color:var(--accent,#ffdc24)!important;background:transparent!important;pointer-events:none;
+}
+body>aside #workspace-library-group .tree-branch-row{position:relative;padding-left:26px}
+body>aside #workspace-library-group .tree-branch-row::before,
+body>aside #workspace-library-group [data-library-marker].tree-folder::before{content:attr(data-library-marker)!important}
+body>aside #workspace-library-group .tree-branch-row .tree-folder::before,
+body>aside #workspace-library-group .tree-branch-toggle::before{display:none!important}
+body>aside #workspace-library-group .tree-branch-row .tree-folder{padding-left:0!important}
+body>aside #workspace-library-group .tree-branch-toggle{position:absolute;left:0;top:0;height:100%!important;width:26px!important;min-width:26px!important;padding:0!important;background:transparent!important;z-index:1}
