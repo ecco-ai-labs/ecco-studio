@@ -6,6 +6,41 @@
  let key=sessionStorage.getItem('ecco-storage-access')||'';
  const compact=document.createElement('style');compact.textContent='#storage-access-dialog{width:min(480px,calc(100vw - 32px))}#storage-access-dialog .row{justify-content:flex-end;flex-wrap:wrap;gap:8px}#storage-access-dialog .row>button{flex:0 0 auto;padding:6px 10px;font-size:12px;min-height:30px}#storage-access-dialog .storage-key-field{position:relative;display:block}#storage-access-dialog .storage-key-field input{padding-right:42px}#storage-access-dialog .storage-key-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:30px;height:30px;padding:5px;background:transparent;color:var(--muted)}#storage-access-dialog .storage-key-toggle svg{width:18px;height:18px}#storage-access-dialog [data-disconnect]{margin-right:auto;background:transparent;color:var(--muted)}';document.head.append(compact);
  const gpuAPI=api;
+
+ const inference=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel']);
+ let gpuHealth=[],gpuChecked=0,selectedGPU=localStorage.getItem('ecco-selected-gpu')||'';
+ function acceptGPUHealth(value){
+  gpuHealth=value?.gpus||[];gpuChecked=Date.now();
+  if(!selectedGPU){const ready=gpuHealth.filter(g=>g.ready);if(ready.length===1){selectedGPU=ready[0].id;localStorage.setItem('ecco-selected-gpu',selectedGPU);}}
+ }
+ const selectedHealth=()=>gpuHealth.find(g=>g.id===selectedGPU);
+ window.EccoGPUConnection={
+  get ready(){return Boolean(key)&&Date.now()-gpuChecked<60000&&Boolean(selectedHealth()?.ready);},
+  async check(gpu){
+   acceptGPUHealth(await storageRequest('gpu/status'));
+   const item=gpuHealth.find(g=>g.id===gpu.id);
+   return item?.ready?{kind:'ready',title:'Running · Connected service',detail:'Ready for generation. No connection window required.'}:{kind:'unknown',title:'Unavailable',detail:'Studio reconnects automatically when the GPU service returns.'};
+  },
+  async select(gpu){const status=await this.check(gpu);if(status.kind!=='ready')throw Error('This accelerator is unavailable.');selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);await refresh();},
+ };
+ gpuConnected=()=>window.EccoGPUConnection.ready;
+ async function inferenceRequest(path,body){
+  const request_id=crypto.randomUUID().replaceAll('-',''),gpu=selectedGPU;
+  const payload={gpu,path,body,request_id};
+  let accepted;
+  // Only retry the same idempotency key; never create a second generation.
+  for(let attempt=0;attempt<2;attempt++){try{accepted=await storageRequest('gpu/request',payload);break;}catch(error){if(attempt)throw error;await new Promise(r=>setTimeout(r,1000));}}
+  const deadline=Date.now()+180000;
+  while(Date.now()<deadline){
+   let response;try{response=await storageRequest('gpu/requests/'+gpu+'/'+accepted.id);}
+   catch(error){await new Promise(r=>setTimeout(r,2000));continue;}
+   if(response.status==='done')return response.result;
+   if(response.status==='error')throw Error(response.error);
+   await new Promise(r=>setTimeout(r,700));
+  }
+  throw Error('GPU submission is still unconfirmed. Check Activity before retrying; Studio has not submitted a duplicate.');
+ }
+
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','youtube/connect','youtube/publish','github/sync','billing/connect','billing/refresh']);
  window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,reportError};
  // Present CPU-owned audio jobs through the shared Activity job view.
@@ -63,11 +98,13 @@
   }
  }
  api=async function(path,body){
+  if(inference.has(path))return inferenceRequest(path,body);
   if(generation.has(path))return gpuAPI(path,body);
   const data=await storageRequest(path,body);
   if(path==='state'){
    verified=true;errorShown=false;connectAudio();
-   if(gpuConnected()){try{const gpu=await gpuAPI('state');data.config={...data.config,...gpu.config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner};}catch{data.config.runtime={};}}
+   acceptGPUHealth(data.config.gpu_relay);
+   if(gpuConnected())data.config={...data.config,...selectedHealth().config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay};
   }
   return data;
  };
