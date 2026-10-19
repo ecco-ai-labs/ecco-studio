@@ -67,10 +67,10 @@
   settingsFields(c);
  }
  function sync(c){
-  const refs=selected(c),box=q('[data-selected]',c.form);
-  if(box){box.innerHTML=refs.map((a,i)=>'<div class="generation-selected-item"><button type="button" class="secondary generation-thumb" data-ref-open="'+esc(a.id)+'" title="'+esc(a.title||'Reference '+(i+1))+'">'+thumb(a)+'<span>Selected '+(i+1)+'</span></button><button type="button" class="secondary generation-remove" data-ref-remove="'+esc(a.id)+'" aria-label="Remove reference '+(i+1)+'">×</button></div>').join('');
-  all('[data-ref-open]',box).forEach(b=>b.onclick=()=>referenceKind(c)==='audio'?referencePicker(c):openControls(c,b.dataset.refOpen));
-  all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{setReferences(c,referenceIds(c).filter(id=>id!==b.dataset.refRemove));});
+  const refs=c.kind==='video'?['image','video','audio'].flatMap(kind=>selected({...c,data:{...c.data,reference_library:kind}})):selected(c),box=q('[data-selected]',c.form);
+  if(box){box.innerHTML=refs.map((a,i)=>'<div class="generation-selected-item"><button type="button" class="secondary generation-thumb" data-ref-open="'+esc(a.id)+'" title="'+esc(a.title||'Reference '+(i+1))+'">'+thumb(a)+'<span>'+esc(a.media)+' '+(i+1)+'</span></button><button type="button" class="secondary generation-remove" data-ref-remove="'+esc(a.id)+'" aria-label="Remove reference '+(i+1)+'">×</button></div>').join('');
+  all('[data-ref-open]',box).forEach(b=>b.onclick=()=>{const a=record(b.dataset.refOpen);if(a?.media==='image')openControls(c,b.dataset.refOpen);else{c.data.reference_library=a?.media||'audio';q('[data-reference-library]',c.form).value=c.data.reference_library;save(c);referencePicker(c);}});
+  all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{const kind=record(b.dataset.refRemove)?.media||referenceKind(c),scope={...c,data:{...c.data,reference_library:kind}};setReferences(c,referenceIds(scope).filter(id=>id!==b.dataset.refRemove),kind);});
   }
   const text=c.kind==='audio'?all('textarea[data-field=text]',c.form).map(x=>x.value).join('\n'):q('textarea[name=prompt]',c.form)?.value||'';
   q('[data-prompt-summary]',c.form).textContent=text.trim()||(c.kind==='audio'?'Write the words to be spoken, or generate a script with AI.':'Add what you want to generate.');
@@ -85,16 +85,16 @@
    if(!has&&c.model.value==='qwen-image-edit-2511'){c.model.value=c.data.newImageModel||'sdxl';c.model.dispatchEvent(new Event('change'));}
   }
  }
- function setReferences(c,ids){
-  const key=referenceKind(c)==='audio'?'audio_reference_ids':referenceKind(c)==='video'?'video_reference_ids':'reference_ids';
+ function setReferences(c,ids,kind=referenceKind(c)){
+  const key=kind==='audio'?'audio_reference_ids':kind==='video'?'video_reference_ids':'reference_ids';
   const available=key==='video_reference_ids'?new Set(libraryVideos().map(a=>a.id)):null;
-  c.data[key]=[...new Set(ids)].filter(id=>!available||available.has(id)).slice(0,referenceKind(c)==='audio'?1:configs[c.kind].limit);
-  if(referenceKind(c)!=='audio')for(const id of c.data[key])ensureObjects(c,id);
+  c.data[key]=[...new Set(ids)].filter(id=>!available||available.has(id)).slice(0,configs[c.kind].limit);
+  if(kind!=='audio')for(const id of c.data[key])ensureObjects(c,id);
   save(c);document.dispatchEvent(new Event('ecco-reference-change'));
  }
  function referencePicker(c){
   let d=q('#generation-library-picker');if(d)d.remove();d=document.createElement('dialog');d.id='generation-library-picker';d.className='generation-dialog';document.body.append(d);
-  const chosen=new Set(referenceIds(c)),kind=referenceKind(c),limit=kind==='audio'?1:configs[c.kind].limit,plural=kind==='audio'?'recordings':kind+'s',library=kind==='audio'?'Audio Library':kind==='video'?'Video Library':'Image Library';
+  const chosen=new Set(referenceIds(c)),kind=referenceKind(c),limit=configs[c.kind].limit,plural=kind==='audio'?'recordings':kind+'s',library=kind==='audio'?'Audio Library':kind==='video'?'Video Library':'Image Library';
   const images=kind==='video'?libraryVideos():state.records.filter(a=>a.kind==='asset'&&a.media===kind&&!a.deleted);
   const folders=state.records.filter(a=>a.kind===kind+'_folder'&&!a.deleted);
   d.innerHTML='<div class="form"><div class="section-head"><h2>'+library+'</h2><button type="button" class="secondary" data-cancel>Cancel</button></div><div class="generation-filter-row">'+field('Search','<input type="search" data-search placeholder="Find '+(kind==='audio'?'a recording':kind==='image'?'an image':'a video')+'">')+field('Label','<select data-label><option value="">All '+plural+'</option>'+folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>').join('')+'</select>')+'</div><p class="help">Select up to '+limit+' '+plural+'.</p><div class="generation-picker-grid" data-grid></div><p role="status" data-count></p><div class="row"><button type="button" data-use>Use selected '+plural+'</button></div></div>';
@@ -200,7 +200,8 @@
  }
  async function submitGeneration(c){
   const button=q('#generate-'+c.kind,c.form),status=q('#'+configs[c.kind].status,c.form);if(c.submitting||button.disabled)return;
-  if(c.kind==='video'&&referenceKind(c)==='video'){if(!referenceIds(c).length)referencePicker(c);else notice('Video references are saved. Generation from video references is not connected yet.',true);return;}
+  if(c.kind==='video'&&(c.data.audio_reference_ids||[]).length){notice('Audio references require the audio-driven video service.',true);return;}
+  if(c.kind==='video'&&(c.data.video_reference_ids||[]).length){if(!referenceIds(c).length)referencePicker(c);else notice('Video references are saved. Generation from video references is not connected yet.',true);return;}
   if(!gpuConnected()){connectGPU(button.id);return;}
   if(!window.EccoStorage?.ready){window.EccoAI?.connections();return;}
   const text=q('textarea[name=prompt]',c.form).value.trim();
