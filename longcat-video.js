@@ -26,7 +26,7 @@
   label.append(audio);
   const hint=document.createElement('p');hint.className='help';hint.textContent='One reference image + 0.2–10 seconds of dialogue. The audio determines shot length. Use a clean voice recording.';
   const section=document.createElement('div');section.append(label,hint);form.querySelector('[data-section="references"]').append(section);
-  const show=()=>{section.hidden=model.value!==id;};model.addEventListener('change',show);show();
+  const show=()=>{const active=model.value===id;section.hidden=!active;const seconds=form.querySelector('[data-video-seconds]')?.closest('label');if(seconds)seconds.hidden=active;};model.addEventListener('change',show);show();
   const originalSubmit=form.onsubmit;
   form.onsubmit=async event=>{
    if(model.value!==id)return originalSubmit.call(form,event);
