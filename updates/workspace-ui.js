@@ -210,10 +210,10 @@
   const fresh=hardwareVerifiedAt&&Date.now()-hardwareVerifiedAt<45000;
   const names=hardware?.status==='detected'?hardware.devices.map(d=>d.name):[];
   const isConnected=typeof gpuConnected==='function'&&gpuConnected();
-  const text=!isConnected?'Accelerator not connected':fresh&&names.length?names.join(' + ')+' · Connected':names.length?names.join(' + ')+' · Connection unverified':'Accelerator · Unverified';
+  const text=!isConnected?'Accelerator not connected':(fresh&&names.length?names.join(' + '):'Accelerator')+' · Connected';
   let badge=q('#connected-accelerator');const header=q('main > header .header-right');
   if(!badge&&header){badge=document.createElement('span');badge.id='connected-accelerator';badge.className='badge';badge.setAttribute('role','img');header.prepend(badge);}
-  if(badge){badge.classList.toggle('accelerator-connected',Boolean(isConnected&&fresh&&names.length));if(!badge.querySelector('svg'))badge.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></svg>';badge.setAttribute('aria-label',isConnected&&fresh&&names.length?'GPU connected':'GPU not connected');}
+  if(badge){badge.classList.toggle('accelerator-connected',Boolean(isConnected));if(!badge.querySelector('svg'))badge.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></svg>';badge.setAttribute('aria-label',isConnected?'GPU connected':'GPU not connected');}
   const form=q('#video-form');let status=q('#video-accelerator');
   if(form&&!form.dataset.generationStudio&&!status){status=document.createElement('p');status.id='video-accelerator';status.className='help';status.setAttribute('role','status');form.prepend(status);}
   if(status)status.textContent=text;
