@@ -66,7 +66,7 @@
   const remove=q('#delete-story');if(remove)remove.onclick=()=>action(async()=>{await api('stories/archive',{story_id:activeStory});await refresh();draft=loadDraft();navigate('images');notice('Story moved to Trash.');});const d=disclosure('Story Library','ecco-story-library-expanded'),body=d.querySelector('.workspace-library-content');
   for(const el of [...box.children])el.hidden=true;
   const storyRecords=records().filter(r=>r.kind==='story'&&!r.deleted);
-  const options=[...select.options].sort((a,b)=>(storyRecords.find(r=>r.id===a.value)?.created||0)-(storyRecords.find(r=>r.id===b.value)?.created||0));
+  const options=[...select.options].filter(option=>option.value).sort((a,b)=>(storyRecords.find(r=>r.id===a.value)?.created||0)-(storyRecords.find(r=>r.id===b.value)?.created||0));
   const selected=options.find(o=>o.value===select.value);
   for(const option of options){const b=document.createElement('button');b.type='button';b.className='tree-folder';b.textContent='− '+option.textContent;b.classList.toggle('selected',option.value===select.value);b.onclick=()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));};body.append(b);}
   let localStories=[];try{localStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]');}catch{}
@@ -291,13 +291,15 @@
   saved.story_format=['audio','video'].includes(saved.story_format)?saved.story_format:(saved.cloudId?'video':'');
   localStorage.setItem(key,JSON.stringify(saved));
   persistDraft();activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);
-  draft=activeStory?loadDraft():{title:saved.title||'',story:saved.sourceText||saved.summary||'',scenes:[]};draft.story_format=saved.story_format;persistDraft();
+  draft=activeStory?loadDraft():{...loadDraft(),title:saved.title||'',story:saved.sourceText||saved.summary||''};draft.story_format=saved.story_format;persistDraft();
   const genres=['News','Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
   q('#page').innerHTML='<form id="story-setup-form" class="form"><label data-story-format>Story Format<select name="story_format" required><option value="">Choose Audio or Video</option><option value="audio">Audio</option><option value="video">Video</option></select></label><label>Story Title<input name="title" maxlength="160" required placeholder="Enter your story title"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story Idea / Summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & Continue to Storyboard</button></div><p role="status" data-story-status></p></form>';
   const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');form.dataset.draftKey=key;
   for(const name of ['story_format','title','genre','summary'])form.elements[name].value=saved[name]||'';
-  selectedJourneyStory=activeStory;
-  const save=event=>{if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){productionGroup();journeyGuide();}status.textContent='';return data;};
+  if(savedId)selectedJourneyStory=activeStory;
+  // Restoring draft text is not a format choice in a new browser session.
+  if(selectedJourneyStory!==activeStory)form.elements.story_format.value='';
+  const save=event=>{if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
@@ -470,11 +472,11 @@
  function creditsDialog(){let d=q('#workspace-credits-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-credits-dialog';document.body.append(d);}d.innerHTML='<div class="form"><div class="section-head"><h2>Credits &amp; Usage</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Your generation allowance and usage.</p><dl class="credits-details"><dt>Starting allowance</dt><dd>500 credits per user</dd><dt>Available balance</dt><dd>Available after sign-in is connected</dd><dt>Credits used</dt><dd>Not tracked yet</dd><dt>Renewal</dt><dd>Not configured</dd></dl><p role="status">Per-user quotas are not active yet. Google Workspace sign-in and server-side credit tracking must be connected before credits can be granted or deducted.</p></div>';d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();}
  function accountCredits(){const menu=q('[data-category="Account"] .workspace-menu-items');if(!menu||q('#workspace-credits'))return;const b=document.createElement('button');b.id='workspace-credits';b.type='button';b.textContent='Credits & Usage';b.onclick=()=>{menu.closest('details').open=false;creditsDialog();};menu.prepend(b);}
  function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
- if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);const picker=q('#story-picker'),selectStory=picker?.onchange;if(selectStory)picker.onchange=function(event){const selected=selectStory.call(this,event);selectedJourneyStory=activeStory;productionGroup();journeyGuide();if(storyFormat()==='audio')navigate('board');return selected;};modernize();return result;};}
+ if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);const picker=q('#story-picker'),selectStory=picker?.onchange;if(selectStory)picker.onchange=function(event){const selected=selectStory.call(this,event);selectedJourneyStory=activeStory||undefined;productionGroup();journeyGuide();if(activeStory&&storyFormat()==='audio')navigate('board');return selected;};modernize();return result;};}
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!e.composedPath().includes(d))d.open=false;});});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
- window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog,selectJourneyStory(id){selectedJourneyStory=id;productionGroup();journeyGuide();}};
+ window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog,selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
  const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
  modernize();welcomePage();
 })();
@@ -628,6 +630,7 @@
 #connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
 #connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
 `;document.head.append(style);})();
+
 
 
 

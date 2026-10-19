@@ -2,7 +2,7 @@
 (() => {
  const q=s=>document.querySelector(s),key='ecco-story-collections-v1';
  const read=()=>{try{return JSON.parse(localStorage.getItem(key))||{collections:[],members:{}};}catch{return {collections:[],members:{}};}};
- let selected=localStorage.getItem('ecco-selected-collection')||'';
+ let selected=''; // Choose the collection for this session explicitly.
  const save=data=>localStorage.setItem(key,JSON.stringify(data));
  function assign(id,collection){const data=read();if(collection&&data.collections.some(c=>c.id===collection))data.members[id]=collection;else delete data.members[id];save(data);}
  function titleName(story){try{return JSON.parse(localStorage.getItem('ecco-board-draft:'+story.id)||'{}').title||story.title;}catch{return story.title;}}
@@ -41,5 +41,6 @@
  window.EccoStoryCollections={assign,show};
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});mount();
 })();
+
 
 
