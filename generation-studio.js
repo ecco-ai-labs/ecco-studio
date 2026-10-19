@@ -196,7 +196,7 @@
   connectModel(c);promptActions(c);if(kind==='audio')audioLines(form);
   if(kind==='image'&&refinementSource){c.data.reference_ids=[refinementSource.id];q('textarea[name=prompt]',form).value=refinementSource.prompt||'';c.data.prompt=refinementSource.prompt||'';}
   if(kind!=='audio')form.onsubmit=e=>{e.preventDefault();submitGeneration(c);};
-  if(kind==='video'){submit.disabled=false;updateVideoStatus();const hint=q('#video-gallery .empty .help');if(hint)hint.textContent='Select images or load a storyboard in Model Settings, then generate video.';}
+  if(kind==='video'){submit.disabled=false;updateVideoStatus();}
   sync(c);
  }
  async function submitGeneration(c){
