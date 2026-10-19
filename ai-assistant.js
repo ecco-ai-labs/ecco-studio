@@ -93,6 +93,7 @@
   for(const [id,[stage,selector]] of Object.entries(forms))add(q('#'+id),stage,selector);
   add(q('#page'),'storyboard','#board-title,#story-text,#scenes textarea[data-field="motion"],#scenes textarea[data-field="narration"],#scenes input[data-subject-field="description"],#scenes input[data-subject-field="action"]');
   for(const shot of document.querySelectorAll('.director-shot'))add(shot,'storyboard','textarea[data-dfield]');
+  add(q('#video-flow [data-step="3"]'),'audio','textarea[data-transcript]');
   const objectPrompt=q('#oe-instruction');add(objectPrompt?.closest('dialog'),'image','#oe-instruction,#oe-ai-fields input');
   return result;
  }
