@@ -61,7 +61,7 @@ body.workspace-entry-mode #connection-indicators{display:none!important}
 #story-entry-panel .workspace-menu-items .row{display:flex;flex-direction:column;align-items:stretch;gap:6px}
 #story-pdf-tools[hidden]{display:none!important}
 
-:is(#page,#video-shot-controls) .ai-selected-field{border-color:var(--accent,#ffdc24)!important;outline:1px solid var(--accent,#ffdc24);outline-offset:1px}
+:is(#page,#video-shot-controls,#video-audio-script) .ai-selected-field{border-color:var(--accent,#ffdc24)!important;outline:1px solid var(--accent,#ffdc24);outline-offset:1px}
 :is(#storyboard-ai-toolbar,#story-description-ai,#video-flow-ai)>button{flex:0 0 auto;width:auto}
 
 :is(#storyboard-ai-toolbar,#story-description-ai,#video-flow-ai).storyboard-ai-floating{position:fixed;right:24px;bottom:28px;z-index:110}
@@ -76,3 +76,6 @@ body:not(.workspace-entry-mode) #save-board.storyboard-save-continue{width:100%;
 #page .storyboard-save-row{display:block;width:100%}
 body:not(.workspace-entry-mode) #page #save-board.storyboard-save-continue{display:block;width:100%!important;max-width:none!important;box-sizing:border-box}
 
+
+#video-audio-script textarea{min-height:240px;resize:vertical}
+#video-audio-script .row{gap:8px;flex-wrap:wrap}
