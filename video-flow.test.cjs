@@ -11,7 +11,7 @@ function fixture(){
 }
 test('ordered steps, existing assets, camera/eye controls and AI video context reach the render',async()=>{
  const {w,calls,q}=fixture();
- assert.deepEqual([...w.document.querySelectorAll('[data-step]')].map(x=>x.dataset.step),['2','3','4','5','6']);
+ assert.deepEqual([...w.document.querySelectorAll('[data-step]')].map(x=>x.dataset.step),['2','3','4','5']);
  assert.equal(q('[data-transcript]').value,'Original words');
  const eye=q('[data-field=eye]');eye.value='Look left then blink';eye.dispatchEvent(new w.Event('input'));
  await q('[data-write]').onclick();assert.equal(calls[0].path,'ai/enhance');assert.deepEqual(Array.from(calls[0].body.video_reference_ids),['v']);assert.match(calls[0].body.fields[0].text,/Look left then blink/);
@@ -22,10 +22,41 @@ test('changing reference inputs invalidates previously analyzed video direction'
  const {calls,q}=fixture();await q('[data-write]').onclick();
  q('[data-brief]').value='A different scene';q('[data-brief]').oninput();
  await q('#video-form').onsubmit({preventDefault(){}});
- assert.equal(calls.length,1);assert.match(q('#video-status').textContent,/Regenerate/);
+ assert.equal(calls.length,3);assert.equal(calls[1].path,'ai/enhance');assert.equal(calls[2].path,'longcat/sequence');
 });
 test('selecting speech does not silently change model; incompatible render gives actionable feedback',async()=>{
  const {calls,q}=fixture();q('#job-model').value='wan-5b';await q('[data-write]').onclick();
  await q('#video-form').onsubmit({preventDefault(){}});
  assert.equal(q('#job-model').value,'wan-5b');assert.equal(calls.length,1);assert.match(q('#video-status').textContent,/Select LongCat/);
+});
+
+test('one library selector preserves selections and refreshed assets are visible',async()=>{
+ const {w,q}=fixture();
+ const old=w.api;w.api=async(path,body)=>path==='state'?{records:w.state.records,config:{}}:old(path,body);
+ await q('[data-browse]').onclick();
+ assert.equal(w.document.querySelectorAll('[data-asset-choice]').length,1);
+ assert.equal(q('[data-asset-choice]').dataset.assetChoice,'i');
+ q('[data-cancel]').onclick();q('[data-library]').value='audio';await q('[data-browse]').onclick();
+ assert.equal(q('[data-asset-choice]').dataset.assetChoice,'a');
+ assert.match(q('[data-list=image]').textContent,/Image Library: Avatar/);
+});
+test('audio from another story loads all 100 shots in a dropdown with one editor',()=>{
+ const {w,q}=fixture();
+ w.state.records.find(x=>x.id==='a').story_id='other-story';
+ w.state.records.push({id:'b',kind:'board',story_id:'other-story',title:'News',created:1,scenes:Array.from({length:100},(_,i)=>({title:'News '+i,seconds:1}))});
+ q('[data-load]').onclick();
+ assert.equal(q('[data-shot]').options.length,100);
+ assert.equal(w.document.querySelectorAll('[data-shots] fieldset').length,1);
+ assert.equal(w.document.querySelectorAll('[data-shots] input[type=checkbox]').length,0);
+ assert.equal(q('[data-transcript]').value,'Original words');
+ q('[data-shot]').value='99';q('[data-shot]').onchange();assert.equal(q('[data-shot]').value,'99');
+});
+test('recorded speech is submitted without requiring AI to rewrite a script',async()=>{
+ const {w,q,calls}=fixture();
+ const data=JSON.parse(w.localStorage.getItem('ecco-video-flow:s'));data.video_ids=[];
+ // Remove the video through the same public UI handler.
+ q('[aria-label="Remove video 1"]').onclick();
+ await q('#video-form').onsubmit({preventDefault(){}});
+ assert.equal(calls.length,1);assert.equal(calls[0].path,'longcat/sequence');
+ assert.deepEqual(Array.from(calls[0].body.audio_ids),['a']);assert.equal(q('[data-transcript]').value,'Original words');
 });
