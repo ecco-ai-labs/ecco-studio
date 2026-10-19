@@ -118,10 +118,10 @@
    for(const kind of ['image','video','audio']){
     const box=q('[data-list="'+kind+'"]',root);box.replaceChildren();box.hidden=kind!==q('[data-library]',root).value;box.style.display=box.hidden?'none':'';
     data[idsKey[kind]].forEach((id,i)=>{
-     const a=find(id,kind),card=document.createElement('div');card.className='generation-selected-item';
-     const label=document.createElement('span');label.textContent=kind[0].toUpperCase()+kind.slice(1)+' Library: '+(a?title(a):'Unavailable selection');
-     if(a){const preview=document.createElement(kind==='image'?'img':kind);preview.src=media(a);preview.dataset.asset=id;preview.style.cssText=kind==='audio'?'width:100%':'width:120px;height:90px;object-fit:contain';if(kind==='image')preview.alt=title(a);else{preview.controls=true;preview.preload='metadata';}card.append(preview);}
-     const remove=document.createElement('button');remove.type='button';remove.className='small secondary';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+kind+' '+(i+1));
+     const a=find(id,kind),card=document.createElement('div');card.className='generation-selected-item';card.style.cssText='position:relative;display:inline-flex;flex-direction:column;gap:4px;vertical-align:top;margin:4px;width:'+(kind==='audio'?'220px':'72px')+';';
+     const label=document.createElement('span');label.textContent=a?title(a):'Unavailable';label.title=label.textContent;label.style.cssText='font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%';
+     if(a){const preview=document.createElement(kind==='image'?'img':kind);preview.src=media(a);preview.dataset.asset=id;preview.style.cssText=kind==='audio'?'width:100%;height:32px':'width:72px;height:56px;object-fit:cover;border-radius:5px';if(kind==='image')preview.alt=title(a);else{preview.controls=true;preview.preload='metadata';}card.append(preview);}
+     const remove=document.createElement('button');remove.type='button';remove.className='small secondary';remove.textContent='×';remove.title='Remove selection';remove.style.cssText='position:absolute;right:-5px;top:-5px;width:20px;min-width:20px;height:20px;min-height:20px;padding:0;border-radius:50%;line-height:18px;font-size:16px;background:#292343;color:white;z-index:1';remove.setAttribute('aria-label','Remove '+kind+' '+(i+1));
      remove.onclick=()=>{data[idsKey[kind]].splice(i,1);persist();drawLists();drawShots();};
      card.append(label,remove);box.append(card);
     });
@@ -130,7 +130,7 @@
    const scriptKey=JSON.stringify(data.audio_ids);data.script_drafts=data.script_drafts||{};
    q('[data-transcript]',root).value=data.script_drafts[scriptKey]??scripts.filter(Boolean).join('\n\n');
    q('[data-script-source]',root).textContent=!scripts.length?'Select audio in Library to load its original script.':scripts.some(t=>!t)?'Some selected recordings have no saved generation script. Their audio will still be used unchanged.':'Original audio script · '+data.audio_ids.map(id=>title(find(id,'audio'))).join(' → ');
-   q('[data-audio-hint]',root).textContent='Choose images for your avatars, optional videos for visual reference, and audio for speech. Selections remain when switching libraries.';
+   q('[data-audio-hint]',root).hidden=true;q('[data-audio-hint]',root).textContent='';
    hydrateMedia();timing();
   }
   function audioScript(a,seen=new Set()){
