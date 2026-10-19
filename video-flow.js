@@ -26,7 +26,7 @@
   root.innerHTML=section(2,'Library','<div class="row"><select aria-label="Library" data-library><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select><button type="button" class="secondary" data-browse>Browse library</button></div><div data-list="image" class="generation-selected"></div><div data-list="video" class="generation-selected"></div><div data-list="audio" class="form"></div><p class="help" data-audio-hint></p>')+
    section(3,'Audio script','<p class="help" data-script-source>Select audio above to load the exact words used to generate it.</p><textarea aria-label="Audio script" data-transcript maxlength="4000" rows="5" placeholder="Your selected recording’s original script will appear here."></textarea><p class="help">AI edits the script text. To hear edited words or lip-sync them, generate a new recording in Audio Studio and select it here.</p>')+
    section(4,'Shots','<label>Storyboard<select data-board aria-label="Storyboard"></select></label><details data-shot aria-label="Shots" class="generation-settings"></details><div data-shots class="form"></div><p data-timing class="help"></p>')+
-   section(5,'Video prompt','<label>Describe the action and setting<textarea data-brief rows="3" maxlength="2000" placeholder="For example: The selected avatar presents the selected audio in a newsroom, looking into the camera."></textarea></label><button type="button" class="secondary" data-write>Improve shot prompts with AI · optional</button><p class="help">Use this for visual instructions. The audio script above supplies the spoken words.</p><div data-directions class="form"></div><p role="status" data-ai-status></p>');
+   section(5,'Video prompt','<label>Describe the action and setting<textarea data-brief rows="3" maxlength="2000" placeholder="For example: The selected avatar presents the selected audio in a newsroom, looking into the camera."></textarea></label><p class="help">Use this for visual instructions. The audio script above supplies the spoken words.</p><div data-directions class="form"></div><p role="status" data-ai-status></p>');
   button.textContent='Generate video';
   const legacyBoard=q('[name="board_id"]',form);if(legacyBoard){legacyBoard.required=false;legacyBoard.closest('label').hidden=true;}
   let shotIndex=0;
@@ -112,7 +112,7 @@
   }
   function drawDirections(){
    const box=q('[data-directions]',root);box.replaceChildren();
-   data.directions.forEach((text,i)=>{if(activeShots()[i]!==data.shots[shotIndex])return;const label=document.createElement('label');label.textContent='Visual prompt for selected shot';const area=document.createElement('textarea');area.rows=3;area.maxLength=1800;area.value=text;area.oninput=()=>{data.directions[i]=area.value;persist();};label.append(area);box.append(label);});
+   data.directions.forEach((text,i)=>{if(activeShots()[i]!==data.shots[shotIndex])return;const label=document.createElement('label');label.textContent='Visual prompt for selected shot';const area=document.createElement('textarea');area.dataset.shotDirection='';area.rows=3;area.maxLength=1800;area.value=text;area.oninput=()=>{data.directions[i]=area.value;persist();};label.append(area);box.append(label);});
   }
   function drawLists(){
    for(const kind of ['image','video','audio']){
@@ -172,13 +172,21 @@
   q('[data-browse]',root).onclick=()=>picker(q('[data-library]',root).value);
   q('[data-board]',root).onchange=loadBoard;
   const brief=q('[data-brief]',root);brief.value=data.brief||'';brief.oninput=()=>{data.brief=brief.value;persist();};
+  const aiMenu=document.createElement('details');aiMenu.className='storyboard-ai-floating';aiMenu.id='video-flow-ai';
+  aiMenu.innerHTML='<summary aria-label="AI assistance">AI</summary><div class="storyboard-ai-actions"><button type="button" class="secondary" data-generate>Generate with AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div>';
+  root.append(aiMenu);let selectedPrompt=brief;
+  root.addEventListener('focusin',event=>{if(event.target.matches('textarea')){root.querySelectorAll('.ai-selected-field').forEach(el=>el.classList.remove('ai-selected-field'));selectedPrompt=event.target;selectedPrompt.classList.add('ai-selected-field');}});
+  const selectedField=()=>selectedPrompt.isConnected?selectedPrompt:brief;
+  q('[data-generate]',aiMenu).onclick=()=>{aiMenu.open=false;window.EccoAI?.generateField(selectedField());};
+  q('[data-improve]',aiMenu).onclick=()=>{aiMenu.open=false;window.EccoAI?.improveField(selectedField());};
+  root.eccoAIContext=element=>({reference_ids:[...data.image_ids],video_reference_ids:[...data.video_ids],context:{model:model.value,summary:data.brief,scenes:element.matches('[data-motion],[data-shot-direction]')?[data.shots[shotIndex]]:activeShots(),lines:[{text:q('[data-transcript]',root).value}],instructions:element.matches('[data-transcript]')?'Write only spoken script text.':'Write visual instructions only. Preserve recorded speech; do not invent dialogue.'}});
   model.addEventListener('change',()=>{persist();drawLists();});
-  const write=q('[data-write]',root),aiStatus=q('[data-ai-status]',root);
+  const aiStatus=q('[data-ai-status]',root);let writingDirections=false;
   const shotPrompt=s=>[s.motion,...shotControlOptions.filter(([key])=>s[key]).map(([key,label])=>label+': '+s[key])].filter(Boolean).join('. ');
-  write.onclick=async()=>{
-   if(write.disabled)return;
+  const writeDirections=async()=>{
+   if(writingDirections)return false;
    const shots=activeShots(),snapshot=fingerprint();if(!shots.length){aiStatus.textContent='Add a shot first.';return;}
-   write.disabled=true;write.textContent='Writing direction script…';aiStatus.textContent='';
+   writingDirections=true;aiStatus.textContent='';
    try{
     const result=await api('ai/enhance',{stage:'video',mode:'generate',story_id:story,reference_ids:data.image_ids,video_reference_ids:data.video_ids,
      fields:shots.map((s,i)=>({id:'shot_'+i,text:shotPrompt(s),max_length:1800})),
@@ -189,7 +197,7 @@
     const byId=new Map(result.revisions?.map(r=>[r.id,r.text]));
     if(byId.size!==shots.length||shots.some((s,i)=>!byId.get('shot_'+i)))throw Error('AI returned an incomplete script. Your previous script is unchanged.');
     data.directions=shots.map((s,i)=>byId.get('shot_'+i));data.analyzed=snapshot;persist();drawDirections();aiStatus.textContent='Visual prompts updated. Original audio script unchanged.';return true;
-   }catch(e){aiStatus.textContent=e.message;return false;}finally{write.disabled=false;write.textContent='Improve shot prompts with AI · optional';}
+   }catch(e){aiStatus.textContent=e.message;return false;}finally{writingDirections=false;}
   };
   form.onsubmit=async e=>{
    e.preventDefault();if(ctx.submitting)return;
@@ -202,7 +210,7 @@
     if(model.value==='longcat-avatar-1.5'&&!data.audio_ids.length)throw Error('Select audio from Audio Library for LongCat.');
     ctx.submitting=true;setGenerationBusy(button,true,'Generating video…','Generate video');status.textContent='Preparing video…';
     if(data.analyzed!==fingerprint()||data.directions.length!==shots.length){
-     if(data.video_ids.length){status.textContent='Analyzing video references…';if(!await write.onclick())throw Error(aiStatus.textContent||'Could not analyze reference videos.');}
+     if(data.video_ids.length){status.textContent='Analyzing video references…';if(!await writeDirections())throw Error(aiStatus.textContent||'Could not analyze reference videos.');}
      else{data.directions=shots.map(s=>[data.brief,shotPrompt(s)].filter(Boolean).join('. '));data.analyzed=fingerprint();persist();drawDirections();}
     }
     let job;
@@ -225,4 +233,5 @@
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});
  mount();
 })();
+
 
