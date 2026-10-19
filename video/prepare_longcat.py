@@ -11,6 +11,7 @@ end=source.index('\ndef generate(args):',start)
 source=source[:start]+"    shutil.copyfile(source_path, target_path)\n    return target_path\n\n"+source[end:]
 source=source.replace('subfolder="base_model", cp_split_hw=cp_split_hw,','subfolder="base_model", enable_flashattn2=False, enable_flashattn3=False, enable_xformers=True, cp_split_hw=cp_split_hw,')
 source=source.replace('global_seed = 42','global_seed = int(os.environ.get("ECCO_LONGCAT_SEED", "42"))')
+source=source.replace('output = output[0]', "output = output[0]\n        assert np.isfinite(output).all(), 'Nonfinite decoded video; refusing invalid output'")
 (ROOT/'runner.py').write_text(source)
 compile(source,str(ROOT/'runner.py'),'exec')
 print('Runner prepared')
