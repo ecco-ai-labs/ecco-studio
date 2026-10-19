@@ -92,5 +92,6 @@
  const oldNavigate=navigate;navigate=function(p){if(p!=='audio-library')return oldNavigate.apply(this,arguments);document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page=p;q('#heading').textContent='Audio Library';document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));treeSignature='';tree();render();};
  const oldStoryControls=storyControls;storyControls=function(...args){const result=oldStoryControls.apply(this,args);sync();return result;};
  document.addEventListener('click',event=>{if(event.target.closest('#workspace-audio-library > summary')){selected='all';treeSignature='';}},true);
+ window.EccoAudioLibrary={add:labelDialog};
  tree();
 })();
