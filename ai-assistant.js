@@ -94,6 +94,7 @@
   add(q('#page'),'storyboard','#board-title,#story-text,#scenes textarea[data-field="motion"],#scenes textarea[data-field="narration"],#scenes input[data-subject-field="description"],#scenes input[data-subject-field="action"]');
   for(const shot of document.querySelectorAll('.director-shot'))add(shot,'storyboard','textarea[data-dfield]');
   add(q('#video-flow [data-step="3"]'),'audio','textarea[data-transcript]');
+  add(q('#video-flow'),'video','textarea[data-brief],textarea[data-motion],textarea[data-shot-direction]');
   const objectPrompt=q('#oe-instruction');add(objectPrompt?.closest('dialog'),'image','#oe-instruction,#oe-ai-fields input');
   return result;
  }
@@ -134,7 +135,8 @@
   return requestGeneration({label:binding.label,key:binding.stage+':'+(binding.element.id||binding.element.name||binding.element.dataset.field||binding.label),isValid:()=>binding.element.isConnected&&binding.scope.isConnected&&binding.element.value===original&&JSON.stringify(snapshotFor(binding))===snapshot,onGenerate:options=>improve({...binding,generationRequest:options})});
  }
  function snapshotFor(binding){
-  const shared=window.EccoGeneration?.aiContext(binding.scope,binding.element);
+  const flow=binding.element.closest('#video-flow')?.eccoAIContext?.(binding.element);
+  const shared=flow||window.EccoGeneration?.aiContext(binding.scope,binding.element);
   const context={...contextFor(binding.scope,binding.stage),...shared?.context};
   // Keep the target field's role clear, especially negative prompts and individual dialogue lines.
   context.instructions=binding.generateField?'Generate content for only the selected field: '+binding.label+'. Use the current story title and script as context. Return only the requested field content. Do not replace other fields.':binding.generateStory?'Generate a complete story summary from the instructions in this field. Follow the supplied title and genre. Return the story itself, not a rewritten prompt. Editable field: '+binding.label:'Editable field: '+binding.label;
@@ -146,7 +148,7 @@
    context.seconds=binding.scope.querySelector('[name="duration"]')?.value||'';
   }
   if(binding.scope.matches('.director-shot'))context.scenes=[Object.fromEntries([...binding.scope.querySelectorAll('[data-dfield]')].map(el=>[el.dataset.dfield,el.value]))];
-  return {context,...referencesFor(binding.scope,context)};
+  return {context,...referencesFor(binding.scope,context),...(flow?{reference_ids:flow.reference_ids,video_reference_ids:flow.video_reference_ids}:{})};
  }
  function validReview(review){
   if(review.version!==connectionVersion||!connection.enabled||!window.EccoStorage?.ready)throw Error('The AI connection changed. Request a new suggestion before applying.');
@@ -272,6 +274,7 @@
  setInterval(()=>{mount();if(q('#connection-dialog')?.open)renderConnection();},2000);
  mount();if(window.EccoStorage?.ready)readStatus().catch(()=>{});
 })();
+
 
 
 
