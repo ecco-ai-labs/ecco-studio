@@ -9,6 +9,25 @@
  const key=()=>`ecco-audio-draft:${activeStory}`;
  let draft,story,signature='',submitting=false,service=null,recordings=[],lastJob=null,polling=false;
  const serviceReady=()=>!!service;
+ let computeStatus=null,computeChecked=0;
+ function showComputeStatus(){
+  const note=q('[data-audio-compute-status]');if(!note||!draft)return;
+  const target=computeStatus?.compute?.[draft.compute];
+  note.textContent=draft.compute==='cpu'&&!target?.ready?'CPU audio generation is not enabled yet.':!service?'Connect workspace storage to check availability.':target?.ready?draft.compute.toUpperCase()+' connected':target?.reason||'Checking '+draft.compute.toUpperCase()+' availability…';
+ }
+ async function checkCompute(){
+  if(!service){computeStatus=null;showComputeStatus();return null;}
+  const current=service;
+  if(typeof current.status!=='function')throw Error('The audio service needs an update to support compute selection.');
+  const result=await current.status();
+  if(current!==service)throw Error('Storage disconnected.');
+  if(result?.routing_version!==1)throw Error('The audio service needs an update to support compute selection.');
+  computeStatus=result;computeChecked=Date.now();showComputeStatus();return result;
+ }
+ async function requireCompute(compute){
+  const result=await checkCompute();
+  if(!result?.compute?.[compute]?.ready)throw Error(result?.compute?.[compute]?.reason||compute.toUpperCase()+' audio worker is not connected.');
+ }
  for(const model of audioModels){
   MODEL_CATALOG[model.id]={name:model.name,license:model.license,defaults:{}};
   if(!MODEL_CATEGORIES.voice.models.includes(model.id))MODEL_CATEGORIES.voice.models.push(model.id);
@@ -31,6 +50,7 @@
   try{draft=JSON.parse(localStorage.getItem(key()));}catch{draft=null;}
   if(!draft||!Array.isArray(draft.lines)||!draft.lines.length)draft={title:'',speed:1,pitch:0,pause:0.35,lines:[blank()]};
   draft={title:'',speed:1,pitch:0,pause:0.35,...draft};
+  if(!['a100','cpu'].includes(draft.compute))draft.compute='a100';
   if(!audioModels.some(m=>m.id===draft.model))draft.model=audioModels[0].id;
   if(audioModels.some(m=>m.id===modelProfiles.selected.voice))draft.model=modelProfiles.selected.voice;
   if(!genres.includes(draft.genre))draft.genre=genres[0];
@@ -182,8 +202,8 @@
  function previewVoice(selected){
   clearPreview();q('#audio-voice-preview-dialog')?.remove();
   const d=document.createElement('dialog');d.id='audio-voice-preview-dialog';d.className='generation-dialog';d.setAttribute('aria-label','Voice Preview');
-  const settings={model:draft.model,...modelParameters(),genre:draft.genre,speed:draft.speed,pitch:draft.pitch,pause:0,story_id:activeStory,title:'Voice preview · '+(selected.name||'Narrator')},voice={voice:selected.voice,language:selected.language,emotion:selected.emotion};
-  d.innerHTML=`<div class="form"><div class="section-head"><h2>Voice Preview</h2><button type="button" class="secondary" data-close>Close</button></div><p>${esc(model().voices.find(v=>v.id===selected.voice)?.name)} · ${esc(selected.language)} · ${esc(selected.emotion)}</p><label>Preview text<textarea maxlength="300" rows="3" dir="auto" placeholder="Enter a short sample in the language you want to hear."></textarea></label><p class="help">Generates a short clip with the selected model. Uses GPU time and saves a preview recording. Dialect and speaking notes do not change this voice preset.</p><button type="button" id="audio-voice-preview-generate">Generate preview</button><p role="status"></p><audio controls preload="metadata" aria-label="Voice preview playback" hidden></audio></div>`;
+  const settings={model:draft.model,compute:draft.compute,...modelParameters(),genre:draft.genre,speed:draft.speed,pitch:draft.pitch,pause:0,story_id:activeStory,title:'Voice preview · '+(selected.name||'Narrator')},voice={voice:selected.voice,language:selected.language,emotion:selected.emotion};
+  d.innerHTML=`<div class="form"><div class="section-head"><h2>Voice Preview</h2><button type="button" class="secondary" data-close>Close</button></div><p>${esc(model().voices.find(v=>v.id===selected.voice)?.name)} · ${esc(selected.language)} · ${esc(selected.emotion)}</p><label>Preview text<textarea maxlength="300" rows="3" dir="auto" placeholder="Enter a short sample in the language you want to hear."></textarea></label><p class="help">Generates a short clip with the selected model. Uses the selected compute and saves a preview recording. Dialect and speaking notes do not change this voice preset.</p><button type="button" id="audio-voice-preview-generate">Generate preview</button><p role="status"></p><audio controls preload="metadata" aria-label="Voice preview playback" hidden></audio></div>`;
   document.body.append(d);const token={dialog:d,story:activeStory,timer:null};preview=token;
   const valid=()=>preview===token&&d.open&&d.isConnected&&page==='audio'&&activeStory===token.story;
   d.querySelector('[data-close]').onclick=()=>d.close();d.addEventListener('close',()=>{if(preview===token)clearPreview();d.remove();},{once:true});
@@ -191,11 +211,11 @@
   button.onclick=async()=>{
    if(button.disabled)return;
    const text=d.querySelector('textarea').value.trim();if(!text){status.textContent='Enter some preview text first.';return;}
-   if(!gpuConnected()){connectGPU(button.id);return;}
    if(!serviceReady()){window.EccoStorage?.open();return;}
    const current=service,started=Date.now();button.disabled=true;player.hidden=true;player.removeAttribute('src');status.textContent='Generating voice preview…';
    const fail=error=>{if(valid()){status.textContent=error.message||'Could not create the voice preview.';button.disabled=false;}};
    try{
+    await requireCompute(settings.compute);if(!valid()||current!==service)return;
     const job=await current.generate({...settings,lines:[{text,...voice}]});if(!valid()||current!==service)return;
     const check=async()=>{if(!valid()||current!==service)return;try{
      const result=await current.job(job.id);if(!valid()||current!==service)return;
@@ -236,6 +256,7 @@
    const next=await current.list({story_id:requestedStory});
    if(current!==service||requestedStory!==activeStory)return;
    recordings=next;
+   if(Date.now()-computeChecked>15000)await checkCompute();
    const id=localStorage.getItem('ecco-audio-job:'+requestedStory);
    lastJob=id?await current.job(id):null;
    update();
@@ -245,11 +266,12 @@
  // Never attach the legacy RunPod/Jupyter bridge here.
  window.EccoAudioStudio={generateScript,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
   if(!adapter||adapter.storageIndependentOfGPU!==true||!['list','generate','job','mediaURL','download'].every(name=>typeof adapter[name]==='function'))throw Error('An authenticated, GPU-independent audio service is required.');
-  service=adapter;recordings=[];lastJob=null;signature='';update();poll();
- },disconnect(){clearPreview();q('#audio-voice-preview-dialog')?.close();service=null;recordings=[];lastJob=null;signature='';update();}};
+  service=adapter;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();poll();
+ },disconnect(){clearPreview();q('#audio-voice-preview-dialog')?.close();service=null;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();}};
  function update(){
   if(page!=='audio'||!q('#audio-form'))return;
   if(story!==activeStory){render();return;}
+  showComputeStatus();
   const button=q('#generate-audio');
   const currentId=window.EccoGeneration?.jobId('audio',activeStory,lastJob);
   const job=lastJob?.id===currentId?lastJob:state?.records.find(r=>r.id===currentId);
@@ -268,18 +290,18 @@
  function render(){
   clearPreview();q('#audio-voice-preview-dialog')?.close();load();signature='';
   q('#page').innerHTML=`<section class="audio-studio"><p class="intro">Prepare narration or a conversation with named speakers.</p><div class="grid audio-workspace"><form id="audio-form" class="panel form"><div class="audio-model-controls model-summary"><label>Audio model<select name="model">${audioModels.map(model=>`<option value="${esc(model.id)}" ${draft.model===model.id?'selected':''}>${esc(model.name)}</option>`).join('')}</select></label><label>Genre<select name="genre">${options(genres,draft.genre)}</select></label></div><label>Recording title<input name="title" maxlength="160" value="${esc(draft.title)}" placeholder="Scene 1 · opening dialogue"></label><div id="audio-lines"></div><button type="button" class="secondary" id="add-audio-line">Add speaker turn</button><div class="audio-output-controls"><label>Speed<select name="speed">${[0.75,1,1.25,1.5].map(v=>`<option value="${v}" ${Number(draft.speed)===v?'selected':''}>${v}×</option>`).join('')}</select></label><label>Pitch<select name="pitch">${[-4,-2,0,2,4].map(v=>`<option value="${v}" ${Number(draft.pitch)===v?'selected':''}>${v>0?'+':''}${v} semitones</option>`).join('')}</select></label><label>Pause<select name="pause">${[0,0.35,0.75,1,2].map(v=>`<option value="${v}" ${Number(draft.pause)===v?'selected':''}>${v} seconds</option>`).join('')}</select></label></div><p class="help">Write in the original script for best pronunciation. Language does not translate text. Controls and voice choices follow the selected model. Voice presets may carry an accent; dialect quality varies.</p><div class="row"><button id="generate-audio">Generate audio</button><span class="help">Draft saved in this browser · up to 4,000 characters</span></div><p id="audio-job-status" role="status"></p></form></div></section>`;
+  q('#audio-form').insertAdjacentHTML('afterbegin',`<div data-audio-compute><select name="compute" aria-label="Audio compute" aria-describedby="audio-compute-status"><option value="a100" ${draft.compute==='a100'?'selected':''}>A100</option><option value="cpu" ${draft.compute==='cpu'?'selected':''}>CPU</option></select><p id="audio-compute-status" class="help" data-audio-compute-status role="status"></p></div>`);
   drawLines();
   q('#add-audio-line').onclick=()=>{if(draft.presentation==='conversation'&&draft.lines.length<20){const previous=draft.lines.at(-1).speaker_id,next=draft.speakers[(draft.speakers.findIndex(s=>s.id===previous)+1)%draft.speakers.length];draft.lines.push({text:'',speaker_id:next.id});save();drawLines();drawControls();}};
-  q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'){draft[e.target.name]=['title','model','genre'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
-  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);});
+  q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'){draft[e.target.name]=['title','model','genre','compute'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
+  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='compute'){draft.compute=e.target.value;save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
   q('#audio-form').onsubmit=async e=>{
    e.preventDefault();save();
    if(submitting||q('#generate-audio').disabled)return;
-   if(!gpuConnected()){connectGPU('generate-audio');return;}
    if(!serviceReady()){window.EccoStorage?.open();return;}
    let lines;try{lines=requestLines();}catch(error){notice(error.message,true);q('[data-open-prompt]')?.click();return;}
    const requestedStory=activeStory;submitting=true;update();
-   try{const job=await service.generate({model:draft.model,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,lines,story_id:requestedStory});window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);if(activeStory===requestedStory)lastJob=job;update();refresh();notice('Audio queued. You can keep working while it generates.');await poll();}
+   try{const current=service,request={model:draft.model,compute:draft.compute,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,lines,story_id:requestedStory};await requireCompute(request.compute);if(current!==service)throw Error('Storage disconnected.');const job=await current.generate(request);window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);if(activeStory===requestedStory)lastJob=job;update();refresh();notice('Audio queued. You can keep working while it generates.');await poll();}
    catch(error){notice(error.message,true);}
    finally{submitting=false;update();}
   };
@@ -302,6 +324,7 @@
  // Inherit the existing production-menu styling and place Audio after Video.
  if(video)video.after(button);else (production||nav).append(button);
 })();
+
 
 
 

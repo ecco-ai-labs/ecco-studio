@@ -17,6 +17,9 @@ def validate(body):
     if not isinstance(model_id, str) or model_id not in MODELS:
         raise ValueError('Choose a supported audio model.')
     model = MODELS[model_id]
+    compute = body.get('compute', 'a100')
+    if not isinstance(compute, str) or compute not in ('a100', 'cpu', 'b200'):
+        raise ValueError('Choose a supported audio compute target.')
     genre = body.get('genre', GENRES[0])
     if genre not in GENRES:
         raise ValueError('Choose a supported audio genre.')
@@ -56,11 +59,12 @@ def validate(body):
     title = body.get('title', 'Audio recording')
     if not isinstance(title, str):
         raise ValueError('Invalid audio title.')
-    result = dict(model=model_id, genre=genre, title=title.strip()[:160] or 'Audio recording', lines=clean,
+    result = dict(model=model_id, compute=compute, genre=genre, title=title.strip()[:160] or 'Audio recording', lines=clean,
                 speed=bounded('speed', 1, 0.75, 1.5), pitch=bounded('pitch', 0, -4, 4),
                 pause=bounded('pause', 0.35, 0, 2))
     if model_id == 'chatterbox':
         result['exaggeration'] = bounded('exaggeration', .5, 0, 2)
     return result
+
 
 

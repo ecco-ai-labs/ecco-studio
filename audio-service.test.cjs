@@ -9,7 +9,7 @@ test('authenticated storage adapter routes generation, status and playback witho
  const jobs=['running','done','error'].map((status,i)=>({id:'audio'+i,kind:'audio_job',title:'Narration',status,error:status==='error'?'Worker failed':'',asset_ids:status==='done'?['asset1']:[]}));
  const context={
   document:{createElement:()=>({}),head:{append(){}},querySelector:()=>null},
-  sessionStorage:{getItem:()=>key},MutationObserver:class{observe(){}},setTimeout(){},
+  localStorage:{getItem:()=>null},sessionStorage:{getItem:()=>key},MutationObserver:class{observe(){}},setTimeout(){},
   window:{EccoAudioStudio:{connect(value){adapter=value;}}},
   api(){throw Error('GPU API must not handle audio');},gpuConnected:()=>false,
   LEGACY_STORY:'legacy',AbortSignal,URL,Blob,
@@ -27,6 +27,8 @@ test('authenticated storage adapter routes generation, status and playback witho
  assert.equal(view.records[3].status,'failed');
  assert.equal(jobs[0].kind,'audio_job');
  assert.equal(adapter.storageIndependentOfGPU,true);
+ await adapter.status();
+ assert.ok(requests.some(r=>r.url.endsWith('/api/audio/status')));
  assert.equal((await adapter.list({story_id:'story1'}))[0].id,'asset1');
  assert.equal((await adapter.generate({lines:[{text:'Hello'}]})).id,'job1');
  await adapter.job('job1');
@@ -47,7 +49,7 @@ test('audio spinner remains active through queued/running and clears on completi
  const context={page:'audio',story:'story1',activeStory:'story1',signature:'[]',submitting:false,
   q:s=>s==='#generate-audio'?button:s==='#audio-job-status'?status:{},
   window:{EccoGeneration:{jobId:()=> 'job1',results:()=>[]}},state:{records:[]},
-  audioAssets:()=>[],esc:s=>s,render(){throw Error('Unexpected render');}};
+  audioAssets:()=>[],showComputeStatus(){},esc:s=>s,render(){throw Error('Unexpected render');}};
  vm.createContext(context);vm.runInContext(helper+'\n'+update+'\nthis.runUpdate=update;',context);
  for(const state of ['queued','running','done','failed']){
   context.lastJob={id:'job1',status:state,error:state==='failed'?'Worker failed':''};context.runUpdate();
@@ -71,3 +73,4 @@ test('Delete moves generated audio to recoverable Trash and removes its review c
  assert.equal(calls[0][0],'trash');assert.equal(calls[0][1].asset_id,'asset1');
  assert.equal(context.recordings.length,1);assert.equal(context.recordings[0].id,'asset2');
 });
+

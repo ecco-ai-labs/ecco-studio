@@ -59,6 +59,7 @@
   audioConnected=true;
   window.EccoAudioStudio.connect({
    storageIndependentOfGPU:true,
+   status:()=>storageRequest('audio/status'),
    list:async({story_id})=>(await storageRequest('state')).records.filter(a=>a.kind==='asset'&&a.media==='audio'&&!a.deleted&&(a.story_id||LEGACY_STORY)===story_id),
    generate:body=>storageRequest('audio/generate',body),
    job:id=>storageRequest('audio/jobs/'+encodeURIComponent(id)),
@@ -166,4 +167,5 @@
  mount();new MutationObserver(mount).observe(document.querySelector('main > header'),{childList:true,subtree:true});
  if(key)setTimeout(()=>refresh(),0);
 })();
+
 

@@ -9,6 +9,23 @@ import time
 import traceback
 from audio_queue import ROOT, read, write
 
+def compute_from_name(name):
+    for target in ('a100', 'b200'):
+        if target in name.lower().replace('-', ' ').split():
+            return target
+    raise RuntimeError('This audio worker requires a supported A100 or B200 GPU.')
+
+def owns(request, compute):
+    # Jobs queued before compute selection was introduced belong to the original B200 worker.
+    return request.get('compute', 'b200') == compute
+
+def recover_jobs(compute):
+    for directory in ROOT.glob('[a-f0-9]' * 32):
+        request = read(directory / 'request.json', {})
+        status = read(directory / 'status.json', {})
+        if owns(request, compute) and status.get('status') == 'running':
+            write(directory / 'status.json', {'status': 'error', 'error': 'Audio worker restarted. Please generate again.'})
+
 def worker_command(request, directory):
     model = request.get('model', 'indic-mio')
     base = Path(__file__).parent
@@ -30,24 +47,25 @@ def worker_command(request, directory):
 
 def main():
     ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)
-    # One inference at a time across pods sharing this volume. flock releases on crash.
-    lock = (ROOT / 'worker.lock').open('a')
+    gpu = subprocess.check_output(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'], text=True).splitlines()[0].strip()
+    compute = compute_from_name(gpu)
+    # Independent queues allow A100 audio and B200 work to coexist on the shared volume.
+    lock = (ROOT / ('worker-' + compute + '.lock')).open('a')
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         return
     pod = os.environ.get('RUNPOD_POD_ID', 'local')
     heartbeat = ROOT / ('worker-' + pod + '.json')
-    for d in ROOT.glob('[a-f0-9]' * 32):
-        status = read(d / 'status.json', {})
-        if status.get('status') == 'running':
-            write(d / 'status.json', {'status': 'error', 'error': 'Audio worker restarted. Please generate again.'})
+    def beat():
+        write(heartbeat, {'updated': time.time(), 'pod': pod, 'compute': compute, 'gpu': gpu})
+    recover_jobs(compute)
     while True:
-        write(heartbeat, {'updated': time.time(), 'pod': pod})
+        beat()
         for d in sorted(ROOT.glob('[a-f0-9]' * 32)):
             request = read(d / 'request.json')
             status = read(d / 'status.json', {})
-            if not request or status.get('status') != 'queued':
+            if not request or not owns(request, compute) or status.get('status') != 'queued':
                 continue
             write(d / 'status.json', {'status': 'running', 'progress': 'Generating speech', 'started': time.time()})
             try:
@@ -56,7 +74,7 @@ def main():
                     process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
                     started = time.monotonic()
                     while process.poll() is None:
-                        write(heartbeat, {'updated': time.time(), 'pod': pod})
+                        beat()
                         if time.monotonic() - started > 1800:
                             process.kill()
                             process.wait()
@@ -75,4 +93,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 

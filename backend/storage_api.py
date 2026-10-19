@@ -87,7 +87,7 @@ class Handler(legacy.Handler):
             if path.startswith('/api/gpu/requests/'):
                 parts = path.split('/')
                 return self.send(gpu_relay.result(parts[-2], parts[-1]))
-            if path == '/api/audio/status': return self.send({'ready': audio_jobs.queue.ready()})
+            if path == '/api/audio/status': return self.send(audio_jobs.queue.availability())
             if path.startswith('/api/audio/jobs/'):
                 return self.send(audio_jobs.job_status(path.split('/')[-1], vars(legacy)))
             if path == '/api/ai/status': return self.send(openai_assistant.status())
@@ -181,6 +181,7 @@ def main():
     ThreadingHTTPServer((address, port), Handler).serve_forever()
 
 if __name__ == '__main__': main()
+
 
 
 

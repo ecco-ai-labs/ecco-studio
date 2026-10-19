@@ -29,8 +29,26 @@ class AudioJobsTest(unittest.TestCase):
         with self.assertRaises(Problem) as error:
             jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
         self.assertEqual(error.exception.code, 503)
+    def test_selected_compute_never_falls_back_to_b200(self):
+        body = {'lines': [{'text': 'Hello'}]}
+        jobs.queue.write(jobs.queue.ROOT / 'worker-b200.json', {'updated': time.time(), 'compute': 'b200'})
+        for compute in ('a100', 'cpu'):
+            with self.assertRaises(Problem) as error:
+                jobs.generate(dict(body, compute=compute), self.env)
+            self.assertEqual(error.exception.code, 503)
+        self.assertFalse(self.records)
+        jobs.queue.write(jobs.queue.ROOT / 'worker-a100.json', {'updated': time.time(), 'compute': 'a100'})
+        job = jobs.generate(body, self.env)
+        self.assertEqual(job['compute'], 'a100')
+        request = jobs.queue.read(jobs.queue.ROOT / job['id'] / 'request.json')
+        self.assertEqual(request['compute'], 'a100')
+    def test_stale_and_legacy_heartbeats_do_not_advertise_selected_compute(self):
+        jobs.queue.write(jobs.queue.ROOT / 'worker-old.json', {'updated': time.time()})
+        jobs.queue.write(jobs.queue.ROOT / 'worker-stale.json', {'updated': time.time()-60, 'compute': 'a100'})
+        self.assertFalse(jobs.queue.ready('a100'))
+        self.assertFalse(jobs.queue.availability()['compute']['cpu']['ready'])
     def test_commit_and_idempotent_offline_playback(self):
-        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time()})
+        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'a100'})
         job = jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
         self.assertNotIn('request', job)
         directory = jobs.queue.ROOT / job['id']
@@ -49,7 +67,7 @@ class AudioJobsTest(unittest.TestCase):
         self.assertTrue((self.env['DATA'] / assets[0]['path']).is_file())
         self.assertEqual(assets[0]['duration'], 1)
     def test_checksum_mismatch_never_marks_done(self):
-        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time()})
+        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'a100'})
         job = jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
         d = jobs.queue.ROOT / job['id']
         (d / 'output.wav').write_bytes(b'broken')
@@ -60,3 +78,4 @@ class AudioJobsTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

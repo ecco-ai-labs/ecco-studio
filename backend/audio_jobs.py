@@ -22,13 +22,14 @@ def generate(body, env):
         raise env['Problem'](str(error))
     sid = env['story_id'](body)
     with LOCK:
-        if not queue.ready():
-            raise env['Problem']('The audio worker is not connected. Connect an accelerator with the audio worker running.', 503)
+        target = queue.availability()['compute'][request['compute']]
+        if not target['ready']:
+            raise env['Problem'](target['reason'], 503)
         active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running')]
         if len(active) >= 4:
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
         job = dict(id=uuid.uuid4().hex, kind='audio_job', media='audio', status='queued',
-                   story_id=sid, created=time.time(), title=request['title'], request=request)
+                   story_id=sid, created=time.time(), title=request['title'], compute=request['compute'], request=request)
         env['save'](job)
         directory = queue.ROOT / job['id']
         queue.write(directory / 'status.json', {'status': 'queued'})
@@ -77,7 +78,7 @@ def job_status(jid, env):
             job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved')
         elif status.get('status') in ('running', 'error'):
             job.update(status=status['status'], progress=status.get('progress', ''), error=status.get('error', ''))
-        if job['status'] in ('queued', 'running') and not queue.ready() and time.time() - job['created'] > 60:
+        if job['status'] in ('queued', 'running') and not queue.ready(job['request'].get('compute', 'b200')) and time.time() - job['created'] > 60:
             job['progress'] = 'Waiting for the audio worker to reconnect'
         env['save'](job)
         return public(job)
@@ -94,3 +95,4 @@ def start(env):
                 traceback.print_exc()
             time.sleep(3)
     threading.Thread(target=loop, daemon=True, name='audio-finalizer').start()
+

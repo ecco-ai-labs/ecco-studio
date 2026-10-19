@@ -167,13 +167,14 @@
   if(kind==='image'&&!model.querySelector('[value="qwen-image-edit-2511"]'))model.add(new Option('Qwen Image Edit','qwen-image-edit-2511'));
   const promptNode=kind==='audio'?q('#audio-lines',form):kind==='image'?form.elements.prompt.closest('label'):null;
   const addLine=q('#add-audio-line',form),negative=form.elements.negative?.closest('label'),audioSettings=kind==='audio'?[q('.audio-output-controls',form)]:[],audioReferences=kind==='audio'?[form.elements.genre.closest('label'),form.elements.title.closest('label')]:[];
-  const board=kind==='video'?form.elements.board_id.closest('label'):null;
+  const board=kind==='video'?form.elements.board_id.closest('label'):null,audioCompute=q('[data-audio-compute]',form);
   const submit=q('#generate-'+kind,form),status=q('#'+configs[kind].status,form);
   const footer=document.createElement('div');footer.className='generation-footer';footer.append(submit,status);submit.textContent='Generate '+kind;if(kind==='video'&&!localStorage.getItem('ecco-video-job:'+story))status.textContent='';
-  const retained=[modelLabel,promptNode,addLine,negative,board,...audioSettings,...audioReferences].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
+  const retained=[modelLabel,promptNode,addLine,negative,board,audioCompute,...audioSettings,...audioReferences].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
   form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt',kind==='audio'?'Spoken script':'Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional Controls</button>');
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
+  if(audioCompute){q('[data-section=model]',form).insertAdjacentHTML('afterend',section('compute','Compute',''));q('[data-section=compute]',form).append(audioCompute);}
   if(negative)q('[data-settings]',form).append(negative);
   for(const node of audioSettings)q('[data-settings]',form).append(node);
   for(const node of audioReferences)q('[data-audio-references]',form).append(node);
@@ -247,6 +248,7 @@
  document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
  window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
 })();
+
 
 
 

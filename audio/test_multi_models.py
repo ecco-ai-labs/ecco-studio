@@ -5,10 +5,41 @@ from unittest import TestCase, main
 from unittest.mock import patch
 
 from audio_schema import validate, MODELS
-from queue_worker import worker_command
+from queue_worker import worker_command, compute_from_name, owns, recover_jobs
+import audio_queue
+import tempfile
 
 
 class MultiModelRequests(TestCase):
+    def test_compute_validation_and_hardware_detection(self):
+        body = {'lines': [{'text': 'Hello'}]}
+        self.assertEqual(validate(body)['compute'], 'a100')
+        for compute in ('a100', 'cpu', 'b200'):
+            self.assertEqual(validate(dict(body, compute=compute))['compute'], compute)
+        for compute in ('', 'any', '../../worker', None, {}, []):
+            with self.assertRaises(ValueError):
+                validate(dict(body, compute=compute))
+        self.assertEqual(compute_from_name('NVIDIA A100-SXM4-80GB'), 'a100')
+        self.assertEqual(compute_from_name('NVIDIA B200'), 'b200')
+        with self.assertRaises(RuntimeError):
+            compute_from_name('CPU')
+        self.assertTrue(owns({'compute': 'a100'}, 'a100'))
+        self.assertFalse(owns({'compute': 'a100'}, 'b200'))
+        self.assertFalse(owns({'compute': 'cpu'}, 'b200'))
+        self.assertTrue(owns({}, 'b200'))
+        self.assertFalse(owns({}, 'a100'))
+
+    def test_worker_restart_leaves_other_compute_jobs_untouched(self):
+        with tempfile.TemporaryDirectory() as tmp, patch('queue_worker.ROOT', Path(tmp)):
+            for i, compute in enumerate(('a100', 'b200', 'cpu')):
+                directory = Path(tmp) / (str(i) * 32)
+                audio_queue.write(directory / 'request.json', {'compute': compute})
+                audio_queue.write(directory / 'status.json', {'status': 'running'})
+            recover_jobs('a100')
+            self.assertEqual(audio_queue.read(Path(tmp) / ('0'*32) / 'status.json')['status'], 'error')
+            for i in (1, 2):
+                self.assertEqual(audio_queue.read(Path(tmp) / (str(i)*32) / 'status.json')['status'], 'running')
+
     def test_all_model_languages_and_voices_reach_worker(self):
         for model, settings in MODELS.items():
             for language in settings['languages']:

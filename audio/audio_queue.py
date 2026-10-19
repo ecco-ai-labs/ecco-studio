@@ -23,6 +23,24 @@ def read(path, default=None):
     except (FileNotFoundError, ValueError):
         return default
 
-def ready():
-    return any(time.time() - read(p, {}).get('updated', 0) < 30
-               for p in ROOT.glob('worker-*.json'))
+def workers():
+    result = []
+    for path in ROOT.glob('worker-*.json'):
+        worker = read(path, {})
+        if (isinstance(worker, dict) and worker.get('compute') in ('a100', 'b200')
+                and isinstance(worker.get('updated'), (int, float))
+                and 0 <= time.time() - worker['updated'] < 30):
+            result.append(worker)
+    return result
+
+def ready(compute=None):
+    return any(compute is None or w['compute'] == compute for w in workers())
+
+def availability():
+    live = {w['compute'] for w in workers()}
+    compute = {target: {'ready': target in live,
+                       'reason': '' if target in live else target.upper() + ' audio worker is not connected.'}
+               for target in ('a100', 'b200')}
+    compute['cpu'] = {'ready': False, 'reason': 'CPU audio generation is not enabled yet. Select A100.'}
+    return {'routing_version': 1, 'ready': bool(live), 'compute': compute}
+
