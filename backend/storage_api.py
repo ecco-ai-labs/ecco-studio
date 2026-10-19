@@ -17,6 +17,7 @@ import library_rename
 import audio_jobs
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'video'))
 import longcat_jobs
+import audio_video_sequence
 import gpu_relay
 import openai_assistant
 import scene_planner
@@ -25,7 +26,7 @@ ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
     '/api/library/rename',
-    '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
+    '/api/longcat/sequence', '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
     '/api/ai/news/research', '/api/ai/news/storyboard',
     '/api/ai/connect', '/api/ai/settings', '/api/ai/disconnect', '/api/ai/enhance',
     '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
@@ -37,10 +38,10 @@ WRITE_ROUTES = frozenset({
 })
 
 def storage_state():
-    return {'records': legacy.records(), 'storage_pending': False, 'config': {
+    return {'records': [{**r, 'kind': 'job', 'source_kind': r['kind']} if r['kind']=='audio_video_job' else r for r in legacy.records()], 'storage_pending': False, 'config': {
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
                     'rename_available': True, 'gpu_independent': True, 'service': 'ecco-storage-api'},
-        'longcat': longcat_jobs.status(), 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
+        'longcat': {**longcat_jobs.status(), 'sequence_available': True}, 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
         'ai_story_planner': {'ready': scene_planner.ready()},
         'hourly_rate': 0.081, 'github_connected': False,
         'youtube_configured': False, 'youtube_channel': None,
@@ -142,6 +143,8 @@ class Handler(legacy.Handler):
                 return self.send(openai_assistant.handle(path, body, vars(legacy)))
             if path == '/api/library/rename': return self.send(library_rename.rename(body, vars(legacy)))
             if path == '/api/gpu/request': return self.send(gpu_relay.submit(body))
+            if path == '/api/longcat/sequence':
+                return self.send(audio_video_sequence.generate(body, vars(legacy)))
             if path == '/api/longcat/generate':
                 return self.send(longcat_jobs.generate(body, vars(legacy)))
             if path == '/api/audio/generate':
@@ -170,6 +173,7 @@ def main():
     # Never run billing, inference, or automatic external synchronization here.
     legacy.github_token = lambda: None
     longcat_jobs.start(vars(legacy))
+    audio_video_sequence.start(vars(legacy))
     audio_jobs.start(vars(legacy))
     address = os.getenv('ECCO_STORAGE_BIND', '127.0.0.1')
     port = int(os.getenv('ECCO_STORAGE_PORT', '8888'))
@@ -177,6 +181,7 @@ def main():
     ThreadingHTTPServer((address, port), Handler).serve_forever()
 
 if __name__ == '__main__': main()
+
 
 
 
