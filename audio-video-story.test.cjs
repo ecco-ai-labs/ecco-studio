@@ -1,0 +1,17 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),{JSDOM}=require('jsdom'),fs=require('node:fs');
+test('working storyboard, saved spoken script and avatar are reused in a single request',async()=>{
+ const dom=new JSDOM('<form id="video-form"><select id="job-model"><option value="longcat-avatar-1.5">LongCat</option></select><button id="generate-video">Generate</button><p id="video-status"></p></form>',{url:'https://example.test',runScripts:'outside-only'});
+ const w=dom.window,form=w.document.querySelector('form'),ctx={data:{},story:'story'};form.onsubmit=()=>{};
+ Object.assign(w,{activeStory:'story',LEGACY_STORY:'legacy',state:{records:[{id:'audio',kind:'asset',media:'audio',story_id:'story',seconds:30,title:'Top 3',settings:{lines:[{text:'Actual Hindi script'}]}},{id:'avatar',kind:'asset',media:'image',title:'Presenter'}],config:{longcat:{sequence_available:true}}},boards:()=>[],media:()=>'',hydrateMedia:()=>{},renderPage:()=>{},gpuConnected:()=>true,modelAvailable:()=>true,modelSettings:()=>({resolution:'832x480'}),setGenerationBusy:()=>{},refresh:async()=>{},notice:()=>{}});
+ w.EccoGeneration={context:()=>ctx,trackJob:()=>{}};let payload;w.api=async(path,body)=>{payload={path,body};return {id:'job'}};
+ w.localStorage.setItem('ecco-board-draft:story',JSON.stringify({scenes:[1,2,3].map(i=>({title:'News '+i,motion:'Presenter speaks',camera_move:'Static'}))}));
+ w.localStorage.setItem('ecco-audio-video:story',JSON.stringify({enabled:true,avatar_id:'avatar'}));
+ w.eval(fs.readFileSync(__dirname+'/audio-video-story.js','utf8'));
+ assert.equal(w.document.querySelectorAll('[data-selected]').length,3);
+ assert.equal(w.document.querySelector('[data-transcript]').value,'Actual Hindi script');
+ w.document.querySelector('[data-camera_move]').value='Slow dolly in';w.document.querySelector('[data-camera_move]').dispatchEvent(new w.Event('input'));
+ form.dispatchEvent(new w.Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,0));
+ assert.equal(payload.path,'longcat/sequence');assert.equal(payload.body.audio_id,'audio');assert.equal(payload.body.image_id,'avatar');
+ assert.equal(payload.body.shots.length,3);assert.equal(payload.body.shots.reduce((n,s)=>n+s.seconds,0),30);assert.match(payload.body.shots[0].prompt,/Slow dolly in/);
+ assert.equal(w.state.records[0].settings.lines[0].text,'Actual Hindi script');
+});
