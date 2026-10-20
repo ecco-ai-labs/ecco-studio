@@ -31,7 +31,7 @@
   relabel('title',spec.title);relabel('summary',spec.summary);form.elements.genre.closest('label').hidden=true;form.elements.genre.value=saved.genre||({news:'News',documentary:'Documentary',teaching:'Educational',training:'Educational',animation:'Animation','book-adaptation':'Animation'}[spec.id]||'Other');
   for(const [name,labelText]of [['journey_first',spec.first],['journey_second',spec.second]]){const label=document.createElement('label');label.textContent=labelText;const input=document.createElement('input');input.name=name;input.maxLength=1000;input.value=saved[name]||'';label.append(input);form.elements.summary.closest('label').after(label);}
   if(['podcast','custom','dubbing','repurpose'].includes(spec.id)){format.closest('label').hidden=false;relabel('story_format','Output');}
-  form.querySelector('[type=submit]').textContent=spec.format==='audio'?'Save & Continue to Script':'Save & Continue to Storyboard';
+  form.querySelector('[type=submit]').textContent=['dubbing','repurpose','ambient'].includes(spec.id)?'Save & Continue to Source Media':spec.format==='audio'?'Save & Continue to Script':'Save & Continue to Storyboard';
  }
  function brief(data){const s=get(data.workflow_id);if(!s)return data.summary||'';return [data.summary,data.journey_first&&s.first+': '+data.journey_first,data.journey_second&&s.second+': '+data.journey_second].filter(Boolean).join('\n\n');}
  function steps(fallback){const s=current();if(!s)return fallback;const format=document.querySelector('#story-setup-form [name=story_format]')?.value||read(typeof activeStory!=='undefined'&&activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft').story_format||s.format;

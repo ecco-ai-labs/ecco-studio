@@ -29,7 +29,7 @@
   form.before(panel);
   const format=form.elements.story_format;
   if(format&&(!form.dataset.intent||form.dataset.intentFormatChoice==='true')){
-   format.closest('label').classList.add('story-format-source');format.tabIndex=-1;format.setAttribute('aria-hidden','true');
+   format.closest('label').classList.add('story-format-source');if(form.dataset.intent)format.closest('label').hidden=true;format.tabIndex=-1;format.setAttribute('aria-hidden','true');
    const control=document.createElement('div');control.className='story-format-control';control.setAttribute('role','group');control.setAttribute('aria-label','Story Format');
    control.innerHTML='<div class="story-format-options"><button type="button" class="secondary" data-story-format-option="audio" aria-pressed="false">Audio</button><button type="button" class="secondary" data-story-format-option="video" aria-pressed="false">Video</button></div>';
    const buttons=[...control.querySelectorAll('button')];
