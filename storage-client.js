@@ -11,17 +11,17 @@
  let gpuHealth=[],gpuChecked=0,selectedGPU=localStorage.getItem('ecco-selected-gpu')||'';
  function acceptGPUHealth(value){
   gpuHealth=value?.gpus||[];gpuChecked=Date.now();
-  if(!selectedGPU){const ready=gpuHealth.filter(g=>g.ready);if(ready.length===1){selectedGPU=ready[0].id;localStorage.setItem('ecco-selected-gpu',selectedGPU);}}
  }
  const selectedHealth=()=>gpuHealth.find(g=>g.id===selectedGPU);
  window.EccoGPUConnection={
   get selectedId(){return selectedGPU;},
   get ready(){return Boolean(key)&&Date.now()-gpuChecked<60000&&Boolean(selectedHealth()?.ready);},
-  async check(gpu){
+  async checkAll(gpus){
    acceptGPUHealth(await storageRequest('gpu/status'));
-   const item=gpuHealth.find(g=>g.id===gpu.id);
-   return item?.ready?{kind:'ready',title:'Available',detail:'Ready for generation. No connection window required.'}:{kind:'unknown',title:'Unavailable',detail:'Studio reconnects automatically when the GPU service returns.'};
+   return gpus.map(gpu=>{const item=gpuHealth.find(g=>g.id===gpu.id);
+    return item?.ready?{kind:'ready',title:'Available',detail:'Ready for generation.'}:{kind:'unknown',title:'Unavailable',detail:'The GPU generation service is not responding.'};});
   },
+  async check(gpu){return (await this.checkAll([gpu]))[0];},
   async select(gpu){const status=await this.check(gpu);if(status.kind!=='ready')throw Error('This accelerator is unavailable.');selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);await refresh();},
  };
  gpuConnected=()=>window.EccoGPUConnection.ready;
