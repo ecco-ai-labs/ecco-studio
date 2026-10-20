@@ -3,6 +3,7 @@
  let dialog, lastMessage='', lastAt=0;
  const pending=[];
  function show(message, options={}){
+  if(!options.logged)window.EccoErrorLog?.record(message,{source:'popup'});options={...options,logged:true};
   message=String(message?.message||message||'Something went wrong. Please try again.');
   if(message===lastMessage && (dialog?.open || Date.now()-lastAt<2500))return;
   lastMessage=message;lastAt=Date.now();
@@ -35,3 +36,4 @@
  window.addEventListener('unhandledrejection',event=>show(event.reason));
  window.addEventListener('error',event=>{if(event.error)show(event.error);});
 })();
+
