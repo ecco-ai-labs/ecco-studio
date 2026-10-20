@@ -16,7 +16,6 @@
   if(view==='usage'){
    body.classList.add('credits-usage-body');
    line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits',balance===null?'Sign-in not connected':String(balance));line(body,'Credits used',balance===null?'—':String(used));
-   if(!adapter)status(body,'Individual sign-in is not connected.');
    body.append(button('Purchase Additional Credits',()=>open('shop')));
   }
   if(view==='shop'){
