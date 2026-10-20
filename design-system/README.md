@@ -79,13 +79,25 @@ unapproved dimensions remain unset instead of being silently chosen.
 
 ## Color theme
 
-Account and Billing → Theme Colors edits only eleven palette colors. Save persists
-the choices in this browser; Reset Colors followed by Save restores the original
-colors. Closing the popup discards unapplied changes. The editor cannot change
-fonts, dimensions, spacing, layout, wording or actions.
+Account and Billing → Theme offers exactly four packages: Default, Dark Mode,
+Forest and Desert. Choose one and Save. Choosing Default restores the original
+palette. The selected preset persists in this browser. Closing the popup discards
+an unapplied selection. No individual color inputs are exposed. Older custom
+color settings are ignored; the initial package is Default.
 
-`theme.js` maps editable same-origin CSS color declarations (including newly added
-style elements and inline styles) to `--ecco-theme-*` variables, preserving each
-original color as its fallback. Alpha and CSS priority are retained. Images, video,
-audio, canvas content and third-party cross-origin styles are not recolored.
-This is a color bridge for existing code, not a completed shared-component migration.
+| Package | Colors |
+|---|---|
+| Default | Existing purple and yellow palette |
+| Dark Mode | Black page, dark grey surfaces, light grey borders and accents |
+| Forest | Green page, lighter green surfaces, white borders and accents |
+| Desert | Sand page, light sand surfaces, brown borders and accents |
+
+Only colors change; fonts, dimensions, spacing, layout, wording and actions remain
+fixed. `theme.js` maps accessible CSS color declarations and dynamic inline styles
+to shared variables while preserving original values as Default fallbacks. Media
+pixels and cross-origin styles are not recolored. This remains a color bridge,
+not a completed shared-component migration.
+
+Activity, Logs and Errors is accessed through the right-edge sliding-panel arrow,
+not through an item in the Activity menu. Its Activity, Debugging and Errors tabs
+remain available in that panel.

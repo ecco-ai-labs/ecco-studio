@@ -1,12 +1,17 @@
 'use strict';
 /* Color-only bridge for existing styles. No geometry, typography or media edits. */
 (()=>{
- const KEY='ecco-theme-colors-v1';
+ const KEY='ecco-theme-preset-v1';
  const PALETTE={background:['Page Background','#17152f'],surface:['Panels and Popups','#252039'],control:['Buttons and Inputs','#302a54'],text:['Primary Text','#ffffff'],contrast:['Text on Accent','#211b33'],muted:['Secondary Text','#b1acc9'],accent:['Accent and Selection','#ffdc24'],border:['Borders','#51496f'],error:['Errors','#ff6b6b'],success:['Success','#7bcf9b'],shadow:['Shadows','#000000']};
- const valid=x=>typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x);
- function clean(value){const out={};if(value&&typeof value==='object')for(const key of Object.keys(PALETTE))if(valid(value[key]))out[key]=value[key].toLowerCase();return out;}
- let saved={};try{saved=clean(JSON.parse(localStorage.getItem(KEY)||'{}'));}catch{}
- function apply(colors){for(const key of Object.keys(PALETTE)){const name='--ecco-theme-'+key;if(colors[key])document.documentElement.style.setProperty(name,colors[key]);else document.documentElement.style.removeProperty(name);}}
+ const PRESETS={
+  default:{label:'Default',colors:{}},
+  dark:{label:'Dark Mode',colors:{background:'#0d0d0f',surface:'#242428',control:'#303035',text:'#f5f5f5',contrast:'#151517',muted:'#c3c3ca',accent:'#c7c7ce',border:'#b5b5bd',error:'#ff6b6b',success:'#7bcf9b',shadow:'#000000'}},
+  forest:{label:'Forest',colors:{background:'#123d2a',surface:'#285a40',control:'#34714e',text:'#ffffff',contrast:'#123d2a',muted:'#d2e8d8',accent:'#ffffff',border:'#ffffff',error:'#ffb1ad',success:'#b7edbc',shadow:'#071e13'}},
+  desert:{label:'Desert',colors:{background:'#dbc49a',surface:'#f4e6cb',control:'#ead6b2',text:'#3c2c20',contrast:'#fff6e5',muted:'#67513d',accent:'#6b4226',border:'#8c6844',error:'#a52424',success:'#2f633b',shadow:'#503b25'}}
+ };
+ const validPreset=value=>typeof value==='string'&&Object.hasOwn(PRESETS,value)?value:'default';
+ let saved='default';try{saved=validPreset(localStorage.getItem(KEY));}catch{}
+ function apply(name){const colors=PRESETS[validPreset(name)].colors;for(const key of Object.keys(PALETTE)){const variable='--ecco-theme-'+key;if(colors[key])document.documentElement.style.setProperty(variable,colors[key]);else document.documentElement.style.removeProperty(variable);}}
  apply(saved);
  const COLOR=/url\([^)]*\)|#[\da-f]{3,8}\b|rgba?\([^)]*\)|\b(?:white|black|red|yellow|gray|grey|orange|green|blue|purple)\b/gi;
  const NAMES={white:'#ffffff',black:'#000000',red:'#ff0000',yellow:'#ffff00',gray:'#808080',grey:'#808080',orange:'#ffa500',green:'#008000',blue:'#0000ff',purple:'#800080'};
@@ -28,10 +33,22 @@
  function rules(list){for(const rule of list){if(rule.style)declaration(rule.style,rule.selectorText||'');if(rule.cssRules)rules(rule.cssRules);}}
  function scanStyles(){for(const sheet of document.styleSheets){try{rules(sheet.cssRules);}catch{/* Cross-origin third-party styles are not editable. */}}}
  function inline(root){if(root.nodeType!==1)return;const skip=el=>el.closest('svg,#workspace-entry,#story-choice-screen')||el.matches('img,video,audio,canvas');if(root.hasAttribute('style')&&!skip(root))declaration(root.style,root.tagName.toLowerCase()+' '+root.className);for(const el of root.querySelectorAll('[style]'))if(!skip(el))declaration(el.style,el.tagName.toLowerCase()+' '+el.className);}
- function editor(){let dialog=document.querySelector('#theme-colors-dialog');if(dialog?.open)return;dialog=document.createElement('dialog');dialog.id='theme-colors-dialog';dialog.setAttribute('aria-labelledby','theme-colors-title');dialog.innerHTML='<div class="section-head"><h2 id="theme-colors-title">Theme Colors</h2></div><form class="form"><div class="theme-color-fields"></div><div class="row"><button type="button" class="secondary" data-theme-reset>Reset Colors</button><button type="submit">Save</button></div></form>';let draft={...saved};const fields=dialog.querySelector('.theme-color-fields');for(const [key,[label,fallback]] of Object.entries(PALETTE)){const row=document.createElement('label');row.textContent=label;const input=document.createElement('input');input.type='color';input.name=key;input.value=draft[key]||fallback;input.setAttribute('aria-label',label);input.oninput=()=>{draft[key]=input.value;};row.append(input);fields.append(row);}dialog.querySelector('[data-theme-reset]').onclick=()=>{draft={};for(const input of fields.querySelectorAll('input'))input.value=PALETTE[input.name][1];};dialog.querySelector('form').onsubmit=e=>{e.preventDefault();try{const next=clean(draft);localStorage.setItem(KEY,JSON.stringify(next));saved=next;apply(saved);dialog.close();}catch(error){window.EccoErrors?.show(error);}};dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();}
- function mount(){const menu=document.querySelector('[data-category="Account"] .workspace-menu-items');if(menu&&!document.querySelector('#theme-colors-open')){const button=document.createElement('button');button.type='button';button.id='theme-colors-open';button.className='secondary';button.textContent='Theme Colors';button.onclick=()=>{menu.closest('details').open=false;editor();};menu.append(button);}}
+ function editor(){
+  let dialog=document.querySelector('#theme-colors-dialog');if(dialog?.open)return;
+  dialog=document.createElement('dialog');dialog.id='theme-colors-dialog';dialog.setAttribute('aria-labelledby','theme-colors-title');
+  dialog.innerHTML='<div class="section-head"><h2 id="theme-colors-title">Theme</h2></div><form class="form"><fieldset class="theme-presets"><legend>Theme</legend></fieldset><button type="submit">Save</button></form>';
+  const fields=dialog.querySelector('fieldset');
+  for(const [key,preset] of Object.entries(PRESETS)){
+   const row=document.createElement('label');row.className='theme-preset-option';
+   const input=document.createElement('input');input.type='radio';input.name='theme';input.value=key;input.checked=key===saved;
+   const title=document.createElement('span');title.textContent=preset.label;row.append(input,title);fields.append(row);
+  }
+  dialog.querySelector('form').onsubmit=e=>{e.preventDefault();try{const next=validPreset(dialog.querySelector('input[name="theme"]:checked')?.value);localStorage.setItem(KEY,next);saved=next;apply(saved);dialog.close();}catch(error){window.EccoErrors?.show(error);}};
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
+ }
+ function mount(){const menu=document.querySelector('[data-category="Account"] .workspace-menu-items');if(menu&&!document.querySelector('#theme-colors-open')){const button=document.createElement('button');button.type='button';button.id='theme-colors-open';button.className='secondary';button.textContent='Theme';button.onclick=()=>{menu.closest('details').open=false;editor();};menu.append(button);}}
  let pending=false,styleDirty=false;const inlineRoots=new Set();function schedule(){if(pending)return;pending=true;queueMicrotask(()=>{pending=false;if(styleDirty){styleDirty=false;scanStyles();}for(const root of inlineRoots)inline(root);inlineRoots.clear();mount();});}
  function start(){scanStyles();inline(document.body);mount();new MutationObserver(records=>{for(const r of records){if(r.type==='attributes'){inlineRoots.add(r.target);}else{if(r.target.nodeName==='STYLE'||r.target.parentElement?.nodeName==='STYLE')styleDirty=true;for(const n of r.addedNodes){if(n.nodeType===1){inlineRoots.add(n);if(n.matches('style,link[rel="stylesheet"]')||n.querySelector('style,link[rel="stylesheet"]'))styleDirty=true;}}}}schedule();}).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['style']});document.addEventListener('load',e=>{if(e.target.matches?.('link[rel="stylesheet"]')){styleDirty=true;schedule();}},true);}
- window.EccoTheme={palette:PALETTE,clean,colorValue};
+ window.EccoTheme={presets:PRESETS,validPreset,colorValue};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

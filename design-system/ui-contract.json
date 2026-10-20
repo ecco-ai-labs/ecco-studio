@@ -462,7 +462,9 @@
         "value",
         "checked"
       ],
-      "variants": [],
+      "variants": [
+        "theme-preset"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -1499,11 +1501,11 @@
         "type": "color",
         "valueFormat": "#RRGGBB"
       },
-      "implementationStatus": "Theme Colors popup"
+      "implementationStatus": "Not exposed: replaced by theme preset radio selection"
     }
   ],
   "theme": {
-    "editor": "Account and Billing \u2192 Theme Colors",
+    "editor": "Account and Billing \u2192 Theme",
     "properties": [
       "background",
       "surface",
@@ -1517,10 +1519,26 @@
       "success",
       "shadow"
     ],
-    "valueFormat": "#RRGGBB only",
-    "persistence": "localStorage in this browser",
+    "persistence": "Selected preset ID in localStorage (ecco-theme-preset-v1); prior custom palette is no longer used",
     "default": "Original declaration colors retained as CSS variable fallbacks",
     "scope": "Colors only; no typography, geometry, content or behavior controls",
-    "runtime": "theme.js bridges accessible CSS declarations and dynamic inline styles to shared color variables; media pixels are unchanged"
+    "runtime": "theme.js bridges accessible CSS declarations and dynamic inline styles to shared color variables; media pixels are unchanged",
+    "presets": [
+      "Default",
+      "Dark Mode",
+      "Forest",
+      "Desert"
+    ],
+    "selection": "Single preset only; no individual color inputs"
+  },
+  "activityPanel": {
+    "entry": "Right-edge arrow",
+    "title": "Activity, Logs and Errors",
+    "tabs": [
+      "Activity",
+      "Debugging",
+      "Errors"
+    ],
+    "activityMenuEntry": false
   }
 }

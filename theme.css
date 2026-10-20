@@ -1,5 +1,5 @@
-/* Layout only for the new editor; theme values themselves are colors only. */
-#theme-colors-dialog .theme-color-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-#theme-colors-dialog .theme-color-fields label{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
-#theme-colors-dialog input[type="color"]{width:42px;height:30px;min-height:30px;padding:2px;flex:0 0 42px;cursor:pointer}
-@media(max-width:480px){#theme-colors-dialog .theme-color-fields{grid-template-columns:1fr}}
+/* Layout is limited to the preset picker; themes change colors only. */
+#theme-colors-dialog .theme-presets{border:0;padding:0;margin:0;display:grid;gap:10px}
+#theme-colors-dialog .theme-presets legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#theme-colors-dialog .theme-preset-option{display:flex;flex-direction:row;align-items:center;gap:10px;cursor:pointer}
+#theme-colors-dialog .theme-preset-option input{width:auto;margin:0;accent-color:var(--accent,#ffdc24)}
