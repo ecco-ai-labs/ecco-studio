@@ -34,7 +34,7 @@
  function scanStyles(){for(const sheet of document.styleSheets){try{rules(sheet.cssRules);}catch{/* Cross-origin third-party styles are not editable. */}}}
  function inline(root){if(root.nodeType!==1)return;const skip=el=>el.closest('svg,#workspace-entry,#story-choice-screen')||el.matches('img,video,audio,canvas');if(root.hasAttribute('style')&&!skip(root))declaration(root.style,root.tagName.toLowerCase()+' '+root.className);for(const el of root.querySelectorAll('[style]'))if(!skip(el))declaration(el.style,el.tagName.toLowerCase()+' '+el.className);}
  function mount(){
-  const menu=document.querySelector('[data-category="Account"] .workspace-menu-items');if(!menu||document.querySelector('#theme-colors-open'))return;
+  const menu=document.querySelector('[data-category="Activity"] .workspace-menu-items');if(!menu||document.querySelector('#theme-colors-open'))return;
   const button=document.createElement('button');button.type='button';button.id='theme-colors-open';button.className='secondary';button.textContent='Theme';button.dataset.ribbonClose='1';button.setAttribute('aria-controls','workspace-theme-drawer');button.setAttribute('aria-expanded','false');
   const drawer=document.createElement('div');drawer.id='workspace-theme-drawer';drawer.setAttribute('role','radiogroup');drawer.setAttribute('aria-label','Theme');drawer.hidden=true;drawer.inert=true;
   for(const [key,preset] of Object.entries(PRESETS)){

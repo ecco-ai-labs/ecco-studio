@@ -79,7 +79,7 @@ unapproved dimensions remain unset instead of being silently chosen.
 
 ## Color theme
 
-Account and Billing → Theme offers exactly four packages: Default, Dark Mode,
+Activity → Theme offers exactly four packages: Default, Dark Mode,
 Forest and Desert in a side-sliding menu matching Billing. Selecting a preset
 saves immediately. Choosing Default restores the original palette. The selected
 preset persists in this browser. Moving the pointer away retracts the panel. No individual color inputs are exposed. Older custom
