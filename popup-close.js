@@ -5,7 +5,7 @@
  style.textContent=`
  dialog{position:fixed}
  dialog.ecco-popup-close-ready{padding-top:44px!important}
- dialog .ecco-popup-close{
+ :is(#ecco-error-popup,dialog).ecco-popup-close-ready > button.ecco-popup-close{
   position:absolute!important;top:10px!important;right:10px!important;
   width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important;
   max-width:26px!important;padding:0!important;margin:0!important;
