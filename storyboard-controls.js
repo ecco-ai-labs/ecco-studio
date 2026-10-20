@@ -61,7 +61,9 @@
      if(!isValid())throw Error('The draft changed. Reopen Generate with AI for the current story.');
      const seconds=Number(draft.defaultSeconds)||3;
      const contract='Create a JSON object with continuity (string) and scenes (array), containing exactly '+count+' scenes of '+seconds+' seconds each. Each scene must contain title, narration, motion, shot_size, camera_angle and camera_move strings. Keep these JSON keys in English. Use at most 4000 characters for narration and 2000 for motion per scene. Preserve characters, causal order, key events and the original ending. Return only JSON, without code fences.';
-     const brief=contract+'\n'+window.EccoAI.generationInstructions(options);
+     const journey=window.EccoStoryJourneys?.current();const direction=journey?window.EccoStoryJourneys.brief(storyDescription()):'';
+     const audioRule=journey&&storyboardIsAudio()?' Audio-only script: narration contains spoken words only; creative instructions are never spoken. For audiobooks preserve the supplied chapter wording verbatim; do not summarize. Keep motion nonempty as a production note; camera fields may be empty.':'';
+     const brief=contract+audioRule+'\nWorkflow: '+(journey?.label||'')+'\nCreative direction: '+direction+'\n'+window.EccoAI.generationInstructions(options);
      const result=supportsInstructions?await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:activeStory||null,fields:[{id:'scene_plan',text:brief,max_length:100000}],context:{title:draft.title,summary:story,count,seconds,language:options.language,instructions:brief},review_only:false}):{revisions:[{id:'scene_plan',text:JSON.stringify(await api('stories/plan',{story,title:draft.title,count,seconds}))}]};
      if(!window.EccoAI.enabled)throw Error('AI was disabled during planning. Your draft was preserved.');
      if(!isValid())throw Error('The draft changed while AI was planning. Your edits were preserved; run planning again when ready.');
@@ -77,6 +79,7 @@
   };
   const save=q('#save-board');save.textContent='Save & Continue to Create Voices and Sounds';save.classList.add('storyboard-save-continue');save.parentElement.classList.add('storyboard-save-row');
   save.onclick=()=>{
+   if(window.EccoStoryJourneys?.current()&&window.EccoJourneyFlow){window.EccoJourneyFlow.advance('audio',save);return;}
    try{
     localStorage.setItem(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft',JSON.stringify(draft));
     savedBoard=null;navigate('audio');

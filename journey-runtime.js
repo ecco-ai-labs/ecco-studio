@@ -61,12 +61,11 @@
  function adapt(){
   const spec=J.current();if(!spec)return;
   if(page==='board'){
-   const intro=q('#page > .intro');if(intro)intro.hidden=true;
+   const intro=q('#page > .intro');if(intro)intro.hidden=true;for(const id of ['board-collection','source-story-picker'])q('#'+id)?.closest('label')?.setAttribute('hidden','');
    if(format()==='audio'){
     q('#heading').textContent=J.steps([]).find(s=>s[0]==='board')[1];
-    if(q('#split')&&q('#split').textContent!=='Split into Script Sections')q('#split').textContent='Split into Script Sections';
-    if(q('#add-scene')&&q('#add-scene').textContent!=='Add Script Section')q('#add-scene').textContent='Add Script Section';
-    const save=q('#save-board');if(save&&!save.dataset.journeySave){save.dataset.journeySave='true';save.textContent='Save Script';save.onclick=()=>{persistDraft();write('ecco-journey-checkpoint:'+activeStory,{step:'board',saved_at:Date.now(),scenes:board().scenes||[]});notice('Script saved in this browser.');};}
+    const seconds=q('#scene-default-seconds');if(seconds)seconds.closest('label').hidden=true;
+   
    }
   }
   if(page==='audio'){
