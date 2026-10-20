@@ -26,6 +26,7 @@
  }
  window.EccoGPUConnection={
   get selectedId(){return selectedGPU;},
+  config(id){return isGPUConnected(id)?gpuHealth.find(g=>g.id===id)?.config||{}:{};},
   get connectedIds(){return [...connectedGPUs].filter(isGPUConnected);},
   get ready(){return this.connectedIds.length>0;},
   isConnected:isGPUConnected,
@@ -124,7 +125,7 @@
   if(path==='state'){
    verified=true;errorShown=false;connectAudio();
    acceptGPUHealth(data.config.gpu_relay);
-   if(isGPUConnected(selectedGPU))data.config={...data.config,...selectedHealth().config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay};
+   if(isGPUConnected(selectedGPU))data.config={...data.config,...selectedHealth().config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay,longcat:data.config.longcat};
   }
   return data;
  };

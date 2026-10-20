@@ -224,7 +224,8 @@
     if(!data.image_ids.length||data.image_ids.some(id=>!find(id,'image')))throw Error('Choose an available avatar in step 2.');
     const shots=activeShots();if(!shots.length)throw Error('Add at least one shot.');
     if(shots.some(s=>!find(s.image_id,'image')||!Number.isFinite(s.seconds)||s.seconds<.2))throw Error('Each shot needs an available avatar and duration.');
-    if(!gpuConnected()||!modelAvailable(model.value))throw Error('Connect a GPU with the selected model ready.');
+    const gpu=ctx.compute.value;
+    await window.EccoCompute.validate(gpu,model.value);
     if(data.audio_ids.length&&model.value!=='longcat-avatar-1.5')throw Error('Select LongCat in step 1 for synchronized speech.');
     if(model.value==='longcat-avatar-1.5'&&!data.audio_ids.length)throw Error('Select audio from Audio Library for LongCat.');
     ctx.submitting=true;setGenerationBusy(button,true,'Generating video…','Generate video');status.textContent='Preparing video…';
@@ -235,13 +236,13 @@
     let job;
     if(data.audio_ids.length){
      if(Math.abs(shots.reduce((n,s)=>n+s.seconds,0)-totalAudio())>.05)throw Error('Shot durations must cover the selected speech. Adjust seconds in step 5.');
-     const payload={story_id:story,audio_ids:data.audio_ids,image_id:data.image_ids[0],video_reference_ids:data.video_ids,gpu:localStorage.getItem('ecco-selected-gpu'),
+     const payload={story_id:story,audio_ids:data.audio_ids,image_id:data.image_ids[0],video_reference_ids:data.video_ids,gpu,
       ...modelSettings(model.value),shots:shots.map((s,i)=>({title:s.title,image_id:s.image_id,seconds:s.seconds,prompt:data.directions[i]}))};
      const signature=JSON.stringify(payload);if(data.request_signature!==signature){data.request_id=crypto.randomUUID().replaceAll('-','');data.request_signature=signature;persist();}
      job=await api('longcat/sequence',{...payload,request_id:data.request_id});
     }else{
      const board=await api('boards',{story_id:story,title:currentStory().title||'Video',scenes:shots.map((s,i)=>({...s,motion:data.directions[i],narration:''}))});
-     job=await api('videos',{...modelPayload('video'),board_id:board.id});
+     job=await api('videos',{...modelPayload('video',gpu),board_id:board.id});
     }
     localStorage.setItem('ecco-video-job:'+story,job.id);window.EccoGeneration.trackJob('video',story,job);status.textContent='Queued. Your video will appear in Review videos.';await refresh();
    }catch(error){status.textContent=error.message;notice(error.message,true);}finally{ctx.submitting=false;setGenerationBusy(button,false,'','Generate video');}

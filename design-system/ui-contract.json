@@ -1583,5 +1583,14 @@
     "label": "Settings",
     "internalCategory": "Activity",
     "fileBrowserLabel": "Workspace Drive"
+  },
+  "generationCompute": {
+    "type": "dropdown",
+    "label": "Compute",
+    "imageAndVideo": "Connected GPU instances only; selection drives per-instance model readiness and request routing",
+    "audio": "Only audio compute classes with a fresh ready worker: CPU, A100 or B200. Existing backend routes by compute class.",
+    "empty": "Disabled placeholder when no eligible compute is connected",
+    "disconnection": "Clear displayed selection; never silently switch compute",
+    "appearance": "Existing generation-section and native select styles; no new dimensions"
   }
 }

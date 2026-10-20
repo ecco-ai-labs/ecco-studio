@@ -4,7 +4,7 @@
  const previousCard=card;
  card=function(asset){const html=previousCard(asset);return asset.mode==='longcat'?html.replace('Pan / zoom storyboard preview · silent video','LongCat · synchronized dialogue audio'):html;};
  const originalAvailable=modelAvailable,originalStatus=modelStatus;
- modelAvailable=function(mid){if(mid!==id)return originalAvailable(mid);const pod=localStorage.getItem('ecco-selected-gpu');return !!state?.config?.longcat?.workers?.some(w=>w.pod===pod&&w.ready);};
+ modelAvailable=function(mid){if(mid!==id)return originalAvailable(mid);const pod=document.querySelector('[data-generation-compute]')?.value||localStorage.getItem('ecco-selected-gpu');return !!state?.config?.longcat?.workers?.some(w=>w.pod===pod&&w.ready);};
  modelStatus=function(mid){if(mid!==id)return originalStatus(mid);return modelAvailable(id)?'':'Weights installed. Connect a B200 running the LongCat worker.';};
  const previousApi=api;
  api=async function(path,body,...args){
@@ -34,14 +34,14 @@
    if(ctx.submitting||button.disabled)return;
    try{
     if(!gpuConnected()){connectGPU(button.id);return;}
-    if(!modelAvailable(id))throw Error(modelStatus(id));
+    const gpu=ctx.compute.value;await window.EccoCompute.validate(gpu,id);
     if(ctx.data.reference_library==='video'||ctx.data.reference_ids.length!==1)throw Error('Select exactly one reference image for this dialogue shot.');
     if(!audio.value)throw Error('Select a dialogue recording from Audio Library.');
     const text=form.querySelector('textarea[name="prompt"]').value.trim();
     if(!text)throw Error('Describe the character movement and scene in Prompt.');
     ctx.submitting=true;submittingVideos.add(ctx.story);setGenerationBusy(button,true,'Running Generation','Generate video');
     const job=await api('longcat/generate',{story_id:ctx.story,image_id:ctx.data.reference_ids[0],audio_id:audio.value,
-      prompt:window.EccoGeneration.compose(ctx,text),gpu:localStorage.getItem('ecco-selected-gpu'),...modelSettings(id)});
+      prompt:window.EccoGeneration.compose(ctx,text),gpu,...modelSettings(id)});
     localStorage.setItem('ecco-video-job:'+ctx.story,job.id);window.EccoGeneration.trackJob('video',ctx.story,job);
     status.textContent='Queued. Follow progress in Activity.';await refresh();
    }catch(error){status.textContent=error.message;notice(error.message,true);}

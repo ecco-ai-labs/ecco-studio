@@ -58,7 +58,7 @@
   if(c.kind==='audio')return;
   const id=c.model.value,container=q('[data-model-fields]',c.form);
   container.innerHTML=modelFields(id);all('[data-setting]',container).forEach(el=>{el.name=el.dataset.setting;el.oninput=()=>{const id=c.model.value;modelProfiles.settings[id]={...modelSettings(id),[el.dataset.setting]:el.type==='number'?Number(el.value):el.value};saveModelProfiles();};});
-  q('[data-model-status]',c.form).textContent=modelStatus(id);
+  q('[data-model-status]',c.form).textContent=c.compute?(window.EccoCompute.ready(c.compute.value,id)?'':'Selected model is not ready on this compute.'):modelStatus(id);
  }
  function connectModel(c){
   if(c.kind==='audio')return;
@@ -175,6 +175,7 @@
   form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+section('prompt',kind==='audio'?'Spoken script':'Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button><p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional Controls</button>');
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
   if(audioCompute){q('[data-section=model]',form).insertAdjacentHTML('afterend',section('compute','Compute',''));q('[data-section=compute]',form).append(audioCompute);}
+  if(kind!=='audio'){c.compute=window.EccoCompute.mount(form,kind);form.addEventListener('ecco:compute-change',()=>settingsFields(c));}
   if(negative)q('[data-settings]',form).append(negative);
   for(const node of audioSettings)q('[data-settings]',form).append(node);
   for(const node of audioReferences)q('[data-audio-references]',form).append(node);
@@ -212,18 +213,20 @@
   c.submitting=true;button.disabled=true;status.textContent='Preparing generation…';
   const tracking=c.kind==='image'?submittingImages:submittingVideos;tracking.add(c.story);
   try{
+   const gpu=c.compute.value;
+   const computeConfig=await window.EccoCompute.validate(gpu,c.kind==='image'&&c.data.reference_ids.length?'qwen-image-edit-2511':c.model.value);
    let job;
    if(c.kind==='image'){
     const prompt=compose(c,text),refs=c.data.reference_ids;
     if(prompt.length>4000)throw Error('Keep the combined prompt and object attributes within 4,000 characters.');
     if(refs.length){
-     if(!state.config.models_ready?.['qwen-image-edit-2511'])throw Error('Qwen Image Edit is not ready on the connected GPU.');
+     if(!computeConfig.models_ready?.['qwen-image-edit-2511'])throw Error('Qwen Image Edit is not ready on the connected GPU.');
      const settings=modelSettings('qwen-image-edit-2511');
-     if(!state.config.generation_controls_version&&(refs.length>1||settings.steps!==40||settings.cfg!==3||settings.seed!==42))throw Error('The connected GPU needs the multi-reference generation update. Your selections and prompt are saved.');
-     job=await api('image-edits',{asset_id:refs[0],asset_ids:refs,prompt,story_id:c.story,...settings,reference_controls:clone(c.data.objects)});
-    }else job=await api('images',{...modelPayload('images'),prompt,negative:c.form.elements.negative?.value||'',story_id:c.story});
+     if(!computeConfig.generation_controls_version&&(refs.length>1||settings.steps!==40||settings.cfg!==3||settings.seed!==42))throw Error('The connected GPU needs the multi-reference generation update. Your selections and prompt are saved.');
+     job=await api('image-edits',{gpu,asset_id:refs[0],asset_ids:refs,prompt,story_id:c.story,...settings,reference_controls:clone(c.data.objects)});
+    }else job=await api('images',{...modelPayload('images',gpu),prompt,negative:c.form.elements.negative?.value||'',story_id:c.story});
    }else{
-    const settings=modelPayload('video'),limit=settings.model==='wan-a14b'?6:settings.model==='wan-5b'?5:30;
+    const settings=modelPayload('video',gpu),limit=settings.model==='wan-a14b'?6:settings.model==='wan-5b'?5:30;
     const savedRefs=[...new Set((c.data.scenes||[]).map(s=>s.image_id))];
     const sequence=c.data.board_id&&JSON.stringify(savedRefs)===JSON.stringify(c.data.reference_ids)?c.data.scenes:c.data.reference_ids.map(id=>c.data.scenes?.find(s=>s.image_id===id)||{image_id:id});
     const scenes=sequence.map(saved=>{

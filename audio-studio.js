@@ -12,6 +12,14 @@
  let computeStatus=null,computeChecked=0;
  function showComputeStatus(){
   const note=q('[data-audio-compute-status]');if(!note||!draft)return;
+  const select=q('#audio-form [name=compute]');
+  const choices=Object.entries(computeStatus?.compute||{}).filter(([id,target])=>target.ready&&(id==='cpu'||window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===id)));
+  if(select){
+   const signature=JSON.stringify(choices.map(([id])=>id));
+   if(select.dataset.options!==signature){select.replaceChildren(new Option('Select connected compute',''),...choices.map(([id])=>new Option(id.toUpperCase(),id)));select.dataset.options=signature;}
+   select.value=choices.some(([id])=>id===draft.compute)?draft.compute:'';
+   select.disabled=!choices.length;
+  }
   const target=computeStatus?.compute?.[draft.compute];
   note.textContent=!service?'Connect workspace storage to check availability.':target?.ready?(target.models&&!target.models.includes(draft.model)?model().name+' is not available on '+draft.compute.toUpperCase()+'.':''):target?.reason||'Checking '+draft.compute.toUpperCase()+' availability…';
  }
@@ -25,8 +33,10 @@
   computeStatus=result;computeChecked=Date.now();showComputeStatus();return result;
  }
  async function requireCompute(compute,modelId){
+  if(!compute)throw Error('Select connected compute first.');
   const result=await checkCompute();
   const target=result?.compute?.[compute];
+  if(compute!=='cpu'&&!window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===compute))throw Error('Connect the selected audio GPU first.');
   if(!target?.ready)throw Error(target?.reason||compute.toUpperCase()+' audio worker is not connected.');
   if(target.models&&!target.models.includes(modelId))throw Error('This audio model is not enabled on '+compute.toUpperCase()+'. Choose another compute target.');
  }
@@ -293,7 +303,7 @@
  function render(){
   clearPreview();q('#audio-voice-preview-dialog')?.close();load();signature='';
   q('#page').innerHTML=`<section class="audio-studio"><div class="grid audio-workspace"><form id="audio-form" class="panel form"><div class="audio-model-controls model-summary"><label>Audio model<select name="model">${audioModels.map(model=>`<option value="${esc(model.id)}" ${draft.model===model.id?'selected':''}>${esc(model.name)}</option>`).join('')}</select></label><label>Genre<select name="genre">${options(genres,draft.genre)}</select></label></div><label>Recording title<input name="title" maxlength="160" value="${esc(draft.title)}" placeholder="Scene 1 · opening dialogue"></label><div id="audio-lines"></div><button type="button" class="secondary" id="add-audio-line">Add speaker turn</button><div class="audio-output-controls"><label>Speed<select name="speed">${[0.75,1,1.25,1.5].map(v=>`<option value="${v}" ${Number(draft.speed)===v?'selected':''}>${v}×</option>`).join('')}</select></label><label>Pitch<select name="pitch">${[-4,-2,0,2,4].map(v=>`<option value="${v}" ${Number(draft.pitch)===v?'selected':''}>${v>0?'+':''}${v} semitones</option>`).join('')}</select></label><label>Pause<select name="pause">${[0,0.35,0.75,1,2].map(v=>`<option value="${v}" ${Number(draft.pause)===v?'selected':''}>${v} seconds</option>`).join('')}</select></label></div><div class="row"><button id="generate-audio">Generate audio</button><span class="help">Draft saved in this browser · up to 4,000 characters</span></div><p id="audio-job-status" role="status"></p></form></div></section>`;
-  q('#audio-form').insertAdjacentHTML('afterbegin',`<div data-audio-compute><select name="compute" aria-label="Audio compute" aria-describedby="audio-compute-status"><option value="cpu" ${draft.compute==='cpu'?'selected':''}>CPU</option><option value="a100" ${draft.compute==='a100'?'selected':''}>A100</option><option value="b200" ${draft.compute==='b200'?'selected':''}>B200</option></select><p id="audio-compute-status" class="help" data-audio-compute-status role="status"></p></div>`);
+  q('#audio-form').insertAdjacentHTML('afterbegin',`<div data-audio-compute><select name="compute" aria-label="Audio compute" aria-describedby="audio-compute-status"><option value="">Checking connected compute…</option></select><p id="audio-compute-status" class="help" data-audio-compute-status role="status"></p></div>`);
   drawLines();
   q('#add-audio-line').onclick=()=>{if(draft.presentation==='conversation'&&draft.lines.length<20){const previous=draft.lines.at(-1).speaker_id,next=draft.speakers[(draft.speakers.findIndex(s=>s.id===previous)+1)%draft.speakers.length];draft.lines.push({text:'',speaker_id:next.id});save();drawLines();drawControls();}};
   q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'){draft[e.target.name]=['title','model','genre','compute'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
