@@ -107,8 +107,8 @@ Connection icons use separate status colors: Default white/yellow, Dark Mode gre
 ## Accelerator connections
 
 Connections → GPU groups RunPod instances in the existing B200 and A100 cards.
-Each card has an instance dropdown, individual live status and an explicit Connect
-button. Connecting an instance adds it to the connected set; other instances stay
+Each card has an instance dropdown and a button showing Connected, Unavailable
+or Connect for that instance. Only Connect is enabled. Connecting an instance adds it to the connected set; other instances stay
 connected, including others of the same class. Choices do not connect automatically.
 Saved connections require a fresh authenticated health response before displaying
 Connected. Availability refreshes every 20 seconds.

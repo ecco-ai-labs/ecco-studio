@@ -12,26 +12,33 @@
  let connectedGPUs;
  try{const saved=JSON.parse(localStorage.getItem('ecco-connected-gpus'));connectedGPUs=new Set(Array.isArray(saved)?saved.filter(id=>typeof id==='string'):[selectedGPU].filter(Boolean));}
  catch{connectedGPUs=new Set([selectedGPU].filter(Boolean));}
+ const notifyGPUConnection=()=>document.dispatchEvent(new Event('ecco:gpu-connection-change'));
  function acceptGPUHealth(value){
   gpuHealth=value?.gpus||[];gpuChecked=Date.now();
+  notifyGPUConnection();
  }
  const selectedHealth=()=>gpuHealth.find(g=>g.id===selectedGPU);
  const isGPUConnected=id=>Boolean(key)&&Date.now()-gpuChecked<60000&&connectedGPUs.has(id)&&Boolean(gpuHealth.find(g=>g.id===id)?.ready);
+ function gpuStatus(gpu){
+  if(!key)return {kind:'unchecked',title:'Not checked',detail:'Connect workspace storage to check GPU availability.'};
+  if(!gpuChecked||Date.now()-gpuChecked>=60000)return {kind:'unknown',title:'Unavailable',detail:'GPU availability could not be verified.'};
+  return gpuHealth.find(g=>g.id===gpu.id)?.ready?{kind:'ready',title:'Available',detail:'Ready for generation.'}:{kind:'unknown',title:'Unavailable',detail:'The GPU generation service is not responding.'};
+ }
  window.EccoGPUConnection={
   get selectedId(){return selectedGPU;},
   get connectedIds(){return [...connectedGPUs].filter(isGPUConnected);},
   get ready(){return this.connectedIds.length>0;},
   isConnected:isGPUConnected,
+  status:gpuStatus,
   async checkAll(gpus){
-   try{acceptGPUHealth(await storageRequest('gpu/status'));}catch(error){gpuChecked=0;throw error;}
-   return gpus.map(gpu=>{const item=gpuHealth.find(g=>g.id===gpu.id);
-    return item?.ready?{kind:'ready',title:'Available',detail:'Ready for generation.'}:{kind:'unknown',title:'Unavailable',detail:'The GPU generation service is not responding.'};});
+   try{acceptGPUHealth(await storageRequest('gpu/status'));}catch(error){gpuChecked=0;notifyGPUConnection();throw error;}
+   return gpus.map(gpuStatus);
   },
   async check(gpu){return (await this.checkAll([gpu]))[0];},
   async select(gpu){
    const status=await this.check(gpu);if(status.kind!=='ready')throw Error('This accelerator is unavailable.');
    connectedGPUs.add(gpu.id);localStorage.setItem('ecco-connected-gpus',JSON.stringify([...connectedGPUs]));
-   selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);await refresh();
+   selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);notifyGPUConnection();await refresh();
   },
  };
  gpuConnected=()=>window.EccoGPUConnection.ready;
@@ -127,7 +134,7 @@
   window.EccoErrors.show(error,{title:'Workspace storage error',retryLabel:'Reconnect storage',retry:dialog});
  }
  function counts(){const active=state.records.filter(r=>!r.deleted);return active.filter(r=>r.kind==='asset'&&r.media==='image').length+' images · '+active.filter(r=>r.kind==='story').length+' stories';}
- function disconnect(){key='';verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');}
+ function disconnect(){key='';notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');}
  function dialog(){
   let modal=document.querySelector('#storage-access-dialog');
   if(!modal){modal=document.createElement('dialog');modal.id='storage-access-dialog';document.body.append(modal);}

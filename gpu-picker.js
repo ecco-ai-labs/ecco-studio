@@ -46,36 +46,35 @@ window.EccoGPUPicker = (() => {
         <label for="gpu-instance-${name}">RunPod instance<select id="gpu-instance-${name}" aria-label="${name} RunPod instance" aria-describedby="gpu-status-${name}">
           <option value="">Choose an instance</option>${gpus.filter(g=>g.name===name).map(g=>`<option value="${g.id}">${g.label} · ${g.id}</option>`).join('')}
         </select></label>
-        <p class="gpu-status" id="gpu-status-${name}" role="status" aria-live="polite"></p>
-        <button type="button" class="gpu-open secondary" disabled>Connect</button>
+        <button type="button" class="gpu-open secondary" id="gpu-status-${name}" aria-live="polite" disabled>Connect</button>
       </article>`).join('')}</div>
       <p class="help" id="gpu-checked">Checking availability…</p>
     </section>`;
     const refresh=container.querySelector('#gpu-refresh');
     const cards=classes.map(name=>{
       const root=container.querySelector(`[data-gpu-class="${name}"]`);
-      return {name,root,select:root.querySelector('select'),button:root.querySelector('.gpu-open'),status:root.querySelector('.gpu-status')};
+      return {name,root,select:root.querySelector('select'),button:root.querySelector('.gpu-open')};
     });
     const isConnected=id=>Boolean(window.EccoGPUConnection?.isConnected(id));
+    const statusFor=gpu=>gpu&&(window.EccoGPUConnection?.status?.(gpu)||statuses.get(gpu.id));
     function statusLabel(gpu){
-      const status=statuses.get(gpu.id);
-      return status?.kind==='ready'&&isConnected(gpu.id)?'Connected':status?.kind==='ready'?'Available':status?.title||'Checking…';
+      const status=statusFor(gpu);
+      return isConnected(gpu.id)?'Connected':status?.kind==='ready'?'Available':status?.title||'Checking…';
     }
     function draw(){
       for(const card of cards){
         for(const gpu of gpus.filter(g=>g.name===card.name)){
           card.select.querySelector(`option[value="${gpu.id}"]`).textContent=gpu.label+' · '+gpu.id+' · '+statusLabel(gpu);
         }
-        const gpu=gpus.find(g=>g.id===card.select.value),status=statuses.get(card.select.value);
-        const pending=gpu&&connecting.has(gpu.id),connected=status?.kind==='ready'&&isConnected(card.select.value);
+        const gpu=gpus.find(g=>g.id===card.select.value),status=statusFor(gpu);
+        const pending=gpu&&connecting.has(gpu.id),connected=!!gpu&&isConnected(gpu.id);
         card.root.dataset.status=connected?'connected':status?.kind||'';
         card.select.disabled=Boolean(pending);
-        card.button.disabled=Boolean(pending)||busy||!gpu||!status||status.kind==='unknown'||connected;
+        card.button.disabled=Boolean(pending)||busy||!gpu||status?.kind!=='ready'||connected;
         card.button.dataset.connected=String(connected);
         card.button.setAttribute('aria-busy',String(Boolean(pending)));
-        card.button.textContent=pending?'Connecting…':connected?'Connected':status?.kind==='unchecked'?'Connect storage':'Connect';
-        card.status.textContent=!gpu?'':pending?'Connecting…':statusLabel(gpu)+(status?.kind==='unchecked'?'. '+status.detail:'');
-        card.status.hidden=!card.status.textContent;
+        card.button.textContent=pending?'Connecting…':connected?'Connected':!gpu?'Connect':!status?'Checking…':status.kind==='ready'?'Connect':'Unavailable';
+        card.button.title=gpu&&!connected&&status?.kind!=='ready'?status?.detail||'This instance is unavailable.':'';
       }
     }
     for(const card of cards){
@@ -99,8 +98,10 @@ window.EccoGPUPicker = (() => {
       refresh.disabled=false;refresh.textContent='Refresh status';
     }
     refresh.onclick=update;
+    const connectionChanged=()=>{if(active)draw();};
+    document.addEventListener('ecco:gpu-connection-change',connectionChanged);
     const timer=setInterval(()=>{if(document.visibilityState!=='hidden')update();},20000);
-    dispose=()=>{active=false;clearInterval(timer);};
+    dispose=()=>{active=false;clearInterval(timer);document.removeEventListener('ecco:gpu-connection-change',connectionChanged);};
     update();
   }
   return {mount,check,gpus};
