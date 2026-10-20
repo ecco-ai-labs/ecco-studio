@@ -157,7 +157,7 @@ def _advance(job, env):
         child=env['get'](job['children'][-1],'longcat_job')
         if child['status'] in ('queued','running'): return
         if child['status'] in ('failed','error') and not job.get('stop_requested'):
-            job.update(status='failed',error=child.get('error','A video clip failed.'));env['save'](job);return
+            job.update(status='failed',error=child.get('error','A video clip failed.'),error_details=renderer.with_error_details(child).get('error_details'),finished=time.time());env['save'](job);return
     if job.get('stop_requested'):
         job.update(status='cancelled', progress='Stopped; completed clips retained', finished=time.time())
         env['save'](job); return
@@ -191,7 +191,8 @@ def start(env):
                 if job.get('status') not in ('queued','running','paused'): continue
                 try: advance(job,env)
                 except Exception as error:
-                    job.update(status='failed',error='Audio video assembly failed: '+str(error)[:240]);env['save'](job)
+                    job.update(status='failed',error='Audio video assembly failed: '+renderer.redact_error(error),error_details={'component':'video assembly','exception_type':type(error).__name__,'traceback':renderer.redact_error(__import__('traceback').format_exc()),'occurred_at':time.time()},finished=time.time());env['save'](job)
             time.sleep(3)
     threading.Thread(target=loop,daemon=True,name='audio-video-sequences').start()
+
 
