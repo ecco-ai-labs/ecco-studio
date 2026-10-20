@@ -17,6 +17,7 @@ import library_rename
 import audio_jobs
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'video'))
 import longcat_jobs
+import longcat_progress
 import audio_video_sequence
 import gpu_relay
 import openai_assistant
@@ -38,7 +39,7 @@ WRITE_ROUTES = frozenset({
 })
 
 def storage_state():
-    return {'records': [{**r, 'kind': 'job', 'source_kind': r['kind'], 'model': r.get('model') or longcat_jobs.MODEL, 'label': r.get('label') or 'Video · LongCat sequence'} if r['kind']=='audio_video_job' else r for r in legacy.records()], 'storage_pending': False, 'config': {
+    return {'records': [{**r, 'kind': 'job', 'source_kind': r['kind'], 'model': r.get('model') or longcat_jobs.MODEL, 'label': r.get('label') or 'Video · LongCat sequence'} if r['kind']=='audio_video_job' else r for r in longcat_progress.enrich(legacy.records())], 'storage_pending': False, 'config': {
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
                     'rename_available': True, 'gpu_independent': True, 'service': 'ecco-storage-api'},
         'longcat': {**longcat_jobs.status(), 'sequence_available': True, 'sequence_controls': True}, 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),

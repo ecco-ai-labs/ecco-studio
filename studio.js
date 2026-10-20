@@ -199,7 +199,7 @@ async function refresh(next=null,throwErrors=false){if(!next&&!connected&&!windo
  }catch(e){$('#wan-badge').textContent='Offline';$('#wan-badge').className='badge pending';if(throwErrors)throw e;if(window.EccoStorage?.reportError)window.EccoStorage.reportError(e);else notice('Cannot reach workspace storage. '+e.message,true);return false;}}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=> navigate(b.dataset.page));$('#settings').onclick=()=>state.storage_pending?notice('Connect your workspace using Account → Storage.'):connections();$('#close-settings').onclick=()=>$('#connection-dialog').close();$('#sync').onclick=()=>action(async()=>{if(!state.config.github_connected)throw Error('GitHub is not connected. Open Connections & storage for details.');await api('github/sync',{});notice('GitHub sync queued.');});
 const reconnectButton=document.createElement('button');reconnectButton.textContent='Connect GPUs';reconnectButton.className='secondary';reconnectButton.id='reconnect-gpu';reconnectButton.hidden=true;reconnectButton.onclick=()=>{};
-welcome();setInterval(refresh,4000);
+welcome();let activityRefreshPending=false;setInterval(async()=>{if(activityRefreshPending)return;activityRefreshPending=true;try{await refresh();}finally{activityRefreshPending=false;}},3000);
 
 function powerControls(){
  let d=$('#power-dialog');if(!d){d=document.createElement('dialog');d.id='power-dialog';document.body.appendChild(d);}
