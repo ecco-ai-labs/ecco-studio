@@ -1608,5 +1608,23 @@
     "percent": "Approximate generation progress from segment and step counts, capped at 99 until clip completes; not a time estimate",
     "refreshSeconds": 3,
     "placement": "Main Video tab directly under Review videos, before generated outputs; Pause after next clip and Stop after next clip below bars. Activity has text status only."
+  },
+  "storyJourneys": {
+    "approval": "2026-10-20: compact story buttons with dropdown arrows and right-side category submenus; tailored second screens",
+    "types": [
+      "menu",
+      "menu-item",
+      "form",
+      "step-navigation"
+    ],
+    "entry": "New Story and Existing Story; existing records plus local drafts; no sample records",
+    "layout": "190px trigger/menu, 230px flyout; inline submenus below 700px",
+    "dismiss": "Outside click, Escape, focus exit; keyboard arrows and click/touch supported",
+    "theme": "Existing surface, text, control, border tokens",
+    "persistence": "Workflow ID and intent fields saved with browser story setup; existing storage saves title/summary",
+    "variants": [
+      "intent-category-menu",
+      "intent-story-setup"
+    ]
   }
 }

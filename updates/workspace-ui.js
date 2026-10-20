@@ -50,9 +50,9 @@
   const id=saved.localDraftId||crypto.randomUUID(),data={...saved,localDraftId:id,title:saved.title||board.title||'Untitled draft',boardDraft:board};
   localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));
  }
- function startNewStory(){
+ function startNewStory(intent){
   preserveNewStoryDraft(true);if(activeStory)persistDraft();activeStory='';localStorage.removeItem('ecco-active-story');
-  localStorage.setItem('ecco-new-story-draft','{}');draft={...defaultDraft,scenes:[]};persistDraft();
+  localStorage.setItem('ecco-new-story-draft',JSON.stringify(intent?{workflow_id:intent.id,story_format:intent.format}:{}));draft={...defaultDraft,scenes:[]};persistDraft();
   selectedJourneyStory=undefined;newStoryStarted=true;storyControls();navigate('story-setup');
  }
  function openStory(id){
@@ -69,6 +69,7 @@
   const create=document.createElement('button');create.type='button';create.textContent='Create a New Story';create.onclick=()=>{document.body.classList.remove('story-choice-mode');startNewStory();};
   const resume=document.createElement('button');resume.type='button';resume.textContent='Continue with an Existing Story';resume.onclick=()=>{document.body.classList.remove('story-choice-mode');navigate('story-library');};
   actions.append(create,resume);choices.append(actions);q('#page').replaceChildren(choices);
+  window.EccoStoryJourneys?.mount(actions,{studio:()=>{document.body.classList.remove('story-choice-mode');navigate('images');},start:startNewStory,rows:()=>[...stories().map(s=>({...s,...readStory('ecco-story-description:'+s.id),id:s.id})),...localStoryDrafts().map(s=>({...s,local:true}))],open:item=>{if(item.local)storySetupPage(item.id);else openStory(item.id);}});
   document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
  }
  function selectionToolbar(body,name,button){const selected=body.querySelector('.tree-folder.selected');if(!selected||!button)return;const row=document.createElement('div');row.className='library-selected-row';selected.before(row);row.append(selected);button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);row.append(button);}
@@ -393,8 +394,9 @@
   for(const name of ['story_format','title','genre','summary'])form.elements[name].value=saved[name]||'';
   if(savedId)selectedJourneyStory=activeStory;
   // Restoring draft text is not a format choice in a new browser session.
-  if(selectedJourneyStory!==activeStory)form.elements.story_format.value='';
-  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
+  if(saved.workflow_id)selectedJourneyStory=activeStory;else if(selectedJourneyStory!==activeStory)form.elements.story_format.value='';
+  window.EccoStoryJourneys?.setup(form,saved);
+  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||window.EccoStoryJourneys?.brief(data)||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
@@ -404,7 +406,7 @@
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
     data.cloudId=created.id;saved=data;
-    const nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};
+    const nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||window.EccoStoryJourneys?.brief(data)||data.summary,story_format:data.story_format};
     localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));
     localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));
     if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);
@@ -440,7 +442,7 @@
   const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
   return ['audio','video'].includes(value)?value:activeStory?'video':'';
  }
- function currentJourneySteps(){return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
+ function currentJourneySteps(){const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
  function journeyPreview(allStories=false){
   page='journey-preview';q('#heading').textContent='Publish';
   const videos=records().filter(a=>a.kind==='asset'&&a.media==='video'&&!a.deleted&&(allStories||(a.story_id||LEGACY_STORY)===activeStory));
@@ -466,7 +468,7 @@
    if(target==='story-setup')button.id='workspace-new-story';
    for(const duplicate of nav.querySelectorAll('button[data-page="'+target+'"]'))if(duplicate!==button)duplicate.remove();
    button.hidden=false;button.classList.add('journey-step');
-   const navLabels={'story-setup':'Describe Your Story',board:'StoryBoard Your Story',audio:'Create Audio for Your Story',images:'Create Images for Your Story',render:'Create Videos for Your Story'};const label=(i+1)+'. '+(navLabels[target]||title.replace(/\b[a-z]/g,c=>c.toUpperCase()));if(button.textContent!==label)button.textContent=label;
+   const navLabels={'story-setup':'Describe Your Story',board:'StoryBoard Your Story',audio:'Create Audio for Your Story',images:'Create Images for Your Story',render:'Create Videos for Your Story'};const label=(i+1)+'. '+(window.EccoStoryJourneys?.current()?title:navLabels[target]||title.replace(/\b[a-z]/g,c=>c.toUpperCase()));if(button.textContent!==label)button.textContent=label;
    button.classList.toggle('active',page===target||(target==='board'&&page==='director'));
    if(button.parentElement!==body||[...body.querySelectorAll('.journey-step')][i]!==button)body.append(button);
   });

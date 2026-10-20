@@ -1,0 +1,8 @@
+#story-choice-screen .story-choice-actions{overflow:visible;align-items:flex-start;flex-direction:row}
+.intent-menu-wrap{position:relative;text-align:left}
+.intent-menu,.intent-submenu{position:absolute;z-index:100;background:var(--ecco-theme-surface,var(--panel,#24203e));color:var(--ecco-theme-text,#fff);border:1px solid var(--ecco-theme-border,var(--border,#514b69));border-radius:8px;padding:5px;box-shadow:0 8px 25px #0003;width:190px}
+.intent-menu{top:calc(100% + 5px);left:0}.intent-menu-row{position:relative}.intent-submenu{left:100%;top:-5px;width:230px;max-height:320px;overflow-y:auto}
+body.story-choice-mode #story-choice-screen .intent-menu button{display:block;text-align:left;width:100%;height:auto;min-height:36px;padding:10px 12px;background:transparent!important;color:var(--ecco-theme-text,#fff)!important;font-size:14px!important;font-weight:400!important;border:0;border-radius:5px;white-space:normal}
+body.story-choice-mode #story-choice-screen .intent-menu button:hover,body.story-choice-mode #story-choice-screen .intent-menu button[aria-expanded=true]{background:var(--ecco-theme-control,#39314d)!important}
+.intent-menu p{font-size:13px;padding:6px}.intent-menu [hidden],.intent-menu[hidden],#story-setup-form [hidden]{display:none!important}
+@media(max-width:700px){#story-choice-screen .story-choice-actions{flex-direction:column;align-items:center}.intent-menu{position:relative;top:auto;margin-top:5px}.intent-submenu{position:relative;left:0;top:0;width:100%;box-shadow:none;border:0;border-left:2px solid var(--ecco-theme-border,#514b69);border-radius:0}}

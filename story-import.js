@@ -28,7 +28,7 @@
   panel.innerHTML='<div class="story-source-controls" role="group" aria-label="Story source"><button type="button" class="secondary" data-story-library>Story Library</button><button type="button" class="secondary" data-story-manual aria-pressed="false">Manual</button><details class="workspace-menu"><summary>Upload<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div></details></div>';
   form.before(panel);
   const format=form.elements.story_format;
-  if(format){
+  if(format&&(!form.dataset.intent||form.dataset.intentFormatChoice==='true')){
    format.closest('label').classList.add('story-format-source');format.tabIndex=-1;format.setAttribute('aria-hidden','true');
    const control=document.createElement('div');control.className='story-format-control';control.setAttribute('role','group');control.setAttribute('aria-label','Story Format');
    control.innerHTML='<div class="story-format-options"><button type="button" class="secondary" data-story-format-option="audio" aria-pressed="false">Audio</button><button type="button" class="secondary" data-story-format-option="video" aria-pressed="false">Video</button></div>';
