@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 import uuid
+import traceback
 
 ROOT = Path(os.getenv('ECCO_LONGCAT_ROOT', '/workspace/ecco-video/longcat'))
 QUEUE = ROOT / 'queue'
@@ -36,8 +37,43 @@ def status():
 def probe(path):
     return json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(path)],timeout=30))
 
+def redact_error(value):
+    text = str(value)
+    text = re.sub(r"(?i)\bBearer\s+[^\s\"'<>]+", 'Bearer [REDACTED]', text)
+    text = re.sub(r"(?i)((?:authorization|api[_-]?key|access[_-]?key|password|secret|token)\s*[\"']?\s*[:=]\s*[\"']?)[^\s,\"'&<>]+", r'\1[REDACTED]', text)
+    return re.sub(r'\bsk-[A-Za-z0-9_-]+', '[REDACTED]', text)
+
+def diagnostics(directory, error=None):
+    details = dict(job_id=directory.name, occurred_at=time.time(), component='LongCat worker')
+    request = read(directory/'request.json', {})
+    details['gpu'] = request.get('pod')
+    if error is not None:
+        details.update(exception_type=type(error).__name__, exception=redact_error(error), traceback=redact_error(traceback.format_exc()))
+    log = directory/'worker.log'
+    if log.is_file():
+        with log.open('rb') as stream:
+            size=log.stat().st_size
+            stream.seek(max(0,size-65536))
+            details['worker_log']=redact_error(stream.read().decode('utf-8',errors='replace'))
+        details['worker_log_truncated']=size>65536
+        details['worker_log_path']=str(log)
+        if error is None: details['occurred_at']=log.stat().st_mtime
+    return details
+
+def with_error_details(job):
+    if job.get('status') not in ('failed','error') or job.get('kind') not in ('longcat_job','audio_video_job'): return job
+    result=dict(job)
+    child=job.get('children', [])[-1] if job.get('children') else job.get('id','')
+    if not re.fullmatch('[a-f0-9]{32}',str(child)): return result
+    directory=QUEUE/child
+    status_record=read(directory/'status.json', {})
+    details=job.get('error_details') or status_record.get('error_details')
+    if not details and directory.is_dir(): details=diagnostics(directory)
+    if details: result['error_details']=details
+    return result
+
 def public(job):
-    return {k:v for k,v in job.items() if k!='request'}
+    return {k:v for k,v in with_error_details(job).items() if k!='request'}
 
 def generate(body, env):
     with LOCK:
@@ -110,6 +146,7 @@ def finalize(job, env):
             job.update(status='done',result=[aid],progress='Video ready',finished=time.time())
         elif s in ('running','error'):
             job.update(status='failed' if s=='error' else s,progress=result.get('progress',''),error=result.get('error',''))
+            if s=='error': job.update(error_details=result.get('error_details') or diagnostics(d),finished=time.time())
         env['save'](job)
 
 def start(env):
@@ -165,10 +202,12 @@ def worker():
             if not ready or r.get('pod')!=pod or s.get('status')!='queued': continue
             write(d/'status.json',dict(status='running',progress='Running Generation'))
             try: run_shot(d,r)
-            except Exception:
-                write(d/'status.json',dict(status='error',error='LongCat generation failed. See the job worker log; no fallback model was used.'))
+            except Exception as error:
+                details=diagnostics(d,error)
+                write(d/'status.json',dict(status='error',error='LongCat generation failed: '+redact_error(error),error_details=details))
         time.sleep(2)
 
 if __name__=='__main__': worker()
+
 
 
