@@ -26,7 +26,8 @@
  window.EccoErrors={show};
  const style=document.createElement('style');style.textContent=`
  #ecco-error-popup{width:min(480px,calc(100vw - 32px));box-sizing:border-box;background:#201d44;border:1px solid #605679;border-radius:9px;padding:20px;color:var(--accent,#ffdc24)}
- #ecco-error-popup h2,#ecco-error-popup p,#ecco-error-popup button{color:var(--accent,#ffdc24)!important}
+ #ecco-error-popup h2,#ecco-error-popup p{color:#ff7474!important}
+ #ecco-error-popup [data-retry]{color:var(--accent,#ffdc24)!important}
  #ecco-error-popup h2{font-size:16px;margin:0 0 12px}#ecco-error-popup p{font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto}
  #ecco-error-popup::backdrop{background:#0008}#ecco-error-popup .row{justify-content:flex-end}
  #ecco-error-popup [hidden]{display:none!important}`;
