@@ -1566,6 +1566,16 @@
     "connection": "Explicit Connect adds that instance without removing any existing connection, including another instance in the same class",
     "persistence": "Connected instance IDs persist in this browser and require fresh authenticated health before displaying Connected",
     "refreshSeconds": 20,
-    "styling": "Existing gpu-grid, gpu-card, dropdown and secondary button rules; no new dimensions"
+    "styling": "Existing gpu-grid, gpu-card, dropdown and secondary button rules; no new dimensions",
+    "connectedText": "Uses the theme connected color: yellow in Default and Forest, mint in Dark Mode, green in Desert. Connected buttons retain full opacity when disabled.",
+    "buttonColors": {
+      "default": {
+        "Connected": "#ffdc24",
+        "Connect": "#ffffff",
+        "Unavailable": "White at 55% opacity"
+      },
+      "themes": "Uses the existing connected/disconnected theme colors, with the unavailable text at 55% opacity",
+      "buttonOpacity": 1
+    }
   }
 }

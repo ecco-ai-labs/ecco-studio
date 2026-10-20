@@ -13,3 +13,8 @@
 #connection-indicators{background:linear-gradient(180deg,var(--ecco-theme-control,#302a43),var(--ecco-theme-surface,#242031));border-color:var(--ecco-theme-border,rgba(190,180,215,.22))}
 #connection-indicators #studio-ai-button,#connection-indicators #studio-storage-indicator,#connection-indicators #connected-accelerator{color:var(--ecco-theme-disconnected,#fff)!important}
 #connection-indicators #studio-ai-button[data-connected=true],#connection-indicators #studio-storage-indicator[data-connected=true],#connection-indicators #connected-accelerator.accelerator-connected{color:var(--ecco-theme-connected,#ffdc24)!important}
+
+/* Keep status text readable without fading the entire button. */
+#gpu-picker-dialog .gpu-card .gpu-open{color:var(--ecco-theme-disconnected,#fff)!important;opacity:1!important;filter:none!important}
+#gpu-picker-dialog .gpu-card:is([data-status="unknown"],[data-status="unchecked"],[data-status="running"]) .gpu-open{color:color-mix(in srgb,var(--ecco-theme-disconnected,#fff) 55%,transparent)!important}
+#gpu-picker-dialog .gpu-card .gpu-open[data-connected="true"]{color:var(--ecco-theme-connected,#ffdc24)!important}
