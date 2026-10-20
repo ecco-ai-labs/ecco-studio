@@ -2,8 +2,8 @@
 // Public endpoint addresses only. Authentication stays on the selected RunPod origin.
 window.EccoGPUPicker = (() => {
   const gpus = [
-    {id:'io8sphjo10kbuy',name:'B200 (Original)',label:'ecco-b200-benchmark'},
-    {id:'p7lc6fqjuosti3',name:'B200 (New)',label:'severe_crimson_kingfisher'},
+    {id:'io8sphjo10kbuy',name:'B200',label:'ecco-b200-benchmark'},
+    {id:'p7lc6fqjuosti3',name:'B200',label:'severe_crimson_kingfisher'},
     {id:'1muqctw9bxvguu',name:'A100',label:'ecco-demo-a100'}
   ].map(gpu => ({...gpu, origin:`https://${gpu.id}-8888.proxy.runpod.net`,
     url:`https://${gpu.id}-8888.proxy.runpod.net/proxy/8765/`}));
@@ -37,52 +37,66 @@ window.EccoGPUPicker = (() => {
   }
   function mount(container, open) {
     dispose();
-    let active=true, busy=false, selecting=false, statuses=new Map();
-    container.innerHTML = `<section class="gpu-picker panel form" aria-label="GPU workspaces">
-      <label for="gpu-workspace">GPU workspace<select id="gpu-workspace" aria-describedby="gpu-selection-status">
-        <option value="">Choose a GPU</option>${gpus.map(gpu=>`<option value="${gpu.id}">${gpu.name} · Checking…</option>`).join('')}
-      </select></label>
-      <p class="help" id="gpu-selection-status" role="status" aria-live="polite"></p>
-      <div class="row"><button type="button" class="gpu-open secondary" disabled>Connect</button><button type="button" class="secondary" id="gpu-refresh">Refresh status</button></div>
-      <p class="help" id="gpu-checked">Checking ${gpus.length} GPU workspaces…</p>
+    let active=true,busy=false,statuses=new Map();
+    const connecting=new Set(),classes=['B200','A100'];
+    container.innerHTML=`<section class="gpu-picker panel" aria-label="Accelerator classes">
+      <div class="section-head"><h2>Class of Accelerators</h2><button type="button" class="secondary" id="gpu-refresh">Refresh status</button></div>
+      <div class="gpu-grid">${classes.map(name=>`<article class="gpu-card" data-gpu-class="${name}" aria-labelledby="gpu-class-${name}">
+        <h3 id="gpu-class-${name}">${name}</h3>
+        <label for="gpu-instance-${name}">RunPod instance<select id="gpu-instance-${name}" aria-label="${name} RunPod instance" aria-describedby="gpu-status-${name}">
+          <option value="">Choose an instance</option>${gpus.filter(g=>g.name===name).map(g=>`<option value="${g.id}">${g.label} · ${g.id}</option>`).join('')}
+        </select></label>
+        <p class="gpu-status" id="gpu-status-${name}" role="status" aria-live="polite"></p>
+        <button type="button" class="gpu-open secondary" disabled>Connect</button>
+      </article>`).join('')}</div>
+      <p class="help" id="gpu-checked">Checking availability…</p>
     </section>`;
-    const refresh=container.querySelector('#gpu-refresh'),select=container.querySelector('#gpu-workspace'),button=container.querySelector('.gpu-open'),note=container.querySelector('#gpu-selection-status');
-    const savedId=window.EccoGPUConnection?.selectedId;
-    if(gpus.some(gpu=>gpu.id===savedId))select.value=savedId;
-    function draw(){
-      const connection=window.EccoGPUConnection,connectedId=connection?.ready?connection.selectedId:'';
-      for(const gpu of gpus){
-        const status=statuses.get(gpu.id),connected=status?.kind==='ready'&&gpu.id===connectedId;
-        const label=connected?'Connected':status?.kind==='ready'?'Available':status?.kind==='running'?'Starting':status?.title||'Checking…';
-        select.querySelector(`option[value="${gpu.id}"]`).textContent=gpu.name+' · '+label;
-      }
-      const gpu=gpus.find(gpu=>gpu.id===select.value),status=statuses.get(select.value),connected=status?.kind==='ready'&&select.value===connectedId;
-      select.disabled=selecting;
-      button.disabled=selecting||busy||!gpu||!status||status.kind==='unknown'||connected;
-      button.dataset.connected=String(connected);button.setAttribute('aria-pressed',String(connected));
-      button.textContent=selecting?'Connecting…':connected?'Connected':status?.kind==='unchecked'?'Connect storage':connectedId?'Switch connection':'Connect';
-      note.textContent=selecting?'Connecting to '+gpu.name+'…':!gpu?'':connected?gpu.name+' connected.':status?.kind==='unknown'||status?.kind==='unchecked'?status.detail:gpu.label+' · '+gpu.id;
-      note.hidden=!note.textContent;
+    const refresh=container.querySelector('#gpu-refresh');
+    const cards=classes.map(name=>{
+      const root=container.querySelector(`[data-gpu-class="${name}"]`);
+      return {name,root,select:root.querySelector('select'),button:root.querySelector('.gpu-open'),status:root.querySelector('.gpu-status')};
+    });
+    const isConnected=id=>Boolean(window.EccoGPUConnection?.isConnected(id));
+    function statusLabel(gpu){
+      const status=statuses.get(gpu.id);
+      return status?.kind==='ready'&&isConnected(gpu.id)?'Connected':status?.kind==='ready'?'Available':status?.title||'Checking…';
     }
-    select.onchange=draw;
-    button.onclick=async()=>{
-      const gpu=gpus.find(gpu=>gpu.id===select.value);
-      if(button.disabled||selecting||busy||!gpu)return;
-      selecting=true;button.setAttribute('aria-busy','true');draw();
-      try{await open(gpu);}finally{selecting=false;button.removeAttribute('aria-busy');await update();}
-    };
-    async function update() {
-      if(busy || selecting || !active) return;
-      busy=true; refresh.disabled=true; refresh.textContent='Checking…';draw();
+    function draw(){
+      for(const card of cards){
+        for(const gpu of gpus.filter(g=>g.name===card.name)){
+          card.select.querySelector(`option[value="${gpu.id}"]`).textContent=gpu.label+' · '+gpu.id+' · '+statusLabel(gpu);
+        }
+        const gpu=gpus.find(g=>g.id===card.select.value),status=statuses.get(card.select.value);
+        const pending=gpu&&connecting.has(gpu.id),connected=status?.kind==='ready'&&isConnected(card.select.value);
+        card.root.dataset.status=connected?'connected':status?.kind||'';
+        card.select.disabled=Boolean(pending);
+        card.button.disabled=Boolean(pending)||busy||!gpu||!status||status.kind==='unknown'||connected;
+        card.button.dataset.connected=String(connected);
+        card.button.setAttribute('aria-busy',String(Boolean(pending)));
+        card.button.textContent=pending?'Connecting…':connected?'Connected':status?.kind==='unchecked'?'Connect storage':'Connect';
+        card.status.textContent=!gpu?'':pending?'Connecting…':statusLabel(gpu)+(status?.kind==='unchecked'?'. '+status.detail:'');
+        card.status.hidden=!card.status.textContent;
+      }
+    }
+    for(const card of cards){
+      card.select.onchange=draw;
+      card.button.onclick=async()=>{
+        const gpu=gpus.find(g=>g.id===card.select.value);
+        if(card.button.disabled||!gpu)return;
+        connecting.add(gpu.id);draw();
+        try{await open(gpu);}finally{connecting.delete(gpu.id);draw();await update();}
+      };
+    }
+    async function update(){
+      if(busy||!active)return;
+      busy=true;refresh.disabled=true;refresh.textContent='Checking…';draw();
       let results;
       try{results=window.EccoStorage?.ready&&window.EccoGPUConnection?.checkAll?await window.EccoGPUConnection.checkAll(gpus):await Promise.all(gpus.map(gpu=>check(gpu)));}
       catch(error){results=gpus.map(()=>({kind:'unknown',title:'Status unavailable',detail:error.message||'Could not check GPU availability.'}));}
-      if(!active || !container.querySelector('.gpu-picker')){busy=false;return;}
+      if(!active||!container.querySelector('.gpu-picker')){busy=false;return;}
       statuses=new Map(gpus.map((gpu,i)=>[gpu.id,results[i]]));busy=false;draw();
-      if(active && container.querySelector('.gpu-picker')) {
-        container.querySelector('#gpu-checked').textContent='Last checked '+new Date().toLocaleTimeString()+'. Refreshes every 20 seconds.';
-        refresh.disabled=false; refresh.textContent='Refresh status';
-      }
+      container.querySelector('#gpu-checked').textContent='Last checked '+new Date().toLocaleTimeString()+'. Refreshes every 20 seconds.';
+      refresh.disabled=false;refresh.textContent='Refresh status';
     }
     refresh.onclick=update;
     const timer=setInterval(()=>{if(document.visibilityState!=='hidden')update();},20000);

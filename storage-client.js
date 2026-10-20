@@ -9,24 +9,35 @@
 
  const inference=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel']);
  let gpuHealth=[],gpuChecked=0,selectedGPU=localStorage.getItem('ecco-selected-gpu')||'';
+ let connectedGPUs;
+ try{const saved=JSON.parse(localStorage.getItem('ecco-connected-gpus'));connectedGPUs=new Set(Array.isArray(saved)?saved.filter(id=>typeof id==='string'):[selectedGPU].filter(Boolean));}
+ catch{connectedGPUs=new Set([selectedGPU].filter(Boolean));}
  function acceptGPUHealth(value){
   gpuHealth=value?.gpus||[];gpuChecked=Date.now();
  }
  const selectedHealth=()=>gpuHealth.find(g=>g.id===selectedGPU);
+ const isGPUConnected=id=>Boolean(key)&&Date.now()-gpuChecked<60000&&connectedGPUs.has(id)&&Boolean(gpuHealth.find(g=>g.id===id)?.ready);
  window.EccoGPUConnection={
   get selectedId(){return selectedGPU;},
-  get ready(){return Boolean(key)&&Date.now()-gpuChecked<60000&&Boolean(selectedHealth()?.ready);},
+  get connectedIds(){return [...connectedGPUs].filter(isGPUConnected);},
+  get ready(){return this.connectedIds.length>0;},
+  isConnected:isGPUConnected,
   async checkAll(gpus){
-   acceptGPUHealth(await storageRequest('gpu/status'));
+   try{acceptGPUHealth(await storageRequest('gpu/status'));}catch(error){gpuChecked=0;throw error;}
    return gpus.map(gpu=>{const item=gpuHealth.find(g=>g.id===gpu.id);
     return item?.ready?{kind:'ready',title:'Available',detail:'Ready for generation.'}:{kind:'unknown',title:'Unavailable',detail:'The GPU generation service is not responding.'};});
   },
   async check(gpu){return (await this.checkAll([gpu]))[0];},
-  async select(gpu){const status=await this.check(gpu);if(status.kind!=='ready')throw Error('This accelerator is unavailable.');selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);await refresh();},
+  async select(gpu){
+   const status=await this.check(gpu);if(status.kind!=='ready')throw Error('This accelerator is unavailable.');
+   connectedGPUs.add(gpu.id);localStorage.setItem('ecco-connected-gpus',JSON.stringify([...connectedGPUs]));
+   selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);await refresh();
+  },
  };
  gpuConnected=()=>window.EccoGPUConnection.ready;
  async function inferenceRequest(path,body){
-  const request_id=crypto.randomUUID().replaceAll('-',''),gpu=selectedGPU;
+  const request_id=crypto.randomUUID().replaceAll('-',''),gpu=body?.gpu||selectedGPU;
+  if(!isGPUConnected(gpu))throw Error('Connect the selected accelerator before generating.');
   const payload={gpu,path,body,request_id};
   let accepted;
   // Only retry the same idempotency key; never create a second generation.
@@ -106,7 +117,7 @@
   if(path==='state'){
    verified=true;errorShown=false;connectAudio();
    acceptGPUHealth(data.config.gpu_relay);
-   if(gpuConnected())data.config={...data.config,...selectedHealth().config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay};
+   if(isGPUConnected(selectedGPU))data.config={...data.config,...selectedHealth().config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay};
   }
   return data;
  };

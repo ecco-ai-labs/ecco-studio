@@ -103,3 +103,12 @@ not through an item in the Activity menu. Its Activity, Debugging and Errors tab
 remain available in that panel.
 
 Connection icons use separate status colors: Default white/yellow, Dark Mode grey/mint, Forest white/yellow, Desert brown/green (disconnected/connected). All menu and slide-out surfaces inherit the selected theme. Status colors follow existing live connection attributes; theme selection never changes connection state.
+
+## Accelerator connections
+
+Connections → GPU groups RunPod instances in the existing B200 and A100 cards.
+Each card has an instance dropdown, individual live status and an explicit Connect
+button. Connecting an instance adds it to the connected set; other instances stay
+connected, including others of the same class. Choices do not connect automatically.
+Saved connections require a fresh authenticated health response before displaying
+Connected. Availability refreshes every 20 seconds.

@@ -99,7 +99,7 @@
     "disconnectedIndicator": "white",
     "errorText": "red",
     "popupClose": {
-      "glyph": "\u00d7",
+      "glyph": "×",
       "placement": "upper right",
       "background": "yellow",
       "behavior": "Close only the owning popup; preserve parent popup"
@@ -1505,7 +1505,7 @@
     }
   ],
   "theme": {
-    "editor": "Activity \u2192 Theme side-sliding menu",
+    "editor": "Activity → Theme side-sliding menu",
     "properties": [
       "background",
       "surface",
@@ -1558,5 +1558,14 @@
       "Errors"
     ],
     "activityMenuEntry": false
+  },
+  "acceleratorConnections": {
+    "layout": "Two existing GPU cards, one for B200 and one for A100",
+    "selection": "Each card contains a RunPod instance dropdown; no instance selected by default",
+    "status": "Selected instance reports its own live availability and connection status",
+    "connection": "Explicit Connect adds that instance without removing any existing connection, including another instance in the same class",
+    "persistence": "Connected instance IDs persist in this browser and require fresh authenticated health before displaying Connected",
+    "refreshSeconds": 20,
+    "styling": "Existing gpu-grid, gpu-card, dropdown and secondary button rules; no new dimensions"
   }
 }
