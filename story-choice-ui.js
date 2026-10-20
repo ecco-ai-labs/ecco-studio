@@ -1,6 +1,9 @@
 'use strict';
 /* Keep the top menu visible but inactive while choosing a story. */
 (()=>{
+ const style=document.createElement('style');
+ style.textContent='#story-choice-screen .story-choice-actions button{background:#ffdc24!important;color:#000!important}';
+ document.head.append(style);
  function sync(){
   const choosing=document.body.classList.contains('story-choice-mode');
   const header=document.querySelector('body>main>header');
