@@ -58,7 +58,17 @@
   };
   document.body.append(dialog);dialog.showModal();input.focus();input.select();
  }
+ function deleteFor(row){
+  const existing=row.querySelector('.workspace-delete,.text-library-delete');
+  if(existing)return ()=>existing.click();
+  const name=row.querySelector('.tree-folder')?.title;
+  const kind=row.closest('#workspace-audio-library')?'audio_folder':'image_folder';
+  const record=name?state.records.find(r=>r.kind===kind&&r.name===name.replaceAll(' → ',' / ')&&!r.deleted):null;
+  if(record)return async()=>{await api('trash/folder',{id:record.id});await refresh();if(['library','audio-library'].includes(page))navigate(page);};
+  return null;
+ }
  function attach(row){
+  if(row.parentElement?.id==='workspace-library-group')return;
   if(row.dataset.libraryMenuAttached)return;
   const target=targetFor(row);if(!target)return;
   row.classList.add('library-has-menu');row.dataset.libraryMenuAttached='1';
@@ -67,13 +77,19 @@
    event.preventDefault();event.stopPropagation();const wasOpen=opener===button;closeMenu();if(wasOpen)return;
    const current=targetFor(row);if(!current)return;
    opener=button;button.setAttribute('aria-expanded','true');activeMenu=document.createElement('div');activeMenu.className='library-options-menu';activeMenu.setAttribute('role','menu');
-   const rename=document.createElement('button');rename.type='button';rename.setAttribute('role','menuitem');rename.textContent='Rename';rename.onclick=()=>{closeMenu();renameDialog(current,button);};activeMenu.append(rename);document.body.append(activeMenu);
-   const rect=button.getBoundingClientRect();activeMenu.style.left=Math.max(8,Math.min(rect.right,innerWidth-168))+'px';activeMenu.style.top=Math.max(8,Math.min(rect.bottom,innerHeight-60))+'px';rename.focus();
-  };if(row.tagName==='SUMMARY')row.after(button);else row.append(button);
+   const rename=document.createElement('button');rename.type='button';rename.setAttribute('role','menuitem');rename.textContent='Rename';rename.onclick=()=>{closeMenu();renameDialog(current,button);};activeMenu.append(rename);
+   const remove=document.createElement('button');remove.type='button';remove.setAttribute('role','menuitem');remove.textContent='Delete';const deletion=deleteFor(row);remove.disabled=!deletion;if(!deletion)remove.title='This built-in library view cannot be deleted.';
+   remove.onclick=async()=>{remove.disabled=true;try{await deletion();closeMenu();}catch(err){remove.disabled=false;let error=activeMenu?.querySelector('[role=alert]');if(!error&&activeMenu){error=document.createElement('p');error.setAttribute('role','alert');activeMenu.append(error);}if(error)error.textContent=err.message||'Could not delete. Try again.';}};activeMenu.append(remove);document.body.append(activeMenu);
+   const rect=button.getBoundingClientRect();activeMenu.style.left=Math.max(8,Math.min(rect.right,innerWidth-168))+'px';activeMenu.style.top=Math.max(8,Math.min(rect.bottom,innerHeight-100))+'px';rename.focus();
+  };row.append(button);
  }
  function mount(){
   const root=q('#workspace-library-group');if(!root)return;
+  root.querySelector(':scope > .library-more')?.remove();
+  const heading=root.querySelector(':scope > summary');if(heading){heading.classList.remove('library-has-menu');heading.querySelector('.library-more')?.remove();}
+
   for(const row of root.querySelectorAll('summary,.tree-branch-row,.text-library-row,.video-publish-row')){
+   if(row===heading)continue;
    if(row.tagName==='SUMMARY'){const target=targetFor(row),text=[...row.children].find(n=>n.tagName==='SPAN'&&!n.classList.contains('library-symbol'));if(target&&text.textContent!==target.name)text.textContent=target.name;}
    attach(row);
   }
@@ -95,7 +111,10 @@
  body>aside #workspace-library-group .library-more::before{display:none!important}
  body>aside #workspace-library-group .library-more:hover{background:#302a54!important}
  .library-options-menu{position:fixed;z-index:10000;min-width:150px;padding:5px;border:1px solid #514b69;border-radius:7px;background:#201c30;box-shadow:0 8px 24px #0008}
- .library-options-menu button{display:block;width:100%;text-align:left;color:white;background:transparent;padding:8px 12px}
+ .library-options-menu button{display:block;width:100%;min-height:0!important;text-align:left;color:white;background:transparent;padding:6px 10px!important;font-size:12px!important;line-height:18px!important;font-weight:500!important}
+ .library-options-menu button:disabled{opacity:.4;cursor:not-allowed}
+ .library-options-menu [role=alert]{font-size:12px;color:#ff7272;max-width:220px}
+ #workspace-library-group .library-has-menu .workspace-delete,#workspace-library-group .library-selected-row>.workspace-delete{display:none!important}
  .library-options-menu button:hover,.library-options-menu button:focus-visible{background:#38305e}
  .library-rename-dialog{width:min(420px,calc(100vw - 32px))}.library-rename-dialog [role=alert]{color:#ff7272}
  `;document.head.append(css);mount();
