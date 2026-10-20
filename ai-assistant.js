@@ -27,12 +27,11 @@
  function connections(){
   const dialog=q('#connection-dialog'),root=q('#connections');
   dialog.querySelector('h2').textContent='Connections';
-  root.innerHTML='<section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label><button type="button" class="secondary" data-ai-disconnect hidden>Disconnect</button></section><section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div></section>';
+  root.innerHTML='<section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label></section><section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div></section>';
   const gpu=root.querySelector('#gpu-connection');
   gpu.querySelector('button').onclick=()=>{connectGPU('accelerator-status');};
   root.querySelector('[data-storage]').onclick=()=>{window.EccoStorage.open();};
   root.querySelector('#connect-openai').onclick=openKeyDialog;
-  root.querySelector('[data-ai-disconnect]').onclick=async()=>{try{setConnection(await rawAPI('ai/disconnect',{}));renderConnection();}catch(error){showError(error);}};
   root.querySelector('#enable-studio-ai').onchange=async e=>{
    const control=e.target;control.disabled=true;
    try{setConnection(await rawAPI('ai/settings',{enabled:control.checked}));}
@@ -44,7 +43,6 @@
  function renderConnection(){
   const root=q('#openai-connection');if(!root)return;
   const control=root.querySelector('#enable-studio-ai');control.checked=!!connection.enabled;control.disabled=!connection.connected;
-  root.querySelector('[data-ai-disconnect]').hidden=!connection.connected;
   const button=root.querySelector('#connect-openai');button.textContent=connection.connected?'Connected':'Connect';button.dataset.connected=String(!!connection.connected);
   const storage=q('#connections [data-storage]'),gpu=q('#connections [data-gpu-connect]');
   if(storage){const ready=!!window.EccoStorage?.ready;storage.dataset.connected=String(ready);storage.textContent=ready?'Connected':'Connect';}
