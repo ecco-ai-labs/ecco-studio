@@ -1,13 +1,14 @@
 'use strict';
 (()=>{
+ const duration=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s';};
  const busy=j=>['queued','running','paused'].includes(j.status);
  const sequences=()=>state?.records?.filter(j=>(j.source_kind==='audio_video_job'||j.kind==='audio_video_job')&&busy(j))||[];
  function render(root,jobs){
-  const signature=JSON.stringify(jobs.map(j=>[j.id,j.status,j.progress,j.pause_requested,j.stop_requested,window.EccoClipProgress?.clips(j,state.records)]));
+  const signature=JSON.stringify(jobs.map(j=>[j.id,j.status,j.progress,j.pause_requested,j.stop_requested,window.EccoClipProgress?.clips(j,state.records),busy(j)?Math.floor(Date.now()/3000):0]));
   if(root.dataset.signature===signature)return;root.dataset.signature=signature;root.replaceChildren();
   for(const job of jobs){
-   const box=document.createElement('div');box.className='form';box.style.gap='8px';
-   const info=document.createElement('p');info.className='help';info.textContent=(job.title||'Video sequence')+' · '+(window.EccoClipProgress?.summary(job)||job.status);box.append(info);if(root.id==='video-sequence-controls'&&window.EccoClipProgress){const bars=document.createElement('div');bars.innerHTML=window.EccoClipProgress.html(job,state.records);box.append(bars);}if(!busy(job)){root.append(box);continue;}
+   const box=document.createElement('div');box.className=root.id==='video-sequence-controls'?'panel form':'form';box.style.gap='8px';
+   const info=document.createElement('p');info.className='help';info.textContent=(job.title||'Video sequence')+' · '+(window.EccoClipProgress?.summary(job)||job.status);box.append(info);if(root.id==='video-sequence-controls'&&window.EccoClipProgress){const bars=document.createElement('div');bars.innerHTML=window.EccoClipProgress.html(job,state.records);box.append(bars);const timing=document.createElement('div');timing.className='clip-progress-detail';const elapsed=busy(job)?Date.now()/1000-(job.started||job.created):(job.seconds||0);const remaining=job.status==='done'?'0m 00s':job.eta_seconds!=null?'About '+duration(job.eta_seconds):busy(job)?'Estimating…':'—';timing.textContent='Time elapsed: '+duration(elapsed)+' · Estimated remaining: '+remaining+' · Queue status: '+(job.queue_ahead>0?job.queue_ahead+' jobs ahead':job.status==='running'?'Running':job.status==='done'?'Complete':job.status);box.append(timing);if(job.error){const error=document.createElement('p');error.className='help';error.textContent=job.error;box.append(error);}}if(!busy(job)){root.append(box);continue;}
    const row=document.createElement('div');row.className='row';
    for(const [action,label] of [[job.pause_requested||job.status==='paused'?'resume':'pause',job.pause_requested||job.status==='paused'?'Resume':'Ⅱ Pause after next clip'],['stop','■ Stop after next clip']]){
     const b=document.createElement('button');b.type='button';b.className='secondary small';b.textContent=label;b.disabled=!!job.stop_requested;b.title=action==='resume'?'Continue generating the remaining clips':action==='pause'?'Finish the clip currently generating, then pause before starting another clip':'Finish the clip currently generating, then stop. Completed clips are kept.';
