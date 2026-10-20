@@ -68,22 +68,23 @@
     checkbox.onchange=()=>{s.selected=checkbox.checked;if(checkbox.checked)shotIndex=i;balance();persist();drawShots();drawDirections();};
     const edit=document.createElement('button');edit.type='button';edit.className='secondary small';edit.style.cssText='flex:1;text-align:left';edit.textContent=(i+1)+'. '+(s.title||'Shot '+(i+1));edit.setAttribute('aria-pressed',String(i===shotIndex));
     edit.onclick=()=>{checkbox.checked=!checkbox.checked;checkbox.dispatchEvent(new Event('change'));};
-    const controls=document.createElement('button');controls.type='button';controls.className='secondary small';controls.textContent='Shot Controls';controls.hidden=s.selected===false;controls.setAttribute('aria-label','Shot controls for shot '+(i+1));controls.onclick=()=>{shotIndex=i;drawShots();openShotControls(s,i);};
-    line.append(checkbox,edit,controls);choices.append(line);
+    line.append(checkbox,edit);choices.append(line);
    });
    const add=document.createElement('button');add.type='button';add.className='secondary small';add.textContent='+ Add shot';
    add.onclick=()=>{data.shots.push(newShot(data.shots.length));shotIndex=data.shots.length-1;data.directions=[];persist();select.open=false;drawShots();drawDirections();};
    choices.append(add);select.append(choices);select.open=wasOpen;
-   data.shots.forEach((s,i)=>{if(i!==shotIndex||s.selected===false)return;
+   data.shots.forEach((s,i)=>{if(activeShots().length!==1||s.selected===false)return;
     const row=document.createElement('fieldset');row.className='form';
-    row.innerHTML='<label>Avatar for this shot<select data-image></select></label><div class="row"><button type="button" class="secondary small" data-shot-controls>Shot controls</button><button type="button" class="small secondary" data-remove-shot>Remove shot</button></div>';
-    q('[data-shot-controls]',row).onclick=()=>openShotControls(s,i);
+    row.innerHTML='<label>Avatar for this shot<select data-image></select></label><div class="row"><button type="button" class="small secondary" data-remove-shot>Remove shot</button></div>';
     const image=q('[data-image]',row);image.add(new Option('Choose avatar',''));
     data.image_ids.forEach(id=>{const a=find(id,'image');if(a)image.add(new Option(title(a),id));});
     image.value=s.image_id||data.image_ids[0]||'';s.image_id=image.value;image.onchange=()=>{s.image_id=image.value;persist();};
     q('[data-remove-shot]',row).onclick=()=>{data.shots.splice(i,1);data.directions=[];persist();drawShots();drawDirections();};
-    choices.append(row);
-   });timing();
+    box.append(row);
+   });
+   const controls=document.createElement('button');controls.type='button';controls.className='secondary small';controls.textContent='Shot Controls';controls.dataset.shotControls='';
+   controls.onclick=()=>{const selected=activeShots();if(selected.length!==1){window.EccoErrors.show(new Error(selected.length?'Select only one shot to edit Shot Controls.':'Select one shot to edit Shot Controls.'));return;}const shot=selected[0];shotIndex=data.shots.indexOf(shot);openShotControls(shot,shotIndex);};
+   box.append(controls);timing();
   }
   const shotControlOptions=[
    ['eye','Eye movement / expression',['Look toward camera; natural blinking','Maintain eye contact','Look left','Look right','Look upward','Look downward','Follow a moving subject','Brief glance away','Wide-eyed surprise','Narrowed eyes','Eyes gently closed','Slow blinking']],
@@ -251,5 +252,6 @@
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});
  mount();
 })();
+
 
 
