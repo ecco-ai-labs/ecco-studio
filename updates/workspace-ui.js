@@ -51,11 +51,13 @@
   localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));
  }
  function startNewStory(intent){
+  sessionStorage.setItem('ecco-guided-mode',intent?'on':'off');
   preserveNewStoryDraft(true);if(activeStory)persistDraft();activeStory='';localStorage.removeItem('ecco-active-story');
   localStorage.setItem('ecco-new-story-draft',JSON.stringify(intent?{workflow_id:intent.id,story_format:intent.format,...(intent.seed||{})}:{}));draft={...defaultDraft,scenes:[]};persistDraft();
   selectedJourneyStory=undefined;newStoryStarted=true;storyControls();navigate('story-setup');
  }
  function openStory(id){
+  sessionStorage.setItem('ecco-guided-mode','on');
   if(!stories().some(story=>story.id===id))return;
   preserveNewStoryDraft();if(activeStory||newStoryStarted)persistDraft();activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();selectedJourneyStory=id;lastSignature='';
   storyControls();const savedStep=localStorage.getItem('ecco-story-page:'+id);const allowed=window.EccoStoryJourneys?.steps([])||[];navigate(allowed.some(s=>s[0]===savedStep)?savedStep:'board');productionGroup();journeyGuide();
@@ -442,7 +444,7 @@
   const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
   return ['audio','video'].includes(value)?value:activeStory?'video':'';
  }
- function currentJourneySteps(){const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
+ function currentJourneySteps(){if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
  function journeyPreview(allStories=false){
   page='journey-preview';q('#heading').textContent='Publish';
   const videos=records().filter(a=>a.kind==='asset'&&a.media==='video'&&!a.deleted&&(allStories||(a.story_id||LEGACY_STORY)===activeStory));

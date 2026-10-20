@@ -21,7 +21,7 @@
  ].map(([id,group,label,format,title,summary,first,second])=>({id,group,label,format,title,summary,first,second}));
  const read=k=>{try{return JSON.parse(localStorage.getItem(k)||'{}');}catch{return {};}};
  const get=id=>specs.find(s=>s.id===id);
- function current(){return get(read(typeof activeStory!=='undefined'&&activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft').workflow_id);}
+ function current(){if(sessionStorage.getItem('ecco-guided-mode')==='off')return null;return get(read(typeof activeStory!=='undefined'&&activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft').workflow_id);}
  function setup(form,saved){const spec=get(saved.workflow_id);if(!spec)return;
   document.querySelector('#heading').textContent=spec.label;
   form.dataset.intent=spec.id;form.dataset.intentFormatChoice=String(['podcast','custom','dubbing','repurpose'].includes(spec.id));
@@ -44,7 +44,7 @@
    if(!items.length){const empty=document.createElement('p');empty.textContent=typeof state!=='undefined'&&state.storage_pending?'Connect storage in Studio to load saved stories.':'No saved stories available.';menu.append(empty);}
    for(const [name,entries]of groups){const row=document.createElement('div');row.className='intent-menu-row';const b=document.createElement('button');b.type='button';b.textContent=name+' ›';b.setAttribute('aria-expanded','false');const sub=document.createElement('div');sub.className='intent-submenu';sub.hidden=true;row.append(b,sub);menu.append(row);
     const expand=()=>{menu.querySelectorAll('.intent-submenu').forEach(el=>{el.hidden=el!==sub;el.previousElementSibling.setAttribute('aria-expanded',String(el===sub));});};row.onmouseenter=expand;b.onclick=expand;b.onkeydown=e=>{if(e.key==='ArrowRight'){e.preventDefault();expand();sub.querySelector('button')?.focus();}};
-    for(const item of entries){const choice=document.createElement('button');choice.type='button';choice.textContent=item.title||'Untitled story';choice.onclick=()=>{close();document.body.classList.remove('story-choice-mode');existing?open(item):start(item);};sub.append(choice);}
+    for(const item of entries){const choice=document.createElement('button');choice.type='button';choice.textContent=item.title||'Untitled story';choice.onclick=()=>{close();document.body.classList.remove('story-choice-mode');sessionStorage.setItem('ecco-guided-mode','on');existing?open(item):start(item);};sub.append(choice);}
     sub.onkeydown=e=>{if(e.key==='ArrowLeft'){e.preventDefault();sub.hidden=true;b.setAttribute('aria-expanded','false');b.focus();}};
    }
   };
@@ -53,7 +53,7 @@
   wrap.onkeydown=e=>{if(e.key==='Escape'){close();trigger.focus();}if(['ArrowDown','ArrowUp'].includes(e.key)&&e.target!==trigger){const siblings=[...e.target.parentElement.children].flatMap(el=>el.matches('button')?[el]:el.classList.contains('intent-menu-row')?[el.firstElementChild]:[]);const i=siblings.indexOf(e.target);if(i>=0){e.preventDefault();siblings[(i+(e.key==='ArrowDown'?1:-1)+siblings.length)%siblings.length].focus();}}};
   wrap.addEventListener('focusout',()=>setTimeout(()=>{if(!wrap.contains(document.activeElement))close();},0));
  }
- const direct=document.createElement('button');direct.type='button';direct.textContent='Go to Studio';direct.className='intent-trigger';direct.onclick=studio;actions.append(direct);
+ const direct=document.createElement('button');direct.type='button';direct.textContent='Go to Studio';direct.className='intent-trigger';direct.onclick=()=>{sessionStorage.setItem('ecco-guided-mode','off');studio();};actions.append(direct);
  }
  document.addEventListener('click',e=>{if(!e.target.closest('.intent-menu-wrap'))document.querySelectorAll('.intent-menu').forEach(m=>{m.hidden=true;m.previousElementSibling.setAttribute('aria-expanded','false');});});
  window.EccoStoryJourneys={specs,get,current,setup,steps,mount,brief};
