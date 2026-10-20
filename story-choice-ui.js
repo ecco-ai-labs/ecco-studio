@@ -2,7 +2,7 @@
 /* Keep the top menu visible but inactive while choosing a story. */
 (()=>{
  const style=document.createElement('style');
- style.textContent='#story-choice-screen .story-choice-actions button{background:#ffdc24!important;color:#000!important;box-sizing:border-box;width:190px;height:46px;min-height:46px;padding:4px 10px;white-space:normal;line-height:1.3}';
+ style.textContent='#story-choice-screen .story-choice-actions button{background:#ffdc24!important;color:#000!important;box-sizing:border-box;width:190px;height:46px;min-height:46px;padding:4px 10px;white-space:normal;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:15px;font-weight:650;line-height:normal}';
  document.head.append(style);
  function sync(){
   const choosing=document.body.classList.contains('story-choice-mode');
