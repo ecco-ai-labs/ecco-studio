@@ -150,6 +150,11 @@ def finalize(job, env):
         env['save'](job)
 
 def start(env):
+    # Backfill retained worker diagnostics into existing failures using the current record API.
+    for job in env['records']():
+        if job.get('kind') in ('longcat_job','audio_video_job') and job.get('status') in ('failed','error') and not job.get('error_details'):
+            enriched=with_error_details(job)
+            if enriched.get('error_details'): env['save'](enriched)
     def loop():
         while True:
             for job in env['records']('longcat_job'):
