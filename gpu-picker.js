@@ -35,8 +35,8 @@ window.EccoGPUPicker = (() => {
   }
   function mount(container, open) {
     dispose();
-    let active=true, busy=false;
-    container.innerHTML = `<style>.gpu-picker .gpu-open:disabled{background:#525866;color:#d1d5db;opacity:.55;cursor:not-allowed;box-shadow:none;filter:grayscale(1)}</style><section class="gpu-picker panel" aria-labelledby="gpu-picker-title">
+    let active=true, busy=false, selecting=false;
+    container.innerHTML = `<style>.gpu-picker .gpu-open:disabled{background:#525866;color:#d1d5db;opacity:.55;cursor:not-allowed;box-shadow:none;filter:grayscale(1)}.gpu-picker .gpu-open[data-connected="true"]:disabled{background:var(--accent,#ffdc24);color:#211b33;opacity:1;filter:none;cursor:default}</style><section class="gpu-picker panel" aria-labelledby="gpu-picker-title">
       <div class="section-head"><div><span class="eyebrow">YOUR GPU WORKSPACES</span><h2 id="gpu-picker-title">Choose where to create</h2></div><button class="secondary" id="gpu-refresh">Refresh status</button></div>
       <p>Select the GPU you want to use. Connection stays within Studio.</p>
       <div class="gpu-grid">${gpus.map(gpu=>`<article class="gpu-card" data-gpu="${gpu.id}">
@@ -51,22 +51,34 @@ window.EccoGPUPicker = (() => {
     const refresh = container.querySelector('#gpu-refresh');
     for(const gpu of gpus) {
       const button=container.querySelector(`[data-gpu="${gpu.id}"] .gpu-open`);
-      button.onclick=()=>{if(!button.disabled) open(gpu);};
+      button.onclick=async()=>{
+        if(button.disabled||selecting||busy)return;
+        selecting=true;
+        container.querySelectorAll('.gpu-open').forEach(b=>{b.disabled=true;});
+        button.textContent='Connecting…';button.setAttribute('aria-busy','true');
+        try{await open(gpu);}finally{selecting=false;button.removeAttribute('aria-busy');await update();}
+      };
     }
     async function update() {
-      if(busy || !active) return;
+      if(busy || selecting || !active) return;
       busy=true; refresh.disabled=true; refresh.textContent='Checking…';
-      await Promise.all(gpus.map(async gpu=>{
-        const status=await check(gpu);
-        if(!active || !container.querySelector('.gpu-picker')) return;
+      const statuses=await Promise.all(gpus.map(gpu=>check(gpu)));
+      if(!active || !container.querySelector('.gpu-picker')){busy=false;return;}
+      const connection=window.EccoGPUConnection;
+      const connectedId=connection?.ready?connection.selectedId:'';
+      gpus.forEach((gpu,i)=>{
+        const status=statuses[i],connected=status.kind==='ready'&&gpu.id===connectedId;
+        const unavailable=status.kind==='unknown';
         const card=container.querySelector(`[data-gpu="${gpu.id}"]`);
-        card.dataset.status=status.kind;
-        card.querySelector('.gpu-status').textContent=status.title;
+        card.dataset.status=connected?'connected':status.kind;
+        card.querySelector('.gpu-status').textContent=connected?'Connected':status.kind==='ready'?'Available':status.title;
         const button=card.querySelector('.gpu-open');
-        button.disabled=status.kind==='unknown';
-        button.textContent=button.disabled?'Unavailable':`Connect to ${gpu.name}`;
-        button.classList.toggle('secondary',button.disabled);
-      }));
+        button.disabled=unavailable||connected;
+        button.dataset.connected=String(connected);
+        button.setAttribute('aria-pressed',String(connected));
+        button.textContent=connected?'Connected':unavailable?'Unavailable':connectedId?`Switch to ${gpu.name}`:`Connect to ${gpu.name}`;
+        button.classList.toggle('secondary',!connected);
+      });
       if(active && container.querySelector('.gpu-picker')) {
         container.querySelector('#gpu-checked').textContent='Last checked '+new Date().toLocaleTimeString()+'. Refreshes every 20 seconds.';
         refresh.disabled=false; refresh.textContent='Refresh status';
