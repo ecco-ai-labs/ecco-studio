@@ -1592,5 +1592,12 @@
     "empty": "Disabled placeholder when no eligible compute is connected",
     "disconnection": "Clear displayed selection; never silently switch compute",
     "appearance": "Existing generation-section and native select styles; no new dimensions"
+  },
+  "errorKnowledge": {
+    "source": "error-knowledge.js",
+    "matching": "Structured error code first, then known message patterns",
+    "popup": "Friendly message plus Possible cause for recognized issues; existing popup size, theme and local close behavior",
+    "unknown": "Original message retained; no invented diagnosis",
+    "diagnostics": "Original Error stack and model/compute context retained in Errors"
   }
 }

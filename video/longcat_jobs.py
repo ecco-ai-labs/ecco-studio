@@ -187,11 +187,21 @@ def run_shot(d, request):
     write(d/'status.json',dict(status='complete',duration=float(info['format']['duration']),
           sha256=hashlib.sha256((d/'output.mp4').read_bytes()).hexdigest()))
 
+def worker_lock(pod):
+    if not re.fullmatch(r'[A-Za-z0-9_-]+',pod): raise ValueError('Invalid worker instance')
+    lock=(QUEUE/('worker-'+pod+'.lock')).open('a')
+    try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    except BaseException:
+        lock.close()
+        raise
+    return lock
+
 def worker():
     import torch
     QUEUE.mkdir(parents=True,exist_ok=True)
-    lock=(QUEUE/'worker.lock').open('a'); fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    pod=os.environ.get('RUNPOD_POD_ID','local'); heart=QUEUE/('worker-'+pod+'.json')
+    pod=os.environ.get('RUNPOD_POD_ID','local')
+    lock=worker_lock(pod)
+    heart=QUEUE/('worker-'+pod+'.json')
     # Full-precision runtime is enabled only on the tested B200 configuration.
     ready=bool(read(ROOT/'validated.json',{}).get('passed')) and 'B200' in torch.cuda.get_device_name(0)
     stop=threading.Event()
@@ -200,7 +210,7 @@ def worker():
             write(heart,dict(updated=time.time(),pod=pod,ready=ready,model=MODEL)); stop.wait(3)
     threading.Thread(target=beat,daemon=True).start()
     for d in QUEUE.glob('[a-f0-9]'*32):
-        if read(d/'status.json',{}).get('status')=='running': write(d/'status.json',dict(status='error',error='Worker restarted. Generate this shot again.'))
+        if read(d/'request.json',{}).get('pod')==pod and read(d/'status.json',{}).get('status')=='running': write(d/'status.json',dict(status='error',error='Worker restarted. Generate this shot again.'))
     while True:
         for d in sorted(QUEUE.glob('[a-f0-9]'*32)):
             r=read(d/'request.json',{}); s=read(d/'status.json',{})

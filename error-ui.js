@@ -3,22 +3,26 @@
  let dialog, lastMessage='', lastAt=0;
  const pending=[];
  function show(message, options={}){
-  if(!options.logged)window.EccoErrorLog?.record(message,{source:'popup'});options={...options,logged:true};
+  const issue=window.EccoErrorKnowledge?.lookup(message);
+  if(!options.logged)window.EccoErrorLog?.record(message,{source:'popup',knowledge_issue:issue?.id||null,possible_cause:issue?.cause||null});options={...options,logged:true};
   message=String(message?.message||message||'Something went wrong. Please try again.');
   if(message===lastMessage && (dialog?.open || Date.now()-lastAt<2500))return;
   lastMessage=message;lastAt=Date.now();
-  if(dialog?.open){pending.push([message,options]);return;}
+  if(dialog?.open){pending.push([message,{...options,issue}]);return;}
   if(!dialog){
    dialog=document.createElement('dialog');dialog.id='ecco-error-popup';
    dialog.setAttribute('aria-labelledby','ecco-error-title');
-   dialog.setAttribute('aria-describedby','ecco-error-message');
-   dialog.innerHTML='<h2 id="ecco-error-title">Unable to complete action</h2><p id="ecco-error-message" role="alert"></p><div class="row"><button type="button" data-retry hidden></button><button type="button" data-close>Close</button></div>';
+   dialog.setAttribute('aria-describedby','ecco-error-message ecco-error-cause');
+   dialog.innerHTML='<h2 id="ecco-error-title">Unable to complete action</h2><p id="ecco-error-message" role="alert"></p><div data-cause hidden><strong>Possible cause</strong><p id="ecco-error-cause"></p></div><div class="row"><button type="button" data-retry hidden></button><button type="button" data-close>Close</button></div>';
    document.body.append(dialog);
    dialog.querySelector('[data-close]').onclick=()=>dialog.close();
    dialog.addEventListener('close',()=>{if(pending.length){const [text,opts]=pending.shift();lastMessage='';show(text,opts);}});
   }
   dialog.querySelector('h2').textContent=options.title||'Unable to complete action';
-  dialog.querySelector('p').textContent=message;
+  const explanation=issue||options.issue;
+  dialog.querySelector('#ecco-error-message').textContent=explanation?.message||message;
+  dialog.querySelector('[data-cause]').hidden=!explanation;
+  dialog.querySelector('#ecco-error-cause').textContent=explanation?.cause||'';
   const retry=dialog.querySelector('[data-retry]');retry.hidden=!options.retry;
   retry.textContent=options.retryLabel||'Try again';
   retry.onclick=()=>{dialog.close();options.retry?.();};

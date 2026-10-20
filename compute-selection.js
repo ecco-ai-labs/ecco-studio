@@ -10,15 +10,16 @@ window.EccoCompute=(()=>{
   return Boolean(config(id).models_ready?.[model]);
  }
  function requireReady(id,model){
-  if(!connection()?.isConnected(id))throw Error('Select a connected GPU in Compute.');
+  if(!connection()?.isConnected(id))throw Object.assign(Error('Select a connected GPU in Compute.'),{code:'ECCO_GPU_DISCONNECTED'});
   if(!ready(id,model)){
    const gpu=window.EccoGPUPicker.gpus.find(g=>g.id===id);
-   throw Error((MODEL_CATALOG[model]?.name||model)+' is not ready on '+(gpu?.name||id)+'. Choose another connected GPU or model.');
+   throw Object.assign(Error((MODEL_CATALOG[model]?.name||model)+' worker is not ready on '+(gpu?.name||'GPU')+' · '+(gpu?.label||id)+'. The GPU is connected, but this model service is unavailable.'),{code:'ECCO_MODEL_WORKER_UNAVAILABLE',model,gpu:id});
   }
   return config(id);
  }
  async function validate(id,model){
-  await connection().checkAll(window.EccoGPUPicker.gpus);
+  if(model==='longcat-avatar-1.5'){const current=await api('state');state.config.longcat=current.config.longcat;}
+  else await connection().checkAll(window.EccoGPUPicker.gpus);
   return requireReady(id,model);
  }
  function mount(form,kind){

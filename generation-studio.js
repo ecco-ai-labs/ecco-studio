@@ -224,9 +224,9 @@
      const settings=modelSettings('qwen-image-edit-2511');
      if(!computeConfig.generation_controls_version&&(refs.length>1||settings.steps!==40||settings.cfg!==3||settings.seed!==42))throw Error('The connected GPU needs the multi-reference generation update. Your selections and prompt are saved.');
      job=await api('image-edits',{gpu,asset_id:refs[0],asset_ids:refs,prompt,story_id:c.story,...settings,reference_controls:clone(c.data.objects)});
-    }else job=await api('images',{...modelPayload('images',gpu),prompt,negative:c.form.elements.negative?.value||'',story_id:c.story});
+    }else job=await api('images',{...modelPayload('images',gpu,c.model.value),prompt,negative:c.form.elements.negative?.value||'',story_id:c.story});
    }else{
-    const settings=modelPayload('video',gpu),limit=settings.model==='wan-a14b'?6:settings.model==='wan-5b'?5:30;
+    const settings=modelPayload('video',gpu,c.model.value),limit=settings.model==='wan-a14b'?6:settings.model==='wan-5b'?5:30;
     const savedRefs=[...new Set((c.data.scenes||[]).map(s=>s.image_id))];
     const sequence=c.data.board_id&&JSON.stringify(savedRefs)===JSON.stringify(c.data.reference_ids)?c.data.scenes:c.data.reference_ids.map(id=>c.data.scenes?.find(s=>s.image_id===id)||{image_id:id});
     const scenes=sequence.map(saved=>{
@@ -241,7 +241,7 @@
     job=await api('videos',{...settings,board_id:board.id});
    }
    localStorage.setItem('ecco-'+c.kind+'-job:'+c.story,job.id);status.textContent='Queued. Follow progress in Activity.';await refresh();
-  }catch(error){status.textContent=error.message;notice(error.message,true);}
+  }catch(error){status.textContent=error.message;window.EccoErrors.show(error);}
   finally{c.submitting=false;tracking.delete(c.story);button.disabled=false;if(c.kind==='image')updateImageStatus();else updateVideoStatus();}
  }
  function aiContext(scope,element){const c=contexts.get(scope)||contexts.get(scope.closest?.('form'));if(!c)return null;return {reference_ids:referenceIds(c).filter(id=>record(id)?.media==='image'),context:{...(c.kind==='video'?{scenes:referenceKind(c)==='video'?[]:c.data.scenes||c.data.reference_ids.map(image_id=>({image_id})),video_references:selected(c).filter(a=>a.media==='video').map(a=>({id:a.id,title:a.title||'Untitled video'})),seconds:Number(q('[data-video-seconds]',c.form)?.value)||3}:{}),style:c.data.style,scene_controls:objectInstructions(c),instructions:'Reference-specific attributes: '+objectInstructions(c),...(c.kind==='audio'?{...window.EccoAudioStudio?.aiContext(element),genre:c.form.elements.genre.value}:{} )}};}

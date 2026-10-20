@@ -19,7 +19,8 @@
  }
  function record(error,details={}){try{
   if(error&&typeof error==='object'){if(seen.has(error))return;seen.add(error);}
-  const item=clean({id:crypto.randomUUID(),occurred_at:new Date().toISOString(),...context(),source:'application',name:error?.name||'Error',message:error?.message||String(error),stack:error?.stack||null,...details});
+  const issue=window.EccoErrorKnowledge?.lookup(error);
+  const item=clean({code:error?.code||null,knowledge_issue:issue?.id||null,possible_cause:issue?.cause||null,id:crypto.randomUUID(),occurred_at:new Date().toISOString(),...context(),source:'application',name:error?.name||'Error',message:error?.message||String(error),stack:error?.stack||null,...details});
   entries.push(item);entries=entries.slice(-LIMIT);
   while(entries.length){try{localStorage.setItem(KEY,JSON.stringify(entries));break;}catch{if(entries.length===1)break;entries.shift();}}
   window.dispatchEvent(new Event('ecco-error-recorded'));return item;
