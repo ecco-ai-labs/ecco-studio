@@ -79,7 +79,7 @@ unapproved dimensions remain unset instead of being silently chosen.
 
 ## Color theme
 
-Activity → Theme offers exactly four packages: Default, Dark Mode,
+Settings → Theme offers exactly four packages: Default, Dark Mode,
 Forest and Desert in a side-sliding menu matching Billing. Selecting a preset
 saves immediately. Choosing Default restores the original palette. The selected
 preset persists in this browser. Moving the pointer away retracts the panel. No individual color inputs are exposed. Older custom
@@ -99,7 +99,7 @@ pixels and cross-origin styles are not recolored. This remains a color bridge,
 not a completed shared-component migration.
 
 Activity, Logs and Errors is accessed through the right-edge sliding-panel arrow,
-not through an item in the Activity menu. Its Activity, Debugging and Errors tabs
+not through an item in the Settings menu. Its Activity, Debugging and Errors tabs
 remain available in that panel.
 
 Connection icons use separate status colors: Default white/yellow, Dark Mode grey/mint, Forest white/yellow, Desert brown/green (disconnected/connected). All menu and slide-out surfaces inherit the selected theme. Status colors follow existing live connection attributes; theme selection never changes connection state.
@@ -112,3 +112,5 @@ or Connect for that instance. Only Connect is enabled. Connecting an instance ad
 connected, including others of the same class. Choices do not connect automatically.
 Saved connections require a fresh authenticated health response before displaying
 Connected. Availability refreshes every 20 seconds.
+
+The top ribbon Settings menu retains the internal Activity category identifier. Its file browser is labeled Workspace Drive, including its dialog title and accessible name.

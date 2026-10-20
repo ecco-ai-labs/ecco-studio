@@ -1505,7 +1505,7 @@
     }
   ],
   "theme": {
-    "editor": "Activity \u2192 Theme side-sliding menu",
+    "editor": "Settings \u2192 Theme side-sliding menu",
     "properties": [
       "background",
       "surface",
@@ -1577,5 +1577,10 @@
       "themes": "Uses the existing connected/disconnected theme colors, with the unavailable text at 55% opacity",
       "buttonOpacity": 1
     }
+  },
+  "settingsMenu": {
+    "label": "Settings",
+    "internalCategory": "Activity",
+    "fileBrowserLabel": "Workspace Drive"
   }
 }
