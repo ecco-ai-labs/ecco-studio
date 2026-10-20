@@ -18,7 +18,7 @@ nohup bash /workspace/ecco-audio/start_worker.sh >> "$logs/audio.log" 2>&1 &
 nohup bash /workspace/ecco-video/longcat/start_longcat.sh >> "$logs/longcat.log" 2>&1 &
 (
   while true; do
-    python /workspace/ecco-gpu-relay/gpu_relay.py
+    python /workspace/ecco-gpu-relay/gpu_relay.py || true
     sleep 5
   done
 ) >> "$logs/relay.log" 2>&1 &
