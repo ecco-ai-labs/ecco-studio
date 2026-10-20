@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 ROOT = Path(os.getenv('ECCO_GPU_RELAY_ROOT', '/workspace/ecco-gpu-relay'))
-GPUS = ('io8sphjo10kbuy', '1muqctw9bxvguu')
+GPUS = ('p7lc6fqjuosti3', 'io8sphjo10kbuy', '1muqctw9bxvguu')
 ROUTES = frozenset(('images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel'))
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
