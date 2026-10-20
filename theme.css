@@ -18,3 +18,7 @@
 #gpu-picker-dialog .gpu-card .gpu-open{color:var(--ecco-theme-disconnected,#fff)!important;opacity:1!important;filter:none!important}
 #gpu-picker-dialog .gpu-card:is([data-status="unknown"],[data-status="unchecked"],[data-status="running"]) .gpu-open{color:color-mix(in srgb,var(--ecco-theme-disconnected,#fff) 55%,transparent)!important}
 #gpu-picker-dialog .gpu-card .gpu-open[data-connected="true"]{color:var(--ecco-theme-connected,#ffdc24)!important}
+
+/* Generation panels must resolve the active theme before legacy fallbacks. */
+#page .generation-form{background:var(--ecco-theme-surface,var(--panel,#24203e))!important;color:var(--ecco-theme-text,inherit)}
+#page .generation-form .generation-section{border-color:var(--ecco-theme-border,#51496f)}
