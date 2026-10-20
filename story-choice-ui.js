@@ -17,8 +17,11 @@
     delete header.dataset.storyChoiceFrozen;
    }
   }
-  const button=document.querySelector('#story-choice-screen .story-choice-actions button');
-  if(button&&button.textContent==='Create a New Story')button.textContent='Tell New Story';
+  for(const button of document.querySelectorAll('#story-choice-screen .story-choice-actions button')){
+   const label=button.textContent.trim();
+   if(['Create a New Story','Create New Story','Tell New Story'].includes(label))button.textContent='New Story';
+   if(/^Continue with (an )?Existing Story$/i.test(label))button.textContent='Existing Story';
+  }
  }
  let queued=false;
  new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;sync();});}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
