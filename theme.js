@@ -7,7 +7,7 @@
   default:{label:'Default',status:{connected:'#ffdc24',disconnected:'#ffffff'},colors:{}},
   dark:{label:'Dark Mode',status:{connected:'#8bf0bc',disconnected:'#c3c3ca'},colors:{background:'#0d0d0f',surface:'#242428',control:'#303035',text:'#f5f5f5',contrast:'#151517',muted:'#c3c3ca',accent:'#c7c7ce',border:'#b5b5bd',error:'#ff6b6b',success:'#7bcf9b',shadow:'#000000'}},
   forest:{label:'Forest',status:{connected:'#ffdc24',disconnected:'#ffffff'},colors:{background:'#123d2a',surface:'#285a40',control:'#34714e',text:'#ffffff',contrast:'#123d2a',muted:'#d2e8d8',accent:'#ffffff',border:'#ffffff',error:'#ffb1ad',success:'#b7edbc',shadow:'#071e13'}},
-  desert:{label:'Desert',status:{connected:'#176535',disconnected:'#67513d'},colors:{background:'#dbc49a',surface:'#f4e6cb',control:'#ead6b2',text:'#3c2c20',contrast:'#fff6e5',muted:'#67513d',accent:'#6b4226',border:'#8c6844',error:'#a52424',success:'#2f633b',shadow:'#503b25'}}
+  desert:{label:'Desert',status:{connected:'#3c2c20',disconnected:'#8c6844'},colors:{background:'#dbc49a',surface:'#f4e6cb',control:'#ead6b2',text:'#3c2c20',contrast:'#fff6e5',muted:'#67513d',accent:'#6b4226',border:'#8c6844',error:'#a52424',success:'#2f633b',shadow:'#503b25'}}
  };
  const validPreset=value=>typeof value==='string'&&Object.hasOwn(PRESETS,value)?value:'default';
  let saved='default';try{saved=validPreset(localStorage.getItem(KEY));}catch{}

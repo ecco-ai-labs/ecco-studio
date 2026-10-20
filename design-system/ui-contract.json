@@ -99,7 +99,7 @@
     "disconnectedIndicator": "white",
     "errorText": "red",
     "popupClose": {
-      "glyph": "\u00d7",
+      "glyph": "×",
       "placement": "upper right",
       "background": "yellow",
       "behavior": "Close only the owning popup; preserve parent popup"
@@ -1505,7 +1505,7 @@
     }
   ],
   "theme": {
-    "editor": "Settings \u2192 Theme side-sliding menu",
+    "editor": "Settings → Theme side-sliding menu",
     "properties": [
       "background",
       "surface",
@@ -1544,10 +1544,11 @@
         "connected": "#ffdc24"
       },
       "Desert": {
-        "disconnected": "#67513d",
-        "connected": "#176535"
+        "disconnected": "#8c6844",
+        "connected": "#3c2c20"
       }
-    }
+    },
+    "connectionStatusScope": "GPU connection buttons and the AI, Storage and GPU connection control panel icons share the same connected/disconnected colors. Desert uses dark brown #3c2c20 when connected and light brown #8c6844 when disconnected."
   },
   "activityPanel": {
     "entry": "Right-edge arrow",
@@ -1567,7 +1568,7 @@
     "persistence": "Connected instance IDs persist in this browser and require fresh authenticated health before displaying Connected",
     "refreshSeconds": 20,
     "styling": "Existing gpu-grid, gpu-card, dropdown and secondary button rules; no new dimensions",
-    "connectedText": "Uses the theme connected color: yellow in Default and Forest, mint in Dark Mode, green in Desert. Connected buttons retain full opacity when disabled.",
+    "connectedText": "Uses the theme connected color: yellow in Default and Forest, mint in Dark Mode, dark brown in Desert. Connected buttons retain full opacity when disabled.",
     "buttonColors": {
       "default": {
         "Connected": "#ffdc24",
