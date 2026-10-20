@@ -6,3 +6,10 @@
 #workspace-theme-drawer .theme-preset-option:has(input:checked){color:var(--accent,#ffdc24)}
 #workspace-theme-drawer input{width:auto;margin:0;accent-color:var(--accent,#ffdc24)}
 @media(prefers-reduced-motion:reduce){#workspace-theme-drawer{transition:none}}
+
+/* Shared menu surfaces and independent connection-state colors. */
+.workspace-menu>.workspace-menu-items,#workspace-billing-drawer,#workspace-theme-drawer{background-color:var(--ecco-theme-surface,var(--panel,#252039))!important;border-color:var(--ecco-theme-border,#48405c)!important}
+#workspace-billing-drawer p{color:var(--ecco-theme-text,#fff)!important}
+#connection-indicators{background:linear-gradient(180deg,var(--ecco-theme-control,#302a43),var(--ecco-theme-surface,#242031));border-color:var(--ecco-theme-border,rgba(190,180,215,.22))}
+#connection-indicators #studio-ai-button,#connection-indicators #studio-storage-indicator,#connection-indicators #connected-accelerator{color:var(--ecco-theme-disconnected,#fff)!important}
+#connection-indicators #studio-ai-button[data-connected=true],#connection-indicators #studio-storage-indicator[data-connected=true],#connection-indicators #connected-accelerator.accelerator-connected{color:var(--ecco-theme-connected,#ffdc24)!important}

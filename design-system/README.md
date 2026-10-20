@@ -101,3 +101,5 @@ not a completed shared-component migration.
 Activity, Logs and Errors is accessed through the right-edge sliding-panel arrow,
 not through an item in the Activity menu. Its Activity, Debugging and Errors tabs
 remain available in that panel.
+
+Connection icons use separate status colors: Default white/yellow, Dark Mode grey/mint, Forest white/yellow, Desert brown/green (disconnected/connected). All menu and slide-out surfaces inherit the selected theme. Status colors follow existing live connection attributes; theme selection never changes connection state.

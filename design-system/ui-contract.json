@@ -1529,7 +1529,25 @@
       "Forest",
       "Desert"
     ],
-    "selection": "Single preset, saved immediately; pointer exit retracts the panel; no popup or color inputs"
+    "selection": "Single preset, saved immediately; pointer exit retracts the panel; no popup or color inputs",
+    "connectionStatusColors": {
+      "Default": {
+        "disconnected": "#ffffff",
+        "connected": "#ffdc24"
+      },
+      "Dark Mode": {
+        "disconnected": "#c3c3ca",
+        "connected": "#8bf0bc"
+      },
+      "Forest": {
+        "disconnected": "#ffffff",
+        "connected": "#ffdc24"
+      },
+      "Desert": {
+        "disconnected": "#67513d",
+        "connected": "#176535"
+      }
+    }
   },
   "activityPanel": {
     "entry": "Right-edge arrow",

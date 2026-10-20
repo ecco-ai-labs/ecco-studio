@@ -4,14 +4,14 @@
  const KEY='ecco-theme-preset-v1';
  const PALETTE={background:['Page Background','#17152f'],surface:['Panels and Popups','#252039'],control:['Buttons and Inputs','#302a54'],text:['Primary Text','#ffffff'],contrast:['Text on Accent','#211b33'],muted:['Secondary Text','#b1acc9'],accent:['Accent and Selection','#ffdc24'],border:['Borders','#51496f'],error:['Errors','#ff6b6b'],success:['Success','#7bcf9b'],shadow:['Shadows','#000000']};
  const PRESETS={
-  default:{label:'Default',colors:{}},
-  dark:{label:'Dark Mode',colors:{background:'#0d0d0f',surface:'#242428',control:'#303035',text:'#f5f5f5',contrast:'#151517',muted:'#c3c3ca',accent:'#c7c7ce',border:'#b5b5bd',error:'#ff6b6b',success:'#7bcf9b',shadow:'#000000'}},
-  forest:{label:'Forest',colors:{background:'#123d2a',surface:'#285a40',control:'#34714e',text:'#ffffff',contrast:'#123d2a',muted:'#d2e8d8',accent:'#ffffff',border:'#ffffff',error:'#ffb1ad',success:'#b7edbc',shadow:'#071e13'}},
-  desert:{label:'Desert',colors:{background:'#dbc49a',surface:'#f4e6cb',control:'#ead6b2',text:'#3c2c20',contrast:'#fff6e5',muted:'#67513d',accent:'#6b4226',border:'#8c6844',error:'#a52424',success:'#2f633b',shadow:'#503b25'}}
+  default:{label:'Default',status:{connected:'#ffdc24',disconnected:'#ffffff'},colors:{}},
+  dark:{label:'Dark Mode',status:{connected:'#8bf0bc',disconnected:'#c3c3ca'},colors:{background:'#0d0d0f',surface:'#242428',control:'#303035',text:'#f5f5f5',contrast:'#151517',muted:'#c3c3ca',accent:'#c7c7ce',border:'#b5b5bd',error:'#ff6b6b',success:'#7bcf9b',shadow:'#000000'}},
+  forest:{label:'Forest',status:{connected:'#ffdc24',disconnected:'#ffffff'},colors:{background:'#123d2a',surface:'#285a40',control:'#34714e',text:'#ffffff',contrast:'#123d2a',muted:'#d2e8d8',accent:'#ffffff',border:'#ffffff',error:'#ffb1ad',success:'#b7edbc',shadow:'#071e13'}},
+  desert:{label:'Desert',status:{connected:'#176535',disconnected:'#67513d'},colors:{background:'#dbc49a',surface:'#f4e6cb',control:'#ead6b2',text:'#3c2c20',contrast:'#fff6e5',muted:'#67513d',accent:'#6b4226',border:'#8c6844',error:'#a52424',success:'#2f633b',shadow:'#503b25'}}
  };
  const validPreset=value=>typeof value==='string'&&Object.hasOwn(PRESETS,value)?value:'default';
  let saved='default';try{saved=validPreset(localStorage.getItem(KEY));}catch{}
- function apply(name){const colors=PRESETS[validPreset(name)].colors;for(const key of Object.keys(PALETTE)){const variable='--ecco-theme-'+key;if(colors[key])document.documentElement.style.setProperty(variable,colors[key]);else document.documentElement.style.removeProperty(variable);}}
+ function apply(name){const colors=PRESETS[validPreset(name)].colors;for(const key of Object.keys(PALETTE)){const variable='--ecco-theme-'+key;if(colors[key])document.documentElement.style.setProperty(variable,colors[key]);else document.documentElement.style.removeProperty(variable);}for(const [state,color] of Object.entries(PRESETS[validPreset(name)].status))document.documentElement.style.setProperty('--ecco-theme-'+state,color);}
  apply(saved);
  const COLOR=/url\([^)]*\)|#[\da-f]{3,8}\b|rgba?\([^)]*\)|\b(?:white|black|red|yellow|gray|grey|orange|green|blue|purple)\b/gi;
  const NAMES={white:'#ffffff',black:'#000000',red:'#ff0000',yellow:'#ffff00',gray:'#808080',grey:'#808080',orange:'#ffa500',green:'#008000',blue:'#0000ff',purple:'#800080'};
