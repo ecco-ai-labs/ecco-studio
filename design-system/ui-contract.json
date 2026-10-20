@@ -1,0 +1,1483 @@
+{
+  "schemaVersion": 1,
+  "status": "Registry and specification; not yet a centralized runtime stylesheet. Existing values are recorded in ui-inventory.json. Unapproved numerical standards remain unset.",
+  "propertyGroups": {
+    "identity": [
+      "id",
+      "componentType",
+      "variant",
+      "parent",
+      "sourceLocation"
+    ],
+    "appearance": [
+      "fontFamily",
+      "fontSize",
+      "fontWeight",
+      "lineHeight",
+      "textColor",
+      "backgroundColor",
+      "borderColor",
+      "borderWidth",
+      "borderRadius",
+      "shadow",
+      "opacity",
+      "iconSize"
+    ],
+    "layout": [
+      "width",
+      "height",
+      "minWidth",
+      "maxWidth",
+      "minHeight",
+      "maxHeight",
+      "padding",
+      "margin",
+      "gap",
+      "alignment",
+      "position",
+      "overflow",
+      "responsiveRules",
+      "zIndex"
+    ],
+    "content": [
+      "label",
+      "text",
+      "placeholder",
+      "tooltip",
+      "icon",
+      "value",
+      "options"
+    ],
+    "states": [
+      "default",
+      "hover",
+      "focusVisible",
+      "pressed",
+      "selected",
+      "disabled",
+      "loading",
+      "connected",
+      "disconnected",
+      "error",
+      "empty",
+      "expanded",
+      "collapsed"
+    ],
+    "interaction": [
+      "action",
+      "event",
+      "keyboardBehavior",
+      "dismissBehavior",
+      "validation",
+      "selectionMode"
+    ],
+    "accessibility": [
+      "accessibleName",
+      "role",
+      "labelAssociation",
+      "tabOrder",
+      "focusManagement",
+      "ariaExpanded",
+      "ariaSelected",
+      "ariaDisabled",
+      "errorAnnouncement"
+    ],
+    "usage": [
+      "screens",
+      "selectors",
+      "instances",
+      "exceptions",
+      "approval",
+      "implementationStatus"
+    ]
+  },
+  "sharedRules": {
+    "labelColor": "yellow (existing accent)",
+    "defaultControlText": "white",
+    "selectedControlText": "yellow (existing accent)",
+    "connectedIndicator": "yellow",
+    "disconnectedIndicator": "white",
+    "errorText": "red",
+    "popupClose": {
+      "glyph": "×",
+      "placement": "upper right",
+      "background": "yellow",
+      "behavior": "Close only the owning popup; preserve parent popup"
+    },
+    "newObjects": "Register component type and properties, reuse existing component rules, regenerate inventory in the same change.",
+    "numericValues": "Do not invent sizes or silently normalize existing differences. Record actual declarations and obtain approval for changed standards."
+  },
+  "components": [
+    {
+      "id": "label",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "for",
+        "required",
+        "helpText"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "button",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "action",
+        "variant",
+        "loading",
+        "disabled"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "icon-button",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "icon",
+        "accessibleName",
+        "action"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "popup-close",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "icon",
+        "dismissTarget"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "icon",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "glyph",
+        "size",
+        "decorative",
+        "accessibleName"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "status-indicator",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "status",
+        "connected",
+        "accessibleName"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "heading",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "level",
+        "text"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "text",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "text",
+        "tone"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "help-text",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "text",
+        "tone"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "link",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "href",
+        "target",
+        "rel"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "text-input",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "value",
+        "placeholder",
+        "maxlength",
+        "validation"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "password-input",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "value",
+        "reveal",
+        "autocomplete"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "number-input",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "min",
+        "max",
+        "step",
+        "unit"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "search-input",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "query",
+        "clear",
+        "results"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "textarea",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "value",
+        "rows",
+        "resize",
+        "validation"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "checkbox",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "checked",
+        "indeterminate",
+        "label"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "radio",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "group",
+        "value",
+        "checked"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "switch",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "checked",
+        "label"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "range",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "min",
+        "max",
+        "step",
+        "value"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "file-upload",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "accept",
+        "multiple",
+        "selectedFiles",
+        "preview",
+        "remove"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "date-time",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "value",
+        "timezone",
+        "format"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "dropdown",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "options",
+        "value",
+        "placeholder",
+        "addNewOption"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "multi-select",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "options",
+        "selectedValues",
+        "selectionLimit"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "dropdown-option",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "value",
+        "label",
+        "disabled",
+        "selected"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "menu",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "items",
+        "placement",
+        "open"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "menu-item",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "action",
+        "selected",
+        "icon"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "tabs",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "tabs",
+        "activeTab"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "tab",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "panel",
+        "selected"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "popup",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "title",
+        "content",
+        "close",
+        "focusReturn",
+        "nestedParent"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "drawer",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "placement",
+        "open",
+        "dismiss"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "collapsible",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "title",
+        "expanded",
+        "toggleIcon"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "panel",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "heading",
+        "content",
+        "actions"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "toolbar",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "items",
+        "alignment"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "navigation",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "items",
+        "activeItem",
+        "hierarchy"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "library",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "labels",
+        "items",
+        "selectedItems",
+        "view"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "library-label",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "name",
+        "children",
+        "expanded",
+        "selected"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "library-item",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "name",
+        "thumbnail",
+        "selected",
+        "actions"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "card",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "title",
+        "media",
+        "content",
+        "actions"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "list",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "items",
+        "order"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "list-item",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "content",
+        "selected",
+        "actions"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "table",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "columns",
+        "rows",
+        "sort"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "table-cell",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "value",
+        "alignment"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "image",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "src",
+        "alt",
+        "fit",
+        "aspectRatio"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "audio",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "src",
+        "controls",
+        "duration"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "video",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "src",
+        "poster",
+        "controls",
+        "aspectRatio"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "canvas",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "width",
+        "height",
+        "accessibleAlternative"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "pdf-preview",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "document",
+        "selection",
+        "scroll",
+        "resize"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "progress",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "value",
+        "max",
+        "label"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "spinner",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "label",
+        "animation"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "badge",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "text",
+        "status"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "error",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "message",
+        "details",
+        "dismiss",
+        "announcement"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "notification",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "message",
+        "severity",
+        "duration"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "tooltip",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "content",
+        "trigger",
+        "placement"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "empty-state",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "content",
+        "action"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "divider",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "color",
+        "thickness",
+        "spacing"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "form",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "submit",
+        "validation",
+        "fields"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "field-group",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "legend",
+        "fields"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "container",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "children",
+        "layout"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "header",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "children",
+        "layout"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "footer",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "children",
+        "layout"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "sidebar",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "children",
+        "layout"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "step-navigation",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "steps",
+        "currentStep",
+        "continueAction"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "workflow-node",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "name",
+        "type",
+        "settings",
+        "status"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "cost-display",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "sessionCost",
+        "balance",
+        "currency",
+        "expanded"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "code-log",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "entries",
+        "severity",
+        "time",
+        "details"
+      ],
+      "variants": [],
+      "standardValues": {},
+      "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    }
+  ]
+}
+
