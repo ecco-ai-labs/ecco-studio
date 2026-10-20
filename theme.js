@@ -33,20 +33,25 @@
  function rules(list){for(const rule of list){if(rule.style)declaration(rule.style,rule.selectorText||'');if(rule.cssRules)rules(rule.cssRules);}}
  function scanStyles(){for(const sheet of document.styleSheets){try{rules(sheet.cssRules);}catch{/* Cross-origin third-party styles are not editable. */}}}
  function inline(root){if(root.nodeType!==1)return;const skip=el=>el.closest('svg,#workspace-entry,#story-choice-screen')||el.matches('img,video,audio,canvas');if(root.hasAttribute('style')&&!skip(root))declaration(root.style,root.tagName.toLowerCase()+' '+root.className);for(const el of root.querySelectorAll('[style]'))if(!skip(el))declaration(el.style,el.tagName.toLowerCase()+' '+el.className);}
- function editor(){
-  let dialog=document.querySelector('#theme-colors-dialog');if(dialog?.open)return;
-  dialog=document.createElement('dialog');dialog.id='theme-colors-dialog';dialog.setAttribute('aria-labelledby','theme-colors-title');
-  dialog.innerHTML='<div class="section-head"><h2 id="theme-colors-title">Theme</h2></div><form class="form"><fieldset class="theme-presets"><legend>Theme</legend></fieldset><button type="submit">Save</button></form>';
-  const fields=dialog.querySelector('fieldset');
+ function mount(){
+  const menu=document.querySelector('[data-category="Account"] .workspace-menu-items');if(!menu||document.querySelector('#theme-colors-open'))return;
+  const button=document.createElement('button');button.type='button';button.id='theme-colors-open';button.className='secondary';button.textContent='Theme';button.dataset.ribbonClose='1';button.setAttribute('aria-controls','workspace-theme-drawer');button.setAttribute('aria-expanded','false');
+  const drawer=document.createElement('div');drawer.id='workspace-theme-drawer';drawer.setAttribute('role','radiogroup');drawer.setAttribute('aria-label','Theme');drawer.hidden=true;drawer.inert=true;
   for(const [key,preset] of Object.entries(PRESETS)){
    const row=document.createElement('label');row.className='theme-preset-option';
-   const input=document.createElement('input');input.type='radio';input.name='theme';input.value=key;input.checked=key===saved;
-   const title=document.createElement('span');title.textContent=preset.label;row.append(input,title);fields.append(row);
+   const input=document.createElement('input');input.type='radio';input.name='ecco-theme';input.value=key;input.checked=key===saved;
+   const title=document.createElement('span');title.textContent=preset.label;row.append(input,title);drawer.append(row);
+   input.onchange=()=>{if(!input.checked)return;try{localStorage.setItem(KEY,key);saved=key;apply(saved);}catch(error){for(const radio of drawer.querySelectorAll('input'))radio.checked=radio.value===saved;window.EccoErrors?.show(error);}};
   }
-  dialog.querySelector('form').onsubmit=e=>{e.preventDefault();try{const next=validPreset(dialog.querySelector('input[name="theme"]:checked')?.value);localStorage.setItem(KEY,next);saved=next;apply(saved);dialog.close();}catch(error){window.EccoErrors?.show(error);}};
-  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
+  function show(open){drawer.hidden=!open;drawer.inert=!open;button.setAttribute('aria-expanded',String(open));if(open){const billing=document.querySelector('#workspace-billing-drawer');if(billing){billing.hidden=true;billing.inert=true;}document.querySelector('button[data-category="Billing"]')?.setAttribute('aria-expanded','false');}}
+  button.onclick=e=>{e.preventDefault();e.stopPropagation();show(true);};button.addEventListener('pointerenter',()=>show(true));
+  menu.addEventListener('pointerleave',()=>show(false));
+  menu.addEventListener('pointerover',e=>{if(e.target.closest('button[data-category="Billing"]'))show(false);});
+  menu.addEventListener('keydown',e=>{if(e.key==='Escape'&&!drawer.hidden){e.stopPropagation();show(false);button.focus();}});
+  menu.addEventListener('focusout',e=>{if(!menu.contains(e.relatedTarget))show(false);});
+  menu.closest('details').addEventListener('toggle',()=>{if(!menu.closest('details').open)show(false);});
+  menu.append(button,drawer);
  }
- function mount(){const menu=document.querySelector('[data-category="Account"] .workspace-menu-items');if(menu&&!document.querySelector('#theme-colors-open')){const button=document.createElement('button');button.type='button';button.id='theme-colors-open';button.className='secondary';button.textContent='Theme';button.onclick=()=>{menu.closest('details').open=false;editor();};menu.append(button);}}
  let pending=false,styleDirty=false;const inlineRoots=new Set();function schedule(){if(pending)return;pending=true;queueMicrotask(()=>{pending=false;if(styleDirty){styleDirty=false;scanStyles();}for(const root of inlineRoots)inline(root);inlineRoots.clear();mount();});}
  function start(){scanStyles();inline(document.body);mount();new MutationObserver(records=>{for(const r of records){if(r.type==='attributes'){inlineRoots.add(r.target);}else{if(r.target.nodeName==='STYLE'||r.target.parentElement?.nodeName==='STYLE')styleDirty=true;for(const n of r.addedNodes){if(n.nodeType===1){inlineRoots.add(n);if(n.matches('style,link[rel="stylesheet"]')||n.querySelector('style,link[rel="stylesheet"]'))styleDirty=true;}}}}schedule();}).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['style']});document.addEventListener('load',e=>{if(e.target.matches?.('link[rel="stylesheet"]')){styleDirty=true;schedule();}},true);}
  window.EccoTheme={presets:PRESETS,validPreset,colorValue};
