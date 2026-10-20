@@ -6,3 +6,4 @@ body.story-choice-mode #story-choice-screen .intent-menu button{display:block;te
 body.story-choice-mode #story-choice-screen .intent-menu button:hover,body.story-choice-mode #story-choice-screen .intent-menu button[aria-expanded=true]{background:var(--ecco-theme-control,#39314d)!important}
 .intent-menu p{font-size:13px;padding:6px}.intent-menu [hidden],.intent-menu[hidden],#story-setup-form [hidden]{display:none!important}
 @media(max-width:700px){#story-choice-screen .story-choice-actions{flex-direction:column;align-items:center}.intent-menu{position:relative;top:auto;margin-top:5px}.intent-submenu{position:relative;left:0;top:0;width:100%;box-shadow:none;border:0;border-left:2px solid var(--ecco-theme-border,#514b69);border-radius:0}}
+#page.story-journey-fields label[hidden]{display:none!important}
