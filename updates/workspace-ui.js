@@ -52,13 +52,13 @@
  }
  function startNewStory(intent){
   preserveNewStoryDraft(true);if(activeStory)persistDraft();activeStory='';localStorage.removeItem('ecco-active-story');
-  localStorage.setItem('ecco-new-story-draft',JSON.stringify(intent?{workflow_id:intent.id,story_format:intent.format}:{}));draft={...defaultDraft,scenes:[]};persistDraft();
+  localStorage.setItem('ecco-new-story-draft',JSON.stringify(intent?{workflow_id:intent.id,story_format:intent.format,...(intent.seed||{})}:{}));draft={...defaultDraft,scenes:[]};persistDraft();
   selectedJourneyStory=undefined;newStoryStarted=true;storyControls();navigate('story-setup');
  }
  function openStory(id){
   if(!stories().some(story=>story.id===id))return;
   preserveNewStoryDraft();if(activeStory||newStoryStarted)persistDraft();activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();selectedJourneyStory=id;lastSignature='';
-  storyControls();navigate('board');productionGroup();journeyGuide();
+  storyControls();const savedStep=localStorage.getItem('ecco-story-page:'+id);const allowed=window.EccoStoryJourneys?.steps([])||[];navigate(allowed.some(s=>s[0]===savedStep)?savedStep:'board');productionGroup();journeyGuide();
  }
  function workspaceStart(){
   page='empty';document.body.classList.remove('workspace-entry-mode');document.body.classList.add('story-choice-mode');q('#heading').textContent='';
@@ -396,7 +396,7 @@
   // Restoring draft text is not a format choice in a new browser session.
   if(saved.workflow_id)selectedJourneyStory=activeStory;else if(selectedJourneyStory!==activeStory)form.elements.story_format.value='';
   window.EccoStoryJourneys?.setup(form,saved);
-  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||window.EccoStoryJourneys?.brief(data)||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
+  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(saved.parent_story_id)data.parent_story_id=saved.parent_story_id;if(saved.source_asset_ids)data.source_asset_ids=saved.source_asset_ids;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
@@ -406,7 +406,7 @@
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
     data.cloudId=created.id;saved=data;
-    const nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||window.EccoStoryJourneys?.brief(data)||data.summary,story_format:data.story_format};
+    const nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};
     localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));
     localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));
     if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);
@@ -419,7 +419,7 @@
     if(stillEditing){localStorage.setItem(key,JSON.stringify(data));activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();}
     await refresh();
     if(!stillEditing||!form.isConnected||activeStory!==created.id)return;
-    q('.project .workspace-library')?.remove();storyTree();status.textContent='Story saved.';navigate('board');
+    q('.project .workspace-library')?.remove();storyTree();status.textContent='Story saved.';navigate(window.EccoStoryJourneys?.steps([])?.[1]?.[0]||'board');
    }catch(error){window.EccoErrors?.show(error);status.textContent='Could not save story: '+error.message;}
 
    finally{button.disabled=false;}
@@ -485,7 +485,7 @@
   if(guide.dataset.signature===signature)return;guide.dataset.signature=signature;
   guide.innerHTML='<div><small>STEP '+(index+1)+' OF '+steps.length+'</small><h2>'+step[1]+'</h2><p>'+step[2]+'</p></div><div class="journey-actions">'+(index?'<button type="button" class="secondary" data-back>Back</button>':'')+(index<steps.length-1?'<button type="button" class="secondary" data-next>Next: '+steps[index+1][1]+'</button>':'')+'</div>';
   guide.querySelector('[data-back]')?.addEventListener('click',()=>navigate(steps[index-1][0]));
-  guide.querySelector('[data-next]')?.addEventListener('click',()=>{if(page==='story-setup'){q('#story-setup-form')?.requestSubmit();return;}navigate(steps[index+1][0]);});
+  guide.querySelector('[data-next]')?.addEventListener('click',()=>{if(page==='story-setup'){q('#story-setup-form')?.requestSubmit();return;}if(window.EccoJourneyFlow&&window.EccoStoryJourneys?.current()){window.EccoJourneyFlow.advance(steps[index+1][0],guide.querySelector('[data-next]'));return;}navigate(steps[index+1][0]);});
   if(format==='video'&&index===1){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent=page==='director'?'Manual storyboard editor':'AI storyboard & previews';button.onclick=()=>navigate(page==='director'?'board':'director');guide.querySelector('.journey-actions').append(button);}
   if(format==='video'&&step[0]==='images'){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent='Assign images to scenes';button.onclick=()=>navigate('board');guide.querySelector('.journey-actions').append(button);}
  }

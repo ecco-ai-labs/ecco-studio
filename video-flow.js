@@ -16,6 +16,17 @@
    audio_ids:ctx.data.audio_reference_ids?.length?ctx.data.audio_reference_ids:(old.enabled&&old.audio_id?[old.audio_id]:[]),
    shots:old.shots||[],brief:ctx.data.prompt||'',directions:[],analyzed:''};
   if(!data.image_ids.length&&old.avatar_id)data.image_ids=[old.avatar_id];
+  // Seed a new video workspace only from this story; never overwrite saved edits.
+  if(!saved&&story){
+   const audios=assets('audio').filter(a=>a.story_id===story);
+   const lastJob=localStorage.getItem('ecco-audio-job:'+story);
+   const latest=audios.filter(a=>a.job_id===lastJob);
+   if(!data.audio_ids.length){if(latest.length===1)data.audio_ids=[latest[0].id];else if(audios.length===1)data.audio_ids=[audios[0].id];}
+   const boardDraft=read('ecco-board-draft:'+story,null);
+   const board=boardDraft?.scenes?.length?boardDraft:state.records.filter(b=>b.kind==='board'&&!b.deleted&&b.story_id===story).sort((a,b)=>b.created-a.created)[0];
+   if(!data.image_ids.length)data.image_ids=[...new Set((board?.scenes||[]).map(s=>s.image_id).filter(id=>find(id,'image')))];
+  }
+
   const model=q('#job-model',form),footer=q('.generation-footer',form),button=q('#generate-video',form),status=q('#video-status',form);
   // Preserve the shared model controls; retire the overlapping reference/prompt controls.
   for(const name of ['references','prompt','controls'])q('[data-section="'+name+'"]',form).hidden=true;
@@ -53,7 +64,8 @@
   function loadBoard(){
    drawBoards();const board=boardOptions().find(b=>b.id===q('[data-board]',root).value);
    data.board_id=board?.id||'';
-   data.shots=board?.scenes?.length?board.scenes.map((s,i)=>({...newShot(i),...s,selected:true,image_id:data.image_ids.includes(s.image_id)?s.image_id:data.image_ids[0]||''})):[newShot()];
+   data.shots=board?.scenes?.length?board.scenes.map((s,i)=>({...newShot(i),...s,video_prompt:s.video_prompt??s.motion??'',selected:true,image_id:find(s.image_id,'image')?s.image_id:data.image_ids[0]||''})):[newShot()];
+   for(const shot of data.shots)if(shot.image_id&&!data.image_ids.includes(shot.image_id))data.image_ids.push(shot.image_id);
    shotIndex=0;balance();data.directions=[];persist();drawShots();drawDirections();
   }
   function drawShots(){
@@ -78,7 +90,7 @@
     row.innerHTML='<label>Avatar for this shot<select data-image></select></label><div class="row"><button type="button" class="small secondary" data-remove-shot>Remove shot</button></div>';
     const image=q('[data-image]',row);image.add(new Option('Choose avatar',''));
     data.image_ids.forEach(id=>{const a=find(id,'image');if(a)image.add(new Option(title(a),id));});
-    image.value=s.image_id||data.image_ids[0]||'';s.image_id=image.value;image.onchange=()=>{s.image_id=image.value;persist();};
+    image.value=s.image_id||data.image_ids[0]||'';image.onchange=()=>{s.image_id=image.value;persist();};
     q('[data-remove-shot]',row).onclick=()=>{data.shots.splice(i,1);data.directions=[];persist();drawShots();drawDirections();};
     box.append(row);
    });
@@ -119,7 +131,7 @@
   }
   function drawLists(){
    for(const kind of ['image','video','audio']){
-    const box=q('[data-list="'+kind+'"]',root);box.replaceChildren();box.hidden=kind!==q('[data-library]',root).value;box.style.display=box.hidden?'none':'';
+    const box=q('[data-list="'+kind+'"]',root);box.replaceChildren();box.hidden=!data[idsKey[kind]].length;box.style.display=box.hidden?'none':'';
     data[idsKey[kind]].forEach((id,i)=>{
      const a=find(id,kind),card=document.createElement('div');card.className='generation-selected-item';card.style.cssText='position:relative;display:inline-flex;flex-direction:column;gap:4px;vertical-align:top;margin:4px;width:'+(kind==='audio'?'220px':'72px')+';';
      const label=document.createElement('span');label.textContent=a?title(a):'Unavailable';label.title=label.textContent;label.style.cssText='font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%';
@@ -167,7 +179,7 @@
    }
    async function reloadLibrary(){const b=q('[data-refresh]',dialog);b.disabled=true;q('[data-library-status]',dialog).textContent='Loading library…';try{const latest=await api('state');if(!Array.isArray(latest.records))throw Error('Library data was not returned.');state={...state,...latest};draw();drawBoards();}catch(e){q('[data-library-status]',dialog).textContent='Could not load library: '+e.message;}finally{b.disabled=false;}}
    q('[data-search]',dialog).oninput=draw;q('[data-folder]',dialog).onchange=draw;q('[data-refresh]',dialog).onclick=reloadLibrary;q('[data-cancel]',dialog).onclick=()=>dialog.close();
-   q('[data-use]',dialog).onclick=()=>{const changed=JSON.stringify(data[idsKey[kind]])!==JSON.stringify([...chosen]);data[idsKey[kind]]=[...chosen];if(changed&&kind==='audio')loadBoard();if(!data.shots.length)loadBoard();persist();drawLists();drawShots();dialog.close();};
+   q('[data-use]',dialog).onclick=()=>{const changed=JSON.stringify(data[idsKey[kind]])!==JSON.stringify([...chosen]);data[idsKey[kind]]=[...chosen];if(changed&&kind==='audio'){if(!data.shots.length)loadBoard();else{balance();data.directions=[];data.analyzed='';drawBoards();}}if(!data.shots.length)loadBoard();persist();drawLists();drawShots();dialog.close();};
    dialog.onclose=()=>dialog.remove();document.body.append(dialog);draw();dialog.showModal();await reloadLibrary();
   }
   q('[data-transcript]',root).oninput=event=>{data.script_drafts=data.script_drafts||{};data.script_drafts[JSON.stringify(data.audio_ids)]=event.target.value;persist();};

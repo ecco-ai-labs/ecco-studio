@@ -1625,6 +1625,13 @@
     "variants": [
       "intent-category-menu",
       "intent-story-setup"
-    ]
+    ],
+    "progress": "Per-story browser-local last stage, script checkpoint, model settings and references; no completion inferred from navigation",
+    "handoff": "Exact storyboard narration seeds a new audio draft only; saved edits are preserved. Video carries story references and recordings only when unambiguous.",
+    "review": "Story-filtered audio/video assets with existing approve, download and trash controls; audio script export; completed output required for guided Review",
+    "continuation": "Next chapter/lesson/episode copies workflow and voice defaults, clears content, preserves prior story",
+    "sourceMedia": "Localization, repurposing and ambient journeys select source assets from actual libraries",
+    "directEntry": "Go to Studio bypasses guided entry",
+    "backendLimits": "No scheduler or new renderer added. YouTube needs an enabled configured backend. GPU jobs not tested by UI fixtures."
   }
 }

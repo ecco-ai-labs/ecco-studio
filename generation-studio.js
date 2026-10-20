@@ -57,13 +57,15 @@
  function settingsFields(c){
   if(c.kind==='audio')return;
   const id=c.model.value,container=q('[data-model-fields]',c.form);
-  container.innerHTML=modelFields(id);all('[data-setting]',container).forEach(el=>{el.name=el.dataset.setting;el.oninput=()=>{const id=c.model.value;modelProfiles.settings[id]={...modelSettings(id),[el.dataset.setting]:el.type==='number'?Number(el.value):el.value};saveModelProfiles();};});
+  if(c.data.model===id&&c.data.model_settings)modelProfiles.settings[id]={...modelSettings(id),...c.data.model_settings};
+  container.innerHTML=modelFields(id);all('[data-setting]',container).forEach(el=>{el.name=el.dataset.setting;el.oninput=()=>{const id=c.model.value;modelProfiles.settings[id]={...modelSettings(id),[el.dataset.setting]:el.type==='number'?Number(el.value):el.value};saveModelProfiles();c.data.model=id;c.data.model_settings={...modelSettings(id)};save(c);};});
   q('[data-model-status]',c.form).textContent=c.compute?(window.EccoCompute.ready(c.compute.value,id)?'':'Selected model is not ready on this compute.'):modelStatus(id);
  }
  function connectModel(c){
   if(c.kind==='audio')return;
   const category=c.kind==='image'?'images':'video';
-  c.model.onchange=()=>{modelProfiles.selected[category]=c.model.value;saveModelProfiles();settingsFields(c);save(c);};
+  if(c.data.model&&[...c.model.options].some(o=>o.value===c.data.model)){c.model.value=c.data.model;modelProfiles.selected[category]=c.data.model;}
+  c.model.onchange=()=>{c.data.model=c.model.value;c.data.model_settings={...modelSettings(c.model.value)};modelProfiles.selected[category]=c.model.value;saveModelProfiles();settingsFields(c);save(c);};
   settingsFields(c);
  }
  function sync(c){

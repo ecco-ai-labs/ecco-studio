@@ -65,7 +65,7 @@
   if(!dialog.open)dialog.showModal();
  }
  function contextFor(scope,stage){
-  const context={model:scope.querySelector('#job-model')?.value||scope.querySelector('[name=model]')?.value||''};
+  const context={workflow:window.EccoStoryJourneys?.current()?.label||'',creative_direction:window.EccoStoryJourneys?.brief(storyDescription())||'',model:scope.querySelector('#job-model')?.value||scope.querySelector('[name=model]')?.value||''};
   for(const name of ['title','summary','story','style','genre','language','emotion','voice','seconds','count','speed','pitch','pause']){
    const field=scope.querySelector('[name="'+name+'"]');if(field)context[name==='story'?'summary':name]=field.value;
   }

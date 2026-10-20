@@ -28,7 +28,7 @@
   q('#collection-new-title').onclick=()=>window.EccoWorkspaceUI.startNewStory();
  }
  function mount(){
-  const form=q('#story-setup-form');if(form&&!form.elements.collection_id){const label=document.createElement('label');label.textContent='Story';const picker=document.createElement('select');picker.name='collection_id';label.append(picker);const format=form.querySelector('[data-story-format]');if(format)format.after(label);else form.prepend(label);let saved={};try{saved=JSON.parse(localStorage.getItem(form.dataset.draftKey)||'{}');}catch{}options(picker,saved.collection_id||'');picker.required=true;}
+  const form=q('#story-setup-form');if(form&&!form.elements.collection_id){const label=document.createElement('label');label.textContent='Story';const picker=document.createElement('select');picker.name='collection_id';label.append(picker);const format=form.querySelector('[data-story-format]');if(format)format.after(label);else form.prepend(label);let saved={};try{saved=JSON.parse(localStorage.getItem(form.dataset.draftKey)||'{}');}catch{}options(picker,saved.collection_id||'');picker.required=!form.dataset.intent;if(form.dataset.intent)label.hidden=true;}
   const source=q('#source-story-picker');if(source&&!q('#board-collection')){
    const label=source.closest('label');if(label.firstChild?.nodeType===3)label.firstChild.textContent='Story Title';
    const parentLabel=document.createElement('label');parentLabel.textContent='Story';const parent=document.createElement('select');parent.id='board-collection';parentLabel.append(parent);label.before(parentLabel);

@@ -57,6 +57,7 @@
  const speaker=id=>draft.speakers.find(s=>s.id===id)||draft.speakers[0];
  const activeSpeakers=()=>draft.presentation==='conversation'?draft.speakers:[draft.speakers[0]];
  const turns=()=>draft.presentation==='single'?[{text:draft.single_text,speaker_id:draft.speakers[0].id}]:draft.lines;
+ function readAudioModelSaved(){try{return JSON.parse(localStorage.getItem(key())||'{}').model;}catch{return null;}}
  function load(){
   story=activeStory;
   try{draft=JSON.parse(localStorage.getItem(key()));}catch{draft=null;}
@@ -65,7 +66,7 @@
   // Each visit starts on CPU; a GPU is used only after an explicit selection.
   draft.compute='cpu';
   if(!audioModels.some(m=>m.id===draft.model))draft.model=audioModels[0].id;
-  if(audioModels.some(m=>m.id===modelProfiles.selected.voice))draft.model=modelProfiles.selected.voice;
+  if(!readAudioModelSaved()&&audioModels.some(m=>m.id===modelProfiles.selected.voice))draft.model=modelProfiles.selected.voice;
   if(!genres.includes(draft.genre))draft.genre=genres[0];
   // Migrate existing scripts without dropping text, speaker changes or language choices.
   if(!Array.isArray(draft.speakers)||!draft.speakers.length){
