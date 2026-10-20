@@ -1606,6 +1606,7 @@
     "fill": "Current theme accent; Default yellow; completed clips 100%, waiting clips empty",
     "details": "Plain English total clips, current clip, and active clip segment and step counts",
     "percent": "Approximate generation progress from segment and step counts, capped at 99 until clip completes; not a time estimate",
-    "refreshSeconds": 3
+    "refreshSeconds": 3,
+    "placement": "Main Video tab at the generation status area only; Activity retains a short text status without clip bars"
   }
 }
