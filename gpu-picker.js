@@ -62,7 +62,6 @@ window.EccoGPUPicker = (() => {
         const card=container.querySelector(`[data-gpu="${gpu.id}"]`);
         card.dataset.status=status.kind;
         card.querySelector('.gpu-status').textContent=status.title;
-        card.querySelector('.gpu-detail').textContent=status.detail;
         const button=card.querySelector('.gpu-open');
         button.disabled=status.kind==='unknown';
         button.textContent=button.disabled?'Unavailable':`Connect to ${gpu.name}`;
