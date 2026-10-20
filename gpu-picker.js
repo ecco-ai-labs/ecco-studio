@@ -2,7 +2,7 @@
 // Public endpoint addresses only. Authentication stays on the selected RunPod origin.
 window.EccoGPUPicker = (() => {
   const gpus = [
-    {id:'io8sphjo10kbuy',name:'B200',label:'ecco-b200-benchmark'},
+    {id:'p7lc6fqjuosti3',name:'B200',label:'ecco-b200'},
     {id:'1muqctw9bxvguu',name:'A100',label:'ecco-demo-a100'}
   ].map(gpu => ({...gpu, origin:`https://${gpu.id}-8888.proxy.runpod.net`,
     url:`https://${gpu.id}-8888.proxy.runpod.net/proxy/8765/`}));
