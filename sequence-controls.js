@@ -21,7 +21,7 @@
   if(typeof state==='undefined')return;
   const enabled=state.config?.longcat?.sequence_controls;
   const gallery=document.querySelector('#video-gallery'),form=gallery?.parentElement,panel=document.querySelector('#activity-panel');
-  for(const [host,id,jobs] of [[form,'video-sequence-controls',(state.records||[]).filter(j=>(j.source_kind==='audio_video_job'||j.kind==='audio_video_job')&&j.story_id===activeStory).sort((a,b)=>b.created-a.created).slice(0,1)],[panel,'activity-sequence-controls',sequences()]]){
+  for(const [host,id,jobs] of [[form,'video-sequence-controls',window.EccoClipProgress?.select(state.records||[],activeStory,window.EccoGeneration?.jobId('video'))||[]],[panel,'activity-sequence-controls',sequences()]]){
    let root=document.getElementById(id);
    if(!host||!enabled||!jobs.length){root?.remove();continue;}
    if(!root){root=document.createElement('section');root.id=id;root.setAttribute('aria-label','Sequence controls');if(host===form)gallery.before(root);else host.querySelector('#jobs').before(root);}

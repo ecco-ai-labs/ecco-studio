@@ -2,6 +2,12 @@
 (()=>{
  const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const isSequence=j=>j?.source_kind==='audio_video_job'||j?.kind==='audio_video_job';
+ function select(records,story,trackedId){
+  const normalize=id=>id||'00000000000000000000000000000001';
+  const jobs=records.filter(j=>isSequence(j)&&normalize(j.story_id)===normalize(story)).sort((a,b)=>b.created-a.created);
+  const tracked=jobs.find(j=>j.id===trackedId);
+  return tracked?[tracked]:jobs.slice(0,1);
+ }
  function clips(job,records=[]){
   if(!isSequence(job))return [];
   const ids=job.children||[],count=job.request?.clips?.length||Number(job.progress?.match(/clip \d+ of (\d+)/i)?.[1])||ids.length;
@@ -34,5 +40,5 @@
   const active=rows.find(r=>r.active);
   return '<div class="clip-progress-list"><div class="clip-progress-summary">Total clips in video: '+rows.length+'. '+(active?'Currently generating: clip '+active.number+'.':safe(summary(job)))+'</div>'+rows.map(r=>'<div class="clip-progress-item"><div class="clip-progress-line"><span>Clip '+r.number+'</span><div class="clip-progress-track" role="progressbar" aria-label="Clip '+r.number+' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+r.percent+'" aria-valuetext="'+safe(r.status+' '+r.percent+'%')+'"><span style="width:'+r.percent+'%"></span></div><span class="clip-progress-value">'+safe(r.status)+(r.status==='Generating'?' · ~'+r.percent+'%':r.status==='Complete'?' · 100%':'')+'</span></div>'+(r.detail?'<div class="clip-progress-detail">'+safe(r.detail)+'</div>':'')+'</div>').join('')+(job.stop_requested?'<div class="clip-progress-detail">Stopping after the current clip.</div>':job.pause_requested?'<div class="clip-progress-detail">Pausing after the current clip.</div>':'')+'</div>';
  }
- window.EccoClipProgress={isSequence,clips,html,summary};
+ window.EccoClipProgress={isSequence,select,clips,html,summary};
 })();
