@@ -99,7 +99,7 @@
     "disconnectedIndicator": "white",
     "errorText": "red",
     "popupClose": {
-      "glyph": "×",
+      "glyph": "\u00d7",
       "placement": "upper right",
       "background": "yellow",
       "behavior": "Close only the owning popup; preserve parent popup"
@@ -1477,7 +1477,50 @@
       "variants": [],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
+    },
+    {
+      "id": "color-input",
+      "inherits": [
+        "identity",
+        "appearance",
+        "layout",
+        "content",
+        "states",
+        "interaction",
+        "accessibility",
+        "usage"
+      ],
+      "specificProperties": [
+        "value",
+        "paletteRole"
+      ],
+      "variants": [],
+      "standardValues": {
+        "type": "color",
+        "valueFormat": "#RRGGBB"
+      },
+      "implementationStatus": "Theme Colors popup"
     }
-  ]
+  ],
+  "theme": {
+    "editor": "Account and Billing \u2192 Theme Colors",
+    "properties": [
+      "background",
+      "surface",
+      "control",
+      "text",
+      "contrast",
+      "muted",
+      "accent",
+      "border",
+      "error",
+      "success",
+      "shadow"
+    ],
+    "valueFormat": "#RRGGBB only",
+    "persistence": "localStorage in this browser",
+    "default": "Original declaration colors retained as CSS variable fallbacks",
+    "scope": "Colors only; no typography, geometry, content or behavior controls",
+    "runtime": "theme.js bridges accessible CSS declarations and dynamic inline styles to shared color variables; media pixels are unchanged"
+  }
 }
-

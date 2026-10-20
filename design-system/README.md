@@ -76,3 +76,16 @@ styles; editing the registry alone will not restyle screens. Migrating those sty
 into shared CSS tokens/components is the next implementation step after visual
 standards are approved. Existing approved color/close-button behavior is recorded;
 unapproved dimensions remain unset instead of being silently chosen.
+
+## Color theme
+
+Account and Billing → Theme Colors edits only eleven palette colors. Save persists
+the choices in this browser; Reset Colors followed by Save restores the original
+colors. Closing the popup discards unapplied changes. The editor cannot change
+fonts, dimensions, spacing, layout, wording or actions.
+
+`theme.js` maps editable same-origin CSS color declarations (including newly added
+style elements and inline styles) to `--ecco-theme-*` variables, preserving each
+original color as its fallback. Alpha and CSS priority are retained. Images, video,
+audio, canvas content and third-party cross-origin styles are not recolored.
+This is a color bridge for existing code, not a completed shared-component migration.
