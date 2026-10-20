@@ -29,7 +29,7 @@ window.EccoGPUPicker = (() => {
     if(window.EccoGPUConnection&&!window.EccoStorage?.ready)return {kind:'unchecked',title:'Not checked',detail:'Connect workspace storage to check GPU availability.'};
     if(window.EccoGPUConnection){try{return await window.EccoGPUConnection.check(gpu);}catch{return {kind:"unknown",title:"Unavailable",detail:window.EccoStorage?.ready?"Checking connection. Try again shortly.":"Connect your workspace in Account → Storage first."};}}
     const [studio, gateway] = await Promise.all([
-      probe(gpu.url+'logo.png'), probe(gpu.origin+'/static/favicons/favicon.ico')
+      probe(gpu.url+'logo-transparent.png'), probe(gpu.origin+'/static/favicons/favicon.ico')
     ]);
     if(studio) return {kind:'ready',title:'Running · Studio available',detail:'Studio is responding. Open this workspace to continue.'};
     if(gateway) return {kind:'running',title:'Running · gateway available',detail:'The GPU workspace is responding. Studio may be starting or require sign-in.'};

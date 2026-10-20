@@ -569,7 +569,7 @@
   if(entry?.querySelector('#entry-continue-story')){entry.remove();entry=null;}
   if(!entry){
    entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Ecco AI Labs Studios');
-   const logo=q('aside .brand img')||q('aside img'),brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo.png';brand.alt='Ecco AI Labs logo';
+   const logo=q('aside .brand img')||q('aside img'),brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo-transparent.png';brand.alt='Ecco AI Labs logo';
    const title=document.createElement('h1');title.innerHTML='Ecco AI Labs<span class="entry-subtitle">Studios</span>';
    const choices=document.createElement('div');choices.className='row';choices.style.cssText='display:flex;flex-wrap:wrap;justify-content:center;gap:12px';
    const create=document.createElement('button');create.id='entry-tell-story';create.type='button';create.textContent='Tell Your Story';
