@@ -15,11 +15,12 @@
  }
  const selectedHealth=()=>gpuHealth.find(g=>g.id===selectedGPU);
  window.EccoGPUConnection={
+  get selectedId(){return selectedGPU;},
   get ready(){return Boolean(key)&&Date.now()-gpuChecked<60000&&Boolean(selectedHealth()?.ready);},
   async check(gpu){
    acceptGPUHealth(await storageRequest('gpu/status'));
    const item=gpuHealth.find(g=>g.id===gpu.id);
-   return item?.ready?{kind:'ready',title:'Running · Connected service',detail:'Ready for generation. No connection window required.'}:{kind:'unknown',title:'Unavailable',detail:'Studio reconnects automatically when the GPU service returns.'};
+   return item?.ready?{kind:'ready',title:'Available',detail:'Ready for generation. No connection window required.'}:{kind:'unknown',title:'Unavailable',detail:'Studio reconnects automatically when the GPU service returns.'};
   },
   async select(gpu){const status=await this.check(gpu);if(status.kind!=='ready')throw Error('This accelerator is unavailable.');selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);await refresh();},
  };
