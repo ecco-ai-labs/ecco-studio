@@ -1634,5 +1634,13 @@
     "directEntry": "Go to Studio bypasses guided entry",
     "backendLimits": "No scheduler or new renderer added. YouTube needs an enabled configured backend. GPU jobs not tested by UI fixtures.",
     "entryConnections": "Connection control panel remains clickable and keyboard-accessible on story selection; other header controls remain visible and inert until entering Studio."
+  },
+  "googleSignIn": {
+    "entry": "Sign in on welcome screen and Account and Billing; standard Google-rendered button in existing popup",
+    "audience": "Any Google account, no domain filter",
+    "verification": "Server-verified Google token with one-time nonce, audience, issuer and expiry checks; identity keyed by sub",
+    "authorization": "Identity session cannot access shared workspace API or start GPUs",
+    "session": "Memory-only, expires within one hour; sign-out revokes server token and clears workspace key from this tab",
+    "dismiss": "Upper-right x or Escape; no separate Cancel button"
   }
 }

@@ -22,6 +22,7 @@ import audio_video_sequence
 import gpu_relay
 import openai_assistant
 import scene_planner
+import google_signin
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
@@ -79,6 +80,7 @@ class Handler(legacy.Handler):
 
     def do_GET(self):
         path = urlsplit(self.path).path
+        if google_signin.handle(self, path, ALLOWED_ORIGIN): return
         if path == '/healthz':
             return self.send({'ok': True, 'service': 'ecco-storage-api', 'gpu_required': False})
         if not self.authorized(): return
@@ -130,8 +132,9 @@ class Handler(legacy.Handler):
         except Exception: self.send({'error': 'Storage read failed'}, 500)
 
     def do_POST(self):
-        if not self.authorized(): return
         path = urlsplit(self.path).path
+        if google_signin.handle(self, path, ALLOWED_ORIGIN): return
+        if not self.authorized(): return
         if path not in WRITE_ROUTES:
             return self.send({'error': 'This storage service does not run generation or external publishing.'}, 409)
         try:

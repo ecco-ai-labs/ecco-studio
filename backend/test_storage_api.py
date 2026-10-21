@@ -23,6 +23,23 @@ class StorageTest(unittest.TestCase):
   headers={'Origin':origin,**(extra or {})}
   if auth:headers['Authorization']='Bearer '+api.Handler.access_key
   return urlopen(Request(self.base+path,data=json.dumps(body).encode() if body is not None else None,headers=headers))
+ def test_google_identity_cannot_access_workspace(self):
+  import google_signin
+  import time
+  pending=google_signin.challenge()
+  claims={'sub':'new-user','aud':google_signin.CLIENT_ID,'iss':'https://accounts.google.com','exp':time.time()+3600,'nonce':pending['nonce']}
+  with patch.object(google_signin,'verifier',return_value=claims):
+   signed=google_signin.login({'challenge':pending['challenge'],'credential':'test'})
+  with self.assertRaises(HTTPError) as error:
+   self.call('/api/state',auth=False,extra={'Authorization':'Bearer '+signed['session_token']})
+  self.assertEqual(error.exception.code,401)
+ def test_google_routes_origin_and_json(self):
+  import google_signin
+  with patch.object(google_signin,'ready',return_value=True):
+   with self.assertRaises(HTTPError) as error:self.call('/api/auth/challenge',{},auth=False,origin='https://evil.example')
+   self.assertEqual(error.exception.code,403)
+   with self.call('/api/auth/challenge',{},auth=False,extra={'Content-Type':'application/json'}) as response:
+    self.assertIn('nonce',json.load(response))
  def test_unauthorized_no_data(self):
   with self.assertRaises(HTTPError) as error:self.call('/api/state',auth=False)
   self.assertEqual(error.exception.code,401)
