@@ -1636,11 +1636,12 @@
     "entryConnections": "Connection control panel remains clickable and keyboard-accessible on story selection; other header controls remain visible and inert until entering Studio."
   },
   "googleSignIn": {
-    "entry": "Login with Google and official full-color Google logo on welcome screen and Account and Billing; standard Google-rendered consent button in popup",
+    "entry": "Google-rendered Sign in with Google button directly on welcome screen and Account and Billing. No intermediate Studio popup; Google account selection only.",
     "audience": "Any Google account, no domain filter",
     "verification": "Server-verified Google token with one-time nonce, audience, issuer and expiry checks; identity keyed by sub",
     "authorization": "Identity session cannot access shared workspace API or start GPUs",
     "session": "Memory-only, expires within one hour; sign-out revokes server token and clears workspace key from this tab",
-    "dismiss": "Upper-right x or Escape; no separate Cancel button"
+    "dismiss": "No intermediate Studio dialog. Google controls account-selection dismissal.",
+    "appearance": "Welcome Google button has 16px space above it. Google Identity Services owns its official logo, Google font and button styling."
   }
 }
