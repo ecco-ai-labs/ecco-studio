@@ -1642,7 +1642,7 @@
     "authorization": "Identity session cannot access shared workspace API or start GPUs",
     "session": "Opaque session token in sessionStorage; same-tab refresh restores only after server /me verification; expires within one hour. Log off revokes token and clears it and shared workspace key.",
     "dismiss": "No intermediate Studio dialog. Google controls account-selection dismissal.",
-    "appearance": "Welcome Google button has 16px space above it and width 190px to suppress Google account personalization. Google SDK supplies logo, Google font and generic Sign in with Google text. User menu is compact, minimum width 110px.",
+    "appearance": "Welcome Tell Your Story and native Google sign-in buttons have equal visible dimensions of 190px by 40px, with 16px between them. The native Google iframe transparent gutters are clipped to the button outline. Google SDK supplies unchanged logo, Google font and generic Sign in with Google text; width below 200px suppresses personalization. User menu is compact, minimum width 110px.",
     "signedInIdentity": "Only server-verified user name immediately right of connections. Click opens compact menu with Log off only; no avatar or arrow. Available during story selection. Outside click and Escape dismiss. Email fallback when Google supplies no name.",
     "welcomeSignedIn": "Signed in as <user name> replaces Google login after Studio verifies identity, including a restored session; Google browser session alone does not count as Studio login."
   }
