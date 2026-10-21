@@ -1636,7 +1636,7 @@
     "entryConnections": "Connection control panel remains clickable and keyboard-accessible on story selection; other header controls remain visible and inert until entering Studio."
   },
   "googleSignIn": {
-    "entry": "Sign in on welcome screen and Account and Billing; standard Google-rendered button in existing popup",
+    "entry": "Login with Google and official full-color Google logo on welcome screen and Account and Billing; standard Google-rendered consent button in popup",
     "audience": "Any Google account, no domain filter",
     "verification": "Server-verified Google token with one-time nonce, audience, issuer and expiry checks; identity keyed by sub",
     "authorization": "Identity session cannot access shared workspace API or start GPUs",

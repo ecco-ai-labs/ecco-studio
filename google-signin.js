@@ -32,7 +32,7 @@
  async function open(){
   if(dialog?.open)return;
   const d=document.createElement('dialog');dialog=d;d.className='generation-dialog google-signin-dialog';
-  const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='Sign in';
+  const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='Login with Google';
   const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Close popup');close.onclick=()=>d.close();head.append(title,close);
   const status=document.createElement('p');status.setAttribute('role','status');status.textContent='Loading…';
   const host=document.createElement('div');host.className='google-signin-button';
@@ -63,11 +63,17 @@
   for(const parent of [q('#workspace-entry'),q('[data-category="Account"] .workspace-menu-items')].filter(Boolean)){
    let button=parent.querySelector('[data-google-account]');
    if(!button){button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.googleAccount='';if(parent.id==='workspace-entry'){const footer=parent.querySelector('.entry-copyright');parent.insertBefore(button,footer);}else parent.prepend(button);}
-   const text=user?'Sign out · '+(user.name||user.email):'Sign in';if(button.textContent!==text)button.textContent=text;
+   const text=user?'Sign out · '+(user.name||user.email):'Login with Google';
+   if(button.dataset.accountLabel!==text){
+    button.dataset.accountLabel=text;button.replaceChildren();
+    if(!user){const logo=document.createElement('img');logo.src='google-logo.png';logo.alt='';logo.width=18;logo.height=18;logo.className='google-brand-logo';button.append(logo);}
+    const label=document.createElement('span');label.textContent=text;button.append(label);
+    button.setAttribute('aria-label',text);
+   }
    button.onclick=user?signOut:open;
   }
  }
- const style=document.createElement('style');style.textContent='.google-signin-dialog{color:var(--text);background:var(--panel);width:min(400px,calc(100vw - 32px))}.google-signin-dialog .google-signin-button{display:flex;justify-content:center;margin:16px 0}.google-signin-dialog .signin-error{color:var(--error,#ff7373)}.google-signin-dialog>.section-head>button{width:26px;height:26px;padding:0;background:#ffdc24;color:#211b33;font-size:20px}';document.head.append(style);
+ const style=document.createElement('style');style.textContent='[data-google-account]{display:inline-flex;align-items:center;justify-content:center;gap:10px}[data-google-account] .google-brand-logo{width:18px;height:18px;object-fit:contain;background:#fff;box-sizing:content-box;padding:2px;border-radius:2px;flex:none}.google-signin-dialog{color:var(--text);background:var(--panel);width:min(400px,calc(100vw - 32px))}.google-signin-dialog .google-signin-button{display:flex;justify-content:center;margin:16px 0}.google-signin-dialog .signin-error{color:var(--error,#ff7373)}.google-signin-dialog>.section-head>button{width:26px;height:26px;padding:0;background:#ffdc24;color:#211b33;font-size:20px}';document.head.append(style);
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;mount();});}).observe(document.body,{childList:true,subtree:true});mount();
  window.EccoAuth={open,signOut,get user(){return user;}};
 })();
