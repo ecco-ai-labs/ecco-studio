@@ -1632,6 +1632,7 @@
     "continuation": "Next chapter/lesson/episode copies workflow and voice defaults, clears content, preserves prior story",
     "sourceMedia": "Localization, repurposing and ambient journeys select source assets from actual libraries",
     "directEntry": "Go to Studio bypasses guided entry",
-    "backendLimits": "No scheduler or new renderer added. YouTube needs an enabled configured backend. GPU jobs not tested by UI fixtures."
+    "backendLimits": "No scheduler or new renderer added. YouTube needs an enabled configured backend. GPU jobs not tested by UI fixtures.",
+    "entryConnections": "Connection control panel remains clickable and keyboard-accessible on story selection; other header controls remain visible and inert until entering Studio."
   }
 }
