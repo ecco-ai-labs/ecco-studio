@@ -33,8 +33,9 @@ consent require this live manual test; mocked tests are not a real login.
 
 This is identity-only sign-in, not yet a mandatory entry gate or multi-tenant
 workspace provisioning. Existing private-key access remains unchanged. Google
-sessions are memory-only in the tab and the server, last at most one hour, and
-end on reload or server restart. User identity uses Google's stable sub claim;
+sessions use sessionStorage in the tab and memory in the server, last at most
+one hour, and end on tab closure or server restart. A reload restores identity
+only after successful server verification through /api/auth/me. User identity uses Google's stable sub claim;
 email is display-only, never an account-linking or workspace authorization rule.
 Sign-out revokes the session, clears this tab's shared workspace key, and reloads.
 Existing browser-local drafts/settings are not yet isolated per Google account;

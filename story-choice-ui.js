@@ -8,12 +8,12 @@
  function sync(){
   const choosing=document.body.classList.contains('story-choice-mode');
   const header=document.querySelector('body>main>header');
-  const connections=header?.querySelector('#connection-indicators');
+  const available=header?[...header.querySelectorAll('#connection-indicators,#google-user-menu')]:[];
   const targets=new Set();
   function collect(parent){
    for(const child of parent.children){
-    if(child===connections)continue;
-    if(connections&&child.contains(connections))collect(child);
+    if(available.includes(child))continue;
+    if(available.some(control=>child.contains(control)))collect(child);
     else targets.add(child);
    }
   }
