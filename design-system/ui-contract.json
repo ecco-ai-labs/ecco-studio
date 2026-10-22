@@ -1687,10 +1687,11 @@
     ],
     "appearance": "Six inline logo tabs; wrap on narrow screens. Background, border, text and selected accent resolve active --ecco-theme-* tokens directly, with Default fallbacks. Logos remain 18px.",
     "interaction": "Same-window tab panels. Click, Left/Right arrows, Home/End; roving tab stop, aria-selected and linked tabpanel. Switching retains YouTube edits.",
-    "availability": "Existing YouTube handlers unchanged. Other options show Not connected and no upload action until backend integration exists.",
+    "availability": "YouTube connection and confirmed uploads use the authenticated CPU storage service. Other options show Not connected and no upload action until backend integration exists.",
     "source": "Simple Icons SVG brand marks, bundled inline in publishing-platforms.js; attribution in assets/publishing/README.md.",
     "entry": "Publish journey step opens tabs directly; no intermediate review text or Open publishing action.",
-    "submit": "One Publish button above tabs; submits existing YouTube form with validation and confirmation when available. Disabled for unconfigured platforms; no simulated upload."
+    "submit": "One Publish button above tabs; submits existing YouTube form with validation and confirmation when available. Disabled for unconfigured platforms; no simulated upload.",
+    "youtubeAuthorization": "Existing Connect YouTube button opens the Google authorization window directly from its click, before awaiting the API. Pending requests disable the button; blocked/closed windows and backend errors use existing error UI. Backend-verified channel changes update the live badge and Publish availability without replacing form edits, tab selection or keyboard focus. OAuth state is single-use with PKCE; tokens stay on the backend. Google sign-in alone does not authorize workspace access."
   },
   "educationDiscord": {
     "type": "menu-item",

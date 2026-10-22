@@ -61,7 +61,7 @@
   throw Error('GPU submission is still unconfirmed. Check Activity before retrying; Studio has not submitted a duplicate.');
  }
 
- const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','youtube/connect','youtube/publish','github/sync','billing/connect','billing/refresh']);
+ const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','github/sync','billing/connect','billing/refresh']);
  window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,reportError};
  // Present CPU-owned audio jobs through the shared Activity job view.
  // This is a UI projection only; the durable record stays audio_job.

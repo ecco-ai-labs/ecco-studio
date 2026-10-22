@@ -579,7 +579,8 @@ def oauth_finish(query):
     with os.fdopen(fd,'w') as f: f.write(flow.credentials.to_json())
     (DATA/'youtube-channel.json').write_text(json.dumps(channel))
 
-def publish(body):
+def publish(body, client_factory=None):
+    make_client = client_factory or yt_client
     a=get(body.get('asset_id',''),'asset')
     if a['media']!='video' or a['stage']!='prod': raise Problem('Only approved videos can be uploaded',409)
     if body.get('confirmed') is not True: raise Problem('Confirm the channel, video and visibility first',409)
@@ -590,11 +591,11 @@ def publish(body):
     with LOCK:
         a=get(a['id'],'asset')
         if a.get('upload_state'): raise Problem('An upload was already started. Check YouTube Studio before attempting another.',409)
-        verify_channel(yt_client())
+        verify_channel(make_client())
         a['upload_state']='reserved'; save(a)
     def upload(jid):
         from googleapiclient.http import MediaFileUpload
-        client=yt_client(); verify_channel(client)
+        client=make_client(); verify_channel(client)
         req=client.videos().insert(part='snippet,status',body={'snippet':{'title':title,'description':description},'status':{'privacyStatus':privacy,'selfDeclaredMadeForKids':body['made_for_kids']}},media_body=MediaFileUpload(str(asset_path(a)),mimetype='video/mp4',resumable=True))
         # Never auto-retry ambiguous upload failures: avoids duplicate publication.
         response=None

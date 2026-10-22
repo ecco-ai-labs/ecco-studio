@@ -23,10 +23,12 @@ import gpu_relay
 import openai_assistant
 import scene_planner
 import google_signin
+import youtube_connection
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
+    '/api/youtube/connect', '/api/youtube/publish',
     '/api/library/rename',
     '/api/longcat/control', '/api/longcat/sequence', '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
     '/api/ai/news/research', '/api/ai/news/storyboard',
@@ -46,7 +48,7 @@ def storage_state():
         'longcat': {**longcat_jobs.status(), 'sequence_available': True, 'sequence_controls': True}, 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
         'ai_story_planner': {'ready': scene_planner.ready()},
         'hourly_rate': 0.081, 'github_connected': False,
-        'youtube_configured': False, 'youtube_channel': None,
+        **youtube_connection.status(),
         'wan_ready': False, 'ffmpeg': False, 'repo': 'ecco-ai-labs/ecco-studio',
     }}
 
@@ -81,6 +83,8 @@ class Handler(legacy.Handler):
     def do_GET(self):
         path = urlsplit(self.path).path
         if google_signin.handle(self, path, ALLOWED_ORIGIN): return
+        if path == '/api/youtube/callback':
+            return youtube_connection.callback(self)
         if path == '/healthz':
             return self.send({'ok': True, 'service': 'ecco-storage-api', 'gpu_required': False})
         if not self.authorized(): return
@@ -136,13 +140,16 @@ class Handler(legacy.Handler):
         if google_signin.handle(self, path, ALLOWED_ORIGIN): return
         if not self.authorized(): return
         if path not in WRITE_ROUTES:
-            return self.send({'error': 'This storage service does not run generation or external publishing.'}, 409)
+            return self.send({'error': 'This workspace action is not available on the storage service.'}, 409)
         try:
             length = int(self.headers.get('Content-Length', '0'))
             maximum = 17*1024*1024 if path in ('/api/images/upload', '/api/audio/upload') else 1024*1024
             if not 0 < length <= maximum: raise legacy.Problem('Request size invalid', 413)
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
+            if path == '/api/youtube/connect': return self.send(youtube_connection.start())
+            if path == '/api/youtube/publish':
+                return self.send(legacy.publish(body, client_factory=youtube_connection.client))
             if path.startswith('/api/ai/'):
                 return self.send(openai_assistant.handle(path, body, vars(legacy)))
             if path == '/api/library/rename': return self.send(library_rename.rename(body, vars(legacy)))

@@ -63,6 +63,55 @@ All `/api/ai/*` endpoints use the existing workspace Bearer authentication and
 origin checks. Scene planning uses the same key/model/control, with no separate
 `OPENAI_API_KEY` or `ECCO_STORY_MODEL` setup. No GPU is needed for prompt assistance.
 
+## YouTube channel authorization
+
+YouTube connection and explicitly confirmed uploads run on this CPU service,
+independently of GPU availability. Google identity sign-in does not grant access
+to this shared workspace or its channel: both YouTube POST routes still require
+the private workspace Bearer key and existing origin checks.
+
+Deploy `youtube_connection.py` beside `storage_api.py`, plus the updated
+`migration/legacy/studio.py`. Install `backend/requirements-youtube.txt` using
+the storage service's Python environment, then restart that service when its
+CPU jobs are idle. GitHub Pages deployment alone does not update the RunPod API.
+
+In Google Cloud project **ECCO AI Labs**, enable **YouTube Data API v3** and use
+the existing Web OAuth client
+`219292517219-tngp5k9kso8jvk4ps6oqee45l0j97p78.apps.googleusercontent.com`.
+Add this exact authorized redirect URI:
+
+`https://vowmjru85f2gzo-8888.proxy.runpod.net/api/youtube/callback`
+
+Store the Web client JSON privately at
+`/workspace/ecco-storage-private/youtube-client.json`, with directory mode 0700
+and file mode 0600, outside the repo and served assets. Include the exact callback
+in its `web.redirect_uris` list. `YOUTUBE_CLIENT_SECRET_FILE` may override the
+path. `ECCO_YOUTUBE_REDIRECT_URI` overrides the callback only when the new HTTPS
+URL is registered in that client; it must end in `/api/youtube/callback`.
+Never place the client secret or refresh token in GitHub or the browser UI.
+
+The consent flow requests only `youtube.readonly` and `youtube.upload`, uses
+short-lived single-use state and PKCE, and verifies the authenticated account
+owns **@EccoAILabs** before saving anything. While the Google app is in Testing,
+the channel owner's Google account must be on its test-user list. YouTube
+scopes may require Google's verification before wider production use; the
+basic Google sign-in audience can still allow any Google account.
+
+Verified channel metadata and OAuth credentials are saved atomically to
+`/workspace/ecco-storage-private/youtube-connection.json` (0600), overridable
+with `ECCO_YOUTUBE_TOKEN_FILE`. Only sanitized channel metadata reaches Studio.
+The callback deliberately bypasses workspace Bearer auth (Google redirects
+cannot carry that header), but cannot exchange a code without the pending
+owner-initiated state. Callback URLs and provider exceptions are never logged.
+The callback has no scripts or external resources. Closing its result tab
+returns the owner to the unchanged Studio form, whose connection badge updates
+from the authenticated storage state poll.
+
+Validation: `PYTHONPATH=backend python3 -m unittest test_youtube_connection test_storage_api -v`.
+These tests use fake OAuth credentials and mocked Google APIs; they do not
+authorize a real channel or upload videos. Live completion requires the owner
+to grant Google's consent and the backend to verify the channel ID.
+
 Backend tests mock OpenAI and use temporary private configuration/database files.
 UI regression tests: install `jsdom@26.1.0` in a temporary test environment, then
 run `NODE_PATH=<test-environment>/node_modules node --test ai-assistant.test.cjs`.
