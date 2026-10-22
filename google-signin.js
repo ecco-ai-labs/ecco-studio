@@ -72,16 +72,20 @@
    if(!identity){
     identity=document.createElement('details');identity.id='google-user-menu';identity.className='workspace-menu';
     const name=document.createElement('summary');name.id='google-user-name';
+    const label=document.createElement('span');label.dataset.userLabel='';const arrow=document.createElement('span');arrow.textContent='⌄';arrow.setAttribute('aria-hidden','true');name.append(label,arrow);
     const items=document.createElement('div');items.className='workspace-menu-items';
-    const logout=document.createElement('button');logout.type='button';logout.textContent='Log off';logout.onclick=signOut;
-    items.append(logout);identity.append(name,items);
+    const logout=document.createElement('button');logout.type='button';logout.textContent='Log Off';logout.onclick=signOut;
+    const credits=document.createElement('button');credits.type='button';credits.textContent='Credit and Usage';credits.onclick=()=>{identity.open=false;window.EccoCredits?.open('usage');};
+    const billing=document.createElement('button');billing.type='button';billing.textContent='Billing';billing.onclick=()=>{identity.open=false;const account=q('[data-category="Account"]');if(account)account.open=true;q('button[data-category="Billing"]')?.click();};
+    items.append(credits,billing,logout);identity.append(name,items);
    }
    const name=user.name||user.email;
-   if(identity.firstElementChild.textContent!==name)identity.firstElementChild.textContent=name;
-   if(connections.nextElementSibling!==identity)connections.after(identity);
+   const label=identity.querySelector('[data-user-label]');if(label.textContent!==name)label.textContent=name;
+   const menus=q('#workspace-menus');if(menus&&menus.lastElementChild!==identity)menus.append(identity);
   }else if(identity)identity.remove();
   for(const parent of [q('#workspace-entry'),q('[data-category="Account"] .workspace-menu-items')].filter(Boolean)){
    let box=parent.querySelector('[data-google-account]');
+   if(parent.id!=='workspace-entry'&&!user){box?.remove();continue;}
    if(!box){box=document.createElement('div');box.dataset.googleAccount='';if(parent.id==='workspace-entry')parent.insertBefore(box,parent.querySelector('.entry-copyright'));else parent.prepend(box);}
    const mode=user?'user:'+user.id:busy?'busy':error?'error:'+error:ready?'ready':'loading';
    if(box.dataset.mode===mode)continue;
@@ -100,7 +104,7 @@
    }
   }
  }
- const style=document.createElement('style');style.textContent='#google-user-menu{position:relative}#google-user-menu>summary{list-style:none}#google-user-menu>summary::-webkit-details-marker{display:none}#google-user-menu>.workspace-menu-items{left:0;right:auto;min-width:110px}#google-user-name{color:var(--text);font-size:13px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}#workspace-entry #entry-tell-story{box-sizing:border-box;width:190px;min-width:190px;height:40px;min-height:40px;padding:0 12px}#workspace-entry>[data-google-account]{margin-top:16px}#workspace-entry>[data-google-account] iframe{clip-path:inset(2px 10px round 4px)}[data-google-account]{display:flex;flex-direction:column;align-items:center;gap:8px;font-family:Google Sans,Arial,sans-serif;font-size:14px}[data-google-account] .signin-error{color:var(--error,#ff7373)}';document.head.append(style);
+ const style=document.createElement('style');style.textContent='#google-user-menu{position:relative}#google-user-menu>summary{list-style:none}#google-user-menu>summary::-webkit-details-marker{display:none}#google-user-menu>.workspace-menu-items{left:auto;right:0;min-width:190px}#google-user-name{color:var(--text);font-size:13px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}#workspace-entry #entry-tell-story{box-sizing:border-box;width:190px;min-width:190px;height:40px;min-height:40px;padding:0 12px}#workspace-entry>[data-google-account]{margin-top:16px}#workspace-entry>[data-google-account] iframe{clip-path:inset(2px 10px round 4px)}[data-google-account]{display:flex;flex-direction:column;align-items:center;gap:8px;font-family:Google Sans,Arial,sans-serif;font-size:14px}[data-google-account] .signin-error{color:var(--error,#ff7373)}#workspace-menus>.workspace-menu>summary{box-sizing:border-box;width:190px;height:40px;justify-content:space-between}#google-user-name{max-width:none}#google-user-name [data-user-label]{overflow:hidden;text-overflow:ellipsis}#google-user-menu>.workspace-menu-items>button{box-sizing:border-box;width:100%;height:40px;min-height:40px;padding:8px 12px!important;font-size:13px!important}';document.head.append(style);
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;mount();});}).observe(document.body,{childList:true,subtree:true});mount();restore();
  document.addEventListener('click',event=>{const menu=q('#google-user-menu');if(menu?.open&&!menu.contains(event.target))menu.open=false;});
  document.addEventListener('keydown',event=>{const menu=q('#google-user-menu');if(event.key==='Escape'&&menu?.open){menu.open=false;menu.querySelector('summary').focus();}});

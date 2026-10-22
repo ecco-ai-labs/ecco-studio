@@ -1531,7 +1531,7 @@
       "Ocean",
       "Dark Sky"
     ],
-    "selection": "Single preset, saved immediately; pointer exit retracts the panel; no popup or color inputs",
+    "selection": "Single preset, saved immediately; pointer exit retracts the panel; no popup or color inputs Default is always the first item.",
     "connectionStatusColors": {
       "Default": {
         "disconnected": "#ffffff",
@@ -1653,14 +1653,14 @@
     "entryConnections": "Connection control panel remains clickable and keyboard-accessible on story selection; other header controls remain visible and inert until entering Studio."
   },
   "googleSignIn": {
-    "entry": "Google-rendered Sign in with Google button directly on welcome screen and Account and Billing. No intermediate Studio popup; Google account selection only.",
+    "entry": "Google-rendered Sign in with Google button on welcome screen only. Account and Billing does not show sign-in or its loading/error messages. Existing signed-in Log off remains. No intermediate Studio popup; Google account selection only.",
     "audience": "Any Google account, no domain filter",
     "verification": "Server-verified Google token with one-time nonce, audience, issuer and expiry checks; identity keyed by sub",
     "authorization": "Identity session cannot access shared workspace API or start GPUs",
     "session": "Opaque session token in sessionStorage; same-tab refresh restores only after server /me verification; expires within one hour. Log off revokes token and clears it and shared workspace key.",
     "dismiss": "No intermediate Studio dialog. Google controls account-selection dismissal.",
     "appearance": "Welcome Tell Your Story and native Google sign-in buttons have equal visible dimensions of 190px by 40px, with 16px between them. The native Google iframe transparent gutters are clipped to the button outline. Google SDK supplies unchanged logo, Google font and generic Sign in with Google text; width below 200px suppresses personalization. User menu is compact, minimum width 110px.",
-    "signedInIdentity": "Only server-verified user name immediately right of connections. Click opens compact menu with Log off only; no avatar or arrow. Available during story selection. Outside click and Escape dismiss. Email fallback when Google supplies no name.",
+    "signedInIdentity": "Verified user name at far right after Education and Learning; visible dropdown arrow. Menu order: Credit and Usage, Billing, Log Off. Ribbon menu triggers 190px by 40px; user dropdown items equal width and 40px height. Existing credit and billing actions reused.",
     "welcomeSignedIn": "Signed in as <user name> replaces Google login after Studio verifies identity, including a restored session; Google browser session alone does not count as Studio login."
   }
 }
