@@ -1660,8 +1660,14 @@
     "session": "Opaque session token in sessionStorage; same-tab refresh restores only after server /me verification; expires within one hour. Log off revokes token and clears it and shared workspace key.",
     "dismiss": "No intermediate Studio dialog. Google controls account-selection dismissal.",
     "appearance": "Welcome Tell Your Story and native Google sign-in buttons have equal visible dimensions of 190px by 40px, with 16px between them. The native Google iframe transparent gutters are clipped to the button outline. Google SDK supplies unchanged logo, Google font and generic Sign in with Google text; width below 200px suppresses personalization. User menu is compact, minimum width 110px.",
-    "signedInIdentity": "Verified user name at far right after Education and Learning; visible dropdown arrow. Menu order: Credit and Usage, Billing, Log Off. Ribbon menu triggers 190px by 40px; user dropdown items equal width and 40px height. Existing credit and billing actions reused.",
-    "welcomeSignedIn": "Signed in as <user name> replaces Google login after Studio verifies identity, including a restored session; Google browser session alone does not count as Studio login."
+    "signedInIdentity": "Verified user name at far right after Education and Learning; visible dropdown arrow. Menu order: Credit and Usage, Billing, Log Off. Ribbon menu triggers 190px by 40px; user dropdown items equal width and 40px height. Existing credit and billing actions reused. A decorative login arrow icon appears immediately left of the name, inherits current text color, and has no separate keyboard stop.",
+    "welcomeSignedIn": "Signed in as <user name> replaces Google login after Studio verifies identity, including a restored session; Google browser session alone does not count as Studio login.",
+    "accountFlyouts": {
+      "placement": "Credit and Usage and Billing open to the left of the signed-in user dropdown; keep the parent dropdown open. Billing is also left-opening from the existing Account entry.",
+      "interaction": "Hover or click a row; ArrowLeft opens and focuses the panel. Escape or ArrowRight closes only the panel and returns focus. Pointer/focus exit and parent dismissal close the panel. Only one account panel is shown at a time.",
+      "content": "Reuse existing credit figures, Purchase Additional Credits flow, cost figures and Refresh costs action. No balance or permissions are inferred from sign-in.",
+      "appearance": "Existing theme surface/text/border colors; login icon uses currentColor. Existing ribbon dimensions retained. Panels reveal from right to left with reduced-motion support."
+    }
   },
   "publishingPlatforms": {
     "types": [

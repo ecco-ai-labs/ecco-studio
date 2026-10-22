@@ -5,7 +5,7 @@
  const WARNING='You are going to run out of the credits soon, please purchase by selecting Purchase Additional Credits from the Account And Billing Menu.';
  const q=s=>document.querySelector(s),money=n=>'$'+(n/100).toFixed(2);
  let adapter=null,balance=null,used=0,pending=false,warned=false,billing={},cart={};
- let panel=null,view='usage',warning=null;
+ let panel=null,view='usage',warning=null,usageDrawer=null,usageTrigger=null;
  const button=(label,fn,secondary=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;if(secondary)b.className='secondary';b.onclick=fn;return b;};
  function dialog(title){const d=document.createElement('dialog');d.className='generation-dialog credits-dialog';const head=document.createElement('div');head.className='section-head';const h=document.createElement('h2');h.textContent=title;head.append(h,button('×',()=>d.close(),false));head.lastChild.setAttribute('aria-label','Close popup');d.append(head);document.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});return d;}
  function line(host,label,value){const p=document.createElement('p');p.className='credits-line';const name=document.createElement('span'),v=document.createElement('strong');name.textContent=label;v.textContent=value;p.append(name,v);host.append(p);}
@@ -30,12 +30,42 @@
   }
  }
  function editBilling(){const d=dialog('Billing Information'),form=document.createElement('form');form.className='form credits-billing-form';const fields=[['name','Full name','text'],['email','Email','email'],['company','Company (optional)','text'],['address','Address','text'],['city','City','text'],['region','State / province','text'],['postal','Postal code','text'],['country','Country','text']];for(const [key,label,type] of fields){const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.name=key;input.type=type;input.maxLength=200;input.value=billing[key]||'';input.required=key!=='company'&&key!=='region';l.append(input);form.append(l);}const save=document.createElement('button');save.type='submit';save.textContent='Save billing information';form.append(save);form.onsubmit=e=>{e.preventDefault();billing=Object.fromEntries(new FormData(form));d.close();render();};d.append(form);d.showModal();}
- function open(next='usage'){view=next;if(!panel||!panel.isConnected){panel=dialog('Credits and Usage');panel.addEventListener('close',()=>{panel=null;});render();panel.showModal();}else render();}
+ function closeUsage(refocus=false){
+  if(!usageDrawer)return;
+  const trigger=usageTrigger;usageDrawer.remove();usageDrawer=null;usageTrigger=null;trigger?.setAttribute('aria-expanded','false');if(refocus)trigger?.focus();
+ }
+ function updateUsage(){
+  if(!usageDrawer)return;
+  usageDrawer.querySelector('[data-credit-balance]').textContent=balance===null?'Sign-in not connected':String(balance);
+  usageDrawer.querySelector('[data-credit-used]').textContent=balance===null?'—':String(used);
+ }
+ function openUsage(trigger){
+  const menu=trigger.closest('.workspace-menu-items');if(!menu)return;
+  window.EccoBilling?.close();
+  if(usageDrawer&&usageTrigger===trigger)return;
+  closeUsage();usageTrigger=trigger;
+  usageDrawer=document.createElement('div');usageDrawer.id='workspace-usage-drawer';usageDrawer.className='credits-dialog credits-usage-drawer';usageDrawer.setAttribute('role','region');usageDrawer.setAttribute('aria-label','Credits and Usage');
+  const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='Credits and Usage';const close=button('×',()=>closeUsage(true));close.setAttribute('aria-label','Close Credits and Usage');head.append(title,close);usageDrawer.append(head);
+  const body=document.createElement('div');body.className='form credits-usage-body';line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits','');body.lastChild.querySelector('strong').dataset.creditBalance='';line(body,'Credits used','');body.lastChild.querySelector('strong').dataset.creditUsed='';body.append(button('Purchase Additional Credits',()=>open('shop')));usageDrawer.append(body);menu.append(usageDrawer);trigger.setAttribute('aria-expanded','true');updateUsage();
+  if(!menu.dataset.usageDrawerBound){
+   menu.dataset.usageDrawerBound='true';
+   menu.addEventListener('pointerleave',()=>{if(usageDrawer?.parentElement===menu)closeUsage();});
+   menu.addEventListener('focusout',event=>{if(usageDrawer?.parentElement===menu&&!menu.contains(event.relatedTarget))closeUsage();});
+   menu.addEventListener('keydown',event=>{if(usageDrawer?.parentElement===menu&&(event.key==='Escape'||event.key==='ArrowRight')){event.preventDefault();event.stopPropagation();closeUsage(true);}});
+   menu.closest('details')?.addEventListener('toggle',()=>{if(!menu.closest('details').open&&usageDrawer?.parentElement===menu)closeUsage();});
+  }
+ }
+ function open(next='usage',trigger){
+  if(next==='usage'&&trigger)return openUsage(trigger);
+  const menu=usageTrigger?.closest('details');closeUsage();if(menu)menu.open=false;
+  view=next;if(!panel||!panel.isConnected){panel=dialog('Credits and Usage');panel.addEventListener('close',()=>{panel=null;});render();panel.showModal();}else render();
+ }
  async function tick(){
-  if(!adapter||pending)return;pending=true;try{const result=await adapter.heartbeat();if(!Number.isFinite(result.balance)||result.balance<0)throw Error('Invalid credit balance');balance=result.balance;used=result.used;if(view==='usage')render();noticeLow();}catch(e){if(panel&&view==='usage'){render();status(panel.querySelector('[data-credits-body]'),'Credit balance could not be refreshed.');}}finally{pending=false;}
+  if(!adapter||pending)return;pending=true;try{const result=await adapter.heartbeat();if(!Number.isFinite(result.balance)||result.balance<0)throw Error('Invalid credit balance');balance=result.balance;used=result.used;if(view==='usage')render();updateUsage();noticeLow();}catch(e){if(panel&&view==='usage'){render();status(panel.querySelector('[data-credits-body]'),'Credit balance could not be refreshed.');}if(usageDrawer){usageDrawer.querySelector('[data-credit-balance]').textContent='Could not refresh';}}finally{pending=false;}
  }
  function mount(){const old=q('#workspace-credits');if(old&&!old.dataset.creditStore){old.dataset.creditStore='true';old.textContent='Credits and Usage';old.onclick=()=>{old.closest('details').open=false;open();};}q('#purchase-additional-credits')?.remove();}
  const style=document.createElement('style');style.textContent='.credits-dialog{color:var(--text,#eeebf5);background:var(--panel,#242147)}.credits-line{display:flex;justify-content:space-between;gap:16px;margin:5px 0}.credits-pack-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.credits-pack,.credits-cart-row{padding:12px;border:1px solid var(--border,#51496f);border-radius:8px}.credits-pack button{width:100%;margin-top:10px}.credits-cart-row{display:grid;gap:8px}.credits-dialog>.section-head>button{width:26px;height:26px;padding:0;background:#ffdc24;color:#211b33;font-size:20px}.credits-dialog [role=status]{font-size:12px}.credits-dialog input{min-width:0}.credits-dialog>.credits-billing-form{padding-top:1em}.credits-dialog>.credits-usage-body{padding-top:1em;gap:.5em}.credits-usage-body>.credits-line,.credits-usage-body>[role=status]{margin:0}@media(max-width:560px){.credits-pack-grid{grid-template-columns:1fr}}';document.head.append(style);
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});mount();setInterval(tick,1000);
- window.EccoCredits={open,async connect(authenticatedAdapter){if(!authenticatedAdapter||typeof authenticatedAdapter.heartbeat!=='function')throw Error('Authenticated credit service required');adapter=authenticatedAdapter;warned=false;await tick();},disconnect(){adapter=null;balance=null;used=0;warned=false;if(panel)render();}};
+ const flyoutStyle=document.createElement('style');flyoutStyle.textContent='#workspace-usage-drawer{position:absolute;left:auto;right:100%;top:0;box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:12px;border:1px solid var(--ecco-theme-border,#48405c);border-radius:9px;box-shadow:0 12px 32px #0006;color:var(--ecco-theme-text,var(--text,#eeebf5));background:var(--ecco-theme-surface,var(--panel,#252039));z-index:2;animation:credits-slide-left .2s ease}#workspace-usage-drawer .section-head{margin:0;gap:16px}#workspace-usage-drawer h2{font-size:13px;margin:0}#workspace-usage-drawer .credits-line{font-size:13px}#workspace-usage-drawer>.credits-usage-body{display:flex;flex-direction:column;gap:.5em;padding-top:1em}#workspace-usage-drawer .credits-usage-body>button{min-height:30px;padding:6px 10px;font-size:12px}@keyframes credits-slide-left{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}@media(prefers-reduced-motion:reduce){#workspace-usage-drawer{animation:none}}';document.head.append(flyoutStyle);
+ window.EccoCredits={open,closeUsage,async connect(authenticatedAdapter){if(!authenticatedAdapter||typeof authenticatedAdapter.heartbeat!=='function')throw Error('Authenticated credit service required');adapter=authenticatedAdapter;warned=false;await tick();},disconnect(){closeUsage();adapter=null;balance=null;used=0;warned=false;if(panel)render();}};
 })();
