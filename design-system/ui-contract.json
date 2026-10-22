@@ -1667,7 +1667,9 @@
       "interaction": "Hover or click a row; ArrowLeft opens and focuses the panel. Escape or ArrowRight closes only the panel and returns focus. Pointer/focus exit and parent dismissal close the panel. Only one account panel is shown at a time.",
       "content": "Reuse existing credit figures, Purchase Additional Credits flow, cost figures and Refresh costs action. No balance or permissions are inferred from sign-in.",
       "appearance": "Existing theme surface/text/border colors; circular person icon uses theme accent fill and theme text ring. Existing ribbon dimensions retained. Panels reveal from right to left with reduced-motion support."
-    }
+    },
+    "accountMenuVisibility": "The separate Account and Billing ribbon dropdown is hidden, including from keyboard and accessibility navigation. Credit and Usage, Billing and Log Off remain in the signed-in user menu. The hidden legacy mount remains for compatibility with existing modules.",
+    "signedOutIdentity": "Rightmost header position shows the same theme-colored circular person icon with Not Logged in. Informational only, no account actions. Replaced by verified user dropdown on sign-in."
   },
   "publishingPlatforms": {
     "types": [

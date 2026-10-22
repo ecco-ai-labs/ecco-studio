@@ -500,3 +500,7 @@ body>aside #workspace-library-group .workspace-library[open]>summary::before{con
 /* Transparent logo preview: retain the original animation origin and center size. */
 :is(#workspace-entry,#story-choice-screen) .entry-logo-motion .entry-logo{width:131.14px;height:131.14px;inset:auto;left:8.55px;top:5.27px;clip-path:circle(15% at 53.67% 52.03%)}
 @media(prefers-reduced-motion:reduce){:is(#workspace-entry,#story-choice-screen) .entry-logo-motion .entry-logo{width:156px;height:156px;inset:0;clip-path:none}}
+
+/* Account actions are available from the signed-in user menu. Keep the legacy
+   mount hidden for modules that still attach controls there. */
+#workspace-menus > .workspace-menu[data-category="Account"]{display:none!important}
