@@ -455,12 +455,7 @@
   return ['audio','video'].includes(value)?value:activeStory?'video':'';
  }
  function currentJourneySteps(){if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
- function journeyPreview(allStories=false){
-  page='journey-preview';q('#heading').textContent='Publish';
-  const videos=records().filter(a=>a.kind==='asset'&&a.media==='video'&&!a.deleted&&(allStories||(a.story_id||LEGACY_STORY)===activeStory));
-  q('#page').innerHTML='<p class="intro">Review your clips before publishing. Use each clip’s download control to save a copy.</p><div class="cards">'+(videos.length?videos.map(card).join(''):'<p class="help">No videos for this story yet. Return to step 5 to generate a clip.</p>')+'</div><button type="button" class="secondary" id="journey-publish">Open publishing</button>';
-  wireCards();q('#journey-publish').onclick=()=>navigate('publish');if(typeof hydrateMedia==='function')hydrateMedia();
- }
+ function journeyPreview(){navigate('publish');}
  function productionGroup(){
   const steps=currentJourneySteps();
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;

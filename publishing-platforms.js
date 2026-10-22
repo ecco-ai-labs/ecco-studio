@@ -10,8 +10,16 @@
   const result=original.apply(this,args),root=document.querySelector('#page'),prefix='publishing-'+(++instance);
   const youtube=document.createElement('div');youtube.className='publishing-youtube';youtube.append(...root.childNodes);
   const tabs=document.createElement('div');tabs.className='publishing-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Publishing platforms');
+  const toolbar=document.createElement('div');toolbar.className='publishing-toolbar';
+  const publish=document.createElement('button');publish.type='button';publish.textContent='Publish';toolbar.append(publish);
+  const form=youtube.querySelector('#publish-form'),oldSubmit=form?.querySelector('button:not([type="button"])');
+  const youtubeReady=Boolean(form&&oldSubmit&&!oldSubmit.disabled);
+  oldSubmit?.remove();youtube.querySelectorAll('p.intro,p.help').forEach(node=>node.remove());
+  let selectedPlatform='youtube';
+  publish.onclick=()=>{if(selectedPlatform==='youtube'&&youtubeReady)form.requestSubmit();};
   const panels=[];
   function select(index,focus=false){
+   selectedPlatform=platforms[index][0];publish.disabled=selectedPlatform!=='youtube'||!youtubeReady;publish.title=publish.disabled?'Connect '+platforms[index][1]+' and select an approved video':'Publish to '+platforms[index][1];
    [...tabs.children].forEach((button,i)=>{button.setAttribute('aria-selected',String(i===index));button.tabIndex=i===index?0:-1;panels[i].hidden=i!==index;});
    if(focus)tabs.children[index].focus();
   }
@@ -23,7 +31,7 @@
    button.onkeydown=event=>{let next=index;if(event.key==='ArrowRight')next=(index+1)%platforms.length;else if(event.key==='ArrowLeft')next=(index+platforms.length-1)%platforms.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=platforms.length-1;else return;event.preventDefault();select(next,true);};
    tabs.append(button);
   });
-  root.append(tabs,...panels);select(0);
+  root.append(toolbar,tabs,...panels);select(0);
   return result;
  };
 })();
