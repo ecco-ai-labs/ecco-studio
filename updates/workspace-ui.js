@@ -476,7 +476,7 @@
    for(const duplicate of nav.querySelectorAll('button[data-page="'+target+'"]'))if(duplicate!==button)duplicate.remove();
    button.hidden=false;button.classList.add('journey-step');
    const navLabels={'story-setup':'Describe Your Story',board:'StoryBoard Your Story',audio:'Create Audio for Your Story',images:'Create Images for Your Story',render:'Create Videos for Your Story'};const label=(i+1)+'. '+(window.EccoStoryJourneys?.current()?title:navLabels[target]||title.replace(/\b[a-z]/g,c=>c.toUpperCase()));if(button.textContent!==label)button.textContent=label;
-   button.classList.toggle('active',page===target||(target==='board'&&page==='director'));
+   button.classList.toggle('active',page===target||(target==='board'&&page==='director')||(target==='journey-preview'&&page==='publish'));
    if(button.parentElement!==body||[...body.querySelectorAll('.journey-step')].filter(step=>!step.hidden)[i]!==button)body.append(button);
   });
   q('#model-nav')?.setAttribute('hidden','');q('#workspace-publish')?.remove();
