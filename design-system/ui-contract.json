@@ -1662,5 +1662,24 @@
     "appearance": "Welcome Tell Your Story and native Google sign-in buttons have equal visible dimensions of 190px by 40px, with 16px between them. The native Google iframe transparent gutters are clipped to the button outline. Google SDK supplies unchanged logo, Google font and generic Sign in with Google text; width below 200px suppresses personalization. User menu is compact, minimum width 110px.",
     "signedInIdentity": "Verified user name at far right after Education and Learning; visible dropdown arrow. Menu order: Credit and Usage, Billing, Log Off. Ribbon menu triggers 190px by 40px; user dropdown items equal width and 40px height. Existing credit and billing actions reused.",
     "welcomeSignedIn": "Signed in as <user name> replaces Google login after Studio verifies identity, including a restored session; Google browser session alone does not count as Studio login."
+  },
+  "publishingPlatforms": {
+    "types": [
+      "dropdown",
+      "button",
+      "icon"
+    ],
+    "options": [
+      "YouTube",
+      "TikTok",
+      "Instagram",
+      "Meta",
+      "WhatsApp",
+      "X"
+    ],
+    "appearance": "Compact 230px dropdown using existing theme colors, 18px monochrome vector brand logos; selected platform in trigger. Labels accompany every logo.",
+    "interaction": "Click or keyboard select; Escape, outside click and focus exit close dropdown. Selection retains YouTube form edits.",
+    "availability": "Existing YouTube handlers unchanged. Other options show Not connected and no upload action until backend integration exists.",
+    "source": "Simple Icons SVG brand marks, bundled inline in publishing-platforms.js; attribution in assets/publishing/README.md."
   }
 }

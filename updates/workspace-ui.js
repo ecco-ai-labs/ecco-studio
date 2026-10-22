@@ -331,7 +331,7 @@
   const video=videoLibraryAssets().find(r=>r.id===selectedVideoId);
   if(video){persistDraft();activeStory=video.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();lastSignature='';storyControls();}
   let dialog=q('#workspace-publish-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='workspace-publish-dialog';document.body.append(dialog);}
-  dialog.innerHTML='<div class="form"><div class="section-head"><h2>Publish on YouTube</h2><button type="button" class="secondary" data-close>Close</button></div><p data-video></p><div data-publish-controls></div></div>';dialog.style.width='min(1000px,94vw)';
+  dialog.innerHTML='<div class="form"><div class="section-head"><h2>Publishing</h2><button type="button" class="secondary" data-close>Close</button></div><p data-video></p><div data-publish-controls></div></div>';dialog.style.width='min(1000px,94vw)';
   dialog.querySelector('[data-video]').textContent=video?'Selected video: '+(video.title||'Untitled video'):'Select a reviewed, approved video from Video Library before uploading. You can connect your YouTube channel below.';
   const preview=document.createElement('video');preview.controls=true;preview.hidden=!video;preview.src=video?media(video):'';preview.style.cssText='width:100%;max-height:260px';dialog.querySelector('[data-video]').after(preview);dialog.onclose=()=>preview.pause();dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   const pageNode=q('#page'),previous=[...pageNode.childNodes];previous.forEach(n=>n.remove());
@@ -363,11 +363,11 @@
    const label=document.createElement('label');label.className='video-publish-choice';
    const radio=document.createElement('input');radio.type='radio';radio.name='youtube-library-video';radio.value=video.id;radio.checked=video.id===selectedVideoId;
    const title=document.createElement('span');title.textContent=video.title||'Untitled video';label.append(radio,title);row.append(label);
-   radio.onchange=()=>{if(!radio.checked)return;selectedVideoId=video.id;library.dataset.signature=signature+selectedVideoId;publish.disabled=false;publish.title='Publish '+(video.title||'selected video')+' on YouTube';};
+   radio.onchange=()=>{if(!radio.checked)return;selectedVideoId=video.id;library.dataset.signature=signature+selectedVideoId;publish.disabled=false;publish.title='Publish '+(video.title||'selected video');};
    const remove=document.createElement('button');remove.type='button';remove.className='workspace-delete';remove.textContent='×';remove.setAttribute('aria-label','Delete video '+(video.title||'Untitled video'));remove.onclick=()=>action(async()=>{await api('trash',{asset_id:video.id});if(selectedVideoId===video.id)selectedVideoId='';await refresh();videoLibrary();notice('Video moved to Trash.');});row.append(remove);choices.append(row);
   }
   const footer=document.createElement('div');footer.id='workspace-youtube-row';
-  const publish=document.createElement('button');publish.id='workspace-youtube';publish.type='button';publish.className='secondary tree-upload';publish.textContent='Publish On YouTube';publish.disabled=!selectedVideoId;publish.title=selectedVideoId?'Publish the selected video on YouTube':'Select one video to publish';publish.onclick=()=>{if(!selectedVideoId)return;publishMenu();};footer.append(publish);body.append(footer);
+  const publish=document.createElement('button');publish.id='workspace-youtube';publish.type='button';publish.className='secondary tree-upload';publish.textContent='Publish';publish.disabled=!selectedVideoId;publish.title=selectedVideoId?'Publish the selected video':'Select one video to publish';publish.onclick=()=>{if(!selectedVideoId)return;publishMenu();};footer.append(publish);body.append(footer);
  }
 
  function storySetupPage(savedId){
