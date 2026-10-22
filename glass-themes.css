@@ -13,3 +13,6 @@ html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]) :is(.entry-copyr
 html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]) dialog::backdrop{background:#071f3744;backdrop-filter:blur(3px)}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]){--ecco-theme-surface:var(--glass-solid)!important;--ecco-theme-control:var(--glass-solid)!important}}
 @media(prefers-reduced-transparency:reduce){html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]){--ecco-theme-surface:var(--glass-solid)!important;--ecco-theme-control:var(--glass-solid)!important}html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]) *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
+/* Backdrop filters create stacking contexts: keep the ribbon above page controls. */
+html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]) main>header{position:relative;z-index:30}
+html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]) [data-category="Activity"]>.workspace-menu-items{right:30px}
