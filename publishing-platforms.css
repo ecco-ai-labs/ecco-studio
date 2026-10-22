@@ -1,7 +1,7 @@
 /* Resolve active theme tokens directly, including translucent glass themes. */
 .publishing-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid var(--ecco-theme-border,#48405c);background:transparent}
 html .publishing-tabs>button[role="tab"]{display:flex;align-items:center;justify-content:center;gap:8px;flex:1 1 100px;min-width:0;max-width:160px;padding:10px 12px;font-size:13px;border:1px solid var(--ecco-theme-border,#48405c)!important;border-radius:6px;background:var(--ecco-theme-control,#302a43)!important;color:var(--ecco-theme-text,#eeebf5)!important;box-shadow:none!important}
-html .publishing-tabs>button[role="tab"][aria-selected="true"]{background:var(--ecco-theme-surface,#252039)!important;color:var(--ecco-theme-accent,#ffdc24)!important;border-color:var(--ecco-theme-accent,#ffdc24)!important;box-shadow:inset 0 -2px var(--ecco-theme-accent,#ffdc24)!important}
+html .publishing-tabs>button[role="tab"][aria-selected="true"]{background:var(--ecco-theme-surface,#252039)!important;color:var(--ecco-theme-accent,#ffdc24)!important;border-color:var(--ecco-theme-border,#48405c)!important;box-shadow:inset 3px 0 var(--ecco-theme-accent,#ffdc24)!important}
 html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-accent,#ffdc24)!important;color:var(--ecco-theme-accent,#ffdc24)!important}
 .publishing-tabs svg{width:18px;height:18px;flex:0 0 18px}
 .publishing-tabs>button:focus-visible,.publishing-panel:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:3px}
