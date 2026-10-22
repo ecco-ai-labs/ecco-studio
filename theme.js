@@ -1,9 +1,11 @@
 'use strict';
-/* Color-only bridge for existing styles. No geometry, typography or media edits. */
+/* Palette bridge plus opt-in glass themes. No geometry or media edits. */
 (()=>{
  const KEY='ecco-theme-preset-v1';
  const PALETTE={background:['Page Background','#17152f'],surface:['Panels and Popups','#252039'],control:['Buttons and Inputs','#302a54'],text:['Primary Text','#ffffff'],contrast:['Text on Accent','#211b33'],muted:['Secondary Text','#b1acc9'],accent:['Accent and Selection','#ffdc24'],border:['Borders','#51496f'],error:['Errors','#ff6b6b'],success:['Success','#7bcf9b'],shadow:['Shadows','#000000']};
  const PRESETS={
+  ocean:{label:'Ocean',status:{connected:'#0064c8',disconnected:'#526577'},colors:{background:'#cce7f3',surface:'rgba(255,255,255,.38)',control:'rgba(255,255,255,.30)',text:'#102b40',contrast:'#ffffff',muted:'#365369',accent:'#0064c8',border:'rgba(0,111,211,.48)',error:'#ac2323',success:'#176442',shadow:'#193d5b'}},
+  'dark-sky':{label:'Dark Sky',status:{connected:'#69c9ff',disconnected:'#b1c3d7'},colors:{background:'#041629',surface:'rgba(18,48,78,.62)',control:'rgba(32,79,124,.40)',text:'#f1f7ff',contrast:'#06192c',muted:'#b4cde4',accent:'#69c9ff',border:'rgba(75,167,245,.60)',error:'#ff9898',success:'#8de1b4',shadow:'#000a19'}},
   default:{label:'Default',status:{connected:'#ffdc24',disconnected:'#ffffff'},colors:{}},
   dark:{label:'Dark Mode',status:{connected:'#8bf0bc',disconnected:'#c3c3ca'},colors:{background:'#0d0d0f',surface:'#242428',control:'#303035',text:'#f5f5f5',contrast:'#151517',muted:'#c3c3ca',accent:'#c7c7ce',border:'#b5b5bd',error:'#ff6b6b',success:'#7bcf9b',shadow:'#000000'}},
   forest:{label:'Forest',status:{connected:'#ffdc24',disconnected:'#ffffff'},colors:{background:'#123d2a',surface:'#285a40',control:'#34714e',text:'#ffffff',contrast:'#123d2a',muted:'#d2e8d8',accent:'#ffffff',border:'#ffffff',error:'#ffb1ad',success:'#b7edbc',shadow:'#071e13'}},
@@ -11,7 +13,7 @@
  };
  const validPreset=value=>typeof value==='string'&&Object.hasOwn(PRESETS,value)?value:'default';
  let saved='default';try{saved=validPreset(localStorage.getItem(KEY));}catch{}
- function apply(name){const colors=PRESETS[validPreset(name)].colors;for(const key of Object.keys(PALETTE)){const variable='--ecco-theme-'+key;if(colors[key])document.documentElement.style.setProperty(variable,colors[key]);else document.documentElement.style.removeProperty(variable);}for(const [state,color] of Object.entries(PRESETS[validPreset(name)].status))document.documentElement.style.setProperty('--ecco-theme-'+state,color);}
+ function apply(name){document.documentElement.dataset.eccoTheme=validPreset(name);const colors=PRESETS[validPreset(name)].colors;for(const key of Object.keys(PALETTE)){const variable='--ecco-theme-'+key;if(colors[key])document.documentElement.style.setProperty(variable,colors[key]);else document.documentElement.style.removeProperty(variable);}for(const [state,color] of Object.entries(PRESETS[validPreset(name)].status))document.documentElement.style.setProperty('--ecco-theme-'+state,color);}
  apply(saved);
  const COLOR=/url\([^)]*\)|#[\da-f]{3,8}\b|rgba?\([^)]*\)|\b(?:white|black|red|yellow|gray|grey|orange|green|blue|purple)\b/gi;
  const NAMES={white:'#ffffff',black:'#000000',red:'#ff0000',yellow:'#ffff00',gray:'#808080',grey:'#808080',orange:'#ffa500',green:'#008000',blue:'#0000ff',purple:'#800080'};
@@ -31,7 +33,7 @@
  const seen=new WeakMap();
  function declaration(style,selector){if(!style)return;let before=seen.get(style);if(before===style.cssText)return;for(const property of [...style]){const value=style.getPropertyValue(property),next=colorValue(value,property,selector);if(next!==value)style.setProperty(property,next,style.getPropertyPriority(property));}seen.set(style,style.cssText);}
  function rules(list){for(const rule of list){if(rule.style)declaration(rule.style,rule.selectorText||'');if(rule.cssRules)rules(rule.cssRules);}}
- function scanStyles(){for(const sheet of document.styleSheets){try{rules(sheet.cssRules);}catch{/* Cross-origin third-party styles are not editable. */}}}
+ function scanStyles(){for(const sheet of document.styleSheets){try{if(sheet.href?.includes('/glass-themes.css'))continue;rules(sheet.cssRules);}catch{/* Cross-origin third-party styles are not editable. */}}}
  function inline(root){if(root.nodeType!==1)return;const skip=el=>el.closest('svg,#workspace-entry,#story-choice-screen')||el.matches('img,video,audio,canvas');if(root.hasAttribute('style')&&!skip(root))declaration(root.style,root.tagName.toLowerCase()+' '+root.className);for(const el of root.querySelectorAll('[style]'))if(!skip(el))declaration(el.style,el.tagName.toLowerCase()+' '+el.className);}
  function mount(){
   const menu=document.querySelector('[data-category="Activity"] .workspace-menu-items');if(!menu||document.querySelector('#theme-colors-open'))return;

@@ -1521,13 +1521,15 @@
     ],
     "persistence": "Selected preset ID in localStorage (ecco-theme-preset-v1); prior custom palette is no longer used",
     "default": "Original declaration colors retained as CSS variable fallbacks",
-    "scope": "Colors only; no typography, geometry, content or behavior controls",
+    "scope": "Existing presets are color-only. Ocean and Dark Sky add translucent surfaces, backdrop blur, blue borders and background gradients without changing layout, typography, controls or media.",
     "runtime": "theme.js bridges accessible CSS declarations and dynamic inline styles to shared color variables; media pixels are unchanged",
     "presets": [
       "Default",
       "Dark Mode",
       "Forest",
-      "Desert"
+      "Desert",
+      "Ocean",
+      "Dark Sky"
     ],
     "selection": "Single preset, saved immediately; pointer exit retracts the panel; no popup or color inputs",
     "connectionStatusColors": {
@@ -1546,9 +1548,24 @@
       "Desert": {
         "disconnected": "#8c6844",
         "connected": "#3c2c20"
+      },
+      "Ocean": {
+        "connected": "#0064c8",
+        "disconnected": "#526577"
+      },
+      "Dark Sky": {
+        "connected": "#69c9ff",
+        "disconnected": "#b1c3d7"
       }
     },
-    "connectionStatusScope": "GPU connection buttons and the AI, Storage and GPU connection control panel icons share the same connected/disconnected colors. Desert uses dark brown #3c2c20 when connected and light brown #8c6844 when disconnected."
+    "connectionStatusScope": "GPU connection buttons and the AI, Storage and GPU connection control panel icons share the same connected/disconnected colors. Desert uses dark brown #3c2c20 when connected and light brown #8c6844 when disconnected.",
+    "glass": {
+      "approval": "User approved Ocean (light clear glass) and Dark Sky (dark blue glass), with ocean-blue accents replacing yellow.",
+      "surfaces": "Header, navigation, panels, cards, menus, dialogs and controls; backdrop blur only, never media blur.",
+      "backdrop": "Light coastal gradient for Ocean; midnight blue gradient for Dark Sky. No mockup UI or sample media embedded.",
+      "fallback": "Opaque surfaces when backdrop-filter is unsupported or reduced transparency is preferred.",
+      "persistence": "Existing theme preference; switching away removes glass styling."
+    }
   },
   "activityPanel": {
     "entry": "Right-edge arrow",

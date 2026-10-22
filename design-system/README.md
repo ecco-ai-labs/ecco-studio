@@ -79,8 +79,8 @@ unapproved dimensions remain unset instead of being silently chosen.
 
 ## Color theme
 
-Settings → Theme offers exactly four packages: Default, Dark Mode,
-Forest and Desert in a side-sliding menu matching Billing. Selecting a preset
+Settings → Theme offers six packages: Default, Dark Mode,
+Forest, Desert, Ocean and Dark Sky in a side-sliding menu matching Billing. Selecting a preset
 saves immediately. Choosing Default restores the original palette. The selected
 preset persists in this browser. Moving the pointer away retracts the panel. No individual color inputs are exposed. Older custom
 color settings are ignored; the initial package is Default.
@@ -92,7 +92,7 @@ color settings are ignored; the initial package is Default.
 | Forest | Green page, lighter green surfaces, white borders and accents |
 | Desert | Sand page, light sand surfaces, brown borders and accents |
 
-Only colors change; fonts, dimensions, spacing, layout, wording and actions remain
+Ocean and Dark Sky add glass surfaces and blue accents through `glass-themes.css`, with gradient backdrops and opaque accessibility fallbacks. Existing presets remain color-only. Fonts, dimensions, spacing, layout, wording and actions remain
 fixed. `theme.js` maps accessible CSS color declarations and dynamic inline styles
 to shared variables while preserving original values as Default fallbacks. Media
 pixels and cross-origin styles are not recolored. This remains a color bridge,
