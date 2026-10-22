@@ -1660,7 +1660,7 @@
     "session": "Opaque session token in sessionStorage; same-tab refresh restores only after server /me verification; expires within one hour. Log off revokes token and clears it and shared workspace key.",
     "dismiss": "No intermediate Studio dialog. Google controls account-selection dismissal.",
     "appearance": "Welcome Tell Your Story and native Google sign-in buttons have equal visible dimensions of 190px by 40px, with 16px between them. The native Google iframe transparent gutters are clipped to the button outline. Google SDK supplies unchanged logo, Google font and generic Sign in with Google text; width below 200px suppresses personalization. User menu is compact, minimum width 110px.",
-    "signedInIdentity": "Verified user name at far right after Education and Learning; visible dropdown arrow. Menu order: Credit and Usage, Billing, Log Off. Ribbon menu triggers share 36px height, 13px font, 10px horizontal padding and content-fit widths; user name capped at 220px; user dropdown items equal width and 40px height. Existing credit and billing actions reused. A decorative circular person icon appears immediately left of the name. The inner head and shoulders use the active theme accent; the outer ring uses theme text color. No separate keyboard stop.",
+    "signedInIdentity": "Verified user name at far right after Education and Learning; visible dropdown arrow. Menu order: Credit and Usage, Billing, Log Off. Ribbon menu triggers share 36px height, 12px font, 10px horizontal padding and content-fit widths; user name capped at 220px; user dropdown items equal width and 40px height. Existing credit and billing actions reused. A decorative circular person icon appears immediately left of the name. The inner head and shoulders use the active theme accent; the outer ring uses theme text color. No separate keyboard stop.",
     "welcomeSignedIn": "Signed in as <user name> replaces Google login after Studio verifies identity, including a restored session; Google browser session alone does not count as Studio login.",
     "accountFlyouts": {
       "placement": "Credit and Usage and Billing open to the left of the signed-in user dropdown; keep the parent dropdown open. Both also open left from the existing Account entries.",
@@ -1669,7 +1669,7 @@
       "appearance": "Existing theme surface/text/border colors; circular person icon uses theme accent fill and theme text ring. Existing ribbon dimensions retained. Panels reveal from right to left with reduced-motion support."
     },
     "accountMenuVisibility": "The separate Account and Billing ribbon dropdown is hidden, including from keyboard and accessibility navigation. Credit and Usage, Billing and Log Off remain in the signed-in user menu. The hidden legacy mount remains for compatibility with existing modules.",
-    "signedOutIdentity": "Rightmost header position shows the same theme-colored circular person icon with Not Logged in. Informational only, no account actions. Replaced by verified user dropdown on sign-in. Shares the compact header height (36px), 13px font and 10px horizontal padding; content-fit width."
+    "signedOutIdentity": "Rightmost header position shows the same theme-colored circular person icon with Not Logged in. Informational only, no account actions. Replaced by verified user dropdown on sign-in. Shares the compact header height (36px), 12px font and 10px horizontal padding; content-fit width."
   },
   "publishingPlatforms": {
     "types": [
