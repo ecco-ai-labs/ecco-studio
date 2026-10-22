@@ -1,11 +1,8 @@
-.publishing-picker{position:relative;width:230px;max-width:100%;margin-bottom:18px;font-size:13px}
-.publishing-picker>summary{display:flex;align-items:center;gap:10px;list-style:none;cursor:pointer;border:1px solid var(--border,#48405c);border-radius:6px;padding:9px 12px;background:var(--panel,#252039)}
-.publishing-picker>summary::-webkit-details-marker{display:none}
-.publishing-picker svg{width:18px;height:18px;flex:0 0 18px}
-.publishing-caret{margin-left:auto}
-.publishing-options{position:absolute;top:calc(100% + 6px);left:0;width:100%;padding:7px;box-sizing:border-box;z-index:100;border:1px solid var(--border,#48405c);border-radius:9px;background:var(--panel,#252039);box-shadow:0 12px 32px #0006}
-.publishing-options>button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:0;background:transparent;font-size:13px;text-align:left;color:var(--text,#eeebf5)}
-.publishing-options>button[aria-pressed="true"]{color:var(--accent,#ffdc24)}
-.publishing-options>button:hover{background:var(--control,#39304f)}
-.publishing-picker :focus-visible{outline:2px solid var(--accent,#ffdc24);outline-offset:2px}
-.publishing-youtube[hidden],.publishing-picker+div+section[hidden]{display:none!important}
+/* Resolve active theme tokens directly, including translucent glass themes. */
+.publishing-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid var(--ecco-theme-border,#48405c);background:transparent}
+html .publishing-tabs>button[role="tab"]{display:flex;align-items:center;justify-content:center;gap:8px;flex:1 1 100px;min-width:0;max-width:160px;padding:10px 12px;font-size:13px;border:1px solid var(--ecco-theme-border,#48405c)!important;border-radius:6px;background:var(--ecco-theme-control,#302a43)!important;color:var(--ecco-theme-text,#eeebf5)!important;box-shadow:none!important}
+html .publishing-tabs>button[role="tab"][aria-selected="true"]{background:var(--ecco-theme-surface,#252039)!important;color:var(--ecco-theme-accent,#ffdc24)!important;border-color:var(--ecco-theme-accent,#ffdc24)!important;box-shadow:inset 0 -2px var(--ecco-theme-accent,#ffdc24)!important}
+html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-accent,#ffdc24)!important;color:var(--ecco-theme-accent,#ffdc24)!important}
+.publishing-tabs svg{width:18px;height:18px;flex:0 0 18px}
+.publishing-tabs>button:focus-visible,.publishing-panel:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:3px}
+.publishing-panel[hidden]{display:none!important}

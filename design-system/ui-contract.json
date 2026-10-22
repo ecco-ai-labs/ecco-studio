@@ -1671,7 +1671,7 @@
   },
   "publishingPlatforms": {
     "types": [
-      "dropdown",
+      "tabs",
       "button",
       "icon"
     ],
@@ -1679,13 +1679,19 @@
       "YouTube",
       "TikTok",
       "Instagram",
-      "Meta",
       "WhatsApp",
+      "Meta",
       "X"
     ],
-    "appearance": "Compact 230px dropdown using existing theme colors, 18px monochrome vector brand logos; selected platform in trigger. Labels accompany every logo.",
-    "interaction": "Click or keyboard select; Escape, outside click and focus exit close dropdown. Selection retains YouTube form edits.",
+    "appearance": "Six inline logo tabs; wrap on narrow screens. Background, border, text and selected accent resolve active --ecco-theme-* tokens directly, with Default fallbacks. Logos remain 18px.",
+    "interaction": "Same-window tab panels. Click, Left/Right arrows, Home/End; roving tab stop, aria-selected and linked tabpanel. Switching retains YouTube edits.",
     "availability": "Existing YouTube handlers unchanged. Other options show Not connected and no upload action until backend integration exists.",
     "source": "Simple Icons SVG brand marks, bundled inline in publishing-platforms.js; attribution in assets/publishing/README.md."
+  },
+  "educationDiscord": {
+    "type": "menu-item",
+    "label": "Discord",
+    "placement": "Education and Learning",
+    "action": "Opens theme-aware dialog showing Not connected; shared upper-right close x. No Discord server or invite configured yet."
   }
 }
