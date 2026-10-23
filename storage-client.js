@@ -97,7 +97,7 @@
   });
  }
  async function storageRequest(path,body,accessKey=key,options={}){
-  if(!accessKey)throw Error('Connect your saved workspace from Account → Storage. No GPU is needed.');
+  if(!accessKey)throw Error('Connect your saved workspace from Connections → Storage. No GPU is needed.');
   let response;
   try{
    response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
@@ -135,8 +135,8 @@
   window.EccoErrors.show(error,{title:'Workspace storage error',retryLabel:'Reconnect storage',retry:dialog});
  }
  function counts(){const active=state.records.filter(r=>!r.deleted);return active.filter(r=>r.kind==='asset'&&r.media==='image').length+' images · '+active.filter(r=>r.kind==='story').length+' stories';}
- function disconnect(){key='';notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');}
- function dialog(){
+ function disconnect(){key='';notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');window.EccoYouTube?.update();}
+ function dialog(options={}){
   let modal=document.querySelector('#storage-access-dialog');
   if(!modal){modal=document.createElement('dialog');modal.id='storage-access-dialog';document.body.append(modal);}
   if(modal.open)return;
@@ -166,12 +166,12 @@
     status.textContent='Storage reached. Loading your libraries…';
     // Reuse this response: no second state fetch, and render failures stay visible.
     const previousKey=key;key=entered;
-    try{await refresh(next,true);navigate('library');}catch(error){key=previousKey;throw Error('Storage connected, but the library could not display: '+error.message);}
+    try{await refresh(next,true);if(!options.preservePage)navigate('library');}catch(error){key=previousKey;throw Error('Storage connected, but the library could not display: '+error.message);}
     sessionStorage.setItem('ecco-storage-access',key);verified=true;errorShown=false;connectAudio();form.elements.key.value='';
     for(const selector of ['#workspace-library-group','#image-library-nav > details']){const section=document.querySelector(selector);if(section)section.open=true;}
     notice('Connected · '+counts());modal.close();
    }catch(error){window.EccoErrors.show(error);status.textContent=error.message;status.setAttribute('role','alert');}
-   finally{connecting=false;button.disabled=false;button.textContent='Connect storage';close.disabled=false;}
+   finally{connecting=false;button.disabled=false;button.textContent='Connect storage';close.disabled=false;window.EccoYouTube?.update();}
 
   };
   modal.showModal();

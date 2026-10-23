@@ -187,15 +187,12 @@ function updateVideoGallery(){const e=$('#video-gallery');if(!e)return;const lis
 function trashPage(){const archived=state.records.filter(r=>r.kind==='story'&&r.deleted);const list=allAssets().filter(a=>a.deleted);$('#page').innerHTML=`<div class="section-head"><h2>Trash · ${esc(currentStory().title)}</h2><button id="back-images">Back to images</button></div><div class="panel"><h3>Deleted stories</h3>${archived.map(s=>`<p>${esc(s.title)} <button class="small secondary" data-restore-story="${s.id}">Restore story</button></p>`).join('')||'<p class="help">No deleted stories.</p>'}</div><p>Deleted assets stay recoverable here. Existing rendered videos are unchanged.</p><div class="cards">${list.map(card).join('')||'Trash is empty.'}</div>`;$('#back-images').onclick=()=>navigate('images');document.querySelectorAll('[data-restore-story]').forEach(b=>b.onclick=()=>action(async()=>{await api('stories/archive',{story_id:b.dataset.restoreStory,restore:true});notice('Story restored to the dropdown.');}));wireCards();if(typeof hydrateMedia==='function')hydrateMedia();}
 function reviewPage(){const list=assets().filter(a=>a.stage==='prod');$('#page').innerHTML=`<p class="intro">Approved assets in <strong>image-prod</strong> and <strong>video-prod</strong>. GitHub sync status is shown on each asset.</p>${list.length?`<div class="cards">${list.map(card).join('')}</div>`:empty('Your production library is empty','Review an image or video and approve it to add it here.')}`;wireCards();}
 function connectYouTube(){
- const button=$('#connect-youtube');
- if(!state.config.youtube_configured){
-  if(state.config.youtube_setup_available)return setupYouTube();
-  notice('Connect workspace storage to check YouTube setup.',true);return;
- }
+ if(connectYouTube.pending)return;
+ if(!window.EccoStorage?.ready||!state.config.youtube_configured)return setupYouTube();
  // Open synchronously from the user's click so Google authorization is not blocked.
  const popup=window.open('about:blank','ecco-youtube-auth','width=700,height=800');
  if(!popup){notice('Allow the Google authorization window, then click Connect YouTube again.',true);return;}
- popup.opener=null;button.disabled=true;button.dataset.connecting='true';
+ popup.opener=null;connectYouTube.pending=true;updateYouTubeConnection();
  return action(async()=>{
   try{
    const result=await api('youtube/connect',{}),url=new URL(result.url);
@@ -203,20 +200,31 @@ function connectYouTube(){
    if(popup.closed)throw Error('Google authorization was closed. Click Connect YouTube to try again.');
    popup.location.href=url.href;
   }catch(error){popup.close();throw error;}
-  finally{delete button.dataset.connecting;updateYouTubeConnection();}
+  finally{connectYouTube.pending=false;updateYouTubeConnection();}
  });
 }
 function setupYouTube(){
  if($('#youtube-setup-dialog'))return;
  const dialog=document.createElement('dialog');dialog.id='youtube-setup-dialog';dialog.setAttribute('aria-labelledby','youtube-setup-title');
- dialog.innerHTML='<form class="form"><div class="section-head"><h2 id="youtube-setup-title">Set up YouTube</h2><button type="button" class="secondary ai-dialog-close" data-close aria-label="Close YouTube setup">×</button></div><p class="help">Select the OAuth client JSON downloaded from Google Cloud. It will be encrypted and saved privately on your workspace backend.</p><label>Google OAuth client JSON<input type="file" name="client_json" accept=".json,application/json" required></label><p role="status" aria-live="polite" data-status></p><button type="submit">Install configuration</button></form>';
+ dialog.innerHTML='<form class="form"><div class="section-head"><h2 id="youtube-setup-title">Set up YouTube</h2><button type="button" class="secondary ai-dialog-close" data-close aria-label="Close YouTube setup">×</button></div><p class="help">Select the OAuth client JSON downloaded from Google Cloud. It will be encrypted and saved privately on your workspace backend.</p><label data-import>Google OAuth client JSON<input type="file" name="client_json" accept=".json,application/json" required></label><p class="help" data-requirement></p><button type="button" class="secondary" data-storage>Connect storage</button><p role="status" aria-live="polite" data-status></p><button type="submit">Install configuration</button><button type="button" data-authorize hidden>Connect YouTube securely</button></form>';
  document.body.append(dialog);
  const form=dialog.querySelector('form'),fileInput=form.querySelector('[name=client_json]'),submit=form.querySelector('[type=submit]'),status=form.querySelector('[data-status]');
  let busy=false;
+ const storage=form.querySelector('[data-storage]'),authorize=form.querySelector('[data-authorize]'),requirement=form.querySelector('[data-requirement]');
+ dialog.updateConnection=()=>{
+  const ready=!!window.EccoStorage?.ready,configured=ready&&!!state.config.youtube_configured,available=ready&&!!state.config.youtube_setup_available;
+  storage.hidden=ready;authorize.hidden=!configured;submit.hidden=configured;submit.disabled=busy||!available;
+  fileInput.closest('label').hidden=configured;fileInput.required=!configured;fileInput.disabled=busy||configured;
+  const message=!ready?'Choose your JSON here, then connect workspace storage to install it. The storage access key is separate from this JSON.':configured?'Configuration is installed. Connect your channel with Google.':available?'Ready to install your Google OAuth client JSON.':'YouTube setup is unavailable on this workspace. Check the existing backend configuration.';
+  if(requirement.textContent!==message)requirement.textContent=message;
+ };
+ storage.onclick=()=>window.EccoStorage?.open({preservePage:true});
+ authorize.onclick=()=>{dialog.close();connectYouTube();};
  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
  dialog.addEventListener('close',()=>{form.reset();dialog.remove();$('#connect-youtube')?.focus();},{once:true});
  form.onsubmit=async event=>{
   event.preventDefault();if(busy)return;
+  if(!window.EccoStorage?.ready||!state.config.youtube_setup_available){dialog.updateConnection();return;}
   const file=fileInput.files?.[0];
   if(!file){status.textContent='Choose the JSON file downloaded from Google Cloud.';return;}
   if(!file.size||file.size>32768){status.textContent='Choose a Google OAuth client JSON file under 32 KB.';return;}
@@ -229,32 +237,44 @@ function setupYouTube(){
    const result=await api('youtube/configure',config);
    if(!result.youtube_configured)throw Error('The backend could not verify YouTube setup.');
    Object.assign(state.config,result);updateYouTubeConnection();
-   dialog.close();notice('YouTube configuration installed. Click Connect YouTube securely to authorize your channel.');
+   dialog.close();notice('YouTube configuration installed. Click Connect beside YouTube in Connections to authorize your channel.');
   }catch(error){
    status.textContent=error.message||'Configuration could not be installed. Try again.';
-  }finally{busy=false;submit.disabled=false;fileInput.disabled=false;fileInput.value='';}
+  }finally{busy=false;fileInput.value='';dialog.updateConnection();}
  };
- dialog.showModal();fileInput.focus();
+ dialog.updateConnection();dialog.showModal();(authorize.hidden?fileInput:authorize).focus();
 }
 function updateYouTubeConnection(){
- const button=$('#connect-youtube');if(!button)return;
- const channel=state.config.youtube_channel,badge=button.parentElement.querySelector('.badge');
- button.disabled=!!button.dataset.connecting||!(state.config.youtube_configured||state.config.youtube_setup_available);
- button.textContent=channel?'Reconnect YouTube':'Connect YouTube securely';
- button.title=state.config.youtube_configured?'Authorize a channel you own':state.config.youtube_setup_available?'Install your Google OAuth client JSON':'Connect workspace storage to check YouTube setup';
- const disconnect=$('#disconnect-youtube');if(disconnect)disconnect.disabled=!channel||!!disconnect.dataset.disconnecting;
+ const channel=window.EccoStorage?.ready?state.config.youtube_channel:null,button=$('#connect-youtube');
+ if(button){
+  button.disabled=!!connectYouTube.pending;button.dataset.connected=String(!!channel);
+  const label=connectYouTube.pending?'Connecting…':channel?'Connected':'Connect';if(button.textContent!==label)button.textContent=label;
+  button.title=channel?'Reconnect YouTube':state.config.youtube_configured?'Authorize a channel you own':'Set up YouTube';
+ }
+ const disconnect=$('#disconnect-youtube');if(disconnect){disconnect.hidden=!channel;disconnect.disabled=!!disconnect.dataset.disconnecting;}
+ for(const badge of document.querySelectorAll('[data-youtube-status]')){
+  const label=channel?channel.title+(channel.handle?' · '+channel.handle:''):'Not connected';
+  if(badge.textContent!==label)badge.textContent=label;badge.classList.toggle('pending',!channel);
+ }
+ $('#youtube-setup-dialog')?.updateConnection?.();
  const form=$('#publish-form'),destination=form?.querySelector('[name=channel_id]'),confirmation=form?.querySelector('[name=confirmed]');
  if(destination&&destination.value!==(channel?.id||'')){destination.value=channel?.id||'';if(confirmation)confirmation.checked=false;}
  const review=form?.querySelector('[name=confirmed]+span');if(review)review.textContent='I reviewed this video and authorize its upload to '+(channel?(channel.handle||channel.title)+' ('+channel.id+')':'the connected channel')+' with the visibility and audience selected above.';
- if(badge){badge.textContent=channel?channel.title+(channel.handle?' · '+channel.handle:''):'Not connected';badge.classList.toggle('pending',!channel);badge.setAttribute('aria-live','polite');}
  const submit=$('#publish-form button:not([type="button"])');
  if(submit)submit.disabled=!channel||!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state);
  window.EccoPublishingConnection?.();
 }
+function mountYouTubeConnection(root){
+ const section=document.createElement('section');section.className='connection';section.id='youtube-connection';
+ section.innerHTML='<div class="connection-heading"><h3>YouTube</h3><button type="button" class="secondary" id="connect-youtube">Connect</button></div><p class="help" data-youtube-status aria-live="polite">Not connected</p><button type="button" class="secondary" id="disconnect-youtube" hidden>Disconnect</button>';
+ root.append(section);section.querySelector('#connect-youtube').onclick=connectYouTube;
+ section.querySelector('#disconnect-youtube').onclick=()=>action(async()=>{const button=$('#disconnect-youtube');if(button.dataset.disconnecting)return;button.disabled=true;button.dataset.disconnecting='true';try{await api('youtube/disconnect',{});state.config.youtube_channel=null;}finally{delete button.dataset.disconnecting;updateYouTubeConnection();}});
+ updateYouTubeConnection();
+}
+window.EccoYouTube={mount:mountYouTubeConnection,update:updateYouTubeConnection};
 function publishPage(){const list=assets().filter(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state),channel=state.config.youtube_channel;
- $('#page').innerHTML=`<p class="intro">Connect a YouTube channel you own, then review and publish an approved video.</p><div class="grid"><div class="panel form"><h2>YouTube Connection</h2><span class="badge ${channel?'':'pending'}">${channel?esc(channel.title)+' · '+esc(channel.handle):'Not connected'}</span><button id="connect-youtube" ${!state.config.youtube_configured?'disabled':''}>Connect YouTube securely</button><button id="disconnect-youtube" type="button" class="secondary" ${!channel?'disabled':''}>Disconnect YouTube</button><p class="help">A Google OAuth client must be configured on the backend first. No Google password or API secret belongs in this page.</p></div><form id="publish-form" class="panel form"><input type="hidden" name="channel_id" value=""><label>Approved video<select name="asset_id" required><option value="">Choose a production video</option>${list.map(a=>`<option value="${a.id}">${esc(a.title)} · ${a.id.slice(0,8)}</option>`).join('')}</select></label><label>Video title<input name="title" maxlength="100" required value="${esc(currentStory().title)} — ECCO AI Labs"></label><label>Description<textarea name="description">An ECCO AI Labs development film.</textarea></label><div class="row"><label>Visibility<select name="visibility"><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option><option value="schedule">Schedule</option></select></label><label>Audience<select name="made_for_kids" required><option value="">Choose an audience</option><option value="false">Not made for kids</option><option value="true">Made for kids</option></select></label></div><label data-youtube-only="schedule" hidden>Publish at (your local time)<input type="datetime-local" name="publish_at"></label><label class="inline-check"><input name="confirmed" type="checkbox" required><span>I reviewed this video and authorize its upload to the connected channel with the visibility and audience selected above.</span></label><button ${!channel||!list.length?'disabled':''}>Upload approved video</button></form></div><div class="statline">${assets().filter(a=>a.youtube_id).map(a=>`<span><a href="https://www.youtube.com/watch?v=${encodeURIComponent(a.youtube_id)}" target="_blank" rel="noopener">Uploaded ${esc(a.youtube_id)}</a> · ${esc(a.youtube_visibility)}</span>`).join('')}</div>`;
- $('#connect-youtube').onclick=connectYouTube;
- $('#disconnect-youtube').onclick=()=>action(async()=>{const button=$('#disconnect-youtube');button.disabled=true;button.dataset.disconnecting='true';try{await api('youtube/disconnect',{});state.config.youtube_channel=null;}finally{delete button.dataset.disconnecting;updateYouTubeConnection();}});
+ $('#page').innerHTML=`<p class="intro">Connect a YouTube channel you own, then review and publish an approved video.</p><div class="grid"><div class="panel form"><h2>YouTube Connection</h2><span data-youtube-status aria-live="polite" class="badge ${channel?'':'pending'}">${channel?esc(channel.title)+' · '+esc(channel.handle):'Not connected'}</span><button type="button" id="open-youtube-connections" class="secondary">Connections</button></div><form id="publish-form" class="panel form"><input type="hidden" name="channel_id" value=""><label>Approved video<select name="asset_id" required><option value="">Choose a production video</option>${list.map(a=>`<option value="${a.id}">${esc(a.title)} · ${a.id.slice(0,8)}</option>`).join('')}</select></label><label>Video title<input name="title" maxlength="100" required value="${esc(currentStory().title)} — ECCO AI Labs"></label><label>Description<textarea name="description">An ECCO AI Labs development film.</textarea></label><div class="row"><label>Visibility<select name="visibility"><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option><option value="schedule">Schedule</option></select></label><label>Audience<select name="made_for_kids" required><option value="">Choose an audience</option><option value="false">Not made for kids</option><option value="true">Made for kids</option></select></label></div><label data-youtube-only="schedule" hidden>Publish at (your local time)<input type="datetime-local" name="publish_at"></label><label class="inline-check"><input name="confirmed" type="checkbox" required><span>I reviewed this video and authorize its upload to the connected channel with the visibility and audience selected above.</span></label><button ${!channel||!list.length?'disabled':''}>Upload approved video</button></form></div><div class="statline">${assets().filter(a=>a.youtube_id).map(a=>`<span><a href="https://www.youtube.com/watch?v=${encodeURIComponent(a.youtube_id)}" target="_blank" rel="noopener">Uploaded ${esc(a.youtube_id)}</a> · ${esc(a.youtube_visibility)}</span>`).join('')}</div>`;
+ $('#open-youtube-connections').onclick=()=>{window.EccoAI?.connections();$('#connect-youtube')?.focus();};
  const visibility=$('#publish-form [name=visibility]'),schedule=$('#publish-form [name=publish_at]');
  visibility.onchange=()=>{const scheduled=visibility.value==='schedule';schedule.closest('label').hidden=!scheduled;schedule.required=scheduled;};
  updateYouTubeConnection();

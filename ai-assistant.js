@@ -28,6 +28,7 @@
   const dialog=q('#connection-dialog'),root=q('#connections');
   dialog.querySelector('h2').textContent='Connections';
   root.innerHTML='<section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label></section><section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div></section>';
+  window.EccoYouTube?.mount(root);
   const gpu=root.querySelector('#gpu-connection');
   gpu.querySelector('button').onclick=()=>{connectGPU('accelerator-status');};
   root.querySelector('[data-storage]').onclick=()=>{window.EccoStorage.open();};
@@ -41,6 +42,7 @@
   renderConnection();readStatus().then(renderConnection).catch(showError);
  }
  function renderConnection(){
+  window.EccoYouTube?.update();
   const root=q('#openai-connection');if(!root)return;
   const control=root.querySelector('#enable-studio-ai');control.checked=!!connection.enabled;control.disabled=!connection.connected;
   const button=root.querySelector('#connect-openai');button.textContent=connection.connected?'Connected':'Connect';button.dataset.connected=String(!!connection.connected);

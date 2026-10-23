@@ -90,3 +90,9 @@ test('negative prompt requests include the positive prompt and selected referenc
 test('connection key is cleared immediately and never persisted in browser storage',async()=>{
  const x=await setup();x.w.EccoAI.connections();await delay();x.w.document.querySelector('#connect-openai').click();const form=x.w.document.querySelector('#openai-key-dialog form'),key='sk-test-only-never-real';form.elements.api_key.value=key;form.querySelector('[type=submit]').click();await delay();assert.equal(form.elements.api_key.value,'');assert.equal(x.w.localStorage.length,0);assert.equal(x.w.sessionStorage.length,0);assert.equal(x.calls.find(c=>c.path==='ai/connect').body.api_key,key);x.close();
 });
+
+test('Connections mounts YouTube alongside AI, Storage and GPU without opening publishing',async()=>{
+ const x=await setup();let mounted=0,updated=0;
+ x.w.EccoYouTube={mount:root=>{mounted++;const row=x.w.document.createElement('section');row.id='youtube-connection';root.append(row);},update:()=>updated++};
+ x.w.EccoAI.connections();await delay();assert.equal(mounted,1);assert.ok(updated>0);assert.ok(x.w.document.querySelector('#connections #youtube-connection'));assert.ok(x.w.document.querySelector('#connections [data-storage]'));x.close();
+});

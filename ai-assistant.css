@@ -81,3 +81,5 @@ body:not(.workspace-entry-mode) #page #save-board.storyboard-save-continue{displ
 #video-audio-script .row{gap:8px;flex-wrap:wrap}
 
 .ai-dialog-close{flex:none!important;margin-left:auto;width:28px!important;height:28px;min-height:28px!important;padding:0!important;font-size:20px!important;line-height:1!important}
+
+#youtube-setup-dialog [hidden],#youtube-connection [hidden]{display:none!important}

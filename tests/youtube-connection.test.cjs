@@ -6,14 +6,16 @@ const {JSDOM}=require('jsdom');
 const source=readFileSync(join(__dirname,'../studio.js'),'utf8');
 const helpers=source.slice(source.indexOf('function connectYouTube(){'),source.indexOf('function navigate(p)'));
 function setup(){
- const dom=new JSDOM('<main><header></header><div id="page"></div></main>',{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/'}),w=dom.window;
+ const dom=new JSDOM('<main><header></header><div id="page"></div></main><dialog id="connection-dialog"><div id="connections"></div></dialog>',{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/'}),w=dom.window;
  w.$=selector=>w.document.querySelector(selector);w.esc=s=>String(s??'');
  w.state={config:{youtube_configured:true,youtube_channel:null},records:[{id:'a',media:'video',stage:'prod',title:'Approved test video'}]};
+ w.EccoStorage={ready:true,open:()=>{}};
  w.assets=()=>w.state.records;w.currentStory=()=>({title:'Test story'});w.names={};
  w.notice=(message,error)=>w.lastNotice={message,error};w.action=async fn=>{try{await fn();}catch(e){w.notice(e.message,true);}};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  w.eval(helpers);w.eval(readFileSync(join(__dirname,'../publishing-platforms.js'),'utf8'));w.publishPage();
+ w.EccoAI={connections:()=>{w.$('#connections').replaceChildren();w.EccoYouTube.mount(w.$('#connections'));w.$('#connection-dialog').showModal();}};w.EccoAI.connections();
  return {dom,w};
 }
 test('Google window opens during click; failed request restores button and closes blank window',async t=>{
@@ -37,7 +39,7 @@ test('verified channel updates badge and Publish without replacing edits, focus 
  assert.equal(publish.disabled,true);
  w.state.config.youtube_channel={id:'UC-test',title:'Ecco AI Labs',handle:'@EccoAILabs'};w.updateYouTubeConnection();
  assert.equal(publish.disabled,false);assert.equal(title.value,'Keep my edited title');assert.equal(w.document.activeElement,title);
- assert.equal(w.$('#connect-youtube').parentElement.querySelector('.badge').textContent,'Ecco AI Labs · @EccoAILabs');
+ assert.equal(w.$('#page [data-youtube-status]').textContent,'Ecco AI Labs · @EccoAILabs');
  const tiktok=w.$('[data-platform=tiktok]');tiktok.click();tiktok.focus();w.updateYouTubeConnection();
  assert.equal(tiktok.getAttribute('aria-selected'),'true');assert.equal(publish.disabled,true);assert.equal(w.document.activeElement,tiktok);
  w.$('[data-platform=youtube]').click();assert.equal(publish.disabled,false);
@@ -60,7 +62,7 @@ test('channel change clears confirmation and submits the reviewed channel ID',as
  w.state.config.youtube_channel={id:'UC-next',title:'Next',handle:''};w.updateYouTubeConnection();
  assert.equal(confirmed.checked,false);assert.match(confirmed.nextElementSibling.textContent,/Next \(UC-next\)/);
  assert.equal(form.querySelector('[name=channel_id]').value,'UC-next');
- assert.equal(w.$('#connect-youtube').textContent,'Reconnect YouTube');
+ assert.equal(w.$('#connect-youtube').textContent,'Connected');assert.equal(w.$('#connect-youtube').title,'Reconnect YouTube');
  let request;w.api=async(path,body)=>{request={path,body};};confirmed.checked=true;
  form.querySelector('[name=made_for_kids]').value='false';
  form.dispatchEvent(new w.Event('submit',{cancelable:true}));await Promise.resolve();
@@ -88,9 +90,9 @@ test('GPU config cannot replace the CPU-owned YouTube connection',async t=>{
  w.eval(readFileSync(join(__dirname,'../storage-client.js'),'utf8'));
  const state=await w.api('state');assert.equal(state.config.youtube_configured,true);assert.equal(state.config.youtube_channel.id,'UC-owner');assert.equal(state.config.youtube_setup_available,false);
 });
-test('first-time setup requires backend availability and opens without a Google window',async t=>{
+test('first-time setup is clickable before backend setup and opens without a Google window',async t=>{
  const {dom,w}=setup();t.after(()=>dom.window.close());w.state.config.youtube_configured=false;
- w.updateYouTubeConnection();assert.equal(w.$('#connect-youtube').disabled,true);
+ w.updateYouTubeConnection();assert.equal(w.$('#connect-youtube').disabled,false);
  w.state.config.youtube_setup_available=true;w.updateYouTubeConnection();assert.equal(w.$('#connect-youtube').disabled,false);
  w.open=()=>{throw Error('Must not open Google before setup');};w.connectYouTube();
  const dialog=w.$('#youtube-setup-dialog');assert.equal(dialog.open,true);assert.equal(w.document.activeElement,dialog.querySelector('input'));
@@ -128,4 +130,53 @@ test('install errors retain retry controls and prevent duplicate submissions',as
  const pending=form.onsubmit({preventDefault(){}});await Promise.resolve();await form.onsubmit({preventDefault(){}});assert.equal(requests,1);
  reject(Error('This JSON is for a different OAuth client.'));await pending;
  assert.equal(dialog.open,true);assert.match(dialog.querySelector('[data-status]').textContent,/different OAuth client/);assert.equal(form.querySelector('[type=submit]').disabled,false);assert.equal(w.state.config.youtube_configured,false);
+});
+
+test('Connections owns YouTube controls and publishing opens that panel without changing drafts',t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());
+ assert.equal(w.$('#page #connect-youtube'),null);assert.equal(w.$('#page #disconnect-youtube'),null);
+ w.$('[name=title]').value='Preserve my draft';w.$('#connection-dialog').close();
+ w.$('#open-youtube-connections').click();
+ assert.equal(w.$('#connection-dialog').open,true);assert.equal(w.document.activeElement,w.$('#connect-youtube'));
+ assert.equal(w.$('[name=title]').value,'Preserve my draft');assert.equal(w.document.querySelectorAll('#connect-youtube').length,1);
+});
+test('disconnected workspace can choose JSON but cannot install or open Google before authentication',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.EccoStorage.ready=false;w.state.config={};
+ let storageOptions,requests=0;w.EccoStorage.open=options=>{storageOptions=options;};w.api=async()=>{requests++;};w.open=()=>{throw Error('No Google before storage');};
+ w.updateYouTubeConnection();assert.equal(w.$('#connect-youtube').disabled,false);w.$('#connect-youtube').click();
+ const d=w.$('#youtube-setup-dialog'),input=d.querySelector('input');assert.equal(d.open,true);assert.equal(input.disabled,false);assert.equal(d.querySelector('[type=submit]').disabled,true);
+ assert.match(d.querySelector('[data-requirement]').textContent,/storage access key is separate/);
+ Object.defineProperty(input,'files',{value:[{size:100,text:async()=>'{}'}]});await input.form.onsubmit({preventDefault(){}});assert.equal(requests,0);
+ d.querySelector('[data-storage]').click();assert.equal(storageOptions.preservePage,true);
+ w.EccoStorage.ready=true;w.state.config.youtube_setup_available=true;w.updateYouTubeConnection();
+ assert.equal(d.querySelector('[type=submit]').disabled,false);assert.equal(d.querySelector('[data-storage]').hidden,true);assert.equal(input.files.length,1);
+ d.close();assert.equal(w.$('#connection-dialog').open,true);assert.equal(w.document.activeElement,w.$('#connect-youtube'));
+});
+test('existing configuration discovered after storage login offers Google authorization instead of replacement',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.EccoStorage.ready=false;w.connectYouTube();
+ const d=w.$('#youtube-setup-dialog');w.EccoStorage.ready=true;w.state.config.youtube_configured=true;w.updateYouTubeConnection();
+ assert.equal(d.querySelector('[data-import]').hidden,true);assert.equal(d.querySelector('[type=submit]').hidden,true);assert.equal(d.querySelector('[data-authorize]').hidden,false);
+ const popup={location:{},close(){}};let requests=0;w.open=()=>popup;w.api=async path=>{requests++;assert.equal(path,'youtube/connect');return {url:'https://accounts.google.com/o/oauth2/auth'};};
+ d.querySelector('[data-authorize]').click();await new Promise(r=>setImmediate(r));assert.equal(requests,1);assert.equal(w.$('#youtube-setup-dialog'),null);
+});
+test('connection state updates outside Publishing and duplicate Google requests are blocked',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.$('#page').replaceChildren();
+ w.state.config.youtube_channel={id:'UC-test',title:'Owner'};w.updateYouTubeConnection();assert.equal(w.$('#youtube-connection [data-youtube-status]').textContent,'Owner');
+ let resolve,requests=0;w.open=()=>({location:{},close(){}});w.api=()=>{requests++;return new Promise(r=>{resolve=r;});};
+ const pending=w.connectYouTube();w.connectYouTube();assert.equal(requests,1);resolve({url:'https://accounts.google.com/o/oauth2/auth'});await pending;
+ assert.equal(w.$('#connect-youtube').disabled,false);
+});
+test('nested storage authentication preserves the JSON selection and publishing draft',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.state.config={};w.AbortSignal=AbortSignal;w.gpuConnected=()=>false;
+ let navigations=0;w.navigate=()=>{navigations++;};w.api=async()=>{};w.refresh=async next=>{w.state=next;w.updateYouTubeConnection();};
+ w.EccoErrors={show:error=>{throw error;}};
+ w.fetch=async()=>({ok:true,json:async()=>({records:[],config:{youtube_configured:false,youtube_setup_available:true}})});
+ w.eval(readFileSync(join(__dirname,'../storage-client.js'),'utf8'));
+ w.$('[name=title]').value='Keep draft while connecting';w.connectYouTube();
+ const dialog=w.$('#youtube-setup-dialog'),input=dialog.querySelector('input'),file={size:100,text:async()=>'{}'};
+ Object.defineProperty(input,'files',{value:[file]});dialog.querySelector('[data-storage]').click();
+ const form=w.$('#storage-access-dialog form');form.elements.key.value='fixture-owner-storage-key-32-characters';
+ await form.onsubmit({preventDefault(){},target:form});
+ assert.equal(w.EccoStorage.ready,true);assert.equal(navigations,0);assert.equal(w.$('[name=title]').value,'Keep draft while connecting');
+ assert.equal(dialog.open,true);assert.equal(input.files[0],file);assert.equal(dialog.querySelector('[type=submit]').disabled,false);assert.equal(w.$('#storage-access-dialog').open,false);
 });
