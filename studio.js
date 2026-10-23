@@ -188,6 +188,10 @@ function trashPage(){const archived=state.records.filter(r=>r.kind==='story'&&r.
 function reviewPage(){const list=assets().filter(a=>a.stage==='prod');$('#page').innerHTML=`<p class="intro">Approved assets in <strong>image-prod</strong> and <strong>video-prod</strong>. GitHub sync status is shown on each asset.</p>${list.length?`<div class="cards">${list.map(card).join('')}</div>`:empty('Your production library is empty','Review an image or video and approve it to add it here.')}`;wireCards();}
 function connectYouTube(){
  const button=$('#connect-youtube');
+ if(!state.config.youtube_configured){
+  if(state.config.youtube_setup_available)return setupYouTube();
+  notice('Connect workspace storage to check YouTube setup.',true);return;
+ }
  // Open synchronously from the user's click so Google authorization is not blocked.
  const popup=window.open('about:blank','ecco-youtube-auth','width=700,height=800');
  if(!popup){notice('Allow the Google authorization window, then click Connect YouTube again.',true);return;}
@@ -202,12 +206,42 @@ function connectYouTube(){
   finally{delete button.dataset.connecting;updateYouTubeConnection();}
  });
 }
+function setupYouTube(){
+ if($('#youtube-setup-dialog'))return;
+ const dialog=document.createElement('dialog');dialog.id='youtube-setup-dialog';dialog.setAttribute('aria-labelledby','youtube-setup-title');
+ dialog.innerHTML='<form class="form"><div class="section-head"><h2 id="youtube-setup-title">Set up YouTube</h2><button type="button" class="secondary ai-dialog-close" data-close aria-label="Close YouTube setup">×</button></div><p class="help">Select the OAuth client JSON downloaded from Google Cloud. It will be encrypted and saved privately on your workspace backend.</p><label>Google OAuth client JSON<input type="file" name="client_json" accept=".json,application/json" required></label><p role="status" aria-live="polite" data-status></p><button type="submit">Install configuration</button></form>';
+ document.body.append(dialog);
+ const form=dialog.querySelector('form'),fileInput=form.querySelector('[name=client_json]'),submit=form.querySelector('[type=submit]'),status=form.querySelector('[data-status]');
+ let busy=false;
+ dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+ dialog.addEventListener('close',()=>{form.reset();dialog.remove();$('#connect-youtube')?.focus();},{once:true});
+ form.onsubmit=async event=>{
+  event.preventDefault();if(busy)return;
+  const file=fileInput.files?.[0];
+  if(!file){status.textContent='Choose the JSON file downloaded from Google Cloud.';return;}
+  if(!file.size||file.size>32768){status.textContent='Choose a Google OAuth client JSON file under 32 KB.';return;}
+  busy=true;submit.disabled=true;fileInput.disabled=true;status.textContent='Installing configuration…';
+  try{
+   let config;
+   try{config=JSON.parse((await file.text()).replace(/^\uFEFF/,''));}
+   catch{throw Error('This file is not valid JSON. Choose the Google OAuth client download.');}
+   if(!config||typeof config!=='object'||Array.isArray(config)||!config.web)throw Error('Choose the Google OAuth JSON for a Web application.');
+   const result=await api('youtube/configure',config);
+   if(!result.youtube_configured)throw Error('The backend could not verify YouTube setup.');
+   Object.assign(state.config,result);updateYouTubeConnection();
+   dialog.close();notice('YouTube configuration installed. Click Connect YouTube securely to authorize your channel.');
+  }catch(error){
+   status.textContent=error.message||'Configuration could not be installed. Try again.';
+  }finally{busy=false;submit.disabled=false;fileInput.disabled=false;fileInput.value='';}
+ };
+ dialog.showModal();fileInput.focus();
+}
 function updateYouTubeConnection(){
  const button=$('#connect-youtube');if(!button)return;
  const channel=state.config.youtube_channel,badge=button.parentElement.querySelector('.badge');
- button.disabled=!!button.dataset.connecting||!state.config.youtube_configured;
+ button.disabled=!!button.dataset.connecting||!(state.config.youtube_configured||state.config.youtube_setup_available);
  button.textContent=channel?'Reconnect YouTube':'Connect YouTube securely';
- button.title=state.config.youtube_configured?'Authorize a channel you own':'YouTube setup is required by the workspace owner';
+ button.title=state.config.youtube_configured?'Authorize a channel you own':state.config.youtube_setup_available?'Install your Google OAuth client JSON':'Connect workspace storage to check YouTube setup';
  const disconnect=$('#disconnect-youtube');if(disconnect)disconnect.disabled=!channel||!!disconnect.dataset.disconnecting;
  const form=$('#publish-form'),destination=form?.querySelector('[name=channel_id]'),confirmation=form?.querySelector('[name=confirmed]');
  if(destination&&destination.value!==(channel?.id||'')){destination.value=channel?.id||'';if(confirmation)confirmation.checked=false;}

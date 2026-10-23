@@ -45,7 +45,7 @@ class StorageTest(unittest.TestCase):
   self.assertEqual(error.exception.code,401)
  def test_youtube_write_routes_require_workspace_authorization(self):
   with patch.object(api.youtube_connection,'start') as start,patch.object(api.youtube_connection,'publish') as publish:
-   for path in ('/api/youtube/connect','/api/youtube/publish','/api/youtube/disconnect'):
+   for path in ('/api/youtube/connect','/api/youtube/publish','/api/youtube/disconnect','/api/youtube/configure'):
     for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:
      with self.assertRaises(HTTPError) as error:self.call(path,{},auth=auth,origin=origin)
      self.assertEqual(error.exception.code,code)
@@ -57,6 +57,23 @@ class StorageTest(unittest.TestCase):
   with patch.object(api.youtube_connection,'publish',return_value={'id':'test-job'}) as publish:
    with self.call('/api/youtube/publish',{'confirmed':True}) as response:self.assertEqual(json.load(response)['id'],'test-job')
    publish.assert_called_once_with({'confirmed':True})
+ def test_youtube_configuration_is_authenticated_bounded_and_not_echoed(self):
+  import youtube_connection as yt
+  config={'web':{'client_id':yt.google_signin.CLIENT_ID,'client_secret':'fixture-private-secret',
+                 'auth_uri':'https://accounts.google.com/o/oauth2/auth','token_uri':'https://oauth2.googleapis.com/token','redirect_uris':[yt.CALLBACK]}}
+  root=Path(self.tmp.name)/'private'
+  with patch.object(yt,'CLIENT_FILE',root/'client.json'),patch.object(yt,'TOKEN_FILE',root/'token.json'),patch.object(yt,'KEY_FILE',root/'key'):
+   with self.assertRaises(HTTPError) as error:self.call('/api/youtube/configure',{'oversized':'x'*32768})
+   self.assertEqual(error.exception.code,413);self.assertFalse(root.exists())
+   with self.call('/api/youtube/configure',config) as response:
+    body=response.read();self.assertTrue(json.loads(body)['youtube_configured'])
+    self.assertNotIn(b'fixture-private-secret',body)
+   self.assertNotIn('fixture-private-secret',(root/'client.json').read_text())
+   with self.call('/api/state') as response:
+    body=response.read();self.assertNotIn(b'fixture-private-secret',body)
+    self.assertFalse(json.loads(body)['config']['youtube_setup_available'])
+   with self.assertRaises(HTTPError) as error:self.call('/api/youtube/configure',config)
+   self.assertEqual(error.exception.code,409)
  def test_youtube_callback_is_public_but_requires_valid_state(self):
   with self.assertRaises(HTTPError) as error:self.call('/api/youtube/callback?code=never-log-this',auth=False)
   self.assertEqual(error.exception.code,403)

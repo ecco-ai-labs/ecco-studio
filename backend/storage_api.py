@@ -28,7 +28,7 @@ import youtube_connection
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
-    '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect',
+    '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect', '/api/youtube/configure',
     '/api/library/rename',
     '/api/longcat/control', '/api/longcat/sequence', '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
     '/api/ai/news/research', '/api/ai/news/storyboard',
@@ -144,9 +144,11 @@ class Handler(legacy.Handler):
         try:
             length = int(self.headers.get('Content-Length', '0'))
             maximum = 17*1024*1024 if path in ('/api/images/upload', '/api/audio/upload') else 1024*1024
+            if path == '/api/youtube/configure': maximum = 32*1024
             if not 0 < length <= maximum: raise legacy.Problem('Request size invalid', 413)
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
+            if path == '/api/youtube/configure': return self.send(youtube_connection.configure(body))
             if path == '/api/youtube/connect': return self.send(youtube_connection.start())
             if path == '/api/youtube/disconnect': return self.send(youtube_connection.disconnect())
             if path == '/api/youtube/publish':

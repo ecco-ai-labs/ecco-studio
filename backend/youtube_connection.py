@@ -31,6 +31,8 @@ _generation = 0
 def _config():
     try:
         config = json.loads(CLIENT_FILE.read_text())
+        if 'encrypted' in config:
+            config = json.loads(_cipher().decrypt(config['encrypted'].encode()))
         web = config['web']
         if web['client_id'] != google_signin.CLIENT_ID or not web['client_secret']:
             raise ValueError()
@@ -44,8 +46,52 @@ def _config():
                 or CALLBACK not in web.get('redirect_uris', [])):
             raise ValueError()
         return config
-    except (OSError, ValueError, KeyError, TypeError):
+    except Exception:
         raise legacy.Problem('Configure the Google OAuth client and YouTube callback on the storage backend.', 503) from None
+
+
+def configure(config):
+    """Install a first-time client privately; never replace an existing connection."""
+    try:
+        _dependencies()
+    except ImportError:
+        raise legacy.Problem('Install the YouTube OAuth dependencies on the storage backend.', 503) from None
+    if not isinstance(config, dict) or not isinstance(config.get('web'), dict):
+        raise legacy.Problem('Choose the Google OAuth JSON for a Web application.')
+    web = config['web']
+    if web.get('client_id') != google_signin.CLIENT_ID:
+        raise legacy.Problem('This JSON is for a different OAuth client. Select the existing Ecco Studio Web client.')
+    secret = web.get('client_secret')
+    if (not isinstance(secret, str) or not 8 <= len(secret) <= 4096
+            or secret != secret.strip() or '*' in secret or any(c.isspace() for c in secret)):
+        raise legacy.Problem('The JSON needs the full client secret downloaded when the secret was created.')
+    if (web.get('auth_uri') != 'https://accounts.google.com/o/oauth2/auth'
+            or web.get('token_uri') != 'https://oauth2.googleapis.com/token'):
+        raise legacy.Problem('Choose an unmodified Google OAuth client JSON file.')
+    # Google validates registered redirects at consent time. An older export may omit
+    # a newly registered callback, so always use our fixed callback, never the upload's.
+    # Retain only the values used by this integration; no supplied URLs or paths are followed.
+    clean = {'web': {k: web[k] for k in ('client_id', 'client_secret', 'auth_uri', 'token_uri')}}
+    clean['web']['redirect_uris'] = [CALLBACK]
+    with _lock:
+        if CLIENT_FILE.exists() or TOKEN_FILE.exists():
+            raise legacy.Problem('YouTube configuration already exists. Refresh Studio to connect.', 409)
+        CLIENT_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        fd, name = tempfile.mkstemp(prefix='.youtube-client-', dir=CLIENT_FILE.parent)
+        try:
+            with os.fdopen(fd, 'w') as output:
+                encrypted = _cipher(create=True).encrypt(json.dumps(clean).encode()).decode()
+                json.dump({'version': 1, 'encrypted': encrypted}, output)
+                output.flush()
+                os.fsync(output.fileno())
+            # Atomic, exclusive install: another request or process cannot be overwritten.
+            try:
+                os.link(name, CLIENT_FILE)
+            except FileExistsError:
+                raise legacy.Problem('YouTube configuration already exists. Refresh Studio to connect.', 409) from None
+        finally:
+            os.unlink(name)
+    return status()
 
 
 def _dependencies():
@@ -80,7 +126,8 @@ def status():
         configured = False
     saved = _saved() if configured else None
     channel = {k: saved['channel'][k] for k in ('id', 'title', 'handle')} if saved else None
-    return {'youtube_configured': configured, 'youtube_channel': channel}
+    return {'youtube_configured': configured, 'youtube_channel': channel,
+            'youtube_setup_available': not CLIENT_FILE.exists() and not TOKEN_FILE.exists()}
 
 
 def _cipher(create=False):

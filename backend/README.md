@@ -90,6 +90,21 @@ path. `ECCO_YOUTUBE_REDIRECT_URI` overrides the callback only when the new HTTPS
 URL is registered in that client; it must end in `/api/youtube/callback`.
 Never place the client secret or refresh token in GitHub or the browser UI.
 
+First-time setup can also use Studio: connect the private workspace storage,
+open Publishing, click **Connect YouTube securely**, select the downloaded
+Google Web OAuth client JSON, then click **Install configuration**. The file is
+sent directly to the CPU service through authenticated `POST /api/youtube/configure`
+(32 KB maximum). The service validates the existing client ID and Google's
+OAuth endpoints and uses only its configured callback URL; no uploaded redirect
+URL or file path is followed. Google still validates that the callback is registered
+when consent begins. The imported client configuration is encrypted with the same
+private Fernet key as the connection and installed atomically with 0600 permissions.
+The endpoint refuses to replace an existing configuration or saved connection.
+It returns availability only, never the secret. No configuration is stored in
+browser storage, the asset library, or GitHub. Existing plaintext client files
+remain supported. Back up both encrypted files and their key privately.
+After installation, click **Connect YouTube securely** again to grant consent.
+
 The consent flow requests only `youtube.readonly` and `youtube.upload`, uses
 short-lived single-use state and PKCE, and verifies the authenticated account
 owns the channel selected during Google authorization before saving anything.

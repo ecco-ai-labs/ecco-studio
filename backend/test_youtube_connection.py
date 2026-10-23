@@ -123,6 +123,82 @@ class YouTubeConnectionTest(unittest.TestCase):
                 yt.start()
         self.assertFalse(yt._pending)
 
+    def test_first_setup_encrypts_client_and_returns_only_safe_status(self):
+        self.client_file.unlink()
+        self.assertTrue(yt.status()['youtube_setup_available'])
+        self.config['web']['unused_secret'] = 'must-not-save-this'
+        self.config['web']['redirect_uris'] = ['https://untrusted.example/callback']
+        result = yt.configure(self.config)
+        self.assertTrue(result['youtube_configured'])
+        self.assertFalse(result['youtube_setup_available'])
+        self.assertIsNone(result['youtube_channel'])
+        self.assertNotIn('fixture-secret', json.dumps(result))
+        self.assertNotIn('fixture-secret', self.client_file.read_text())
+        self.assertNotIn('unused_secret', yt._config()['web'])
+        self.assertEqual(self.client_file.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(yt.KEY_FILE.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(yt._config()['web']['client_secret'], 'fixture-secret')
+        self.assertEqual(yt._config()['web']['redirect_uris'], [yt.CALLBACK])
+        self.assertIn('https://accounts.google.com/', yt.start()['url'])
+        self.assertFalse(list(self.client_file.parent.glob('.youtube-client-*')))
+
+    def test_setup_rejects_invalid_configs_without_writing_files(self):
+        self.client_file.unlink()
+        bad_configs = [None, [], {}, {'web': []}, {'installed': self.config['web']}]
+        for key, value in [('client_id', 'other-client'), ('client_secret', '****last'),
+                           ('client_secret', 123), ('client_secret', ' ' * 30),
+                           ('auth_uri', 'https://untrusted.example/auth'),
+                           ('token_uri', 'https://untrusted.example/token')]:
+            config = json.loads(json.dumps(self.config))
+            config['web'][key] = value
+            bad_configs.append(config)
+        for config in bad_configs:
+            with self.subTest(config=config):
+                with self.assertRaises(yt.legacy.Problem) as error:
+                    yt.configure(config)
+                self.assertNotIn('fixture-secret', error.exception.message)
+                self.assertFalse(self.client_file.exists())
+                self.assertFalse(yt.KEY_FILE.exists())
+
+    def test_setup_cannot_replace_existing_client_or_saved_channel(self):
+        before = self.client_file.read_bytes()
+        with self.assertRaises(yt.legacy.Problem) as error:
+            yt.configure(self.config)
+        self.assertEqual(error.exception.code, 409)
+        self.assertEqual(self.client_file.read_bytes(), before)
+        yt._save(self.credentials(), self.channel)
+        self.client_file.unlink()
+        before = self.token_file.read_bytes()
+        self.assertFalse(yt.status()['youtube_setup_available'])
+        with self.assertRaises(yt.legacy.Problem) as error:
+            yt.configure(self.config)
+        self.assertEqual(error.exception.code, 409)
+        self.assertEqual(self.token_file.read_bytes(), before)
+        self.assertFalse(self.client_file.exists())
+
+    def test_setup_exclusive_install_prevents_cross_process_overwrite(self):
+        self.client_file.unlink()
+        link = yt.os.link
+        def another_writer(source, target):
+            target.write_text('other-process-configuration')
+            return link(source, target)
+        with patch.object(yt.os, 'link', side_effect=another_writer):
+            with self.assertRaises(yt.legacy.Problem) as error:
+                yt.configure(self.config)
+        self.assertEqual(error.exception.code, 409)
+        self.assertEqual(self.client_file.read_text(), 'other-process-configuration')
+        self.assertFalse(list(self.client_file.parent.glob('.youtube-client-*')))
+
+    def test_client_encryption_key_loss_fails_closed_without_secret_output(self):
+        self.client_file.unlink()
+        yt.configure(self.config)
+        yt.KEY_FILE.unlink()
+        self.assertFalse(yt.status()['youtube_configured'])
+        self.assertFalse(yt.status()['youtube_setup_available'])
+        with self.assertRaises(yt.legacy.Problem) as error:
+            yt.start()
+        self.assertNotIn('fixture-secret', error.exception.message)
+
     def test_bounded_state_store_and_expired_state_cleanup(self):
         self.pending()
         with patch.object(yt, 'MAX_PENDING', 1):

@@ -11,6 +11,8 @@ function setup(){
  w.state={config:{youtube_configured:true,youtube_channel:null},records:[{id:'a',media:'video',stage:'prod',title:'Approved test video'}]};
  w.assets=()=>w.state.records;w.currentStory=()=>({title:'Test story'});w.names={};
  w.notice=(message,error)=>w.lastNotice={message,error};w.action=async fn=>{try{await fn();}catch(e){w.notice(e.message,true);}};
+ w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+ w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  w.eval(helpers);w.eval(readFileSync(join(__dirname,'../publishing-platforms.js'),'utf8'));w.publishPage();
  return {dom,w};
 }
@@ -82,7 +84,48 @@ test('GPU config cannot replace the CPU-owned YouTube connection',async t=>{
  const {dom,w}=setup();t.after(()=>dom.window.close());
  w.sessionStorage.setItem('ecco-storage-access','fixture-owner-key');w.localStorage.setItem('ecco-selected-gpu','test-gpu');w.localStorage.setItem('ecco-connected-gpus','["test-gpu"]');w.AbortSignal=AbortSignal;
  w.api=async()=>{};w.refresh=async()=>{};w.gpuConnected=()=>false;
- w.fetch=async()=>({ok:true,json:async()=>({records:[],config:{youtube_configured:true,youtube_channel:{id:'UC-owner'},gpu_relay:{gpus:[{id:'test-gpu',ready:true,config:{youtube_configured:false,youtube_channel:{id:'UC-wrong'}}}]}}})});
+ w.fetch=async()=>({ok:true,json:async()=>({records:[],config:{youtube_configured:true,youtube_channel:{id:'UC-owner'},youtube_setup_available:false,gpu_relay:{gpus:[{id:'test-gpu',ready:true,config:{youtube_configured:false,youtube_channel:{id:'UC-wrong'},youtube_setup_available:true}}]}}})});
  w.eval(readFileSync(join(__dirname,'../storage-client.js'),'utf8'));
- const state=await w.api('state');assert.equal(state.config.youtube_configured,true);assert.equal(state.config.youtube_channel.id,'UC-owner');
+ const state=await w.api('state');assert.equal(state.config.youtube_configured,true);assert.equal(state.config.youtube_channel.id,'UC-owner');assert.equal(state.config.youtube_setup_available,false);
+});
+test('first-time setup requires backend availability and opens without a Google window',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.state.config.youtube_configured=false;
+ w.updateYouTubeConnection();assert.equal(w.$('#connect-youtube').disabled,true);
+ w.state.config.youtube_setup_available=true;w.updateYouTubeConnection();assert.equal(w.$('#connect-youtube').disabled,false);
+ w.open=()=>{throw Error('Must not open Google before setup');};w.connectYouTube();
+ const dialog=w.$('#youtube-setup-dialog');assert.equal(dialog.open,true);assert.equal(w.document.activeElement,dialog.querySelector('input'));
+ w.connectYouTube();assert.equal(w.document.querySelectorAll('#youtube-setup-dialog').length,1);
+ dialog.querySelector('[data-close]').click();assert.equal(w.$('#youtube-setup-dialog'),null);assert.equal(w.document.activeElement,w.$('#connect-youtube'));
+});
+test('JSON upload uses CPU auth, closes on success, preserves drafts and never caches secrets',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.state.config.youtube_configured=false;w.state.config.youtube_setup_available=true;
+ w.sessionStorage.setItem('ecco-storage-access','fixture-owner-key');w.AbortSignal=AbortSignal;w.gpuConnected=()=>false;w.api=async()=>{throw Error('GPU must not be used');};w.refresh=async()=>{};
+ const requests=[];w.fetch=async(url,options)=>{requests.push({url,options});return {ok:true,json:async()=>({youtube_configured:true,youtube_setup_available:false,youtube_channel:null})};};
+ w.eval(readFileSync(join(__dirname,'../storage-client.js'),'utf8'));
+ w.$('[name=title]').value='Keep my edited title';w.connectYouTube();
+ const input=w.$('#youtube-setup-dialog input'),form=input.form;
+ Object.defineProperty(input,'files',{value:[{size:100,text:async()=>JSON.stringify({web:{client_secret:'fixture-json-secret'}})}]});
+ await form.onsubmit({preventDefault(){}});
+ assert.equal(requests.length,1);assert.match(requests[0].url,/\/api\/youtube\/configure$/);assert.equal(requests[0].options.headers.Authorization,'Bearer fixture-owner-key');
+ assert.equal(w.$('#youtube-setup-dialog'),null);assert.equal(w.state.config.youtube_configured,true);assert.equal(w.state.config.youtube_setup_available,false);
+ assert.equal(w.$('[name=title]').value,'Keep my edited title');assert.equal(w.state.config.youtube_channel,null);
+ for(const value of [JSON.stringify(w.state),JSON.stringify(w.sessionStorage),JSON.stringify(w.localStorage),w.document.body.textContent])assert.ok(!value.includes('fixture-json-secret'));
+});
+test('invalid and oversized files make no requests and parse errors never reveal file contents',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.state.config.youtube_configured=false;w.state.config.youtube_setup_available=true;
+ let requests=0;w.api=async()=>{requests++;};
+ for(const file of [{size:32769,text:async()=>''},{size:100,text:async()=>'fixture-secret-not-json'},{size:100,text:async()=>'[]'}]){
+  w.connectYouTube();const dialog=w.$('#youtube-setup-dialog'),input=dialog.querySelector('input');
+  Object.defineProperty(input,'files',{value:[file]});await input.form.onsubmit({preventDefault(){}});
+  assert.equal(requests,0);assert.ok(!dialog.textContent.includes('fixture-secret-not-json'));assert.equal(input.disabled,false);dialog.close();
+ }
+});
+test('install errors retain retry controls and prevent duplicate submissions',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.state.config.youtube_configured=false;w.state.config.youtube_setup_available=true;
+ let reject,requests=0;w.api=()=>{requests++;return new Promise((_,r)=>{reject=r;});};w.connectYouTube();
+ const dialog=w.$('#youtube-setup-dialog'),input=dialog.querySelector('input'),form=input.form;
+ Object.defineProperty(input,'files',{value:[{size:100,text:async()=>'{"web":{}}'}]});
+ const pending=form.onsubmit({preventDefault(){}});await Promise.resolve();await form.onsubmit({preventDefault(){}});assert.equal(requests,1);
+ reject(Error('This JSON is for a different OAuth client.'));await pending;
+ assert.equal(dialog.open,true);assert.match(dialog.querySelector('[data-status]').textContent,/different OAuth client/);assert.equal(form.querySelector('[type=submit]').disabled,false);assert.equal(w.state.config.youtube_configured,false);
 });
