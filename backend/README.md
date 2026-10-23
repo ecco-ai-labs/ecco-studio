@@ -92,14 +92,27 @@ Never place the client secret or refresh token in GitHub or the browser UI.
 
 The consent flow requests only `youtube.readonly` and `youtube.upload`, uses
 short-lived single-use state and PKCE, and verifies the authenticated account
-owns **@EccoAILabs** before saving anything. While the Google app is in Testing,
+owns the channel selected during Google authorization before saving anything.
+The existing private workspace has one connected channel at a time; reconnect
+replaces it. This does not provision isolated workspaces for public users. While the Google app is in Testing,
 the channel owner's Google account must be on its test-user list. YouTube
 scopes may require Google's verification before wider production use; the
 basic Google sign-in audience can still allow any Google account.
 
-Verified channel metadata and OAuth credentials are saved atomically to
+Verified channel metadata and OAuth credentials are encrypted with Fernet and saved atomically to
 `/workspace/ecco-storage-private/youtube-connection.json` (0600), overridable
-with `ECCO_YOUTUBE_TOKEN_FILE`. Only sanitized channel metadata reaches Studio.
+with `ECCO_YOUTUBE_TOKEN_FILE`. The encryption key is created with 0600 permissions
+at `/workspace/ecco-storage-private/youtube-encryption.key` (`ECCO_YOUTUBE_KEY_FILE`
+may override it). Back up the encrypted token and key privately. Only sanitized
+channel metadata reaches Studio. Existing plaintext connections remain readable
+and are encrypted on their next credential save. Disconnect deletes the local
+connection and cancels pending consent callbacks; it does not delete videos or
+revoke other Google applications.
+
+Uploads must include the channel ID shown in the review form. It is checked
+before queueing and again when the worker starts. A channel switch clears UI
+confirmation and cannot redirect a queued upload. Schedule uploads as private
+with a future UTC `publish_at`; YouTube handles the eventual release.
 The callback deliberately bypasses workspace Bearer auth (Google redirects
 cannot carry that header), but cannot exchange a code without the pending
 owner-initiated state. Callback URLs and provider exceptions are never logged.

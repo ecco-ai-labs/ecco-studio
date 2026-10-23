@@ -28,7 +28,7 @@ import youtube_connection
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
-    '/api/youtube/connect', '/api/youtube/publish',
+    '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect',
     '/api/library/rename',
     '/api/longcat/control', '/api/longcat/sequence', '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
     '/api/ai/news/research', '/api/ai/news/storyboard',
@@ -148,8 +148,9 @@ class Handler(legacy.Handler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
             if path == '/api/youtube/connect': return self.send(youtube_connection.start())
+            if path == '/api/youtube/disconnect': return self.send(youtube_connection.disconnect())
             if path == '/api/youtube/publish':
-                return self.send(legacy.publish(body, client_factory=youtube_connection.client))
+                return self.send(youtube_connection.publish(body))
             if path.startswith('/api/ai/'):
                 return self.send(openai_assistant.handle(path, body, vars(legacy)))
             if path == '/api/library/rename': return self.send(library_rename.rename(body, vars(legacy)))

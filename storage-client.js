@@ -125,7 +125,7 @@
   if(path==='state'){
    verified=true;errorShown=false;connectAudio();
    acceptGPUHealth(data.config.gpu_relay);
-   if(isGPUConnected(selectedGPU))data.config={...data.config,...selectedHealth().config,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay,longcat:data.config.longcat};
+   if(isGPUConnected(selectedGPU))data.config={...data.config,...selectedHealth().config,youtube_configured:data.config.youtube_configured,youtube_channel:data.config.youtube_channel,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay,longcat:data.config.longcat};
   }
   return data;
  };

@@ -51,3 +51,38 @@ test('YouTube requests use authenticated CPU endpoint even with no GPU connected
  assert.equal(gpuRequests,0);assert.equal(requests.length,2);
  for(const request of requests){assert.match(request.url,/^https:\/\/vowmjru85f2gzo-8888\.proxy\.runpod\.net\/api\/youtube\//);assert.equal(request.options.headers.Authorization,'Bearer fixture-owner-key');}
 });
+test('channel change clears confirmation and submits the reviewed channel ID',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());
+ w.state.config.youtube_channel={id:'UC-owner',title:'Owner',handle:'@Owner'};w.updateYouTubeConnection();
+ const form=w.$('#publish-form'),confirmed=form.querySelector('[name=confirmed]');confirmed.checked=true;
+ w.state.config.youtube_channel={id:'UC-next',title:'Next',handle:''};w.updateYouTubeConnection();
+ assert.equal(confirmed.checked,false);assert.match(confirmed.nextElementSibling.textContent,/Next \(UC-next\)/);
+ assert.equal(form.querySelector('[name=channel_id]').value,'UC-next');
+ assert.equal(w.$('#connect-youtube').textContent,'Reconnect YouTube');
+ let request;w.api=async(path,body)=>{request={path,body};};confirmed.checked=true;
+ form.querySelector('[name=made_for_kids]').value='false';
+ form.dispatchEvent(new w.Event('submit',{cancelable:true}));await Promise.resolve();
+ assert.equal(request.body.channel_id,'UC-next');assert.equal(request.body.confirmed,true);
+});
+test('scheduling uses UTC and only the YouTube panel exposes it',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());const form=w.$('#publish-form');
+ const visibility=form.querySelector('[name=visibility]'),date=form.querySelector('[name=publish_at]');
+ visibility.value='schedule';visibility.dispatchEvent(new w.Event('change'));assert.equal(date.required,true);assert.equal(date.closest('label').hidden,false);
+ date.value='2099-01-02T12:30';let request;w.api=async(path,body)=>{request={path,body};};
+ form.dispatchEvent(new w.Event('submit',{cancelable:true}));await Promise.resolve();
+ assert.equal(request.body.visibility,'private');assert.equal(request.body.publish_at,new Date(date.value).toISOString());
+ assert.equal(w.document.querySelectorAll('[name=publish_at]').length,1);
+});
+test('disconnect uses CPU auth and immediately removes the destination',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.state.config.youtube_channel={id:'UC-owner',title:'Owner',handle:'@Owner'};w.updateYouTubeConnection();
+ let path;w.api=async p=>{path=p;};await w.$('#disconnect-youtube').onclick();
+ assert.equal(path,'youtube/disconnect');assert.equal(w.state.config.youtube_channel,null);assert.equal(w.$('.publishing-toolbar button').disabled,true);
+});
+test('GPU config cannot replace the CPU-owned YouTube connection',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());
+ w.sessionStorage.setItem('ecco-storage-access','fixture-owner-key');w.localStorage.setItem('ecco-selected-gpu','test-gpu');w.localStorage.setItem('ecco-connected-gpus','["test-gpu"]');w.AbortSignal=AbortSignal;
+ w.api=async()=>{};w.refresh=async()=>{};w.gpuConnected=()=>false;
+ w.fetch=async()=>({ok:true,json:async()=>({records:[],config:{youtube_configured:true,youtube_channel:{id:'UC-owner'},gpu_relay:{gpus:[{id:'test-gpu',ready:true,config:{youtube_configured:false,youtube_channel:{id:'UC-wrong'}}}]}}})});
+ w.eval(readFileSync(join(__dirname,'../storage-client.js'),'utf8'));
+ const state=await w.api('state');assert.equal(state.config.youtube_configured,true);assert.equal(state.config.youtube_channel.id,'UC-owner');
+});

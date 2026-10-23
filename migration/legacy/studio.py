@@ -579,33 +579,48 @@ def oauth_finish(query):
     with os.fdopen(fd,'w') as f: f.write(flow.credentials.to_json())
     (DATA/'youtube-channel.json').write_text(json.dumps(channel))
 
-def publish(body, client_factory=None):
+def publish(body, client_factory=None, channel_verifier=None):
     make_client = client_factory or yt_client
+    check_channel = channel_verifier or verify_channel
     a=get(body.get('asset_id',''),'asset')
     if a['media']!='video' or a['stage']!='prod': raise Problem('Only approved videos can be uploaded',409)
     if body.get('confirmed') is not True: raise Problem('Confirm the channel, video and visibility first',409)
     privacy=body.get('visibility','private')
     if privacy not in ('private','unlisted','public'): raise Problem('Invalid visibility')
+    publish_at = body.get('publish_at')
+    if publish_at:
+        from datetime import datetime, timezone
+        try:
+            scheduled = datetime.fromisoformat(publish_at.replace('Z', '+00:00'))
+            if scheduled.tzinfo is None or scheduled <= datetime.now(timezone.utc): raise ValueError()
+            publish_at = scheduled.astimezone(timezone.utc).isoformat()
+        except (ValueError, TypeError, AttributeError):
+            raise Problem('Choose a future publishing date and time with a timezone')
+        if privacy != 'private': raise Problem('Scheduled videos must upload as private')
     if not isinstance(body.get('made_for_kids'),bool): raise Problem('Choose an audience setting')
     title=text(body.get('title'),100); description=str(body.get('description',''))[:5000]
     with LOCK:
         a=get(a['id'],'asset')
         if a.get('upload_state'): raise Problem('An upload was already started. Check YouTube Studio before attempting another.',409)
-        verify_channel(make_client())
-        a['upload_state']='reserved'; save(a)
+        channel = check_channel(make_client())
+        a.update(upload_state='reserved', youtube_channel_id=channel['id']); save(a)
     def upload(jid):
         from googleapiclient.http import MediaFileUpload
-        client=make_client(); verify_channel(client)
-        req=client.videos().insert(part='snippet,status',body={'snippet':{'title':title,'description':description},'status':{'privacyStatus':privacy,'selfDeclaredMadeForKids':body['made_for_kids']}},media_body=MediaFileUpload(str(asset_path(a)),mimetype='video/mp4',resumable=True))
+        client=make_client(); check_channel(client)
+        if publish_at and scheduled <= datetime.now(timezone.utc):
+            raise Problem('The scheduled publishing time has passed. Review the upload before retrying.', 409)
+        status = {'privacyStatus':privacy,'selfDeclaredMadeForKids':body['made_for_kids']}
+        if publish_at: status['publishAt'] = publish_at
+        req=client.videos().insert(part='snippet,status',body={'snippet':{'title':title,'description':description},'status':status},media_body=MediaFileUpload(str(asset_path(a)),mimetype='video/mp4',resumable=True))
         # Never auto-retry ambiguous upload failures: avoids duplicate publication.
         response=None
         while response is None:
             progress,response=req.next_chunk(num_retries=0)
             if progress: job_update(jid,progress=f'Uploading: {round(progress.progress()*100)}%')
         with LOCK:
-            record=get(a['id']); record.update(upload_state='uploaded',youtube_id=response['id'],youtube_visibility=response.get('status',{}).get('privacyStatus','unknown'),sync='pending'); save(record)
+            record=get(a['id']); record.update(upload_state='uploaded',youtube_id=response['id'],youtube_visibility=response.get('status',{}).get('privacyStatus','unknown'),youtube_publish_at=response.get('status',{}).get('publishAt'),sync='pending'); save(record)
         return response['id']
-    try: return launch('Upload approved video to @EccoAILabs',upload)
+    try: return launch('Upload approved video to '+(channel.get('handle') or channel['title']),upload)
     except Exception:
         a.pop('upload_state',None); save(a); raise
 

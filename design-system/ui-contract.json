@@ -1675,7 +1675,11 @@
     "types": [
       "tabs",
       "button",
-      "icon"
+      "icon",
+      "date-time",
+      "form",
+      "badge",
+      "link"
     ],
     "options": [
       "YouTube",
@@ -1693,7 +1697,9 @@
     "submit": "One Publish button above tabs; submits existing YouTube form with validation and confirmation when available. Disabled for unconfigured platforms; no simulated upload.",
     "youtubeAuthorization": "Existing Connect YouTube button opens the Google authorization window directly from its click, before awaiting the API. Pending requests disable the button; blocked/closed windows and backend errors use existing error UI. Backend-verified channel changes update the live badge and Publish availability without replacing form edits, tab selection or keyboard focus. OAuth state is single-use with PKCE; tokens stay on the backend. Google sign-in alone does not authorize workspace access.",
     "selection": "The Publish navigation step remains active on the publishing page, using the existing theme-colored inset left highlight. Selected platform tabs use the same 3px inset left accent, replacing the bottom underline; no full accent border. Default yellow, active theme accent otherwise.",
-    "forms": "All six platforms share connection-card and editable approved-video, title, description, visibility/destination and review-confirmation form layout. Headings use Platform Connection. Drafts survive switching tabs within the page. Other-platform Connect and Publish remain disabled until actual backend integration exists; no simulated connections or uploads. Visibility choices and destination labels are platform-specific; YouTube authorization remains unchanged."
+    "forms": "All six platforms share connection-card and editable approved-video, title, description, visibility/destination and review-confirmation form layout. Headings use Platform Connection. Drafts survive switching tabs within the page. Other-platform Connect and Publish remain disabled until actual backend integration exists; no simulated connections or uploads. Visibility choices and destination labels are platform-specific; YouTube authorization remains unchanged.",
+    "youtubeChannels": "One owner-authorized channel per private workspace. Any channel returned by Google mine=true is supported. Reconnect and Disconnect use existing buttons and theme styles. Review shows channel name/handle and ID; changing channel clears confirmation. Upload requests bind the confirmed channel ID and verify it before queuing and uploading. No workspace access is granted by Google sign-in.",
+    "youtubeSchedule": "Schedule in the existing Visibility dropdown reveals a registered date-time input using existing form styles. Browser-local time converts to UTC; backend requires a future timezone-qualified time and private upload. Other-platform forms do not expose scheduling. Completed uploads link to YouTube."
   },
   "educationDiscord": {
     "type": "menu-item",

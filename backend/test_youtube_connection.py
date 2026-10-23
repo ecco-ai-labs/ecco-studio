@@ -24,7 +24,7 @@ class YouTubeConnectionTest(unittest.TestCase):
                               'token_uri': 'https://oauth2.googleapis.com/token',
                               'redirect_uris': [yt.CALLBACK]}}
         self.client_file.write_text(json.dumps(self.config))
-        for name, value in [('CLIENT_FILE', self.client_file), ('TOKEN_FILE', self.token_file)]:
+        for name, value in [('CLIENT_FILE', self.client_file), ('TOKEN_FILE', self.token_file), ('KEY_FILE', Path(self.tmp.name) / 'private' / 'key')]:
             p = patch.object(yt, name, value)
             p.start()
             self.addCleanup(p.stop)
@@ -41,7 +41,7 @@ class YouTubeConnectionTest(unittest.TestCase):
 
     def pending(self, credentials=None):
         flow = Mock(credentials=credentials or self.credentials())
-        yt._pending['fixture-state'] = (time.monotonic(), flow)
+        yt._pending['fixture-state'] = (time.monotonic(), flow, yt._generation)
         return flow
 
     def finish(self):
@@ -62,7 +62,7 @@ class YouTubeConnectionTest(unittest.TestCase):
 
     def test_callback_saves_only_verified_channel_with_private_permissions(self):
         flow = self.pending()
-        with patch.object(yt, '_build'), patch.object(yt.legacy, 'verify_channel', return_value=self.channel):
+        with patch.object(yt, '_build'), patch.object(yt, 'verify_channel', return_value=self.channel):
             self.assertEqual(self.finish(), self.channel)
         flow.fetch_token.assert_called_once_with(code='fixture-code', timeout=20)
         self.assertEqual(self.token_file.stat().st_mode & 0o777, 0o600)
@@ -77,7 +77,7 @@ class YouTubeConnectionTest(unittest.TestCase):
         yt._save(self.credentials(), self.channel)
         before = self.token_file.read_bytes()
         self.pending()
-        with patch.object(yt, '_build'), patch.object(yt.legacy, 'verify_channel', side_effect=yt.legacy.Problem('Wrong channel', 403)):
+        with patch.object(yt, '_build'), patch.object(yt, 'verify_channel', side_effect=yt.legacy.Problem('Wrong channel', 403)):
             with self.assertRaises(yt.legacy.Problem) as error:
                 self.finish()
         self.assertEqual(error.exception.code, 403)
@@ -88,7 +88,7 @@ class YouTubeConnectionTest(unittest.TestCase):
                            ({'state': ['fixture-state', 'second']}, 0),
                            ({'state': ['fixture-state'], 'error': ['access_denied']}, 0)]:
             flow = self.pending()
-            yt._pending['fixture-state'] = (time.monotonic() - age, flow)
+            yt._pending['fixture-state'] = (time.monotonic() - age, flow, yt._generation)
             with self.assertRaises(yt.legacy.Problem):
                 yt.finish(query)
             flow.fetch_token.assert_not_called()
@@ -129,7 +129,7 @@ class YouTubeConnectionTest(unittest.TestCase):
             with self.assertRaises(yt.legacy.Problem) as error:
                 yt.start()
             self.assertEqual(error.exception.code, 429)
-            yt._pending['fixture-state'] = (time.monotonic() - yt.TTL, Mock())
+            yt._pending['fixture-state'] = (time.monotonic() - yt.TTL, Mock(), yt._generation)
             yt.start()
         self.assertEqual(len(yt._pending), 1)
         self.assertNotIn('fixture-state', yt._pending)
@@ -152,6 +152,91 @@ class YouTubeConnectionTest(unittest.TestCase):
             factory.assert_not_called()
             launch.assert_not_called()
 
+
+    def test_any_owned_channel_is_verified_without_public_handle_lookup(self):
+        client = Mock()
+        client.channels.return_value.list.return_value.execute.return_value = {'items': [
+            {'id': 'UC-owner', 'snippet': {'title': 'Owner channel', 'customUrl': '@Owner'}}]}
+        self.assertEqual(yt.verify_channel(client), {'id': 'UC-owner', 'title': 'Owner channel', 'handle': '@Owner'})
+        client.channels.return_value.list.assert_called_once_with(part='snippet', mine=True)
+        with self.assertRaises(yt.legacy.Problem):
+            yt.verify_channel(client, 'UC-other')
+        for items in ([], [{'id': 'UC-one'}, {'id': 'UC-two'}]):
+            client.channels.return_value.list.return_value.execute.return_value = {'items': items}
+            with self.assertRaises(yt.legacy.Problem):
+                yt.verify_channel(client)
+
+    def test_tokens_are_encrypted_and_missing_key_fails_closed(self):
+        yt._save(self.credentials(), self.channel)
+        self.assertNotIn('fixture-refresh', self.token_file.read_text())
+        self.assertNotIn('fixture-secret', self.token_file.read_text())
+        self.assertEqual(yt.KEY_FILE.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(yt._saved()['channel'], self.channel)
+        yt.KEY_FILE.unlink()
+        self.assertIsNone(yt._saved())
+
+    def test_disconnection_cancels_pending_and_inflight_authorization(self):
+        yt._save(self.credentials(), self.channel)
+        flow = self.pending()
+        flow.fetch_token.side_effect = lambda **kwargs: yt.disconnect()
+        with patch.object(yt, '_build'), patch.object(yt, 'verify_channel', return_value=self.channel):
+            with self.assertRaises(yt.legacy.Problem):
+                self.finish()
+        self.assertFalse(self.token_file.exists())
+        self.assertFalse(yt._pending)
+
+    def test_publish_requires_confirmed_destination_and_binds_both_checks(self):
+        with patch.object(yt.legacy, 'publish') as publish:
+            for body in ({}, {'channel_id': 'https://evil.example'}):
+                with self.assertRaises(yt.legacy.Problem):
+                    yt.publish(body)
+            publish.assert_not_called()
+            yt.publish({'channel_id': 'UC-owner'})
+            kwargs = publish.call_args.kwargs
+            with patch.object(yt, 'client') as client:
+                kwargs['client_factory']()
+                client.assert_called_once_with('UC-owner')
+            with patch.object(yt, 'verify_channel') as verify:
+                kwargs['channel_verifier']('api')
+                verify.assert_called_once_with('api', 'UC-owner')
+
+    def test_channel_switch_before_worker_cannot_upload_to_new_destination(self):
+        yt._save(self.credentials(), self.channel)
+        with self.assertRaises(yt.legacy.Problem), patch.object(yt, '_build') as build:
+            yt.client('UC-other')
+        build.assert_not_called()
+
+    def test_scheduled_resumable_upload_records_channel_visibility_and_time(self):
+        from datetime import datetime, timedelta, timezone
+        scheduled = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        asset = {'id': 'a'*32, 'kind': 'asset', 'media': 'video', 'stage': 'prod'}
+        body = {'asset_id': asset['id'], 'confirmed': True, 'channel_id': self.channel['id'],
+                'visibility': 'private', 'made_for_kids': False, 'title': 'Test', 'publish_at': scheduled}
+        client = Mock()
+        client.videos.return_value.insert.return_value.next_chunk.return_value = (None, {
+            'id': 'test-video', 'status': {'privacyStatus': 'private', 'publishAt': scheduled}})
+        verifier = Mock(return_value=self.channel)
+        with patch.object(yt.legacy, 'get', return_value=asset), patch.object(yt.legacy, 'save'), \
+                patch.object(yt.legacy, 'asset_path', return_value=Path('test.mp4')), \
+                patch('googleapiclient.http.MediaFileUpload') as media, \
+                patch.object(yt.legacy, 'launch', side_effect=lambda label, fn: fn('job')):
+            self.assertEqual(yt.legacy.publish(body, client_factory=lambda: client, channel_verifier=verifier), 'test-video')
+        self.assertEqual(verifier.call_count, 2)
+        media.assert_called_once_with('test.mp4', mimetype='video/mp4', resumable=True)
+        status = client.videos.return_value.insert.call_args.kwargs['body']['status']
+        self.assertEqual(status['publishAt'], scheduled)
+        self.assertEqual(status['privacyStatus'], 'private')
+        self.assertEqual(asset['youtube_channel_id'], self.channel['id'])
+        self.assertEqual(asset['youtube_publish_at'], scheduled)
+
+    def test_invalid_schedule_never_reaches_upload(self):
+        asset = {'id': 'a'*32, 'media': 'video', 'stage': 'prod'}
+        with patch.object(yt.legacy, 'get', return_value=asset), patch.object(yt.legacy, 'launch') as launch:
+            for date, visibility in [('invalid', 'private'), ('2000-01-01T00:00:00Z', 'private'),
+                                     ('2099-01-01T00:00:00', 'private'), ('2099-01-01T00:00:00Z', 'public')]:
+                with self.assertRaises(yt.legacy.Problem):
+                    yt.legacy.publish({'confirmed': True, 'publish_at': date, 'visibility': visibility})
+            launch.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()

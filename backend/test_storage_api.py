@@ -44,8 +44,8 @@ class StorageTest(unittest.TestCase):
   with self.assertRaises(HTTPError) as error:self.call('/api/state',auth=False)
   self.assertEqual(error.exception.code,401)
  def test_youtube_write_routes_require_workspace_authorization(self):
-  with patch.object(api.youtube_connection,'start') as start,patch.object(api.legacy,'publish') as publish:
-   for path in ('/api/youtube/connect','/api/youtube/publish'):
+  with patch.object(api.youtube_connection,'start') as start,patch.object(api.youtube_connection,'publish') as publish:
+   for path in ('/api/youtube/connect','/api/youtube/publish','/api/youtube/disconnect'):
     for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:
      with self.assertRaises(HTTPError) as error:self.call(path,{},auth=auth,origin=origin)
      self.assertEqual(error.exception.code,code)
@@ -54,9 +54,9 @@ class StorageTest(unittest.TestCase):
   with patch.object(api.youtube_connection,'start',return_value={'url':'https://accounts.google.com/test'}) as start:
    with self.call('/api/youtube/connect',{}) as response:self.assertIn('url',json.load(response))
    start.assert_called_once_with()
-  with patch.object(api.legacy,'publish',return_value={'id':'test-job'}) as publish:
+  with patch.object(api.youtube_connection,'publish',return_value={'id':'test-job'}) as publish:
    with self.call('/api/youtube/publish',{'confirmed':True}) as response:self.assertEqual(json.load(response)['id'],'test-job')
-   publish.assert_called_once_with({'confirmed':True},client_factory=api.youtube_connection.client)
+   publish.assert_called_once_with({'confirmed':True})
  def test_youtube_callback_is_public_but_requires_valid_state(self):
   with self.assertRaises(HTTPError) as error:self.call('/api/youtube/callback?code=never-log-this',auth=False)
   self.assertEqual(error.exception.code,403)

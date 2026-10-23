@@ -6,4 +6,5 @@ html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-acc
 .publishing-tabs svg{width:18px;height:18px;flex:0 0 18px}
 .publishing-tabs>button:focus-visible,.publishing-panel:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:3px}
 .publishing-panel[hidden]{display:none!important}
+.publishing-panel [data-youtube-only][hidden]{display:none!important}
 .publishing-toolbar{display:flex;justify-content:flex-end;margin-bottom:12px}

@@ -30,7 +30,7 @@
     const grid=document.createElement('div');grid.className='grid';
     const connection=document.createElement('div');connection.className='panel form';
     connection.innerHTML='<h2>'+name+' Connection</h2><span class="badge pending">Not connected</span><button type="button" disabled title="'+name+' integration is not configured">Connect '+name+' securely</button>';
-    const draft=form.cloneNode(true);draft.removeAttribute('id');draft.dataset.platform=id;
+    const draft=form.cloneNode(true);draft.removeAttribute('id');draft.dataset.platform=id;draft.querySelectorAll('[data-youtube-only], [name=channel_id]').forEach(node=>node.remove());
     draft.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));
     // Keep draft fields editable without routing another platform to YouTube.
     draft.onsubmit=event=>event.preventDefault();
