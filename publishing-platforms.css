@@ -22,3 +22,9 @@ html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-acc
 .publishing-toolbar .help{margin:0}
 #youtube-connection label{margin-top:12px}
 #youtube-connection #disconnect-youtube{margin-top:12px}
+
+#youtube-playlist-dialog{width:min(540px,calc(100vw - 32px))}
+#youtube-playlists .row{gap:8px;margin-top:8px;flex-wrap:wrap}
+#youtube-playlists .row button{width:auto}
+#youtube-playlists .help{margin:8px 0 0}
+#youtube-connection #enable-youtube-playlists{margin-top:12px}

@@ -125,7 +125,7 @@
   if(path==='state'){
    verified=true;errorShown=false;connectAudio();
    acceptGPUHealth(data.config.gpu_relay);
-   if(isGPUConnected(selectedGPU))data.config={...data.config,...selectedHealth().config,youtube_configured:data.config.youtube_configured,youtube_channel:data.config.youtube_channel,youtube_channels:data.config.youtube_channels,youtube_multi_channel:data.config.youtube_multi_channel,publishing_connections:data.config.publishing_connections,youtube_setup_available:data.config.youtube_setup_available,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay,longcat:data.config.longcat};
+   if(isGPUConnected(selectedGPU))data.config={...data.config,...selectedHealth().config,youtube_configured:data.config.youtube_configured,youtube_channel:data.config.youtube_channel,youtube_channels:data.config.youtube_channels,youtube_playlists_available:data.config.youtube_playlists_available,youtube_playlist_write:data.config.youtube_playlist_write,publishing_connections:data.config.publishing_connections,youtube_setup_available:data.config.youtube_setup_available,storage:data.config.storage,ai:data.config.ai,ai_story_planner:data.config.ai_story_planner,gpu_relay:data.config.gpu_relay,longcat:data.config.longcat};
   }
   return data;
  };

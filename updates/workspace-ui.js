@@ -340,15 +340,9 @@
  function publishMenu(){
   const video=videoLibraryAssets().find(r=>r.id===selectedVideoId);
   if(video){persistDraft();activeStory=video.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();lastSignature='';storyControls();}
-  let dialog=q('#workspace-publish-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='workspace-publish-dialog';document.body.append(dialog);}
-  dialog.innerHTML='<div class="form"><div class="section-head"><h2>Publishing</h2><button type="button" class="secondary" data-close>Close</button></div><p data-video></p><div data-publish-controls></div></div>';dialog.style.width='min(1000px,94vw)';
-  dialog.querySelector('[data-video]').textContent=video?'Selected video: '+(video.title||'Untitled video'):'Select a reviewed, approved video from Video Library before uploading. You can connect your YouTube channel below.';
-  const preview=document.createElement('video');preview.controls=true;preview.hidden=!video;preview.src=video?media(video):'';preview.style.cssText='width:100%;max-height:260px';dialog.querySelector('[data-video]').after(preview);dialog.onclose=()=>preview.pause();dialog.querySelector('[data-close]').onclick=()=>dialog.close();
-  const pageNode=q('#page'),previous=[...pageNode.childNodes];previous.forEach(n=>n.remove());
-  try{publishPage();dialog.querySelector('[data-publish-controls]').append(...pageNode.childNodes);}
-  finally{pageNode.replaceChildren(...previous);}
-  const select=dialog.querySelector('select[name="asset_id"]');if(select&&video){select.value=video.id;select.disabled=true;const fixed=document.createElement('input');fixed.type='hidden';fixed.name='asset_id';fixed.value=video.id;select.after(fixed);}
-  dialog.showModal();
+  navigate('publish');
+  const select=q('#publish-form [name="asset_id"]');
+  if(select&&video){select.value=video.id;select.dispatchEvent(new Event('change'));}
  }
  function uploadVideoDialog(){
   let d=q('#workspace-upload-video-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-upload-video-dialog';document.body.append(d);}
@@ -599,7 +593,7 @@
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!e.composedPath().includes(d))d.open=false;});});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
- window.EccoWorkspaceUI={labelDialog,createFolder,uploadDialog,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
+ window.EccoWorkspaceUI={openLibrary(kind){if(kind==='video')libraryOverview('video');else if(kind==='audio')navigate('audio-library');},labelDialog,createFolder,uploadDialog,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
  const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
  modernize();welcomePage();
 })();

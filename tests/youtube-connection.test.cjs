@@ -4,7 +4,7 @@ const {readFileSync}=require('node:fs');
 const {join}=require('node:path');
 const {JSDOM}=require('jsdom');
 const source=readFileSync(join(__dirname,'../studio.js'),'utf8');
-const helpers=source.slice(source.indexOf('function connectYouTube(){'),source.indexOf('function navigate(p)'));
+const helpers=source.slice(source.indexOf('function connectYouTube('),source.indexOf('function navigate(p)'));
 function setup(){
  const dom=new JSDOM('<main><header><div id="connection-indicators"></div></header><div id="page"></div></main><dialog id="connection-dialog"><div id="connections"></div></dialog>',{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/'}),w=dom.window;
  w.$=selector=>w.document.querySelector(selector);w.esc=s=>String(s??'');
@@ -14,7 +14,7 @@ function setup(){
  w.notice=(message,error)=>w.lastNotice={message,error};w.action=async fn=>{try{await fn();}catch(e){w.notice(e.message,true);}};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
- w.eval(helpers);w.eval(readFileSync(join(__dirname,'../publishing-platforms.js'),'utf8'));w.publishPage();
+ w.eval(helpers);w.eval(readFileSync(join(__dirname,'../publishing-platforms.js'),'utf8'));w.eval(readFileSync(join(__dirname,'../youtube-playlists.js'),'utf8'));w.publishPage();
  w.EccoAI={connections:()=>{w.$('#connections').replaceChildren();w.EccoYouTube.mount(w.$('#connections'));w.EccoPublishing.mountConnections(w.$('#connections'));w.$('#connection-dialog').showModal();}};w.EccoAI.connections();
  return {dom,w};
 }
@@ -182,26 +182,14 @@ test('nested storage authentication preserves the JSON selection and publishing 
 });
 
 // Multiple destinations must stay explicit across refreshes and disconnections.
-test('channel selector retains selection, clears consent and binds upload to the selected channel',async t=>{
- const {dom,w}=setup();t.after(()=>dom.window.close());
- const first={id:'UC-one',title:'First',handle:'@First'},second={id:'UC-two',title:'Second',handle:'@Second'};
- w.state.config.youtube_channels=[first,second];w.state.config.youtube_multi_channel=true;w.updateYouTubeConnection();
- const select=w.$('#publish-form [name=channel_id]'),check=w.$('#publish-form [name=confirmed]'),publish=w.$('.publishing-toolbar button');
- assert.equal(select.options.length,3);assert.equal(select.value,'');assert.equal(publish.disabled,true);assert.match(publish.title,/Choose a YouTube channel/);
- select.value=second.id;select.dispatchEvent(new w.Event('change'));check.checked=true;w.updateYouTubeConnection();assert.equal(check.checked,true);assert.equal(select.value,second.id);
- w.state.config.youtube_channels=[first,second,{id:'UC-three',title:'Third'}];w.updateYouTubeConnection();assert.equal(select.value,second.id);assert.equal(check.checked,true);
- let request;w.api=async(path,body)=>{request={path,body};};w.$('#publish-form').dispatchEvent(new w.Event('submit',{cancelable:true}));await Promise.resolve();assert.equal(request.body.channel_id,second.id);
- select.value=first.id;select.dispatchEvent(new w.Event('change'));assert.equal(check.checked,false);assert.match(check.nextElementSibling.textContent,/UC-one/);
- w.state.config.youtube_channels=[second,{id:'UC-three',title:'Third'}];w.updateYouTubeConnection();assert.equal(select.value,'');assert.equal(publish.disabled,true);
-});
 test('header dropdown shows connected destinations only, supports keyboard and focuses Connections',t=>{
  const {dom,w}=setup();t.after(()=>dom.window.close());const menu=w.$('#publishing-connection-menu');assert.equal(menu.hidden,true);assert.equal(w.$('#studio-publishing-icon').disabled,false);
- w.state.config.youtube_channels=[{id:'UC-one',title:'One'}];w.updateYouTubeConnection();assert.equal(menu.hidden,true);assert.equal(w.$('#studio-publishing-icon').dataset.connected,'true');
+ w.state.config.youtube_channel={id:'UC-one',title:'One'};w.updateYouTubeConnection();assert.equal(menu.hidden,true);assert.equal(w.$('#studio-publishing-icon').dataset.connected,'true');
  w.state.config.publishing_connections=[{platform:'instagram',id:'ig-1',title:'Instagram owner',connected:true},{platform:'x',id:'x-1',title:'Disconnected',connected:false}];w.updateYouTubeConnection();
  assert.equal(menu.hidden,false);assert.equal(menu.querySelectorAll('button').length,2);assert.ok(menu.textContent.includes('Instagram owner'));assert.ok(!menu.textContent.includes('Disconnected'));
  const summary=menu.querySelector('summary');summary.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));assert.equal(w.document.activeElement,menu.querySelector('button'));
  w.document.activeElement.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));assert.equal(menu.open,false);assert.equal(w.document.activeElement,summary);
- menu.querySelector('button').click();assert.equal(w.$('#connection-dialog').open,true);assert.equal(w.$('#youtube-manage-channel').value,'UC-one');assert.equal(w.document.activeElement,w.$('#youtube-manage-channel'));
+ menu.querySelector('button').click();assert.equal(w.$('#connection-dialog').open,true);assert.equal(w.document.activeElement,w.$('#connect-youtube'));
  w.EccoStorage.ready=false;w.updateYouTubeConnection();assert.equal(menu.hidden,true);assert.equal(menu.querySelectorAll('button').length,0);assert.equal(w.$('#studio-publishing-icon').dataset.connected,'false');
 });
 test('Publish explains absence of an approved video and unsupported platform without enabling upload',t=>{
@@ -209,9 +197,67 @@ test('Publish explains absence of an approved video and unsupported platform wit
  const publish=w.$('.publishing-toolbar button');assert.equal(publish.disabled,true);assert.match(w.$('.publishing-toolbar [role=status]').textContent,/Approve a video/);
  w.$('[data-platform=tiktok]').click();assert.equal(publish.disabled,true);assert.match(w.$('.publishing-toolbar [role=status]').textContent,/not available yet/);
 });
-test('disconnect targets only the selected connection and creation opens the official YouTube page',async t=>{
- const {dom,w}=setup();t.after(()=>dom.window.close());const first={id:'UC-one',title:'One'},second={id:'UC-two',title:'Two'};
- w.state.config.youtube_channels=[first,second];w.updateYouTubeConnection();const select=w.$('#youtube-manage-channel');select.value=second.id;select.dispatchEvent(new w.Event('change'));
- let body;w.api=async(path,payload)=>{body=payload;return {youtube_channels:[first],youtube_channel:first};};await w.$('#disconnect-youtube').onclick();assert.equal(body.channel_id,second.id);assert.equal(w.state.config.youtube_channels.length,1);
- const create=w.$('#youtube-connection a');assert.equal(create.href,'https://www.youtube.com/channel_switcher');assert.equal(create.target,'_blank');assert.match(create.rel,/noopener/);assert.equal(w.$('#page a[href*="channel_switcher"]'),null);
+
+const settled=()=>new Promise(resolve=>setImmediate(resolve));
+function enablePlaylists(w,write=true){w.state.config.youtube_channel={id:'UC-owner',title:'Owner'};w.state.config.youtube_playlists_available=true;w.state.config.youtube_playlist_write=write;}
+test('playlist list loads for the connected channel, retains edits and submits the selected playlist',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());enablePlaylists(w);
+ w.api=async()=>({channel_id:'UC-owner',playlists:[{id:'PL-one',title:'One'},{id:'PL-two',title:'Two'}]});w.updateYouTubeConnection();await settled();
+ const select=w.$('#publish-form [name=playlist_id]'),confirmed=w.$('#publish-form [name=confirmed]');assert.equal(select.options.length,3);
+ w.$('[name=title]').value='Preserve draft';select.value='PL-two';confirmed.checked=true;select.dispatchEvent(new w.Event('change'));
+ assert.equal(confirmed.checked,false);assert.match(confirmed.nextElementSibling.textContent,/playlist “Two”/);confirmed.checked=true;w.updateYouTubeConnection();assert.equal(select.value,'PL-two');assert.equal(confirmed.checked,true);
+ let request;w.api=async(path,body)=>{request={path,body};};w.$('#publish-form').dispatchEvent(new w.Event('submit',{cancelable:true}));await settled();assert.equal(request.body.playlist_id,'PL-two');assert.equal(request.body.channel_id,'UC-owner');assert.equal(w.$('[name=title]').value,'Preserve draft');
+ w.$('[data-platform=tiktok]').click();assert.equal(w.$('#publishing-1-panel-tiktok [name=playlist_id]'),null);
+});
+test('playlist permissions are explicit in Connections and prevent publishing to a playlist without consent',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());enablePlaylists(w,false);w.api=async()=>({channel_id:'UC-owner',playlists:[{id:'PL-one',title:'One'}]});w.updateYouTubeConnection();await settled();
+ assert.equal(w.$('#enable-youtube-playlists').hidden,false);assert.equal(w.$('#youtube-playlists [data-create]').disabled,true);
+ const select=w.$('#publish-form [name=playlist_id]');select.value='PL-one';select.dispatchEvent(new w.Event('change'));assert.equal(w.$('.publishing-toolbar button').disabled,true);assert.match(w.$('.publishing-toolbar [role=status]').textContent,/Enable playlists/);
+ let request;w.open=()=>({location:{},close(){}});w.api=async(path,body)=>{request={path,body};return {url:'https://accounts.google.com/o/oauth2/auth'};};w.$('#enable-youtube-playlists').click();await settled();assert.equal(request.body.playlists,true);
+});
+test('playlist creation defaults private, requires confirmation and adds the returned playlist without losing edits',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());enablePlaylists(w);const list=[];let creates=0,body;
+ w.api=async(path,payload)=>{if(!payload)return {channel_id:'UC-owner',playlists:list};creates++;body=payload;list.push({id:'PL-new',title:payload.title});return {channel_id:'UC-owner',playlist:list[0]};};w.updateYouTubeConnection();await settled();
+ w.$('[name=title]').value='Draft title';w.$('#youtube-playlists [data-create]').click();const dialog=w.$('#youtube-playlist-dialog'),form=dialog.querySelector('form');assert.equal(form.elements.visibility.value,'private');assert.equal(w.document.activeElement,form.elements.title);
+ form.elements.title.value='New playlist';await form.onsubmit({preventDefault(){}});assert.equal(creates,0);form.elements.confirmed.checked=true;await form.onsubmit({preventDefault(){}});await settled();
+ assert.equal(creates,1);assert.equal(body.confirmed,true);assert.equal(body.channel_id,'UC-owner');assert.equal(w.$('#youtube-playlist-dialog'),null);assert.equal(w.$('#publish-form [name=playlist_id]').value,'PL-new');assert.equal(w.$('[name=title]').value,'Draft title');assert.equal(w.document.activeElement,w.$('#youtube-playlists [data-create]'));
+});
+test('stale playlist responses cannot attach playlists to a newly connected channel',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());enablePlaylists(w);let resolve;w.api=()=>new Promise(r=>{resolve=r;});w.updateYouTubeConnection();
+ w.state.config.youtube_channel=null;w.updateYouTubeConnection();resolve({channel_id:'UC-owner',playlists:[{id:'PL-old',title:'Old'}]});await settled();assert.equal(w.$('#publish-form [name=playlist_id]').options.length,1);assert.equal(w.$('#publish-form [name=playlist_id]').disabled,true);
+});
+test('playlist create is submitted once while pending and errors keep the editable dialog',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());enablePlaylists(w);w.api=async()=>({channel_id:'UC-owner',playlists:[]});w.updateYouTubeConnection();await settled();w.$('#youtube-playlists [data-create]').click();const form=w.$('#youtube-playlist-dialog form');form.elements.title.value='New';form.elements.confirmed.checked=true;
+ let reject,count=0;w.api=()=>{count++;return new Promise((_,r)=>{reject=r;});};const pending=form.onsubmit({preventDefault(){}});await form.onsubmit({preventDefault(){}});assert.equal(count,1);reject(Error('Creation was not confirmed. Check YouTube.'));await pending;assert.equal(form.querySelector('[type=submit]').disabled,false);assert.match(form.querySelector('[role=status]').textContent,/not confirmed/);assert.equal(form.elements.title.value,'New');
+});
+test('every platform opens libraries from the video chooser and restores its draft without publishing',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());const opened=[];let requests=0;
+ w.api=async()=>{requests++;};w.EccoWorkspaceUI={openLibrary:kind=>{opened.push(kind);w.$('#page').replaceChildren();}};
+ const platforms=['youtube','tiktok','instagram','whatsapp','meta','x'];
+ for(const platform of platforms){
+  for(const kind of ['video','audio']){
+   w.$('[role=tab][data-platform='+platform+']').click();
+   let panel=w.$('.publishing-panel:not([hidden])'),form=panel.querySelector('form'),chooser=form.elements.asset_id;
+   assert.deepEqual([...chooser.querySelectorAll('optgroup[label=Libraries] option')].map(o=>o.textContent),['Open Video Library…','Open Audio Library…']);
+   form.elements.title.value=platform+' edited title';form.elements.description.value='Keep description';
+   chooser.value='a';chooser.dispatchEvent(new w.Event('change'));form.elements.confirmed.checked=true;
+   chooser.value='library:'+kind;chooser.dispatchEvent(new w.Event('change'));
+   assert.equal(opened.at(-1),kind);assert.equal(chooser.value,'a');assert.equal(w.$('#page').childElementCount,0);assert.equal(requests,0);
+   w.publishPage();panel=w.$('.publishing-panel:not([hidden])');form=panel.querySelector('form');
+   assert.equal(w.$('[role=tab][aria-selected=true]').dataset.platform,platform);
+   assert.equal(form.elements.title.value,platform+' edited title');assert.equal(form.elements.description.value,'Keep description');
+   assert.equal(form.elements.asset_id.value,'a');assert.equal(form.elements.confirmed.checked,false);
+   assert.equal(form.elements.asset_id.querySelectorAll('optgroup[label=Libraries]').length,1);
+  }
+ }
+});
+test('library return drops an unavailable video and does not restore a draft to another story',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());let story='first';w.currentStory=()=>({id:story,title:story});
+ w.EccoWorkspaceUI={openLibrary:()=>w.$('#page').replaceChildren()};
+ let form=w.$('#publish-form');form.elements.title.value='Original draft';form.elements.asset_id.value='a';form.elements.asset_id.dispatchEvent(new w.Event('change'));
+ form.elements.asset_id.value='library:video';form.elements.asset_id.dispatchEvent(new w.Event('change'));
+ w.state.records=[];w.publishPage();form=w.$('#publish-form');
+ assert.equal(form.elements.title.value,'Original draft');assert.equal(form.elements.asset_id.value,'');
+ form.elements.asset_id.value='library:audio';form.elements.asset_id.dispatchEvent(new w.Event('change'));story='second';w.publishPage();
+ assert.equal(w.$('#publish-form').elements.title.value,'second — ECCO AI Labs');
 });

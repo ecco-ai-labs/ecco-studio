@@ -28,7 +28,7 @@ import youtube_connection
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
-    '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect', '/api/youtube/configure',
+    '/api/youtube/playlists', '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect', '/api/youtube/configure',
     '/api/library/rename',
     '/api/longcat/control', '/api/longcat/sequence', '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
     '/api/ai/news/research', '/api/ai/news/storyboard',
@@ -89,6 +89,7 @@ class Handler(legacy.Handler):
             return self.send({'ok': True, 'service': 'ecco-storage-api', 'gpu_required': False})
         if not self.authorized(): return
         try:
+            if path == '/api/youtube/playlists': return self.send(youtube_connection.playlists())
             if path == '/api/state': return self.send(storage_state())
             if path == '/api/gpu/status': return self.send(gpu_relay.status())
             if path.startswith('/api/gpu/requests/'):
@@ -149,8 +150,9 @@ class Handler(legacy.Handler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
             if path == '/api/youtube/configure': return self.send(youtube_connection.configure(body))
-            if path == '/api/youtube/connect': return self.send(youtube_connection.start())
-            if path == '/api/youtube/disconnect': return self.send(youtube_connection.disconnect(body.get('channel_id')))
+            if path == '/api/youtube/connect': return self.send(youtube_connection.start(playlists=body.get('playlists') is True))
+            if path == '/api/youtube/disconnect': return self.send(youtube_connection.disconnect())
+            if path == '/api/youtube/playlists': return self.send(youtube_connection.create_playlist(body))
             if path == '/api/youtube/publish':
                 return self.send(youtube_connection.publish(body))
             if path.startswith('/api/ai/'):

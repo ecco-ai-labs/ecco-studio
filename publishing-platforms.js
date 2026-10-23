@@ -15,9 +15,7 @@
  function openConnections(entry={platform:'youtube'}){
   window.EccoAI?.connections();
   if(entry.platform==='youtube'){
-   const select=document.querySelector('#youtube-manage-channel');
-   if(entry.id&&select){select.value=entry.id;window.EccoYouTube.update();select.focus();}
-   else document.querySelector('#connect-youtube')?.focus();
+   document.querySelector('#connect-youtube')?.focus();
   }else document.querySelector('#publishing-connection-'+entry.platform)?.focus();
  }
  function mountConnections(root){
@@ -80,7 +78,7 @@
  window.EccoPublishing={mountIndicator,mountConnections,update};
  const connectionPanel=document.querySelector('#connection-indicators');if(connectionPanel)mountIndicator(connectionPanel,document.querySelector('#connection-panel-menu'));
  const original=publishPage;
- let instance=0;
+ let instance=0,pendingLibraryDraft=null;
  names.publish='Publishing';
  publishPage=function(...args){
   const result=original.apply(this,args),root=document.querySelector('#page'),prefix='publishing-'+(++instance);
@@ -89,13 +87,13 @@
   const toolbar=document.createElement('div');toolbar.className='publishing-toolbar';
   const publish=document.createElement('button');publish.type='button';publish.textContent='Publish';const reason=document.createElement('span');reason.id=prefix+'-reason';reason.className='help';reason.setAttribute('role','status');publish.setAttribute('aria-describedby',reason.id);toolbar.append(reason,publish);
   const form=youtube.querySelector('#publish-form'),oldSubmit=form?.querySelector('button:not([type="button"])');
-  const youtubeReady=()=>Boolean(form&&selectedYouTubeChannel()&&assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state));
-  oldSubmit?.remove();youtube.querySelectorAll('p.intro,p.help').forEach(node=>node.remove());
+  const youtubeReady=()=>Boolean(form&&selectedYouTubeChannel()&&(!form.elements.playlist_id?.value||state.config.youtube_playlist_write)&&assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state));
+  oldSubmit?.remove();
   let selectedPlatform='youtube';
   publish.onclick=()=>{if(selectedPlatform==='youtube'&&youtubeReady())form.requestSubmit();};
   const panels=[];
   function select(index,focus=false){
-   selectedPlatform=platforms[index][0];publish.disabled=selectedPlatform!=='youtube'||!youtubeReady();const message=selectedPlatform!=='youtube'?platforms[index][1]+' publishing is not available yet.':!youtubeChannels().length?'Connect a YouTube channel in Connections.':!selectedYouTubeChannel()?'Choose a YouTube channel.':!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state)?'Approve a video in Production library to publish.':'';publish.title=message||'Publish to '+platforms[index][1];if(reason.textContent!==message)reason.textContent=message;reason.hidden=!message;
+   selectedPlatform=platforms[index][0];publish.disabled=selectedPlatform!=='youtube'||!youtubeReady();const message=selectedPlatform!=='youtube'?platforms[index][1]+' publishing is not available yet.':!youtubeChannels().length?'Connect a YouTube channel in Connections.':!selectedYouTubeChannel()?'Choose a YouTube channel.':form.elements.playlist_id?.value&&!state.config.youtube_playlist_write?'Enable playlists in Connections before publishing to a playlist.':!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state)?'Approve a video in Production library to publish.':'';publish.title=message||'Publish to '+platforms[index][1];if(reason.textContent!==message)reason.textContent=message;reason.hidden=!message;
    [...tabs.children].forEach((button,i)=>{button.setAttribute('aria-selected',String(i===index));button.tabIndex=i===index?0:-1;panels[i].hidden=i!==index;});
    if(focus)tabs.children[index].focus();
   }
@@ -121,6 +119,37 @@
   });
   window.EccoPublishingConnection=()=>{if(root.contains(tabs))select(platforms.findIndex(p=>p[0]===selectedPlatform));};
   root.append(toolbar,tabs,...panels);select(0);
+  const saved=pendingLibraryDraft;pendingLibraryDraft=null;
+  if(saved&&saved.story===(currentStory().id||'')){
+   panels.forEach((panel,index)=>{
+    const draft=panel.querySelector('form'),values=saved.forms[index];if(!draft||!values)return;
+    for(const [name,value] of Object.entries(values)){
+     const field=draft.elements.namedItem(name);
+     if(!field||name==='confirmed'||name==='channel_id')continue;
+     if(name==='playlist_id'&&values.channel_id!==draft.elements.channel_id?.value)continue;
+     field.value=value;
+    }
+    draft.querySelector('[name=visibility]')?.dispatchEvent(new Event('change'));
+    draft.elements.confirmed.checked=false;
+   });
+   select(Math.max(0,platforms.findIndex(([id])=>id===saved.platform)));
+   updateYouTubeConnection();
+  }
+  panels.forEach(panel=>{
+   const draft=panel.querySelector('form'),chooser=draft?.elements.asset_id;if(!chooser)return;
+   const libraries=document.createElement('optgroup');libraries.label='Libraries';
+   for(const [kind,label] of [['video','Open Video Library…'],['audio','Open Audio Library…']]){
+    const option=new Option(label,'library:'+kind);option.dataset.library=kind;libraries.append(option);
+   }
+   chooser.append(libraries);let previous=chooser.value;
+   chooser.addEventListener('change',()=>{
+    const kind=chooser.selectedOptions[0]?.dataset.library;
+    if(!kind){previous=chooser.value;draft.elements.confirmed.checked=false;return;}
+    chooser.value=previous;
+    pendingLibraryDraft={story:currentStory().id||'',platform:selectedPlatform,forms:panels.map(item=>Object.fromEntries(new FormData(item.querySelector('form'))))};
+    window.EccoWorkspaceUI?.openLibrary(kind);
+   });
+  });
   return result;
  };
 })();

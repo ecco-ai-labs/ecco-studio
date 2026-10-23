@@ -579,7 +579,7 @@ def oauth_finish(query):
     with os.fdopen(fd,'w') as f: f.write(flow.credentials.to_json())
     (DATA/'youtube-channel.json').write_text(json.dumps(channel))
 
-def publish(body, client_factory=None, channel_verifier=None):
+def publish(body, client_factory=None, channel_verifier=None, post_upload=None):
     make_client = client_factory or yt_client
     check_channel = channel_verifier or verify_channel
     a=get(body.get('asset_id',''),'asset')
@@ -619,6 +619,16 @@ def publish(body, client_factory=None, channel_verifier=None):
             if progress: job_update(jid,progress=f'Uploading: {round(progress.progress()*100)}%')
         with LOCK:
             record=get(a['id']); record.update(upload_state='uploaded',youtube_id=response['id'],youtube_visibility=response.get('status',{}).get('privacyStatus','unknown'),youtube_publish_at=response.get('status',{}).get('publishAt'),sync='pending'); save(record)
+        if post_upload:
+            try:
+                post_upload(client, response['id'])
+                with LOCK:
+                    record=get(a['id']); record.update(youtube_playlist_id=body.get('playlist_id')); record.pop('youtube_playlist_error',None); save(record)
+            except Exception:
+                # The video is already durable on YouTube. Never allow another upload
+                # just because playlist insertion failed or its response was lost.
+                with LOCK:
+                    record=get(a['id']); record.update(youtube_playlist_error='Video uploaded, but playlist addition was not confirmed. Check YouTube Studio before adding it again.'); save(record)
         return response['id']
     try: return launch('Upload approved video to '+(channel.get('handle') or channel['title']),upload)
     except Exception:

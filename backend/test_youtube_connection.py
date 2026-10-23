@@ -54,7 +54,6 @@ class YouTubeConnectionTest(unittest.TestCase):
         self.assertEqual(params['redirect_uri'], [yt.CALLBACK])
         self.assertEqual(set(params['scope'][0].split()), set(yt.SCOPES))
         self.assertEqual(params['access_type'], ['offline'])
-        self.assertEqual(set(params['prompt'][0].split()), {'consent', 'select_account'})
         self.assertEqual(params['code_challenge_method'], ['S256'])
         flow = yt._pending[params['state'][0]][1]
         challenge = base64.urlsafe_b64encode(hashlib.sha256(flow.code_verifier.encode()).digest()).rstrip(b'=').decode()
@@ -315,60 +314,89 @@ class YouTubeConnectionTest(unittest.TestCase):
                     yt.legacy.publish({'confirmed': True, 'publish_at': date, 'visibility': visibility})
             launch.assert_not_called()
 
-    def test_add_channel_retains_grants_and_routes_each_destination(self):
-        second = {'id': 'UC-second', 'title': 'Second', 'handle': '@Second'}
-        from datetime import datetime, timedelta
-        first_token = self.credentials(refresh='first-refresh')
-        second_token = self.credentials(refresh='second-refresh')
-        first_token.expiry = second_token.expiry = datetime.utcnow() + timedelta(hours=1)
-        yt._save(first_token, self.channel)
-        self.pending(second_token)
-        with patch.object(yt, '_build'), patch.object(yt, 'verify_channel', return_value=second):
-            self.finish()
-        self.assertEqual(yt.status()['youtube_channels'], [self.channel, second])
-        self.assertTrue(yt.status()['youtube_multi_channel'])
-        with patch.object(yt, '_build') as build:
-            yt.client(self.channel['id'])
-            self.assertEqual(build.call_args.args[0].refresh_token, 'first-refresh')
-            yt.client(second['id'])
-            self.assertEqual(build.call_args.args[0].refresh_token, 'second-refresh')
-        self.assertNotIn('refresh', json.dumps(yt.status()))
-        yt._save(self.credentials(refresh='renewed-refresh'), self.channel)
-        self.assertEqual(len(yt.status()['youtube_channels']), 2)
-        self.assertEqual(yt._saved(second['id'])['credentials']['refresh_token'], 'second-refresh')
-
-    def test_selected_disconnect_preserves_other_grants_and_rejects_removed_destination(self):
-        second = {'id': 'UC-second', 'title': 'Second', 'handle': ''}
+    def test_playlist_scope_is_opt_in_and_existing_upload_grant_still_works(self):
         yt._save(self.credentials(), self.channel)
-        yt._save(self.credentials(), second)
-        result = yt.disconnect(second['id'])
-        self.assertEqual(result['youtube_channels'], [self.channel])
-        self.assertTrue(self.token_file.exists())
-        with self.assertRaises(yt.legacy.Problem), patch.object(yt, '_build') as build:
-            yt.client(second['id'])
-        build.assert_not_called()
-        yt.disconnect(self.channel['id'])
-        self.assertFalse(self.token_file.exists())
+        self.assertEqual(yt.status()['youtube_channel'], self.channel)
+        self.assertFalse(yt.status()['youtube_playlist_write'])
+        normal = parse_qs(urlsplit(yt.start()['url']).query)
+        extra = parse_qs(urlsplit(yt.start(playlists=True)['url']).query)
+        self.assertNotIn(yt.PLAYLIST_SCOPE, normal['scope'][0].split())
+        self.assertIn(yt.PLAYLIST_SCOPE, extra['scope'][0].split())
+        yt._save(self.credentials(scopes=yt.SCOPES+(yt.PLAYLIST_SCOPE,)), self.channel)
+        self.assertTrue(yt.status()['youtube_playlist_write'])
 
-    def test_original_single_connection_migrates_without_losing_grant(self):
-        original = {'credentials': json.loads(self.credentials().to_json()), 'channel': self.channel}
-        self.token_file.parent.mkdir()
-        encrypted = yt._cipher(create=True).encrypt(json.dumps(original).encode()).decode()
-        self.token_file.write_text(json.dumps({'version': 1, 'encrypted': encrypted}))
-        self.assertEqual(yt.status()['youtube_channels'], [self.channel])
-        second = {'id': 'UC-second', 'title': 'Second', 'handle': ''}
-        yt._save(self.credentials(refresh='second-refresh'), second)
-        self.assertEqual(len(yt.status()['youtube_channels']), 2)
-        self.assertEqual(yt._saved(self.channel['id'])['credentials']['refresh_token'], 'fixture-refresh')
-        self.assertEqual(json.loads(self.token_file.read_text())['version'], 2)
-
-    def test_unreadable_existing_grants_cannot_be_overwritten(self):
+    def test_missing_playlist_permission_does_not_replace_existing_grant(self):
         yt._save(self.credentials(), self.channel)
         before = self.token_file.read_bytes()
-        yt.KEY_FILE.unlink()
-        with self.assertRaises(yt.legacy.Problem):
-            yt._save(self.credentials(), {'id': 'UC-second', 'title': 'Second', 'handle': ''})
+        flow = self.pending()
+        pending = yt._pending['fixture-state']
+        yt._pending['fixture-state'] = (*pending, yt.SCOPES+(yt.PLAYLIST_SCOPE,))
+        with self.assertRaises(yt.legacy.Problem), patch.object(yt, '_build') as build:
+            self.finish()
+        build.assert_not_called()
         self.assertEqual(self.token_file.read_bytes(), before)
+
+    def test_playlist_listing_paginates_and_filters_other_channels(self):
+        api = Mock()
+        api.playlists.return_value.list.return_value.execute.side_effect = [
+            {'items': [{'id':'PL-one','snippet':{'title':'One','channelId':self.channel['id']},'status':{'privacyStatus':'private'}},
+                       {'id':'PL-other','snippet':{'title':'Other','channelId':'UC-other'}}], 'nextPageToken':'next'},
+            {'items': [{'id':'PL-two','snippet':{'title':'Two','channelId':self.channel['id']}}]}]
+        with patch.object(yt, 'client', return_value=api), patch.object(yt, 'verify_channel', return_value=self.channel):
+            result = yt.playlists()
+        self.assertEqual([p['id'] for p in result['playlists']], ['PL-one','PL-two'])
+        self.assertEqual(result['channel_id'], self.channel['id'])
+        self.assertEqual(api.playlists.return_value.list.call_args.kwargs['pageToken'], 'next')
+
+    def test_create_playlist_requires_scope_confirmation_and_verified_channel(self):
+        yt._save(self.credentials(), self.channel)
+        body = {'channel_id':self.channel['id'],'title':'My playlist','confirmed':True}
+        with self.assertRaises(yt.legacy.Problem), patch.object(yt, 'client') as client:
+            yt.create_playlist(body)
+        client.assert_not_called()
+        yt._save(self.credentials(scopes=yt.SCOPES+(yt.PLAYLIST_SCOPE,)), self.channel)
+        api = Mock()
+        api.playlists.return_value.insert.return_value.execute.return_value = {'id':'PL-new','snippet':{'title':'My playlist','channelId':self.channel['id']},'status':{'privacyStatus':'private'}}
+        with patch.object(yt, 'client', return_value=api), patch.object(yt, 'verify_channel', return_value=self.channel) as verify:
+            result = yt.create_playlist(body)
+        self.assertEqual(result['playlist']['id'], 'PL-new')
+        verify.assert_called_once_with(api, self.channel['id'])
+        self.assertEqual(api.playlists.return_value.insert.call_args.kwargs['body']['status']['privacyStatus'], 'private')
+        for changes in ({'confirmed':False},{'title':''},{'visibility':'invalid'},{'channel_id':'UC-other'}):
+            with self.assertRaises(yt.legacy.Problem), patch.object(yt, 'client') as client:
+                yt.create_playlist({**body,**changes})
+            client.assert_not_called()
+
+    def test_playlist_owner_is_checked_and_insert_uses_uploaded_video(self):
+        yt._save(self.credentials(scopes=yt.SCOPES+(yt.PLAYLIST_SCOPE,)), self.channel)
+        api = Mock()
+        api.playlists.return_value.list.return_value.execute.return_value = {'items':[{'id':'PL-owned','snippet':{'channelId':self.channel['id']}}]}
+        with patch.object(yt.legacy,'publish') as publish:
+            yt.publish({'channel_id':self.channel['id'],'playlist_id':'PL-owned'})
+            kwargs=publish.call_args.kwargs
+        with patch.object(yt,'verify_channel',return_value=self.channel):
+            kwargs['channel_verifier'](api)
+            api.playlists.return_value.list.return_value.execute.return_value={'items':[{'snippet':{'channelId':'UC-wrong'}}]}
+            with self.assertRaises(yt.legacy.Problem):kwargs['channel_verifier'](api)
+        kwargs['post_upload'](api,'new-video-id')
+        snippet=api.playlistItems.return_value.insert.call_args.kwargs['body']['snippet']
+        self.assertEqual(snippet['playlistId'],'PL-owned')
+        self.assertEqual(snippet['resourceId']['videoId'],'new-video-id')
+
+    def test_playlist_failure_keeps_uploaded_video_reserved_and_reports_partial_success(self):
+        asset={'id':'a'*32,'kind':'asset','media':'video','stage':'prod'}
+        body={'asset_id':asset['id'],'confirmed':True,'channel_id':self.channel['id'],'visibility':'private','made_for_kids':False,'title':'Test','playlist_id':'PL-owned'}
+        api=Mock()
+        api.videos.return_value.insert.return_value.next_chunk.return_value=(None,{'id':'test-video','status':{'privacyStatus':'private'}})
+        post=Mock(side_effect=RuntimeError('private-provider-details'))
+        with patch.object(yt.legacy,'get',return_value=asset),patch.object(yt.legacy,'save'),patch.object(yt.legacy,'asset_path',return_value=Path('test.mp4')),patch('googleapiclient.http.MediaFileUpload'),patch.object(yt.legacy,'launch',side_effect=lambda label,fn:fn('job')):
+            self.assertEqual(yt.legacy.publish(body,client_factory=lambda:api,channel_verifier=lambda api:self.channel,post_upload=post),'test-video')
+            with self.assertRaises(yt.legacy.Problem):yt.legacy.publish(body,client_factory=lambda:api,channel_verifier=lambda api:self.channel,post_upload=post)
+        self.assertEqual(asset['upload_state'],'uploaded')
+        self.assertEqual(asset['youtube_id'],'test-video')
+        self.assertIn('playlist addition was not confirmed',asset['youtube_playlist_error'])
+        self.assertNotIn('private-provider-details',json.dumps(asset))
+        self.assertEqual(api.videos.return_value.insert.call_count,1)
 
 if __name__ == '__main__':
     unittest.main()

@@ -67,7 +67,7 @@ origin checks. Scene planning uses the same key/model/control, with no separate
 
 YouTube connection and explicitly confirmed uploads run on this CPU service,
 independently of GPU availability. Google identity sign-in does not grant access
-to this shared workspace or its channel: both YouTube POST routes still require
+to this shared workspace or its channel: all YouTube POST routes still require
 the private workspace Bearer key and existing origin checks.
 
 Deploy `youtube_connection.py` beside `storage_api.py`, plus the updated
@@ -91,7 +91,7 @@ URL is registered in that client; it must end in `/api/youtube/callback`.
 Never place the client secret or refresh token in GitHub or the browser UI.
 
 First-time setup can also use Studio: connect the private workspace storage,
-open Publishing, click **Connect YouTube securely**, select the downloaded
+open **Connections → YouTube → Connect**, select the downloaded
 Google Web OAuth client JSON, then click **Install configuration**. The file is
 sent directly to the CPU service through authenticated `POST /api/youtube/configure`
 (32 KB maximum). The service validates the existing client ID and Google's
@@ -108,7 +108,7 @@ After installation, click **Connect** beside YouTube in Connections to grant con
 The consent flow requests only `youtube.readonly` and `youtube.upload`, uses
 short-lived single-use state and PKCE, and verifies the authenticated account
 owns the channel selected during Google authorization before saving anything.
-The private workspace can retain multiple separately authorized channels. Connections → YouTube → Add channel opens Google account/channel selection and preserves existing grants. Each grant is keyed by its verified channel ID; Publishing lists only connected channels. Google identity sign-in alone cannot enumerate or authorize every Brand Account. This does not provision isolated workspaces for public users. While the Google app is in Testing,
+The private workspace retains one verified channel grant. Reconnecting replaces it only after successful authorization. Google identity sign-in alone cannot enumerate or authorize every Brand Account. This does not provision isolated workspaces for public users. While the Google app is in Testing,
 the channel owner's Google account must be on its test-user list. YouTube
 scopes may require Google's verification before wider production use; the
 basic Google sign-in audience can still allow any Google account.
@@ -119,7 +119,7 @@ with `ECCO_YOUTUBE_TOKEN_FILE`. The encryption key is created with 0600 permissi
 at `/workspace/ecco-storage-private/youtube-encryption.key` (`ECCO_YOUTUBE_KEY_FILE`
 may override it). Back up the encrypted token and key privately. Only sanitized
 channel metadata reaches Studio. Existing plaintext connections remain readable
-and are encrypted on their next credential save. Disconnect removes the selected local grant and cancels pending consent callbacks; it does not delete videos or
+and are encrypted on their next credential save. Disconnect removes the local grant and cancels pending consent callbacks; it does not delete videos or
 revoke other Google applications.
 
 Uploads must include the channel ID shown in the review form. It is checked
@@ -145,6 +145,25 @@ Live OpenAI output can only be verified after the owner connects their actual ke
 
 
 
-Multiple-channel deployment: update `backend/youtube_connection.py` and `backend/storage_api.py` on the CPU service and restart only when CPU jobs are idle. Status advertises `youtube_multi_channel: true` and sanitized `youtube_channels`. The UI falls back to the original single-channel behavior until this backend update is running. Version 1 token files remain readable and migrate atomically to an encrypted version 2 connections list on the next save. Per-channel disconnect takes `channel_id`; the legacy empty-body disconnect still removes all grants. No new scopes or dependencies.
+Playlist deployment: update `backend/youtube_connection.py`, `backend/storage_api.py`
+and `migration/legacy/studio.py` on the CPU service, then restart only when CPU
+jobs are idle. No new dependencies or token-file migration are needed. Status
+advertises `youtube_playlists_available` and `youtube_playlist_write`; the UI
+keeps existing video uploads available before this update is running.
 
-Channel creation is a handoff to YouTube’s official channel list, followed by Add channel; the Data API has no channel-create method. Other social-platform connection rows remain unavailable; their publishing tabs do not initiate uploads.
+Authenticated `GET /api/youtube/playlists` lists the connected channel's playlists
+with pagination and owner filtering. **Connections → Enable playlists** requests
+`youtube.force-ssl` in addition to the existing read/upload scopes. The original
+grant remains intact if the user denies this upgrade. Playlist creation and adding
+an upload to a playlist require this additional scope. Authenticated
+`POST /api/youtube/playlists` requires a matching channel ID, title, visibility
+(private by default), and explicit confirmation.
+
+Optional `playlist_id` on `/api/youtube/publish` is verified as owned by the same
+channel before queueing and again at worker start. Only the actual uploaded video
+ID is inserted. A failed playlist insertion preserves the completed video upload
+and reports an unconfirmed playlist addition; it must not cause a duplicate upload.
+
+Other social-platform connection rows remain unavailable; their publishing tabs
+do not initiate uploads. Every platform's video chooser can open the existing
+Video or Audio Library. Opening a library does not upload or convert media.

@@ -45,7 +45,7 @@ class StorageTest(unittest.TestCase):
   self.assertEqual(error.exception.code,401)
  def test_youtube_write_routes_require_workspace_authorization(self):
   with patch.object(api.youtube_connection,'start') as start,patch.object(api.youtube_connection,'publish') as publish:
-   for path in ('/api/youtube/connect','/api/youtube/publish','/api/youtube/disconnect','/api/youtube/configure'):
+   for path in ('/api/youtube/connect','/api/youtube/publish','/api/youtube/disconnect','/api/youtube/configure','/api/youtube/playlists'):
     for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:
      with self.assertRaises(HTTPError) as error:self.call(path,{},auth=auth,origin=origin)
      self.assertEqual(error.exception.code,code)
@@ -53,15 +53,21 @@ class StorageTest(unittest.TestCase):
  def test_youtube_connect_and_publish_dispatch_on_cpu(self):
   with patch.object(api.youtube_connection,'start',return_value={'url':'https://accounts.google.com/test'}) as start:
    with self.call('/api/youtube/connect',{}) as response:self.assertIn('url',json.load(response))
-   start.assert_called_once_with()
+   start.assert_called_once_with(playlists=False)
   with patch.object(api.youtube_connection,'publish',return_value={'id':'test-job'}) as publish:
    with self.call('/api/youtube/publish',{'confirmed':True}) as response:self.assertEqual(json.load(response)['id'],'test-job')
    publish.assert_called_once_with({'confirmed':True})
- def test_youtube_disconnect_routes_the_selected_channel(self):
-  with patch.object(api.youtube_connection,'disconnect',return_value={'youtube_channels':[]}) as disconnect:
-   with self.call('/api/youtube/disconnect',{'channel_id':'UC-selected'}) as response:
-    self.assertEqual(json.load(response)['youtube_channels'],[])
-   disconnect.assert_called_once_with('UC-selected')
+ def test_playlist_reads_and_writes_are_authenticated_and_dispatch(self):
+  with patch.object(api.youtube_connection,'playlists',return_value={'channel_id':'UC-one','playlists':[]}) as playlists:
+   with self.assertRaises(HTTPError) as error:self.call('/api/youtube/playlists',auth=False)
+   self.assertEqual(error.exception.code,401);playlists.assert_not_called()
+   with self.call('/api/youtube/playlists') as response:self.assertEqual(json.load(response)['playlists'],[])
+  with patch.object(api.youtube_connection,'create_playlist',return_value={'playlist':{'id':'PL-one'}}) as create:
+   with self.call('/api/youtube/playlists',{'confirmed':True}) as response:self.assertEqual(json.load(response)['playlist']['id'],'PL-one')
+   create.assert_called_once_with({'confirmed':True})
+  with patch.object(api.youtube_connection,'start',return_value={'url':'https://accounts.google.com/test'}) as start:
+   with self.call('/api/youtube/connect',{'playlists':True}) as response:self.assertIn('url',json.load(response))
+   start.assert_called_once_with(playlists=True)
  def test_youtube_configuration_is_authenticated_bounded_and_not_echoed(self):
   import youtube_connection as yt
   config={'web':{'client_id':yt.google_signin.CLIENT_ID,'client_secret':'fixture-private-secret',

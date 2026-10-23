@@ -21,6 +21,7 @@ CALLBACK = os.getenv('ECCO_YOUTUBE_REDIRECT_URI',
 STUDIO_URL = 'https://ecco-ai-labs.github.io/ecco-studio/'
 SCOPES = ('https://www.googleapis.com/auth/youtube.readonly',
           'https://www.googleapis.com/auth/youtube.upload')
+PLAYLIST_SCOPE = 'https://www.googleapis.com/auth/youtube.force-ssl'
 TTL = 600
 MAX_PENDING = 100
 _pending = {}
@@ -102,37 +103,18 @@ def _dependencies():
     return Flow, Credentials, build
 
 
-def _connections():
-    """Read all grants, accepting the original single-channel format."""
-    if not TOKEN_FILE.exists():
-        return {}
+def _saved():
     try:
         data = json.loads(TOKEN_FILE.read_text())
         if 'encrypted' in data:
             data = json.loads(_cipher().decrypt(data['encrypted'].encode()))
-        entries = data.get('connections') if 'connections' in data else [data]
-        if not isinstance(entries, list):
-            raise ValueError()
-        result = {}
-        for saved in entries:
-            channel, credentials = saved['channel'], saved['credentials']
-            if (not channel['id'] or not channel['title']
-                    or credentials['client_id'] != google_signin.CLIENT_ID
-                    or credentials['token_uri'] != 'https://oauth2.googleapis.com/token'
-                    or not credentials['refresh_token']
-                    or not set(SCOPES).issubset(credentials['scopes'])):
-                raise ValueError()
-            result[channel['id']] = saved
-        return result
+        if (not data['channel']['id'] or not data['channel']['title']
+                or data['credentials']['client_id'] != google_signin.CLIENT_ID
+                or not data['credentials']['refresh_token']
+                or not set(SCOPES).issubset(data['credentials']['scopes'])):
+            return None
+        return data
     except Exception:
-        raise legacy.Problem('Saved YouTube connections could not be read. Restore the private connection file and encryption key.', 503) from None
-
-
-def _saved(expected_id=None):
-    try:
-        entries = _connections()
-        return entries.get(expected_id) if expected_id else next(iter(entries.values()), None)
-    except legacy.Problem:
         return None
 
 
@@ -143,14 +125,12 @@ def status():
         configured = True
     except (legacy.Problem, ImportError):
         configured = False
-    try:
-        saved = list(_connections().values()) if configured else []
-    except legacy.Problem:
-        saved = []
-    channels = [{k: entry['channel'].get(k, '') for k in ('id', 'title', 'handle')} for entry in saved]
-    return {'youtube_configured': configured, 'youtube_channel': channels[0] if channels else None,
-            'youtube_channels': channels, 'youtube_multi_channel': True,
-            'youtube_setup_available': not CLIENT_FILE.exists() and not TOKEN_FILE.exists()}
+    saved = _saved() if configured else None
+    channel = {k: saved['channel'][k] for k in ('id', 'title', 'handle')} if saved else None
+    return {'youtube_configured': configured, 'youtube_channel': channel,
+            'youtube_setup_available': not CLIENT_FILE.exists() and not TOKEN_FILE.exists(),
+            'youtube_playlists_available': True,
+            'youtube_playlist_write': bool(saved and PLAYLIST_SCOPE in saved['credentials']['scopes'])}
 
 
 def _cipher(create=False):
@@ -169,14 +149,14 @@ def _cipher(create=False):
     return Fernet(KEY_FILE.read_bytes())
 
 
-def _write_connections(entries):
+def _save(credentials, channel):
     # One atomic private file: never advertise a channel before its token is durable.
     TOKEN_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix='.youtube-', dir=TOKEN_FILE.parent)
     try:
         with os.fdopen(fd, 'w') as output:
-            payload = json.dumps({'connections': list(entries.values())})
-            json.dump({'version': 2, 'encrypted': _cipher(create=True).encrypt(payload.encode()).decode()}, output)
+            payload = json.dumps({'credentials': json.loads(credentials.to_json()), 'channel': channel})
+            json.dump({'version': 1, 'encrypted': _cipher(create=True).encrypt(payload.encode()).decode()}, output)
             output.flush()
             os.fsync(output.fileno())
         os.replace(name, TOKEN_FILE)
@@ -185,14 +165,7 @@ def _write_connections(entries):
             os.unlink(name)
 
 
-def _save(credentials, channel):
-    with _lock:
-        entries = _connections()
-        entries[channel['id']] = {'credentials': json.loads(credentials.to_json()), 'channel': channel}
-        _write_connections(entries)
-
-
-def start():
+def start(playlists=False):
     config = _config()
     try:
         Flow, _, _ = _dependencies()
@@ -205,10 +178,11 @@ def start():
                 del _pending[state]
         if len(_pending) >= MAX_PENDING:
             raise legacy.Problem('Too many pending connections. Please try again shortly.', 429)
-        flow = Flow.from_client_config(config, scopes=SCOPES, redirect_uri=CALLBACK,
+        scopes = SCOPES + ((PLAYLIST_SCOPE,) if playlists else ())
+        flow = Flow.from_client_config(config, scopes=scopes, redirect_uri=CALLBACK,
                                        autogenerate_code_verifier=True)
-        url, state = flow.authorization_url(access_type='offline', prompt='consent select_account')
-        _pending[state] = (now, flow, _generation)
+        url, state = flow.authorization_url(access_type='offline', prompt='consent')
+        _pending[state] = (now, flow, _generation, scopes)
     return {'url': url}
 
 
@@ -232,8 +206,9 @@ def finish(query):
         flow.fetch_token(code=codes[0], timeout=20)
         credentials = flow.credentials
         granted = credentials.granted_scopes
-        if (not credentials.has_scopes(SCOPES) or not credentials.refresh_token
-                or (granted is not None and not set(SCOPES).issubset(granted))):
+        required = pending[3] if len(pending) > 3 else SCOPES
+        if (not credentials.has_scopes(required) or not credentials.refresh_token
+                or (granted is not None and not set(required).issubset(granted))):
             raise legacy.Problem('Allow both YouTube permissions to finish connecting the channel.')
         channel = verify_channel(_build(credentials))
         with _lock:
@@ -271,43 +246,46 @@ def verify_channel(client, expected_id=None):
             'handle': handle if handle.startswith('@') else ''}
 
 
-def disconnect(channel_id=None):
+def disconnect():
     global _generation
     with _lock:
         # A late callback must not restore a disconnected connection.
         _pending.clear()
         _generation += 1
-        if channel_id is not None:
-            entries = _connections()
-            if not isinstance(channel_id, str) or channel_id not in entries:
-                raise legacy.Problem('Choose a connected YouTube channel to disconnect.', 409)
-            del entries[channel_id]
-            if entries:
-                _write_connections(entries)
-            else:
-                TOKEN_FILE.unlink(missing_ok=True)
-        else:
-            TOKEN_FILE.unlink(missing_ok=True)
-    return status()
+        TOKEN_FILE.unlink(missing_ok=True)
+    return {'youtube_channel': None, 'youtube_playlist_write': False}
 
 
 def publish(body):
     expected = body.get('channel_id')
     if not isinstance(expected, str) or not re.fullmatch(r'UC[\w-]{1,100}', expected):
         raise legacy.Problem('Review and confirm the connected YouTube channel first.', 409)
-    return legacy.publish(body, client_factory=lambda: client(expected),
-                          channel_verifier=lambda api: verify_channel(api, expected))
+    playlist = body.get('playlist_id')
+    if playlist and (not isinstance(playlist, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,150}', playlist)):
+        raise legacy.Problem('Choose an available playlist.')
+    def check(api):
+        channel = verify_channel(api, expected)
+        if playlist:
+            _require_playlist_write(expected)
+            _verify_playlist(api, playlist, expected)
+        return channel
+    kwargs = {'client_factory': lambda: client(expected), 'channel_verifier': check}
+    if playlist:
+        kwargs['post_upload'] = lambda api, video: api.playlistItems().insert(
+            part='snippet', body={'snippet': {'playlistId': playlist,
+                'resourceId': {'kind': 'youtube#video', 'videoId': video}}}).execute()
+    return legacy.publish(body, **kwargs)
 
 
 def client(expected_id=None):
     with _lock:
-        saved = _saved(expected_id)
+        saved = _saved()
         if not saved:
             raise legacy.Problem('Connect the YouTube channel first.', 409)
         if expected_id and saved['channel']['id'] != expected_id:
             raise legacy.Problem('The connected channel changed. Review the destination and confirm again.', 409)
         _, Credentials, _ = _dependencies()
-        credentials = Credentials.from_authorized_user_info(saved['credentials'], scopes=SCOPES)
+        credentials = Credentials.from_authorized_user_info(saved['credentials'], scopes=saved['credentials']['scopes'])
         if not credentials.valid:
             try:
                 from google.auth.transport.requests import Request
@@ -317,6 +295,78 @@ def client(expected_id=None):
             except Exception:
                 raise legacy.Problem('YouTube authorization needs to be renewed. Connect the channel again.', 409) from None
     return _build(credentials)
+
+
+def _require_playlist_write(expected):
+    saved = _saved()
+    if not saved or saved['channel']['id'] != expected:
+        raise legacy.Problem('The channel changed. Review the destination again.', 409)
+    if PLAYLIST_SCOPE not in saved['credentials']['scopes']:
+        raise legacy.Problem('Enable playlists for YouTube in Connections, then approve Google permissions.', 403)
+
+
+def _verify_playlist(api, playlist_id, channel_id):
+    try:
+        items = api.playlists().list(part='snippet', id=playlist_id).execute().get('items', [])
+    except Exception:
+        raise legacy.Problem('The playlist could not be verified. Refresh playlists and try again.', 502) from None
+    if len(items) != 1 or items[0].get('snippet', {}).get('channelId') != channel_id:
+        raise legacy.Problem('Choose a playlist owned by the connected YouTube channel.', 403)
+    return items[0]
+
+
+def playlists():
+    api = client()
+    channel = verify_channel(api)
+    items, page, seen = [], None, set()
+    try:
+        while True:
+            params = {'part': 'snippet,status', 'mine': True, 'maxResults': 50}
+            if page:
+                params['pageToken'] = page
+            result = api.playlists().list(**params).execute()
+            for item in result.get('items', []):
+                snippet = item.get('snippet', {})
+                if item.get('id') and snippet.get('title') and snippet.get('channelId') == channel['id']:
+                    items.append({'id': item['id'], 'title': snippet['title'],
+                                  'visibility': item.get('status', {}).get('privacyStatus', 'unknown')})
+            page = result.get('nextPageToken')
+            if not page:
+                break
+            if page in seen or len(seen) >= 200:
+                raise ValueError()
+            seen.add(page)
+    except Exception:
+        raise legacy.Problem('YouTube playlists could not be loaded. Try Refresh playlists.', 502) from None
+    return {'channel_id': channel['id'], 'playlists': items}
+
+
+def create_playlist(body):
+    expected = body.get('channel_id')
+    if body.get('confirmed') is not True:
+        raise legacy.Problem('Confirm playlist creation first.', 409)
+    title = body.get('title')
+    description = body.get('description', '')
+    visibility = body.get('visibility', 'private')
+    if not isinstance(title, str) or not title.strip() or len(title) > 150:
+        raise legacy.Problem('Enter a playlist title of 1 to 150 characters.')
+    if not isinstance(description, str) or len(description) > 5000:
+        raise legacy.Problem('Keep the playlist description within 5000 characters.')
+    if visibility not in ('private', 'unlisted', 'public'):
+        raise legacy.Problem('Choose playlist visibility.')
+    _require_playlist_write(expected)
+    api = client(expected)
+    verify_channel(api, expected)
+    try:
+        result = api.playlists().insert(part='snippet,status', body={
+            'snippet': {'title': title.strip(), 'description': description},
+            'status': {'privacyStatus': visibility}}).execute()
+        if not result.get('id') or result.get('snippet', {}).get('channelId') != expected:
+            raise ValueError()
+    except Exception:
+        raise legacy.Problem('Playlist creation was not confirmed. Check YouTube before trying again to avoid duplicates.', 502) from None
+    return {'channel_id': expected, 'playlist': {'id': result['id'], 'title': result['snippet']['title'],
+            'visibility': result.get('status', {}).get('privacyStatus', visibility)}}
 
 
 def callback(handler):
