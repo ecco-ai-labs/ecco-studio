@@ -203,6 +203,25 @@ function connectYouTube(){
   finally{connectYouTube.pending=false;updateYouTubeConnection();}
  });
 }
+function youtubeChannels(){
+ if(!window.EccoStorage?.ready)return [];
+ const channels=Array.isArray(state.config.youtube_channels)?state.config.youtube_channels:[state.config.youtube_channel];
+ return channels.filter(channel=>channel?.id&&channel?.title);
+}
+function selectedYouTubeChannel(){
+ const channels=youtubeChannels(),select=$('#publish-form [name=channel_id]');
+ return channels.find(channel=>channel.id===select?.value)||null;
+}
+function syncYouTubeSelect(select,channels){
+ if(!select)return;
+ const previous=select.value,signature=JSON.stringify(channels);
+ if(select.dataset.channels!==signature){
+  select.replaceChildren(new Option(channels.length?'Choose a channel':'No connected channels',''),...channels.map(c=>new Option(c.title+(c.handle?' · '+c.handle:'')+' · '+c.id,c.id)));
+  select.value=channels.some(c=>c.id===previous)?previous:channels.length===1?channels[0].id:'';
+  select.dataset.channels=signature;
+ }
+ select.disabled=!channels.length;
+}
 function setupYouTube(){
  if($('#youtube-setup-dialog'))return;
  const dialog=document.createElement('dialog');dialog.id='youtube-setup-dialog';dialog.setAttribute('aria-labelledby','youtube-setup-title');
@@ -245,36 +264,41 @@ function setupYouTube(){
  dialog.updateConnection();dialog.showModal();(authorize.hidden?fileInput:authorize).focus();
 }
 function updateYouTubeConnection(){
- const channel=window.EccoStorage?.ready?state.config.youtube_channel:null,button=$('#connect-youtube');
+ const channels=youtubeChannels(),channel=channels[0],button=$('#connect-youtube');
  if(button){
   button.disabled=!!connectYouTube.pending;button.dataset.connected=String(!!channel);
-  const label=connectYouTube.pending?'Connecting…':channel?'Connected':'Connect';if(button.textContent!==label)button.textContent=label;
-  button.title=channel?'Reconnect YouTube':state.config.youtube_configured?'Authorize a channel you own':'Set up YouTube';
+  const label=connectYouTube.pending?'Connecting…':channel?(state.config.youtube_multi_channel?'Add channel':'Connected'):'Connect';if(button.textContent!==label)button.textContent=label;
+  button.title=channel?(state.config.youtube_multi_channel?'Authorize another YouTube channel':'Reconnect YouTube'):state.config.youtube_configured?'Authorize a channel you own':'Set up YouTube';
  }
- const disconnect=$('#disconnect-youtube');if(disconnect){disconnect.hidden=!channel;disconnect.disabled=!!disconnect.dataset.disconnecting;}
+ const manage=$('#youtube-manage-channel');syncYouTubeSelect(manage,channels);if(manage)manage.closest('label').hidden=!channels.length;
+ const disconnect=$('#disconnect-youtube');if(disconnect){disconnect.hidden=!channel;disconnect.disabled=!!disconnect.dataset.disconnecting||!manage?.value;}
  for(const badge of document.querySelectorAll('[data-youtube-status]')){
-  const label=channel?channel.title+(channel.handle?' · '+channel.handle:''):'Not connected';
+  const label=channels.length>1?channels.length+' channels connected':channel?channel.title+(channel.handle?' · '+channel.handle:''):'Not connected';
   if(badge.textContent!==label)badge.textContent=label;badge.classList.toggle('pending',!channel);
  }
  $('#youtube-setup-dialog')?.updateConnection?.();
  const form=$('#publish-form'),destination=form?.querySelector('[name=channel_id]'),confirmation=form?.querySelector('[name=confirmed]');
- if(destination&&destination.value!==(channel?.id||'')){destination.value=channel?.id||'';if(confirmation)confirmation.checked=false;}
- const review=form?.querySelector('[name=confirmed]+span');if(review)review.textContent='I reviewed this video and authorize its upload to '+(channel?(channel.handle||channel.title)+' ('+channel.id+')':'the connected channel')+' with the visibility and audience selected above.';
+ syncYouTubeSelect(destination,channels);
+ const selected=selectedYouTubeChannel(),selectedId=selected?.id||'';
+ if(form&&form.dataset.reviewChannel!==selectedId){form.dataset.reviewChannel=selectedId;if(confirmation)confirmation.checked=false;}
+ const review=form?.querySelector('[name=confirmed]+span');if(review)review.textContent='I reviewed this video and authorize its upload to '+(selected?(selected.handle||selected.title)+' ('+selected.id+')':'the selected channel')+' with the visibility and audience selected above.';
  const submit=$('#publish-form button:not([type="button"])');
- if(submit)submit.disabled=!channel||!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state);
+ if(submit)submit.disabled=!selected||!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state);
  window.EccoPublishingConnection?.();
+ window.EccoPublishing?.update();
 }
+
 function mountYouTubeConnection(root){
  const section=document.createElement('section');section.className='connection';section.id='youtube-connection';
- section.innerHTML='<div class="connection-heading"><h3>YouTube</h3><button type="button" class="secondary" id="connect-youtube">Connect</button></div><p class="help" data-youtube-status aria-live="polite">Not connected</p><button type="button" class="secondary" id="disconnect-youtube" hidden>Disconnect</button>';
- root.append(section);section.querySelector('#connect-youtube').onclick=connectYouTube;
- section.querySelector('#disconnect-youtube').onclick=()=>action(async()=>{const button=$('#disconnect-youtube');if(button.dataset.disconnecting)return;button.disabled=true;button.dataset.disconnecting='true';try{await api('youtube/disconnect',{});state.config.youtube_channel=null;}finally{delete button.dataset.disconnecting;updateYouTubeConnection();}});
+ section.innerHTML='<div class="connection-heading"><h3>YouTube</h3><button type="button" class="secondary" id="connect-youtube">Connect</button></div><p class="help" data-youtube-status aria-live="polite">Not connected</p><label hidden>Connected channels<select id="youtube-manage-channel"></select></label><p class="help">Use Add channel to authorize each channel in Google. Choose your upload destination in Publishing.</p><a href="https://www.youtube.com/channel_switcher" target="_blank" rel="noopener noreferrer">Create channel on YouTube ↗</a><p class="help">Create it in the new YouTube tab, then return here and use Connect or Add channel.</p><button type="button" class="secondary" id="disconnect-youtube" hidden>Disconnect</button>';
+ root.append(section);section.querySelector('#connect-youtube').onclick=connectYouTube;section.querySelector('#youtube-manage-channel').onchange=updateYouTubeConnection;
+ section.querySelector('#disconnect-youtube').onclick=()=>action(async()=>{const button=$('#disconnect-youtube');if(button.dataset.disconnecting)return;button.disabled=true;button.dataset.disconnecting='true';try{const id=$('#youtube-manage-channel').value,result=await api('youtube/disconnect',{channel_id:id});Object.assign(state.config,result||{youtube_channel:null,youtube_channels:[]});}finally{delete button.dataset.disconnecting;updateYouTubeConnection();}});
  updateYouTubeConnection();
 }
 window.EccoYouTube={mount:mountYouTubeConnection,update:updateYouTubeConnection};
 function publishPage(){const list=assets().filter(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state),channel=state.config.youtube_channel;
- $('#page').innerHTML=`<p class="intro">Connect a YouTube channel you own, then review and publish an approved video.</p><div class="grid"><div class="panel form"><h2>YouTube Connection</h2><span data-youtube-status aria-live="polite" class="badge ${channel?'':'pending'}">${channel?esc(channel.title)+' · '+esc(channel.handle):'Not connected'}</span><button type="button" id="open-youtube-connections" class="secondary">Connections</button></div><form id="publish-form" class="panel form"><input type="hidden" name="channel_id" value=""><label>Approved video<select name="asset_id" required><option value="">Choose a production video</option>${list.map(a=>`<option value="${a.id}">${esc(a.title)} · ${a.id.slice(0,8)}</option>`).join('')}</select></label><label>Video title<input name="title" maxlength="100" required value="${esc(currentStory().title)} — ECCO AI Labs"></label><label>Description<textarea name="description">An ECCO AI Labs development film.</textarea></label><div class="row"><label>Visibility<select name="visibility"><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option><option value="schedule">Schedule</option></select></label><label>Audience<select name="made_for_kids" required><option value="">Choose an audience</option><option value="false">Not made for kids</option><option value="true">Made for kids</option></select></label></div><label data-youtube-only="schedule" hidden>Publish at (your local time)<input type="datetime-local" name="publish_at"></label><label class="inline-check"><input name="confirmed" type="checkbox" required><span>I reviewed this video and authorize its upload to the connected channel with the visibility and audience selected above.</span></label><button ${!channel||!list.length?'disabled':''}>Upload approved video</button></form></div><div class="statline">${assets().filter(a=>a.youtube_id).map(a=>`<span><a href="https://www.youtube.com/watch?v=${encodeURIComponent(a.youtube_id)}" target="_blank" rel="noopener">Uploaded ${esc(a.youtube_id)}</a> · ${esc(a.youtube_visibility)}</span>`).join('')}</div>`;
- $('#open-youtube-connections').onclick=()=>{window.EccoAI?.connections();$('#connect-youtube')?.focus();};
+ $('#page').innerHTML=`<form id="publish-form" class="panel form"><label>YouTube channel<select name="channel_id" required></select></label><label>Approved video<select name="asset_id" required><option value="">Choose a production video</option>${list.map(a=>`<option value="${a.id}">${esc(a.title)} · ${a.id.slice(0,8)}</option>`).join('')}</select></label><label>Video title<input name="title" maxlength="100" required value="${esc(currentStory().title)} — ECCO AI Labs"></label><label>Description<textarea name="description">An ECCO AI Labs development film.</textarea></label><div class="row"><label>Visibility<select name="visibility"><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option><option value="schedule">Schedule</option></select></label><label>Audience<select name="made_for_kids" required><option value="">Choose an audience</option><option value="false">Not made for kids</option><option value="true">Made for kids</option></select></label></div><label data-youtube-only="schedule" hidden>Publish at (your local time)<input type="datetime-local" name="publish_at"></label><label class="inline-check"><input name="confirmed" type="checkbox" required><span>I reviewed this video and authorize its upload to the connected channel with the visibility and audience selected above.</span></label><button ${!channel||!list.length?'disabled':''}>Upload approved video</button></form><div class="statline">${assets().filter(a=>a.youtube_id).map(a=>`<span><a href="https://www.youtube.com/watch?v=${encodeURIComponent(a.youtube_id)}" target="_blank" rel="noopener">Uploaded ${esc(a.youtube_id)}</a> · ${esc(a.youtube_visibility)}</span>`).join('')}</div>`;
+ $('#publish-form [name=channel_id]').onchange=updateYouTubeConnection;
  const visibility=$('#publish-form [name=visibility]'),schedule=$('#publish-form [name=publish_at]');
  visibility.onchange=()=>{const scheduled=visibility.value==='schedule';schedule.closest('label').hidden=!scheduled;schedule.required=scheduled;};
  updateYouTubeConnection();

@@ -102,18 +102,37 @@ def _dependencies():
     return Flow, Credentials, build
 
 
-def _saved():
+def _connections():
+    """Read all grants, accepting the original single-channel format."""
+    if not TOKEN_FILE.exists():
+        return {}
     try:
         data = json.loads(TOKEN_FILE.read_text())
         if 'encrypted' in data:
             data = json.loads(_cipher().decrypt(data['encrypted'].encode()))
-        if (not data['channel']['id'] or not data['channel']['title']
-                or data['credentials']['client_id'] != google_signin.CLIENT_ID
-                or not data['credentials']['refresh_token']
-                or not set(SCOPES).issubset(data['credentials']['scopes'])):
-            return None
-        return data
+        entries = data.get('connections') if 'connections' in data else [data]
+        if not isinstance(entries, list):
+            raise ValueError()
+        result = {}
+        for saved in entries:
+            channel, credentials = saved['channel'], saved['credentials']
+            if (not channel['id'] or not channel['title']
+                    or credentials['client_id'] != google_signin.CLIENT_ID
+                    or credentials['token_uri'] != 'https://oauth2.googleapis.com/token'
+                    or not credentials['refresh_token']
+                    or not set(SCOPES).issubset(credentials['scopes'])):
+                raise ValueError()
+            result[channel['id']] = saved
+        return result
     except Exception:
+        raise legacy.Problem('Saved YouTube connections could not be read. Restore the private connection file and encryption key.', 503) from None
+
+
+def _saved(expected_id=None):
+    try:
+        entries = _connections()
+        return entries.get(expected_id) if expected_id else next(iter(entries.values()), None)
+    except legacy.Problem:
         return None
 
 
@@ -124,9 +143,13 @@ def status():
         configured = True
     except (legacy.Problem, ImportError):
         configured = False
-    saved = _saved() if configured else None
-    channel = {k: saved['channel'][k] for k in ('id', 'title', 'handle')} if saved else None
-    return {'youtube_configured': configured, 'youtube_channel': channel,
+    try:
+        saved = list(_connections().values()) if configured else []
+    except legacy.Problem:
+        saved = []
+    channels = [{k: entry['channel'].get(k, '') for k in ('id', 'title', 'handle')} for entry in saved]
+    return {'youtube_configured': configured, 'youtube_channel': channels[0] if channels else None,
+            'youtube_channels': channels, 'youtube_multi_channel': True,
             'youtube_setup_available': not CLIENT_FILE.exists() and not TOKEN_FILE.exists()}
 
 
@@ -146,20 +169,27 @@ def _cipher(create=False):
     return Fernet(KEY_FILE.read_bytes())
 
 
-def _save(credentials, channel):
+def _write_connections(entries):
     # One atomic private file: never advertise a channel before its token is durable.
     TOKEN_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix='.youtube-', dir=TOKEN_FILE.parent)
     try:
         with os.fdopen(fd, 'w') as output:
-            payload = json.dumps({'credentials': json.loads(credentials.to_json()), 'channel': channel})
-            json.dump({'version': 1, 'encrypted': _cipher(create=True).encrypt(payload.encode()).decode()}, output)
+            payload = json.dumps({'connections': list(entries.values())})
+            json.dump({'version': 2, 'encrypted': _cipher(create=True).encrypt(payload.encode()).decode()}, output)
             output.flush()
             os.fsync(output.fileno())
         os.replace(name, TOKEN_FILE)
     finally:
         if os.path.exists(name):
             os.unlink(name)
+
+
+def _save(credentials, channel):
+    with _lock:
+        entries = _connections()
+        entries[channel['id']] = {'credentials': json.loads(credentials.to_json()), 'channel': channel}
+        _write_connections(entries)
 
 
 def start():
@@ -177,7 +207,7 @@ def start():
             raise legacy.Problem('Too many pending connections. Please try again shortly.', 429)
         flow = Flow.from_client_config(config, scopes=SCOPES, redirect_uri=CALLBACK,
                                        autogenerate_code_verifier=True)
-        url, state = flow.authorization_url(access_type='offline', prompt='consent')
+        url, state = flow.authorization_url(access_type='offline', prompt='consent select_account')
         _pending[state] = (now, flow, _generation)
     return {'url': url}
 
@@ -241,14 +271,24 @@ def verify_channel(client, expected_id=None):
             'handle': handle if handle.startswith('@') else ''}
 
 
-def disconnect():
+def disconnect(channel_id=None):
     global _generation
     with _lock:
         # A late callback must not restore a disconnected connection.
         _pending.clear()
         _generation += 1
-        TOKEN_FILE.unlink(missing_ok=True)
-    return {'youtube_channel': None}
+        if channel_id is not None:
+            entries = _connections()
+            if not isinstance(channel_id, str) or channel_id not in entries:
+                raise legacy.Problem('Choose a connected YouTube channel to disconnect.', 409)
+            del entries[channel_id]
+            if entries:
+                _write_connections(entries)
+            else:
+                TOKEN_FILE.unlink(missing_ok=True)
+        else:
+            TOKEN_FILE.unlink(missing_ok=True)
+    return status()
 
 
 def publish(body):
@@ -261,7 +301,7 @@ def publish(body):
 
 def client(expected_id=None):
     with _lock:
-        saved = _saved()
+        saved = _saved(expected_id)
         if not saved:
             raise legacy.Problem('Connect the YouTube channel first.', 409)
         if expected_id and saved['channel']['id'] != expected_id:

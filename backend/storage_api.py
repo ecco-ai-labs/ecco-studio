@@ -150,7 +150,7 @@ class Handler(legacy.Handler):
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
             if path == '/api/youtube/configure': return self.send(youtube_connection.configure(body))
             if path == '/api/youtube/connect': return self.send(youtube_connection.start())
-            if path == '/api/youtube/disconnect': return self.send(youtube_connection.disconnect())
+            if path == '/api/youtube/disconnect': return self.send(youtube_connection.disconnect(body.get('channel_id')))
             if path == '/api/youtube/publish':
                 return self.send(youtube_connection.publish(body))
             if path.startswith('/api/ai/'):

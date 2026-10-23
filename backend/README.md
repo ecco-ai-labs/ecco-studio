@@ -103,13 +103,12 @@ The endpoint refuses to replace an existing configuration or saved connection.
 It returns availability only, never the secret. No configuration is stored in
 browser storage, the asset library, or GitHub. Existing plaintext client files
 remain supported. Back up both encrypted files and their key privately.
-After installation, click **Connect YouTube securely** again to grant consent.
+After installation, click **Connect** beside YouTube in Connections to grant consent.
 
 The consent flow requests only `youtube.readonly` and `youtube.upload`, uses
 short-lived single-use state and PKCE, and verifies the authenticated account
 owns the channel selected during Google authorization before saving anything.
-The existing private workspace has one connected channel at a time; reconnect
-replaces it. This does not provision isolated workspaces for public users. While the Google app is in Testing,
+The private workspace can retain multiple separately authorized channels. Connections → YouTube → Add channel opens Google account/channel selection and preserves existing grants. Each grant is keyed by its verified channel ID; Publishing lists only connected channels. Google identity sign-in alone cannot enumerate or authorize every Brand Account. This does not provision isolated workspaces for public users. While the Google app is in Testing,
 the channel owner's Google account must be on its test-user list. YouTube
 scopes may require Google's verification before wider production use; the
 basic Google sign-in audience can still allow any Google account.
@@ -120,8 +119,7 @@ with `ECCO_YOUTUBE_TOKEN_FILE`. The encryption key is created with 0600 permissi
 at `/workspace/ecco-storage-private/youtube-encryption.key` (`ECCO_YOUTUBE_KEY_FILE`
 may override it). Back up the encrypted token and key privately. Only sanitized
 channel metadata reaches Studio. Existing plaintext connections remain readable
-and are encrypted on their next credential save. Disconnect deletes the local
-connection and cancels pending consent callbacks; it does not delete videos or
+and are encrypted on their next credential save. Disconnect removes the selected local grant and cancels pending consent callbacks; it does not delete videos or
 revoke other Google applications.
 
 Uploads must include the channel ID shown in the review form. It is checked
@@ -132,7 +130,7 @@ The callback deliberately bypasses workspace Bearer auth (Google redirects
 cannot carry that header), but cannot exchange a code without the pending
 owner-initiated state. Callback URLs and provider exceptions are never logged.
 The callback has no scripts or external resources. Closing its result tab
-returns the owner to the unchanged Studio form, whose connection badge updates
+returns the owner to the unchanged Studio form, whose channel selector updates
 from the authenticated storage state poll.
 
 Validation: `PYTHONPATH=backend python3 -m unittest test_youtube_connection test_storage_api -v`.
@@ -146,3 +144,7 @@ run `NODE_PATH=<test-environment>/node_modules node --test ai-assistant.test.cjs
 Live OpenAI output can only be verified after the owner connects their actual key.
 
 
+
+Multiple-channel deployment: update `backend/youtube_connection.py` and `backend/storage_api.py` on the CPU service and restart only when CPU jobs are idle. Status advertises `youtube_multi_channel: true` and sanitized `youtube_channels`. The UI falls back to the original single-channel behavior until this backend update is running. Version 1 token files remain readable and migrate atomically to an encrypted version 2 connections list on the next save. Per-channel disconnect takes `channel_id`; the legacy empty-body disconnect still removes all grants. No new scopes or dependencies.
+
+Channel creation is a handoff to YouTube’s official channel list, followed by Add channel; the Data API has no channel-create method. Other social-platform connection rows remain unavailable; their publishing tabs do not initiate uploads.

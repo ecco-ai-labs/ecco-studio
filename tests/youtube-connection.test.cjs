@@ -6,7 +6,7 @@ const {JSDOM}=require('jsdom');
 const source=readFileSync(join(__dirname,'../studio.js'),'utf8');
 const helpers=source.slice(source.indexOf('function connectYouTube(){'),source.indexOf('function navigate(p)'));
 function setup(){
- const dom=new JSDOM('<main><header></header><div id="page"></div></main><dialog id="connection-dialog"><div id="connections"></div></dialog>',{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/'}),w=dom.window;
+ const dom=new JSDOM('<main><header><div id="connection-indicators"></div></header><div id="page"></div></main><dialog id="connection-dialog"><div id="connections"></div></dialog>',{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/'}),w=dom.window;
  w.$=selector=>w.document.querySelector(selector);w.esc=s=>String(s??'');
  w.state={config:{youtube_configured:true,youtube_channel:null},records:[{id:'a',media:'video',stage:'prod',title:'Approved test video'}]};
  w.EccoStorage={ready:true,open:()=>{}};
@@ -15,7 +15,7 @@ function setup(){
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  w.eval(helpers);w.eval(readFileSync(join(__dirname,'../publishing-platforms.js'),'utf8'));w.publishPage();
- w.EccoAI={connections:()=>{w.$('#connections').replaceChildren();w.EccoYouTube.mount(w.$('#connections'));w.$('#connection-dialog').showModal();}};w.EccoAI.connections();
+ w.EccoAI={connections:()=>{w.$('#connections').replaceChildren();w.EccoYouTube.mount(w.$('#connections'));w.EccoPublishing.mountConnections(w.$('#connections'));w.$('#connection-dialog').showModal();}};w.EccoAI.connections();
  return {dom,w};
 }
 test('Google window opens during click; failed request restores button and closes blank window',async t=>{
@@ -39,7 +39,7 @@ test('verified channel updates badge and Publish without replacing edits, focus 
  assert.equal(publish.disabled,true);
  w.state.config.youtube_channel={id:'UC-test',title:'Ecco AI Labs',handle:'@EccoAILabs'};w.updateYouTubeConnection();
  assert.equal(publish.disabled,false);assert.equal(title.value,'Keep my edited title');assert.equal(w.document.activeElement,title);
- assert.equal(w.$('#page [data-youtube-status]').textContent,'Ecco AI Labs · @EccoAILabs');
+ assert.equal(w.$('#publish-form [name=channel_id]').value,'UC-test');
  const tiktok=w.$('[data-platform=tiktok]');tiktok.click();tiktok.focus();w.updateYouTubeConnection();
  assert.equal(tiktok.getAttribute('aria-selected'),'true');assert.equal(publish.disabled,true);assert.equal(w.document.activeElement,tiktok);
  w.$('[data-platform=youtube]').click();assert.equal(publish.disabled,false);
@@ -132,11 +132,11 @@ test('install errors retain retry controls and prevent duplicate submissions',as
  assert.equal(dialog.open,true);assert.match(dialog.querySelector('[data-status]').textContent,/different OAuth client/);assert.equal(form.querySelector('[type=submit]').disabled,false);assert.equal(w.state.config.youtube_configured,false);
 });
 
-test('Connections owns YouTube controls and publishing opens that panel without changing drafts',t=>{
+test('Connections owns all platform controls and header icon preserves publishing drafts',t=>{
  const {dom,w}=setup();t.after(()=>dom.window.close());
  assert.equal(w.$('#page #connect-youtube'),null);assert.equal(w.$('#page #disconnect-youtube'),null);
  w.$('[name=title]').value='Preserve my draft';w.$('#connection-dialog').close();
- w.$('#open-youtube-connections').click();
+ assert.equal(w.$('#open-youtube-connections'),null);assert.equal(w.$('#page .connection'),null);assert.ok(!w.$('#page').textContent.includes('Connect TikTok'));w.$('#studio-publishing-icon').click();
  assert.equal(w.$('#connection-dialog').open,true);assert.equal(w.document.activeElement,w.$('#connect-youtube'));
  assert.equal(w.$('[name=title]').value,'Preserve my draft');assert.equal(w.document.querySelectorAll('#connect-youtube').length,1);
 });
@@ -179,4 +179,39 @@ test('nested storage authentication preserves the JSON selection and publishing 
  await form.onsubmit({preventDefault(){},target:form});
  assert.equal(w.EccoStorage.ready,true);assert.equal(navigations,0);assert.equal(w.$('[name=title]').value,'Keep draft while connecting');
  assert.equal(dialog.open,true);assert.equal(input.files[0],file);assert.equal(dialog.querySelector('[type=submit]').disabled,false);assert.equal(w.$('#storage-access-dialog').open,false);
+});
+
+// Multiple destinations must stay explicit across refreshes and disconnections.
+test('channel selector retains selection, clears consent and binds upload to the selected channel',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());
+ const first={id:'UC-one',title:'First',handle:'@First'},second={id:'UC-two',title:'Second',handle:'@Second'};
+ w.state.config.youtube_channels=[first,second];w.state.config.youtube_multi_channel=true;w.updateYouTubeConnection();
+ const select=w.$('#publish-form [name=channel_id]'),check=w.$('#publish-form [name=confirmed]'),publish=w.$('.publishing-toolbar button');
+ assert.equal(select.options.length,3);assert.equal(select.value,'');assert.equal(publish.disabled,true);assert.match(publish.title,/Choose a YouTube channel/);
+ select.value=second.id;select.dispatchEvent(new w.Event('change'));check.checked=true;w.updateYouTubeConnection();assert.equal(check.checked,true);assert.equal(select.value,second.id);
+ w.state.config.youtube_channels=[first,second,{id:'UC-three',title:'Third'}];w.updateYouTubeConnection();assert.equal(select.value,second.id);assert.equal(check.checked,true);
+ let request;w.api=async(path,body)=>{request={path,body};};w.$('#publish-form').dispatchEvent(new w.Event('submit',{cancelable:true}));await Promise.resolve();assert.equal(request.body.channel_id,second.id);
+ select.value=first.id;select.dispatchEvent(new w.Event('change'));assert.equal(check.checked,false);assert.match(check.nextElementSibling.textContent,/UC-one/);
+ w.state.config.youtube_channels=[second,{id:'UC-three',title:'Third'}];w.updateYouTubeConnection();assert.equal(select.value,'');assert.equal(publish.disabled,true);
+});
+test('header dropdown shows connected destinations only, supports keyboard and focuses Connections',t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());const menu=w.$('#publishing-connection-menu');assert.equal(menu.hidden,true);assert.equal(w.$('#studio-publishing-icon').disabled,false);
+ w.state.config.youtube_channels=[{id:'UC-one',title:'One'}];w.updateYouTubeConnection();assert.equal(menu.hidden,true);assert.equal(w.$('#studio-publishing-icon').dataset.connected,'true');
+ w.state.config.publishing_connections=[{platform:'instagram',id:'ig-1',title:'Instagram owner',connected:true},{platform:'x',id:'x-1',title:'Disconnected',connected:false}];w.updateYouTubeConnection();
+ assert.equal(menu.hidden,false);assert.equal(menu.querySelectorAll('button').length,2);assert.ok(menu.textContent.includes('Instagram owner'));assert.ok(!menu.textContent.includes('Disconnected'));
+ const summary=menu.querySelector('summary');summary.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));assert.equal(w.document.activeElement,menu.querySelector('button'));
+ w.document.activeElement.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));assert.equal(menu.open,false);assert.equal(w.document.activeElement,summary);
+ menu.querySelector('button').click();assert.equal(w.$('#connection-dialog').open,true);assert.equal(w.$('#youtube-manage-channel').value,'UC-one');assert.equal(w.document.activeElement,w.$('#youtube-manage-channel'));
+ w.EccoStorage.ready=false;w.updateYouTubeConnection();assert.equal(menu.hidden,true);assert.equal(menu.querySelectorAll('button').length,0);assert.equal(w.$('#studio-publishing-icon').dataset.connected,'false');
+});
+test('Publish explains absence of an approved video and unsupported platform without enabling upload',t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());w.state.config.youtube_channel={id:'UC-one',title:'One'};w.state.records=[];w.updateYouTubeConnection();
+ const publish=w.$('.publishing-toolbar button');assert.equal(publish.disabled,true);assert.match(w.$('.publishing-toolbar [role=status]').textContent,/Approve a video/);
+ w.$('[data-platform=tiktok]').click();assert.equal(publish.disabled,true);assert.match(w.$('.publishing-toolbar [role=status]').textContent,/not available yet/);
+});
+test('disconnect targets only the selected connection and creation opens the official YouTube page',async t=>{
+ const {dom,w}=setup();t.after(()=>dom.window.close());const first={id:'UC-one',title:'One'},second={id:'UC-two',title:'Two'};
+ w.state.config.youtube_channels=[first,second];w.updateYouTubeConnection();const select=w.$('#youtube-manage-channel');select.value=second.id;select.dispatchEvent(new w.Event('change'));
+ let body;w.api=async(path,payload)=>{body=payload;return {youtube_channels:[first],youtube_channel:first};};await w.$('#disconnect-youtube').onclick();assert.equal(body.channel_id,second.id);assert.equal(w.state.config.youtube_channels.length,1);
+ const create=w.$('#youtube-connection a');assert.equal(create.href,'https://www.youtube.com/channel_switcher');assert.equal(create.target,'_blank');assert.match(create.rel,/noopener/);assert.equal(w.$('#page a[href*="channel_switcher"]'),null);
 });

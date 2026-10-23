@@ -29,6 +29,7 @@
   dialog.querySelector('h2').textContent='Connections';
   root.innerHTML='<section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label></section><section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div></section>';
   window.EccoYouTube?.mount(root);
+  window.EccoPublishing?.mountConnections(root);
   const gpu=root.querySelector('#gpu-connection');
   gpu.querySelector('button').onclick=()=>{connectGPU('accelerator-status');};
   root.querySelector('[data-storage]').onclick=()=>{window.EccoStorage.open();};
@@ -261,6 +262,7 @@
    for(const icon of [button,storage,accelerator])if(icon.parentElement!==panel)panel.append(icon);
    let menu=q('#connection-panel-menu');
    if(!menu){menu=document.createElement('details');menu.id='connection-panel-menu';menu.className='workspace-menu';menu.innerHTML='<summary aria-label="Connection options"><span aria-hidden="true">+</span></summary><div class="workspace-menu-items"></div>';panel.append(menu);}
+   window.EccoPublishing?.mountIndicator(panel,menu);
    const items=menu.querySelector('.workspace-menu-items');
    if(settings&&settings.parentElement!==items)items.append(settings);
    if(settings)settings.onclick=()=>{menu.open=false;connections();};

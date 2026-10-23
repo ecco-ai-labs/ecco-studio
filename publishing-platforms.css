@@ -8,3 +8,17 @@ html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-acc
 .publishing-panel[hidden]{display:none!important}
 .publishing-panel [data-youtube-only][hidden]{display:none!important}
 .publishing-toolbar{display:flex;justify-content:flex-end;margin-bottom:12px}
+
+#studio-publishing-control{display:inline-flex;align-items:center;gap:2px;flex:none}
+#studio-publishing-control [hidden]{display:none!important}
+#studio-publishing-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;min-height:26px;padding:0;border:0;background:transparent;color:var(--ecco-theme-disconnected,#fff)!important;cursor:pointer}
+#studio-publishing-icon[data-connected=true]{color:var(--ecco-theme-connected,#ffdc24)!important}
+#studio-publishing-control svg,#connections .connection-heading h3 svg{width:18px;height:18px;flex:none;vertical-align:middle}
+#publishing-connection-menu>summary{min-height:26px;padding:0 4px;justify-content:center}
+#publishing-connection-menu .workspace-menu-items{max-height:50vh;overflow-y:auto}
+#publishing-connection-menu button{display:flex;align-items:center;gap:8px;color:var(--ecco-theme-connected,#ffdc24)!important}
+#studio-publishing-control :is(button,summary):focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:3px}
+.publishing-toolbar{align-items:center;gap:12px}
+.publishing-toolbar .help{margin:0}
+#youtube-connection label{margin-top:12px}
+#youtube-connection #disconnect-youtube{margin-top:12px}

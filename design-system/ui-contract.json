@@ -1558,7 +1558,7 @@
         "disconnected": "#b1c3d7"
       }
     },
-    "connectionStatusScope": "GPU connection buttons and the AI, Storage and GPU connection control panel icons share the same connected/disconnected colors. Desert uses dark brown #3c2c20 when connected and light brown #8c6844 when disconnected.",
+    "connectionStatusScope": "GPU connection buttons and the AI, Storage, GPU and Publishing connection control panel icons share the same connected/disconnected colors. Desert uses dark brown #3c2c20 when connected and light brown #8c6844 when disconnected.",
     "glass": {
       "approval": "User approved Ocean (light clear glass) and Dark Sky (dark blue glass), with ocean-blue accents replacing yellow.",
       "surfaces": "Header, navigation, panels, cards, menus, dialogs and controls; backdrop blur only, never media blur.",
@@ -1682,7 +1682,13 @@
       "link",
       "popup",
       "file-upload",
-      "notification"
+      "notification",
+      "icon-button",
+      "status-indicator",
+      "dropdown",
+      "menu",
+      "menu-item",
+      "help-text"
     ],
     "options": [
       "YouTube",
@@ -1697,14 +1703,17 @@
     "availability": "YouTube connection and confirmed uploads use the authenticated CPU storage service. Other options show Not connected and no upload action until backend integration exists.",
     "source": "Simple Icons SVG brand marks, bundled inline in publishing-platforms.js; attribution in assets/publishing/README.md.",
     "entry": "Publish journey step opens tabs directly; no intermediate review text or Open publishing action.",
-    "submit": "One Publish button above tabs; submits existing YouTube form with validation and confirmation when available. Disabled for unconfigured platforms; no simulated upload.",
-    "youtubeAuthorization": "Connections \u2192 YouTube \u2192 Connect opens Google synchronously from the user click after workspace and OAuth configuration are ready. Pending requests disable duplicate attempts. Backend-verified status updates the control panel and publishing badge without replacing drafts, platform selection or focus. Backend authorization, PKCE and token encryption are unchanged.",
+    "submit": "One Publish button above tabs; disabled with visible explanation when no channel, destination choice or approved video is available, or selected platform is unsupported. Existing form validation and explicit upload confirmation remain required.",
+    "youtubeAuthorization": "Connections \u2192 YouTube \u2192 Connect opens Google synchronously from the user click after workspace and OAuth configuration are ready. Pending requests disable duplicate attempts. Backend-verified status updates the control panel and publishing destination selector without replacing drafts, platform selection or focus. Backend authorization, PKCE and token encryption are unchanged.",
     "youtubeSetup": "Connections control panel owns the YouTube Connect/Connected and Disconnect controls. Connect remains enabled unless a request is in flight, and opens Set up YouTube before storage authentication when needed. The JSON file picker stays accessible; installation requires authenticated CPU setup availability. A separate Connect storage action opens a nested storage dialog and preserves the current page and selected file. Storage and Google secrets are never interchangeable. Closing a child preserves Connections and restores focus. Existing configuration discovered after storage login offers explicit Google authorization instead of replacement. No secrets are rendered or cached; bounded JSON goes only to the existing authenticated CPU endpoint.",
     "selection": "The Publish navigation step remains active on the publishing page, using the existing theme-colored inset left highlight. Selected platform tabs use the same 3px inset left accent, replacing the bottom underline; no full accent border. Default yellow, active theme accent otherwise.",
-    "forms": "All six platforms share connection-card and editable approved-video, title, description, visibility/destination and review-confirmation form layout. Headings use Platform Connection. Drafts survive switching tabs within the page. Other-platform Connect and Publish remain disabled until actual backend integration exists; no simulated connections or uploads. Visibility choices and destination labels are platform-specific; YouTube connection controls are in Connections; its publishing card retains status and a shortcut.",
-    "youtubeChannels": "One owner-authorized channel per private workspace. YouTube connection management lives in Connections, with Connected state and Disconnect action. Publishing retains channel status and a Connections shortcut. Review binds channel name/handle and ID; changing channel clears confirmation. Upload checks remain unchanged.",
+    "forms": "All six platforms retain editable video/title/description/visibility/audience and confirmation forms. Connection cards, Connect buttons and connection shortcuts are removed from Publishing. YouTube has a required destination dropdown populated only from authorized CPU channel metadata. Other platforms remain unavailable until backend integration exists.",
+    "youtubeChannels": "Multiple separately authorized YouTube channels per private workspace; Add channel retains existing grants. A required Publishing dropdown lists connected channel names, handles and IDs. Selection survives status refresh/additions; a destination change clears confirmation. Upload selects that channel\u2019s own credential and verifies identity before queueing and at worker start. Connections owns a channel dropdown and per-channel Disconnect. Previous single-channel storage migrates on save.",
     "youtubeSchedule": "Schedule in the existing Visibility dropdown reveals a registered date-time input using existing form styles. Browser-local time converts to UTC; backend requires a future timezone-qualified time and private upload. Other-platform forms do not expose scheduling. Completed uploads link to YouTube.",
-    "connectionPlacementApproval": "2026-10-22: user requested moving YouTube connection into the Connections Control Panel and fixing the unclickable connection action."
+    "connectionPlacementApproval": "2026-10-23: user requested a compact publishing icon in the Connections control panel, connected-destination dropdown for multiple connections, all connection management removed from Publishing, a YouTube channel selector, and a create-channel entry.",
+    "controlPanel": "18px platform icon in existing 28px control slot, theme connected/disconnected colors. Click opens Connections, never uploads. When more than one authorized destination exists, adjacent dropdown lists each platform icon/channel/Connected. Unavailable or disconnected platforms are excluded. Arrow keys, Home/End, Escape, outside click and focus exit supported; Escape returns focus to trigger. No stored browser metadata is treated as authorization.",
+    "createChannel": "Create channel on YouTube link in Connections opens the official channel list in a separate tab with noopener/noreferrer. YouTube owns creation; user returns to Connect/Add channel for authorization. No automatic channel creation or fictional API operation.",
+    "connectionSpacing": "User requested space above Disconnect in Connections; use 12px margin, matching the existing channel-label spacing."
   },
   "educationDiscord": {
     "type": "menu-item",

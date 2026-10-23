@@ -57,6 +57,11 @@ class StorageTest(unittest.TestCase):
   with patch.object(api.youtube_connection,'publish',return_value={'id':'test-job'}) as publish:
    with self.call('/api/youtube/publish',{'confirmed':True}) as response:self.assertEqual(json.load(response)['id'],'test-job')
    publish.assert_called_once_with({'confirmed':True})
+ def test_youtube_disconnect_routes_the_selected_channel(self):
+  with patch.object(api.youtube_connection,'disconnect',return_value={'youtube_channels':[]}) as disconnect:
+   with self.call('/api/youtube/disconnect',{'channel_id':'UC-selected'}) as response:
+    self.assertEqual(json.load(response)['youtube_channels'],[])
+   disconnect.assert_called_once_with('UC-selected')
  def test_youtube_configuration_is_authenticated_bounded_and_not_echoed(self):
   import youtube_connection as yt
   config={'web':{'client_id':yt.google_signin.CLIENT_ID,'client_secret':'fixture-private-secret',

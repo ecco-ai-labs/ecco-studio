@@ -54,6 +54,7 @@ class YouTubeConnectionTest(unittest.TestCase):
         self.assertEqual(params['redirect_uri'], [yt.CALLBACK])
         self.assertEqual(set(params['scope'][0].split()), set(yt.SCOPES))
         self.assertEqual(params['access_type'], ['offline'])
+        self.assertEqual(set(params['prompt'][0].split()), {'consent', 'select_account'})
         self.assertEqual(params['code_challenge_method'], ['S256'])
         flow = yt._pending[params['state'][0]][1]
         challenge = base64.urlsafe_b64encode(hashlib.sha256(flow.code_verifier.encode()).digest()).rstrip(b'=').decode()
@@ -313,6 +314,61 @@ class YouTubeConnectionTest(unittest.TestCase):
                 with self.assertRaises(yt.legacy.Problem):
                     yt.legacy.publish({'confirmed': True, 'publish_at': date, 'visibility': visibility})
             launch.assert_not_called()
+
+    def test_add_channel_retains_grants_and_routes_each_destination(self):
+        second = {'id': 'UC-second', 'title': 'Second', 'handle': '@Second'}
+        from datetime import datetime, timedelta
+        first_token = self.credentials(refresh='first-refresh')
+        second_token = self.credentials(refresh='second-refresh')
+        first_token.expiry = second_token.expiry = datetime.utcnow() + timedelta(hours=1)
+        yt._save(first_token, self.channel)
+        self.pending(second_token)
+        with patch.object(yt, '_build'), patch.object(yt, 'verify_channel', return_value=second):
+            self.finish()
+        self.assertEqual(yt.status()['youtube_channels'], [self.channel, second])
+        self.assertTrue(yt.status()['youtube_multi_channel'])
+        with patch.object(yt, '_build') as build:
+            yt.client(self.channel['id'])
+            self.assertEqual(build.call_args.args[0].refresh_token, 'first-refresh')
+            yt.client(second['id'])
+            self.assertEqual(build.call_args.args[0].refresh_token, 'second-refresh')
+        self.assertNotIn('refresh', json.dumps(yt.status()))
+        yt._save(self.credentials(refresh='renewed-refresh'), self.channel)
+        self.assertEqual(len(yt.status()['youtube_channels']), 2)
+        self.assertEqual(yt._saved(second['id'])['credentials']['refresh_token'], 'second-refresh')
+
+    def test_selected_disconnect_preserves_other_grants_and_rejects_removed_destination(self):
+        second = {'id': 'UC-second', 'title': 'Second', 'handle': ''}
+        yt._save(self.credentials(), self.channel)
+        yt._save(self.credentials(), second)
+        result = yt.disconnect(second['id'])
+        self.assertEqual(result['youtube_channels'], [self.channel])
+        self.assertTrue(self.token_file.exists())
+        with self.assertRaises(yt.legacy.Problem), patch.object(yt, '_build') as build:
+            yt.client(second['id'])
+        build.assert_not_called()
+        yt.disconnect(self.channel['id'])
+        self.assertFalse(self.token_file.exists())
+
+    def test_original_single_connection_migrates_without_losing_grant(self):
+        original = {'credentials': json.loads(self.credentials().to_json()), 'channel': self.channel}
+        self.token_file.parent.mkdir()
+        encrypted = yt._cipher(create=True).encrypt(json.dumps(original).encode()).decode()
+        self.token_file.write_text(json.dumps({'version': 1, 'encrypted': encrypted}))
+        self.assertEqual(yt.status()['youtube_channels'], [self.channel])
+        second = {'id': 'UC-second', 'title': 'Second', 'handle': ''}
+        yt._save(self.credentials(refresh='second-refresh'), second)
+        self.assertEqual(len(yt.status()['youtube_channels']), 2)
+        self.assertEqual(yt._saved(self.channel['id'])['credentials']['refresh_token'], 'fixture-refresh')
+        self.assertEqual(json.loads(self.token_file.read_text())['version'], 2)
+
+    def test_unreadable_existing_grants_cannot_be_overwritten(self):
+        yt._save(self.credentials(), self.channel)
+        before = self.token_file.read_bytes()
+        yt.KEY_FILE.unlink()
+        with self.assertRaises(yt.legacy.Problem):
+            yt._save(self.credentials(), {'id': 'UC-second', 'title': 'Second', 'handle': ''})
+        self.assertEqual(self.token_file.read_bytes(), before)
 
 if __name__ == '__main__':
     unittest.main()
