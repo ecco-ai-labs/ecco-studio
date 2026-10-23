@@ -87,13 +87,13 @@
   const toolbar=document.createElement('div');toolbar.className='publishing-toolbar';
   const publish=document.createElement('button');publish.type='button';publish.textContent='Publish';const reason=document.createElement('span');reason.id=prefix+'-reason';reason.className='help';reason.setAttribute('role','status');publish.setAttribute('aria-describedby',reason.id);toolbar.append(reason,publish);
   const form=youtube.querySelector('#publish-form'),oldSubmit=form?.querySelector('button:not([type="button"])');
-  const youtubeReady=()=>Boolean(form&&selectedYouTubeChannel()&&(!form.elements.playlist_id?.value||state.config.youtube_playlist_write)&&assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state));
+  const youtubeReady=()=>Boolean(form&&selectedYouTubeChannel()&&(!form.elements.playlist_id?.value||state.config.youtube_playlist_write)&&!window.EccoPublishingMedia?.reason(form)&&(window.EccoPublishingMedia?.hasSelection(form)||assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state)));
   oldSubmit?.remove();
   let selectedPlatform='youtube';
   publish.onclick=()=>{if(selectedPlatform==='youtube'&&youtubeReady())form.requestSubmit();};
   const panels=[];
   function select(index,focus=false){
-   selectedPlatform=platforms[index][0];publish.disabled=selectedPlatform!=='youtube'||!youtubeReady();const message=selectedPlatform!=='youtube'?platforms[index][1]+' publishing is not available yet.':!youtubeChannels().length?'Connect a YouTube channel in Connections.':!selectedYouTubeChannel()?'Choose a YouTube channel.':form.elements.playlist_id?.value&&!state.config.youtube_playlist_write?'Enable playlists in Connections before publishing to a playlist.':!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state)?'Approve a video in Production library to publish.':'';publish.title=message||'Publish to '+platforms[index][1];if(reason.textContent!==message)reason.textContent=message;reason.hidden=!message;
+   selectedPlatform=platforms[index][0];publish.disabled=selectedPlatform!=='youtube'||!youtubeReady();const message=selectedPlatform!=='youtube'?platforms[index][1]+' publishing is not available yet.':!youtubeChannels().length?'Connect a YouTube channel in Connections.':!selectedYouTubeChannel()?'Choose a YouTube channel.':form.elements.playlist_id?.value&&!state.config.youtube_playlist_write?'Enable playlists in Connections before publishing to a playlist.':window.EccoPublishingMedia?.reason(form)?window.EccoPublishingMedia.reason(form):!window.EccoPublishingMedia?.hasSelection(form)&&!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state)?'Approve a video in Production library to publish.':'';publish.title=message||'Publish to '+platforms[index][1];if(reason.textContent!==message)reason.textContent=message;reason.hidden=!message;
    [...tabs.children].forEach((button,i)=>{button.setAttribute('aria-selected',String(i===index));button.tabIndex=i===index?0:-1;panels[i].hidden=i!==index;});
    if(focus)tabs.children[index].focus();
   }
@@ -110,7 +110,7 @@
     visibility.replaceChildren(...choices[id].map(([value,label])=>new Option(label,value)));
     const audience=draft.querySelector('[name="made_for_kids"]').closest('label');
     audience.innerHTML='Destination<input name="destination" placeholder="'+({tiktok:'TikTok account',instagram:'Instagram account',whatsapp:'Recipient or group',meta:'Facebook page or profile',x:'X account'}[id])+'">';
-    draft.querySelector('[name="confirmed"]+span').textContent='I reviewed this video and authorize its publication to '+name+' with the destination and visibility selected above.';
+    draft.querySelector('[name="confirmed"]+span').textContent='I reviewed the selected items and authorize their publication to '+name+' with the destination and visibility selected above.';
     panel.append(draft);
    }
    panels.push(panel);button.onclick=()=>select(index);
@@ -119,7 +119,7 @@
   });
   window.EccoPublishingConnection=()=>{if(root.contains(tabs))select(platforms.findIndex(p=>p[0]===selectedPlatform));};
   root.append(toolbar,tabs,...panels);select(0);
-  const saved=pendingLibraryDraft;pendingLibraryDraft=null;
+  const saved=pendingLibraryDraft;pendingLibraryDraft=null;window.EccoPublishingMedia?.cancelPicker();
   if(saved&&saved.story===(currentStory().id||'')){
    panels.forEach((panel,index)=>{
     const draft=panel.querySelector('form'),values=saved.forms[index];if(!draft||!values)return;
@@ -135,8 +135,9 @@
    select(Math.max(0,platforms.findIndex(([id])=>id===saved.platform)));
    updateYouTubeConnection();
   }
-  panels.forEach(panel=>{
+  panels.forEach((panel,index)=>{
    const draft=panel.querySelector('form'),chooser=draft?.elements.asset_id;if(!chooser)return;
+   const selection=window.EccoPublishingMedia?.mount(draft,saved&&saved.story===(currentStory().id||'')?saved.selections?.[index]||[]:[]);
    const libraries=document.createElement('optgroup');libraries.label='Libraries';
    for(const [kind,label] of [['video','Open Video Library…'],['audio','Open Audio Library…']]){
     const option=new Option(label,'library:'+kind);option.dataset.library=kind;libraries.append(option);
@@ -144,12 +145,19 @@
    chooser.append(libraries);let previous=chooser.value;
    chooser.addEventListener('change',()=>{
     const kind=chooser.selectedOptions[0]?.dataset.library;
-    if(!kind){previous=chooser.value;draft.elements.confirmed.checked=false;return;}
+    if(!kind){previous=chooser.value;draft.elements.confirmed.checked=false;if(chooser.value)selection?.add([chooser.value]);return;}
     chooser.value=previous;
-    pendingLibraryDraft={story:currentStory().id||'',platform:selectedPlatform,forms:panels.map(item=>Object.fromEntries(new FormData(item.querySelector('form'))))};
-    window.EccoWorkspaceUI?.openLibrary(kind);
+    pendingLibraryDraft={story:currentStory().id||'',platform:selectedPlatform,forms:panels.map(item=>Object.fromEntries(new FormData(item.querySelector('form')))),selections:panels.map(item=>item.querySelector('form').publishingSelection?.snapshot()||[])};
+    const savedDraft=pendingLibraryDraft;
+    if(window.EccoPublishingMedia)window.EccoPublishingMedia.open(kind,selection.items.map(item=>item.id),ids=>{
+     const existing=savedDraft.selections[index].filter(item=>state.records.find(a=>a.id===item.id)?.media!==kind);
+     savedDraft.selections[index]=[...existing,...ids.map(id=>savedDraft.selections[index].find(item=>item.id===id)||{id,title:(state.records.find(a=>a.id===id)?.title||'Untitled').slice(0,100)})];
+     pendingLibraryDraft=savedDraft;navigate('publish');document.querySelector('.publishing-panel:not([hidden]) .publishing-selection input')?.focus();
+    },()=>{pendingLibraryDraft=savedDraft;navigate('publish');document.querySelector('.publishing-panel:not([hidden]) [name=asset_id]')?.focus();});
+    else window.EccoWorkspaceUI?.openLibrary(kind);
    });
   });
+  window.EccoPublishingConnection?.();
   return result;
  };
 })();

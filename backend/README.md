@@ -166,4 +166,8 @@ and reports an unconfirmed playlist addition; it must not cause a duplicate uplo
 
 Other social-platform connection rows remain unavailable; their publishing tabs
 do not initiate uploads. Every platform's video chooser can open the existing
-Video or Audio Library. Opening a library does not upload or convert media.
+Video or Audio Library in multi-select mode. Confirmed video batches call the existing
+single-video upload endpoint once per item; accepted and uncertain submissions
+are not automatically retried. Audio selections remain visible but cannot be sent
+to YouTube until converted to video. Opening/selecting library items does not
+upload, convert media or start compute.

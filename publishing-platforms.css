@@ -28,3 +28,11 @@ html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-acc
 #youtube-playlists .row button{width:auto}
 #youtube-playlists .help{margin:8px 0 0}
 #youtube-connection #enable-youtube-playlists{margin-top:12px}
+.publishing-selection[hidden],.publishing-panel label[hidden]{display:none!important}
+.publishing-selection-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.publishing-selection-row label{flex:1;min-width:180px}
+.publishing-selection-row button{width:auto}
+.publishing-selection-row .help{flex-basis:100%;margin:0}
+.publishing-library-choice{padding:12px;margin:0}
+#publishing-library-picker .row{gap:8px;flex-wrap:wrap}
+#publishing-library-picker .row button{width:auto}

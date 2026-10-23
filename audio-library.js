@@ -88,7 +88,7 @@
   }).join('')||empty('Your audio library is ready','Upload audio and add labels to organize it.'))+'</div>';
   const view=q('#audio-library-view');view.value=mode;view.onchange=()=>{localStorage.setItem('ecco-audio-library-view',view.value);q('#audio-library-gallery').className='cards library-view-'+view.value;document.querySelectorAll('#audio-library-gallery .library-card-actions').forEach(d=>d.open=view.value==='large');};
   q('#audio-create-label').onclick=()=>createLabel(folder=>{selected=folder.id;navigate('audio-library');});q('#audio-library-upload').onclick=uploadDialog;
-  wireCards();document.querySelectorAll('[data-audio-label]').forEach(b=>b.onclick=()=>labelDialog(b.dataset.audioLabel));hydrateMedia();pageSignature=signature();
+  wireCards();document.querySelectorAll('[data-audio-label]').forEach(b=>b.onclick=()=>labelDialog(b.dataset.audioLabel));hydrateMedia();pageSignature=signature();window.EccoPublishingMedia?.mountLibrary('audio');
  }
  function sync(){tree();if(page==='audio-library'&&pageSignature!==signature())render();}
  const oldNavigate=navigate;navigate=function(p){if(p!==page)notice('');if(p!=='audio-library')return oldNavigate.apply(this,arguments);document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page=p;q('#heading').textContent='Audio Library';document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));treeSignature='';tree();render();};
