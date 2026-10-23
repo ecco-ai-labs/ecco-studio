@@ -1716,9 +1716,16 @@
     "connectionSpacing": "User requested space above Disconnect in Connections; use 12px margin, matching the existing channel-label spacing."
   },
   "educationDiscord": {
-    "type": "menu-item",
+    "type": "icon-button",
     "label": "Discord",
-    "placement": "Education and Learning",
-    "action": "Opens theme-aware dialog showing Not connected; shared upper-right close x. No Discord server or invite configured yet."
+    "placement": "Header, immediately right of Connections Control Panel, in a separate compact Community and source code panel with GitHub. Removed from Education and Learning. Trash stays in its original sidebar position.",
+    "appearance": "Same surface, border, radius and inset shadow as connection control panel; active theme tokens and glass surfaces. Matching existing 32px utility buttons and 16px icons.",
+    "action": "Opens existing theme-aware Discord dialog showing Not connected; shared close x and Escape; focus returns to Discord. No server configured."
+  },
+  "sidebarGitHub": {
+    "type": "icon-link",
+    "placement": "Right of Discord in header Community and source code panel, beside Connections. Trash stays in sidebar.",
+    "action": "Open https://github.com/ecco-ai-labs/ecco-studio in new tab with noopener noreferrer. Accessible label announces new tab.",
+    "appearance": "Same 32px button area, 16px icon, theme-aware hover/focus and glass surface as the Discord panel."
   }
 }

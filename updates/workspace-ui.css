@@ -504,3 +504,12 @@ body>aside #workspace-library-group .workspace-library[open]>summary::before{con
 /* Account actions are available from the signed-in user menu. Keep the legacy
    mount hidden for modules that still attach controls there. */
 #workspace-menus > .workspace-menu[data-category="Account"]{display:none!important}
+
+/* Community control panel beside Connections; Trash remains in sidebar. */
+#workspace-community-controls{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;margin:0;flex:none;border:1px solid var(--ecco-theme-border,rgba(190,180,215,.22));border-radius:10px;background:linear-gradient(180deg,var(--ecco-theme-control,#302a43),var(--ecco-theme-surface,#242031));box-shadow:inset 0 1px 3px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.04)}
+#workspace-community-controls>#workspace-discord,#workspace-community-controls>#workspace-github{margin:0!important;background:transparent!important;border:0!important;box-shadow:none!important;color:var(--ecco-theme-text,#fff)!important}
+#workspace-community-controls>:is(#workspace-discord,#workspace-github):hover,#workspace-community-controls>:is(#workspace-discord,#workspace-github):focus-visible{color:var(--ecco-theme-accent,#ffdc24)!important}
+#workspace-community-controls>:is(#workspace-discord,#workspace-github):focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:2px}
+
+#workspace-github{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;text-decoration:none;border-radius:6px}
+body.workspace-entry-mode #workspace-community-controls{display:none!important}
