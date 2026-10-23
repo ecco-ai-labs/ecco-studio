@@ -47,6 +47,7 @@ window.EccoGPUPicker = (() => {
           <option value="">Choose an instance</option>${gpus.filter(g=>g.name===name).map(g=>`<option value="${g.id}">${g.label} · ${g.id}</option>`).join('')}
         </select></label>
         <button type="button" class="gpu-open secondary" id="gpu-status-${name}" aria-live="polite" disabled>Connect</button>
+        <p class="help gpu-health-detail" aria-live="polite"></p>
       </article>`).join('')}</div>
       <p class="help" id="gpu-checked">Checking availability…</p>
     </section>`;
@@ -73,7 +74,8 @@ window.EccoGPUPicker = (() => {
         card.button.disabled=Boolean(pending)||busy||!gpu||status?.kind!=='ready'||connected;
         card.button.dataset.connected=String(connected);
         card.button.setAttribute('aria-busy',String(Boolean(pending)));
-        card.button.textContent=pending?'Connecting…':connected?'Connected':!gpu?'Connect':!status?'Checking…':status.kind==='ready'?'Connect':'Unavailable';
+        card.button.textContent=pending?'Connecting…':connected?'Connected':!gpu?'Connect':!status?'Checking…':status.kind==='ready'?'Connect':status.title||'Unavailable';
+        card.root.querySelector('.gpu-health-detail').textContent=gpu?status?.detail||'Checking generation service…':'';
         card.button.title=gpu&&!connected&&status?.kind!=='ready'?status?.detail||'This instance is unavailable.':'';
       }
     }

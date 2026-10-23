@@ -1576,12 +1576,13 @@
       "Debugging",
       "Errors"
     ],
-    "activityMenuEntry": false
+    "activityMenuEntry": false,
+    "connectivity": "Activity contains expandable credential-redacted connection checks, attempts, outcomes and issues, latest 500 retained per browser. Failures also appear in Errors with timestamp, user/session, instance, stage and detail."
   },
   "acceleratorConnections": {
     "layout": "Two existing GPU cards, one for B200 and one for A100",
     "selection": "Each card contains a RunPod instance dropdown; no instance selected by default",
-    "status": "The selected instance button shows Connected (disabled), Unavailable (disabled), or Connect (enabled); checking and connecting are transient states. No separate status paragraph.",
+    "status": "Fresh relay health controls availability. Distinguish No heartbeat, Heartbeat lost, Service not ready and Available; do not infer RunPod power state. Visible existing help-text paragraph explains failed check.",
     "connection": "Explicit Connect adds that instance without removing any existing connection, including another instance in the same class",
     "persistence": "Connected instance IDs persist in this browser and require fresh authenticated health before displaying Connected",
     "refreshSeconds": 20,

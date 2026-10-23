@@ -26,6 +26,29 @@
   window.dispatchEvent(new Event('ecco-error-recorded'));return item;
  }catch{ /* Diagnostics must never interrupt the app. */ }}
  window.EccoErrorLog={record,list:()=>entries.slice(),limit:LIMIT,redact};
+ let connections=safeRead('ecco-connectivity-v1',[]);if(!Array.isArray(connections))connections=[];
+ window.EccoConnectivityLog={record(event,details={}){try{
+  const item=clean({id:crypto.randomUUID(),occurred_at:new Date().toISOString(),...context(),source:'GPU connectivity',event,...details});
+  connections.push(item);connections=connections.slice(-LIMIT);
+  try{localStorage.setItem('ecco-connectivity-v1',JSON.stringify(connections));}catch{}
+  if(item.level==='error')record(item.message||event,item);
+  return item;
+ }catch{}},list:()=>connections.slice()};
+ let connectionSignature='';
+ function renderConnections(){const jobsRoot=document.querySelector('#jobs');if(!jobsRoot)return;
+  let root=document.querySelector('#ecco-connectivity-log');
+  if(!root){root=document.createElement('section');root.id='ecco-connectivity-log';jobsRoot.prepend(root);connectionSignature='';}
+  const signature=JSON.stringify(connections);if(signature===connectionSignature)return;connectionSignature=signature;
+  root.replaceChildren();if(!connections.length)return;
+  const heading=document.createElement('h3');heading.textContent='Connectivity';root.append(heading);
+  for(const item of connections.slice().reverse()){
+   const row=document.createElement('details'),title=document.createElement('summary');
+   title.textContent=new Date(item.occurred_at).toLocaleString()+' · '+item.event+(item.gpu?' · '+item.gpu:'');
+   const pre=document.createElement('pre');pre.textContent=JSON.stringify(item,null,2);pre.style.whiteSpace='pre-wrap';pre.style.overflowWrap='anywhere';
+   row.append(title,pre);root.append(row);
+  }
+ }
+
  document.addEventListener('click',event=>{const b=event.target.closest?.('button,a,summary');if(b)action=redact((b.getAttribute('aria-label')||b.textContent||'').trim().slice(0,200));},true);
  window.addEventListener('error',event=>{if(event.error)record(event.error,{source:'javascript',file:event.filename,line:event.lineno,column:event.colno});else if(event.target!==window)record('Resource failed to load',{source:'resource',file:event.target?.src||event.target?.href||'',element:event.target?.tagName});},true);
  window.addEventListener('unhandledrejection',event=>record(event.reason,{source:'unhandled rejection'}));
@@ -53,6 +76,6 @@
    record(j.error||'Generation failed',{source:'generation worker',job_id:j.id,job_signature:sig,story_id:j.story_id,model:j.model||j.request?.model,gpu:j.gpu||j.request?.pod||j.request?.gpu,occurred_at:new Date((j.error_details?.occurred_at||j.finished||j.updated||j.created)*1000).toISOString(),error_details:j.error_details||null,progress:j.progress});}}
   catch(error){record(error,{source:'error log job collection'});}
  }
- function start(){if(typeof api==='function'){const original=api;api=async function(...args){try{return await original.apply(this,args);}catch(error){record(error,{source:'API',endpoint:args[0]});throw error;}};}const style=document.createElement('style');style.textContent='#ecco-errors-view details{border-bottom:1px solid #605679;padding:10px 0}#ecco-errors-view summary{color:#ff7474;cursor:pointer;overflow-wrap:anywhere}#ecco-errors-view pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}#ecco-errors-view[hidden]{display:none!important}';document.head.append(style);mount();new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});setInterval(()=>{jobs();render();},1500);}
+ function start(){if(typeof api==='function'){const original=api;api=async function(...args){try{return await original.apply(this,args);}catch(error){record(error,{source:'API',endpoint:args[0]});throw error;}};}const style=document.createElement('style');style.textContent='#ecco-errors-view details{border-bottom:1px solid #605679;padding:10px 0}#ecco-errors-view summary{color:#ff7474;cursor:pointer;overflow-wrap:anywhere}#ecco-errors-view pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}#ecco-errors-view[hidden]{display:none!important}';document.head.append(style);mount();new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});setInterval(()=>{jobs();render();renderConnections();},1500);}
  window.addEventListener('ecco-error-recorded',render);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();

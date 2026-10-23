@@ -13,7 +13,9 @@
  try{const saved=JSON.parse(localStorage.getItem('ecco-connected-gpus'));connectedGPUs=new Set(Array.isArray(saved)?saved.filter(id=>typeof id==='string'):[selectedGPU].filter(Boolean));}
  catch{connectedGPUs=new Set([selectedGPU].filter(Boolean));}
  const notifyGPUConnection=()=>document.dispatchEvent(new Event('ecco:gpu-connection-change'));
+ const connectionLog=(event,details={})=>window.EccoConnectivityLog?.record(event,details);
  function acceptGPUHealth(value){
+  for(const item of value?.gpus||[]){const previous=gpuHealth.find(g=>g.id===item.id);if(!previous||previous.ready!==item.ready){connectionLog(item.ready?'Generation service ready':'Generation service unavailable',{gpu:item.id,level:item.ready?'info':'error',message:item.detail||(item.ready?'Fresh relay heartbeat received.':'No healthy generation service heartbeat. RunPod power state is not verified.'),last_seen:item.last_seen,stage:item.stage||'relay heartbeat'});}}
   gpuHealth=value?.gpus||[];gpuChecked=Date.now();
   notifyGPUConnection();
  }
@@ -22,7 +24,11 @@
  function gpuStatus(gpu){
   if(!key)return {kind:'unchecked',title:'Not checked',detail:'Connect workspace storage to check GPU availability.'};
   if(!gpuChecked||Date.now()-gpuChecked>=60000)return {kind:'unknown',title:'Unavailable',detail:'GPU availability could not be verified.'};
-  return gpuHealth.find(g=>g.id===gpu.id)?.ready?{kind:'ready',title:'Available',detail:'Ready for generation.'}:{kind:'unknown',title:'Unavailable',detail:'The GPU generation service is not responding.'};
+  const health=gpuHealth.find(g=>g.id===gpu.id);
+  if(health?.ready)return {kind:'ready',title:'Available',detail:'Generation service and relay are responding.'};
+  if(!health?.last_seen)return {kind:'unknown',title:'No heartbeat',detail:'No relay heartbeat received. RunPod power state is not verified.'};
+  if(Date.now()/1000-health.last_seen>=45)return {kind:'unknown',title:'Heartbeat lost',detail:'Generation relay last seen '+new Date(health.last_seen*1000).toLocaleString()+'. The pod may be running without Studios services.'};
+  return {kind:'unknown',title:'Service not ready',detail:health.detail||'Relay is running, but the generation service is not responding.'};
  }
  window.EccoGPUConnection={
   get selectedId(){return selectedGPU;},
@@ -32,32 +38,39 @@
   isConnected:isGPUConnected,
   status:gpuStatus,
   async checkAll(gpus){
-   try{acceptGPUHealth(await storageRequest('gpu/status'));}catch(error){gpuChecked=0;notifyGPUConnection();throw error;}
+   const started=Date.now();connectionLog('Checking GPU connections',{gpus:gpus.map(g=>g.id),stage:'storage → relay'});
+   try{acceptGPUHealth(await storageRequest('gpu/status'));connectionLog('Connection check complete',{duration_ms:Date.now()-started,gpus:gpus.map(g=>({id:g.id,...gpuStatus(g)}))});}catch(error){gpuChecked=0;notifyGPUConnection();connectionLog('Connection check failed',{level:'error',message:error.message,stack:error.stack,duration_ms:Date.now()-started,stage:'storage → relay'});throw error;}
    return gpus.map(gpuStatus);
   },
   async check(gpu){return (await this.checkAll([gpu]))[0];},
   async select(gpu){
-   const status=await this.check(gpu);if(status.kind!=='ready')throw Error('This accelerator is unavailable.');
+   connectionLog('Connect requested',{gpu:gpu.id});
+   try{
+   const status=await this.check(gpu);if(status.kind!=='ready')throw Error(status.detail);
    connectedGPUs.add(gpu.id);localStorage.setItem('ecco-connected-gpus',JSON.stringify([...connectedGPUs]));
    selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);notifyGPUConnection();await refresh();
+   connectionLog('GPU connected',{gpu:gpu.id});
+   }catch(error){connectionLog('GPU connection failed',{gpu:gpu.id,level:'error',message:error.message,stack:error.stack});throw error;}
   },
  };
  gpuConnected=()=>window.EccoGPUConnection.ready;
  async function inferenceRequest(path,body){
   const request_id=crypto.randomUUID().replaceAll('-',''),gpu=body?.gpu||selectedGPU;
   if(!isGPUConnected(gpu))throw Error('Connect the selected accelerator before generating.');
+  connectionLog('Generation dispatch requested',{gpu,path,request_id});
   const payload={gpu,path,body,request_id};
   let accepted;
   // Only retry the same idempotency key; never create a second generation.
-  for(let attempt=0;attempt<2;attempt++){try{accepted=await storageRequest('gpu/request',payload);break;}catch(error){if(attempt)throw error;await new Promise(r=>setTimeout(r,1000));}}
+  for(let attempt=0;attempt<2;attempt++){try{accepted=await storageRequest('gpu/request',payload);break;}catch(error){connectionLog(attempt?'Generation submission failed':'Retrying generation submission',{gpu,path,request_id,attempt:attempt+1,level:'error',message:error.message,stack:error.stack});if(attempt)throw error;await new Promise(r=>setTimeout(r,1000));}}
   const deadline=Date.now()+180000;
   while(Date.now()<deadline){
    let response;try{response=await storageRequest('gpu/requests/'+gpu+'/'+accepted.id);}
-   catch(error){await new Promise(r=>setTimeout(r,2000));continue;}
-   if(response.status==='done')return response.result;
-   if(response.status==='error')throw Error(response.error);
+   catch(error){connectionLog('Generation response check failed',{gpu,path,request_id,level:'error',message:error.message});await new Promise(r=>setTimeout(r,2000));continue;}
+   if(response.status==='done'){connectionLog('Generation dispatch accepted',{gpu,path,request_id});return response.result;}
+   if(response.status==='error'){connectionLog('Generation dispatch failed',{gpu,path,request_id,level:'error',message:response.error});throw Error(response.error);}
    await new Promise(r=>setTimeout(r,700));
   }
+  connectionLog('Generation submission unconfirmed',{gpu,path,request_id,level:'error',message:'Response deadline exceeded; no duplicate generation submitted.'});
   throw Error('GPU submission is still unconfirmed. Check Activity before retrying; Studio has not submitted a duplicate.');
  }
 
