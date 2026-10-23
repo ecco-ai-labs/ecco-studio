@@ -8,6 +8,7 @@
   if(selection.busy)return 'Queueing selected videos…';
   if(selection.items.some(item=>record(item.id)?.media==='audio'))return 'YouTube requires video. Turn selected audio into a video before publishing.';
   if(selection.items.some(item=>!record(item.id)||record(item.id).media!=='video'||record(item.id).stage!=='prod'))return 'Remove unavailable items and choose approved videos.';
+  if(selection.items.some(item=>['failed','unknown','rejected'].includes(window.EccoPublishingStatus?.latest(item.id)?.status)))return 'An upload needs attention. See Publishing status below.';
   if(selection.items.some(item=>attempted.get(item.id)==='uncertain'))return 'An upload request was not confirmed. Check Activity before retrying.';
   if(!selection.items.some(item=>!attempted.has(item.id)&&!record(item.id)?.upload_state))return 'Uploads already started. Check Activity for completion.';
   return '';
@@ -24,7 +25,7 @@
     const label=document.createElement('label'),name=document.createElement('span');name.textContent=asset?.title||'Unavailable item';label.append(name);
     const input=document.createElement('input');input.name='publish-title-'+item.id;input.value=item.title;input.maxLength=100;input.required=true;input.disabled=selection.busy||attempted.has(item.id);input.setAttribute('aria-label','Publishing title for '+name.textContent);input.oninput=()=>{item.title=input.value;form.elements.confirmed.checked=false;};label.append(input);
     const remove=document.createElement('button');remove.type='button';remove.className='secondary small';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+name.textContent+' from publishing');remove.disabled=selection.busy;remove.onclick=()=>{selection.items=selection.items.filter(a=>a.id!==item.id);form.elements.confirmed.checked=false;render();updateYouTubeConnection();chooser.focus();};row.append(label,remove);
-    const status=document.createElement('p');status.className='help';status.setAttribute('role','status');status.textContent=attempted.get(item.id)==='queued'?'Upload queued':attempted.get(item.id)==='uncertain'?'Upload request not confirmed. Check Activity.':asset?.media==='audio'?'Audio · a video is required for YouTube':!asset?'Item unavailable':asset.upload_state?'Upload already started':'Video';row.append(status);section.append(row);
+    const status=document.createElement('p');status.className='help';status.setAttribute('role','status');status.dataset.publishingAssetStatus=item.id;const tracked=window.EccoPublishingStatus?.latest(item.id);status.textContent=tracked?window.EccoPublishingStatus.message(tracked):attempted.get(item.id)==='queued'?'Upload queued':attempted.get(item.id)==='uncertain'?'Upload request not confirmed. Check Activity.':asset?.media==='audio'?'Audio · a video is required for YouTube':!asset?'Item unavailable':asset.upload_state?'Upload already started':'Video';row.append(status);section.append(row);
    }
    const help=document.createElement('p');help.className='help';help.textContent='Description, visibility, audience and playlist apply to every selected video.';section.append(help);
   }
@@ -84,5 +85,5 @@
   }finally{selection.busy=false;selection.render();form.elements.confirmed.checked=false;updateYouTubeConnection();}
   return {queued};
  }
- window.EccoPublishingMedia={mount,open,mountLibrary,reason,submit,hasSelection:form=>!!form?.publishingSelection?.items.length,cancelPicker(){picker=null;}};
+ window.EccoPublishingMedia={refreshStatus(){for(const status of document.querySelectorAll('[data-publishing-asset-status]')){const tracked=window.EccoPublishingStatus?.latest(status.dataset.publishingAssetStatus);if(tracked){const text=window.EccoPublishingStatus.message(tracked);if(status.textContent!==text)status.textContent=text;}}},mount,open,mountLibrary,reason,submit,hasSelection:form=>!!form?.publishingSelection?.items.length,cancelPicker(){picker=null;}};
 })();

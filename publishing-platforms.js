@@ -93,7 +93,7 @@
   publish.onclick=()=>{if(selectedPlatform==='youtube'&&youtubeReady())form.requestSubmit();};
   const panels=[];
   function select(index,focus=false){
-   selectedPlatform=platforms[index][0];publish.disabled=selectedPlatform!=='youtube'||!youtubeReady();const message=selectedPlatform!=='youtube'?platforms[index][1]+' publishing is not available yet.':!youtubeChannels().length?'Connect a YouTube channel in Connections.':!selectedYouTubeChannel()?'Choose a YouTube channel.':form.elements.playlist_id?.value&&!state.config.youtube_playlist_write?'Enable playlists in Connections before publishing to a playlist.':window.EccoPublishingMedia?.reason(form)?window.EccoPublishingMedia.reason(form):!window.EccoPublishingMedia?.hasSelection(form)&&!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state)?'Approve a video in Production library to publish.':'';publish.title=message||'Publish to '+platforms[index][1];if(reason.textContent!==message)reason.textContent=message;reason.hidden=!message;
+   selectedPlatform=platforms[index][0];const uploading=selectedPlatform==='youtube'&&!!window.EccoPublishingStatus?.busy();publish.setAttribute('aria-busy',String(uploading));const buttonLabel=uploading?'Publishing…':'Publish';if(publish.dataset.label!==buttonLabel){publish.innerHTML=uploading?'<span class="publishing-spinner" aria-hidden="true"></span>Publishing…':'Publish';publish.dataset.label=buttonLabel;}publish.disabled=uploading||selectedPlatform!=='youtube'||!youtubeReady();const message=selectedPlatform!=='youtube'?platforms[index][1]+' publishing is not available yet.':!youtubeChannels().length?'Connect a YouTube channel in Connections.':!selectedYouTubeChannel()?'Choose a YouTube channel.':form.elements.playlist_id?.value&&!state.config.youtube_playlist_write?'Enable playlists in Connections before publishing to a playlist.':window.EccoPublishingMedia?.reason(form)?window.EccoPublishingMedia.reason(form):!window.EccoPublishingMedia?.hasSelection(form)&&!assets().some(a=>a.media==='video'&&a.stage==='prod'&&!a.upload_state)?'Approve a video in Production library to publish.':'';publish.title=message||'Publish to '+platforms[index][1];if(reason.textContent!==message)reason.textContent=message;reason.hidden=!message;
    [...tabs.children].forEach((button,i)=>{button.setAttribute('aria-selected',String(i===index));button.tabIndex=i===index?0:-1;panels[i].hidden=i!==index;});
    if(focus)tabs.children[index].focus();
   }
@@ -118,7 +118,7 @@
    tabs.append(button);
   });
   window.EccoPublishingConnection=()=>{if(root.contains(tabs))select(platforms.findIndex(p=>p[0]===selectedPlatform));};
-  root.append(toolbar,tabs,...panels);select(0);
+  root.append(toolbar,tabs,...panels);window.EccoPublishingStatus?.mount(root);select(0);
   const saved=pendingLibraryDraft;pendingLibraryDraft=null;window.EccoPublishingMedia?.cancelPicker();
   if(saved&&saved.story===(currentStory().id||'')){
    panels.forEach((panel,index)=>{

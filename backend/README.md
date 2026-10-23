@@ -171,3 +171,12 @@ single-video upload endpoint once per item; accepted and uncertain submissions
 are not automatically retried. Audio selections remain visible but cannot be sent
 to YouTube until converted to video. Opening/selecting library items does not
 upload, convert media or start compute.
+
+Publishing feedback: `publishing-status.js` records a bounded, credential-free
+browser history before submission, retains the returned upload job ID and reconciles
+it with authenticated workspace jobs/assets. This provides Activity and Debugging
+entries even when a request fails before job creation, and reports worker errors
+through the shared Errors log. Status uses actual worker progress and returned
+YouTube ID/visibility; queued is not treated as uploaded. Older successful upload
+assets recover their result/link; an unmatched reserved asset remains explicitly
+unknown. This UI change requires no API restart and never retries an upload.

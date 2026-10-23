@@ -104,7 +104,7 @@
    if(!response.ok){
     let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
     try{message=(await response.json()).error||message;}catch{}
-    throw Error(message);
+    const error=Error(message);error.status=response.status;throw error;
    }
    if(path.startsWith('media/'))return {buffer:await response.arrayBuffer(),mime:response.headers.get('Content-Type')};
    const data=await response.json();

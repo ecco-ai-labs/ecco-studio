@@ -1693,7 +1693,9 @@
       "checkbox",
       "field-group",
       "list",
-      "list-item"
+      "list-item",
+      "spinner",
+      "progress"
     ],
     "options": [
       "YouTube",
@@ -1721,7 +1723,9 @@
     "playlists": "YouTube-only optional playlist dropdown lists every owned playlist, following API pagination. Create playlist dialog uses existing form/secondary/close styles, maximum width 540px and viewport margin 32px. Title, description, visibility (private default) and explicit confirmation; close returns focus. Create and refresh buttons use an 8px wrapping row. Loading/errors are announced; stale responses cannot change another channel. Creation and adding uploads require opt-in Enable playlists in Connections; existing upload grants remain valid. Failed playlist insertion retains the uploaded video and shows a warning, preventing a duplicate upload.",
     "libraryOptions": "Each platform production-video chooser opens the existing Video or Audio Library in selection mode. Checkbox on every available item; Select all, Clear selection, Add selected (N), Cancel. Selections span stories, retain previews and survive library refresh/filter changes. Add selected returns to the originating platform with its draft and selected items; Cancel restores the original selection. Uploaded videos cannot be selected. Items have editable publishing titles and individual Remove buttons; shared description, visibility, audience and optional playlist apply to every selected video. Changing selection or titles clears explicit upload consent. Audio can be selected but YouTube publication explains that it requires video and remains disabled. No automatic conversion or GPU work.",
     "batchPublishing": "Explicitly confirmed YouTube selection queues the existing authenticated single-video API once per approved video, with individual titles. Prevent concurrent submissions and re-submission of accepted or uncertain requests. Stop on a failed request, retain per-item status and direct the owner to Activity. Other platforms keep selections but uploads remain unavailable.",
-    "pickerAppearance": "Existing library cards/previews and form/button styles. Checkbox labels use 12px padding; selected-item rows wrap with 8px gap and 12px bottom margin; title labels flex with 180px minimum width. Selection controls remain keyboard accessible; empty state disables Add selected and focuses Cancel."
+    "pickerAppearance": "Existing library cards/previews and form/button styles. Checkbox labels use 12px padding; selected-item rows wrap with 8px gap and 12px bottom margin; title labels flex with 180px minimum width. Selection controls remain keyboard accessible; empty state disables Add selected and focuses Cancel.",
+    "publishingFeedback": "User requested visible ongoing publishing and traceable Activity/Debugging/Errors. Publish shows a 16px circular theme-colored spinner, Publishing\u2026 and aria-busy during confirmed submission/queued/running work. A persistent status panel shows the last five attempts with real worker progress, timestamp, job/request ID, actual visibility and a YouTube link only after the server reports an uploaded video ID. Failures and uncertain outcomes are explicit; no synthetic progress or automatic upload retries. Completed uploads loaded from workspace records are recovered into history; reserved uploads without a known job remain unknown.",
+    "publishingDiagnostics": "Keep up to 50 credential-free attempts in this browser before calling youtube/publish, retaining returned server job IDs across navigation/reload. Activity lists all retained attempts even if submission failed before job creation. Debugging includes video/asset/channel IDs, status, progress, visibility, playlist and returned YouTube video ID; Errors records rejected/failed/unknown outcomes with redaction. Successful uploads do not create errors. Polling updates status without replacing draft fields or focus. Backend upload records remain authoritative; browser history is supplementary."
   },
   "educationDiscord": {
     "type": "icon-button",

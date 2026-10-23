@@ -36,3 +36,10 @@ html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-acc
 .publishing-library-choice{padding:12px;margin:0}
 #publishing-library-picker .row{gap:8px;flex-wrap:wrap}
 #publishing-library-picker .row button{width:auto}
+#publishing-status{margin-bottom:18px}
+.publishing-status-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.publishing-status-row small{flex-basis:100%;color:var(--muted)}
+.publishing-spinner{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:publishing-spin .8s linear infinite;flex:none}
+.publishing-toolbar button[aria-busy=true]{display:flex;align-items:center;gap:8px;opacity:1}
+@keyframes publishing-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.publishing-spinner{animation-duration:2s}}
