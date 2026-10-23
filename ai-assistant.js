@@ -249,17 +249,19 @@
   let button=q('#studio-ai-button');
   if(!button&&header){button=document.createElement('span');button.id='studio-ai-button';button.textContent='✦';button.setAttribute('role','img');header.append(button);}
   if(button){
-   if(accelerator){const storage=q('#studio-storage-indicator'),next=storage||accelerator;if(button.nextElementSibling!==next)next.before(button);}
    button.dataset.connected=String(!!connection.connected);
    button.setAttribute('aria-label',connection.connected?'AI connected':'AI not connected');
   }
   let storage=q('#studio-storage-indicator');
   if(!storage&&header){storage=document.createElement('span');storage.id='studio-storage-indicator';storage.setAttribute('role','img');storage.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>';header.append(storage);}
-  if(storage){if(button&&button.nextElementSibling!==storage)button.after(storage);const connected=!!window.EccoStorage?.ready;storage.dataset.connected=String(connected);storage.setAttribute('aria-label',connected?'Storage connected':'Storage not connected');}
+  if(storage){const connected=!!window.EccoStorage?.ready;storage.dataset.connected=String(connected);storage.setAttribute('aria-label',connected?'Storage connected':'Storage not connected');}
   if(header&&button&&storage&&accelerator){
    let panel=q('#connection-indicators');
    if(!panel){panel=document.createElement('div');panel.id='connection-indicators';panel.setAttribute('role','group');panel.setAttribute('aria-label','Connection status');header.prepend(panel);}
-   for(const icon of [button,storage,accelerator])if(icon.parentElement!==panel)panel.append(icon);
+   for(const icon of [storage,button,accelerator])if(icon.parentElement!==panel)panel.append(icon);
+   if(panel.firstElementChild!==storage)panel.prepend(storage);
+   if(storage.nextElementSibling!==button)storage.after(button);
+   if(button.nextElementSibling!==accelerator)button.after(accelerator);
    let menu=q('#connection-panel-menu');
    if(!menu){menu=document.createElement('details');menu.id='connection-panel-menu';menu.className='workspace-menu';menu.innerHTML='<summary aria-label="Connection options"><span aria-hidden="true">+</span></summary><div class="workspace-menu-items"></div>';panel.append(menu);}
    window.EccoPublishing?.mountIndicator(panel,menu);
