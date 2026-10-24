@@ -139,6 +139,25 @@ class AudioWorkflowsTest(unittest.TestCase):
         workflows.control({'id':w['id'],'action':'pause'},self.env)
         self.assertIsNone(self.record('workflow')['next_run'])
 
+    def test_unreadable_script_is_retained_and_no_paid_retry_occurs(self):
+        w=self.workflow();self.trigger(w)
+        self.writer.side_effect=None;self.writer.return_value={'questions':[],'revisions':[{'id':'audio_plan','text':'not JSON'}]}
+        workflows.tick(self.env);workflows.tick(self.env)
+        r=self.record('audio_workflow_run')
+        self.assertEqual(r['script_response'],'not JSON');self.assertIn('unreadable audio script',r['error'])
+        self.assertEqual(self.writer.call_count,1);self.assertFalse(self.env['records']('audio_job'))
+
+    def test_fenced_script_and_non_object_script(self):
+        w=self.workflow();self.trigger(w)
+        response=self.plan({'context':{'lines':self.base['audio_snapshot']['speakers']}},self.env)
+        response['revisions'][0]['text']='```JSON\n'+response['revisions'][0]['text']+'\n```'
+        self.writer.side_effect=None;self.writer.return_value=response;workflows.tick(self.env)
+        self.assertEqual(len(self.env['records']('audio_job')),1)
+        self.audio_done=True;workflows.tick(self.env);self.trigger(w)
+        response['revisions'][0]['text']='[]';workflows.tick(self.env)
+        r=self.env['records']('audio_workflow_run')[-1]
+        self.assertIn('invalid audio script object',r['error']);self.assertEqual(len(self.env['records']('audio_job')),1)
+
     def test_schema_and_foreign_record_are_rejected(self):
         with self.assertRaises(Problem): self.workflow(timezone='Invalid/Zone')
         with self.assertRaises(Problem): self.workflow(source_mode='chapters',total_chapters=2,chapters=['Only one'])

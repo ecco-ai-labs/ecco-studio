@@ -235,7 +235,13 @@ def prepare(run,env):
     if response.get('questions'): raise env['Problem']('AI needs clarification: '+' '.join(response['questions']))
     revisions=response.get('revisions',[])
     if len(revisions)!=1 or revisions[0].get('id')!='audio_plan': raise env['Problem']('AI returned an incomplete script.')
-    plan=json.loads(revisions[0]['text'].strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip())
+    raw=revisions[0].get('text')
+    run['script_response']=raw;env['save'](run)
+    if not isinstance(raw,str): raise env['Problem']('AI returned an unreadable audio script. Review this run and try again.')
+    raw=re.sub(r'^```(?:json)?\s*|\s*```$', '', raw.strip(), flags=re.IGNORECASE)
+    try: plan=json.loads(raw)
+    except ValueError: raise env['Problem']('AI returned an unreadable audio script. Review this run and try again.') from None
+    if not isinstance(plan,dict): raise env['Problem']('AI returned an invalid audio script object. Review this run and try again.')
     segments=plan.get('segments',[])
     ids={c['id']:c for c in cast}
     if not isinstance(segments,list) or len(segments)!=turns or any(not isinstance(s,dict) or s.get('character_id') not in ids for s in segments) or set(s['character_id'] for s in segments)!=set(ids):
@@ -255,7 +261,8 @@ def prepare(run,env):
         append(part,part.get('text'),pause)
     values={'workflow':w['name'],'date':now().astimezone(ZoneInfo(w['timezone'])).date().isoformat(),'chapter':run.get('chapter') or '', 'run':w['completed_runs']+1}
     title=re.sub(r'\{(workflow|date|chapter|run)\}',lambda m:str(values[m[1]]),w['output_title'])
-    request=validate_audio({**setup,'title':title,'lines':lines})
+    try: request=validate_audio({**setup,'title':title,'lines':lines})
+    except ValueError as error: raise env['Problem'](str(error)) from None
     request['story_id']=w['source_story_id'] or None
     run.update(status='prepared',request=request,script=plan);env['save'](run)
 
@@ -331,6 +338,7 @@ def tick(env):
             if run['status'] in ACTIVE:
                 try: advance(run,env)
                 except Exception as error:
+                    run['error_type']=type(error).__name__
                     finish(run,env,'error',getattr(error,'message',None) or 'Invalid generated script or workflow data. Review this run before retrying.')
 
 
