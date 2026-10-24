@@ -1593,7 +1593,7 @@
     }
   },
   "activityPanel": {
-    "entry": "Right-edge arrow",
+    "entry": "Right-edge arrow directly toggles the drawer and its accessible expanded state, without clicking a hidden inert control.",
     "title": "Activity, Logs and Errors",
     "tabs": [
       "Activity",

@@ -647,7 +647,7 @@
  if(!panel||!original||!close||document.querySelector('#activity-edge-arrow'))return;
  const arrow=document.createElement('button');arrow.id='activity-edge-arrow';arrow.type='button';arrow.setAttribute('aria-controls','activity-panel');document.body.append(arrow);
  const sync=()=>{const open=!panel.hidden;panel.inert=!open;arrow.textContent=open?'→':'←';arrow.title=open?'Close Activity, Logs and Errors':'Open Activity, Logs and Errors';arrow.setAttribute('aria-label',arrow.title);arrow.setAttribute('aria-expanded',String(open));arrow.classList.toggle('drawer-open',open);};
- arrow.onclick=()=>{original.click();sync();};close.textContent='→';close.title='Close Activity, Logs and Errors';close.setAttribute('aria-label','Close Activity, Logs and Errors');close.onclick=()=>{panel.hidden=true;original.setAttribute('aria-expanded','false');sync();arrow.focus();};
+ arrow.onclick=()=>{panel.hidden=!panel.hidden;original.setAttribute('aria-expanded',String(!panel.hidden));sync();};close.textContent='→';close.title='Close Activity, Logs and Errors';close.setAttribute('aria-label','Close Activity, Logs and Errors');close.onclick=()=>{panel.hidden=true;original.setAttribute('aria-expanded','false');sync();arrow.focus();};
  new MutationObserver(sync).observe(panel,{attributes:true,attributeFilter:['hidden']});sync();
  const style=document.createElement('style');style.textContent=`
  #toggle-activity{display:none!important}
