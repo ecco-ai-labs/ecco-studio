@@ -41,13 +41,27 @@ Review the frame narrative explicitly rather than accidentally merging speakers.
 
 ## Evidence and blockers
 
-- Focused interface tests: 35 passed (guided journey, source selection, sound
-  planning/attachment, final-script exact replacement, character controls).
+- Focused interface tests: 37 passed (guided journey, source selection, sound
+  planning/attachment, final-script exact replacement, character controls and
+  existing video handoff).
 - Audio job tests: 19 passed, including validation, verified-compute routing and
   durable generated-sound asset finalization. Some inherited baseline tests repeat.
 - Two focused authenticated storage-route/story-persistence tests passed.
 - UI inventory freshness check passed. These are local tests, including mocked AI
   and sound inference; they are not a real authenticated journey.
+- The old Story Format suite's test harness omitted `document.currentScript`,
+  so the existing Desk script crashed before assertions. The harness now supplies
+  script URLs and always cleans up failed-test windows. Against both the exact
+  current main revision `b52feae0489176c452478ca9c08c8d0b519dac5d` and this update,
+  13 tests pass and the same 7 old navigation/entry/workflow assertions fail.
+  No production appearance was altered to satisfy those legacy assertions.
+  This is recorded baseline debt, not a fully green regression suite.
+- All 6 deployment guard/rollback tests pass. Deployment is pinned to the
+  reviewed source revision, checks for idle services and retains source backups.
+- Live pre-update UI accepted the attached 255-page PDF and extracted physical
+  pages 8–12 (10,242 characters). That page-range result correctly includes all
+  of page 12, demonstrating why exact chapter bounds are required. It was closed
+  without applying or saving another chapter's text.
 - The broader storage suite has unrelated folder/trash failures in this local
   snapshot. No full-suite-green claim is made.
 - Last recorded runtime activation is the CPU update in README, source

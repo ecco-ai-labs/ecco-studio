@@ -1,14 +1,21 @@
-const {test}=require('node:test');
+const {test,afterEach}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM,VirtualConsole}=require('jsdom');
 const tick=()=>new Promise(resolve=>setTimeout(resolve,35));
+const cleanups=new Set();
+afterEach(()=>{for(const close of cleanups)close();});
 async function setup(storage={}, {autoConnect=false,records=null}={}){
  const html=fs.readFileSync(__dirname+'/index.html','utf8');
- const scripts=[...html.matchAll(/<script(?:\s+src="([^"]+)")?[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]?fs.readFileSync(__dirname+'/'+m[1].split('?')[0],'utf8'):m[2]);
+ const scripts=[...html.matchAll(/<script(?:\s+src="([^"]+)")?[^>]*>([\s\S]*?)<\/script>/g)].map(m=>{
+  // eval does not populate currentScript; preserve each browser script's URL.
+  const current=m[1]?{src:new URL(m[1],'https://ecco-ai-labs.github.io/ecco-studio/').href}:null;
+  return 'Object.defineProperty(document,"currentScript",{configurable:true,value:'+JSON.stringify(current)+'});\n'+(m[1]?fs.readFileSync(__dirname+'/'+m[1].split('?')[0],'utf8'):m[2]);
+ });
  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
  const dom=new JSDOM(html.replace(/<script[\s\S]*?<\/script>/g,''),{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/',pretendToBeVisual:true,virtualConsole:vc}),w=dom.window;
  const observers=[],Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);observers.push(this);}};
+ const close=()=>{observers.forEach(observer=>observer.disconnect());w.close();cleanups.delete(close);};cleanups.add(close);
  w.testAutoconnect=autoConnect;
  w.fixtureState={records:records||[{id:'audio-story',kind:'story',title:'Audio Story'},{id:'video-story',kind:'story',title:'Video Story'}],config:{models_ready:{}},storage_pending:false};
  w.structuredClone=structuredClone;w.setInterval=()=>0;w.fetch=async url=>{if(autoConnect&&url.endsWith('/api/state'))return {ok:true,json:async()=>structuredClone(w.fixtureState)};throw Error('No network in UI test');};w.matchMedia=()=>({matches:false,addEventListener(){}});w.HTMLElement.prototype.scrollIntoView=function(){};
@@ -23,7 +30,7 @@ async function setup(storage={}, {autoConnect=false,records=null}={}){
  await tick();
  const q=s=>w.document.querySelector(s),nav=()=>[...w.document.querySelectorAll('#workspace-production-group .journey-step')].filter(b=>!b.hidden).map(b=>b.dataset.page);
  const choose=async value=>{const field=q('[name=story_format]');field.value=value;field.dispatchEvent(new w.Event('change',{bubbles:true}));await tick();};
- return {w,q,nav,choose,errors,close:()=>{observers.forEach(observer=>observer.disconnect());w.close();},async go(p){w.testUI.navigate(p);await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
+ return {w,q,nav,choose,errors,close,async go(p){w.testUI.navigate(p);await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
 }
 test('new stories require a format and immediately show the matching steps without duplicates',async()=>{
  const x=await setup();await x.go('story-setup');
