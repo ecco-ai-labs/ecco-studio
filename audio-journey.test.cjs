@@ -56,6 +56,10 @@ test('Cancel, stale main-page edits and late results never overwrite the current
  mock(x);await open(x);await review(x);input(x,'[name=summary]','New manual edit.');await submit(x);assert.match(x.q(dlg+' [data-status]').textContent,/changed/);assert.equal(x.q('[name=summary]').value,'New manual edit.');assert.deepEqual(x.errors,[]);
 });
 
+test('Closing the guided popup restores focus to its visible AI menu control',async t=>{
+ const x=await ready(t),menu=x.q('#story-description-ai');menu.open=true;menu.querySelector('[data-generate]').focus();await open(x);x.q(dlg).close();assert.equal(x.w.document.activeElement,menu.querySelector('summary'));
+});
+
 test('Invalid casts, unsupported character assignments and invalid edited transcripts are rejected',async t=>{
  const x=await ready(t);mock(x,{invalid:true});await open(x);await questions(x);await submit(x);input(x,'[data-cast-row="1"] [data-character-property=name]','Host');await submit(x);assert.match(x.q(dlg+' [data-status]').textContent,/different name/);input(x,'[data-cast-row="1"] [data-character-property=name]','Guest');await submit(x);assert.match(x.q(dlg+' [data-status]').textContent,/invalid character/);assert.equal(x.q('[name=summary]').value,'');x.q(dlg).close();
  mock(x);await open(x);await review(x);await submit(x);input(x,'[name=summary]','Unknown: edited words');x.q('#story-setup-form').requestSubmit();await tick();assert.match(x.q('[data-story-status]').textContent,/Character name/);assert.equal(saved(x,'ecco-audio-draft:created-story'),null);

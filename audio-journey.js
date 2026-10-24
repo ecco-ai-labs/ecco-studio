@@ -94,7 +94,7 @@
    apply:data=>settings.apply(data.plan,data,data.cast)});
  }
  function open({initial,model,valid,apply}){
-  q('#audio-guided-dialog')?.close();const opener=document.activeElement,dialog=document.createElement('dialog');dialog.id='audio-guided-dialog';dialog.className='generation-dialog';dialog.setAttribute('aria-labelledby','audio-guided-title');
+  q('#audio-guided-dialog')?.close();const active=document.activeElement,opener=active?.closest('details:not([open])')?.querySelector('summary')||active,dialog=document.createElement('dialog');dialog.id='audio-guided-dialog';dialog.className='generation-dialog';dialog.setAttribute('aria-labelledby','audio-guided-title');
   const data={title:'',genre:'Story Book Reading',audience:'',language:'',tone:'Natural',purpose:'',instructions:'',turns:4,source_text:'',source_scope:'full',source_name:'',opening:'none',opening_pause:2,questions:[],answers:[],cast:[],...clone(initial)};
   data.cast=data.cast.map((c,i)=>profile(c,i,model,data.language));data.turns=Math.min(20,Math.max(Number(data.turns)||4,data.cast.length||1));
   let step=0,busy=false,epoch=0,closed=false,sourceBackup='',plan=null,version=0,planVersion=-1;
