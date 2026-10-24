@@ -92,6 +92,7 @@
     ]
   },
   "sharedRules": {
+    "storageConnect": "Connecting storage refreshes workspace data and connection status without navigating, opening a library or expanding library menus. Preserve the current screen and close only the storage dialog on success.",
     "labelColor": "yellow (existing accent)",
     "defaultControlText": "white",
     "selectedControlText": "yellow (existing accent)",

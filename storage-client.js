@@ -176,12 +176,11 @@
    const close=modal.querySelector('[data-close]');close.disabled=true;
    try{
     const next=await storageRequest('state',undefined,entered);
-    status.textContent='Storage reached. Loading your libraries…';
+    status.textContent='Storage reached. Connecting…';
     // Reuse this response: no second state fetch, and render failures stay visible.
     const previousKey=key;key=entered;
-    try{await refresh(next,true);if(!options.preservePage)navigate('library');}catch(error){key=previousKey;throw Error('Storage connected, but the library could not display: '+error.message);}
+    try{await refresh(next,true);}catch(error){key=previousKey;throw Error('Storage connected, but workspace data could not refresh: '+error.message);}
     sessionStorage.setItem('ecco-storage-access',key);verified=true;errorShown=false;connectAudio();form.elements.key.value='';
-    for(const selector of ['#workspace-library-group','#image-library-nav > details']){const section=document.querySelector(selector);if(section)section.open=true;}
     notice('Connected · '+counts());modal.close();
    }catch(error){window.EccoErrors.show(error);status.textContent=error.message;status.setAttribute('role','alert');}
    finally{connecting=false;button.disabled=false;button.textContent='Connect storage';close.disabled=false;window.EccoYouTube?.update();}
