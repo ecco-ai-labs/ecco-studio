@@ -45,7 +45,7 @@ test('Only the selected uploaded passage reaches every AI request, then editable
 test('Upload selection is explicit, reusable character sets retain IDs and properties across chapters',async t=>{
  const x=await ready(t,'audiobook'),calls=mock(x,{names:['Narrator','Mira','Grandmother']});await open(x);
  const file={name:'chapter.txt',size:55,text:async()=> 'EXCLUDED chapter one. Chapter two for Mira. EXCLUDED three.'};Object.defineProperty(x.q('[data-file]'),'files',{value:[file]});x.q('[data-file]').dispatchEvent(new x.w.Event('change'));await tick();
- const text=x.q('[data-value=source_text]'),start=text.value.indexOf('Chapter two');text.setSelectionRange(start,start+'Chapter two for Mira.'.length);x.q('[data-select-text]').click();await questions(x);await submit(x);
+ const picker=x.q('dialog[aria-label="Select Source Text"]'),text=picker.querySelector('.source-text-preview').firstChild,start=text.textContent.indexOf('Chapter two');const range=x.w.document.createRange();range.setStart(text,start);range.setEnd(text,start+'Chapter two for Mira.'.length);x.w.getSelection().removeAllRanges();x.w.getSelection().addRange(range);picker.querySelector('.pdf-page-scroll').dispatchEvent(new x.w.MouseEvent('mouseup',{bubbles:true}));picker.querySelector('[data-extract]').click();await questions(x);await submit(x);
  input(x,'[data-cast-row="2"] [data-character-property=style]','Kind and patient');input(x,'[data-set-name]','Mira’s family');x.q('[data-save-cast]').click();const set=saved(x,'ecco-audio-character-sets-v1')[0];assert.equal(set.cast.length,3);assert.equal(set.cast[2].style,'Kind and patient');assert.equal(x.q('[data-saved-cast]').value,set.id);
  x.q(dlg).close();x.w.EccoWorkspaceUI.startNewStory(x.w.EccoStoryJourneys.get('audiobook'));await tick();await open(x);await questions(x);await submit(x);input(x,'[data-saved-cast]',set.id,'change');x.q('[data-load-cast]').click();await submit(x);await submit(x);
  const p=JSON.parse(x.q('[name=audio_preparation]').value);assert.equal(p.cast[2].id,set.cast[2].id);assert.equal(p.cast[2].style,'Kind and patient');assert.ok(calls.slice(0,2).every(c=>!JSON.stringify(c).includes('EXCLUDED')));assert.deepEqual(x.errors,[]);
@@ -103,4 +103,55 @@ test('Language Style defaults to everyday Hindi and custom guidance is sent and 
  field(x,'language_style_instructions','Use commonly spoken Hindi. Short sentences, familiar words, no difficult literary terms.');await submit(x);await submit(x);
  assert.equal(calls[2].body.context.language,'Hindi');assert.match(calls[2].body.context.instructions,/Language Style: Custom/);assert.match(calls[2].body.context.instructions,/Use commonly spoken Hindi/);await submit(x);
  assert.equal(x.q('[name=audio_language_style]').value,'Custom');assert.match(x.q('[name=audio_language_style_instructions]').value,/Short sentences/);assert.equal(x.q('[name=audio_language_style_instructions]').closest('label').hidden,false);assert.equal(JSON.parse(x.q('[name=audio_preparation]').value).language_style,'Custom');
+});
+
+
+test('Audience categories follow genre on both surfaces, preserve valid choices and retain the applied selection',async t=>{
+ const x=await ready(t),calls=mock(x),options=field=>[...field.options].map(o=>o.value);
+ assert.equal(x.q('[name=audio_audience]').tagName,'SELECT');assert.ok(options(x.q('[name=audio_audience]')).includes('Professionals'));
+ input(x,'[name=audio_audience]','Professionals');input(x,'[name=genre]','Story Book Reading','change');assert.equal(x.q('[name=audio_audience]').value,'');assert.ok(options(x.q('[name=audio_audience]')).includes('Children (6–8)'));
+ input(x,'[name=audio_audience]','Children (6–8)');assert.equal(saved(x,x.q('#story-setup-form').dataset.draftKey).audio_audience,'Children (6–8)');
+ await open(x);field(x,'instructions','Create a story for children.');await submit(x);assert.equal(x.q('[data-value=genre]').value,'Story Book Reading');assert.equal(x.q('[data-value=audience]').value,'Children (6–8)');
+ field(x,'genre','Educational');assert.equal(x.q('[data-value=audience]').value,'');assert.ok(options(x.q('[data-value=audience]')).includes('Primary school students'));
+ field(x,'audience','Primary school students');field(x,'language','Hindi');await submit(x);assert.match(calls[1].body.context.instructions,/Audience: Primary school students/);await submit(x);assert.match(calls[2].body.context.instructions,/Audience: Primary school students/);await submit(x);
+ assert.equal(x.q('[name=genre]').value,'Educational');assert.equal(x.q('[name=audio_audience]').value,'Primary school students');
+ await open(x);await submit(x);assert.equal(x.q('[data-value=audience]').value,'Primary school students');x.q(dlg).close();
+ input(x,'[name=genre]','Podcast','change');input(x,'[name=audio_audience]','Adults');input(x,'[name=genre]','Theatre','change');assert.equal(x.q('[name=audio_audience]').value,'Adults');assert.deepEqual(x.errors,[]);
+});
+
+test('Document preview is nested, requires an explicit selection, preserves draft on close and sends no unselected text',async t=>{
+ const x=await ready(t),calls=mock(x);await open(x);field(x,'instructions','Use this paper for a podcast.');
+ const file={name:'paper.txt',size:100,text:async()=>'<b>EXCLUDED_PRIVATE</b> Selected facts only. EXCLUDED_END'};
+ Object.defineProperty(x.q('[data-file]'),'files',{value:[file]});x.q('[data-file]').dispatchEvent(new x.w.Event('change'));await tick();
+ const child=x.q('dialog[aria-label="Select Source Text"]');assert.ok(child.open);assert.equal(child.querySelector('.source-text-preview b'),null);assert.equal(child.querySelector('[data-extract]').disabled,true);assert.equal(x.q('[data-value=source_text]').value,'');assert.equal(calls.length,0);
+ child.querySelector('.ecco-popup-close').click();assert.ok(x.q(dlg).open);assert.equal(child.open,false);assert.equal(x.w.document.activeElement,x.q('[data-source-menu] summary'));await submit(x);assert.equal(calls.length,0);assert.match(x.q(dlg+' [data-status]').textContent,/Preview & Select/);
+ x.q(dlg+' [data-preview]').click();assert.ok(child.open);const text=child.querySelector('.source-text-preview').firstChild,range=x.w.document.createRange(),start=text.textContent.indexOf('Selected');range.setStart(text,start);range.setEnd(text,start+'Selected facts only.'.length);x.w.getSelection().removeAllRanges();x.w.getSelection().addRange(range);child.querySelector('.pdf-page-scroll').dispatchEvent(new x.w.MouseEvent('mouseup',{bubbles:true}));
+ assert.equal(child.querySelector('[data-selected]').value,'Selected facts only.');child.querySelector('[data-extract]').click();assert.equal(child.open,false);assert.ok(x.q(dlg).open);assert.equal(x.q('[data-value=source_text]').value,'Selected facts only.');await submit(x);assert.equal(calls.length,1);assert.equal(JSON.parse(calls[0].body.context.summary).source_text,'Selected facts only.');assert.ok(!JSON.stringify(calls).includes('EXCLUDED'));x.q(dlg).close();assert.equal(child.isConnected,false);assert.deepEqual(x.errors,[]);
+});
+
+test('Optional Opening and Closing directions produce editable bookends and survive Apply and audio handoff',async t=>{
+ const x=await ready(t),calls=mock(x,{names:['Narrator']});await open(x);await questions(x);
+ assert.equal(x.q('[data-value=opening_instructions]').value,'');assert.equal(x.q('[data-value=closing_instructions]').value,'');
+ field(x,'opening_instructions','Welcome to the storybook.');field(x,'closing_instructions','End with the moral of the story.');await submit(x);
+ assert.match(calls[1].body.context.instructions,/Welcome to the storybook/);assert.equal(x.q('[data-value=opening]'),null);assert.equal(x.q('[data-opening-pause-label]').hidden,false);
+ let generated;x.w.testUI.setAPI(async(path,body)=>{if(path==='stories')return{id:'created-story',...body};generated=body;return {questions:[],revisions:[{id:'audio_plan',text:JSON.stringify({opening:{character_id:body.context.lines[0].character_id,text:'कहानी में आपका स्वागत है।'},segments:[{character_id:body.context.lines[0].character_id,text:'एक दिन एक बच्चा मदद करने निकला।'},{character_id:body.context.lines[0].character_id,text:'सीख यही है कि हमेशा मदद करो।'}]})}]};});await submit(x);
+ assert.match(generated.context.instructions,/Reserve the final segment/);assert.match(generated.context.instructions,/selected script language/);assert.equal(x.q('[data-review-turn="0"] legend').textContent,'Opening');assert.equal(x.q('[data-review-turn="2"] legend').textContent,'Closing');
+ input(x,'[data-review-turn="2"] textarea','आज की सीख है कि दूसरों की मदद करो।');await submit(x);assert.match(x.q('[name=summary]').value,/कहानी में आपका स्वागत है/);assert.match(x.q('[name=summary]').value,/आज की सीख/);
+ const p=JSON.parse(x.q('[name=audio_preparation]').value);assert.equal(p.opening_instructions,'Welcome to the storybook.');assert.equal(p.closing_instructions,'End with the moral of the story.');
+ x.q('#story-setup-form').requestSubmit();await tick();const audio=saved(x,'ecco-audio-draft:created-story');assert.equal(audio.opening_text,'कहानी में आपका स्वागत है।');assert.equal(audio.lines.at(-1).text,'आज की सीख है कि दूसरों की मदद करो।');assert.equal(audio.script_brief.closing_instructions,'End with the moral of the story.');assert.deepEqual(x.errors,[]);
+});
+
+test('Story save keeps its spinner inside the button, blocks duplicate submits and continues without a full workspace refresh',async t=>{
+ for(const intent of ['podcast','animation']){
+  const x=await ready(t,intent);input(x,'[name=title]','Save progress test');input(x,'[name=summary]','The reviewed story.');
+  x.w.eval('window.refreshAttempts=0;refresh=()=>{window.refreshAttempts++;return new Promise(()=>{});};');
+  let finish,count=0;x.w.testUI.setAPI(()=>{count++;return new Promise(resolve=>finish=resolve);});const form=x.q('#story-setup-form'),button=form.querySelector('[type=submit]');form.requestSubmit();await tick();
+  assert.equal(button.textContent,'Saving Story…');assert.ok(button.querySelector('.generation-spinner'));assert.equal(button.getAttribute('aria-busy'),'true');assert.equal(button.disabled,true);assert.equal(x.q('[data-story-status]').textContent,'');form.requestSubmit();assert.equal(count,1);
+  finish({id:'saved-'+intent});await tick();assert.equal(button.isConnected,false);assert.equal(x.w.refreshAttempts,0);assert.equal(saved(x,'ecco-story-description:saved-'+intent).summary,'The reviewed story.');assert.deepEqual(x.errors,[]);
+ }
+});
+
+test('Failed story saves restore the button and retain the draft for retry',async t=>{
+ const x=await ready(t);input(x,'[name=title]','Keep my story');input(x,'[name=summary]','Keep my script.');const form=x.q('#story-setup-form'),button=form.querySelector('[type=submit]'),label=button.textContent;
+ x.w.testUI.setAPI(async()=>{throw Error('Storage unavailable');});form.requestSubmit();await tick();assert.equal(button.textContent,label);assert.equal(button.getAttribute('aria-busy'),'false');assert.equal(button.disabled,false);assert.equal(button.querySelector('.generation-spinner'),null);assert.equal(form.elements.summary.value,'Keep my script.');assert.match(x.q('[data-story-status]').textContent,/Could not save story/);assert.deepEqual(x.errors,[]);
 });

@@ -1,6 +1,7 @@
 'use strict';
 (() => {
  const q=s=>document.querySelector(s);
+ let mainPicker=null,mainForm=null;
  const paragraphs=text=>String(text||'').replace(/\r\n?/g,'\n').split(/\n\s*\n/).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
  function sceneTexts(text){
   const result=[];
@@ -18,6 +19,7 @@
   if(text)localStorage.setItem('ecco-story-source:'+activeStory,text);
  }
  function mountPDF(){
+  if(mainForm&&!mainForm.isConnected){mainPicker?.destroy();mainPicker=null;mainForm=null;}
   const form=q('#story-setup-form');if(!form||q('#story-pdf-tools'))return;
   let saved={};try{saved=JSON.parse(localStorage.getItem(form.dataset.draftKey||'ecco-new-story-draft')||'{}');}catch{}
   const box=document.createElement('section');box.id='story-pdf-tools';box.className='pdf-import-tools';
@@ -46,97 +48,21 @@
   panel.querySelector('[data-preview]').addEventListener('click',()=>{mode('upload');menu.open=false;});
   panel.querySelector('[data-story-manual]').onclick=()=>{mode('manual');menu.open=false;form.elements.summary.focus();};
   panel.querySelector('[data-story-library]').onclick=()=>navigate('story-library');
-  let task=null,doc=null,pdfjs=null,pageNumber=1,highlight='',busy=false,observer=null,epoch=0;
-  let shells=[],renderQueue=[],rendering=0;
-  const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label','Select story from PDF');
-  dialog.innerHTML='<div class="pdf-dialog-head"><strong>Select story from PDF</strong><button type="button" class="secondary" data-close>Close</button></div><div class="pdf-page-scroll"></div><label class="pdf-selected-label">Selected story text<textarea data-selected rows="3" placeholder="Highlight text in the PDF to review it here."></textarea></label><div class="row"><button type="button" data-extract disabled>Extract selected text as story</button><span role="status"></span></div>';
-  document.body.append(dialog);
-  const selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]');
-  const controls=()=>{extract.disabled=!selected.value.trim()||busy;};
-  selected.oninput=controls;
-  const capture=()=>{const selection=window.getSelection(),layer=dialog.querySelector('.pdf-page-scroll');highlight=selection&&selection.rangeCount&&layer.contains(selection.anchorNode)&&layer.contains(selection.focusNode)?selection.toString().trim():'';if(highlight)selected.value=highlight;controls();};
-  dialog.querySelector('.pdf-page-scroll').addEventListener('mouseup',capture);
-  dialog.querySelector('.pdf-page-scroll').addEventListener('keyup',capture);
-  const scroll=dialog.querySelector('.pdf-page-scroll');
-  async function renderPage(shell, generation){
-   if(generation!==epoch||shell.dataset.rendered)return;
-   const currentDoc=doc;
-   try{
-    const page=await currentDoc.getPage(+shell.dataset.page);
-    if(generation!==epoch)return;
-    const base=page.getViewport({scale:1}),scale=Math.min(1.5,760/base.width),viewport=page.getViewport({scale});
-    const canvas=shell.querySelector('canvas'),layer=shell.querySelector('.textLayer');
-    shell.style.width=viewport.width+'px';shell.style.height=viewport.height+'px';shell.style.setProperty('--scale-factor',scale);shell.style.setProperty('--total-scale-factor',scale);shell.style.setProperty('--user-unit',1);
-    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-    await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
-    if(generation!==epoch)return;
-    const content=await page.getTextContent();
-    if(generation!==epoch)return;
-    await new pdfjs.TextLayer({textContentSource:content,container:layer,viewport}).render();
-    shell.dataset.rendered='true';shell.removeAttribute('aria-busy');
-   }catch(error){if(generation===epoch){shell.removeAttribute('aria-busy');window.EccoErrors?.show('Could not preview page '+shell.dataset.page+': '+error.message);}}
-  }
-  function pump(){
-   while(rendering<2&&renderQueue.length){
-    const {shell,generation}=renderQueue.shift();rendering++;
-    renderPage(shell,generation).finally(()=>{rendering--;pump();});
-   }
-  }
-  function enqueue(shell){
-   if(!shell||shell.dataset.queued||shell.dataset.rendered)return;
-   shell.dataset.queued='true';renderQueue.push({shell,generation:epoch});pump();
-  }
-  const draw=()=>{
-   const shell=shells[pageNumber-1];if(!shell)return;
-   enqueue(shell);enqueue(shells[pageNumber]);enqueue(shells[pageNumber-2]);
-   scroll.scrollTo({top:shell.offsetTop-scroll.offsetTop,behavior:'instant'});
-   controls();
-  };
-  async function preparePages(){
-   const generation=epoch,first=await doc.getPage(1);
-   if(generation!==epoch)return;
-   const base=first.getViewport({scale:1}),viewport=first.getViewport({scale:Math.min(1.5,760/base.width)});
-   scroll.replaceChildren();shells=[];
-   const fragment=document.createDocumentFragment();
-   for(let n=1;n<=doc.numPages;n++){
-    const shell=document.createElement('div');shell.className='pdf-story-page';shell.dataset.page=n;
-    shell.setAttribute('aria-label','Page '+n);shell.setAttribute('aria-busy','true');
-    shell.style.cssText='width:'+viewport.width+'px;height:'+viewport.height+'px;margin:0 auto 16px';
-    shell.innerHTML='<canvas></canvas><div class="textLayer"></div>';shells.push(shell);fragment.append(shell);
-   }
-   scroll.append(fragment);
-   observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting)enqueue(entry.target);},{root:scroll,rootMargin:'150% 0px'});
-   shells.forEach(shell=>observer.observe(shell));draw();
-  }
-  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
-  open.onclick=()=>{dialog.showModal();draw();};
-  panel.querySelector('[data-remove]').onclick=async()=>{
-   epoch++;observer?.disconnect();renderQueue=[];shells=[];highlight='';selected.value='';note.textContent='';status.textContent='';
-   dialog.close();scroll.replaceChildren();open.disabled=true;input.value='';panel.querySelector('[data-filename]').textContent='';panel.querySelector('[data-file-wrap]').hidden=true;
-   const previous=task;task=null;doc=null;controls();if(previous)await previous.destroy().catch(()=>{});
-  };
-  input.onchange=async()=>{
-   const file=input.files[0];if(!file)return;open.disabled=true;
-   try{
-    status.textContent='Opening PDF…';epoch++;observer?.disconnect();renderQueue=[];highlight='';note.textContent='';
-    if(task)await task.destroy().catch(()=>{});
-    pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.min.mjs');
-    pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.worker.min.mjs';
-    if(!q('#pdf-story-reader-style')){const link=document.createElement('link');link.id='pdf-story-reader-style';link.rel='stylesheet';link.href='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/web/pdf_viewer.css';document.head.append(link);}
-    task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,stopAtErrors:true});doc=await task.promise;
-    pageNumber=1;selected.value='';
-    panel.querySelector('[data-filename]').textContent=file.name;panel.querySelector('[data-file-wrap]').hidden=false;
-    open.disabled=false;status.textContent='';dialog.showModal();await preparePages();
-   }catch(error){window.EccoErrors?.show(error);status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}
-  };
-  extract.onclick=async()=>{
-   const text=selected.value.trim();if(!text){note.textContent='Select story text to extract.';return;}
-   const metadata=await doc.getMetadata().catch(()=>null),title=metadata?.info?.Title,file=input.files[0];
-   if(!form.elements.title.value.trim())form.elements.title.value=(title&&title!=='Untitled'?title:file.name.replace(/\.pdf$/i,'').replace(/[_-]/g,' ')).slice(0,160);
-   for(const [name,value]of [['audio_source_scope','selected'],['audio_source_name',file.name]]){let field=form.elements[name];if(!field){field=document.createElement('input');field.type='hidden';field.name=name;form.append(field);}field.value=value;}
+  mainForm=form;
+  const picker=window.EccoSourcePicker.create({onApply({text,name:filename,title}){
+   if(!form.isConnected)throw Error('Reopen Upload from the current story.');
+   if(!form.elements.title.value.trim())form.elements.title.value=title.slice(0,160);
+   for(const [name,value]of [['audio_source_scope','selected'],['audio_source_name',filename]]){let field=form.elements[name];if(!field){field=document.createElement('input');field.type='hidden';field.name=name;form.append(field);}field.value=value;}
    source.value=text;form.elements.summary.value=text.length<=4000?text:text.slice(0,3997)+'…';source.dispatchEvent(new Event('input',{bubbles:true}));
    box.querySelector('details').open=true;status.textContent=text.length+' characters extracted from your selection.'+(text.length>4000?' Summary contains an excerpt; the full selection is in Source text.':'')+' Review, then save to continue.';
-   dialog.close();if(form.elements.story_format.value!=='audio')form.requestSubmit();
+   if(form.elements.story_format.value!=='audio')form.requestSubmit();
+  }});mainPicker=picker;
+  open.onclick=()=>picker.open(menu.querySelector('summary'));
+  panel.querySelector('[data-remove]').onclick=()=>{picker.clear();open.disabled=true;input.value='';panel.querySelector('[data-filename]').textContent='';panel.querySelector('[data-file-wrap]').hidden=true;status.textContent='';};
+  input.onchange=async()=>{
+   const file=input.files[0];if(!file)return;open.disabled=true;status.textContent='Opening PDF…';
+   try{await picker.load(file,menu.querySelector('summary'));if(!form.isConnected)return;panel.querySelector('[data-filename]').textContent=picker.name;panel.querySelector('[data-file-wrap]').hidden=!picker.ready;open.disabled=!picker.ready;status.textContent='';}
+   catch(error){if(form.isConnected){window.EccoErrors?.show(error);status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}}
   };
  }
  function mountBoard(){

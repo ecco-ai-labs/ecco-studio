@@ -406,12 +406,15 @@
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
-   if(!form.reportValidity())return;
+   const button=form.querySelector('[type="submit"]');if(button.disabled||!form.reportValidity())return;
    let data=save();try{data=window.EccoAudioJourney?.collectSetup(form,data)||data;}catch(error){status.textContent=error.message;return;}
-   const targetStory=activeStory,targetDraft=structuredClone(draft),button=form.querySelector('[type="submit"]');button.disabled=true;
-   status.textContent='Saving story…';
+   const targetStory=activeStory,targetDraft=structuredClone(draft),idleLabel=button.textContent;
+   setGenerationBusy(button,true,'Saving Story…',idleLabel);status.textContent='';
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
+    if(!created?.id)throw Error('Storage did not confirm the saved story. Your draft is preserved.');
+    const confirmed={...state.records.find(r=>r.id===created.id),...created,kind:'story',title:data.title,summary:data.summary};
+    state.records=[...state.records.filter(r=>r.id!==created.id),confirmed];
     data.cloudId=created.id;saved=data;
     let nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};
     nextDraft=window.EccoAudioJourney?.handoff(data,created.id,nextDraft)||nextDraft;
@@ -425,12 +428,12 @@
     localStorage.setItem('ecco-saved-story-setups',JSON.stringify(savedStories));savedId=id;
     const stillEditing=form.isConnected&&activeStory===targetStory;
     if(stillEditing){localStorage.setItem(key,JSON.stringify(data));activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();}
-    await refresh();
     if(!stillEditing||!form.isConnected||activeStory!==created.id)return;
     q('.project .workspace-library')?.remove();storyTree();status.textContent='Story saved.';navigate(window.EccoStoryJourneys?.steps([])?.[1]?.[0]||'board');
+    // The acknowledged record is already available. Normal workspace polling refreshes the rest in the background.
    }catch(error){window.EccoErrors?.show(error);status.textContent='Could not save story: '+error.message;}
 
-   finally{button.disabled=false;}
+   finally{setGenerationBusy(button,false,'',idleLabel);}
   };
  }
 

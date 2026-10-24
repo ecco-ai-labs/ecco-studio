@@ -1830,7 +1830,89 @@
         ],
         "placement": "Questions before Generate Script, plus the main Audio setup. Custom shows a required free-text direction.",
         "behavior": "All UI labels stay English. The choice guides vocabulary and sentence complexity in the selected spoken language. Everyday Hindi requests common spoken words and short natural sentences, avoiding highly Sanskritized Hindi, difficult literary Urdu and literal translation. The selected style and custom instructions survive Apply, save, reopen and next-chapter handoff."
-      }
+      },
+      "audience": {
+        "placement": "Audience dropdown on the main Audio setup and Questions step; genre comes first in Questions.",
+        "categories": {
+          "Story Book Reading": [
+            "Children (3–5)",
+            "Children (6–8)",
+            "Children (9–12)",
+            "Teenagers",
+            "Adults",
+            "Families"
+          ],
+          "Podcast": [
+            "General audience",
+            "Teenagers",
+            "Adults",
+            "Professionals",
+            "Students",
+            "Enthusiasts"
+          ],
+          "News": [
+            "General audience",
+            "Teenagers",
+            "Adults",
+            "Students",
+            "Professionals",
+            "Business and finance audience",
+            "Technology audience",
+            "Local community"
+          ],
+          "Movie": [
+            "Children",
+            "Teenagers",
+            "Adults",
+            "Families",
+            "Film enthusiasts"
+          ],
+          "Theatre": [
+            "Children",
+            "Teenagers",
+            "Adults",
+            "Families",
+            "Theatre enthusiasts"
+          ],
+          "Casual Conversation": [
+            "Friends",
+            "Families",
+            "Teenagers",
+            "Adults",
+            "Colleagues",
+            "Language learners"
+          ],
+          "Documentary": [
+            "General audience",
+            "Students",
+            "Researchers",
+            "History enthusiasts",
+            "Science and nature enthusiasts"
+          ],
+          "Interview": [
+            "General audience",
+            "Students",
+            "Professionals",
+            "Job seekers",
+            "Industry specialists"
+          ],
+          "Educational": [
+            "Preschool learners",
+            "Primary school students",
+            "Secondary school students",
+            "College students",
+            "Adult learners",
+            "Professionals"
+          ]
+        },
+        "behavior": "Options change with genre. Keep choices valid for the new genre; clear incompatible choices and ask for selection. Preserve legacy saved audiences as labeled saved options when reopening. Apply, saved drafts and AI requests retain the chosen category. English labels, existing dropdown styling and native keyboard behavior."
+      },
+      "sourceSelection": "Reuse source-picker.js with the main Story Upload: Upload menu, Preview & Select, same resizable PDF page preview, editable selected-text box and explicit apply. Audio also supports TXT/Markdown with a selectable text preview. No document text is sent or substituted automatically after upload. All PDF pages remain available; only the applied selection, at most 20,000 characters, reaches AI. Close cancels selection without closing the parent or changing its source, returns focus to Upload; parent disposal cancels late reads and destroys the picker. Remove clears the popup source. Full documents stay local and are not persisted.",
+      "bookends": {
+        "placement": "Optional Opening and Closing textareas in Questions, with English example placeholders; replace the separate Opening Title choice in Characters.",
+        "behavior": "Blank fields omit the corresponding spoken section. Accept wording or directions such as a welcome or moral; AI adapts them to the selected script language and style. Opening uses the existing opening field; Closing occupies the final script segment, within existing character/turn limits. Review shows editable Opening and Closing labels; added body turns go before Closing. Apply, save, Audio Studio and reopening retain the directions and spoken output. No new backend schema or speech runtime is required."
+      },
+      "saveProgress": "All Story setup saves use the existing generation-spinner and Saving Story… inside the submit button, aria-busy and duplicate-submit protection. Preserve the busy label through Audio setup observers. On failure restore the prior idle label and retain the draft. Acknowledge creation before progressing; update the story list from that confirmed response. Do not wait for an unrelated full workspace refresh: normal background polling handles it."
     }
   },
   "audioWorkflowScheduling": {

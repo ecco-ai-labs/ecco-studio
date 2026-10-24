@@ -125,7 +125,9 @@ and guest until the user customizes the cast.
 Generate with AI on every Audio story setup and in Audio Studio opens the same
 four-step modal: Source → Questions → Characters → Script. Audience, genre,
 language, tone and source-specific questions guide suggested character counts and
-properties. Character names, roles, gender, age group and speaking style are editable.
+properties. Audience uses genre-specific categories in both the main form and Questions;
+changing genre retains valid selections and clears incompatible ones. Existing saved
+audiences remain available when reopening. Character names, roles, gender, age group and speaking style are editable.
 Save Characters explicitly stores reusable named sets in this browser for later chapters.
 Menus and AI guidance, questions and explanations stay in English. The chosen language
 applies to the generated script; source quotations and character names are preserved.
@@ -137,11 +139,23 @@ Child-friendly, conversational with English (Hinglish for Hindi), formal, litera
 and custom styles guide vocabulary and sentence complexity. This choice and custom
 instructions carry through Apply and into later chapters; the interface stays English.
 
-Uploads are extracted locally. Selecting a passage replaces the source before any
+Opening and Closing are optional direction boxes in Questions. Blank boxes omit those
+sections; requested wording or directions are adapted into the selected script language.
+Review labels and edits the generated bookends, and Apply carries them into audio.
+
+Uploads use the same shared source-picker as the main Story Upload: Upload menu,
+Preview & Select, resizable page preview and an editable selected-text box. PDF pages
+remain available in full for selection; TXT/Markdown use a selectable text preview.
+Only applying a selection changes the source, up to 20,000 characters for Audio.
+Closing the nested viewer preserves its parent and returns focus to Upload.
+Uploads are read locally. Selecting a passage replaces the source before any
 AI call; unselected text and unrelated story records are never sent. The chosen source
 is sent when Read Source is clicked. Generated character-assigned turns remain editable.
 Apply fills the main fields; Save and Continue with Script preserves subsequent manual
 edits and the character-to-turn mapping. Neither action starts speech generation.
+Story saves show the shared revolving indicator and Saving Story… inside the submit
+button. A confirmed save proceeds immediately; normal background polling refreshes
+the wider workspace. Failed saves restore the idle button and retain the draft.
 Existing audio limits, voice controls and compute choices remain in force. Topic-only
 News uses cited research and displays its sources before Apply.
 
