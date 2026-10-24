@@ -24,6 +24,7 @@ import gpu_relay
 import openai_assistant
 import scene_planner
 import google_signin
+import ecco_desk
 import youtube_connection
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
@@ -78,13 +79,14 @@ class Handler(legacy.Handler):
             return self.send({'error': 'Origin denied'}, 403)
         self.send(b'', 204, headers={
             'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-            'Access-Control-Allow-Headers': 'Authorization,Content-Type,Range',
+            'Access-Control-Allow-Headers': 'Authorization,Content-Type,Range,X-Ecco-Workspace-Key',
             'Access-Control-Max-Age': '600',
         })
 
     def do_GET(self):
         path = urlsplit(self.path).path
         if google_signin.handle(self, path, ALLOWED_ORIGIN): return
+        if ecco_desk.handle(self, path, ALLOWED_ORIGIN, legacy.DATA / 'studio.sqlite', self.access_key): return
         if path == '/api/youtube/callback':
             return youtube_connection.callback(self)
         if path == '/healthz':
@@ -143,6 +145,7 @@ class Handler(legacy.Handler):
     def do_POST(self):
         path = urlsplit(self.path).path
         if google_signin.handle(self, path, ALLOWED_ORIGIN): return
+        if ecco_desk.handle(self, path, ALLOWED_ORIGIN, legacy.DATA / 'studio.sqlite', self.access_key): return
         if not self.authorized(): return
         if path not in WRITE_ROUTES:
             return self.send({'error': 'This workspace action is not available on the storage service.'}, 409)
@@ -195,6 +198,7 @@ def main():
     if len(Handler.access_key) < 32: raise SystemExit('A private access key of at least 32 characters is required')
     if not (legacy.DATA / 'studio.sqlite').is_file():
         raise SystemExit('Existing workspace database is missing; refusing to create an empty workspace')
+    ecco_desk.initialize(legacy.DATA / 'studio.sqlite')
     # Never run legacy.initialize(): it would mark GPU jobs interrupted from this CPU.
     # Inference stays in audio workers; only explicitly activated schedules run here.
     legacy.github_token = lambda: None

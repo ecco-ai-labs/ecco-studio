@@ -1,0 +1,1 @@
+{"name":"ecco-desk","version":"1.0.0","private":true,"type":"module","scripts":{"build":"node build.mjs"},"dependencies":{"lucide-react":"1.31.0","react":"19.2.6","react-dom":"19.2.6"},"devDependencies":{"esbuild":"0.25.12","jsdom":"26.1.0"}}

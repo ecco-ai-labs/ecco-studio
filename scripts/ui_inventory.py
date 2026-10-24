@@ -25,7 +25,9 @@ def category(tag, attrs):
     return {'label':'label','button':'button','textarea':'textarea','select':'dropdown','option':'dropdown-option','optgroup':'dropdown-group','dialog':'popup','details':'collapsible','summary':'collapse-toggle','a':'link','svg':'icon','path':'icon-path','img':'image','video':'video','audio':'audio','canvas':'canvas','progress':'progress','meter':'meter','table':'table','thead':'table-head','tbody':'table-body','tr':'table-row','th':'table-heading','td':'table-cell','ul':'list','ol':'list','li':'list-item','form':'form','fieldset':'field-group','legend':'field-group-label','nav':'navigation','aside':'sidebar','header':'header','footer':'footer','section':'section','main':'main','h1':'heading','h2':'heading','h3':'heading','h4':'heading','h5':'heading','h6':'heading','p':'text','span':'text','strong':'text','small':'text','pre':'code','code':'code','hr':'divider','br':'line-break','div':'container'}.get(tag, 'element.'+tag)
 
 def generate():
-    files = sorted(p for p in ROOT.rglob('*') if p.suffix in ('.js','.css','.html') and not any(x in p.relative_to(ROOT).parts for x in ('.git','node_modules','design-system','scripts','tests')))
+    # Include authored React surfaces; generated .mjs bundles are represented by
+    # their TSX and CSS inputs rather than indexing a minified duplicate.
+    files = sorted(p for p in ROOT.rglob('*') if p.suffix in ('.js','.css','.html','.tsx') and not any(x in p.relative_to(ROOT).parts for x in ('.git','node_modules','design-system','scripts','tests')))
     result = {'schemaVersion':1,'coverage':'Static source declarations, creation calls and style evidence. Not computed styles or a runtime DOM census. Dynamic expressions retained; repeated instances represented by their template.','sources':[], 'objects':[], 'styleBlocks':[], 'propertyAssignments':[]}
     for p in files:
         source = p.read_text(); name = p.relative_to(ROOT).as_posix()

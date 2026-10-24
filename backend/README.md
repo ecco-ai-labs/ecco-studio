@@ -19,6 +19,10 @@ Source of truth: this GitHub repository. Run the storage API on the CPU-only
 - The access key must be provisioned privately before starting the service.
 
 The original mutation code is retained in `migration/legacy` for schema compatibility.
+Ecco Desk's `/api/desk` uses verified Google identity with separate, explicit
+staff roles; it does not grant access to workspace/media/GPU routes. See
+[`desk/README.md`](../desk/README.md) for team setup and deployment details.
+
 Its generation dispatcher is inaccessible through the storage API allowlist.
 The CPU service and GPU should not independently edit the same logical record at
 once; SQLite handles database locking, but existing records do not have optimistic
