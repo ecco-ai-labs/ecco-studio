@@ -114,3 +114,19 @@ Saved connections require a fresh authenticated health response before displayin
 Connected. Availability refreshes every 20 seconds.
 
 The top ribbon Settings menu retains the internal Activity category identifier. Its file browser is labeled Workspace Drive, including its dialog title and accessible name.
+
+## Audio characters and AI scripts
+
+Audio Studio adds a Characters section using the existing generation controls. Names
+and IDs remain independent of voice choices; voices and emotion are assigned in
+Additional Controls. News starts with one newsreader; podcasts start with a host
+and guest until the user customizes the cast.
+
+Generate with AI opens a native modal with a brief, language, character list, turn
+count and PDF/TXT/Markdown source upload. Sources are extracted locally and sent
+only on Generate. Generated turns are reviewed and edited before Apply. Applying
+never generates audio. Existing audio request limits and compute selection remain
+in force. Topic-only News uses cited research before narration.
+
+The existing Audio Workflow screen is still configuration/preview only. Automatic
+scheduling requires a durable backend runner and a verified connected audio worker.

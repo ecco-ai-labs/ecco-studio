@@ -36,3 +36,11 @@
 .audio-card-preview{aspect-ratio:16/9;background:#14112b;display:flex;align-items:center;justify-content:center;padding:48px 14px 14px;min-width:0}
 .audio-card-preview audio{min-width:0;margin:0}
 .audio-card .card-body{min-width:0}
+
+/* Reuse generation controls and popup dimensions for character and script setup. */
+[data-audio-characters],.audio-character-names,#audio-script-instructions [data-script-turn-list]{display:flex;flex-direction:column;gap:12px}
+#audio-script-instructions .audio-script-brief{display:flex;flex-direction:column;gap:16px;border:0;padding:0;margin:0;min-width:0}
+#audio-script-instructions [data-script-review]{border-top:1px solid var(--border);padding-top:16px}
+#audio-script-instructions [data-script-status]{white-space:pre-wrap}
+#audio-script-instructions .audio-line textarea{min-height:100px}
+#audio-script-instructions:modal{position:fixed;inset:0;margin:auto}

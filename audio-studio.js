@@ -55,7 +55,7 @@
  const newSpeaker=(index,seed={})=>({id:'speaker-'+index,name:index===0?'Narrator':index===1?'Guest':'Speaker '+(index+1),language:'Hindi',voice:index%2?'en_male':'en_female',emotion:'neutral',dialect:'',mixed_language:'',delivery:'',...seed});
  const model=()=>audioModels.find(m=>m.id===draft.model)||audioModels[0];
  const speaker=id=>draft.speakers.find(s=>s.id===id)||draft.speakers[0];
- const activeSpeakers=()=>draft.presentation==='conversation'?draft.speakers:[draft.speakers[0]];
+ const activeSpeakers=()=>draft.presentation==='conversation'?draft.speakers.slice(0,draft.character_count||draft.speakers.length):[draft.speakers[0]];
  const turns=()=>draft.presentation==='single'?[{text:draft.single_text,speaker_id:draft.speakers[0].id}]:draft.lines;
  function readAudioModelSaved(){try{return JSON.parse(localStorage.getItem(key())||'{}').model;}catch{return null;}}
  function load(){
@@ -80,11 +80,12 @@
   if(!['single','conversation'].includes(draft.presentation))draft.presentation=draft.speakers.length>1?'conversation':'single';
   if(typeof draft.single_text!=='string')draft.single_text=draft.lines.map(l=>l.text||'').join('\n\n');
   for(const line of draft.lines)if(!draft.speakers.some(s=>s.id===line.speaker_id))line.speaker_id=draft.speakers[0].id;
+  draft.character_count=draft.presentation==='single'?1:Math.max(2,Math.min(20,draft.character_count||draft.speakers.length));
   normalizeSpeakers();
   save();
  }
  function normalizeSpeakers(){
-  draft.speakers.forEach((item,index)=>{if(!model().languages.includes(item.language))item.language='Hindi';if(!model().voices.some(v=>v.id===item.voice))item.voice=model().voices[index%model().voices.length].id;if(!emotions(item.language).includes(item.emotion))item.emotion='neutral';if(!model().languages.includes(item.mixed_language)||item.mixed_language===item.language)item.mixed_language='';});
+  draft.speakers.forEach((item,index)=>{if(!model().languages.includes(item.language))item.language=model().languages.includes('Hindi')?'Hindi':model().languages[0];if(!model().voices.some(v=>v.id===item.voice))item.voice=model().voices[index%model().voices.length].id;if(!emotions(item.language).includes(item.emotion))item.emotion='neutral';if(!model().languages.includes(item.mixed_language)||item.mixed_language===item.language)item.mixed_language='';});
  }
  function changeModel(value){
   for(const item of draft.speakers){item.model_settings||={};item.model_settings[draft.model]={language:item.language,voice:item.voice,emotion:item.emotion,mixed_language:item.mixed_language};if(item.model_settings[value])Object.assign(item,item.model_settings[value]);}
@@ -93,7 +94,7 @@
  const modelParameters=()=>draft.model==='chatterbox'?{exaggeration:Number(draft.exaggeration??0.5)}:{};
  function save(){localStorage.setItem(key(),JSON.stringify(draft));}
  const options=(values,value)=>values.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v.charAt(0).toUpperCase()+v.slice(1))}</option>`).join('');
- const speakerOptions=value=>draft.speakers.map(s=>`<option value="${esc(s.id)}" ${s.id===value?'selected':''}>${esc(s.name||'Speaker')}</option>`).join('');
+ const speakerOptions=value=>(activeSpeakers().some(s=>s.id===value)?'':'<option value="" selected disabled>Choose an active character</option>')+activeSpeakers().map(s=>`<option value="${esc(s.id)}" ${s.id===value?'selected':''}>${esc(s.name||'Speaker')}</option>`).join('');
  function drawLines(){
   const single=draft.presentation==='single';
   q('#audio-lines').innerHTML=`<label>Opening Title<input data-opening-text maxlength="300" value="${esc(draft.opening_text||'')}" placeholder="Optional spoken opening title"></label><label>Pause After Opening Title (Seconds)<input data-opening-pause type="number" min="0" max="10" step="0.1" value="${draft.opening_pause??2}"></label>${single?'':`<label>Opening Speaker<select data-opening-speaker>${speakerOptions(draft.opening_speaker||draft.speakers[0].id)}</select></label>`}`+(single?`<div class="audio-line" data-line="0"><label>Spoken script<textarea data-field="text" data-single-script dir="auto" maxlength="4000" rows="6" placeholder="Enter exactly what the narrator should say. Use Generate script with AI to turn instructions into a script.">${esc(draft.single_text)}</textarea></label></div>`:draft.lines.map((line,index)=>`<fieldset class="audio-line" data-line="${index}"><div class="audio-turn-heading">${line.scene_title?`<span style="color:var(--accent)">${esc(line.scene_title)}</span>`:''}<label>Speaker<select data-turn-speaker>${speakerOptions(line.speaker_id)}</select></label><button type="button" class="secondary small" data-remove-turn="${index}" ${draft.lines.length===1?'disabled':''}>Remove turn</button></div><label>${esc(speaker(line.speaker_id).name||'Speaker')}’s words<textarea data-field="text" dir="auto" maxlength="4000" rows="3" placeholder="What should this speaker say?">${esc(line.text||'')}</textarea></label></fieldset>`).join(''));
@@ -102,31 +103,58 @@
   q('#audio-lines').onchange=e=>{if(e.target.matches('[data-opening-speaker]')){draft.opening_speaker=e.target.value;save();return;}if(!e.target.matches('[data-turn-speaker]'))return;draft.lines[Number(e.target.closest('[data-line]').dataset.line)].speaker_id=e.target.value;save();drawLines();drawControls();};
   q('#audio-lines').onclick=e=>{const button=e.target.closest('[data-remove-turn]');if(!button)return;draft.lines.splice(Number(button.dataset.removeTurn),1);save();drawLines();drawControls();};
   window.EccoGeneration?.audioLines(q('#audio-form'));
+  drawCharacters();
+ }
+ function setCharacterCount(value){
+  const count=Number(value);
+  if(!Number.isInteger(count)||count<1||count>20)throw Error('Choose 1–20 characters for this recording.');
+  const previous=draft.presentation;
+  while(draft.speakers.length<count){const item=newSpeaker(draft.speakers.length,{language:draft.speakers[0].language});draft.speakers.push(item);}
+  draft.character_count=count;draft.presentation=count===1?'single':'conversation';draft.characters_configured=true;
+  if(previous!==draft.presentation){
+   if(count===1&&!draft.single_text.trim())draft.single_text=draft.lines.map(l=>l.text||'').join('\n\n');
+   if(count>1&&!draft.lines.some(l=>l.text?.trim()))draft.lines=[{text:draft.single_text,speaker_id:draft.speakers[0].id}];
+  }
+  normalizeSpeakers();save();drawLines();drawControls();
  }
  function changePresentation(value){
   if(value===draft.presentation)return;
-  if(value==='conversation'){
-   if(draft.speakers.length===1){draft.speakers[0].name=draft.speakers[0].name==='Narrator'?'Host':draft.speakers[0].name;draft.speakers.push(newSpeaker(1));}
-   if(!draft.lines.some(l=>l.text?.trim()))draft.lines=[{text:draft.single_text,speaker_id:draft.speakers[0].id}];
-  }else if(!draft.single_text.trim())draft.single_text=draft.lines.map(l=>l.text||'').join('\n\n');
-  draft.presentation=value;save();drawLines();drawControls();
+  if(value==='conversation'&&draft.speakers[0].name==='Narrator')draft.speakers[0].name='Host';
+  setCharacterCount(value==='single'?1:Math.max(2,draft.speakers.length));
+ }
+ function drawCharacters(root){
+  const roots=root?[root]:[...document.querySelectorAll('[data-audio-characters]')];
+  for(const area of roots){
+   area.innerHTML='<label>Number of Characters<input type="number" min="1" max="20" step="1" required data-character-count value="'+activeSpeakers().length+'"></label><div class="audio-character-names">'+activeSpeakers().map((s,i)=>'<label>Character '+(i+1)+'<input data-character-name="'+esc(s.id)+'" maxlength="60" value="'+esc(s.name||'')+'" placeholder="'+(i===0?'Narrator or Host':i===1?'Guest':'Character name')+'"></label>').join('')+'</div><p class="help">Choose each character’s voice and delivery in Additional Controls.</p>';
+   area.querySelector('[data-character-count]').onchange=e=>{try{setCharacterCount(e.target.value);}catch(error){e.target.value=activeSpeakers().length;notice(error.message,true);}};
+   area.querySelectorAll('[data-character-name]').forEach(input=>{
+    input.oninput=()=>{speaker(input.dataset.characterName).name=input.value;draft.characters_configured=true;save();for(const other of document.querySelectorAll('[data-character-name]'))if(other!==input&&other.dataset.characterName===input.dataset.characterName)other.value=input.value;};
+    input.onchange=()=>{input.oninput();drawLines();drawControls();};
+   });
+  }
+ }
+ function genreDefaults(value){
+  if(draft.characters_configured||turns().some(t=>t.text?.trim()))return;
+  const conversation=['Podcast','Interview','Casual Conversation'].includes(value);
+  draft.speakers[0].name=conversation?'Host':value==='News'?'Newsreader':'Narrator';
+  setCharacterCount(conversation?2:1);draft.characters_configured=false;save();
  }
  const speakerIcon='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></svg>';
  function drawControls(root=q('[data-delivery-controls]')){
   if(!root||!draft)return;normalizeSpeakers();
-  root.innerHTML=`<label>Audio format<select data-audio-presentation><option value="single" ${draft.presentation==='single'?'selected':''}>Single Voice</option><option value="conversation" ${draft.presentation==='conversation'?'selected':''}>Conversation</option></select></label><div class="audio-speaker-tabs" role="group" aria-label="Speakers">${activeSpeakers().map((s,i)=>`<button type="button" class="secondary" data-speaker-tab="${esc(s.id)}" aria-pressed="${s.id===(draft.selected_speaker||draft.speakers[0].id)}">${esc(s.name||'Speaker '+(i+1))}</button>`).join('')}${draft.presentation==='conversation'?`<button type="button" class="secondary" data-add-speaker ${draft.speakers.length>=8?'disabled':''}>Add speaker</button>`:''}</div><div data-speaker-panel></div>${model().expressiveness?`<label>Expressiveness<input data-expressiveness type="range" min="0" max="2" step="0.1" value="${draft.exaggeration??0.5}"><span data-expressiveness-value>${draft.exaggeration??0.5}</span></label>`:''}`;
+  root.innerHTML=`<label>Audio format<select data-audio-presentation><option value="single" ${draft.presentation==='single'?'selected':''}>Single Voice</option><option value="conversation" ${draft.presentation==='conversation'?'selected':''}>Conversation</option></select></label><div class="audio-speaker-tabs" role="group" aria-label="Speakers">${activeSpeakers().map((s,i)=>`<button type="button" class="secondary" data-speaker-tab="${esc(s.id)}" aria-pressed="${s.id===(draft.selected_speaker||draft.speakers[0].id)}">${esc(s.name||'Speaker '+(i+1))}</button>`).join('')}${draft.presentation==='conversation'?`<button type="button" class="secondary" data-add-speaker ${activeSpeakers().length>=20?'disabled':''}>Add speaker</button>`:''}</div><div data-speaker-panel></div>${model().expressiveness?`<label>Expressiveness<input data-expressiveness type="range" min="0" max="2" step="0.1" value="${draft.exaggeration??0.5}"><span data-expressiveness-value>${draft.exaggeration??0.5}</span></label>`:''}`;
   if(!activeSpeakers().some(s=>s.id===draft.selected_speaker))draft.selected_speaker=draft.speakers[0].id;
   const expression=root.querySelector('[data-expressiveness]');if(expression)expression.oninput=()=>{draft.exaggeration=Number(expression.value);root.querySelector('[data-expressiveness-value]').textContent=expression.value;save();};
   const selected=speaker(draft.selected_speaker),panel=root.querySelector('[data-speaker-panel]'),choices=dialects[selected.language]||[];
   panel.dataset.speaker=selected.id;
-  panel.innerHTML=`${draft.presentation==='conversation'?`<label>Speaker name<input data-speaker-field="name" maxlength="60" value="${esc(selected.name)}" placeholder="Host, Guest…"></label>`:''}<div class="generation-filter-row"><label>Language<select data-speaker-field="language">${options(model().languages,selected.language)}</select></label><label>Mix with<select data-speaker-field="mixed_language"><option value="">None</option>${options(model().languages.filter(l=>l!==selected.language),selected.mixed_language)}</select></label></div><div class="audio-voice-row"><label>Voice<select data-speaker-field="voice">${model().voices.map(v=>`<option value="${v.id}" ${selected.voice===v.id?'selected':''}>${v.name}</option>`).join('')}</select></label><button type="button" class="secondary audio-voice-preview" data-preview-voice aria-label="Preview selected voice" title="Preview selected voice">${speakerIcon}<span>Preview</span></button></div><div class="generation-filter-row"><label>Dialect / accent<select data-speaker-field="dialect"><option value="">Voice default</option>${options(choices,selected.dialect)}<option value="other" ${selected.dialect==='other'?'selected':''}>Other</option></select></label>${model().emotions?`<label>Emotion<select data-speaker-field="emotion">${options(emotions(selected.language),selected.emotion)}</select></label>`:''}</div><label data-custom-dialect ${selected.dialect==='other'?'':'hidden'}>Dialect / accent instructions<input data-speaker-field="custom_dialect" maxlength="160" value="${esc(selected.custom_dialect||'')}" placeholder="Describe the accent you want"></label><label>Speaking direction<textarea data-speaker-field="delivery" maxlength="1000" rows="3" placeholder="e.g. Hindi mixed with Punjabi, spoken by a man with a soft, expressive delivery.">${esc(selected.delivery||'')}</textarea></label>${draft.presentation==='conversation'?`<button type="button" class="secondary" data-remove-speaker ${draft.speakers.length<=2||draft.lines.some(l=>l.speaker_id===selected.id)?'disabled':''} title="Assign this speaker’s turns to another speaker before removing">Remove speaker</button>`:''}`;
+  panel.innerHTML=`<label>Character name<input data-speaker-field="name" maxlength="60" value="${esc(selected.name)}" placeholder="Host, Guest…"></label><div class="generation-filter-row"><label>Language<select data-speaker-field="language">${options(model().languages,selected.language)}</select></label><label>Mix with<select data-speaker-field="mixed_language"><option value="">None</option>${options(model().languages.filter(l=>l!==selected.language),selected.mixed_language)}</select></label></div><div class="audio-voice-row"><label>Voice<select data-speaker-field="voice">${model().voices.map(v=>`<option value="${v.id}" ${selected.voice===v.id?'selected':''}>${v.name}</option>`).join('')}</select></label><button type="button" class="secondary audio-voice-preview" data-preview-voice aria-label="Preview selected voice" title="Preview selected voice">${speakerIcon}<span>Preview</span></button></div><div class="generation-filter-row"><label>Dialect / accent<select data-speaker-field="dialect"><option value="">Voice default</option>${options(choices,selected.dialect)}<option value="other" ${selected.dialect==='other'?'selected':''}>Other</option></select></label>${model().emotions?`<label>Emotion<select data-speaker-field="emotion">${options(emotions(selected.language),selected.emotion)}</select></label>`:''}</div><label data-custom-dialect ${selected.dialect==='other'?'':'hidden'}>Dialect / accent instructions<input data-speaker-field="custom_dialect" maxlength="160" value="${esc(selected.custom_dialect||'')}" placeholder="Describe the accent you want"></label><label>Speaking direction<textarea data-speaker-field="delivery" maxlength="1000" rows="3" placeholder="e.g. Hindi mixed with Punjabi, spoken by a man with a soft, expressive delivery.">${esc(selected.delivery||'')}</textarea></label>${draft.presentation==='conversation'?`<button type="button" class="secondary" data-remove-speaker ${draft.speakers.length<=2||draft.lines.some(l=>l.speaker_id===selected.id)?'disabled':''} title="Assign this speaker’s turns to another speaker before removing">Remove speaker</button>`:''}`;
   root.querySelector('[data-audio-presentation]').onchange=e=>changePresentation(e.target.value);
   root.querySelectorAll('[data-speaker-tab]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.speakerTab===selected.id));b.onclick=()=>{draft.selected_speaker=b.dataset.speakerTab;save();drawControls(root);};});
-  const add=root.querySelector('[data-add-speaker]');if(add)add.onclick=()=>{const next=newSpeaker(Date.now());next.name='Speaker '+(draft.speakers.length+1);draft.speakers.push(next);draft.selected_speaker=next.id;save();drawControls(root);drawLines();};
+  const add=root.querySelector('[data-add-speaker]');if(add)add.onclick=()=>{setCharacterCount(activeSpeakers().length+1);draft.selected_speaker=activeSpeakers().at(-1).id;save();drawControls(root);};
   panel.oninput=e=>{const field=e.target.dataset.speakerField;if(!field)return;selected[field]=e.target.value;save();if(field==='name'){root.querySelector('[data-speaker-tab="'+selected.id+'"]').textContent=selected.name||'Speaker';q('#audio-lines').querySelectorAll('[data-turn-speaker]').forEach(select=>{const option=[...select.options].find(o=>o.value===selected.id);if(option)option.textContent=selected.name||'Speaker';});}};
-  panel.onchange=e=>{const field=e.target.dataset.speakerField;if(!field)return;selected[field]=e.target.value;if(field==='language'){selected.emotion='neutral';selected.dialect='';selected.custom_dialect='';if(selected.mixed_language===selected.language)selected.mixed_language='';}save();drawControls(root);if(field==='name')drawLines();};
+  panel.onchange=e=>{const field=e.target.dataset.speakerField;if(!field)return;selected[field]=e.target.value;if(field==='language'){selected.emotion='neutral';selected.dialect='';selected.custom_dialect='';if(selected.mixed_language===selected.language)selected.mixed_language='';}save();drawControls(root);if(field==='name'){draft.characters_configured=true;save();drawLines();}};
   panel.querySelector('[data-preview-voice]').onclick=()=>previewVoice(selected);
-  const remove=panel.querySelector('[data-remove-speaker]');if(remove)remove.onclick=()=>{if(draft.lines.some(l=>l.speaker_id===selected.id))return;draft.speakers=draft.speakers.filter(s=>s.id!==selected.id);draft.selected_speaker=draft.speakers[0].id;save();drawControls(root);drawLines();};
+  const remove=panel.querySelector('[data-remove-speaker]');if(remove)remove.onclick=()=>{if(draft.lines.some(l=>l.speaker_id===selected.id))return;draft.speakers=draft.speakers.filter(s=>s.id!==selected.id);draft.character_count=Math.max(2,draft.character_count-1);draft.selected_speaker=draft.speakers[0].id;save();drawControls(root);drawLines();};
  }
  function splitText(text){
   const chunks=[];let rest=text.trim();
@@ -134,6 +162,7 @@
   if(rest)chunks.push(rest);return chunks;
  }
  function requestLines(){
+  if(turns().some(t=>!activeSpeakers().some(s=>s.id===t.speaker_id)))throw Error('Assign every script turn to an active character before generating.');
   if(turns().some(t=>!t.text?.trim()))throw Error('Add the script for each speaker turn in Prompt.');
   if(turns().reduce((n,t)=>n+t.text.length,0)+(draft.opening_text||'').length>4000)throw Error('Keep the complete script within 4,000 characters.');
   const lines=turns().flatMap(t=>{const s=speaker(t.speaker_id);return splitText(t.text).map(text=>({text,voice:s.voice,language:s.language,emotion:s.emotion}));});
@@ -176,39 +205,20 @@
   };
  }
  function generateScript(){
-  const scenes=selectedScenes();if(!scenes.length){notice('Select storyboard scenes under References first.',true);return;}
-  if(scenes.length!==(draft.source_scenes||[]).length){notice('A selected scene changed. Reselect scenes before generating.',true);return;}
-  q('#audio-script-instructions')?.remove();const dialog=document.createElement('dialog');dialog.id='audio-script-instructions';dialog.className='generation-dialog';
-  dialog.innerHTML='<form class="form"><div class="section-head"><h2>Generate Script with AI</h2><button type="button" class="secondary" data-close>Close</button></div><label>Instructions<textarea data-instructions rows="5" maxlength="4000" placeholder="Describe language, news delivery and how to combine the selected scenes. These instructions will not be spoken."></textarea></label><label>Pause After Opening Title (Seconds)<input data-pause type="number" min="0" max="10" step="0.1"></label><button type="submit">Generate Script</button><p role="status"></p></form>';
-  const instructions=dialog.querySelector('[data-instructions]'),pause=dialog.querySelector('[data-pause]'),button=dialog.querySelector('[type=submit]'),status=dialog.querySelector('[role=status]');instructions.value=draft.script_instructions||'';pause.value=draft.opening_pause??2;
-  instructions.oninput=()=>{draft.script_instructions=instructions.value;save();};pause.onchange=()=>{draft.opening_pause=Number(pause.value);save();};
-  const target=activeStory,form=q('#audio-form');dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
-  dialog.querySelector('form').onsubmit=async event=>{
-   event.preventDefault();if(button.disabled)return;
-   try{
-    if(!window.EccoStorage?.ready||!window.EccoAI?.enabled)throw Error('Connect AI and storage in Connections first.');
-    if((turns().some(t=>t.text?.trim())||draft.opening_text?.trim())&&!confirm('Replace the current spoken script with a script from the selected scenes?'))return;
-    draft.script_instructions=instructions.value;draft.opening_pause=Number(pause.value);save();const snapshot=JSON.stringify(draft),sourceSnapshot=JSON.stringify(boardScenes());
-    button.disabled=true;button.textContent='Generating Script…';status.textContent='Combining selected scenes and adapting the language…';
-    const direction=aiContext();
-    const voiceChoices=model().voices.map(v=>({id:v.id,name:v.name}));
-    const contract='Return audio_plan as JSON only: {"opening":{"text":"one spoken sentence introducing the recording title","voice":"'+model().voices[0].id+'"},"segments":[{"scene_number":1,"text":"spoken news script","voice":"'+model().voices[0].id+'"}]}. Include exactly one segment per selected scene, in supplied order, with its original scene_number. Use only voices from the available list. Apply requested female/male assignments to the corresponding scenes. Default to '+draft.speakers[0].voice+' unless instructed otherwise. The opening must be at most 300 characters; total spoken text at most 4000 characters. Write only supported facts from selected scenes; no additional facts from saved stories. Translate/adapt to the requested languages and delivery. Text fields contain spoken words only: no labels, markup or pause instructions. The application inserts silence separately. User language instructions override the default language.';
-    const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:target||null,fields:[{id:'audio_plan',text:contract,max_length:16000}],context:{...direction,title:draft.title||currentStory().title,scenes,instructions:contract+'\nAvailable voices: '+JSON.stringify(voiceChoices)+'\nSpeaker settings: '+direction.instructions+'\nUser instructions: '+instructions.value},review_only:false});
-    if(!dialog.open||!form.isConnected||target!==activeStory||JSON.stringify(draft)!==snapshot||JSON.stringify(boardScenes())!==sourceSnapshot)throw Error('The script or scenes changed while AI was working. Your edits were preserved.');
-    if(result.questions?.length)throw Error(result.questions.join(' '));
-    if(result.revisions?.length!==1||result.revisions[0].id!=='audio_plan')throw Error('AI returned an incomplete audio plan. Your draft was preserved.');
-    let plan;try{plan=JSON.parse(result.revisions[0].text.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));}catch{throw Error('AI returned an unreadable audio plan. Your draft was preserved.');}
-    const validPart=part=>part&&typeof part.text==='string'&&part.text.trim()&&model().voices.some(v=>v.id===part.voice);
-    if(!validPart(plan.opening)||plan.opening.text.length>300||!Array.isArray(plan.segments)||plan.segments.length!==scenes.length||plan.segments.some((part,i)=>!validPart(part)||part.scene_number!==scenes[i].scene_number)||[plan.opening,...plan.segments].reduce((n,p)=>n+p.text.length,0)>4000)throw Error('AI returned an invalid scene or speaker assignment. Your draft was preserved.');
-    const settings={...draft.speakers[0]},assigned=new Map();
-    for(const voice of new Set([plan.opening.voice,...plan.segments.map(p=>p.voice)])){let item=draft.speakers.find(s=>s.voice===voice);if(!item){item=newSpeaker(Date.now()+draft.speakers.length,{...settings,id:'voice-'+voice,voice,name:model().voices.find(v=>v.id===voice).name});draft.speakers.push(item);}assigned.set(voice,item.id);}
-    draft.opening_text=plan.opening.text.trim();draft.opening_speaker=assigned.get(plan.opening.voice);
-    draft.lines=plan.segments.map((part,i)=>({text:part.text.trim(),speaker_id:assigned.get(part.voice),scene_title:scenes[i].title}));draft.single_text=draft.lines.map(l=>l.text).join('\n\n');
-    if(assigned.size>1)draft.presentation='conversation';else{draft.presentation='single';const primary=speaker(assigned.values().next().value);draft.speakers=[primary,...draft.speakers.filter(s=>s.id!==primary.id)];}
-    save();drawLines();drawControls();dialog.close();const context=window.EccoGeneration?.context(form);if(context?.prompt&&!context.prompt.open)context.prompt.showModal();
-   }catch(error){notice(error.message,true);status.textContent='';}finally{button.disabled=false;button.textContent='Generate Script';}
-  };
-  document.body.append(dialog);dialog.showModal();instructions.focus();
+  if(selectedScenes().length!==(draft.source_scenes||[]).length){notice('A selected scene changed. Reselect scenes before generating.',true);return;}
+  window.EccoAudioScript.open({
+   target:activeStory,form:q('#audio-form'),getDraft:()=>draft,save,
+   characters:()=>activeSpeakers(),model,scenes:selectedScenes,sceneSnapshot:()=>JSON.stringify(boardScenes()),
+   drawCharacters,
+   apply(plan,brief){
+    draft.script_brief=brief;draft.script_instructions=brief.instructions;draft.opening_text=plan.opening?.text||'';
+    draft.opening_speaker=plan.opening?.character_id||draft.speakers[0].id;draft.opening_pause=brief.opening_pause;
+    draft.lines=plan.segments.map(part=>({text:part.text,speaker_id:part.character_id,...(part.scene_number?{scene_title:selectedScenes().find(s=>s.scene_number===part.scene_number)?.title}:{} )}));
+    draft.single_text=draft.lines.map(l=>l.text).join('\n\n');
+    for(const character of activeSpeakers()){character.language=brief.language;if(character.mixed_language===brief.language)character.mixed_language='';}
+    normalizeSpeakers();save();drawLines();drawControls();
+   }
+  });
  }
 
  let preview=null;
@@ -278,7 +288,7 @@
  }
  // The independent application service supplies this adapter after authentication.
  // Never attach the legacy RunPod/Jupyter bridge here.
- window.EccoAudioStudio={generateScript,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
+ window.EccoAudioStudio={generateScript,characters:drawCharacters,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
   if(!adapter||adapter.storageIndependentOfGPU!==true||!['list','generate','job','mediaURL','download'].every(name=>typeof adapter[name]==='function'))throw Error('An authenticated, GPU-independent audio service is required.');
   service=adapter;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();poll();
  },disconnect(){clearPreview();q('#audio-voice-preview-dialog')?.close();service=null;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();}};
@@ -306,9 +316,9 @@
   q('#page').innerHTML=`<section class="audio-studio"><div class="grid audio-workspace"><form id="audio-form" class="panel form"><div class="audio-model-controls model-summary"><label>Audio model<select name="model">${audioModels.map(model=>`<option value="${esc(model.id)}" ${draft.model===model.id?'selected':''}>${esc(model.name)}</option>`).join('')}</select></label><label>Genre<select name="genre">${options(genres,draft.genre)}</select></label></div><label>Recording title<input name="title" maxlength="160" value="${esc(draft.title)}" placeholder="Scene 1 · opening dialogue"></label><div id="audio-lines"></div><button type="button" class="secondary" id="add-audio-line">Add speaker turn</button><div class="audio-output-controls"><label>Speed<select name="speed">${[0.75,1,1.25,1.5].map(v=>`<option value="${v}" ${Number(draft.speed)===v?'selected':''}>${v}×</option>`).join('')}</select></label><label>Pitch<select name="pitch">${[-4,-2,0,2,4].map(v=>`<option value="${v}" ${Number(draft.pitch)===v?'selected':''}>${v>0?'+':''}${v} semitones</option>`).join('')}</select></label><label>Pause<select name="pause">${[0,0.35,0.75,1,2].map(v=>`<option value="${v}" ${Number(draft.pause)===v?'selected':''}>${v} seconds</option>`).join('')}</select></label></div><div class="row"><button id="generate-audio">Generate audio</button><span class="help">Draft saved in this browser · up to 4,000 characters</span></div><p id="audio-job-status" role="status"></p></form></div></section>`;
   q('#audio-form').insertAdjacentHTML('afterbegin',`<div data-audio-compute><select name="compute" aria-label="Audio compute" aria-describedby="audio-compute-status"><option value="">Checking connected compute…</option></select><p id="audio-compute-status" class="help" data-audio-compute-status role="status"></p></div>`);
   drawLines();
-  q('#add-audio-line').onclick=()=>{if(draft.presentation==='conversation'&&draft.lines.length<20){const previous=draft.lines.at(-1).speaker_id,next=draft.speakers[(draft.speakers.findIndex(s=>s.id===previous)+1)%draft.speakers.length];draft.lines.push({text:'',speaker_id:next.id});save();drawLines();drawControls();}};
+  q('#add-audio-line').onclick=()=>{if(draft.presentation==='conversation'&&draft.lines.length<20){const previous=draft.lines.at(-1).speaker_id,cast=activeSpeakers(),next=cast[(cast.findIndex(s=>s.id===previous)+1)%cast.length];draft.lines.push({text:'',speaker_id:next.id});save();drawLines();drawControls();}};
   q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'){draft[e.target.name]=['title','model','genre','compute'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
-  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='compute'){draft.compute=e.target.value;save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
+  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='genre'){draft.genre=e.target.value;genreDefaults(e.target.value);}if(e.target.name==='compute'){draft.compute=e.target.value;save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
   q('#audio-form').onsubmit=async e=>{
    e.preventDefault();save();
    if(submitting||q('#generate-audio').disabled)return;
@@ -324,7 +334,7 @@
  }
  const oldNavigate=navigate;
  navigate=function(p){
-  if(p!=='audio'){clearPreview();q('#audio-voice-preview-dialog')?.close();return oldNavigate.apply(this,arguments);}
+  if(p!=='audio'){q('#audio-script-instructions')?.close();clearPreview();q('#audio-voice-preview-dialog')?.close();return oldNavigate.apply(this,arguments);}
   document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page='audio';
   q('#heading').textContent='Audio Studio';
   document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page==='audio'));
