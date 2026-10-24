@@ -1,7 +1,12 @@
 'use strict';
 /* One workspace control; prompts go through the authenticated CPU service. */
 (() => {
- const q=s=>document.querySelector(s), rawAPI=api;
+ const q=s=>document.querySelector(s), workspaceAPI=api;
+ // UI guidance has its own language; the requested content language is unchanged.
+ const rawAPI=(path,...args)=>{
+  if(path==='ai/enhance'&&args[0]){const body=args[0],context=body.context||{};args[0]={...body,context:{...context,instructions:(context.instructions||'')+'\nInterface language: English. Write all clarification questions, notes, explanations and guidance addressed to the user in English, even when source text or requested content is in another language. The selected content language applies only to generated or revised content; preserve it and any quoted source text or proper names.'}};}
+  return workspaceAPI(path,...args);
+ };
  let connection={connected:false,enabled:false,model:'gpt-6.1-sol'}, busy=false,lastReview=null,progressMessage='',connectionVersion=0;
  const promptControls=new Map();let promptId=0;
  const forms={

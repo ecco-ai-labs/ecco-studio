@@ -127,6 +127,8 @@ four-step modal: Source → Questions → Characters → Script. Audience, genre
 language, tone and source-specific questions guide suggested character counts and
 properties. Character names, roles, gender, age group and speaking style are editable.
 Save Characters explicitly stores reusable named sets in this browser for later chapters.
+Menus and AI guidance, questions and explanations stay in English. The chosen language
+applies to the generated script; source quotations and character names are preserved.
 
 Uploads are extracted locally. Selecting a passage replaces the source before any
 AI call; unselected text and unrelated story records are never sent. The chosen source

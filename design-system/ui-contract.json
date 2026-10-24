@@ -1815,7 +1815,8 @@
       "suggestions": "Adult paper podcast: normally Host + Guest. Storybook: source-specific narrator and speaking cast. News: normally one newsreader. User edits count and all properties.",
       "persistence": "Explicit Save Characters stores named character sets in this browser, with stable IDs and profile properties, for reuse across chapters. Disclose browser-local storage in UI.",
       "handoff": "Title, genre, audience, language, tone, narration, cast directions, source and structured script populate the main form. Save preserves manual transcript edits and seeds audio voices and turns.",
-      "appearance": "Existing generation-dialog, field groups, theme tokens and upper-right close control. Four text steps with current-step accent, keyboard focus and Escape dismissal."
+      "appearance": "Existing generation-dialog, field groups, theme tokens and upper-right close control. Four text steps with current-step accent, keyboard focus and Escape dismissal.",
+      "interfaceLanguage": "English for menus, clarification questions, source reviews, cast explanations and character-property descriptions, independently of the selected script language. Spoken content retains the selected language and native script; preserve source quotations and character proper names. All AI enhancement requests explicitly keep user-facing questions and notes in English."
     }
   },
   "audioWorkflowScheduling": {
