@@ -240,8 +240,9 @@ def write(db, me, body, workspace_key, configured_key):
 
 
 def handle(handler, path, allowed_origin, database, configured_key):
-    if path != '/api/desk':
+    if path not in ('/api/desk', '/api/desk/support'):
         return False
+    personal_support = path == '/api/desk/support'
     try:
         if handler.headers.get('Origin') != allowed_origin:
             raise DeskError('Origin denied.', 403)
@@ -256,11 +257,20 @@ def handle(handler, path, allowed_origin, database, configured_key):
             body = json.loads(handler.rfile.read(length))
             if not isinstance(body, dict):
                 raise DeskError('Expected an object.')
+            if personal_support and not (body.get('op') == 'comment' or
+                                         body.get('op') == 'createTicket' and body.get('type') == 'support'):
+                raise DeskError('This support page is for your own tickets only.', 403)
         with connect(database) as db:
             # Serializes the permission check + mutation, including first-admin claim.
             db.execute('BEGIN IMMEDIATE')
             me = actor(db, user)
+            # The Studio customer surface always uses requester permissions,
+            # even if this Google identity separately has a staff/admin role.
+            if personal_support:
+                me = {**me, 'role': 'customer', 'memberId': None}
             result = write(db, me, body, handler.headers.get('X-Ecco-Workspace-Key', ''), configured_key) if body is not None else read(db, me, parse_qs(urlsplit(handler.path).query))
+            if personal_support and 'needsSetup' in result:
+                result['needsSetup'] = False
         handler.send(result, 201 if body and body.get('op') == 'createTicket' else 200)
     except (DeskError, google_signin.AuthError) as exc:
         handler.send({'error': str(exc)}, exc.status)

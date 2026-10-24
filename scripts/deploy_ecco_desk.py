@@ -22,6 +22,7 @@ def main():
     parser.add_argument('--commit', required=True)
     parser.add_argument('--module-sha256', required=True)
     parser.add_argument('--runtime-sha256', required=True)
+    parser.add_argument('--previous-module-sha256')
     args = parser.parse_args()
     if len(args.commit) != 40 or any(c not in '0123456789abcdef' for c in args.commit):
         raise SystemExit('A full pinned commit is required.')
@@ -52,25 +53,34 @@ def main():
     if hashlib.sha256(module).hexdigest() != args.module_sha256:
         raise SystemExit('Downloaded module hash mismatch.')
     compile(module, 'ecco_desk.py', 'exec')
-    if 'import ecco_desk' in original:
-        raise SystemExit('Desk already installed; inspect before updating.')
+    module_path = cwd / 'ecco_desk.py'
+    old_module = None
+    installed = 'import ecco_desk' in original
+    if installed:
+        old_module = module_path.read_bytes()
+        if not args.previous_module_sha256 or hashlib.sha256(old_module).hexdigest() != args.previous_module_sha256:
+            raise SystemExit('Existing Desk module changed. Inspect it before updating.')
     hook = 'if google_signin.handle(self, path, ALLOWED_ORIGIN): return'
     assert original.count(hook) == 2, 'Unexpected request handlers'
     assert original.count('    # Never run legacy.initialize()') == 1, 'Unexpected startup'
-    updated = original.replace('import google_signin\n', 'import google_signin\nimport ecco_desk\n')
-    updated = updated.replace("'Authorization,Content-Type,Range'", "'Authorization,Content-Type,Range,X-Ecco-Workspace-Key'")
-    updated = updated.replace(hook, hook + "\n        if ecco_desk.handle(self, path, ALLOWED_ORIGIN, legacy.DATA / 'studio.sqlite', self.access_key): return")
-    updated = updated.replace('    # Never run legacy.initialize()', "    ecco_desk.initialize(legacy.DATA / 'studio.sqlite')\n    # Never run legacy.initialize()")
+    updated = original
+    if not installed:
+        updated = updated.replace('import google_signin\n', 'import google_signin\nimport ecco_desk\n')
+        updated = updated.replace("'Authorization,Content-Type,Range'", "'Authorization,Content-Type,Range,X-Ecco-Workspace-Key'")
+        updated = updated.replace(hook, hook + "\n        if ecco_desk.handle(self, path, ALLOWED_ORIGIN, legacy.DATA / 'studio.sqlite', self.access_key): return")
+        updated = updated.replace('    # Never run legacy.initialize()', "    ecco_desk.initialize(legacy.DATA / 'studio.sqlite')\n    # Never run legacy.initialize()")
     compile(updated, 'storage_api.py', 'exec')
     private = Path('/workspace/ecco-storage-private')
     backup = private / ('desk-backup-' + str(int(time.time())))
     backup.mkdir(mode=0o700)
     (backup / 'storage_api.py').write_text(original)
+    if old_module is not None:
+        (backup / 'ecco_desk.py').write_bytes(old_module)
     with sqlite3.connect(database) as live, sqlite3.connect(backup / 'studio.sqlite') as saved:
         live.backup(saved)
     os.chmod(backup / 'studio.sqlite', 0o600)
     idle()
-    (cwd / 'ecco_desk.py').write_bytes(module)
+    module_path.write_bytes(module)
     source.write_text(updated)
     log = (backup / 'restart.log').open('ab')
 
@@ -92,24 +102,28 @@ def main():
 
     os.kill(args.pid, signal.SIGTERM)
     for _ in range(50):
-        if not proc.exists():
-            break
-        # PID 1 may retain a zombie. It no longer owns the listening socket.
-        if (proc / 'stat').read_text().split()[2] == 'Z':
+        try:
+            # PID 1 may retain a zombie. It no longer owns the listening socket.
+            if (proc / 'stat').read_text().split()[2] == 'Z':
+                break
+        except FileNotFoundError:
             break
         time.sleep(.1)
     else:
         source.write_text(original)
+        if old_module is not None:
+            module_path.write_bytes(old_module)
         raise SystemExit('Original process did not stop. Source restored; no duplicate service started.')
     child = start()
     try:
         assert healthy(child), 'New service did not become healthy'
-        try:
-            urlopen(Request('http://127.0.0.1:8888/api/desk', headers={'Origin':'https://ecco-ai-labs.github.io'}), timeout=5)
-            raise RuntimeError('Desk unexpectedly accepted an anonymous request')
-        except HTTPError as response:
-            assert response.code == 401
-            assert 'storage access key' not in json.load(response)['error']
+        for path in ('/api/desk', '/api/desk/support'):
+            try:
+                urlopen(Request('http://127.0.0.1:8888'+path, headers={'Origin':'https://ecco-ai-labs.github.io'}), timeout=5)
+                raise RuntimeError('Desk unexpectedly accepted an anonymous request')
+            except HTTPError as response:
+                assert response.code == 401
+                assert 'storage access key' not in json.load(response)['error']
         with sqlite3.connect(database) as db:
             assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
             assert db.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name LIKE 'desk_%'").fetchone()[0] == 5
@@ -118,6 +132,8 @@ def main():
         child.terminate()
         child.wait(timeout=10)
         source.write_text(original)
+        if old_module is not None:
+            module_path.write_bytes(old_module)
         restored = start()
         print('Deployment failed; original source restored. Healthy:', healthy(restored))
         raise

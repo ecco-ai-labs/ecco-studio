@@ -124,6 +124,41 @@ class DeskTest(unittest.TestCase):
         self.assertEqual(self.call('staff',path=f'/api/desk?ticket={t["id"]}')[0],404)
         self.assertEqual(self.call(body={'op':'updateMember','id':self.call()[1]['me']['memberId'],'active':0})[0],400)
 
+    def test_studio_support_enforces_ownership_for_every_role(self):
+        self.setup_team()
+        own = {name: self.create(name) for name in self.tokens}
+        internal = self.create('owner', type='internal')
+        for name in self.tokens:
+            tid = own[name]['id']
+            self.call('staff', {'op':'comment','id':tid,'body':'Staff-only note','visibility':'internal'})
+            code, result = self.call(name, path='/api/desk/support')
+            self.assertEqual(code, 200)
+            self.assertEqual([t['id'] for t in result['tickets']], [tid])
+            self.assertEqual(result['me']['role'], 'customer')
+            self.assertIsNone(result['me']['memberId'])
+            for key in ('members','users','activity'):
+                self.assertEqual(result[key], [])
+            self.assertFalse(result['needsSetup'])
+            detail = self.call(name, path=f'/api/desk/support?ticket={tid}')[1]
+            self.assertEqual(detail['comments'], [])
+            self.assertTrue(all(e['visibility']=='public' for e in detail['events']))
+            self.assertEqual(self.call(name, {'op':'comment','id':tid,'body':'My reply','visibility':'internal'}, path='/api/desk/support')[0], 200)
+            self.assertEqual(self.call(name, path=f'/api/desk/support?ticket={tid}')[1]['comments'][0]['visibility'], 'public')
+            for other in [t for t in own.values() if t['id'] != tid] + [internal]:
+                self.assertEqual(self.call(name, path=f'/api/desk/support?ticket={other["id"]}')[0], 404)
+                self.assertEqual(self.call(name, {'op':'comment','id':other['id'],'body':'No access'}, path='/api/desk/support')[0], 404)
+            for body in ({'op':'createTicket','type':'internal'}, {'op':'bootstrap'},
+                         {'op':'addMember','userId':'google:bob','role':'admin'},
+                         {'op':'updateTicket','id':tid,'version':1,'status':'closed'}):
+                self.assertEqual(self.call(name, body, path='/api/desk/support', key=True)[0], 403)
+            code, created = self.call(name, {'op':'createTicket','type':'support','title':'New request','description':'Please help','reporterId':'google:other','assigneeId':'fake'}, path='/api/desk/support')
+            self.assertEqual(code,201)
+            self.assertEqual(created['ticket']['reporterId'], 'google:'+name)
+            self.assertIsNone(created['ticket']['assigneeId'])
+        # The separate, explicitly authorized team console still serves support.
+        self.assertEqual(self.call('owner')[1]['me']['role'],'admin')
+        self.assertEqual(self.call('staff',path=f'/api/desk?ticket={own["alice"]["id"]}')[0],200)
+
     def test_validation_and_persistence_preserve_legacy_records(self):
         self.setup_team()
         for change in ({'title':''},{'title':'x'*161},{'description':'x'*12001},{'priority':'invalid'},{'category':'unknown'},{'type':'wrong'}):

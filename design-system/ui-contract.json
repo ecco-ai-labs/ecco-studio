@@ -213,7 +213,9 @@
         "decorative",
         "accessibleName"
       ],
-      "variants": [],
+      "variants": [
+        "studio-support-headset"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -1843,13 +1845,13 @@
         "desk/src/desk.css"
       ]
     },
-    "appearance": "Preserves the user-approved Desk design: navy sidebar, yellow primary action, light ticket surfaces. Studio retains its selected theme and existing header dimensions. Desk CSS is scoped in a shadow root so it never restyles Studio. Embedded support hides the standalone sidebar, topbar and footer. Its sign-in panel and page heading inherit Studio theme text, surface, border and accent; ticket surfaces retain the approved light Desk style.",
-    "layout": "Support icon beside Discord/GitHub uses existing 32px asset-icon button and 16px icon. Support renders in main page, with Back to Studio and Team workspace links. Desk uses 4 metric cards (2 on narrow screens), a horizontally scrollable table, right detail drawer, and centered create/member dialogs.",
+    "appearance": "Preserves the user-approved Desk design: navy sidebar, yellow primary action, light ticket surfaces. Studio retains its selected theme and existing header dimensions. Desk CSS is scoped in a shadow root so it never restyles Studio. Embedded support hides the standalone sidebar, topbar and footer. Its sign-in panel and page heading inherit Studio theme text, surface, border and accent; ticket surfaces retain the approved light Desk style. The headset reuses community-panel theme text, accent hover/focus and focus outline, with transparent button background; SVG strokes stay visible and do not shrink.",
+    "layout": "Support uses a headset with microphone beside Discord/GitHub, inside the existing 30px asset-icon button with a 16px glyph. Support renders in the main page with Back to Studio. No team-workspace link appears on the customer surface. Desk retains its metric cards, scrollable table, right detail drawer and centered dialogs.",
     "content": "Ecco Desk branding; internal tasks, customer support, personal assignments, explicit team access, activity history. Customer support shows only the requester’s support tickets.",
     "states": "Loading, signed out, empty, error, filtered empty, populated, busy, open dialog/drawer. Errors use role=alert and success uses role=status; network requests time out. Refresh rechecks server permissions.",
     "interaction": "Header Support opens inside Studio without needing storage/GPU access. Existing Google sign-in is reused on welcome with a return intent. Esc dismisses the current Desk dialog/drawer; focus is trapped and returned, including within Shadow DOM. Tab order follows the visible content. No nested Desk dialogs.",
     "accessibility": "Support icon has an accessible name. Forms have labels, constraints and inline errors. Dialog/drawer have named dialog roles and aria-modal. Icon-only actions are named; decorative SVG icons are hidden. Reduced motion supported.",
-    "authorization": "Server verifies existing opaque Google session. Identity is keyed by Google sub. Customers cannot see other tickets, internal notes, staff directory or staff audit data. Roles never come from email/domain. First administrator explicitly activates using existing workspace access plus verified identity; later grants refer to an existing verified account. No email invitations are sent.",
+    "authorization": "Server verifies existing opaque Google session. Identity is keyed by Google sub. Customers cannot see other tickets, internal notes, staff directory or staff audit data. Roles never come from email/domain. First administrator explicitly activates using existing workspace access plus verified identity; later grants refer to an existing verified account. No email invitations are sent. Studio uses /api/desk/support: every request uses requester permissions even for staff/admin identities; lists, details, replies and history are limited to the authenticated Google subject. The endpoint never returns members, internal notes, team activity or setup controls, and rejects team operations. Separately authorized team operations remain on /api/desk. Account changes clear cached tickets and discard responses for the previous identity.",
     "storage": "Existing CPU storage API and SQLite on persistent Ecco volume. Dedicated desk_* tables are excluded from legacy workspace records. No tickets, tokens or access keys are stored in GitHub Pages/source. Separate ChatGPT login is not used.",
     "build": "Run npm ci && npm run build in desk/. Checked-in desk-app.mjs is the generated browser bundle; authored TSX/CSS are included in the inventory."
   }

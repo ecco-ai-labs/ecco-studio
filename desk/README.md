@@ -8,7 +8,7 @@ Both reuse Studio's Google identity; customers need no storage key or GPU.
 ## Team setup
 
 1. The workspace owner signs into Studio with Google and connects existing storage.
-2. Open **Team workspace** from Support, then **Activate team access**. This explicit
+2. Open the team dashboard at `/ecco-studio/desk/`, then **Activate team access**. This explicit
    first-admin claim requires both verified identity and the existing workspace key.
 3. Teammates sign into Studio and open Support once. The admin refreshes Desk and
    selects their verified account under **Team members → Add team member**.
@@ -18,6 +18,13 @@ Both reuse Studio's Google identity; customers need no storage key or GPU.
 Roles use stable Google subjects, never email/domain matching. Customers see
 only their own tickets. Membership changes take effect on the next request.
 Adding a member does not send a message or email.
+
+Studio customer support uses `/api/desk/support`. It applies requester-only
+permissions to all accounts, including staff/admins: no other customer tickets,
+internal notes, team directory or team operations. The customer page does not
+link to the team dashboard. Account changes clear previously loaded tickets;
+responses from the old sign-in are ignored. Authorized support agents use the
+separate team dashboard and `/api/desk` to manage the support queue.
 
 ## Build and validation
 

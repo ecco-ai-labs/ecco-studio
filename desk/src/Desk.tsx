@@ -12,22 +12,24 @@ function Status({value}:{value:string}){return <span className={`status ${value}
 function Priority({value}:{value:string}){return <span className={`priority ${value}`}><i /><i /><i />{label(value)}</span>}
 const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk';
 const activeElement=():Element|null=>{let e=document.activeElement;while(e?.shadowRoot?.activeElement)e=e.shadowRoot.activeElement;return e};
-async function api(payload?:any,path=''){
+async function request(payload?:any,path='',personalSupport=false){
  const token=sessionStorage.getItem('ecco-user-session');
  if(!token)throw Object.assign(new Error('Sign in to Ecco Studio to continue.'),{status:401});
  const headers:Record<string,string>={Authorization:'Bearer '+token};
  if(payload){headers['Content-Type']='application/json';if(payload.op==='bootstrap')headers['X-Ecco-Workspace-Key']=sessionStorage.getItem('ecco-storage-access')||'';}
- let r:Response;try{r=await fetch(endpoint+path,{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined,cache:'no-store',signal:AbortSignal.timeout(20000)});}catch{throw new Error('Ecco Desk could not connect. Please try again.');}
+ let r:Response;try{r=await fetch(endpoint+(personalSupport?'/support':'')+path,{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined,cache:'no-store',signal:AbortSignal.timeout(20000)});}catch{throw new Error('Ecco Desk could not connect. Please try again.');}
  const d:any=await r.json().catch(()=>({error:'Ecco Desk is temporarily unavailable.'}));
+ if(token!==sessionStorage.getItem('ecco-user-session'))throw Object.assign(new Error('Your sign-in changed. Please reopen your tickets.'),{status:401});
  if(!r.ok)throw Object.assign(new Error(d.error||'Request failed.'),{status:r.status});return d;
 }
 export default function Desk({portalOnly=false,embedded=false,onSignIn,onSignOut}:{portalOnly?:boolean;embedded?:boolean;onSignIn:()=>void;onSignOut:()=>void}){
+ const api=useCallback((payload?:any,path='')=>request(payload,path,portalOnly),[portalOnly]);
  const [data,setData]=useState<Data|null>(null),[loading,setLoading]=useState(true),[auth,setAuth]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [view,setView]=useState<View>(portalOnly?'portal':'overview'),[query,setQuery]=useState(''),[status,setStatus]=useState('all'),[priority,setPriority]=useState('all'),[assigned,setAssigned]=useState('all'),[quick,setQuick]=useState('all');
  const [create,setCreate]=useState<'internal'|'support'|null>(null),[teamModal,setTeamModal]=useState(false),[detail,setDetail]=useState<Detail|null>(null),[detailLoading,setDetailLoading]=useState(false),[busy,setBusy]=useState(false),[mobile,setMobile]=useState(false);
- const detailRequest=useRef(0),detailFocus=useRef<HTMLElement|null>(null);
- const refresh=useCallback(async()=>{try{const d=await api();setData(d);if(portalOnly||!isStaff(d.me))setView('portal');setAuth(false);setError('');return d as Data}catch(e){if((e as {status?:number}).status===401)setAuth(true);else setError((e as Error).message);return null}finally{setLoading(false)}},[portalOnly]);
- useEffect(()=>{refresh();const u=new URL(location.href);if(u.searchParams.get('portal')==='1')setView('portal');},[refresh]);
+ const refreshRequest=useRef(0),detailRequest=useRef(0),detailFocus=useRef<HTMLElement|null>(null);
+ const refresh=useCallback(async()=>{const req=++refreshRequest.current;try{const d=await api();if(req!==refreshRequest.current)return null;setData(d);if(portalOnly||!isStaff(d.me))setView('portal');setAuth(false);setError('');return d as Data}catch(e){if(req!==refreshRequest.current)return null;if((e as {status?:number}).status===401){setAuth(true);setData(null);setDetail(null)}else setError((e as Error).message);return null}finally{if(req===refreshRequest.current)setLoading(false)}},[api,portalOnly]);
+ useEffect(()=>{refresh();const u=new URL(location.href);if(u.searchParams.get('portal')==='1')setView('portal');const changed=()=>{setData(null);setDetail(null);setCreate(null);setTeamModal(false);setLoading(true);setQuery('');setError('');detailRequest.current++;refresh()};document.addEventListener('ecco:auth-change',changed);return()=>{document.removeEventListener('ecco:auth-change',changed);refreshRequest.current++;detailRequest.current++}},[refresh]);
  useEffect(()=>{if(notice){const t=setTimeout(()=>setNotice(''),4500);return ()=>clearTimeout(t)}},[notice]);
  useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape'){setCreate(null);setTeamModal(false);setDetail(null);setMobile(false);detailRequest.current++;detailFocus.current?.focus();}};window.addEventListener('keydown',k);return ()=>window.removeEventListener('keydown',k)},[]);
  const staff=data?isStaff(data.me)&&!portalOnly:false,portal=portalOnly||!staff||view==='portal';
