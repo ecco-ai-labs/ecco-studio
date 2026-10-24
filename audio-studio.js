@@ -206,11 +206,12 @@
  }
  function generateScript(){
   if(selectedScenes().length!==(draft.source_scenes||[]).length){notice('A selected scene changed. Reselect scenes before generating.',true);return;}
-  window.EccoAudioScript.open({
+  (window.EccoAudioJourney?.openAudio||window.EccoAudioScript.open)({
    target:activeStory,form:q('#audio-form'),getDraft:()=>draft,save,
    characters:()=>activeSpeakers(),model,scenes:selectedScenes,sceneSnapshot:()=>JSON.stringify(boardScenes()),
    drawCharacters,
-   apply(plan,brief){
+   apply(plan,brief,cast){
+    if(cast){draft.speakers=cast;draft.character_count=cast.length;draft.presentation=cast.length===1?'single':'conversation';draft.characters_configured=true;draft.title=brief.title;draft.genre=brief.genre;draft.guided_preparation={...brief,plan};q('#audio-form [name=title]').value=draft.title;q('#audio-form [name=genre]').value=draft.genre;}
     draft.script_brief=brief;draft.script_instructions=brief.instructions;draft.opening_text=plan.opening?.text||'';
     draft.opening_speaker=plan.opening?.character_id||draft.speakers[0].id;draft.opening_pause=brief.opening_pause;
     draft.lines=plan.segments.map(part=>({text:part.text,speaker_id:part.character_id,...(part.scene_number?{scene_title:selectedScenes().find(s=>s.scene_number===part.scene_number)?.title}:{} )}));

@@ -122,14 +122,19 @@ and IDs remain independent of voice choices; voices and emotion are assigned in
 Additional Controls. News starts with one newsreader; podcasts start with a host
 and guest until the user customizes the cast.
 
-Generate with AI opens a native modal with a brief, language, character list, turn
-count and PDF/TXT/Markdown source upload. Sources are extracted locally and sent
-only on Generate. Generated turns are reviewed and edited before Apply. Applying
-never generates audio. Existing audio request limits and compute selection remain
-in force. Topic-only News uses cited research before narration.
+Generate with AI on every Audio story setup and in Audio Studio opens the same
+four-step modal: Source → Questions → Characters → Script. Audience, genre,
+language, tone and source-specific questions guide suggested character counts and
+properties. Character names, roles, gender, age group and speaking style are editable.
+Save Characters explicitly stores reusable named sets in this browser for later chapters.
 
-The existing Audio Workflow screen is still configuration/preview only. Automatic
-scheduling requires a durable backend runner and a verified connected audio worker.
+Uploads are extracted locally. Selecting a passage replaces the source before any
+AI call; unselected text and unrelated story records are never sent. The chosen source
+is sent when Read Source is clicked. Generated character-assigned turns remain editable.
+Apply fills the main fields; Save and Continue with Script preserves subsequent manual
+edits and the character-to-turn mapping. Neither action starts speech generation.
+Existing audio limits, voice controls and compute choices remain in force. Topic-only
+News uses cited research and displays its sources before Apply.
 
 ## Audio workflow scheduling
 

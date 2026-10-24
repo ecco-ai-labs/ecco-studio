@@ -44,3 +44,12 @@
 #audio-script-instructions [data-script-status]{white-space:pre-wrap}
 #audio-script-instructions .audio-line textarea{min-height:100px}
 #audio-script-instructions:modal{position:fixed;inset:0;margin:auto}
+
+/* Guided audio preparation reuses the existing modal, field and theme rules. */
+#audio-guided-dialog:modal{position:fixed;inset:0;margin:auto}
+#audio-guided-dialog [hidden]{display:none!important}
+#audio-guided-dialog [data-stage],#audio-guided-dialog [data-extra-questions],#audio-guided-dialog [data-cast],#audio-guided-dialog [data-turn-list]{display:flex;flex-direction:column;gap:16px;min-width:0}
+#audio-guided-dialog .audio-guided-steps{display:flex;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--border);padding-bottom:12px}
+#audio-guided-dialog .audio-guided-steps [aria-current=step]{color:var(--accent);font-weight:600}
+#audio-guided-dialog [data-status],#audio-guided-dialog .audio-source-review{white-space:pre-wrap;overflow-wrap:anywhere}
+#audio-guided-dialog textarea{min-height:100px}

@@ -134,6 +134,7 @@
   dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.showModal();instructions.focus();
  }
  function generateWithInstructions(binding){
+  if(binding.scope.id==='story-setup-form'&&binding.scope.elements.story_format.value==='audio'&&window.EccoAudioJourney)return window.EccoAudioJourney.openStory(binding.scope);
   const original=binding.element.value,snapshot=JSON.stringify(snapshotFor(binding));
   return requestGeneration({label:binding.label,key:binding.stage+':'+(binding.element.id||binding.element.name||binding.element.dataset.field||binding.label),isValid:()=>binding.element.isConnected&&binding.scope.isConnected&&binding.element.value===original&&JSON.stringify(snapshotFor(binding))===snapshot,onGenerate:options=>improve({...binding,generationRequest:options})});
  }

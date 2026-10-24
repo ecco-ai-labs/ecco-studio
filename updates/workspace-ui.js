@@ -402,17 +402,19 @@
   // Restoring draft text is not a format choice in a new browser session.
   if(saved.workflow_id)selectedJourneyStory=activeStory;else if(selectedJourneyStory!==activeStory)form.elements.story_format.value='';
   window.EccoStoryJourneys?.setup(form,saved);
-  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(saved.parent_story_id)data.parent_story_id=saved.parent_story_id;if(saved.source_asset_ids)data.source_asset_ids=saved.source_asset_ids;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=data.sourceText||data.summary||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
+  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText&&!form.elements.audio_preparation?.value)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(saved.parent_story_id)data.parent_story_id=saved.parent_story_id;if(saved.source_asset_ids)data.source_asset_ids=saved.source_asset_ids;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=(data.audio_preparation?data.summary:data.sourceText||data.summary)||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){window.EccoAudioJourney?.mountSetup();selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
    if(!form.reportValidity())return;
-   const data=save(),targetStory=activeStory,targetDraft=structuredClone(draft),button=form.querySelector('[type="submit"]');button.disabled=true;
+   let data=save();try{data=window.EccoAudioJourney?.collectSetup(form,data)||data;}catch(error){status.textContent=error.message;return;}
+   const targetStory=activeStory,targetDraft=structuredClone(draft),button=form.querySelector('[type="submit"]');button.disabled=true;
    status.textContent='Saving story…';
    try{
     const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
     data.cloudId=created.id;saved=data;
-    const nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};
+    let nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};
+    nextDraft=window.EccoAudioJourney?.handoff(data,created.id,nextDraft)||nextDraft;
     localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));
     localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));
     if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);

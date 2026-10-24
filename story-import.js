@@ -131,12 +131,12 @@
   };
   extract.onclick=async()=>{
    const text=selected.value.trim();if(!text){note.textContent='Select story text to extract.';return;}
-   if((form.elements.summary.value.trim()||source.value.trim())&&!confirm('Replace the current summary and source with your selected passage?'))return;
    const metadata=await doc.getMetadata().catch(()=>null),title=metadata?.info?.Title,file=input.files[0];
    if(!form.elements.title.value.trim())form.elements.title.value=(title&&title!=='Untitled'?title:file.name.replace(/\.pdf$/i,'').replace(/[_-]/g,' ')).slice(0,160);
+   for(const [name,value]of [['audio_source_scope','selected'],['audio_source_name',file.name]]){let field=form.elements[name];if(!field){field=document.createElement('input');field.type='hidden';field.name=name;form.append(field);}field.value=value;}
    source.value=text;form.elements.summary.value=text.length<=4000?text:text.slice(0,3997)+'…';source.dispatchEvent(new Event('input',{bubbles:true}));
    box.querySelector('details').open=true;status.textContent=text.length+' characters extracted from your selection.'+(text.length>4000?' Summary contains an excerpt; the full selection is in Source text.':'')+' Review, then save to continue.';
-   dialog.close();form.requestSubmit();
+   dialog.close();if(form.elements.story_format.value!=='audio')form.requestSubmit();
   };
  }
  function mountBoard(){

@@ -1766,7 +1766,7 @@
     "appearance": "Same 32px button area, 16px icon, theme-aware hover/focus and glass surface as the Discord panel."
   },
   "audioScriptStudio": {
-    "approval": "User requested character counts and optional names with later per-character voice selection, plus a real AI script popup accepting a topic or uploaded paper and single-voice/multi-turn scripts.",
+    "approval": "User requested character counts and optional names with later per-character voice selection, plus a real AI script popup accepting a topic or uploaded paper and single-voice/multi-turn scripts. User requested a guided Audio journey with source-only extraction, questions, suggested reusable character profiles, editable turns and Apply to main fields.",
     "components": [
       "number-input",
       "text-input",
@@ -1786,24 +1786,37 @@
       "voices": "Additional Controls uses named character tabs, model-supported voices, language, emotion, dialect guidance and explicit voice preview."
     },
     "scriptPopup": {
-      "entry": "Generate with AI in Spoken script, also available from its manual editor",
+      "entry": "Generate with AI on any Audio story setup or in Audio Studio Spoken script",
       "presentation": "Native modal dialog appended to body, using generation-dialog styling, shared upper-right close button and focus return",
       "fields": [
-        "brief/topic",
-        "language supported by selected model",
-        "single voice or multi-turn dialogue",
-        "character count and names",
-        "turn count",
-        "PDF/TXT/Markdown upload or pasted source text",
-        "optional opening title and pause"
+        "source/topic and PDF/TXT/Markdown upload",
+        "selected source passage only",
+        "audience, genre, model-supported language, tone, purpose and source-specific questions",
+        "AI-proposed cast count, names, roles, gender, age group and personality/speaking style",
+        "saved character sets for reuse across chapters",
+        "turn count, optional spoken opening and pause",
+        "editable character-assigned turns"
       ],
-      "uploads": "Read locally, at most 20 MB; expose up to 20,000 source characters for editable review, explicitly disclose truncated extraction. Source is sent through existing authenticated AI service only on Generate.",
+      "uploads": "Read locally, at most 20 MB and 20,000 source characters; disclose truncation. Selection replaces the source before any AI call. Read Source sends only that scope through the existing authenticated service. Never send the rest of an uploaded document, unrelated stories or chapters.",
       "review": "Show editable speaker-assigned turns. Apply updates spoken script; generation never auto-starts speech. Cancel, stale state and invalid plans preserve the current script.",
       "news": "Without selected scenes or source text, request current cited news through existing research service before writing narration; display cited sources in review."
     },
     "generation": "Resolve character IDs to their latest voice/language/emotion when submitting existing audio/generate payload. Apply existing global speed, pitch and pause. Keep speech text separate from instructions.",
     "limits": "Existing 4,000 spoken characters, 500 characters per speech segment and 20 speech segments remain enforced before Apply and Generate.",
-    "workflowStatus": "Scheduling requires the authenticated CPU workspace audio-workflow runner; UI publication alone does not activate schedules."
+    "workflowStatus": "Scheduling requires the authenticated CPU workspace audio-workflow runner; UI publication alone does not activate schedules.",
+    "guidedJourney": {
+      "steps": [
+        "Source",
+        "Questions",
+        "Characters",
+        "Script"
+      ],
+      "apply": "Main page and audio draft change only on Apply. Cancel, stale source/story state and invalid plans preserve existing fields. Save and Continue with Script saves edited narration and stable character-to-turn mappings.",
+      "suggestions": "Adult paper podcast: normally Host + Guest. Storybook: source-specific narrator and speaking cast. News: normally one newsreader. User edits count and all properties.",
+      "persistence": "Explicit Save Characters stores named character sets in this browser, with stable IDs and profile properties, for reuse across chapters. Disclose browser-local storage in UI.",
+      "handoff": "Title, genre, audience, language, tone, narration, cast directions, source and structured script populate the main form. Save preserves manual transcript edits and seeds audio voices and turns.",
+      "appearance": "Existing generation-dialog, field groups, theme tokens and upper-right close control. Four text steps with current-step accent, keyboard focus and Escape dismissal."
+    }
   },
   "audioWorkflowScheduling": {
     "approval": "User requested automatic generation of news, podcasts and storybooks for the weekend goal.",
