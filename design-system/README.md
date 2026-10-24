@@ -129,6 +129,13 @@ properties. Character names, roles, gender, age group and speaking style are edi
 Save Characters explicitly stores reusable named sets in this browser for later chapters.
 Menus and AI guidance, questions and explanations stay in English. The chosen language
 applies to the generated script; source quotations and character names are preserved.
+Pending AI actions show the shared revolving generation indicator and a busy label.
+Script follow-up questions stay on the current screen with earlier answers and cast
+edits intact; only a valid script moves to review. Failures allow a retry in place.
+Language Style is chosen before script generation and defaults to Everyday / Conversational.
+Child-friendly, conversational with English (Hinglish for Hindi), formal, literary
+and custom styles guide vocabulary and sentence complexity. This choice and custom
+instructions carry through Apply and into later chapters; the interface stays English.
 
 Uploads are extracted locally. Selecting a passage replaces the source before any
 AI call; unselected text and unrelated story records are never sent. The chosen source

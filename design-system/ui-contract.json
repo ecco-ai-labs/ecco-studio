@@ -1816,7 +1816,21 @@
       "persistence": "Explicit Save Characters stores named character sets in this browser, with stable IDs and profile properties, for reuse across chapters. Disclose browser-local storage in UI.",
       "handoff": "Title, genre, audience, language, tone, narration, cast directions, source and structured script populate the main form. Save preserves manual transcript edits and seeds audio voices and turns.",
       "appearance": "Existing generation-dialog, field groups, theme tokens and upper-right close control. Four text steps with current-step accent, keyboard focus and Escape dismissal.",
-      "interfaceLanguage": "English for menus, clarification questions, source reviews, cast explanations and character-property descriptions, independently of the selected script language. Spoken content retains the selected language and native script; preserve source quotations and character proper names. All AI enhancement requests explicitly keep user-facing questions and notes in English."
+      "interfaceLanguage": "English for menus, clarification questions, source reviews, cast explanations and character-property descriptions, independently of the selected script language. Spoken content retains the selected language and native script; preserve source quotations and character proper names. All AI enhancement requests explicitly keep user-facing questions and notes in English.",
+      "progress": "Use the existing generation-spinner (16px, currentColor, existing reduced-motion behavior) in the primary action with Generating Script…, disabled duplicate submission and aria-busy. Preserve the current step and character edits while waiting. AI follow-up questions appear in Script Clarifications on the current Characters step, preserving earlier answers. Only a valid script advances to review; failures stop the spinner and allow retry in place.",
+      "languageStyle": {
+        "default": "Everyday / Conversational",
+        "choices": [
+          "Everyday / Conversational",
+          "Very Simple / Child-friendly",
+          "Conversational + English (Hinglish for Hindi)",
+          "Formal",
+          "Literary",
+          "Custom"
+        ],
+        "placement": "Questions before Generate Script, plus the main Audio setup. Custom shows a required free-text direction.",
+        "behavior": "All UI labels stay English. The choice guides vocabulary and sentence complexity in the selected spoken language. Everyday Hindi requests common spoken words and short natural sentences, avoiding highly Sanskritized Hindi, difficult literary Urdu and literal translation. The selected style and custom instructions survive Apply, save, reopen and next-chapter handoff."
+      }
     }
   },
   "audioWorkflowScheduling": {

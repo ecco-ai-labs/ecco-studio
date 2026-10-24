@@ -76,3 +76,31 @@ test('Audio Studio uses the same journey, preserves voice choices and resolves l
 test('Topic-only news researches citations, displays them in review, and keeps the last character and turn',async t=>{
  const x=await ready(t),calls=mock(x,{names:['Newsreader']});await open(x);await questions(x);field(x,'genre','News');await submit(x);assert.equal(x.q('[data-remove-character]').disabled,true);await submit(x);assert.equal(x.q('[data-remove-turn]').disabled,true);assert.equal(x.q('[data-news-sources] a').href,'https://example.org/news');assert.ok(calls.some(c=>c.path==='ai/news/research'));await submit(x);assert.match(x.q('[name=summary]').value,/Newsreader:/);
 });
+
+const scriptReply=body=>({questions:[],revisions:[{id:'audio_plan',text:JSON.stringify({opening:null,segments:Array.from({length:Number(body.fields[0].text.match(/exactly (\d+)/)[1])},(_,i)=>({character_id:body.context.lines[i%body.context.lines.length].character_id,text:'नमस्ते, चलिए बात करते हैं।'}))})}]});
+
+test('Generate Script spins while waiting; clarification stays in place and preserves earlier answers and characters',async t=>{
+ const x=await ready(t);mock(x);await open(x);await questions(x);input(x,'[data-answer="0"]','Use one practical example.');await submit(x);
+ input(x,'[data-cast-row="0"] [data-character-property=name]','Asha');const originalField=x.q('[data-cast-row="0"] [data-character-property=name]');
+ let finish,requests=[];x.w.testUI.setAPI((path,body)=>{requests.push(body);return new Promise(resolve=>finish=resolve);});
+ x.q(dlg+' form').requestSubmit();assert.ok(x.q(dlg+' [data-next] .generation-spinner'));assert.equal(x.q(dlg+' [data-next]').textContent,'Generating Script…');assert.equal(x.q(dlg+' [data-next]').getAttribute('aria-busy'),'true');assert.equal(x.q(dlg+' [data-next]').disabled,true);
+ x.q(dlg+' form').requestSubmit();assert.equal(requests.length,1);finish({questions:['Should this excerpt end at the cliffhanger?'],revisions:[]});await tick();
+ assert.match(x.q('[aria-current=step]').textContent,/3. Characters/);assert.equal(x.q('[data-cast-row="0"] [data-character-property=name]'),originalField);assert.equal(originalField.value,'Asha');assert.equal(x.q(dlg+' [data-next] .generation-spinner'),null);assert.equal(x.q(dlg+' [data-next]').disabled,false);assert.match(x.q('[data-script-clarifications]').textContent,/cliffhanger/);
+ await submit(x);assert.equal(requests.length,1);assert.match(x.q(dlg+' [data-status]').textContent,/Answer the Script Clarifications/);
+ input(x,'[data-script-answer="0"]','Yes. Use only the selected excerpt.');x.w.testUI.setAPI(async(path,body)=>{requests.push(body);return scriptReply(body);});await submit(x);
+ assert.match(requests[1].context.instructions,/Use one practical example/);assert.match(requests[1].context.instructions,/Yes. Use only the selected excerpt/);assert.equal(requests[1].context.lines[0].name,'Asha');assert.match(x.q('[aria-current=step]').textContent,/4. Script/);assert.equal(x.q(dlg+' [data-next]').textContent,'Apply');assert.equal(x.q(dlg+' [data-next] .generation-spinner'),null);assert.equal(x.q('[name=summary]').value,'');
+});
+
+test('A script request failure clears the spinner and allows retry without changing screens or cast',async t=>{
+ const x=await ready(t);mock(x);await open(x);await questions(x);await submit(x);const castField=x.q('[data-character-property=name]');x.w.testUI.setAPI(async()=>{throw Error('Connection interrupted.');});await submit(x);
+ assert.equal(x.q('[data-character-property=name]'),castField);assert.match(x.q('[aria-current=step]').textContent,/3. Characters/);assert.match(x.q(dlg+' [data-status]').textContent,/Connection interrupted/);assert.equal(x.q(dlg+' [data-next]').disabled,false);assert.equal(x.q(dlg+' [data-next]').getAttribute('aria-busy'),'false');assert.equal(x.q(dlg+' [data-next] .generation-spinner'),null);
+ x.w.testUI.setAPI(async(path,body)=>scriptReply(body));await submit(x);assert.match(x.q('[aria-current=step]').textContent,/4. Script/);
+});
+
+test('Language Style defaults to everyday Hindi and custom guidance is sent and retained after Apply',async t=>{
+ const x=await ready(t),calls=mock(x);assert.equal(x.q('[name=audio_language_style]').value,'Everyday / Conversational');await open(x);await questions(x);assert.equal(x.q('[data-value=language_style]').value,'Everyday / Conversational');assert.equal(x.q('[data-value=language_style_instructions]').closest('label').hidden,true);
+ field(x,'language_style','Custom');assert.equal(x.q('[data-value=language_style_instructions]').closest('label').hidden,false);await submit(x);assert.equal(calls.length,1);assert.match(x.q(dlg+' [data-status]').textContent,/Custom Language Instructions/);
+ field(x,'language_style_instructions','Use commonly spoken Hindi. Short sentences, familiar words, no difficult literary terms.');await submit(x);await submit(x);
+ assert.equal(calls[2].body.context.language,'Hindi');assert.match(calls[2].body.context.instructions,/Language Style: Custom/);assert.match(calls[2].body.context.instructions,/Use commonly spoken Hindi/);await submit(x);
+ assert.equal(x.q('[name=audio_language_style]').value,'Custom');assert.match(x.q('[name=audio_language_style_instructions]').value,/Short sentences/);assert.equal(x.q('[name=audio_language_style_instructions]').closest('label').hidden,false);assert.equal(JSON.parse(x.q('[name=audio_preparation]').value).language_style,'Custom');
+});
