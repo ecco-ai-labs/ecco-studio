@@ -27,20 +27,43 @@ No private storage key, AI key, Directory credential, or RunPod key is sent to t
 
    https://www.googleapis.com/auth/admin.directory.group.member.readonly
 
-4. Choose a delegated Workspace administrator authorized to read group members.
-   Store the service-account JSON on the CPU server, outside the repository and
-   web root, mode 0600. Never paste its private key into chat or GitHub.
-5. Set ECCO_GROUP_ACCESS_CONFIG to a private configuration file, mode 0600:
+4. Keep organization policies disabling service-account key creation enabled.
+   Enable the IAM Service Account Credentials API as well as Admin SDK API.
+5. Deploy `services/group-reader` to Cloud Run with a dedicated runtime identity.
+   Grant that runtime identity `iam.serviceAccounts.signJwt` on the group-reader
+   service account only (a custom role containing only that permission is sufficient).
+   Do not grant project-wide Token Creator. No user-managed Google key is required.
+6. Configure these server-only environment variables on the Cloud Run service:
+   - GROUP_READER_SERVICE_ACCOUNT: the delegated service account email
+   - GROUP_READER_ADMIN: an administrator permitted to read group members
+   - GROUP_READER_GROUP: the one authorized tester group
+   - GROUP_READER_SECRET: a random server-to-server secret of at least 32 characters,
+     injected from Secret Manager, never included in source or deployment logs
+7. The broker requires HTTPS ingress reachable by the existing backend. Cloud Run
+   IAM unauthenticated invocation permits requests to reach the application's
+   bearer-secret check; this is NOT an unauthenticated membership API. Every
+   membership request needs the private secret. Do not give this secret to browsers.
+   Deploy with minimum instances 0 and maximum instances 1 initially. Confirm
+   region, billing, IAM grants and ingress before deployment. Public ingress can
+   incur invocation cost even when an application request is denied.
+8. Place the same broker secret in a private file on the existing CPU backend,
+   mode 0600. Set ECCO_GROUP_ACCESS_CONFIG to a private JSON file, mode 0600:
 
    {
      "enabled": true,
-     "group": "<tester group email>",
      "domain": "<Workspace domain>",
-     "service_account_file": "<protected service-account JSON file>",
-     "delegated_admin": "<authorized Workspace administrator email>"
+     "broker_url": "https://<Cloud Run hostname>/membership",
+     "broker_secret_file": "<protected server-to-server secret file>"
    }
 
-The group address and domain remain in private server configuration; the read-only scope is fixed in code.
+The broker uses ADC to call signJwt, exchanges the signed assertion for a scoped
+short-lived Directory token, then reads the fixed group's membership. It returns
+only the checked subject and a boolean. Redirects from the broker are rejected by
+the backend; responses must match the requested subject. Directory failures fail
+closed. The broker secret is separate from Google credentials and must be rotated
+on both services if exposed. The legacy JSON-key path remains supported in code
+for existing deployments but is not required or recommended for this setup.
+
 A missing, disabled, malformed or unreadable configuration denies tester access.
 Changing enabled to false disables access on the next backend request, even when
 a positive membership result was cached.

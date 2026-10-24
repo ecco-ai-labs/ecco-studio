@@ -23,14 +23,35 @@ def configuration():
     try:
         if not CONFIG: raise ValueError()
         config = json.loads(Path(CONFIG).read_text())
-        if config.get('enabled') is not True or not config.get('service_account_file') or not config.get('delegated_admin') or not config.get('group') or not config.get('domain'):
+        if config.get('enabled') is not True or not config.get('domain'):
+            raise ValueError()
+        if config.get('broker_url'):
+            from urllib.parse import urlsplit
+            url = urlsplit(config['broker_url'])
+            if url.scheme != 'https' or not url.hostname or url.username or url.password or url.query or url.fragment:
+                raise ValueError()
+            if len(Path(config['broker_secret_file']).read_text().strip()) < 32:
+                raise ValueError()
+        elif not all(config.get(k) for k in ('service_account_file', 'delegated_admin', 'group')):
             raise ValueError()
         return config
-    except (OSError, ValueError, TypeError, AttributeError):
+    except (OSError, ValueError, TypeError, AttributeError, KeyError):
         raise AccessError('Tester access is awaiting Google administrator setup.', 503) from None
 
 
 def lookup(config, subject):
+    if config.get('broker_url'):
+        import requests
+        secret = Path(config['broker_secret_file']).read_text().strip()
+        response = requests.post(config['broker_url'], json={'subject': subject},
+                                 headers={'Authorization': 'Bearer ' + secret},
+                                 timeout=15, allow_redirects=False)
+        if response.status_code != 200:
+            raise ValueError('Membership service unavailable')
+        result = response.json()
+        if result.get('subject') != subject or type(result.get('isMember')) is not bool:
+            raise ValueError('Invalid membership response')
+        return result['isMember']
     from google.oauth2 import service_account
     from google.auth.transport.requests import AuthorizedSession
     credentials = service_account.Credentials.from_service_account_file(

@@ -3,7 +3,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from urllib.error import HTTPError
 
 import google_signin
@@ -44,6 +44,20 @@ class MembershipTest(unittest.TestCase):
             with self.assertRaises(access.AccessError) as error: access.authorize(self.identity)
             self.assertEqual(error.exception.status, 503)
             self.assertNotIn('private detail', str(error.exception))
+
+    def test_broker_rejects_redirect_and_mismatched_subject(self):
+        import requests
+        config = {'broker_url': 'https://broker.example/membership', 'broker_secret_file': '/test-only'}
+        response = MagicMock()
+        with patch.object(Path, 'read_text', return_value='x'*40), patch.object(requests, 'post', return_value=response) as post:
+            response.status_code = 302
+            with self.assertRaises(ValueError): access.lookup(config, '123')
+            self.assertFalse(post.call_args.kwargs['allow_redirects'])
+            response.status_code = 200
+            response.json.return_value = {'subject': '456', 'isMember': True}
+            with self.assertRaises(ValueError): access.lookup(config, '123')
+            response.json.return_value = {'subject': '123', 'isMember': True}
+            self.assertTrue(access.lookup(config, '123'))
 
 
 class TesterHTTPTest(StorageTest):
