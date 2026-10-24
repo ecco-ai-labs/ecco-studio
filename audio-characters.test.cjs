@@ -112,3 +112,9 @@ test('Workflow model editor retains only active characters and uses model-specif
  const x=await ready(t);input(x,'[name=genre]','Podcast','change');input(x,'[data-character-count]','4','change');input(x,'[data-character-count]','2','change');x.q('#save-audio-workflow').click();await tick();x.q('[data-node=model]').click();await tick();
  assert.equal(x.w.document.querySelectorAll('#audio-workflow-step fieldset').length,2);input(x,'[name=audio_model]','indicf5','change');assert.equal(x.q('[name=voice_0] option').value,'kan_f');assert.equal(x.q('[name=language_0]').value,'Hindi');x.q('#audio-workflow-step form').requestSubmit();await tick();assert.equal(x.q('#audio-workflow-step'),null);
 });
+
+
+test('Save as Workflow copies the current audio setup when no story is selected',async t=>{
+ const x=await setup();t.after(()=>x.close());await x.go('audio');input(x,'[name=genre]','Podcast','change');x.q('#save-audio-workflow').click();await tick();
+ assert.match(x.q('[data-node=model]').textContent,/indic-mio.*2 speaker/);assert.match(x.q('[data-node=source]').textContent,/Podcast/);assert.match(x.q('[data-node=output]').textContent,/CPU/);
+});
