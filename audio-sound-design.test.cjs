@@ -18,7 +18,7 @@ test('Sound-design AI sees only the final spoken script and current library labe
  assert.equal(JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:audio-story')).sound_design.cues[0].phrase,cue.phrase);assert.deepEqual(x.errors,[]);
 });
 test('A late sound suggestion cannot replace manually edited cues',async t=>{
- const x=await fixture(t);let finish;x.w.EccoAI={enabled:true};x.w.EccoStorage={ready:true};x.w.testUI.setAPI(()=>new Promise(resolve=>finish=resolve));x.q('[data-open-sounds]').click();x.q('[data-suggest]').click();x.q('[data-add]').click();input(x,'[data-field=description]','Keep my custom sound');finish({revisions:[{id:'sound_cues',text:JSON.stringify({cues:[cue]})}]});await tick();assert.equal(x.q('[data-field=description]').value,'Keep my custom sound');assert.match(x.q('#audio-sound-design [role=status]').textContent,/edits are preserved/);
+ const x=await fixture(t);let finish;x.w.EccoAI={enabled:true};x.w.EccoStorage={ready:true};x.w.testUI.setAPI(()=>new Promise(resolve=>finish=resolve));x.q('[data-open-sounds]').click();x.q('[data-suggest]').click();x.q('[data-add]').click();input(x,'[data-field=description]','Keep my custom sound');finish({revisions:[{id:'sound_cues',text:JSON.stringify({cues:[cue]})}]});await tick();assert.equal(x.q('[data-field=description]').value,'Keep my custom sound');assert.match(x.q('#audio-sound-design [data-design-status]').textContent,/edits are preserved/);
 });
 test('Older audio service cannot silently discard a soundtrack',async t=>{
  const x=await fixture(t),requests=[];x.w.EccoAudioStudio.connect({storageIndependentOfGPU:true,status:async()=>({routing_version:1,compute:{cpu:{ready:true,models:['indic-mio']}}}),list:async()=>[],generate:async r=>{requests.push(r);return{id:'j'};},job:async()=>({status:'done'}),mediaURL:async()=>'',download:async()=>{}});await tick();
@@ -26,4 +26,8 @@ test('Older audio service cannot silently discard a soundtrack',async t=>{
 });
 test('Removing a cue stays available after the shared popup-close enhancer runs',async t=>{
  const x=await fixture(t);x.q('[data-open-sounds]').click();x.q('[data-add]').click();await tick();const remove=x.q('#audio-sound-design [data-remove]');assert.equal(remove.hasAttribute('data-ecco-replaced-close'),false);remove.click();assert.equal(x.q('#audio-sound-design [data-cue]'),null);assert.equal(x.q('#audio-sound-design').open,true);
+});
+test('Generate Sound uses selected compute and only attaches a durably saved library asset',async t=>{
+ const x=await fixture(t),calls=[];x.w.EccoStorage={ready:true};x.w.testUI.setAPI(async(path,body)=>{calls.push({path,body});if(path==='audio/status')return{compute:{cpu:{sound_models:['moss-soundeffect-v2']}}};if(path==='audio/sounds/generate')return{id:'new-sound'};if(path==='audio/jobs/new-sound')return{status:'done',asset:{id:'generated',kind:'asset',media:'audio',title:'Jinn Arrival',created:2}};throw Error(path);});
+ x.q('[data-open-sounds]').click();x.q('[data-add]').click();input(x,'[data-field=name]','Jinn Arrival');input(x,'[data-field=description]','A gentle magical whoosh.');x.q('[data-generate-sound]').click();await tick();assert.equal(x.q('[data-field=asset_id]').value,'generated');assert.equal(x.w.EccoAudioLibrary.items().find(a=>a.id==='generated').title,'Jinn Arrival');assert.equal(calls.find(c=>c.path==='audio/sounds/generate').body.compute,'cpu');x.q('#audio-sound-design form').requestSubmit();assert.equal(JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:audio-story')).sound_design.cues[0].asset_id,'generated');
 });

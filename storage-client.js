@@ -75,7 +75,7 @@
  }
 
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','github/sync','billing/connect','billing/refresh']);
- window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,reportError};
+ window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,reportError,mediaURL:async id=>{if(audioMedia.has(id))return audioMedia.get(id);const access=key,{buffer,mime}=await storageRequest('media/'+encodeURIComponent(id));if(access!==key)throw Error('Storage disconnected.');const url=URL.createObjectURL(new Blob([buffer],{type:mime||'audio/wav'}));audioMedia.set(id,url);return url;}};
  // Present CPU-owned audio jobs through the shared Activity job view.
  // This is a UI projection only; the durable record stays audio_job.
  function audioJobView(job){

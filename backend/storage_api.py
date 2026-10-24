@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'migration' / 'legacy'))
 import studio as legacy
 import audio_library
+import audio_stories
 import library_rename
 import audio_jobs
 import audio_workflows
@@ -33,7 +34,7 @@ WRITE_ROUTES = frozenset({
     '/api/audio/workflows/save', '/api/audio/workflows/control',
     '/api/youtube/playlists', '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect', '/api/youtube/configure',
     '/api/library/rename',
-    '/api/longcat/control', '/api/longcat/sequence', '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
+    '/api/longcat/control', '/api/longcat/sequence', '/api/longcat/generate', '/api/audio/generate', '/api/audio/sounds/generate', '/api/gpu/request',
     '/api/ai/news/research', '/api/ai/news/storyboard',
     '/api/ai/connect', '/api/ai/settings', '/api/ai/disconnect', '/api/ai/enhance',
     '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
@@ -172,12 +173,16 @@ class Handler(legacy.Handler):
                 return self.send(audio_video_sequence.generate(body, vars(legacy)))
             if path == '/api/longcat/generate':
                 return self.send(longcat_jobs.generate(body, vars(legacy)))
+            if path == '/api/audio/sounds/generate':
+                return self.send(audio_jobs.generate(body, vars(legacy), sound=True))
             if path == '/api/audio/generate':
                 return self.send(audio_jobs.generate(body, vars(legacy)))
             if path == '/api/audio/workflows/save':
                 return self.send(audio_workflows.save(body, vars(legacy)))
             if path == '/api/audio/workflows/control':
                 return self.send(audio_workflows.control(body, vars(legacy)))
+            if path == '/api/stories':
+                return self.send(audio_stories.save(body, vars(legacy)))
             if path == '/api/stories/plan':
                 return self.send(scene_planner.plan(body, legacy.Problem))
             audio_routes = {'/api/audio/upload': audio_library.upload,
@@ -198,7 +203,7 @@ def main():
     if len(Handler.access_key) < 32: raise SystemExit('A private access key of at least 32 characters is required')
     if not (legacy.DATA / 'studio.sqlite').is_file():
         raise SystemExit('Existing workspace database is missing; refusing to create an empty workspace')
-    ecco_desk.initialize(legacy.DATA / 'studio.sqlite', start_notifications=True)
+    ecco_desk.initialize(legacy.DATA / 'studio.sqlite')
     # Never run legacy.initialize(): it would mark GPU jobs interrupted from this CPU.
     # Inference stays in audio workers; only explicitly activated schedules run here.
     legacy.github_token = lambda: None
@@ -212,9 +217,3 @@ def main():
     ThreadingHTTPServer((address, port), Handler).serve_forever()
 
 if __name__ == '__main__': main()
-
-
-
-
-
-

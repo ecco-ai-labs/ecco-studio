@@ -92,5 +92,5 @@
   q('[data-apply-script]').onclick=()=>{try{checkReview();const request=brief(),clean=validatePlan(plan,characters(),request.turns,scenes());apply(clean,request);dialog.close();}catch(error){status.textContent=error.message;}};
   dialog.showModal();instructions.focus();
  }
- window.EccoAudioScript={open,readSource,validatePlan};
+ window.EccoAudioScript={open,readSource,validatePlan,split};
 })();

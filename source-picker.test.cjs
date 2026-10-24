@@ -29,3 +29,14 @@ test('PDF page range selection extracts only those pages and invalid ranges neve
  x.q('[data-pages]').value='2';x.q('[data-select-pages]').click();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(x.q('[data-selected]').value,'Use only page two.');assert.equal(x.q('[data-extract]').disabled,false);
  x.q('[data-extract]').click();assert.equal(x.applied[0].text,'Use only page two.');assert.deepEqual(Array.from(x.applied[0].pages),[2]);x.picker.open();x.q('[data-pages]').value='9-12';x.q('[data-select-pages]').click();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(x.q('[data-selected]').value,'');assert.equal(x.q('[data-extract]').disabled,true);assert.match(x.q('[role=status]').textContent,/between 1 and 2/);
 });
+test('Chapter lookup shows missing-input and connection errors beside its button',async t=>{
+ const x=fixture(t);await x.picker.load({name:'book.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));
+ x.q('[data-find-chapter]').click();await new Promise(r=>setTimeout(r,0));assert.match(x.q('[data-selection-feedback]').textContent,/Enter a chapter/);assert.equal(x.q('[data-find-chapter]').disabled,false);
+ x.q('[data-chapter]').value='Chapter 1';x.q('[data-find-chapter]').click();await new Promise(r=>setTimeout(r,0));assert.match(x.q('[data-selection-feedback]').textContent,/Connect AI and workspace storage/);assert.equal(x.q('[data-extract]').disabled,true);
+});
+test('Chapter search stays visibly busy through verification and applies only bounded text',async t=>{
+ const x=fixture(t);await x.picker.load({name:'book.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));x.w.EccoStorage={ready:true};x.w.EccoAI={enabled:true};let verify;
+ x.w.api=async(path,body)=>body.fields[0].id==='chapter_location'?{revisions:[{id:'chapter_location',text:JSON.stringify({chapter_title:'Chapter 2',start:{page:2,line:1,text:'Use only page two.'},end:null,ends_at_document_end:true})}]}:new Promise(resolve=>verify=resolve);
+ x.q('[data-chapter]').value='Chapter 2';x.q('[data-find-chapter]').click();await new Promise(r=>setTimeout(r,0));assert.equal(x.q('[data-find-chapter]').getAttribute('aria-busy'),'true');assert.ok(x.q('[data-find-chapter] .generation-spinner'));assert.match(x.q('[data-selection-feedback]').textContent,/Finding and verifying/);assert.equal(x.q('[data-extract]').disabled,true);
+ verify({revisions:[{id:'chapter_verification',text:'{"valid":true,"reason":"Verified"}'}]});await new Promise(r=>setTimeout(r,0));assert.equal(x.q('[data-selected]').value,'Use only page two.');x.q('[data-extract]').click();assert.equal(x.applied[0].text,'Use only page two.');assert.deepEqual(Array.from(x.applied[0].pages),[2]);
+});

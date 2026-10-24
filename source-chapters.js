@@ -7,8 +7,11 @@
   if(current.trim())result.push(current.trim());return result.filter(Boolean);
  }
  function outline(pages){
-  const chapter=/chapter|part\s+[ivx\d]|अध्याय|भाग\s+|प्रकरण|باب|فصل/i;
-  const result=pages.map((text,page)=>({page:page+1,total_lines:text.length,lines:text.flatMap((line,i)=>(i<8||i>=text.length-3||chapter.test(line)||/^(?:[IVXLC]+|[0-9]+|[A-Z][A-Za-z’' -]{2,90})$/.test(line))?[{line:i+1,text:line.slice(0,200)}]:[])}));
+  const frequency=new Map();for(const page of pages)for(const line of new Set(page))frequency.set(line,(frequency.get(line)||0)+1);
+  const heading=line=>line.length<=200&&(/^(?:chapter|part|book|section|अध्याय|भाग|प्रकरण|باب|فصل)\b/i.test(line)||/^(?:The )?Story of |^(?:The )?(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh) Voyage$|^(?:[IVXLC]+|[0-9]+)$/.test(line)||(/^[A-Z][A-Za-z’' ,–-]{2,160}$/.test(line)&&line.split(/\s+/).filter(w=>/^[A-Z]/.test(w)).length>=Math.ceil(line.split(/\s+/).length/2)));
+  const ignore=line=>(frequency.get(line)>4&&!heading(line))||/^For more adventures,|^Retold by |^Page \d+|^The Arabian Nights$/.test(line);
+  const result=pages.map((text,page)=>{const useful=text.map((line,i)=>({line:i+1,text:line})).filter(l=>!ignore(l.text));return {page:page+1,total_lines:text.length,lines:useful.filter((l,i)=>heading(l.text)||i===0||i===useful.length-1).map(l=>({...l,text:l.text.length>200?l.text.slice(0,200):l.text}))};});
+  if(JSON.stringify(result).length>100000)for(const page of result)page.lines=page.lines.filter(l=>heading(l.text));
   if(JSON.stringify(result).length>100000)throw Error('This book’s chapter index is too large. Select a page range or upload a smaller volume.');
   return result;
  }
@@ -44,5 +47,5 @@
   if(verdict.valid!==true)throw Error(typeof verdict.reason==='string'?verdict.reason:'The chapter boundary is ambiguous. Select its pages manually.');
   return extract(pages,found,maxSelection);
  }
- window.EccoSourceChapters={lines,extract,locate};
+ window.EccoSourceChapters={lines,extract,locate,outline};
 })();

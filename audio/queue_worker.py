@@ -8,6 +8,7 @@ import sys
 import time
 import traceback
 from audio_queue import ROOT, MODELS, read, write
+from sound_schema import MODELS as SOUND_MODELS
 
 def compute_from_name(name):
     for target in ('a100', 'b200'):
@@ -29,6 +30,18 @@ def recover_jobs(compute):
 def worker_command(request, directory):
     model = request.get('model', 'indic-mio')
     base = Path(__file__).parent
+    if request.get('task') == 'sound':
+        if model not in SOUND_MODELS:
+            raise ValueError('Unsupported sound model.')
+        runtime = base / 'sounds' / model
+        python = runtime / (request['compute'] + '-venv/bin/python')
+        if not python.is_file():
+            raise RuntimeError('Install and verify this sound model on the selected compute first.')
+        env = dict(os.environ, HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', TORCHDYNAMO_DISABLE='1')
+        env.pop('PYTHONPATH', None)
+        if request['compute'] == 'cpu':
+            env.update(CUDA_VISIBLE_DEVICES='', ECCO_AUDIO_CPU_THREADS='1', OMP_NUM_THREADS='1', MKL_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1', MALLOC_ARENA_MAX='2')
+        return [str(python), str(base / 'sound_worker.py'), '--request', str(directory / 'request.json'), '--runtime', str(base / 'sounds'), '--output', str(directory / 'output.wav')], env
     if model not in MODELS:
         raise ValueError('Unsupported audio model.')
     if request.get('compute') == 'cpu':
@@ -69,6 +82,9 @@ def main():
     def enabled_models():
         verified = read(Path(__file__).with_name('cpu-ready-models.json'), []) if compute == 'cpu' else list(MODELS)
         return [m for m in MODELS if isinstance(verified, list) and m in verified]
+    def enabled_sounds():
+        verified = read(Path(__file__).with_name('sound-ready-' + compute + '.json'), [])
+        return [m for m in SOUND_MODELS if isinstance(verified, list) and m in verified]
     # Independent queues allow A100 audio and B200 work to coexist on the shared volume.
     lock = (ROOT / ('worker-' + compute + '.lock')).open('a')
     try:
@@ -78,7 +94,7 @@ def main():
     pod = os.environ.get('RUNPOD_POD_ID', 'local')
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'updated': time.time(), 'pod': pod, 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'character_controls_version': 1, 'sound_design_version': 1})
+        write(heartbeat, {'updated': time.time(), 'pod': pod, 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'sound_models': enabled_sounds()})
     recover_jobs(compute)
     while True:
         beat()
@@ -87,9 +103,9 @@ def main():
             status = read(d / 'status.json', {})
             if not request or not owns(request, compute) or status.get('status') != 'queued':
                 continue
-            write(d / 'status.json', {'status': 'running', 'progress': 'Generating speech', 'started': time.time()})
+            write(d / 'status.json', {'status': 'running', 'progress': 'Loading sound model' if request.get('task') == 'sound' else 'Generating speech', 'started': time.time()})
             try:
-                if request.get('model', 'indic-mio') not in enabled_models():
+                if request.get('model', 'indic-mio') not in (enabled_sounds() if request.get('task') == 'sound' else enabled_models()):
                     raise RuntimeError('The selected audio model is not enabled on ' + compute.upper() + '.')
                 with (d / 'worker.log').open('wb') as log:
                     command, env = worker_command(request, d)
@@ -98,7 +114,7 @@ def main():
                     while process.poll() is None:
                         beat()
                         progress = read(d / 'progress.json', {}).get('progress')
-                        if progress == 'Mixing music and effects':
+                        if progress in ('Mixing music and effects', 'Loading sound model', 'Generating sound effect', 'Generating instrumental music'):
                             write(d / 'status.json', {'status': 'running', 'progress': progress})
                         if time.monotonic() - started > 1800:
                             process.kill()
@@ -107,12 +123,12 @@ def main():
                         time.sleep(2)
                     if process.returncode:
                         phase = read(d / 'progress.json', {}).get('progress', '')
-                        raise RuntimeError('Soundtrack mixing failed. Check the sound files and audio worker log.' if phase == 'Mixing music and effects' else 'Speech inference failed. Check the audio worker log and try again.')
+                        raise RuntimeError('Soundtrack mixing failed. Check the sound files and audio worker log.' if phase == 'Mixing music and effects' else 'Sound generation failed. Check the sound worker log and try again.' if request.get('task') == 'sound' else 'Speech inference failed. Check the audio worker log and try again.')
                 output = d / 'output.wav'
                 if not output.is_file() or output.stat().st_size <= 44:
                     raise RuntimeError('The audio model returned an empty recording.')
                 write(d / 'status.json', {'status': 'complete', 'compute': compute, 'worker_pod': pod,
-                    'sha256': hashlib.sha256(output.read_bytes()).hexdigest()})
+                    'provenance': read(d / 'provenance.json', {}), 'sha256': hashlib.sha256(output.read_bytes()).hexdigest()})
             except Exception as error:
                 traceback.print_exc()
                 write(d / 'status.json', {'status': 'error', 'error': str(error)})

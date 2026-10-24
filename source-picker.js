@@ -3,10 +3,11 @@
 (()=>{
  function create({onApply,title='Select story from PDF',selectedLabel='Selected story text',applyLabel='Extract selected text as story',maxSelection=Infinity}){
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label',title);
-  dialog.innerHTML='<div class="pdf-dialog-head"><strong></strong><button type="button" class="secondary" data-close>Close</button></div><div data-document-selection class="form" hidden><div class="generation-filter-row"><label>PDF Pages<input data-pages placeholder="e.g. 10–12, 15"></label><button type="button" class="secondary" data-select-pages>Select Pages</button></div><div class="generation-filter-row"><label>Chapter<input data-chapter maxlength="160" placeholder="e.g. Chapter 1, or its title"></label><button type="button" class="secondary" data-find-chapter>Find Chapter with AI</button></div><p class="help">Page numbers refer to PDF pages. Review the selected text before Apply.</p></div><div class="pdf-page-scroll" tabindex="0" aria-label="Document preview"></div><label class="pdf-selected-label"><span></span><textarea data-selected rows="3" placeholder="Highlight text in the document to review it here."></textarea></label><div class="row"><button type="button" data-extract disabled></button><span role="status" aria-live="polite"></span></div>';
+  dialog.innerHTML='<div class="pdf-dialog-head"><strong></strong><button type="button" class="secondary" data-close>Close</button></div><div data-document-selection class="form" hidden><div class="generation-filter-row"><label>PDF Pages<input data-pages placeholder="e.g. 10–12, 15"></label><button type="button" class="secondary" data-select-pages>Select Pages</button></div><div class="generation-filter-row"><label>Chapter<input data-chapter maxlength="160" placeholder="e.g. Chapter 1, or its title"></label><button type="button" class="secondary" data-find-chapter>Find Chapter with AI</button></div><p class="help" data-selection-feedback aria-live="polite"></p><p class="help">Page numbers refer to PDF pages. Review the selected text before Apply.</p></div><div class="pdf-page-scroll" tabindex="0" aria-label="Document preview"></div><label class="pdf-selected-label"><span></span><textarea data-selected rows="3" placeholder="Highlight text in the document to review it here."></textarea></label><div class="row"><button type="button" data-extract disabled></button><span role="status" aria-live="polite"></span></div>';
   dialog.querySelector('strong').textContent=title;dialog.querySelector('.pdf-selected-label span').textContent=selectedLabel;dialog.querySelector('[data-extract]').textContent=applyLabel;
   document.body.append(dialog);
   const scroll=dialog.querySelector('.pdf-page-scroll'),selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]');
+  const feedback=dialog.querySelector('[data-selection-feedback]');
   let task=null,doc=null,pdfjs=null,file=null,metadataTitle='',ready=false,busy=false,disposed=false,epoch=0,opener=null,observer=null,shells=[],renderQueue=[],rendering=0,selectionMeta={},pageText=null,selectionEpoch=0;
   const controls=()=>{dialog.querySelectorAll('[data-document-selection] input,[data-document-selection] button').forEach(el=>el.disabled=busy||!ready);extract.disabled=!ready||busy||!selected.value.trim()||selected.value.trim().length>maxSelection;};
   const reportSelection=()=>{const count=selected.value.trim().length;note.textContent=count>maxSelection?'Select at most '+maxSelection.toLocaleString()+' characters. Your selection has '+count.toLocaleString()+'.':count?count.toLocaleString()+' characters selected. Only this text will be used.':'';controls();};
@@ -41,7 +42,7 @@
    shells.forEach(shell=>observer.observe(shell));enqueue(shells[0]);enqueue(shells[1]);
   }
   function open(from){if(disposed)return;opener=from||document.activeElement;if(!dialog.open)dialog.showModal();scroll.focus();}
-  function clear(){epoch++;selectionEpoch++;selectionMeta={};pageText=null;dialog.querySelector('[data-document-selection]').hidden=true;observer?.disconnect();observer=null;renderQueue=[];shells=[];file=null;doc=null;ready=false;busy=false;metadataTitle='';selected.value='';note.textContent='';scroll.replaceChildren();controls();const previous=task;task=null;if(previous)void previous.destroy().catch(()=>{});if(dialog.open)dialog.close();}
+  function clear(){epoch++;selectionEpoch++;selectionMeta={};pageText=null;feedback.textContent='';dialog.querySelector('[data-document-selection]').hidden=true;observer?.disconnect();observer=null;renderQueue=[];shells=[];file=null;doc=null;ready=false;busy=false;metadataTitle='';selected.value='';note.textContent='';scroll.replaceChildren();controls();const previous=task;task=null;if(previous)void previous.destroy().catch(()=>{});if(dialog.open)dialog.close();}
   async function load(chosen,from){
    if(disposed)throw Error('Reopen the source picker.');
    if(!chosen||chosen.size>20*1024*1024)throw Error('Choose a PDF or text document smaller than 20 MB.');
@@ -64,16 +65,16 @@
    }catch(error){if(generation===epoch){note.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open document: '+error.message;throw error;}}
    finally{if(generation===epoch){busy=false;controls();}}
   }
-  async function pdfText(){
+  async function pdfText(progress=()=>{}){
    if(pageText)return pageText;const generation=epoch,currentDoc=doc,result=[];
-   for(let n=1;n<=currentDoc.numPages;n++){const page=await currentDoc.getPage(n),content=await page.getTextContent();if(generation!==epoch||disposed)throw Error('The document changed. Reopen the selection.');result.push(window.EccoSourceChapters.lines(content.items));}
+   for(let n=1;n<=currentDoc.numPages;n++){const page=await currentDoc.getPage(n),content=await page.getTextContent();if(generation!==epoch||disposed)throw Error('The document changed. Reopen the selection.');result.push(window.EccoSourceChapters.lines(content.items));progress(n,currentDoc.numPages);}
    pageText=result;return result;
   }
   async function selectDocument(kind){
-   if(busy||!ready||!doc)return;const generation=epoch,token=++selectionEpoch;
+   if(busy)return;if(!ready||!doc){feedback.textContent='Upload a PDF and wait for its preview before selecting a chapter or pages.';return;}const generation=epoch,token=++selectionEpoch;
    const assertCurrent=()=>{if(disposed||generation!==epoch||token!==selectionEpoch||!dialog.open)throw Error('The document selection changed. Nothing was applied.');};
    const button=dialog.querySelector(kind==='pages'?'[data-select-pages]':'[data-find-chapter]'),idle=button.textContent;
-   selected.value='';selectionMeta={};busy=true;controls();button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>'+(kind==='pages'?'Selecting Pages…':'Finding Chapter…');note.textContent=kind==='pages'?'Extracting only the requested PDF pages…':'Locating and verifying chapter boundaries…';
+   selected.value='';selectionMeta={};busy=true;controls();button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>'+(kind==='pages'?'Selecting Pages…':'Finding Chapter…');feedback.textContent=note.textContent=kind==='pages'?'Extracting only the requested PDF pages…':'Locating and verifying chapter boundaries…';
    try{
     let selection;
     if(kind==='pages'){
@@ -82,12 +83,13 @@
      for(const part of value.split(',')){const match=part.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!match)throw Error('Use page numbers or ranges, for example 10–12, 15.');const a=Number(match[1]),b=Number(match[2]||match[1]);if(a<1||b<a||b>doc.numPages)throw Error('Choose pages between 1 and '+doc.numPages+'.');for(let n=a;n<=b;n++)numbers.add(n);}
      const pages=[...numbers].sort((a,b)=>a-b),texts=[];for(const n of pages){const page=await doc.getPage(n);texts.push(window.EccoSourceChapters.lines((await page.getTextContent()).items).join('\n'));assertCurrent();}selection={text:texts.join('\n\n').trim(),pages,selection_label:'PDF pages '+pages.join(', ')};
     }else{
+     const chapter=dialog.querySelector('[data-chapter]').value.trim();if(!chapter){dialog.querySelector('[data-chapter]').focus();throw Error('Enter a chapter number or title, for example Chapter 1.');}
      if(!window.EccoStorage?.ready||!window.EccoAI?.enabled)throw Error('Connect AI and workspace storage to find a chapter. You can still select PDF pages manually.');
-     const pages=await pdfText();assertCurrent();selection=await window.EccoSourceChapters.locate({pages,chapter:dialog.querySelector('[data-chapter]').value,request:api,maxSelection,assertCurrent});
+     const pages=await pdfText((n,total)=>{feedback.textContent='Reading PDF page '+n+' of '+total+' to locate the chapter…';});assertCurrent();feedback.textContent='Finding and verifying the chapter’s start and end with AI…';selection=await window.EccoSourceChapters.locate({pages,chapter,request:api,maxSelection,assertCurrent});
     }
     assertCurrent();if(!selection.text)throw Error('No readable text was found in that selection.');if(selection.text.length>maxSelection)throw Error('The selection exceeds '+maxSelection.toLocaleString()+' characters. Choose a smaller passage; nothing was truncated.');
-    selected.value=selection.text;selectionMeta={pages:selection.pages,selection_label:selection.selection_label};note.textContent=selection.selection_label+' · '+selection.text.length.toLocaleString()+' characters. Review the beginning and end, then Apply.';selected.focus();
-   }catch(error){if(generation===epoch&&token===selectionEpoch&&!disposed)note.textContent=error.message;}
+    selected.value=selection.text;selectionMeta={pages:selection.pages,selection_label:selection.selection_label};feedback.textContent=note.textContent=selection.selection_label+' · '+selection.text.length.toLocaleString()+' characters. Review the beginning and end, then Apply.';selected.focus();
+   }catch(error){if(generation===epoch&&token===selectionEpoch&&!disposed)feedback.textContent=note.textContent=error.message;}
    finally{if(generation===epoch&&!disposed){busy=false;button.textContent=idle;button.setAttribute('aria-busy','false');controls();}}
   }
   dialog.querySelector('[data-select-pages]').onclick=()=>selectDocument('pages');dialog.querySelector('[data-find-chapter]').onclick=()=>selectDocument('chapter');

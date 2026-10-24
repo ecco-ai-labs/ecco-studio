@@ -61,6 +61,7 @@
  function load(){
   story=activeStory;
   try{draft=JSON.parse(localStorage.getItem(key()));}catch{draft=null;}
+  if(!draft){const saved=state?.records.find(r=>r.kind==='story'&&r.id===activeStory);if(saved?.audio_preparation){window.EccoAudioJourney.handoff({audio_preparation:JSON.stringify(saved.audio_preparation),summary:saved.summary,title:saved.title,story_format:'audio'},activeStory,{});draft=JSON.parse(localStorage.getItem(key()));}}
   if(!draft||!Array.isArray(draft.lines)||!draft.lines.length)draft={title:'',speed:1,pitch:0,pause:0.35,lines:[blank()]};
   draft={title:'',speed:1,pitch:0,pause:0.35,...draft};
   // Each visit starts on CPU; a GPU is used only after an explicit selection.
@@ -220,7 +221,7 @@
    drawCharacters,
    apply(plan,brief,cast){
     if(cast){draft.speakers=cast;draft.character_count=cast.length;draft.presentation=cast.length===1?'single':'conversation';draft.characters_configured=true;draft.title=brief.title;draft.genre=brief.genre;draft.guided_preparation={...brief,plan};q('#audio-form [name=title]').value=draft.title;q('#audio-form [name=genre]').value=draft.genre;}
-    draft.script_brief=brief;draft.script_instructions=brief.instructions;draft.opening_text=plan.opening?.text||'';
+    draft.sound_design=brief.sound_design;draft.script_brief=brief;draft.script_instructions=brief.instructions;draft.opening_text=plan.opening?.text||'';
     draft.opening_performance=plan.opening?.performance;draft.planned_expressiveness=plan.expressiveness;delete draft.delivery_signature;draft.opening_speaker=plan.opening?.character_id||draft.speakers[0].id;draft.opening_pause=brief.opening_pause;
     draft.lines=plan.segments.map(part=>({text:part.text,speaker_id:part.character_id,performance:part.performance,...(part.scene_number?{scene_title:selectedScenes().find(s=>s.scene_number===part.scene_number)?.title}:{} )}));
     draft.single_text=draft.lines.map(l=>l.text).join('\n\n');
@@ -266,8 +267,8 @@
   };d.showModal();d.querySelector('textarea').focus();
  }
  function reviewScript(){
-  window.EccoAudioReviewScript?.mount({root:q('#audio-review-results'),getCast:()=>activeSpeakers(),getBrief:()=>({...draft.script_brief,genre:draft.genre}),getPlan:()=>({opening:draft.opening_text?.trim()?{text:draft.opening_text,character_id:draft.opening_speaker||draft.speakers[0].id,performance:draft.opening_performance}:null,segments:turns().map(t=>({text:t.text,character_id:t.speaker_id,performance:t.performance}))}),setPlan:plan=>{draft.lines=plan.segments.map(p=>({text:p.text,speaker_id:p.character_id,performance:p.performance}));draft.single_text=plan.segments.map(p=>p.text).join('\n\n');draft.opening_text=plan.opening?.text||'';draft.opening_performance=plan.opening?.performance;delete draft.delivery_signature;save();drawLines();}});
-  window.EccoSoundDesign?.mount({root:q('#audio-review-results'),getPlan:()=>draft.sound_design,setPlan:plan=>{draft.sound_design=plan;save();},getLines:requestLines,getBrief:()=>({...draft.script_brief,genre:draft.genre}),mediaURL:async id=>{if(!service)throw Error('Connect workspace storage to preview sounds.');return service.mediaURL(id);}});
+  window.EccoAudioReviewScript?.mount({root:q('#audio-final-script-panel'),generate:generateScript,getCast:()=>activeSpeakers(),getBrief:()=>({...draft.script_brief,genre:draft.genre}),getPlan:()=>({opening:draft.opening_text?.trim()?{text:draft.opening_text,character_id:draft.opening_speaker||draft.speakers[0].id,performance:draft.opening_performance}:null,segments:turns().map(t=>({text:t.text,character_id:t.speaker_id,performance:t.performance}))}),setPlan:plan=>{draft.lines=plan.segments.map(p=>({text:p.text,speaker_id:p.character_id,performance:p.performance}));draft.single_text=plan.segments.map(p=>p.text).join('\n\n');draft.opening_text=plan.opening?.text||'';draft.opening_performance=plan.opening?.performance;delete draft.delivery_signature;save();drawLines();}});
+  window.EccoSoundDesign?.mount({root:q('#audio-final-script-panel'),getPlan:()=>draft.sound_design,setPlan:plan=>{draft.sound_design=plan;save();},getLines:requestLines,getBrief:()=>({...draft.script_brief,genre:draft.genre}),mediaURL:async id=>{if(!service)throw Error('Connect workspace storage to preview sounds.');return service.mediaURL(id);}});
  }
  const audioAssets=()=>recordings.filter(a=>!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
  const audioActionIcon=name=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+({download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',trash:'<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>'}[name])+'</svg>';
@@ -314,13 +315,13 @@
   const job=lastJob?.id===currentId?lastJob:state?.records.find(r=>r.id===currentId);
   const busy=submitting||['queued','running'].includes(job?.status);
   const label=submitting?submissionLabel:/reconnect/i.test(job?.progress||'')?'Waiting for worker…':job?.status==='queued'?'Queued…':'Generating audio…';
-  setGenerationBusy(button,busy,label,'Generate audio');
+  setGenerationBusy(button,busy,label,'Generate audio');const spinner=q('[data-audio-progress-spinner]');if(spinner)spinner.hidden=!busy;
   q('#audio-job-status').textContent=submitting?submissionLabel:job?(job.progress||{queued:'Queued',running:'Generating speech',done:'Audio saved.',failed:'Generation failed',error:'Generation failed'}[job.status]||job.status)+(job.error?' · '+job.error:''):'';
   const list=window.EccoGeneration?.results('audio',audioAssets(),activeStory,lastJob)||[],next=JSON.stringify(list);
   if(next!==signature){
-   signature=next;
+   signature=next;const empty=q('[data-audio-review-empty]');if(empty)empty.hidden=!!list.length;
    q('#audio-gallery')?.remove();
-   if(list.length){(q('#audio-review-results')||q('.audio-workspace')).insertAdjacentHTML('beforeend',`<div class="cards" id="audio-gallery">${list.map(audioCard).join('')}</div>`);hydrateAudio();}
+   if(list.length){(q('#audio-review-panel')||q('.audio-workspace')).insertAdjacentHTML('beforeend',`<div class="cards" id="audio-gallery">${list.map(audioCard).join('')}</div>`);hydrateAudio();}
   }
 
  }
@@ -337,7 +338,7 @@
    if(submitting||q('#generate-audio').disabled)return;
    if(!serviceReady()){window.EccoStorage?.open();return;}
    let lines;try{lines=requestLines();}catch(error){notice(error.message,true);q('[data-open-prompt]')?.click();return;}
-   const requestedStory=activeStory;submitting=true;submissionLabel='Submitting…';update();
+   const requestedStory=activeStory;submitting=true;submissionLabel='Submitting…';q('[data-audio-tab=progress]')?.click();update();
    try{
     const current=service,baseline=JSON.stringify(draft),form=q('#audio-form');
     await requireCompute(draft.compute,draft.model);
@@ -362,7 +363,7 @@
    catch(error){notice(error.message,true);}
    finally{submitting=false;update();}
   };
-  if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Review audio</h2></div>';q('.audio-workspace').append(review);}
+  if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Audio</h2></div><div class="audio-speaker-tabs" role="tablist" aria-label="Audio workspace"><button type="button" class="secondary" role="tab" id="audio-tab-script" data-audio-tab="script" aria-controls="audio-final-script-panel" aria-selected="true">Final Script</button><button type="button" class="secondary" role="tab" id="audio-tab-progress" data-audio-tab="progress" aria-controls="audio-progress-panel" aria-selected="false" tabindex="-1">Progress</button><button type="button" class="secondary" role="tab" id="audio-tab-review" data-audio-tab="review" aria-controls="audio-review-panel" aria-selected="false" tabindex="-1">Review</button></div><div id="audio-final-script-panel" role="tabpanel" aria-labelledby="audio-tab-script"></div><div id="audio-progress-panel" role="tabpanel" aria-labelledby="audio-tab-progress" hidden><span class="generation-spinner" data-audio-progress-spinner aria-hidden="true" hidden></span><p class="help">Generation status appears here after you submit.</p></div><div id="audio-review-panel" role="tabpanel" aria-labelledby="audio-tab-review" hidden><p class="help" data-audio-review-empty>Your newly generated recording will appear here.</p></div>';q('.audio-workspace').append(review);q('#audio-progress-panel').append(q('#audio-job-status'));const tabs=[...review.querySelectorAll('[data-audio-tab]')];tabs.forEach((tab,index)=>{tab.onclick=()=>{tabs.forEach(t=>{const selected=t===tab;t.setAttribute('aria-selected',String(selected));t.tabIndex=selected?0:-1;document.getElementById(t.getAttribute('aria-controls')).hidden=!selected;});};tab.onkeydown=e=>{const next=e.key==='ArrowRight'?(index+1)%tabs.length:e.key==='ArrowLeft'?(index+tabs.length-1)%tabs.length:e.key==='Home'?0:e.key==='End'?tabs.length-1:null;if(next!==null){e.preventDefault();tabs[next].click();tabs[next].focus();}};});}
   mountScenePicker();update();poll();
  }
  const oldNavigate=navigate;

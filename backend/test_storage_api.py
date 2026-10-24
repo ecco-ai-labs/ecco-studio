@@ -182,7 +182,22 @@ class StorageTest(unittest.TestCase):
   api.legacy.save({'id':'b'*32,'kind':'asset','media':'image','path':'../outside'})
   with self.assertRaises(HTTPError) as error:self.call('/api/media/'+'b'*32)
   self.assertEqual(error.exception.code,404)
+
+
+
+
+ def test_sound_routes_require_auth_and_a_verified_runtime(self):
+  body={'kind':'effect','description':'Gentle wind','compute':'cpu'}
+  with self.assertRaises(HTTPError) as error:self.call('/api/audio/sounds/generate',body,auth=False)
+  self.assertEqual(error.exception.code,401)
+  with patch.object(api.audio_jobs.queue,'workers',return_value=[]),self.assertRaises(HTTPError) as error:self.call('/api/audio/sounds/generate',body)
+  self.assertEqual(error.exception.code,503)
+ def test_reviewed_audio_story_retains_cast_script_and_named_cues_on_update(self):
+  prep={'cast':[{'id':'n','name':'Narrator'}],'plan':{'opening':None,'segments':[{'character_id':'n','text':'The merchant returned.'}]},'sound_design':{'cues':[{'name':'Desert Wind','description':'Soft wind'}]},'source_scope':'selected','source_text':'Selected chapter only.'}
+  with self.call('/api/stories',{'title':'Chapter 1','summary':'Narrator: The merchant returned.','audio_preparation':prep}) as response:story=json.load(response)
+  self.assertEqual(story['audio_preparation'],prep);self.assertEqual(story['story_format'],'audio')
+  prep['cast'][0]['name']='Storyteller'
+  with self.call('/api/stories',{'story_id':story['id'],'title':'Chapter 1 revised','summary':'Storyteller: The merchant returned.','audio_preparation':prep}) as response:updated=json.load(response)
+  self.assertEqual(updated['id'],story['id']);self.assertEqual(api.legacy.get(story['id'],'story')['audio_preparation']['cast'][0]['name'],'Storyteller')
+
 if __name__=='__main__':unittest.main()
-
-
-

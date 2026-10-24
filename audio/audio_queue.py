@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import time
 import uuid
+from sound_schema import MODELS as SOUND_MODELS
 
 ROOT = Path(os.getenv('ECCO_AUDIO_QUEUE', '/workspace/ecco-audio/queue'))
 MODELS = ('indic-mio', 'chatterbox', 'indicf5')
@@ -42,11 +43,21 @@ def ready(compute=None, model=None):
     return any((compute is None or w['compute'] == compute) and supported(w)
                and (model is None or model in supported(w)) for w in workers())
 
+def sound_models(worker):
+    installed = worker.get('sound_models', [])
+    return [m for m in SOUND_MODELS if worker.get('sound_generation_version') == 1 and m in installed]
+
+def sound_ready(compute, model):
+    return model in availability()['compute'][compute]['sound_models']
+
 def availability():
     live, compute = workers(), {}
     for target in ('cpu', 'a100', 'b200'):
         models = sorted({model for w in live if w['compute'] == target for model in supported(w)})
-        compute[target] = {'ready': bool(models), 'models': models,
+        compatible = [w for w in live if w['compute'] == target]
+        sounds = sorted(set.intersection(*(set(sound_models(w)) for w in compatible))) if compatible else []
+        compute[target] = {'ready': bool(models), 'models': models, 'sound_models': sounds,
+                           'sound_generation_version': 1 if sounds else 0,
                            'character_controls_version': 1 if models and all(w.get('character_controls_version') == 1 for w in live if w['compute'] == target) else 0,
                            'sound_design_version': 1 if models and all(w.get('sound_design_version') == 1 for w in live if w['compute'] == target) else 0,
                            'reason': '' if models else target.upper() + ' audio worker is not connected.'}

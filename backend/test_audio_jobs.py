@@ -123,3 +123,34 @@ if __name__ == '__main__':
     unittest.main()
 
 
+
+class SoundJobsTest(AudioJobsTest):
+    def test_generated_sound_uses_verified_model_and_commits_library_asset(self):
+        heartbeat = dict(updated=time.time(), compute='cpu', models=['indic-mio'], sound_models=['moss-soundeffect-v2'], sound_generation_version=1)
+        jobs.queue.write(jobs.queue.ROOT / 'worker-cpu.json', heartbeat)
+        request = dict(kind='effect', description='A gentle magical whoosh', title='Jinn Arrival', duration=2, compute='cpu', seed=42)
+        job = jobs.generate(request, self.env, sound=True)
+        queued = jobs.queue.read(jobs.queue.ROOT / job['id'] / 'request.json')
+        self.assertEqual(queued['task'], 'sound'); self.assertNotIn('lines', queued)
+        directory = jobs.queue.ROOT / job['id']; source = directory / 'output.wav'
+        with wave.open(str(source), 'wb') as output:
+            output.setnchannels(1); output.setsampwidth(2); output.setframerate(24000); output.writeframes(b'\x10\x00' * 48000)
+        jobs.queue.write(directory / 'status.json', dict(status='complete', compute='cpu', sha256=hashlib.sha256(source.read_bytes()).hexdigest(), provenance={'model_revision':'verified-pin'}))
+        result = jobs.job_status(job['id'], self.env)
+        self.assertEqual(result['status'], 'done'); self.assertEqual(result['asset']['title'], 'Jinn Arrival')
+        self.assertEqual(result['asset']['prompt'], request['description']); self.assertEqual(result['asset']['settings']['seed'], 42)
+        self.assertTrue((self.env['DATA'] / result['asset']['path']).is_file())
+        self.assertEqual(jobs.job_status(job['id'], self.env)['asset_id'], result['asset_id'])
+
+    def test_missing_sound_runtime_and_old_worker_fail_without_enqueue_or_fallback(self):
+        jobs.queue.write(jobs.queue.ROOT / 'worker-gpu.json', dict(updated=time.time(),compute='a100',models=['indic-mio'],sound_generation_version=1,sound_models=['moss-soundeffect-v2']))
+        with self.assertRaises(Problem): jobs.generate(dict(kind='effect',description='Wind',compute='cpu'), self.env, sound=True)
+        jobs.queue.write(jobs.queue.ROOT / 'worker-old.json', dict(updated=time.time(),compute='a100',models=['indic-mio']))
+        with self.assertRaises(Problem): jobs.generate(dict(kind='effect',description='Wind',compute='a100'), self.env, sound=True)
+        self.assertFalse(self.records)
+
+    def test_sound_limits_and_instrumental_music(self):
+        from sound_schema import validate
+        for body in [dict(kind='effect',description=''),dict(kind='music',description='Quiet',duration=2),dict(kind='effect',description='Wind',duration=float('nan')),dict(kind='effect',description='Wind',model='ace-step-1.5')]:
+            with self.assertRaises(ValueError): validate(body)
+        self.assertTrue(validate(dict(kind='music',description='Quiet oud',duration=10))['instrumental'])

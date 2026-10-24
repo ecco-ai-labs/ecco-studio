@@ -386,6 +386,7 @@
   let saved=localSelection||storyDescription();
   if(!savedId&&activeStory){
    const record=stories().find(story=>story.id===activeStory),board=loadDraft();
+   if(!saved.audio_preparation&&record?.audio_preparation){const p=record.audio_preparation;saved={...saved,audio_preparation:JSON.stringify(p),story_format:'audio',genre:p.genre,audio_audience:p.audience,audio_language:p.language,audio_tone:p.tone,audio_language_style:p.language_style,audio_language_style_instructions:p.language_style_instructions,sourceText:p.source_text||'',audio_source_scope:p.source_scope,audio_source_name:p.source_name,audio_source_pages:JSON.stringify(p.source_pages||[]),audio_source_selection:p.source_selection};}
    saved={...saved,cloudId:activeStory,story_format:saved.story_format||board.story_format,title:board.title||record?.title||'',summary:saved.summary??record?.summary??''};
   }
   saved.story_format=['audio','video'].includes(saved.story_format)?saved.story_format:(saved.cloudId?'video':'');
@@ -411,7 +412,7 @@
    const targetStory=activeStory,targetDraft=structuredClone(draft),idleLabel=button.textContent;
    setGenerationBusy(button,true,'Saving Story…',idleLabel);status.textContent='';
    try{
-    const created=saved.cloudId?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary});
+    const created=saved.cloudId&&!data.audio_preparation?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary,...(data.audio_preparation?{story_id:saved.cloudId||null,audio_preparation:JSON.parse(data.audio_preparation)}:{})});
     if(!created?.id)throw Error('Storage did not confirm the saved story. Your draft is preserved.');
     const confirmed={...state.records.find(r=>r.id===created.id),...created,kind:'story',title:data.title,summary:data.summary};
     state.records=[...state.records.filter(r=>r.id!==created.id),confirmed];
@@ -429,7 +430,7 @@
     const stillEditing=form.isConnected&&activeStory===targetStory;
     if(stillEditing){localStorage.setItem(key,JSON.stringify(data));activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();}
     if(!stillEditing||!form.isConnected||activeStory!==created.id)return;
-    q('.project .workspace-library')?.remove();storyTree();status.textContent='Story saved.';navigate(window.EccoStoryJourneys?.steps([])?.[1]?.[0]||'board');
+    q('.project .workspace-library')?.remove();storyTree();status.textContent='Story saved.';navigate(data.story_format==='audio'&&data.audio_preparation?'audio':window.EccoStoryJourneys?.steps([])?.[1]?.[0]||'board');
     // The acknowledged record is already available. Normal workspace polling refreshes the rest in the background.
    }catch(error){window.EccoErrors?.show(error);status.textContent='Could not save story: '+error.message;}
 

@@ -215,3 +215,20 @@ models. Per-compute capability gates stop older workers from silently dropping t
 soundtrack. No GPU is provisioned and no new model is installed. Cues currently
 apply to individual recordings; schedules reject them because each new script needs
 new cue timing. Final Script textareas expand to fit their complete contents.
+
+## Approved storybook journey — 24 October 2026
+
+Generate with AI exposes Upload Paper / Text directly and uses a Tone dropdown
+with custom instructions. Chapter selection reports local extraction and AI
+boundary progress beside the controls. The Script step supports exact-selection
+improvement and repeated refinement before Apply, followed by uniquely named
+sound cues. Saving persists the cast, selected source, script and sound plan,
+then opens Audio. The right-hand workspace uses Final Script, Progress and
+Review tabs with native keyboard navigation and the existing theme styles.
+
+Per-cue sound generation uses isolated MOSS SoundEffect v2 / ACE-Step 1.5
+workers and the existing durable Audio Library. Availability requires an
+installed, verified runtime on the explicitly selected compute; no fallback.
+The earlier description of library-only sound design is superseded by this
+authorized generation path. Runtime, live end-to-end and listening acceptance
+are separate release gates; local tests do not establish artistic quality.

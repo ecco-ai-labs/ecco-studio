@@ -13,13 +13,14 @@ import wave
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'audio'))
 import audio_queue as queue
 from audio_schema import validate
+from sound_schema import validate as validate_sound
 from audio_soundtrack import snapshot_assets
 
 LOCK = threading.RLock()
 
-def generate(body, env, *, job_id=None):
+def generate(body, env, *, job_id=None, sound=False):
     try:
-        request = validate(body)
+        request = validate_sound(body) if sound else validate(body)
     except ValueError as error:
         raise env['Problem'](str(error))
     sid = env['story_id'](body)
@@ -38,19 +39,21 @@ def generate(body, env, *, job_id=None):
                     queue.write(directory / 'request.json', request)
                 return public(existing)
         target = queue.availability()['compute'][request['compute']]
-        if not target['ready']:
+        if sound and request['model'] not in target.get('sound_models', []):
+            raise env['Problem']('This sound model is not installed and verified on ' + request['compute'].upper() + '. Connect a worker with this sound model enabled.', 503)
+        if not sound and not target['ready']:
             raise env['Problem'](target['reason'], 503)
         if request.get('character_controls_version') and target.get('character_controls_version') != 1:
             raise env['Problem']('Update the selected audio worker before using per-character pitch, speed or expressiveness.', 503)
         if request.get('sound_design_version') and target.get('sound_design_version') != 1:
             raise env['Problem']('Update the audio service before generating music and effects.', 503)
-        if request['model'] not in target['models']:
+        if not sound and request['model'] not in target['models']:
             raise env['Problem']('This audio model is not enabled on ' + request['compute'].upper() + '. Choose another compute target.', 503)
         active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running')]
         if len(active) >= 4:
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
         job = dict(id=job_id or uuid.uuid4().hex, kind='audio_job', media='audio', status='queued',
-                   story_id=sid, created=time.time(), title=request['title'], compute=request['compute'], request=request)
+                   story_id=sid, task=request.get('task', 'speech'), created=time.time(), title=request['title'], compute=request['compute'], request=request)
         directory = queue.ROOT / job['id']
         try:
             snapshot_assets(request, directory, env)
@@ -94,17 +97,17 @@ def job_status(jid, env):
             # Stable asset ID makes finalization safe if interrupted between asset and job writes.
             asset = dict(id=jid, kind='asset', created=job['created'], media='audio', stage='dev',
                 story_id=job['story_id'], path='audio-dev/' + target.name, title=job['title'],
-                prompt='\n'.join(line['text'] for line in request['lines']), source='generated',
+                prompt=request['description'] if request.get('task') == 'sound' else '\n'.join(line['text'] for line in request['lines']), source='generated',
                 job_id=jid, seconds=duration, duration=round(duration, 2), sha256=digest,
-                settings={**request, 'sample_rate': rate, 'channels': channels,
+                settings={**request, 'provenance': status.get('provenance', {}), 'sample_rate': rate, 'channels': channels,
                           'worker_pod': status.get('worker_pod', ''), 'worker_compute': status.get('compute', request.get('compute', 'b200'))}, sync='pending')
             # Job and asset IDs must be distinct in the legacy records table.
             asset['id'] = hashlib.sha256(('audio-asset:' + jid).encode()).hexdigest()[:32]
             env['save'](asset)
-            job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved')
+            job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved', asset=asset if request.get('task') == 'sound' else None)
         elif status.get('status') in ('running', 'error'):
             job.update(status=status['status'], progress=status.get('progress', ''), error=status.get('error', ''))
-        if job['status'] in ('queued', 'running') and not queue.ready(job['request'].get('compute', 'b200')) and time.time() - job['created'] > 60:
+        if job['status'] in ('queued', 'running') and not (queue.sound_ready(job['request']['compute'], job['request']['model']) if job['request'].get('task') == 'sound' else queue.ready(job['request'].get('compute', 'b200'))) and time.time() - job['created'] > 60:
             job['progress'] = 'Waiting for the audio worker to reconnect'
         env['save'](job)
         return public(job)

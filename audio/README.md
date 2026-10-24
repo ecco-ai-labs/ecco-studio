@@ -2,6 +2,44 @@
 
 ## Release status
 
+The storybook integration and new sound-generation adapter described below are
+prepared in source. They are **not an end-to-end acceptance result**. Follow
+[STORYBOOK_ACCEPTANCE.md](STORYBOOK_ACCEPTANCE.md) for deployment and test evidence.
+
+## Storybook integration prepared — 2026-10-24
+
+Generate with AI now keeps Upload Paper / Text visible, provides Tone presets,
+shows chapter-search progress/errors beside the control, and supports repeated
+selected-text improvements before exact-range Apply. Large PDF chapter lookup
+filters repeated headers and footers while retaining exact boundary verification.
+Reviewed scripts suggest uniquely named sound cues. Save and Continue persists
+the reviewed source, cast, dialogue and sound plan in the story and opens Audio.
+Audio has Final Script, Progress and Review tabs; no old recordings are shown.
+
+Each sound cue can use an existing Audio Library file or Generate Sound from its
+description. MOSS SoundEffect v2 handles effects/ambience; ACE-Step 1.5 handles
+instrumental music. Sound jobs use authenticated storage, verified compute-specific
+readiness, isolated model environments, real queue progress and the existing
+checksum-verified asset finalizer. No runtime is downloaded or provisioned by a
+browser selection, and no request falls back to a different compute class.
+
+Deploy the matching `backend/storage_api.py`, `backend/audio_stories.py`,
+`backend/audio_jobs.py`, `audio/audio_queue.py`, `audio/queue_worker.py`,
+`audio/sound_schema.py`, `audio/sound_worker.py` and their existing speech/mixer
+dependencies together. Install models explicitly using `install_sound_models.py
+install --model MODEL --compute cpu|a100|b200`; qualify each with its `verify`
+command. Only successful real inference adds a model to `sound-ready-COMPUTE.json`.
+An installation or heartbeat alone does not prove audible quality. CPU qualification
+refuses a container with less than 16 GB RAM to protect the workspace coordinator.
+
+MOSS source and ACE-Step source are pinned in the installer; downloaded model
+revisions and dependency versions are recorded. Sources: Apache-2.0
+[MOSS SoundEffect v2](https://huggingface.co/OpenMOSS-Team/MOSS-SoundEffect-v2.0)
+and MIT [ACE-Step 1.5](https://huggingface.co/ACE-Step/Ace-Step1.5).
+New sound-model installation, real sound inference and listening acceptance are
+still pending. Scheduled soundtracks remain unsupported; this update does not
+remove the explicit scheduling guard.
+
 Live audio generation is connected through the authenticated CPU storage API.
 The interface stays on GitHub Pages. Indic-Mio, Chatterbox Multilingual and IndicF5
 inference run on the selected CPU or GPU worker; jobs,
@@ -28,9 +66,10 @@ This establishes CPU runtime activation and health, not successful new audio
 generation. Authenticated end-to-end generation, a saved playable mixed recording,
 and listening acceptance for the updated delivery are still pending. Real-book
 chapter-boundary and selected-text AI acceptance are also not established by this
-deployment. Generating new sound files and scheduled soundtracks remain
-unimplemented; selected existing Audio Library sounds are the supported mixing
-input. GPU activation/readiness was not tested.
+deployment. At that activation, generating new sound files and scheduled
+soundtracks were unimplemented; only existing Audio Library sounds were supported.
+The new source adapter above does not change this recorded runtime evidence.
+GPU activation/readiness was not tested.
 
 ## Ownership
 
@@ -239,3 +278,4 @@ perform authenticated end-to-end generation and listen to an actual story sample
 Synthetic timing/ducking tests establish the mixer behavior, not artistic quality.
 Scheduled generation with sound cues is deliberately rejected until per-run cue
 planning is implemented; existing voice-only workflows remain supported.
+

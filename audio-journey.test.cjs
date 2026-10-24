@@ -14,6 +14,8 @@ function mock(x,{names=['Host','Guest'],questions=['Should the discussion includ
  const calls=[];x.w.testUI.setAPI(async(path,body)=>{
   calls.push({path,body});if(body?.fields?.[0].id==='audio_directed_script')return directedReply(body);if(path==='stories')return{id:'created-story',...body};
   if(path==='ai/news/research')return{research:{items:[{title:'Test report',summary:'Supported facts',sources:[{title:'Test source',url:'https://example.org/news'}]}]}};
+  if(body.fields[0].id==='sound_cues')return {revisions:[{id:'sound_cues',text:JSON.stringify({cues:[{name:'Jinn Arrival',kind:'effect',description:'A gentle magical whoosh',asset_id:'',start:0,end:0,phrase:'',level_db:-14,fade:.1,duck:false,loop:false}]})}]};
+  if(body.fields[0].id==='selected_audio_text')return {revisions:[{id:'selected_audio_text',text:body.fields[0].text+' improved'}]};
   if(body.fields[0].id==='audio_plan'){
    const count=Number(body.fields[0].text.match(/exactly (\d+)/)[1]),cast=body.context.lines;
    return{revisions:[{id:'audio_plan',text:JSON.stringify({opening:null,segments:Array.from({length:count},(_,i)=>({character_id:invalid?'unknown':cast[i%cast.length].character_id,text:texts?.[i]||'Spoken turn '+(i+1)+'.'}))})}],questions:[]};
@@ -126,7 +128,7 @@ test('Document preview is nested, requires an explicit selection, preserves draf
  const file={name:'paper.txt',size:100,text:async()=>'<b>EXCLUDED_PRIVATE</b> Selected facts only. EXCLUDED_END'};
  Object.defineProperty(x.q('[data-file]'),'files',{value:[file]});x.q('[data-file]').dispatchEvent(new x.w.Event('change'));await tick();
  const child=x.q('dialog[aria-label="Select Source Text"]');assert.ok(child.open);assert.equal(child.querySelector('.source-text-preview b'),null);assert.equal(child.querySelector('[data-extract]').disabled,true);assert.equal(x.q('[data-value=source_text]').value,'');assert.equal(calls.length,0);
- child.querySelector('.ecco-popup-close').click();assert.ok(x.q(dlg).open);assert.equal(child.open,false);assert.equal(x.w.document.activeElement,x.q('[data-source-menu] summary'));await submit(x);assert.equal(calls.length,0);assert.match(x.q(dlg+' [data-status]').textContent,/Preview & Select/);
+ child.querySelector('.ecco-popup-close').click();assert.ok(x.q(dlg).open);assert.equal(child.open,false);assert.equal(x.w.document.activeElement,x.q('#audio-guided-dialog [data-upload]'));await submit(x);assert.equal(calls.length,0);assert.match(x.q(dlg+' [data-status]').textContent,/Preview & Select/);
  x.q(dlg+' [data-preview]').click();assert.ok(child.open);const text=child.querySelector('.source-text-preview').firstChild,range=x.w.document.createRange(),start=text.textContent.indexOf('Selected');range.setStart(text,start);range.setEnd(text,start+'Selected facts only.'.length);x.w.getSelection().removeAllRanges();x.w.getSelection().addRange(range);child.querySelector('.pdf-page-scroll').dispatchEvent(new x.w.MouseEvent('mouseup',{bubbles:true}));
  assert.equal(child.querySelector('[data-selected]').value,'Selected facts only.');child.querySelector('[data-extract]').click();assert.equal(child.open,false);assert.ok(x.q(dlg).open);assert.equal(x.q('[data-value=source_text]').value,'Selected facts only.');await submit(x);assert.equal(calls.length,1);assert.equal(JSON.parse(calls[0].body.context.summary).source_text,'Selected facts only.');assert.ok(!JSON.stringify(calls).includes('EXCLUDED'));x.q(dlg).close();assert.equal(child.isConnected,false);assert.deepEqual(x.errors,[]);
 });
@@ -156,4 +158,18 @@ test('Story save keeps its spinner inside the button, blocks duplicate submits a
 test('Failed story saves restore the button and retain the draft for retry',async t=>{
  const x=await ready(t);input(x,'[name=title]','Keep my story');input(x,'[name=summary]','Keep my script.');const form=x.q('#story-setup-form'),button=form.querySelector('[type=submit]'),label=button.textContent;
  x.w.testUI.setAPI(async()=>{throw Error('Storage unavailable');});form.requestSubmit();await tick();assert.equal(button.textContent,label);assert.equal(button.getAttribute('aria-busy'),'false');assert.equal(button.disabled,false);assert.equal(button.querySelector('.generation-spinner'),null);assert.equal(form.elements.summary.value,'Keep my script.');assert.match(x.q('[data-story-status]').textContent,/Could not save story/);assert.deepEqual(x.errors,[]);
+});
+test('Upload is directly visible and Tone presets retain custom directions',async t=>{
+ const x=await ready(t);mock(x);await open(x);assert.equal(x.q(dlg+' [data-upload]').closest('details'),null);await questions(x);
+ const custom=x.q(dlg+' [data-value=tone]'),select=custom.closest('label').previousElementSibling.querySelector('select');assert.ok(select);assert.equal(select.value,'Custom');select.value='Playful';select.dispatchEvent(new x.w.Event('change',{bubbles:true}));assert.equal(custom.value,'Playful');assert.equal(custom.closest('label').hidden,true);
+ select.value='Custom';select.dispatchEvent(new x.w.Event('change',{bubbles:true}));assert.equal(custom.closest('label').hidden,false);field(x,'tone','Warm, with gentle suspense');assert.equal(select.value,'Custom');await submit(x);await submit(x);await submit(x);assert.equal(x.q('[name=audio_tone]').value,'Warm, with gentle suspense');
+});
+test('Storybook review iterates only selected words, retains named sounds, saves the full preparation and opens Audio tabs',async t=>{
+ const x=await ready(t,'audiobook'),calls=mock(x,{names:['Narrator','Merchant','Jinn']});await open(x);await review(x);
+ assert.match(x.q('[data-sound-summary]').textContent,/1 sound cues/);
+ const text=x.q('[data-review-text]');text.focus();text.setSelectionRange(0,6);text.dispatchEvent(new x.w.Event('select'));x.q('[data-improve-selection]').click();input(x,'[data-instructions]','Make these words more fun.');x.q('#audio-selection-ai form').requestSubmit();await tick();assert.equal(x.q('[data-replacement]').value,'Spoken improved');
+ input(x,'[data-instructions]','Use simpler words.');x.q('#audio-selection-ai form').requestSubmit();await tick();assert.equal(x.q('[data-replacement]').value,'Spoken improved improved');x.q('#audio-selection-ai [data-apply]').click();assert.equal(text.value,'Spoken improved improved turn 1.');
+ await submit(x);x.q('#story-setup-form').requestSubmit();await tick();const savedCall=calls.find(c=>c.path==='stories');assert.equal(savedCall.body.audio_preparation.sound_design.cues[0].name,'Jinn Arrival');assert.equal(savedCall.body.audio_preparation.cast.length,3);
+ assert.ok(x.q('#audio-form'));assert.equal(x.q('[data-audio-tab=script]').getAttribute('aria-selected'),'true');assert.equal(x.q('#audio-progress-panel').hidden,true);x.q('[data-audio-tab=progress]').click();assert.equal(x.q('#audio-progress-panel').hidden,false);x.q('[data-audio-tab=review]').click();assert.equal(x.q('#audio-review-panel').hidden,false);
+ const draft=saved(x,'ecco-audio-draft:created-story');assert.equal(draft.sound_design.cues[0].name,'Jinn Arrival');assert.equal(draft.speakers.length,3);assert.match(draft.lines[0].text,/improved improved/);assert.deepEqual(x.errors,[]);
 });
