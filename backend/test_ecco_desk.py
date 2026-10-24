@@ -27,7 +27,7 @@ class DeskTest(unittest.TestCase):
         with sqlite3.connect(self.database) as db:
             db.execute('CREATE TABLE records(id TEXT PRIMARY KEY,kind TEXT,body TEXT)')
             db.execute('INSERT INTO records VALUES (?,?,?)', ('existing', 'story', '{"id":"existing","kind":"story"}'))
-        desk.initialize(self.database)
+        desk.initialize(self.database, start_notifications=False)
         api.Handler.access_key = 'test-private-key-' + 'x'*32
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), api.Handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -168,7 +168,7 @@ class DeskTest(unittest.TestCase):
         t=self.create('alice',assigneeId='fake',dueDate='invalid')
         self.assertIsNone(t['assigneeId'])
         self.assertEqual(self.call('alice',{'op':'comment','id':t['id'],'body':'x'*40000})[0],413)
-        desk.initialize(self.database)
+        desk.initialize(self.database, start_notifications=False)
         self.assertEqual(self.call('alice')[1]['tickets'][0]['id'],t['id'])
         self.assertEqual(api.legacy.records(),[{'id':'existing','kind':'story'}])
         with sqlite3.connect(self.database) as db:

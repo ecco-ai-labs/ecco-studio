@@ -38,7 +38,9 @@ def connect(path):
         db.close()
 
 
-def initialize(path, start_notifications=False):
+def initialize(path, start_notifications=True):
+    # Older service launchers call initialize(path) without keyword arguments.
+    # Keep notification startup enabled across deployments of those launchers.
     with connect(path) as db:
         db.executescript('''
         CREATE TABLE IF NOT EXISTS desk_users (

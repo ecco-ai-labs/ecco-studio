@@ -22,7 +22,7 @@ class DeskMailTest(unittest.TestCase):
         self.config_path = Path(self.tmp.name) / 'mail.json'
         self.env = patch.dict(os.environ, {'ECCO_DESK_MAIL_CONFIG': str(self.config_path)})
         self.env.start()
-        desk.initialize(self.database)
+        desk.initialize(self.database, start_notifications=False)
         self.config = dict(enabled=True, recipient='support@example.test', sender='desk@example.test',
                            host='smtp.example.test', port=587, security='starttls',
                            username='desk@example.test', password='secret-fixture')
@@ -49,7 +49,7 @@ class DeskMailTest(unittest.TestCase):
 
     def test_one_queue_entry_per_new_support_or_internal_ticket(self):
         tickets = [self.create(kind) for kind in ('support', 'internal')]
-        desk.initialize(self.database)
+        desk.initialize(self.database, start_notifications=False)
         with desk.connect(self.database) as db:
             self.assertEqual(db.execute('SELECT count(*) FROM desk_mail_outbox').fetchone()[0], 2)
             me = desk.actor(db, dict(id='google:alice', name='Alice', email='alice@example.test'))
@@ -72,11 +72,51 @@ class DeskMailTest(unittest.TestCase):
         self.assertIsNone(self.row(ticket['id'])['sentAt'])
         self.assertEqual(self.row(ticket['id'])['attempts'], 0)
 
+    def test_current_and_legacy_service_startup_drain_pending_notifications(self):
+        import storage_api as api
+        from contextlib import ExitStack
+
+        self.configure()
+        key_file = Path(self.tmp.name) / 'access.key'
+        key_file.write_text('test-only-' + 'x' * 32)
+        for startup in ('current', 'legacy'):
+            with self.subTest(startup=startup), ExitStack() as stack:
+                ticket = self.create(title='Queued before service startup')
+                send = stack.enter_context(patch.object(mail, 'send'))
+                if startup == 'current':
+                    stack.enter_context(patch.object(api, 'TOKEN_FILE', key_file))
+                    stack.enter_context(patch.object(api.legacy, 'DATA', self.database.parent))
+                    stack.enter_context(patch.object(api.legacy, 'github_token'))
+                    stack.enter_context(patch.object(api.Handler, 'access_key', ''))
+                    stack.enter_context(patch.object(api, 'ThreadingHTTPServer'))
+                    for module in (api.longcat_jobs, api.audio_video_sequence,
+                                   api.audio_jobs, api.audio_workflows):
+                        stack.enter_context(patch.object(module, 'start'))
+                try:
+                    if startup == 'current':
+                        api.main()
+                    else:
+                        desk.initialize(self.database)
+                    deadline = time.monotonic() + 3
+                    while self.row(ticket['id'])['sentAt'] is None and time.monotonic() < deadline:
+                        time.sleep(.01)
+                    row = self.row(ticket['id'])
+                    self.assertIsNotNone(row['sentAt'])
+                    self.assertEqual(row['attempts'], 1)
+                    send.assert_called_once()
+                    self.assertIn(f'#{ticket["id"]}', str(send.call_args.args[0]['Subject']))
+                finally:
+                    worker = mail._workers.pop(str(self.database.resolve()), None)
+                    if worker:
+                        worker[1].set()
+                        worker[0].join(timeout=3)
+                        self.assertFalse(worker[0].is_alive())
+
     def test_success_persists_and_does_not_resend_after_reinitialize(self):
         t = self.create()
         with patch.object(mail, 'send') as send:
             self.assertTrue(mail.deliver_one(self.database, self.config))
-            desk.initialize(self.database)
+            desk.initialize(self.database, start_notifications=False)
             self.assertFalse(mail.deliver_one(self.database, self.config))
             send.assert_called_once()
         self.assertIsNotNone(self.row(t['id'])['sentAt'])
