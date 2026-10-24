@@ -99,7 +99,7 @@
     "disconnectedIndicator": "white",
     "errorText": "red",
     "popupClose": {
-      "glyph": "\u00d7",
+      "glyph": "×",
       "placement": "upper right",
       "background": "yellow",
       "behavior": "Close only the owning popup; preserve parent popup"
@@ -1506,7 +1506,7 @@
     }
   ],
   "theme": {
-    "editor": "Settings \u2192 Theme side-sliding menu",
+    "editor": "Settings → Theme side-sliding menu",
     "properties": [
       "background",
       "surface",
@@ -1712,7 +1712,7 @@
     "source": "Simple Icons SVG brand marks, bundled inline in publishing-platforms.js; attribution in assets/publishing/README.md.",
     "entry": "Publish journey step opens tabs directly; no intermediate review text or Open publishing action.",
     "submit": "One Publish button above tabs; disabled with visible explanation when no channel, destination choice or approved video is available, or selected platform is unsupported. Existing form validation and explicit upload confirmation remain required.",
-    "youtubeAuthorization": "Connections \u2192 YouTube \u2192 Connect opens Google synchronously from the user click after workspace and OAuth configuration are ready. Pending requests disable duplicate attempts. Backend-verified status updates the control panel and publishing destination selector without replacing drafts, platform selection or focus. Backend authorization, PKCE and token encryption are unchanged.",
+    "youtubeAuthorization": "Connections → YouTube → Connect opens Google synchronously from the user click after workspace and OAuth configuration are ready. Pending requests disable duplicate attempts. Backend-verified status updates the control panel and publishing destination selector without replacing drafts, platform selection or focus. Backend authorization, PKCE and token encryption are unchanged.",
     "youtubeSetup": "Connections control panel owns the YouTube Connect/Connected and Disconnect controls. Connect remains enabled unless a request is in flight, and opens Set up YouTube before storage authentication when needed. The JSON file picker stays accessible; installation requires authenticated CPU setup availability. A separate Connect storage action opens a nested storage dialog and preserves the current page and selected file. Storage and Google secrets are never interchangeable. Closing a child preserves Connections and restores focus. Existing configuration discovered after storage login offers explicit Google authorization instead of replacement. No secrets are rendered or cached; bounded JSON goes only to the existing authenticated CPU endpoint.",
     "selection": "The Publish navigation step remains active on the publishing page, using the existing theme-colored inset left highlight. Selected platform tabs use the same 3px inset left accent, replacing the bottom underline; no full accent border. Default yellow, active theme accent otherwise.",
     "forms": "All six platforms retain editable video/title/description/visibility/audience and confirmation forms. Connection cards, Connect buttons and connection shortcuts are removed from Publishing. YouTube has a required destination dropdown populated only from authorized CPU channel metadata. Other platforms remain unavailable until backend integration exists.",
@@ -1725,7 +1725,7 @@
     "libraryOptions": "Each platform production-video chooser opens the existing Video or Audio Library in selection mode. Checkbox on every available item; Select all, Clear selection, Add selected (N), Cancel. Selections span stories, retain previews and survive library refresh/filter changes. Add selected returns to the originating platform with its draft and selected items; Cancel restores the original selection. Uploaded videos cannot be selected. Items have editable publishing titles and individual Remove buttons; shared description, visibility, audience and optional playlist apply to every selected video. Changing selection or titles clears explicit upload consent. Audio can be selected but YouTube publication explains that it requires video and remains disabled. No automatic conversion or GPU work.",
     "batchPublishing": "Explicitly confirmed YouTube selection queues the existing authenticated single-video API once per approved video, with individual titles. Prevent concurrent submissions and re-submission of accepted or uncertain requests. Stop on a failed request, retain per-item status and direct the owner to Activity. Other platforms keep selections but uploads remain unavailable.",
     "pickerAppearance": "Existing library cards/previews and form/button styles. Checkbox labels use 12px padding; selected-item rows wrap with 8px gap and 12px bottom margin; title labels flex with 180px minimum width. Selection controls remain keyboard accessible; empty state disables Add selected and focuses Cancel.",
-    "publishingFeedback": "User requested visible ongoing publishing and traceable Activity/Debugging/Errors. Publish shows a 16px circular theme-colored spinner, Publishing\u2026 and aria-busy during confirmed submission/queued/running work. A persistent status panel shows the last five attempts with real worker progress, timestamp, job/request ID, actual visibility and a YouTube link only after the server reports an uploaded video ID. Failures and uncertain outcomes are explicit; no synthetic progress or automatic upload retries. Completed uploads loaded from workspace records are recovered into history; reserved uploads without a known job remain unknown.",
+    "publishingFeedback": "User requested visible ongoing publishing and traceable Activity/Debugging/Errors. Publish shows a 16px circular theme-colored spinner, Publishing… and aria-busy during confirmed submission/queued/running work. A persistent status panel shows the last five attempts with real worker progress, timestamp, job/request ID, actual visibility and a YouTube link only after the server reports an uploaded video ID. Failures and uncertain outcomes are explicit; no synthetic progress or automatic upload retries. Completed uploads loaded from workspace records are recovered into history; reserved uploads without a known job remain unknown.",
     "publishingDiagnostics": "Keep up to 50 credential-free attempts in this browser before calling youtube/publish, retaining returned server job IDs across navigation/reload. Activity lists all retained attempts even if submission failed before job creation. Debugging includes video/asset/channel IDs, status, progress, visibility, playlist and returned YouTube video ID; Errors records rejected/failed/unknown outcomes with redaction. Successful uploads do not create errors. Polling updates status without replacing draft fields or focus. Backend upload records remain authoritative; browser history is supplementary."
   },
   "educationDiscord": {
@@ -1756,7 +1756,7 @@
     ],
     "characters": {
       "location": "Characters section after References and before Spoken script",
-      "count": "1\u201320 active characters, matching the existing 20-segment audio request limit",
+      "count": "1–20 active characters, matching the existing 20-segment audio request limit",
       "defaults": "News: 1 newsreader. Podcast, Interview and Casual Conversation: Host + Guest. Other genres: 1 narrator. Genre presets apply only before user cast customization or script content.",
       "identity": "Stable character IDs, independent from voice IDs. Reducing the count keeps inactive names and settings for later reuse.",
       "voices": "Additional Controls uses named character tabs, model-supported voices, language, emotion, dialect guidance and explicit voice preview."
@@ -1779,6 +1779,34 @@
     },
     "generation": "Resolve character IDs to their latest voice/language/emotion when submitting existing audio/generate payload. Apply existing global speed, pitch and pause. Keep speech text separate from instructions.",
     "limits": "Existing 4,000 spoken characters, 500 characters per speech segment and 20 speech segments remain enforced before Apply and Generate.",
-    "workflowStatus": "Audio workflow scheduling remains a separate backend capability; this frontend change does not activate a scheduler."
+    "workflowStatus": "Scheduling requires the authenticated CPU workspace audio-workflow runner; UI publication alone does not activate schedules."
+  },
+  "audioWorkflowScheduling": {
+    "approval": "User requested automatic generation of news, podcasts and storybooks for the weekend goal.",
+    "components": [
+      "existing workflow nodes",
+      "generation-dialog",
+      "secondary buttons",
+      "status text",
+      "Audio Library"
+    ],
+    "controls": [
+      "Save Workflow",
+      "Run Now",
+      "Enable Schedule",
+      "Pause Schedule",
+      "Run History"
+    ],
+    "activation": "Authenticated workspace capability required. Saving pauses the schedule; Enable Schedule is explicit. Run Now does not disable an existing schedule.",
+    "sources": [
+      "Fresh News",
+      "Podcast Topic / Paper",
+      "Book Chapters"
+    ],
+    "persistence": "Definitions and run history belong to the existing CPU workspace service. Browser drafts are not running schedules.",
+    "recovery": "Stable run and audio job IDs prevent duplicate audio after restart. Interrupted AI calls pause without paid automatic retry.",
+    "availability": "Selected compute only; no fallback or provisioning. Controls stay unavailable until storage connects and the updated runner is advertised.",
+    "deletion": "Pause persisted audio schedules successfully before moving them to this browser Trash.",
+    "scope": "Automatic audio generation and saving; publishing is separate. Existing layout, themes and model controls are reused."
   }
 }

@@ -23,6 +23,24 @@ class StorageTest(unittest.TestCase):
   headers={'Origin':origin,**(extra or {})}
   if auth:headers['Authorization']='Bearer '+api.Handler.access_key
   return urlopen(Request(self.base+path,data=json.dumps(body).encode() if body is not None else None,headers=headers))
+ def test_audio_schedule_routes_require_workspace_auth(self):
+  for path in ('/api/audio/workflows/save','/api/audio/workflows/control'):
+   for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:
+    with self.assertRaises(HTTPError) as error:self.call(path,{},auth=auth,origin=origin)
+    self.assertEqual(error.exception.code,code)
+  with self.assertRaises(HTTPError) as error:self.call('/api/audio/workflows/status',auth=False)
+  self.assertEqual(error.exception.code,401)
+ def test_audio_schedule_save_status_and_disabled_runner(self):
+  body={'id':'12345678-1234-1234-1234-123456789abc','name':'News','source_mode':'news','prompt':'Science news',
+   'start_date':'2026-10-24','audio_snapshot':{'model':'indic-mio','compute':'cpu','genre':'News','presentation':'single','speakers':[{'id':'narrator','name':'Narrator','language':'Hindi','voice':'en_female','emotion':'neutral'}]}}
+  with self.call('/api/audio/workflows/save',body) as response:saved=json.load(response)
+  self.assertEqual(saved['status'],'paused');self.assertFalse(saved['schedule_requested']);self.assertEqual(len(saved['id']),32)
+  self.assertEqual(api.legacy.get(saved['id'],'workflow')['name'],'News')
+  with self.call('/api/audio/workflows/status') as response:status=json.load(response)
+  self.assertEqual(len(status['workflows']),1);self.assertEqual(status['runs'],[])
+  with patch.object(api.audio_workflows,'STARTED',False),self.assertRaises(HTTPError) as error:
+   self.call('/api/audio/workflows/control',{'id':saved['id'],'action':'enable'})
+  self.assertEqual(error.exception.code,503)
  def test_google_identity_cannot_access_workspace(self):
   import google_signin
   import time
@@ -165,5 +183,6 @@ class StorageTest(unittest.TestCase):
   with self.assertRaises(HTTPError) as error:self.call('/api/media/'+'b'*32)
   self.assertEqual(error.exception.code,404)
 if __name__=='__main__':unittest.main()
+
 
 

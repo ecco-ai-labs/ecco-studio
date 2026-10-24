@@ -15,6 +15,7 @@ import studio as legacy
 import audio_library
 import library_rename
 import audio_jobs
+import audio_workflows
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'video'))
 import longcat_jobs
 import longcat_progress
@@ -28,6 +29,7 @@ import youtube_connection
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
+    '/api/audio/workflows/save', '/api/audio/workflows/control',
     '/api/youtube/playlists', '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect', '/api/youtube/configure',
     '/api/library/rename',
     '/api/longcat/control', '/api/longcat/sequence', '/api/longcat/generate', '/api/audio/generate', '/api/gpu/request',
@@ -46,7 +48,7 @@ def storage_state():
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
                     'rename_available': True, 'gpu_independent': True, 'service': 'ecco-storage-api'},
         'longcat': {**longcat_jobs.status(), 'sequence_available': True, 'sequence_controls': True}, 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
-        'ai_story_planner': {'ready': scene_planner.ready()},
+        'ai_story_planner': {'ready': scene_planner.ready()}, 'audio_workflows': audio_workflows.status(),
         'hourly_rate': 0.081, 'github_connected': False,
         **youtube_connection.status(),
         'wan_ready': False, 'ffmpeg': False, 'repo': 'ecco-ai-labs/ecco-studio',
@@ -96,6 +98,8 @@ class Handler(legacy.Handler):
                 parts = path.split('/')
                 return self.send(gpu_relay.result(parts[-2], parts[-1]))
             if path == '/api/audio/status': return self.send(audio_jobs.queue.availability())
+            if path == '/api/audio/workflows/status':
+                return self.send({**audio_workflows.status(), 'workflows': [r for r in legacy.records('workflow') if r.get('workflow_type')=='audio' and not r.get('deleted')], 'runs': legacy.records('audio_workflow_run')})
             if path.startswith('/api/audio/jobs/'):
                 return self.send(audio_jobs.job_status(path.split('/')[-1], vars(legacy)))
             if path == '/api/ai/status': return self.send(openai_assistant.status())
@@ -167,6 +171,10 @@ class Handler(legacy.Handler):
                 return self.send(longcat_jobs.generate(body, vars(legacy)))
             if path == '/api/audio/generate':
                 return self.send(audio_jobs.generate(body, vars(legacy)))
+            if path == '/api/audio/workflows/save':
+                return self.send(audio_workflows.save(body, vars(legacy)))
+            if path == '/api/audio/workflows/control':
+                return self.send(audio_workflows.control(body, vars(legacy)))
             if path == '/api/stories/plan':
                 return self.send(scene_planner.plan(body, legacy.Problem))
             audio_routes = {'/api/audio/upload': audio_library.upload,
@@ -188,11 +196,12 @@ def main():
     if not (legacy.DATA / 'studio.sqlite').is_file():
         raise SystemExit('Existing workspace database is missing; refusing to create an empty workspace')
     # Never run legacy.initialize(): it would mark GPU jobs interrupted from this CPU.
-    # Never run billing, inference, or automatic external synchronization here.
+    # Inference stays in audio workers; only explicitly activated schedules run here.
     legacy.github_token = lambda: None
     longcat_jobs.start(vars(legacy))
     audio_video_sequence.start(vars(legacy))
     audio_jobs.start(vars(legacy))
+    audio_workflows.start(vars(legacy))
     address = os.getenv('ECCO_STORAGE_BIND', '127.0.0.1')
     port = int(os.getenv('ECCO_STORAGE_PORT', '8888'))
     print('Ecco storage service ready; GPU independent; authentication required', flush=True)

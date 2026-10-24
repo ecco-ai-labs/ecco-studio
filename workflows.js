@@ -2,13 +2,13 @@
 (() => {
  const q=s=>document.querySelector(s), key='ecco-workflow-drafts';
  const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'[]');}catch{return [];}};
- const rows=()=>{const removed=new Set(window.EccoWorkspaceUI.localTrashItems().filter(item=>item.kind==='workflow').map(item=>item.id)),cloud=state.records.filter(r=>r.kind==='workflow'&&!r.deleted);return [...cloud,...read().filter(r=>!cloud.some(c=>c.id===r.id))].filter(row=>!removed.has(row.id));};
+ const rows=()=>{const removed=new Set(window.EccoWorkspaceUI.localTrashItems().filter(item=>item.kind==='workflow').map(item=>item.id)),cloud=state.records.filter(r=>r.kind==='workflow'&&!r.deleted);return [...cloud.map(c=>{const local=read().find(r=>r.id===c.id&&r.unsaved_changes&&r.updated>c.updated);return local||c;}),...read().filter(r=>!cloud.some(c=>c.id===r.id))].filter(row=>!removed.has(row.id));};
  const defaults=()=>({id:crypto.randomUUID(),name:'',prompt:'',count:10,duration:120,time:'05:00',timezone:'America/Los_Angeles',avatar_id:'',voice:'',channel:'',schedule_requested:false,status:'draft'});
  const images=()=>state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted);
  const videos=()=>state.records.filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted);
  function localSave(data){const list=read().filter(r=>r.id!==data.id);list.push(data);localStorage.setItem(key,JSON.stringify(list));}
  function options(list,value){return '<option value="">Choose</option>'+list.map(a=>'<option value="'+esc(a.id)+'" '+(a.id===value?'selected':'')+'>'+esc(a.title||a.prompt||a.id)+'</option>').join('');}
- function removeWorkflow(id){const workflow=rows().find(row=>row.id===id);if(!workflow)return;window.EccoWorkspaceUI.trashLocalItem('workflow',id,workflow.name||'Untitled workflow',workflow);nav();showLibrary();notice('Workflow moved to this browser’s Trash.');}
+ async function removeWorkflow(id){const workflow=rows().find(row=>row.id===id);if(!workflow)return;if(workflow.workflow_type==='audio'&&state.records.some(r=>r.id===id&&r.kind==='workflow')){try{await api('audio/workflows/control',{id,action:'pause'});await refresh();}catch(error){notice('Could not pause this schedule; it has not been removed. '+error.message,true);return;}}window.EccoWorkspaceUI.trashLocalItem('workflow',id,workflow.name||'Untitled workflow',workflow);nav();showLibrary();notice('Workflow moved to this browser’s Trash.');}
  function showLibrary(){
   document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page='workflow-library';q('#heading').textContent='Workflow Library';
   q('#page').innerHTML='<div class="section-head"><h2>Workflow Library</h2><div class="row"><label class="library-view-label"><select id="workflow-library-view" aria-label="Workflow library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" class="secondary" id="workflow-library-new">New Workflow</button></div></div><div id="workflow-library-list" class="cards text-library-gallery"></div>';

@@ -13,7 +13,7 @@ async function setup(storage={}){
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};w.confirm=()=>true;
  w.localStorage.setItem('ecco-story-collections-v1',JSON.stringify({collections:[{id:'collection',name:'Stories'}],members:{}}));
  for(const [key,value] of Object.entries(storage))w.localStorage.setItem(key,value);
- w.eval(scripts.join('\n;\n')+`\nwindow.testUI={setAPI:fn=>{api=fn;},navigate:p=>navigate(p),refreshStories:()=>storyControls(),addRecords:items=>state.records.push(...items),selectStory(id){activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();},getDraft:()=>draft,setGPU:ready=>{gpuConnected=()=>ready;}};
+ w.eval(scripts.join('\n;\n')+`\nwindow.testUI={setAPI:fn=>{api=fn;},setConfig:config=>{state.config={...state.config,...config};},navigate:p=>navigate(p),refreshStories:()=>storyControls(),addRecords:items=>state.records.push(...items),selectStory(id){activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();},getDraft:()=>draft,setGPU:ready=>{gpuConnected=()=>ready;}};
  state={records:[{id:'audio-story',kind:'story',title:'Audio Story'},{id:'video-story',kind:'story',title:'Video Story'}],config:{models_ready:{}},storage_pending:false};
  window.testCalls=[];api=async(path,body)=>{window.testCalls.push({path,body});if(path==='stories'){const record={id:'created-story',kind:'story',...body};state.records.push(record);return record;}return {};};refresh=async()=>true;`);
  await tick();w.document.querySelector('#entry-tell-story')?.click();
@@ -89,4 +89,26 @@ test('Closing a pending script modal and navigating away never applies a late re
  const x=await ready(t);input(x,'[data-single-script]','Original script.');let finish;x.w.testUI.setAPI(()=>new Promise(resolve=>finish=resolve));brief(x);await tick();x.q('#audio-script-instructions').close();
  finish({revisions:[{id:'audio_plan',text:JSON.stringify(planFor(x,['Late script.']))}],questions:[]});await tick();assert.equal(saved(x).single_text,'Original script.');assert.equal(x.q('#audio-script-instructions'),null);
  await x.go('images');assert.equal(x.q('[data-audio-characters]'),null);assert.equal(x.q('[data-generate-audio-script]'),null);assert.ok(x.q('#image-form [data-open-prompt]'));assert.deepEqual(x.errors,[]);
+});
+
+
+test('Workflow scheduling stays unavailable until the connected service advertises it',async t=>{
+ const x=await ready(t);input(x,'[name=genre]','Podcast','change');x.q('#save-audio-workflow').click();await tick();
+ assert.equal(x.q('[data-run-workflow]').disabled,true);assert.match(x.q('[data-status]').textContent,/workspace service update/);
+ assert.match(x.q('.audio-workflow-flow').textContent,/Podcast topic/);
+ const w=x.w;w.testUI.setConfig({audio_workflows:{available:true}});x.w.EccoAudioWorkflow.show();await tick();
+ assert.equal(x.q('[data-run-workflow]').disabled,false);
+});
+
+test('Workflow activation first saves a snapshot and uses explicit enable; Run Now keeps saved schedules',async t=>{
+ const x=await ready(t);input(x,'[name=genre]','News','change');x.w.testUI.setConfig({audio_workflows:{available:true}});
+ const calls=[];x.w.testUI.setAPI(async(path,body)=>{calls.push({path,body});if(path.endsWith('/save')){const record={...body,kind:'workflow',status:'paused',unsaved_changes:false,version:1};x.w.testUI.addRecords([record]);return record;}return {id:body.id,kind:'workflow',workflow_type:'audio',name:'News',status:'active',source_mode:'news',next_run:'2026-10-25T00:00:00Z',audio_snapshot:{speakers:[]}};});
+ x.q('#save-audio-workflow').click();await tick();x.q('[data-enable-workflow]').click();await tick();
+ assert.deepEqual(calls.map(c=>c.path),['audio/workflows/save','audio/workflows/control']);assert.equal(calls[1].body.action,'enable');assert.equal(calls[0].body.audio_snapshot.character_count,1);
+ calls.length=0;x.q('[data-run-workflow]').click();await tick();assert.deepEqual(calls.map(c=>c.path),['audio/workflows/control']);assert.equal(calls[0].body.action,'run');assert.ok(calls[0].body.request_id);
+});
+
+test('Workflow model editor retains only active characters and uses model-specific voice options',async t=>{
+ const x=await ready(t);input(x,'[name=genre]','Podcast','change');input(x,'[data-character-count]','4','change');input(x,'[data-character-count]','2','change');x.q('#save-audio-workflow').click();await tick();x.q('[data-node=model]').click();await tick();
+ assert.equal(x.w.document.querySelectorAll('#audio-workflow-step fieldset').length,2);input(x,'[name=audio_model]','indicf5','change');assert.equal(x.q('[name=voice_0] option').value,'kan_f');assert.equal(x.q('[name=language_0]').value,'Hindi');x.q('#audio-workflow-step form').requestSubmit();await tick();assert.equal(x.q('#audio-workflow-step'),null);
 });

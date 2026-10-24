@@ -130,3 +130,16 @@ in force. Topic-only News uses cited research before narration.
 
 The existing Audio Workflow screen is still configuration/preview only. Automatic
 scheduling requires a durable backend runner and a verified connected audio worker.
+
+## Audio workflow scheduling
+
+The existing workflow canvas now offers Save Workflow, Run Now, Enable Schedule,
+Pause Schedule and Run History for news, podcast topic/paper and book chapters.
+Controls require the authenticated workspace to advertise its scheduler. Saving
+pauses a definition; enabling is explicit. Run Now preserves an existing schedule.
+Local edits do not replace an active server definition until saved. Removing a
+persisted audio workflow pauses it before hiding it in this browser Trash.
+
+The CPU workspace runner retains definitions, source evidence, scripts and run
+results. It uses the selected compute without fallback or GPU provisioning.
+GitHub Pages publication alone does not deploy this backend or activate schedules.

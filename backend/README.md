@@ -180,3 +180,52 @@ through the shared Errors log. Status uses actual worker progress and returned
 YouTube ID/visibility; queued is not treated as uploaded. Older successful upload
 assets recover their result/link; an unmatched reserved asset remains explicitly
 unknown. This UI change requires no API restart and never retries an upload.
+
+## Audio schedules: news, podcasts and storybooks
+
+Deploy `audio_workflows.py` with the updated `storage_api.py` and `audio_jobs.py`
+to the **existing CPU storage service**, alongside its existing dependencies.
+Restart that service when current AI requests and audio runs are idle. This is a
+backend deployment: the GitHub Pages UI deployment does not update the service.
+No new pod, volume, public listener, API key or GPU installation is required.
+
+The runner starts with the service (`ECCO_AUDIO_SCHEDULER_ENABLED=0` disables it),
+but no definition is active until the authenticated owner selects Enable Schedule.
+Its status is advertised as `config.audio_workflows.available`; the UI disables
+scheduling controls if the deployed API does not advertise this capability.
+
+Authenticated routes:
+- `POST /api/audio/workflows/save`: validate and persist a paused definition.
+- `POST /api/audio/workflows/control`: `run` with a unique request_id, `enable`, or `pause`.
+- `GET /api/audio/workflows/status`: availability, definitions and run history.
+
+Definitions and run checkpoints use the existing SQLite records table. No schema
+migration or secret is stored in a definition. The existing private OpenAI config
+and shared AI enable control are reused. Source documents are copied as extracted
+text in the audio snapshot; only the selected source and character directions are
+sent for writing. News runs perform fresh cited research on each occurrence.
+
+Schedules support daily, weekdays and weekly runs in IST, Pacific or UTC, with an
+end date or total successful-run limit. Nonexistent DST slots are skipped and
+repeated DST hours run once. Downtime does not cause a backlog burst: at most one
+missed occurrence is resumed, then the next future slot is selected. Run limits
+include successful Run Now tests. Book chapters advance only after audio is saved,
+and stop after the final chapter. A run retains the settings saved at its start.
+Pause stops future runs; a run already in progress may finish.
+
+A process file lock serializes execution. Deterministic run/job identities and
+checkpoint reconciliation prevent duplicate audio when the service restarts. An
+interrupted AI call pauses with an error rather than silently spending on a retry.
+Invalid AI output never reaches synthesis. Compute unavailability follows Wait or
+Skip; no GPU is provisioned and CPU/A100/B200 never silently substitute for one
+another. Failed runs pause the schedule for review. Audio and requested labels
+are saved through the existing validated audio pipeline. Publishing is separate.
+
+Current audio limits remain 4,000 spoken characters and 20 segments per recording;
+use short book chapters/sections for the initial acceptance run. Keep the CPU
+workspace service and selected audio worker running for unattended schedules.
+
+Validation: `PYTHONPATH=backend python3 -m unittest test_audio_workflows test_audio_jobs test_storage_api -v`.
+The tests use fake AI responses, temporary storage and synthetic worker status.
+Live acceptance still requires three playable outputs in Audio Library and an
+observed scheduled run with the browser closed; unit tests do not prove that.

@@ -16,13 +16,26 @@ from audio_schema import validate
 
 LOCK = threading.RLock()
 
-def generate(body, env):
+def generate(body, env, *, job_id=None):
     try:
         request = validate(body)
     except ValueError as error:
         raise env['Problem'](str(error))
     sid = env['story_id'](body)
     with LOCK:
+        # Only trusted server callers supply this ID; the HTTP body cannot set it.
+        if job_id is not None:
+            if not isinstance(job_id, str) or len(job_id) != 32 or any(c not in '0123456789abcdef' for c in job_id):
+                raise env['Problem']('Invalid internal audio job identity.')
+            existing = next((j for j in env['records']('audio_job') if j['id'] == job_id), None)
+            if existing:
+                if existing['request'] != request or existing['story_id'] != sid:
+                    raise env['Problem']('This audio run already has a different request.', 409)
+                directory = queue.ROOT / job_id
+                if existing['status'] == 'queued' and not (directory / 'request.json').is_file():
+                    queue.write(directory / 'status.json', {'status': 'queued'})
+                    queue.write(directory / 'request.json', request)
+                return public(existing)
         target = queue.availability()['compute'][request['compute']]
         if not target['ready']:
             raise env['Problem'](target['reason'], 503)
@@ -31,7 +44,7 @@ def generate(body, env):
         active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running')]
         if len(active) >= 4:
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
-        job = dict(id=uuid.uuid4().hex, kind='audio_job', media='audio', status='queued',
+        job = dict(id=job_id or uuid.uuid4().hex, kind='audio_job', media='audio', status='queued',
                    story_id=sid, created=time.time(), title=request['title'], compute=request['compute'], request=request)
         env['save'](job)
         directory = queue.ROOT / job['id']
