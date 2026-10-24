@@ -37,17 +37,19 @@
    }catch(error){window.EccoErrors?.show(error);form.querySelector('[role=status]').textContent=error.message;}finally{b.disabled=false;}
   };d.showModal();
  }
- function uploadDialog(){
+ function uploadDialog(onUploaded){
+  if(typeof onUploaded!=='function')onUploaded=null;
+  const uploadStory=activeStory,opener=document.activeElement;
   let d=q('#audio-upload-dialog');if(!d){d=document.createElement('dialog');d.id='audio-upload-dialog';document.body.append(d);}
   d.innerHTML='<form class="form"><h2>Upload Audio</h2><label>Audio<input type="file" name="audio" accept="audio/wav,audio/x-wav,audio/mpeg,audio/mp4,audio/ogg,audio/flac,.wav,.mp3,.m4a,.ogg,.flac" required></label><audio controls hidden style="width:100%"></audio><p role="status"></p><div class="row"><button type="submit">Upload Audio</button><button type="button" class="secondary">Cancel</button></div></form>';
   let url;const preview=d.querySelector('audio');d.querySelector('[name=audio]').onchange=e=>{if(url)URL.revokeObjectURL(url);const file=e.target.files[0];preview.hidden=!file;if(file){url=URL.createObjectURL(file);preview.src=url;}};
-  d.onclose=()=>{preview.pause();if(url)URL.revokeObjectURL(url);};d.querySelector('[type=button]').onclick=()=>d.close();
+  d.onclose=()=>{preview.pause();if(url)URL.revokeObjectURL(url);if(opener?.isConnected)opener.focus();};d.querySelector('[type=button]').onclick=()=>d.close();
   d.querySelector('form').onsubmit=async e=>{
    e.preventDefault();const form=e.target,file=form.elements.audio.files[0],b=form.querySelector('[type=submit]'),status=form.querySelector('[role=status]');if(!file)return;
    if(!file.size||file.size>12*1024*1024){status.textContent='Choose an audio file no larger than 12 MB.';return;}
    b.disabled=true;status.textContent='Uploading audio…';
    try{const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('Could not read audio.'));reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.readAsDataURL(file);});
-    const asset=await api('audio/upload',{name:file.name,data,story_id:activeStory});await refresh();selected='all';d.close();navigate('audio-library');q('#workspace-audio-library').open=true;labelDialog(asset.id);notice('Audio uploaded. Add a name and labels.');
+    const asset=await api('audio/upload',{name:file.name,data,story_id:uploadStory});await refresh();selected='all';d.close();if(onUploaded){onUploaded(asset);return;}navigate('audio-library');q('#workspace-audio-library').open=true;labelDialog(asset.id);notice('Audio uploaded. Add a name and labels.');
    }catch(error){window.EccoErrors?.show(error);status.textContent=error.message;}finally{b.disabled=false;}
   };d.showModal();
  }
@@ -94,7 +96,7 @@
  const oldNavigate=navigate;navigate=function(p){if(p!==page)notice('');if(p!=='audio-library')return oldNavigate.apply(this,arguments);document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page=p;q('#heading').textContent='Audio Library';document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));treeSignature='';tree();render();};
  const oldStoryControls=storyControls;storyControls=function(...args){const result=oldStoryControls.apply(this,args);sync();return result;};
  document.addEventListener('click',event=>{if(event.target.closest('#workspace-audio-library > summary')){selected='all';treeSignature='';}},true);
- window.EccoAudioLibrary={add:labelDialog};
+ window.EccoAudioLibrary={add:labelDialog,items:audio,upload:uploadDialog};
  tree();
 })();
 

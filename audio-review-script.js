@@ -1,6 +1,7 @@
 'use strict';
 (()=>{
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const fit=field=>{field.style.height='auto';field.style.height=(field.scrollHeight+field.offsetHeight-field.clientHeight)+'px';};
  const all=plan=>[...(plan.opening?[{...plan.opening,opening:true}]:[]),...plan.segments];
  function mount({root,getPlan,setPlan,getCast,getBrief}){
   if(!root)return;
@@ -11,7 +12,8 @@
    const plan=getPlan(),next=JSON.stringify([plan,getCast()]);if(next===signature||host.contains(document.activeElement))return;signature=next;chosen=null;
    host.innerHTML=all(plan).map((part,i)=>'<label>'+esc((part.opening?'Opening · ':'')+(getCast().find(c=>c.id===part.character_id)?.name||'Narrator'))+'<textarea data-final-turn="'+i+'" dir="auto" rows="3" maxlength="4000">'+esc(part.text)+'</textarea></label>').join('');
    if(!all(plan).length)host.textContent='Your script will appear here.';
-   host.querySelectorAll('textarea').forEach(field=>{const select=()=>{chosen=field;};field.addEventListener('select',select);field.addEventListener('focus',select);field.addEventListener('keyup',select);field.addEventListener('mouseup',select);field.oninput=()=>{const plan=getPlan(),index=Number(field.dataset.finalTurn),part=plan.opening?(index===0?plan.opening:plan.segments[index-1]):plan.segments[index];part.text=field.value;delete part.performance;setPlan(plan);signature=JSON.stringify([plan,getCast()]);note.textContent='Script changed. Generate audio to hear the revision.';};});
+   host.querySelectorAll('textarea').forEach(field=>{const select=()=>{chosen=field;};field.addEventListener('select',select);field.addEventListener('focus',select);field.addEventListener('keyup',select);field.addEventListener('mouseup',select);field.oninput=()=>{const plan=getPlan(),index=Number(field.dataset.finalTurn),part=plan.opening?(index===0?plan.opening:plan.segments[index-1]):plan.segments[index];part.text=field.value;delete part.performance;setPlan(plan);signature=JSON.stringify([plan,getCast()]);fit(field);note.textContent='Script changed. Generate audio to hear the revision.';};});
+   requestAnimationFrame(()=>host.querySelectorAll('textarea').forEach(fit));
   };
   section.querySelector('[data-improve-selection]').onclick=()=>{
    if(!chosen?.isConnected||chosen.selectionStart===chosen.selectionEnd){note.textContent='Select the words you want to improve first.';chosen?.focus();return;}
@@ -25,7 +27,7 @@
     const brief=getBrief(),instruction='Revise ONLY the selected spoken passage according to the user instruction. Return only replacement words, no labels, quotes around the answer, stage directions or explanation. Preserve its language and meaning unless the user requests a change. Do not add a new introduction, ending or unprovided facts. Do not reconstruct the surrounding story. Questions and notes must be English. Audience: '+(brief.audience||'General audience')+'. Genre: '+(brief.genre||'Story Book Reading')+'. Language style: '+(brief.language_style||'Everyday / Conversational')+'. User instruction: '+q('[data-instructions]').value.trim();
     const result=await api('ai/enhance',{stage:'audio',mode:'improve',story_id:null,fields:[{id:'selected_audio_text',text:selected,max_length:4000}],context:{instructions:instruction},review_only:false});valid();if(result.questions?.length)throw Error(result.questions.join(' '));const revision=result.revisions?.find(r=>r.id==='selected_audio_text')?.text;if(typeof revision!=='string')throw Error('AI returned no replacement. Your script is unchanged.');q('[data-replacement]').value=revision;q('[data-suggestion-label]').hidden=false;q('[data-apply]').hidden=false;status.textContent='Review the replacement, then Apply.';
    }catch(error){if(!closed)status.textContent=error.message;}finally{busy=false;if(!closed){button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Improve';}}};
-   q('[data-apply]').onclick=()=>{try{valid();const value=original.slice(0,start)+q('[data-replacement]').value+original.slice(end),plan=getPlan(),index=Number(field.dataset.finalTurn),part=plan.opening?(index===0?plan.opening:plan.segments[index-1]):plan.segments[index];part.text=value;delete part.performance;window.EccoAudioScript.validatePlan(plan,getCast(),plan.segments.length);setPlan(plan);field.value=value;signature=JSON.stringify([plan,getCast()]);note.textContent='Selected text updated. Generate audio to hear the revision.';dialog.close();}catch(error){status.textContent=error.message;}};
+   q('[data-apply]').onclick=()=>{try{valid();const value=original.slice(0,start)+q('[data-replacement]').value+original.slice(end),plan=getPlan(),index=Number(field.dataset.finalTurn),part=plan.opening?(index===0?plan.opening:plan.segments[index-1]):plan.segments[index];part.text=value;delete part.performance;window.EccoAudioScript.validatePlan(plan,getCast(),plan.segments.length);setPlan(plan);field.value=value;fit(field);signature=JSON.stringify([plan,getCast()]);note.textContent='Selected text updated. Generate audio to hear the revision.';dialog.close();}catch(error){status.textContent=error.message;}};
    dialog.showModal();q('[data-instructions]').focus();
   };
   section.update();

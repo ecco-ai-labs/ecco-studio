@@ -13,6 +13,7 @@ import wave
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'audio'))
 import audio_queue as queue
 from audio_schema import validate
+from audio_soundtrack import snapshot_assets
 
 LOCK = threading.RLock()
 
@@ -41,6 +42,8 @@ def generate(body, env, *, job_id=None):
             raise env['Problem'](target['reason'], 503)
         if request.get('character_controls_version') and target.get('character_controls_version') != 1:
             raise env['Problem']('Update the selected audio worker before using per-character pitch, speed or expressiveness.', 503)
+        if request.get('sound_design_version') and target.get('sound_design_version') != 1:
+            raise env['Problem']('Update the audio service before generating music and effects.', 503)
         if request['model'] not in target['models']:
             raise env['Problem']('This audio model is not enabled on ' + request['compute'].upper() + '. Choose another compute target.', 503)
         active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running')]
@@ -48,8 +51,12 @@ def generate(body, env, *, job_id=None):
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
         job = dict(id=job_id or uuid.uuid4().hex, kind='audio_job', media='audio', status='queued',
                    story_id=sid, created=time.time(), title=request['title'], compute=request['compute'], request=request)
-        env['save'](job)
         directory = queue.ROOT / job['id']
+        try:
+            snapshot_assets(request, directory, env)
+        except ValueError as error:
+            raise env['Problem'](str(error))
+        env['save'](job)
         queue.write(directory / 'status.json', {'status': 'queued'})
         queue.write(directory / 'request.json', request)
         return public(job)

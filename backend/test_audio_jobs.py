@@ -56,6 +56,22 @@ class AudioJobsTest(unittest.TestCase):
         self.assertEqual(job['compute'], 'cpu')
         jobs.queue.write(jobs.queue.ROOT / 'worker-cpu.json', {'updated': time.time()-60, 'compute': 'cpu', 'models': ['indic-mio']})
         self.assertFalse(jobs.queue.ready('cpu'))
+    def test_soundtrack_requires_capability_and_snapshots_library_audio(self):
+        heartbeat = {'updated': time.time(), 'compute':'cpu', 'models':['indic-mio']}
+        jobs.queue.write(jobs.queue.ROOT/'worker-cpu.json', heartbeat)
+        cue = dict(kind='effect',asset_id='sound',start_line=0,end_line=0,start_edge='end')
+        body = {'lines':[{'text':'A Jinn appeared.'}], 'soundtrack':[cue], 'sound_design_version':1}
+        with self.assertRaises(Problem) as error:jobs.generate(body,self.env)
+        self.assertEqual(error.exception.code,503)
+        self.assertFalse(self.records)
+        self.env['DATA'].mkdir();sound=self.env['DATA']/'effect.wav'
+        with wave.open(str(sound),'wb') as f:
+            f.setparams((1,2,24000,0,'NONE','not compressed'));f.writeframes(b'\0\0'*240)
+        self.records['sound']={'id':'sound','kind':'asset','media':'audio','path':'effect.wav'}
+        heartbeat['sound_design_version']=1;jobs.queue.write(jobs.queue.ROOT/'worker-cpu.json',heartbeat)
+        job=jobs.generate(body,self.env);directory=jobs.queue.ROOT/job['id']
+        self.assertTrue((directory/'sound-0.wav').is_file())
+        self.assertEqual(jobs.queue.read(directory/'request.json')['soundtrack'][0]['asset_id'],'sound')
     def test_selected_compute_never_falls_back_to_b200(self):
         body = {'lines': [{'text': 'Hello'}]}
         jobs.queue.write(jobs.queue.ROOT / 'worker-b200.json', {'updated': time.time(), 'compute': 'b200'})

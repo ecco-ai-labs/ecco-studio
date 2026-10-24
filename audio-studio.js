@@ -267,6 +267,7 @@
  }
  function reviewScript(){
   window.EccoAudioReviewScript?.mount({root:q('#audio-review-results'),getCast:()=>activeSpeakers(),getBrief:()=>({...draft.script_brief,genre:draft.genre}),getPlan:()=>({opening:draft.opening_text?.trim()?{text:draft.opening_text,character_id:draft.opening_speaker||draft.speakers[0].id,performance:draft.opening_performance}:null,segments:turns().map(t=>({text:t.text,character_id:t.speaker_id,performance:t.performance}))}),setPlan:plan=>{draft.lines=plan.segments.map(p=>({text:p.text,speaker_id:p.character_id,performance:p.performance}));draft.single_text=plan.segments.map(p=>p.text).join('\n\n');draft.opening_text=plan.opening?.text||'';draft.opening_performance=plan.opening?.performance;delete draft.delivery_signature;save();drawLines();}});
+  window.EccoSoundDesign?.mount({root:q('#audio-review-results'),getPlan:()=>draft.sound_design,setPlan:plan=>{draft.sound_design=plan;save();},getLines:requestLines,getBrief:()=>({...draft.script_brief,genre:draft.genre}),mediaURL:async id=>{if(!service)throw Error('Connect workspace storage to preview sounds.');return service.mediaURL(id);}});
  }
  const audioAssets=()=>recordings.filter(a=>!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
  const audioActionIcon=name=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+({download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',trash:'<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>'}[name])+'</svg>';
@@ -341,6 +342,7 @@
     const current=service,baseline=JSON.stringify(draft),form=q('#audio-form');
     await requireCompute(draft.compute,draft.model);
     if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==baseline)throw Error('The script or settings changed. Generate again with the current draft.');
+    if(draft.sound_design?.enabled&&draft.sound_design.cues?.length&&computeStatus?.compute?.[draft.compute]?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
     const hasDirection=activeSpeakers().some(s=>s.delivery||s.style||s.delivery_style&&s.delivery_style!=='Voice Default'||!model().emotions&&s.emotion!=='neutral');
     const signature=JSON.stringify([turns(),activeSpeakers(),draft.genre,draft.model,draft.opening_text]);
     if(hasDirection&&draft.delivery_signature!==signature){
@@ -350,7 +352,9 @@
      const directed=await window.EccoAudioDirection.refine({plan:existing,cast:activeSpeakers(),brief:{...draft.script_brief,genre:draft.genre,language:draft.speakers[0].language},model:model(),directionOnly:true,request:api,assertCurrent:()=>{if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==baseline)throw Error('The script or character settings changed. Generate again with the current draft.');}});
      draft.lines=directed.segments.map(p=>({text:p.text,speaker_id:p.character_id,performance:p.performance}));draft.opening_performance=directed.opening?.performance;draft.planned_expressiveness=directed.expressiveness;draft.delivery_signature=JSON.stringify([turns(),activeSpeakers(),draft.genre,draft.model,draft.opening_text]);save();lines=requestLines();
     }
-    const request={model:draft.model,compute:draft.compute,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,lines,story_id:requestedStory};
+    const sounds=window.EccoSoundDesign?.prepare(draft.sound_design,lines,window.EccoAudioLibrary?.items()||[])||{lines};
+    if(sounds.sound_design_version&&computeStatus?.compute?.[draft.compute]?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
+    const request={model:draft.model,compute:draft.compute,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,...sounds,story_id:requestedStory};
     applyCharacterCompatibility(request,computeStatus?.compute?.[draft.compute]);
     if(current!==service||activeStory!==requestedStory||!form.isConnected)throw Error('The workspace changed. Generate again from the current story.');
     submissionLabel='Submitting…';update();const job=await current.generate(request);window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);if(activeStory===requestedStory)lastJob=job;update();refresh();notice('Audio queued. You can keep working while it generates.');await poll();

@@ -19,7 +19,7 @@ def assemble(clips, request, output, sample_rate):
     """Apply delivery DSP to speech first; insert exact silence in the final sample rate."""
     import numpy as np
     import soundfile as sf
-    final = []
+    final, timeline, frames = [], [], 0
     with tempfile.TemporaryDirectory(prefix='ecco-speech-') as directory:
         for index, clip in enumerate(clips):
             settings = request['lines'][index]
@@ -34,9 +34,22 @@ def assemble(clips, request, output, sample_rate):
             if rate != sample_rate: raise RuntimeError('Unexpected output sample rate.')
             if index:
                 pause = request['lines'][index].get('pause_before', request['pause'])
-                final.append(np.zeros(round(pause * sample_rate), dtype=np.float32))
+                silence = round(pause * sample_rate)
+                final.append(np.zeros(silence, dtype=np.float32))
+                frames += silence
+            timeline.append({'start': frames / sample_rate, 'end': (frames + len(spoken)) / sample_rate})
+            frames += len(spoken)
             final.append(spoken)
         sf.write(output, np.concatenate(final), sample_rate, subtype='PCM_16')
+    if request.get('soundtrack'):
+        from audio_soundtrack import mix
+        from audio_queue import write
+        output = Path(output)
+        write(output.parent / 'progress.json', {'progress': 'Mixing music and effects'})
+        write(output.with_suffix('.timeline.json'), timeline)
+        mixed = output.with_name('soundtrack.wav')
+        mix(request, output, timeline, mixed)
+        mixed.replace(output)
 
 def synthesize(request, output, runtime):
     import numpy as np

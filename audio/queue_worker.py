@@ -78,7 +78,7 @@ def main():
     pod = os.environ.get('RUNPOD_POD_ID', 'local')
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'updated': time.time(), 'pod': pod, 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'character_controls_version': 1})
+        write(heartbeat, {'updated': time.time(), 'pod': pod, 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'character_controls_version': 1, 'sound_design_version': 1})
     recover_jobs(compute)
     while True:
         beat()
@@ -97,13 +97,17 @@ def main():
                     started = time.monotonic()
                     while process.poll() is None:
                         beat()
+                        progress = read(d / 'progress.json', {}).get('progress')
+                        if progress == 'Mixing music and effects':
+                            write(d / 'status.json', {'status': 'running', 'progress': progress})
                         if time.monotonic() - started > 1800:
                             process.kill()
                             process.wait()
                             raise RuntimeError('Audio generation timed out. Split the script into shorter recordings.')
                         time.sleep(2)
                     if process.returncode:
-                        raise RuntimeError('Speech inference failed. Check the audio worker log and try again.')
+                        phase = read(d / 'progress.json', {}).get('progress', '')
+                        raise RuntimeError('Soundtrack mixing failed. Check the sound files and audio worker log.' if phase == 'Mixing music and effects' else 'Speech inference failed. Check the audio worker log and try again.')
                 output = d / 'output.wav'
                 if not output.is_file() or output.stat().st_size <= 44:
                     raise RuntimeError('The audio model returned an empty recording.')

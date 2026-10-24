@@ -185,3 +185,34 @@ are converted to bounded supported cues, not spoken or passed as an unsupported
 model prompt. Indic-Mio uses supported emotion tags; IndicF5 uses its reference
 voice and common timing controls. These mappings require listening acceptance;
 unit tests do not establish professional voice quality or accent accuracy.
+
+## Sound design update (runtime activation required)
+
+Music and effects use selected Audio Library assets, not a generative sound model.
+The UI suggests/reviews cues separately from dialogue and requires explicit files.
+An exact trigger phrase splits speech at that point, retaining per-character native
+controls and removing only the pause introduced by the split. The common assembler
+measures post-DSP durations and `audio_soundtrack.py` mixes on CPU using FFmpeg.
+Background beds can loop, fade and duck during speech; effects play once up to
+30 seconds. The final PCM stereo WAV is saved through the existing checksum path.
+
+Deploy `audio_soundtrack.py`, `audio_schema.py`, `audio_worker.py`,
+`audio_queue.py`, `queue_worker.py`, and `backend/audio_jobs.py` together; also
+deploy `backend/audio_workflows.py` for its explicit unsupported-schedule guard.
+`extra_worker.py` uses the common assembler. Install no additional speech model
+or GPU runtime. Restart only idle workers after checking current jobs. A worker
+advertises `sound_design_version=1`; availability requires every live worker for
+that compute class to support it. UI publication does not activate this runtime.
+
+The coordinator resolves workspace audio IDs, checks asset type, Trash state and
+resolved-path containment, then snapshots at most 64 MB of selected sounds beside
+the queued request. Workers verify snapshot checksums, never fetch user URLs, and
+show `Mixing music and effects` during assembly. A mix failure marks the job as an
+error instead of saving voice-only output as a completed soundtrack. The original
+script and sound-cue selections remain editable in the browser.
+
+Run the sound-design UI tests and audio/`test_soundtrack.py` before deployment, then
+perform authenticated end-to-end generation and listen to an actual story sample.
+Synthetic timing/ducking tests establish the mixer behavior, not artistic quality.
+Scheduled generation with sound cues is deliberately rejected until per-run cue
+planning is implemented; existing voice-only workflows remain supported.

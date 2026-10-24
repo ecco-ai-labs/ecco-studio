@@ -1920,10 +1920,30 @@
       "chapterSelection": "Main Upload and Audio Upload share PDF Pages and Chapter selection in the same source-picker. Select Pages extracts only physical PDF page ranges locally. Find Chapter with AI uses a bounded numbered outline, then verifies candidate boundary pages; exact page/line/text anchors bound local extraction, excluding the next chapter. Never use contents entries or fall back to page 1/full book. Ambiguity, invalid anchors and oversize sources fail without selecting/truncating. Show chapter title and PDF page range for review; explicit Apply alone commits the selected text. Narrative AI gets only the applied excerpt; locator AI may inspect the book outline and boundary pages to find it. New uploads are pending until a selection is applied, preventing stale-source reuse."
     },
     "finalScriptReview": {
-      "placement": "Final Script inside Review Audio, with one editable spoken-text area per character turn and a compact Improve with AI action. Reuses form, section-head, textarea and secondary button styling.",
+      "placement": "Final Script inside Review Audio, with one editable spoken-text area per character turn and a compact Improve with AI action. Reuses form, section-head, textarea and secondary button styling. Textareas grow to show the complete spoken turn, including after edits.",
       "selection": "Select a word, sentence or paragraph. Improve with AI opens a native generation-dialog with instructions above a read-only Selected Text area, followed by editable Suggested Replacement and Apply. Send only the selected passage and explicit instruction, no whole script, PDF or saved story.",
       "apply": "Snapshot story, text and selection. Apply replaces exactly that range, retains all surrounding words and character assignments, rejects stale state and enforces existing limits. Editing invalidates old delivery cues. Do not regenerate or modify an existing audio file; clearly state regeneration is needed.",
       "accessibility": "English labels, native modal focus, shared upper-right Close, Escape and focus return; visible spinner/aria-busy during requests."
+    },
+    "soundDesign": {
+      "approval": "User requested narrative sound effects and scene background music, including a Jinn arrival and Mediterranean-inspired desert music.",
+      "placement": "Compact Sound Design section inside Review Audio, with Music & Effects opening a generation-dialog. Keep character performance controls separate.",
+      "controls": [
+        "Include music and effects",
+        "Sound Direction",
+        "Suggest Cues with AI",
+        "Sound Effect / Ambience / Background Music",
+        "Audio Library selection, Upload Audio and Preview Sound",
+        "Start at Passage, optional exact After These Words trigger, End after Passage for beds",
+        "Volume in dB, Fade In / Out, Soften during speech, Loop for beds",
+        "Add Sound Cue, remove cue, Apply"
+      ],
+      "appearance": "Reuse form, section-head, fieldset, generation-filter-row, workspace-label-option, secondary buttons, shared generation-dialog and theme tokens. English interface, spinner and aria-busy, native Escape and focus return; uploads remain nested and preserve the parent.",
+      "planning": "AI sees only the final spoken script, genre/audience, user sound direction and current audio-file labels. Sparse audience-appropriate cues, no invented plot events, no vocals in music, no implicit sound generation. Files must be selected or uploaded; missing assets stop generation. Apply commits; cancel preserves the prior plan. Late AI results cannot overwrite edits.",
+      "timing": "Cue passages use exact spoken chunks; a unique trigger phrase splits synthesis immediately after those words. Timing comes from actual post-speed/pitch PCM boundaries. Preserve voice settings, zero extra pauses between split chunks, retain the existing 20-segment limit and invalidate cue timing after script edits.",
+      "mixing": "Worker uses CPU FFmpeg to layer authenticated Audio Library snapshots over speech, with explicit gain, fades, looping for beds and optional sidechain compression during speech. Effects play once up to 30 seconds. Result is one stereo WAV. No external URLs, implicit asset choices, synthetic placeholder sounds or new model downloads.",
+      "activation": "Frontend and coordinator require sound_design_version=1 on every live worker of the selected compute class. Unsupported services fail clearly instead of dropping tracks. UI publication alone does not activate mixing.",
+      "scheduling": "Individual recordings only in this release. A workflow containing enabled sound cues is rejected rather than reusing old cue positions on a newly generated script."
     }
   },
   "audioWorkflowScheduling": {

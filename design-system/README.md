@@ -199,3 +199,19 @@ recordings stay unchanged until the user generates again.
 
 Per-character native controls require the matching CPU coordinator and audio worker
 update; GitHub Pages publication alone does not install that runtime.
+
+## Narrative sound design
+
+Review Audio → Music & Effects opens the shared Sound Design modal. AI suggests
+cues from the final spoken script and the user's directions; it does not generate
+audio files. Users select existing Audio Library recordings or upload sounds in a
+nested dialog, preview them, choose passage/phrase timing, gain, fades, looping and
+automatic volume reduction under narration, then Apply. Exact phrase triggers split
+speech before synthesis, so mixing uses measured PCM boundaries rather than guessed
+word timings. Missing files and changed scripts require review before generation.
+
+The matching service/worker update enables one mixed stereo WAV across all speech
+models. Per-compute capability gates stop older workers from silently dropping the
+soundtrack. No GPU is provisioned and no new model is installed. Cues currently
+apply to individual recordings; schedules reject them because each new script needs
+new cue timing. Final Script textareas expand to fit their complete contents.

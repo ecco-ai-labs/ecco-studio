@@ -48,7 +48,7 @@
   };
   const execute=async action=>{if(busy)return;busy=true;render();try{
    if(!available())throw Error('Connect the updated workspace service first.');
-   let w=get();if(!root.querySelector('[data-name]').reportValidity())return;
+   let w=get();if(action!=='pause'&&w.audio_snapshot?.sound_design?.enabled&&w.audio_snapshot.sound_design.cues?.length)throw Error('Scheduled scripts need their own sound-cue timing. Sound Design currently applies to individual recordings; disable it in Audio Studio to save a voices-only workflow.');if(!root.querySelector('[data-name]').reportValidity())return;
    if(action!=='pause'&&(action==='save'||w.unsaved_changes||!records().some(r=>r.id===w.id&&r.kind==='workflow'))){
     const previousId=w.id;w=await api('audio/workflows/save',w);localStorage.setItem(key,JSON.stringify(read(key,[]).filter(r=>r.id!==w.id&&r.id!==previousId)));set(w);
    }

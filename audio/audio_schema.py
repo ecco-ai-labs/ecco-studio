@@ -75,6 +75,12 @@ def validate(body):
         result['exaggeration'] = bounded('exaggeration', .5, 0, 2)
     if any(any(key in line for key in ('speed', 'pitch', 'exaggeration', 'cfg_weight')) for line in clean):
         result['character_controls_version'] = 1
+    if body.get('soundtrack') or body.get('sound_design_version'):
+        from audio_soundtrack import validate_tracks
+        if body.get('sound_design_version') != 1:
+            raise ValueError('Unsupported sound design version.')
+        result['soundtrack'] = validate_tracks(body.get('soundtrack'), len(clean))
+        result['sound_design_version'] = 1
     return result
 
 

@@ -107,6 +107,9 @@ def clean(body, env):
     cast = cast[:count]
     if any(not isinstance(c,dict) or not isinstance(c.get('id'),str) or not c['id'] for c in cast) or len({c['id'] for c in cast})!=count:
         raise problem('Characters need distinct saved identities.')
+    sounds = snapshot.get('sound_design') or {}
+    if isinstance(sounds,dict) and sounds.get('enabled') and sounds.get('cues'):
+        raise problem('Scheduled scripts need new sound-cue timing. Sound Design is currently supported for individual recordings only.')
     brief = snapshot.get('script_brief',{})
     if not isinstance(brief,dict) or not isinstance(brief.get('source_text',''),str) or len(brief.get('source_text',''))>20000:
         raise problem('Use at most 20,000 source characters.')
