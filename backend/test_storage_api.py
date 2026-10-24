@@ -50,7 +50,7 @@ class StorageTest(unittest.TestCase):
    signed=google_signin.login({'challenge':pending['challenge'],'credential':'test'})
   with self.assertRaises(HTTPError) as error:
    self.call('/api/state',auth=False,extra={'Authorization':'Bearer '+signed['session_token']})
-  self.assertEqual(error.exception.code,401)
+  self.assertEqual(error.exception.code,403)
  def test_google_routes_origin_and_json(self):
   import google_signin
   with patch.object(google_signin,'ready',return_value=True):

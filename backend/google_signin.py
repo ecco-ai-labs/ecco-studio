@@ -90,11 +90,11 @@ def login(body):
         _prune()
         if len(_sessions) >= MAX_ENTRIES:
             raise AuthError('Sign-in is busy. Please try again shortly.', 429)
-        _sessions[hashlib.sha256(token.encode()).hexdigest()] = {'user': user, 'expires': expires}
+        _sessions[hashlib.sha256(token.encode()).hexdigest()] = {'user': user, 'expires': expires, 'email_verified': claims.get('email_verified') is True, 'hosted_domain': claims.get('hd')}
     return {'user': user, 'session_token': token, 'expires_at': expires}
 
 
-def session(authorization, logout=False):
+def session(authorization, logout=False, include_claims=False):
     token = authorization.removeprefix('Bearer ')
     key = hashlib.sha256(token.encode()).hexdigest()
     with _lock:
@@ -102,7 +102,11 @@ def session(authorization, logout=False):
         value = _sessions.pop(key, None) if logout else _sessions.get(key)
     if not value:
         raise AuthError('Please sign in again.')
-    return {'ok': True} if logout else {'user': value['user'], 'expires_at': value['expires']}
+    if logout: return {'ok': True}
+    result = {'user': value['user'], 'expires_at': value['expires']}
+    if include_claims:
+        result.update(email_verified=value.get('email_verified', False), hosted_domain=value.get('hosted_domain'))
+    return result
 
 
 def handle(handler, path, allowed_origin):

@@ -45,3 +45,10 @@ by signing in. No automatic YouTube authorization is requested.
 
 For domain migration, update both Google Authorized JavaScript origins and the
 backend CORS origin policy. Keep this Client ID to preserve account identity.
+
+## Optional tester authorization
+
+See GROUP-ACCESS.md for the separately configured server-side Google Group policy.
+Google identity alone still grants no workspace access. Only a verified member
+of the configured tester group receives the restricted tester role. This does
+not grant Ecco Desk staff roles or expose existing owner credentials.
