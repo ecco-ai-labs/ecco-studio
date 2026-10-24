@@ -116,5 +116,5 @@ test('Workflow model editor retains only active characters and uses model-specif
 
 test('Save as Workflow copies the current audio setup when no story is selected',async t=>{
  const x=await setup();t.after(()=>x.close());await x.go('audio');input(x,'[name=genre]','Podcast','change');x.q('#save-audio-workflow').click();await tick();
- assert.match(x.q('[data-node=model]').textContent,/indic-mio.*2 speaker/);assert.match(x.q('[data-node=source]').textContent,/Podcast/);assert.match(x.q('[data-node=output]').textContent,/CPU/);
+ assert.match(x.q('[data-node=model]').textContent,/indic-mio.*2 speaker/);assert.match(x.q('[data-node=source]').textContent,/Podcast/);assert.match(x.q('[data-node=output]').textContent,/CPU/);x.q('[data-node=source]').click();await tick();assert.equal(x.q('[name=lookback]').disabled,true);assert.match(x.q('[name=prompt]').parentElement.textContent,/Topic \/ Paper Instructions/);
 });
