@@ -73,6 +73,21 @@ class AssistantTest(unittest.TestCase):
         for revisions in ([{'id':'other','text':'Text'}], [{'id':'prompt','text':'a'},{'id':'prompt','text':'b'}], [{'id':'prompt','text':'x'*2001}], [{'id':'prompt','text':''}]):
             with patch.object(ai, '_request', return_value=self.result(revisions=revisions)):
                 with self.assertRaises(ai.AssistantError): ai.enhance(self.body,self.env)
+    def test_audio_plan_uses_structured_characters_and_preserves_client_response(self):
+        self.connect()
+        body={'stage':'storyboard','mode':'generate','fields':[{'id':'audio_plan','text':'Generate a Hindi news script','max_length':20000}],
+              'context':{'lines':[{'id':'reader','language':'Hindi'}]}}
+        plan={'opening':None,'segments':[{'character_id':'reader','text':'नमस्ते।','title':''}]}
+        with patch.object(ai,'_request',return_value=response(json.dumps({'plan':plan,'notes':[],'questions':[]}))) as request:
+            result=ai.enhance(body,self.env)
+        schema=request.call_args.args[1]['text']['format']['schema']
+        self.assertEqual(schema['properties']['plan']['properties']['segments']['items']['properties']['character_id']['enum'],['reader'])
+        self.assertEqual(json.loads(result['revisions'][0]['text']),plan)
+        with patch.object(ai,'_request',return_value=response(json.dumps({'revisions':[{'id':'audio_plan','text':'Plain narration'}],'notes':[],'questions':[]}))):
+            with self.assertRaises(ai.AssistantError): ai.enhance(body,self.env)
+        body['context']['lines']=[{'character_id':'reader'}]
+        with patch.object(ai,'_request',return_value=response(json.dumps({'plan':plan,'notes':[],'questions':[]}))):
+            self.assertEqual(ai.enhance(body,self.env)['revisions'][0]['id'],'audio_plan')
     def test_review_only_cannot_mutate_approved_video_prompts(self):
         self.connect()
         with patch.object(ai, '_request', return_value=self.result()):
