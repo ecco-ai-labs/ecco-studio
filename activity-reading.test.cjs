@@ -1,0 +1,25 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),{JSDOM}=require('jsdom');
+const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+async function setup(t){
+ const dom=new JSDOM('<aside id="activity-panel"><div id="jobs"></div></aside><span id="wan-badge"></span><ul id="checklist"></ul>',{runScripts:'outside-only',url:'https://example.test'}),w=dom.window,timers=[];t.after(()=>w.close());w.fetch=async()=>({ok:true});w.setInterval=(fn,delay)=>{timers.push({fn,delay});return timers.length;};
+ w.eval(`var state={records:[],config:{models_ready:{}}},page='empty',activeStory='',lastSignature='',draft={},connected=true;var powerButton=document.createElement('button');var $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function api(){}function updateYouTubeConnection(){}function renderModelNav(){}function stories(){return []}function loadDraft(){return {}}function storyControls(){}function gpuConnected(){return false}function assets(){return []}function boards(){return []}function approvedImages(){return []}function updateVideoStatus(){}function hydrateMedia(){}function notice(){}`);
+ w.eval(fs.readFileSync('error-log.js','utf8'));const ui=fs.readFileSync('updates/workspace-ui.js','utf8');w.eval(ui.slice(ui.indexOf('/* Job diagnostics:'),ui.indexOf('/* Accelerator color')));await tick();
+ const studio=fs.readFileSync('studio.js','utf8');w.eval(studio.slice(studio.indexOf('async function refresh('),studio.indexOf("document.querySelectorAll('[data-page]')",studio.indexOf('async function refresh('))));
+ return {w,q:s=>w.document.querySelector(s),timers,update:async records=>w.refresh({records,config:{models_ready:{}}})};
+}
+test('Workspace polling keeps connectivity rows, expanded entries and reading selection intact',async t=>{
+ const x=await setup(t);x.w.EccoConnectivityLog.record('Connection checked',{gpu:'a100'});x.timers.find(v=>v.delay===1500).fn();const row=x.q('#ecco-connectivity-log details');row.open=true;const text=row.querySelector('pre').firstChild,range=x.w.document.createRange();range.setStart(text,0);range.setEnd(text,12);x.w.getSelection().removeAllRanges();x.w.getSelection().addRange(range);const selection=x.w.getSelection().toString();
+ const job={id:'audio-1',kind:'job',source_kind:'audio_job',label:'Audio · Test',created:100,status:'running',progress:'Generating speech'};
+ assert.equal(await x.update([job]),true);const card=x.q('#ecco-generation-jobs .job');await x.update([job]);assert.equal(x.q('#ecco-generation-jobs .job'),card);assert.equal(x.q('#ecco-connectivity-log details'),row);assert.equal(row.open,true);assert.equal(x.w.getSelection().toString(),selection);
+ x.w.EccoConnectivityLog.record('Worker reconnected',{gpu:'a100'});x.timers.find(v=>v.delay===1500).fn();assert.equal(row.isConnected,true);assert.equal(row.open,true);assert.equal(x.w.getSelection().toString(),selection);assert.equal(x.q('#ecco-connectivity-log').querySelectorAll('details').length,2);
+});
+test('New errors preserve expanded details and audio debugging shows worker progress rather than image fields',async t=>{
+ const x=await setup(t);x.q('#ecco-errors-tab').click();x.w.EccoErrorLog.record('First test error');const row=x.q('#ecco-errors-view details');row.open=true;x.w.EccoErrorLog.record('Second test error');assert.equal(row.isConnected,true);assert.equal(row.open,true);
+ const job={id:'audio-1',kind:'job',source_kind:'audio_job',label:'Audio · Test',created:100,status:'running',progress:'Waiting for the audio worker to reconnect',request:{model:'indic-mio',compute:'cpu',lines:[{text:'Reviewed speech.'}]}};
+ await x.update([job]);[...x.q('#ecco-activity-tabs').children].find(b=>b.textContent==='Debugging').click();assert.match(x.q('#ecco-debug-view').textContent,/Audio Generation/);assert.match(x.q('#ecco-debug-view').textContent,/Waiting for the audio worker/);assert.match(x.q('#ecco-debug-view').textContent,/CPU/);assert.doesNotMatch(x.q('#ecco-debug-view').textContent,/Reference image/);
+ const script=x.q('[aria-label="Submitted audio script"]');script.focus();job.progress='Generating speech';await x.update([job]);x.timers.find(v=>v.delay===1000).fn();assert.equal(x.q('[aria-label="Submitted audio script"]'),script);script.blur();x.timers.find(v=>v.delay===1000).fn();assert.match(x.q('#ecco-debug-view').textContent,/Generating speech/);
+});
+test('Audio job projection retains worker reconnect and synthesis messages',async t=>{
+ const x=await setup(t),source=fs.readFileSync('storage-client.js','utf8');x.w.eval(source.slice(source.indexOf(' function audioJobView(job){'),source.indexOf(' const audioMedia=new Map();')));
+ for(const progress of ['Waiting for the audio worker to reconnect','Generating speech']){const projected=x.w.audioJobView({id:'a',kind:'audio_job',status:'running',progress});assert.equal(projected.progress,progress);assert.equal(projected.source_kind,'audio_job');}
+});

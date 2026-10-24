@@ -82,7 +82,7 @@
   if(job.kind!=='audio_job')return job;
   const status=job.status==='error'?'failed':job.status;
   return {...job,kind:'job',source_kind:'audio_job',label:'Audio · '+(job.title||'Recording'),status,
-   progress:status==='running'?'Running Generation':status==='queued'?'Queued':status==='done'?'Audio saved.':job.progress,
+   progress:job.progress||(status==='running'?'Generating speech':status==='queued'?'Queued':status==='done'?'Audio saved.':''),
    result:job.asset_ids||job.asset_id};
  }
  const audioMedia=new Map();

@@ -301,9 +301,9 @@
   const currentId=window.EccoGeneration?.jobId('audio',activeStory,lastJob);
   const job=lastJob?.id===currentId?lastJob:state?.records.find(r=>r.id===currentId);
   const busy=submitting||['queued','running'].includes(job?.status);
-  const label=submitting?'Submitting…':job?.status==='queued'?'Queued…':'Running Generation';
+  const label=submitting?'Submitting…':/reconnect/i.test(job?.progress||'')?'Waiting for worker…':job?.status==='queued'?'Queued…':'Generating audio…';
   setGenerationBusy(button,busy,label,'Generate audio');
-  q('#audio-job-status').textContent=submitting?'Submitting…':job?({queued:'Queued',running:'Running Generation',done:'Audio saved.',failed:'Generation failed',error:'Generation failed'}[job.status]||job.status)+(job.error?' · '+job.error:''):'';
+  q('#audio-job-status').textContent=submitting?'Submitting…':job?(job.progress||{queued:'Queued',running:'Generating speech',done:'Audio saved.',failed:'Generation failed',error:'Generation failed'}[job.status]||job.status)+(job.error?' · '+job.error:''):'';
   const list=window.EccoGeneration?.results('audio',audioAssets(),activeStory,lastJob)||[],next=JSON.stringify(list);
   if(next!==signature){
    signature=next;

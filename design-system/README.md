@@ -100,7 +100,10 @@ not a completed shared-component migration.
 
 Activity, Logs and Errors is accessed through the right-edge sliding-panel arrow,
 not through an item in the Settings menu. Its Activity, Debugging and Errors tabs
-remain available in that panel.
+remain available in that panel. Background refresh reconciles existing rows and
+preserves open log entries, reading selection and scroll position. Audio worker
+progress is shown verbatim, including reconnect waits; Audio Debugging shows
+compute, model, status and submitted speech instead of image-reference fields.
 
 GPU buttons and the AI, Storage and GPU connection icons share status colors: Default white/yellow, Dark Mode grey/mint, Forest white/yellow, Desert light brown/dark brown (disconnected/connected). All menu and slide-out surfaces inherit the selected theme. Status colors follow existing live connection attributes; theme selection never changes connection state.
 

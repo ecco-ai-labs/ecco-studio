@@ -1,6 +1,23 @@
 'use strict';
 /* Browser diagnostics: bounded, credential-redacted and retained across refreshes. */
 (()=>{
+ function preserveReading(root,update){
+  const panel=document.querySelector('#activity-panel'),position=panel?.scrollTop||0,edge=panel?.getBoundingClientRect(),anchor=edge&&[...root.querySelectorAll('details,.job')].find(row=>row.getBoundingClientRect().bottom>edge.top),top=anchor?.getBoundingClientRect().top;
+  update();if(panel)panel.scrollTop=anchor?.isConnected?position+anchor.getBoundingClientRect().top-top:position;
+ }
+ function syncRows(root,items,build){
+  preserveReading(root,()=>{const existing=new Map([...root.querySelectorAll(':scope > [data-activity-key]')].map(row=>[row.dataset.activityKey,row]));let previous=null;
+   for(const item of items){let row=existing.get(item.id);if(!row){row=document.createElement('div');row.dataset.activityKey=item.id;}build(row,item);const expected=previous?previous.nextElementSibling:root.firstElementChild;if(expected!==row)root.insertBefore(row,expected);existing.delete(item.id);previous=row;}
+   for(const row of existing.values())row.remove();
+  });
+ }
+ function syncLog(root,items,title){
+  syncRows(root,items,(container,item)=>{let row=container.querySelector('details');if(!row){row=document.createElement('details');row.append(document.createElement('summary'),document.createElement('pre'));container.append(row);}
+   const summary=row.querySelector('summary'),pre=row.querySelector('pre'),label=title(item),detail=JSON.stringify(item,null,2);if(summary.textContent!==label)summary.textContent=label;if(pre.textContent!==detail)pre.textContent=detail;pre.style.whiteSpace='pre-wrap';pre.style.overflowWrap='anywhere';
+  });
+ }
+ const readingSelection=root=>{const selected=window.getSelection();return !!(selected&&!selected.isCollapsed&&(root.contains(selected.anchorNode)||root.contains(selected.focusNode)));};
+ window.EccoActivityView={preserveReading,syncRows,readingSelection};
  const KEY='ecco-errors-v1',LIMIT=500,seen=new WeakSet();
  const safeRead=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))||fallback;}catch{return fallback;}};
  let entries=safeRead(KEY,[]);if(!Array.isArray(entries))entries=[];
@@ -39,14 +56,8 @@
   let root=document.querySelector('#ecco-connectivity-log');
   if(!root){root=document.createElement('section');root.id='ecco-connectivity-log';jobsRoot.prepend(root);connectionSignature='';}
   const signature=JSON.stringify(connections);if(signature===connectionSignature)return;connectionSignature=signature;
-  root.replaceChildren();if(!connections.length)return;
-  const heading=document.createElement('h3');heading.textContent='Connectivity';root.append(heading);
-  for(const item of connections.slice().reverse()){
-   const row=document.createElement('details'),title=document.createElement('summary');
-   title.textContent=new Date(item.occurred_at).toLocaleString()+' · '+item.event+(item.gpu?' · '+item.gpu:'');
-   const pre=document.createElement('pre');pre.textContent=JSON.stringify(item,null,2);pre.style.whiteSpace='pre-wrap';pre.style.overflowWrap='anywhere';
-   row.append(title,pre);root.append(row);
-  }
+  let heading=root.querySelector('h3'),list=root.querySelector('[data-connection-entries]');if(!list){heading=document.createElement('h3');heading.textContent='Connectivity';list=document.createElement('div');list.dataset.connectionEntries='';root.append(heading,list);}heading.hidden=!connections.length;
+  syncLog(list,connections.slice().reverse(),item=>new Date(item.occurred_at).toLocaleString()+' · '+item.event+(item.gpu?' · '+item.gpu:''));
  }
 
  document.addEventListener('click',event=>{const b=event.target.closest?.('button,a,summary');if(b)action=redact((b.getAttribute('aria-label')||b.textContent||'').trim().slice(0,200));},true);
@@ -60,10 +71,9 @@
   }catch(error){record(error,{source:'network',url,method});throw error;}
  };
  const q=s=>document.querySelector(s);let signature='';
- function render(){const root=q('#ecco-errors-view');if(!root||root.hidden)return;const sig=JSON.stringify(entries);if(signature===sig)return;signature=sig;root.replaceChildren();
-  const info=document.createElement('p');info.className='help';info.textContent=entries.length+' errors · latest '+LIMIT+' retained in this browser';root.append(info);
-  for(const item of [...entries].reverse()){const row=document.createElement('details'),title=document.createElement('summary');title.textContent=new Date(item.occurred_at).toLocaleString()+' · '+item.message;row.append(title);const pre=document.createElement('pre');pre.textContent=JSON.stringify(item,null,2);row.append(pre);root.append(row);}
-  if(!entries.length){const p=document.createElement('p');p.textContent='No errors recorded.';root.append(p);}
+ function render(){const root=q('#ecco-errors-view');if(!root||root.hidden)return;const sig=JSON.stringify(entries);if(signature===sig)return;signature=sig;
+  let info=root.querySelector('[data-error-count]'),list=root.querySelector('[data-error-entries]');if(!list){info=document.createElement('p');info.className='help';info.dataset.errorCount='';list=document.createElement('div');list.dataset.errorEntries='';root.append(info,list);}const label=entries.length?entries.length+' errors · latest '+LIMIT+' retained in this browser':'No errors recorded.';if(info.textContent!==label)info.textContent=label;
+  syncLog(list,[...entries].reverse(),item=>new Date(item.occurred_at).toLocaleString()+' · '+item.message);
  }
  function mount(){const tabs=q('#ecco-activity-tabs');if(!tabs||q('#ecco-errors-tab'))return;
   const b=document.createElement('button');b.id='ecco-errors-tab';b.type='button';b.className='secondary';b.textContent='Errors';b.setAttribute('role','tab');b.setAttribute('aria-selected','false');b.setAttribute('aria-controls','ecco-errors-view');

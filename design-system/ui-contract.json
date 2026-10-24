@@ -1601,7 +1601,9 @@
       "Errors"
     ],
     "activityMenuEntry": false,
-    "connectivity": "Activity contains expandable credential-redacted connection checks, attempts, outcomes and issues, latest 500 retained per browser. Failures also appear in Errors with timestamp, user/session, instance, stage and detail."
+    "connectivity": "Activity contains expandable credential-redacted connection checks, attempts, outcomes and issues, latest 500 retained per browser. Failures also appear in Errors with timestamp, user/session, instance, stage and detail.",
+    "refreshBehavior": "Workspace polling updates a dedicated generation-job list instead of replacing the Activity root. Connectivity and Errors reconcile keyed existing entries, preserving open details, selected text and scroll position when new rows arrive. Debugging ignores unrelated job payload changes and defers content refresh while a job selector or script text is being read. Background work continues; no automatic refresh interruption control is required.",
+    "audioStatus": "Preserve the exact worker progress instead of replacing it with Running Generation. Audio Generation Debugging shows job ID, status, progress, model, compute, creation time, output ID and submitted speech; no image-reference fields for audio. Waiting for worker reconnect is shown explicitly and is never described as active synthesis."
   },
   "acceleratorConnections": {
     "layout": "Two existing GPU cards, one for B200 and one for A100",
