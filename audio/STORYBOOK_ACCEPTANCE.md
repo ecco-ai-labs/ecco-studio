@@ -1,6 +1,6 @@
 # Storybook journey acceptance
 
-Status on 2026-10-24: implementation prepared; **not ready for a completion notice**.
+Status on 2026-10-24: interface and runtime adapter deployed; **not ready for a completion notice**.
 Source checks, Pages publication, runtime activation and audible quality are
 separate gates. Never infer one from another.
 
@@ -41,9 +41,9 @@ Review the frame narrative explicitly rather than accidentally merging speakers.
 
 ## Evidence and blockers
 
-- Focused interface tests: 37 passed (guided journey, source selection, sound
+- Focused interface tests: 38 passed (guided journey, source selection, sound
   planning/attachment, final-script exact replacement, character controls and
-  existing video handoff).
+  existing video handoff and fresh unsaved-story audio isolation).
 - Audio job tests: 19 passed, including validation, verified-compute routing and
   durable generated-sound asset finalization. Some inherited baseline tests repeat.
 - Two focused authenticated storage-route/story-persistence tests passed.
@@ -64,9 +64,18 @@ Review the frame narrative explicitly rather than accidentally merging speakers.
   without applying or saving another chapter's text.
 - The broader storage suite has unrelated folder/trash failures in this local
   snapshot. No full-suite-green claim is made.
-- Last recorded runtime activation is the CPU update in README, source
-  `3f692c86f6356727fcfe9c316f0717e5570bae5a`. New sound adapter and durable story
-  preparation still require runtime deployment.
+- Runtime activation at 23:00:48 UTC deployed source
+  `a9fc138de19f51f8954300e99bec4f8e15f21f69`, including the sound adapter and
+  durable story preparation. All 24 destination checksums match; API health and
+  a fresh CPU heartbeat pass. Sound-generation capability is version 1 with an
+  empty verified-model list. The exact backup/result path is in README.
+- Pages run 40140910982 succeeded for 99789a5143bc0cb792df4066b59d02dd60ad0e6c.
+  Deployed UI checks confirmed Tone presets, both PDF upload surfaces, visible
+  chapter connection errors and nested dismissal returning focus to Upload.
+  Final Script, Progress and Review tab labels and arrow-key switching were
+  also verified in the deployed UI. A live unsaved-audio contamination bug was
+  found and fixed using per-story
+  local draft IDs; the new regression test also checks prior-draft recovery.
 - Test browser currently shows Storage and AI disconnected. User-assisted secure
   sign-in is required. Do not recover access keys from files/processes or bypass
   the previously rejected sign-in flow.

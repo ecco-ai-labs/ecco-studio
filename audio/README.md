@@ -3,10 +3,26 @@
 ## Release status
 
 The storybook integration and new sound-generation adapter described below are
-prepared in source. They are **not an end-to-end acceptance result**. Follow
+deployed, with model qualification and full-journey testing still pending.
+They are **not an end-to-end acceptance result**. Follow
 [STORYBOOK_ACCEPTANCE.md](STORYBOOK_ACCEPTANCE.md) for deployment and test evidence.
 
-## Storybook integration prepared — 2026-10-24
+## Storybook integration — 2026-10-24
+
+Pages deployment [40140910982](https://github.com/ecco-ai-labs/ecco-studio/actions/runs/40140910982)
+completed successfully for `99789a5143bc0cb792df4066b59d02dd60ad0e6c` at 23:00 UTC.
+At 23:00:48 UTC, the existing CPU coordinator and worker activated source
+`a9fc138de19f51f8954300e99bec4f8e15f21f69` using the pinned helper from that release.
+All 24 destination checksums matched. `/healthz` returned `ok: true`; the fresh
+CPU heartbeat advertised character controls, sound design and sound generation
+at version 1, with `sound_models: []`. Backups and result are retained at
+`/workspace/ecco-audio-update-1792882823643103665/`. No GPU was started.
+
+Live UI checks verified the Tone dropdown, visible AI upload, attached-PDF
+loading, chapter connection errors and nested popup focus return. A fresh-story
+check also found old unsaved audio being reused; draft IDs now isolate new
+stories while retaining earlier drafts. The complete authenticated chapter
+generation and listening review remain pending.
 
 Generate with AI now keeps Upload Paper / Text visible, provides Tone presets,
 shows chapter-search progress/errors beside the control, and supports repeated

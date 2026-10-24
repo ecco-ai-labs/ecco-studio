@@ -107,7 +107,8 @@
     },
     "newObjects": "Register component type and properties, reuse existing component rules, regenerate inventory in the same change.",
     "numericValues": "Do not invent sizes or silently normalize existing differences. Record actual declarations and obtain approval for changed standards.",
-    "connectionOrder": "Storage is always first in both the Connections dialog and the control-panel icon order, followed by AI, GPU and publishing connections; independent of connection state."
+    "connectionOrder": "Storage is always first in both the Connections dialog and the control-panel icon order, followed by AI, GPU and publishing connections; independent of connection state.",
+    "audioDraftIsolation": "Every newly started unsaved story has a stable local draft ID. Audio Studio uses that ID until the story is saved; never reuse another new story’s script, cast or sounds. Earlier local drafts and legacy standalone audio remain preserved. Restoring a local story restores its own audio."
   },
   "components": [
     {

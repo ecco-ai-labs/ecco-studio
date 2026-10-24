@@ -10,6 +10,21 @@ async function ready(t,intent='podcast',storage={}){
 const submit=async x=>{x.q(dlg+' form').requestSubmit();await tick();};
 const field=(x,key,value)=>input(x,dlg+' [data-value='+key+']',value);
 const saved=(x,key)=>JSON.parse(x.w.localStorage.getItem(key));
+
+test('new audiobooks isolate unsaved audio scripts while earlier drafts remain recoverable',async t=>{
+ const legacy={lines:[{text:'Earlier unsaved audio',language:'Hindi',voice:'en_female',emotion:'neutral'}]};
+ const x=await ready(t,'audiobook',{'ecco-audio-draft:':JSON.stringify(legacy)});
+ input(x,'[name=title]','First draft');const first=saved(x,'ecco-new-story-draft').localDraftId;
+ await x.go('audio');assert.equal(x.q('[data-final-turn]').value,'');
+ input(x,'[data-final-turn]','Keep this first audiobook.');
+ x.w.EccoWorkspaceUI.startNewStory(x.w.EccoStoryJourneys.get('audiobook'));await tick();
+ const second=saved(x,'ecco-new-story-draft').localDraftId;assert.notEqual(first,second);
+ await x.go('audio');assert.equal(x.q('[data-final-turn]').value,'');
+ assert.equal(saved(x,'ecco-audio-draft:local:'+first).single_text,'Keep this first audiobook.');
+ assert.equal(saved(x,'ecco-audio-draft:').lines[0].text,'Earlier unsaved audio');
+ await x.go('story-library');x.q('[data-local-story-id="'+first+'"]').click();await tick();await x.go('audio');
+ assert.equal(x.q('[data-final-turn]').value,'Keep this first audiobook.');assert.deepEqual(x.errors,[]);
+});
 function mock(x,{names=['Host','Guest'],questions=['Should the discussion include practical examples?'],texts,invalid=false}={}){
  const calls=[];x.w.testUI.setAPI(async(path,body)=>{
   calls.push({path,body});if(body?.fields?.[0].id==='audio_directed_script')return directedReply(body);if(path==='stories')return{id:'created-story',...body};
@@ -71,8 +86,8 @@ test('Invalid casts, unsupported character assignments and invalid edited transc
 });
 
 test('Audio Studio uses the same journey, preserves voice choices and resolves latest emotion and pitch on Generate',async t=>{
- const x=await ready(t);await x.go('audio');input(x,'[name=genre]','Podcast','change');const initial=saved(x,'ecco-audio-draft:');mock(x);x.q('[data-generate-audio-script]').click();await review(x);input(x,'[data-review-text]','Welcome to our podcast.');await submit(x);
- let audio=saved(x,'ecco-audio-draft:');assert.equal(audio.speakers[0].id,initial.speakers[0].id);assert.equal(audio.lines[0].text,'Welcome to our podcast.');assert.equal(x.q('[data-character-count]').value,'2');
+ const x=await ready(t);await x.go('audio');input(x,'[name=genre]','Podcast','change');const draftKey='ecco-audio-draft:local:'+saved(x,'ecco-new-story-draft').localDraftId;const initial=saved(x,draftKey);mock(x);x.q('[data-generate-audio-script]').click();await review(x);input(x,'[data-review-text]','Welcome to our podcast.');await submit(x);
+ let audio=saved(x,draftKey);assert.equal(audio.speakers[0].id,initial.speakers[0].id);assert.equal(audio.lines[0].text,'Welcome to our podcast.');assert.equal(x.q('[data-character-count]').value,'2');
  x.q('[data-open-controls]').click();x.q('[data-speaker-tab="'+audio.speakers[1].id+'"]').click();input(x,'[data-speaker-field=voice]','en_male','change');input(x,'[data-speaker-field=emotion]','happy','change');input(x,'[name=pitch]','2');input(x,'[name=speed]','1.25');
  const calls=[];x.w.EccoAudioStudio.connect({storageIndependentOfGPU:true,status:async()=>({routing_version:1,compute:{cpu:{ready:true,models:['indic-mio']}}}),list:async()=>[],generate:async body=>{calls.push(body);return{id:'job'};},job:async()=>({id:'job',status:'done'}),mediaURL:async()=>'',download:async()=>{}});await tick();x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,1);assert.equal(calls[0].pitch,2);assert.equal(calls[0].speed,1.25);assert.equal(calls[0].lines[1].voice,'en_male');assert.equal(calls[0].lines[1].emotion,'happy');assert.deepEqual(x.errors,[]);
 });

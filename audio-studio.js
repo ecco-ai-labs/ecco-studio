@@ -6,7 +6,11 @@
  const emotions=language=>!model().emotions?['neutral']:language==='English'?['neutral','happy','sad','angry','enunciated','confused','whisper']:['neutral','happy','sad','angry','disgust','fear','surprise'];
  const q=s=>document.querySelector(s);
  const blank=()=>({text:'',language:'Hindi',emotion:'neutral',voice:'en_female'});
- const key=()=>`ecco-audio-draft:${activeStory}`;
+ const key=()=>{
+  if(activeStory)return `ecco-audio-draft:${activeStory}`;
+  let localId;try{localId=JSON.parse(localStorage.getItem('ecco-new-story-draft')||'{}').localDraftId;}catch{}
+  return 'ecco-audio-draft:'+(localId?'local:'+localId:'');
+ };
  let draft,story,signature='',submitting=false,service=null,recordings=[],lastJob=null,polling=false,submissionLabel='Submitting…';
  const serviceReady=()=>!!service;
  let computeStatus=null,computeChecked=0;

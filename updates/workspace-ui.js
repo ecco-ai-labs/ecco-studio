@@ -53,7 +53,7 @@
  function startNewStory(intent){
   sessionStorage.setItem('ecco-guided-mode',intent?'on':'off');
   preserveNewStoryDraft(true);if(activeStory)persistDraft();activeStory='';localStorage.removeItem('ecco-active-story');
-  localStorage.setItem('ecco-new-story-draft',JSON.stringify(intent?{workflow_id:intent.id,story_format:intent.format,...(intent.seed||{})}:{}));draft={...defaultDraft,scenes:[]};persistDraft();
+  localStorage.setItem('ecco-new-story-draft',JSON.stringify({...(intent?{workflow_id:intent.id,story_format:intent.format,...(intent.seed||{})}:{}),localDraftId:crypto.randomUUID()}));draft={...defaultDraft,scenes:[]};persistDraft();
   selectedJourneyStory=undefined;newStoryStarted=true;storyControls();navigate('story-setup');
  }
  function openStory(id){
