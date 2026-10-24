@@ -2,7 +2,7 @@
 (() => {
  'use strict';
  const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net';
- let connecting=false,verified=false;
+ let connecting=false,verified=false,sessionMode=false,authEpoch=0;
  let key=sessionStorage.getItem('ecco-storage-access')||'';
  const compact=document.createElement('style');compact.textContent='#storage-access-dialog{width:min(480px,calc(100vw - 32px))}#storage-access-dialog .row{justify-content:flex-end;flex-wrap:wrap;gap:8px}#storage-access-dialog .row>button{flex:0 0 auto;padding:6px 10px;font-size:12px;min-height:30px}#storage-access-dialog .storage-key-field{position:relative;display:block}#storage-access-dialog .storage-key-field input{padding-right:42px}#storage-access-dialog .storage-key-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:30px;height:30px;padding:5px;background:transparent;color:var(--muted)}#storage-access-dialog .storage-key-toggle svg{width:18px;height:18px}#storage-access-dialog [data-disconnect]{margin-right:auto;background:transparent;color:var(--muted)}';document.head.append(compact);
  const gpuAPI=api;
@@ -75,7 +75,7 @@
  }
 
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','github/sync','billing/connect','billing/refresh']);
- window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,reportError};
+ window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},get role(){return sessionMode?'tester':(key?'owner':null);},endpoint,open:dialog,reportError};
  // Present CPU-owned audio jobs through the shared Activity job view.
  // This is a UI projection only; the durable record stays audio_job.
  function audioJobView(job){
@@ -115,6 +115,7 @@
   try{
    response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
    if(!response.ok){
+    if(sessionMode&&accessKey===key&&(response.status===401||response.status===403&&['state','workspace/access'].includes(path)))disconnect();
     let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
     try{message=(await response.json()).error||message;}catch{}
     const error=Error(message);error.status=response.status;throw error;
@@ -133,7 +134,7 @@
  }
  api=async function(path,body,options={}){
   if(inference.has(path))return inferenceRequest(path,body);
-  if(generation.has(path))return gpuAPI(path,body);
+  if(generation.has(path)){if(sessionMode)throw Error('This action requires the workspace owner.');return gpuAPI(path,body);}
   const data=await storageRequest(path,body,key,options);
   if(path==='state'){
    verified=true;errorShown=false;connectAudio();
@@ -148,7 +149,7 @@
   window.EccoErrors.show(error,{title:'Workspace storage error',retryLabel:'Reconnect storage',retry:dialog});
  }
  function counts(){const active=state.records.filter(r=>!r.deleted);return active.filter(r=>r.kind==='asset'&&r.media==='image').length+' images · '+active.filter(r=>r.kind==='story').length+' stories';}
- function disconnect(){key='';notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');window.EccoYouTube?.update();}
+ function disconnect(){authEpoch++;sessionMode=false;key='';notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');window.EccoYouTube?.update();}
  function dialog(options={}){
   let modal=document.querySelector('#storage-access-dialog');
   if(!modal){modal=document.createElement('dialog');modal.id='storage-access-dialog';document.body.append(modal);}
@@ -197,7 +198,29 @@
  if(noticeBox)new MutationObserver(connectNotice).observe(noticeBox,{childList:true});
  connectNotice();
  mount();new MutationObserver(mount).observe(document.querySelector('main > header'),{childList:true,subtree:true});
+ async function connectSession(){
+  const epoch=++authEpoch,session=sessionStorage.getItem('ecco-user-session');
+  if(!window.EccoAuth?.user||!session||key&&!sessionMode)return;
+  try{
+   const permissions=await storageRequest('workspace/access',undefined,session);
+   if(epoch!==authEpoch||session!==sessionStorage.getItem('ecco-user-session'))return;
+   if(permissions.role!=='tester')return;
+   const next=await storageRequest('state',undefined,session);
+   if(epoch!==authEpoch||session!==sessionStorage.getItem('ecco-user-session'))return;
+   sessionMode=true;key=session;verified=true;errorShown=false;
+   await refresh(next,true);connectAudio();
+   document.dispatchEvent(new Event('ecco:workspace-access-change'));
+  }catch(error){
+   if(epoch!==authEpoch)return;
+   if(sessionMode)disconnect();
+   notice(error.message,true);
+  }
+ }
+ document.addEventListener('ecco:auth-change',()=>{if(window.EccoAuth?.user)connectSession();else if(sessionMode)disconnect();});
+ setInterval(()=>{if(sessionMode)connectSession();},60000);
  if(key)setTimeout(()=>refresh(),0);
+ else if(window.EccoAuth?.user)connectSession();
+
 })();
 
 

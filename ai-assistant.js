@@ -47,11 +47,12 @@
   if(!dialog.open)dialog.showModal();
   renderConnection();readStatus().then(renderConnection).catch(showError);
  }
+ document.addEventListener('ecco:workspace-access-change',()=>readStatus().then(renderConnection).catch(showError));
  function renderConnection(){
   window.EccoYouTube?.update();
   const root=q('#openai-connection');if(!root)return;
-  const control=root.querySelector('#enable-studio-ai');control.checked=!!connection.enabled;control.disabled=!connection.connected;
-  const button=root.querySelector('#connect-openai');button.textContent=connection.connected?'Connected':'Connect';button.dataset.connected=String(!!connection.connected);
+  const control=root.querySelector('#enable-studio-ai');control.checked=!!connection.enabled;control.disabled=!connection.connected||window.EccoStorage?.role==='tester';
+  const button=root.querySelector('#connect-openai');button.textContent=connection.connected?'Connected':'Connect';button.dataset.connected=String(!!connection.connected);button.disabled=window.EccoStorage?.role==='tester';
   const storage=q('#connections [data-storage]'),gpu=q('#connections [data-gpu-connect]');
   if(storage){const ready=!!window.EccoStorage?.ready;storage.dataset.connected=String(ready);storage.textContent=ready?'Connected':'Connect';}
   if(gpu){const ready=!!q('#connected-accelerator')?.classList.contains('accelerator-connected');gpu.dataset.connected=String(ready);gpu.textContent=ready?'Connected':'Connect';}

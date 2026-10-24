@@ -92,6 +92,7 @@
     ]
   },
   "sharedRules": {
+    "testerAccess": "Google group members automatically connect Storage without navigation or key entry. AI uses existing server credentials; its key/settings controls are disabled for testers. Membership is rechecked after at most 60 seconds of backend caching; expired/revoked sessions are denied on each request. Shared workspace, not per-user media isolation.",
     "storageConnect": "Connecting storage refreshes workspace data and connection status without navigating, opening a library or expanding library menus. Preserve the current screen and close only the storage dialog on success.",
     "labelColor": "yellow (existing accent)",
     "defaultControlText": "white",
@@ -1685,7 +1686,7 @@
     "entry": "Google-rendered Sign in with Google button on welcome screen only. Account and Billing does not show sign-in or its loading/error messages. Existing signed-in Log off remains. No intermediate Studio popup; Google account selection only.",
     "audience": "Any Google account, no domain filter",
     "verification": "Server-verified Google token with one-time nonce, audience, issuer and expiry checks; identity keyed by sub",
-    "authorization": "Identity session cannot access shared workspace API or start GPUs",
+    "authorization": "Verified Google sessions gain tester workspace permissions only after a server-side membership check for the server-configured tester group. Missing configuration, failed checks and nonmembers are denied. No GPU power, key management, publishing or unattended scheduling. Existing owner key remains supported.",
     "session": "Opaque session token in sessionStorage; same-tab refresh restores only after server /me verification; expires within one hour. Log off revokes token and clears it and shared workspace key.",
     "dismiss": "No intermediate Studio dialog. Google controls account-selection dismissal.",
     "appearance": "Welcome Tell Your Story and native Google sign-in buttons have equal visible dimensions of 190px by 40px, with 16px between them. The native Google iframe transparent gutters are clipped to the button outline. Google SDK supplies unchanged logo, Google font and generic Sign in with Google text; width below 200px suppresses personalization. User menu is compact, minimum width 110px.",

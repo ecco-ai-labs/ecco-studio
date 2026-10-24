@@ -24,6 +24,7 @@ import gpu_relay
 import openai_assistant
 import scene_planner
 import google_signin
+import workspace_access
 import ecco_desk
 import youtube_connection
 
@@ -69,10 +70,22 @@ class Handler(legacy.Handler):
             self.send({'error': 'Origin denied'}, 403)
             return False
         supplied = self.headers.get('Authorization', '')
-        if not self.access_key or not hmac.compare_digest(supplied, 'Bearer ' + self.access_key):
-            self.send({'error': 'Connect storage in Account using your private storage access key.'}, 401)
-            return False
-        return True
+        self.workspace_role = 'owner'
+        self.workspace_permissions = None
+        if self.access_key and hmac.compare_digest(supplied, 'Bearer ' + self.access_key):
+            return True
+        try:
+            identity = google_signin.session(supplied, include_claims=True)
+            self.workspace_permissions = workspace_access.authorize(identity)
+            self.workspace_role = 'tester'
+            if not workspace_access.allowed(self.command, urlsplit(self.path).path):
+                raise workspace_access.AccessError('This action requires the workspace owner.')
+            return True
+        except google_signin.AuthError:
+            self.send({'error': 'Sign in or connect storage to access this workspace.'}, 401)
+        except workspace_access.AccessError as error:
+            self.send({'error': str(error)}, error.status)
+        return False
 
     def do_OPTIONS(self):
         if self.headers.get('Origin') != ALLOWED_ORIGIN:
@@ -94,7 +107,14 @@ class Handler(legacy.Handler):
         if not self.authorized(): return
         try:
             if path == '/api/youtube/playlists': return self.send(youtube_connection.playlists())
-            if path == '/api/state': return self.send(storage_state())
+            if path == '/api/workspace/access':
+                return self.send(self.workspace_permissions or {'role': 'owner'})
+            if path == '/api/state':
+                data = storage_state()
+                if self.workspace_role == 'tester':
+                    data['config']['workspace_access'] = self.workspace_permissions
+                    data['records'] = [r for r in data['records'] if r.get('kind') not in ('billing', 'config', 'secret')]
+                return self.send(data)
             if path == '/api/gpu/status': return self.send(gpu_relay.status())
             if path.startswith('/api/gpu/requests/'):
                 parts = path.split('/')
