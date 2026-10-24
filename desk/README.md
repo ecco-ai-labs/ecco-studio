@@ -34,7 +34,7 @@ npm ci
 npm run build
 cd ..
 node tests/ecco-desk-ui.test.mjs
-PYTHONPATH=backend python3 -m unittest backend/test_ecco_desk.py backend/test_google_signin.py backend/test_storage_api.py
+PYTHONPATH=backend python3 -m unittest backend/test_ecco_desk.py backend/test_ecco_desk_mail.py backend/test_google_signin.py backend/test_storage_api.py
 python3 scripts/ui_inventory.py
 python3 scripts/ui_inventory.py --check
 ```
@@ -52,5 +52,53 @@ SQLite using its online backup API, preserve runtime configuration, and restart
 only when generation/publishing work is idle. Updating Pages alone does not update
 Python. In-memory Google sessions expire on service restart; sign in again.
 
-This version supports text tickets and in-app replies/status. Attachments, email
-intake/notifications, SLAs and customer organizations are not configured.
+## New-ticket email notifications
+
+Every newly created support ticket or internal task queues one notification in
+`desk_mail_outbox`, in the same transaction as the ticket. Comments and status
+updates do not generate another notification. Existing tickets are not backfilled.
+The confirmed destination is `support@saazztechnologies.com`.
+
+The CPU worker delivers pending messages within about 10 seconds when configured,
+without delaying ticket creation or requiring a GPU. Emails include the ticket
+number, title, requester, priority, category, initial description and team-console
+link. The link requires authorized team access; it does not grant access. SMTP
+credentials and the recipient can never be set through customer ticket payloads.
+Queued, delayed and accepted notifications appear as internal ticket activity;
+customers cannot see those events. Acceptance by SMTP is not proof of inbox delivery.
+
+Mail delivery is disabled until an outbound sender/relay is configured. Create
+`/workspace/ecco-storage-private/desk-mail.json` with mode `0600` on the CPU host
+(or set `ECCO_DESK_MAIL_CONFIG` to another private file):
+
+```json
+{
+  "enabled": false,
+  "recipient": "support@saazztechnologies.com",
+  "sender": "",
+  "host": "smtp-relay.gmail.com",
+  "port": 587,
+  "security": "starttls",
+  "username": "",
+  "password": ""
+}
+```
+
+Set an authorized sender and configure the Workspace relay before enabling.
+An IP-authenticated relay needs no username/password; an authenticated SMTP
+provider needs both. Port 465 with `security: "ssl"` is also supported. TLS and
+certificate verification are mandatory. Keep actual credentials only in the
+private server file, never GitHub, Pages, browser storage, activity or chat.
+Configuration is reloaded every 10 seconds, so activation needs no API restart.
+
+Temporary delivery failures retry after 1, 2, 4, 8 minutes, up to once per hour,
+and survive service restarts. The recipient is frozen on the first attempt.
+Workers lease each message so concurrent workers do not send it twice. Retries
+reuse its Message-ID; SMTP cannot guarantee exactly-once delivery if the process
+crashes after acceptance but before recording success. Sent messages are never
+deliberately resent. Inspect pending counts/`lastError` in the private outbox and
+the service log to diagnose delivery without exposing credentials or SMTP replies.
+
+This version supports text tickets, in-app replies/status and outbound new-ticket
+notifications. Attachments, inbound email, SLAs and customer organizations are not
+configured.

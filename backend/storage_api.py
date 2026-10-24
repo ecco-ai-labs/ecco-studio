@@ -198,7 +198,7 @@ def main():
     if len(Handler.access_key) < 32: raise SystemExit('A private access key of at least 32 characters is required')
     if not (legacy.DATA / 'studio.sqlite').is_file():
         raise SystemExit('Existing workspace database is missing; refusing to create an empty workspace')
-    ecco_desk.initialize(legacy.DATA / 'studio.sqlite')
+    ecco_desk.initialize(legacy.DATA / 'studio.sqlite', start_notifications=True)
     # Never run legacy.initialize(): it would mark GPU jobs interrupted from this CPU.
     # Inference stays in audio workers; only explicitly activated schedules run here.
     legacy.github_token = lambda: None

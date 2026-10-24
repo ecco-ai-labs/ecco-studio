@@ -13,6 +13,7 @@ import uuid
 from urllib.parse import parse_qs, urlsplit
 
 import google_signin
+import ecco_desk_mail
 
 STATUSES = ('open', 'in_progress', 'waiting', 'resolved', 'closed')
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
@@ -37,7 +38,7 @@ def connect(path):
         db.close()
 
 
-def initialize(path):
+def initialize(path, start_notifications=False):
     with connect(path) as db:
         db.executescript('''
         CREATE TABLE IF NOT EXISTS desk_users (
@@ -64,6 +65,9 @@ def initialize(path):
             actorName TEXT NOT NULL, detail TEXT NOT NULL, visibility TEXT NOT NULL, createdAt TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS desk_events_ticket ON desk_events(ticketId, createdAt);
         ''')
+        ecco_desk_mail.initialize(db)
+    if start_notifications:
+        ecco_desk_mail.start(path)
 
 
 def now():
@@ -179,6 +183,7 @@ def write(db, me, body, workspace_key, configured_key):
         tid = db.execute('INSERT INTO desk_tickets(type,title,description,priority,category,reporterId,reporterName,reporterEmail,assigneeId,dueDate,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                          (kind, title, description, priority, category, me['userId'], me['name'], me['email'], assignee, due, stamp, stamp)).lastrowid
         event(db, me, 'Ticket opened' if kind == 'support' else 'Task created', tid, 'public' if kind == 'support' else 'internal')
+        ecco_desk_mail.enqueue(db, tid)
         return {'ticket': customer_ticket(ticket(db, me, tid), me)}
     if op == 'updateTicket':
         require_staff(me)
