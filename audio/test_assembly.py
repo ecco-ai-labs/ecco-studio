@@ -7,6 +7,18 @@ from audio_schema import validate
 from audio_worker import assemble
 
 class Assembly(unittest.TestCase):
+    def test_each_character_uses_its_own_pitch_and_speed(self):
+        rate=24000
+        clip=(.4*np.sin(2*np.pi*400*np.arange(rate)/rate)).astype('float32')
+        with tempfile.TemporaryDirectory() as root:
+            outputs=[]
+            for pitch,speed in [(-4,.75),(4,1.5)]:
+                target=Path(root)/f'{pitch}.wav'
+                assemble([clip],{'pitch':0,'speed':1,'pause':0,'lines':[{'pitch':pitch,'speed':speed}]},target,rate)
+                signal,_=sf.read(target);outputs.append(signal)
+                frequency=np.fft.rfftfreq(len(signal),1/rate)[np.argmax(np.abs(np.fft.rfft(signal)))]
+                self.assertAlmostEqual(frequency,400*2**(pitch/12),delta=3)
+            self.assertAlmostEqual(len(outputs[0])/len(outputs[1]),2,delta=.08)
     def test_exact_pause_after_dsp(self):
         rate=24000
         clip=np.sin(np.arange(rate//3)*.08).astype('float32')*.4

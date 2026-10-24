@@ -19,11 +19,13 @@ def assemble(clips, request, output, sample_rate):
     """Apply delivery DSP to speech first; insert exact silence in the final sample rate."""
     import numpy as np
     import soundfile as sf
-    ratio = 2 ** (request['pitch'] / 12)
-    filters = f'asetrate={round(sample_rate*ratio)},aresample={sample_rate},atempo={request["speed"]/ratio:.6f}'
     final = []
     with tempfile.TemporaryDirectory(prefix='ecco-speech-') as directory:
         for index, clip in enumerate(clips):
+            settings = request['lines'][index]
+            ratio = 2 ** (settings.get('pitch', request['pitch']) / 12)
+            speed = settings.get('speed', request['speed'])
+            filters = f'asetrate={round(sample_rate*ratio)},aresample={sample_rate},atempo={speed/ratio:.6f}'
             raw, processed = Path(directory)/'raw.wav', Path(directory)/'processed.wav'
             sf.write(raw, clip, sample_rate, subtype='PCM_16')
             subprocess.run(['ffmpeg', '-nostdin', '-y', '-v', 'error', '-i', str(raw), '-af', filters,

@@ -78,7 +78,7 @@ def main():
     pod = os.environ.get('RUNPOD_POD_ID', 'local')
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'updated': time.time(), 'pod': pod, 'compute': compute, 'gpu': gpu, 'models': enabled_models()})
+        write(heartbeat, {'updated': time.time(), 'pod': pod, 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'character_controls_version': 1})
     recover_jobs(compute)
     while True:
         beat()

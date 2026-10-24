@@ -165,3 +165,23 @@ CPU pod: Indic-Mio (4.59 seconds of audio in 39.08 seconds), Chatterbox
 An authenticated Indic-Mio job completed on the CPU pod in 33.61 seconds, saved
 a 4.62-second mono 24 kHz WAV, and passed checksum verification through the
 media endpoint. These short-test timings are observations, not latency promises.
+
+## Character delivery update (runtime activation required)
+
+The UI now preserves per-character pitch, speed, pause and Chatterbox expressiveness.
+The schema, coordinator, queue and both inference workers must be deployed together
+from the same revision. Updated workers advertise `character_controls_version: 1`;
+readiness exposes it only when all live workers for that compute target support it.
+The UI uses legacy global controls for uniform settings and rejects distinct native
+settings on old workers instead of dropping them. This source change does not
+activate itself on RunPod. Stop/restart only an idle worker after backing up its files.
+
+Chatterbox uses per-line exaggeration and lower guidance for expressive delivery.
+Cross-language reference clips use zero guidance following the upstream recommendation:
+https://github.com/resemble-ai/chatterbox#original-chatterbox-tips . Explicit voice
+choices remain unchanged; newly assigned Hindi/English characters use the model
+default instead of random Kannada/Marathi references. Free-text acting directions
+are converted to bounded supported cues, not spoken or passed as an unsupported
+model prompt. Indic-Mio uses supported emotion tags; IndicF5 uses its reference
+voice and common timing controls. These mappings require listening acceptance;
+unit tests do not establish professional voice quality or accent accuracy.

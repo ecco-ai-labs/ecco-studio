@@ -1,6 +1,8 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {setup,input,tick}=require('./audio-ui-test-helpers.cjs');
 const dlg='#audio-guided-dialog';
+const directedReply=body=>{const plan=JSON.parse(body.context.summary).draft,part=p=>({...p,performance:{emotion:'neutral',direction:'Natural audience-appropriate narration.',pause_before:.35}});return{questions:[],revisions:[{id:'audio_directed_script',text:JSON.stringify({opening:plan.opening?part(plan.opening):null,segments:plan.segments.map(part),expressiveness:null})}]};};
+
 async function ready(t,intent='podcast',storage={}){
  const x=await setup(storage);t.after(x.close);x.w.EccoWorkspaceUI.startNewStory(x.w.EccoStoryJourneys.get(intent));await tick();
  const realAI=x.w.EccoAI;x.w.EccoAI={...realAI,enabled:true};x.w.EccoStorage={ready:true};return x;
@@ -10,7 +12,7 @@ const field=(x,key,value)=>input(x,dlg+' [data-value='+key+']',value);
 const saved=(x,key)=>JSON.parse(x.w.localStorage.getItem(key));
 function mock(x,{names=['Host','Guest'],questions=['Should the discussion include practical examples?'],texts,invalid=false}={}){
  const calls=[];x.w.testUI.setAPI(async(path,body)=>{
-  calls.push({path,body});if(path==='stories')return{id:'created-story',...body};
+  calls.push({path,body});if(body?.fields?.[0].id==='audio_directed_script')return directedReply(body);if(path==='stories')return{id:'created-story',...body};
   if(path==='ai/news/research')return{research:{items:[{title:'Test report',summary:'Supported facts',sources:[{title:'Test source',url:'https://example.org/news'}]}]}};
   if(body.fields[0].id==='audio_plan'){
    const count=Number(body.fields[0].text.match(/exactly (\d+)/)[1]),cast=body.context.lines;
@@ -36,7 +38,7 @@ test('Only the selected uploaded passage reaches every AI request, then editable
  input(x,'[data-cast-row="0"] [data-character-property=name]','Asha');input(x,'[data-cast-row="0"] [data-character-property=gender]','Female');input(x,'[data-cast-row="0"] [data-character-property=age_group]','Middle aged');
  await submit(x);assert.equal(x.q('[name=summary]').value,'');input(x,'[data-review-text]','नमस्ते।');await submit(x);
  assert.equal(x.q(dlg),null);assert.equal(x.q('[name=audio_audience]').value,'Adults');assert.equal(x.q('[name=audio_language]').value,'Hindi');assert.equal(x.q('[name=genre]').value,'Podcast');assert.match(x.q('[name=summary]').value,/Asha: नमस्ते।/);assert.equal(x.q('[name=sourceText]').value,'Chosen paper excerpt.');assert.match(x.q('[name=journey_second]').value,/Female, Middle aged, Professional/);
- for(const call of calls){assert.equal(call.body.story_id,null);assert.equal(JSON.parse(call.body.context.summary).source_text,'Chosen paper excerpt.');assert.ok(!JSON.stringify(call).includes('SECRET_OUTSIDE'));}
+ for(const call of calls){assert.equal(call.body.story_id,null);assert.equal((JSON.parse(call.body.context.summary).source||JSON.parse(call.body.context.summary)).source_text,'Chosen paper excerpt.');assert.ok(!JSON.stringify(call).includes('SECRET_OUTSIDE'));}
  assert.equal(calls[0].body.context.language,'English');assert.equal(calls[1].body.context.language,'English');assert.equal(calls[2].body.context.language,'Hindi');assert.equal(calls[2].body.context.lines[0].language,'Hindi');assert.match(calls[2].body.context.instructions,/Include one example/);assert.equal(calls[2].body.context.lines[0].gender,'Female');
  const summary=x.q('[name=summary]');input(x,'[name=summary]',summary.value.replace('नमस्ते।','स्वागत है।'));x.q('#story-setup-form').requestSubmit();await tick();
  const audio=saved(x,'ecco-audio-draft:created-story'),board=saved(x,'ecco-board-draft:created-story');assert.equal(audio.lines[0].text,'स्वागत है।');assert.equal(audio.speakers[0].name,'Asha');assert.equal(audio.speakers[0].gender,'Female');assert.equal(audio.lines[0].speaker_id,audio.speakers[0].id);assert.equal(board.scenes[0].narration,'स्वागत है।');assert.equal(board.scenes[0].audio_character_id,audio.speakers[0].id);assert.deepEqual(x.errors,[]);
@@ -77,7 +79,7 @@ test('Topic-only news researches citations, displays them in review, and keeps t
  const x=await ready(t),calls=mock(x,{names:['Newsreader']});await open(x);await questions(x);field(x,'genre','News');await submit(x);assert.equal(x.q('[data-remove-character]').disabled,true);await submit(x);assert.equal(x.q('[data-remove-turn]').disabled,true);assert.equal(x.q('[data-news-sources] a').href,'https://example.org/news');assert.ok(calls.some(c=>c.path==='ai/news/research'));await submit(x);assert.match(x.q('[name=summary]').value,/Newsreader:/);
 });
 
-const scriptReply=body=>({questions:[],revisions:[{id:'audio_plan',text:JSON.stringify({opening:null,segments:Array.from({length:Number(body.fields[0].text.match(/exactly (\d+)/)[1])},(_,i)=>({character_id:body.context.lines[i%body.context.lines.length].character_id,text:'नमस्ते, चलिए बात करते हैं।'}))})}]});
+const scriptReply=body=>body.fields[0].id==='audio_directed_script'?directedReply(body):({questions:[],revisions:[{id:'audio_plan',text:JSON.stringify({opening:null,segments:Array.from({length:Number(body.fields[0].text.match(/exactly (\d+)/)[1])},(_,i)=>({character_id:body.context.lines[i%body.context.lines.length].character_id,text:'नमस्ते, चलिए बात करते हैं।'}))})}]});
 
 test('Generate Script spins while waiting; clarification stays in place and preserves earlier answers and characters',async t=>{
  const x=await ready(t);mock(x);await open(x);await questions(x);input(x,'[data-answer="0"]','Use one practical example.');await submit(x);
@@ -134,7 +136,7 @@ test('Optional Opening and Closing directions produce editable bookends and surv
  assert.equal(x.q('[data-value=opening_instructions]').value,'');assert.equal(x.q('[data-value=closing_instructions]').value,'');
  field(x,'opening_instructions','Welcome to the storybook.');field(x,'closing_instructions','End with the moral of the story.');await submit(x);
  assert.match(calls[1].body.context.instructions,/Welcome to the storybook/);assert.equal(x.q('[data-value=opening]'),null);assert.equal(x.q('[data-opening-pause-label]').hidden,false);
- let generated;x.w.testUI.setAPI(async(path,body)=>{if(path==='stories')return{id:'created-story',...body};generated=body;return {questions:[],revisions:[{id:'audio_plan',text:JSON.stringify({opening:{character_id:body.context.lines[0].character_id,text:'कहानी में आपका स्वागत है।'},segments:[{character_id:body.context.lines[0].character_id,text:'एक दिन एक बच्चा मदद करने निकला।'},{character_id:body.context.lines[0].character_id,text:'सीख यही है कि हमेशा मदद करो।'}]})}]};});await submit(x);
+ let generated;x.w.testUI.setAPI(async(path,body)=>{if(path==='stories')return{id:'created-story',...body};if(body.fields[0].id==='audio_directed_script')return directedReply(body);generated=body;return {questions:[],revisions:[{id:'audio_plan',text:JSON.stringify({opening:{character_id:body.context.lines[0].character_id,text:'कहानी में आपका स्वागत है।'},segments:[{character_id:body.context.lines[0].character_id,text:'एक दिन एक बच्चा मदद करने निकला।'},{character_id:body.context.lines[0].character_id,text:'सीख यही है कि हमेशा मदद करो।'}]})}]};});await submit(x);
  assert.match(generated.context.instructions,/Reserve the final segment/);assert.match(generated.context.instructions,/selected script language/);assert.equal(x.q('[data-review-turn="0"] legend').textContent,'Opening');assert.equal(x.q('[data-review-turn="2"] legend').textContent,'Closing');
  input(x,'[data-review-turn="2"] textarea','आज की सीख है कि दूसरों की मदद करो।');await submit(x);assert.match(x.q('[name=summary]').value,/कहानी में आपका स्वागत है/);assert.match(x.q('[name=summary]').value,/आज की सीख/);
  const p=JSON.parse(x.q('[name=audio_preparation]').value);assert.equal(p.opening_instructions,'Welcome to the storybook.');assert.equal(p.closing_instructions,'End with the moral of the story.');

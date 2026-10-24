@@ -1785,7 +1785,7 @@
       "count": "1–20 active characters, matching the existing 20-segment audio request limit",
       "defaults": "News: 1 newsreader. Podcast, Interview and Casual Conversation: Host + Guest. Other genres: 1 narrator. Genre presets apply only before user cast customization or script content.",
       "identity": "Stable character IDs, independent from voice IDs. Reducing the count keeps inactive names and settings for later reuse.",
-      "voices": "Additional Controls uses named character tabs, model-supported voices, language, emotion, dialect guidance and explicit voice preview."
+      "voices": "Additional Controls contains exactly one accessible tab per active character. Each shows the selected voice with Preview, Delivery Style, Emotion, Pitch, Speed, Pause Before Speaking, optional model Expressiveness, collapsible Language and Accent, and Extra Speaking Instructions. Existing values persist when switching tabs; Left/Right/Home/End support keyboard navigation. Main screen retains compact Characters and Additional Controls sections. Explicit user voice choices remain fixed; new Chatterbox characters default to a same-language reference or Model default rather than an arbitrary cross-language sample."
     },
     "scriptPopup": {
       "entry": "Generate with AI on any Audio story setup or in Audio Studio Spoken script",
@@ -1803,7 +1803,7 @@
       "review": "Show editable speaker-assigned turns. Apply updates spoken script; generation never auto-starts speech. Cancel, stale state and invalid plans preserve the current script.",
       "news": "Without selected scenes or source text, request current cited news through existing research service before writing narration; display cited sources in review."
     },
-    "generation": "Resolve character IDs to their latest voice/language/emotion when submitting existing audio/generate payload. Apply existing global speed, pitch and pause. Keep speech text separate from instructions.",
+    "generation": "Use shared audience-aware script revision and per-turn performance cues. Resolve the current character voice, language, delivery, pitch, speed and pause at Generate. Apply only model-supported controls. Uniform character settings work through existing global controls; differing pitch/speed/expressiveness require an advertised character_controls_version=1 on the selected worker. Never silently drop unsupported settings.",
     "limits": "Existing 4,000 spoken characters, 500 characters per speech segment and 20 speech segments remain enforced before Apply and Generate.",
     "workflowStatus": "Scheduling requires the authenticated CPU workspace audio-workflow runner; UI publication alone does not activate schedules.",
     "guidedJourney": {
@@ -1914,7 +1914,15 @@
         "placement": "Optional Opening and Closing textareas in Questions, with English example placeholders; replace the separate Opening Title choice in Characters.",
         "behavior": "Blank fields omit the corresponding spoken section. Accept wording or directions such as a welcome or moral; AI adapts them to the selected script language and style. Opening uses the existing opening field; Closing occupies the final script segment, within existing character/turn limits. Review shows editable Opening and Closing labels; added body turns go before Closing. Apply, save, Audio Studio and reopening retain the directions and spoken output. No new backend schema or speech runtime is required."
       },
-      "saveProgress": "All Story setup saves use the existing generation-spinner and Saving Story… inside the submit button, aria-busy and duplicate-submit protection. Preserve the busy label through Audio setup observers. On failure restore the prior idle label and retain the draft. Acknowledge creation before progressing; update the story list from that confirmed response. Do not wait for an unrelated full workspace refresh: normal background polling handles it."
+      "saveProgress": "All Story setup saves use the existing generation-spinner and Saving Story… inside the submit button, aria-busy and duplicate-submit protection. Preserve the busy label through Audio setup observers. On failure restore the prior idle label and retain the draft. Acknowledge creation before progressing; update the story list from that confirmed response. Do not wait for an unrelated full workspace refresh: normal background polling handles it.",
+      "editorialReview": "Generate Script first drafts then refines for audience, idiomatic spoken language, listening rhythm and character interplay. Storybook defaults allocate multiple narrative beats. The second request receives only selected source plus the draft; it adds bounded English delivery cues outside spoken words. Source facts, plot, selected chapter boundaries, cast identities and bookends remain fixed. Existing drafts change only on Apply. Spinners remain active through both requests and stale results are rejected.",
+      "chapterSelection": "Main Upload and Audio Upload share PDF Pages and Chapter selection in the same source-picker. Select Pages extracts only physical PDF page ranges locally. Find Chapter with AI uses a bounded numbered outline, then verifies candidate boundary pages; exact page/line/text anchors bound local extraction, excluding the next chapter. Never use contents entries or fall back to page 1/full book. Ambiguity, invalid anchors and oversize sources fail without selecting/truncating. Show chapter title and PDF page range for review; explicit Apply alone commits the selected text. Narrative AI gets only the applied excerpt; locator AI may inspect the book outline and boundary pages to find it. New uploads are pending until a selection is applied, preventing stale-source reuse."
+    },
+    "finalScriptReview": {
+      "placement": "Final Script inside Review Audio, with one editable spoken-text area per character turn and a compact Improve with AI action. Reuses form, section-head, textarea and secondary button styling.",
+      "selection": "Select a word, sentence or paragraph. Improve with AI opens a native generation-dialog with instructions above a read-only Selected Text area, followed by editable Suggested Replacement and Apply. Send only the selected passage and explicit instruction, no whole script, PDF or saved story.",
+      "apply": "Snapshot story, text and selection. Apply replaces exactly that range, retains all surrounding words and character assignments, rejects stale state and enforces existing limits. Editing invalidates old delivery cues. Do not regenerate or modify an existing audio file; clearly state regeneration is needed.",
+      "accessibility": "English labels, native modal focus, shared upper-right Close, Escape and focus return; visible spinner/aria-busy during requests."
     }
   },
   "audioWorkflowScheduling": {

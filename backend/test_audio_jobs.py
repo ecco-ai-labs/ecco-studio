@@ -29,6 +29,19 @@ class AudioJobsTest(unittest.TestCase):
         with self.assertRaises(Problem) as error:
             jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
         self.assertEqual(error.exception.code, 503)
+    def test_character_controls_wait_for_a_capable_worker(self):
+        heartbeat = {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']}
+        jobs.queue.write(jobs.queue.ROOT / 'worker-cpu.json', heartbeat)
+        body = {'lines': [{'text': 'First voice', 'pitch': -2}, {'text': 'Second voice', 'pitch': 2}]}
+        with self.assertRaises(Problem) as error:
+            jobs.generate(body, self.env)
+        self.assertEqual(error.exception.code, 503)
+        self.assertFalse(self.records)
+        heartbeat['character_controls_version'] = 1
+        jobs.queue.write(jobs.queue.ROOT / 'worker-cpu.json', heartbeat)
+        job = jobs.generate(body, self.env)
+        queued = jobs.queue.read(jobs.queue.ROOT / job['id'] / 'request.json')
+        self.assertEqual([line['pitch'] for line in queued['lines']], [-2, 2])
     def test_cpu_requires_a_live_worker_and_verified_model(self):
         jobs.queue.write(jobs.queue.ROOT / 'worker-cpu.json', {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']})
         status = jobs.queue.availability()

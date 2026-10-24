@@ -17,6 +17,17 @@ def reference(runtime, voice):
     return path
 
 
+def chatterbox_controls(request, line):
+    exaggeration = line.get('exaggeration', request['exaggeration'])
+    # Upstream recommends lower guidance for expressive delivery and zero for
+    # cross-language reference clips. Never change the user's selected voice.
+    cfg = .3 if exaggeration > .5 else .5
+    item = next((v for v in MODELS['chatterbox']['voices'] if v['id'] == line['voice']), None)
+    if item and item.get('file') and not item['name'].startswith(line['language'] + ' '):
+        cfg = 0
+    return {'exaggeration': exaggeration, 'cfg_weight': line.get('cfg_weight', cfg)}
+
+
 def synthesize(request, output, runtime):
     import numpy as np
     import torch
@@ -34,7 +45,7 @@ def synthesize(request, output, runtime):
             model.conds = copy.deepcopy(original)
             ref = None if line['voice'] == 'default' else str(reference(runtime, line['voice']))
             clip = model.generate(line['text'], language_id=MODELS['chatterbox']['language_codes'][line['language']],
-                                  audio_prompt_path=ref, exaggeration=request['exaggeration'])
+                                  audio_prompt_path=ref, **chatterbox_controls(request, line))
             clips.append(clip.squeeze().float().cpu().numpy())
     elif request['model'] == 'indicf5':
         from safetensors.torch import load_file

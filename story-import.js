@@ -49,18 +49,20 @@
   panel.querySelector('[data-story-manual]').onclick=()=>{mode('manual');menu.open=false;form.elements.summary.focus();};
   panel.querySelector('[data-story-library]').onclick=()=>navigate('story-library');
   mainForm=form;
-  const picker=window.EccoSourcePicker.create({onApply({text,name:filename,title}){
+  const picker=window.EccoSourcePicker.create({onApply({text,name:filename,title,pages,selection_label}){
    if(!form.isConnected)throw Error('Reopen Upload from the current story.');
+   if(form.elements.story_format.value==='audio'&&text.length>20000)throw Error('Select at most 20,000 source characters. Nothing was truncated.');
+   delete form.dataset.sourcePending;if(form.elements.audio_preparation)form.elements.audio_preparation.value='';
    if(!form.elements.title.value.trim())form.elements.title.value=title.slice(0,160);
-   for(const [name,value]of [['audio_source_scope','selected'],['audio_source_name',filename]]){let field=form.elements[name];if(!field){field=document.createElement('input');field.type='hidden';field.name=name;form.append(field);}field.value=value;}
+   for(const [name,value]of [['audio_source_scope','selected'],['audio_source_name',filename],['audio_source_pages',JSON.stringify(pages||[])],['audio_source_selection',selection_label||'Selected text']]){let field=form.elements[name];if(!field){field=document.createElement('input');field.type='hidden';field.name=name;form.append(field);}field.value=value;}
    source.value=text;form.elements.summary.value=text.length<=4000?text:text.slice(0,3997)+'…';source.dispatchEvent(new Event('input',{bubbles:true}));
    box.querySelector('details').open=true;status.textContent=text.length+' characters extracted from your selection.'+(text.length>4000?' Summary contains an excerpt; the full selection is in Source text.':'')+' Review, then save to continue.';
    if(form.elements.story_format.value!=='audio')form.requestSubmit();
   }});mainPicker=picker;
   open.onclick=()=>picker.open(menu.querySelector('summary'));
-  panel.querySelector('[data-remove]').onclick=()=>{picker.clear();open.disabled=true;input.value='';panel.querySelector('[data-filename]').textContent='';panel.querySelector('[data-file-wrap]').hidden=true;status.textContent='';};
+  panel.querySelector('[data-remove]').onclick=()=>{picker.clear();delete form.dataset.sourcePending;source.value='';for(const name of ['audio_source_scope','audio_source_name','audio_source_pages','audio_source_selection'])if(form.elements[name])form.elements[name].value='';if(form.elements.audio_preparation)form.elements.audio_preparation.value='';source.dispatchEvent(new Event('input',{bubbles:true}));open.disabled=true;input.value='';panel.querySelector('[data-filename]').textContent='';panel.querySelector('[data-file-wrap]').hidden=true;status.textContent='';};
   input.onchange=async()=>{
-   const file=input.files[0];if(!file)return;open.disabled=true;status.textContent='Opening PDF…';
+   const file=input.files[0];if(!file)return;form.dataset.sourcePending='true';open.disabled=true;status.textContent='Opening PDF…';
    try{await picker.load(file,menu.querySelector('summary'));if(!form.isConnected)return;panel.querySelector('[data-filename]').textContent=picker.name;panel.querySelector('[data-file-wrap]').hidden=!picker.ready;open.disabled=!picker.ready;status.textContent='';}
    catch(error){if(form.isConnected){window.EccoErrors?.show(error);status.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open PDF: '+error.message;}}
   };

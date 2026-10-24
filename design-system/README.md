@@ -174,3 +174,28 @@ persisted audio workflow pauses it before hiding it in this browser Trash.
 The CPU workspace runner retains definitions, source evidence, scripts and run
 results. It uses the selected compute without fallback or GPU provisioning.
 GitHub Pages publication alone does not deploy this backend or activate schedules.
+
+## Storytelling, chapter selection and final-script review
+
+Generate Script now includes an audience-focused editorial and delivery pass before
+review. It preserves the selected source, plot and character assignments while
+requesting idiomatic spoken language and genre-appropriate listening structure.
+Delivery cues are stored separately from speech. Additional Controls uses one
+keyboard-accessible tab per character, with voice preview, style, emotion, pitch,
+speed, pause, language/accent and extra instructions. Only supported native controls
+are applied; identical UI does not guarantee identical performance from all models.
+
+Both PDF upload surfaces support physical page ranges and Find Chapter with AI.
+The locator reads a numbered outline and verifies boundary pages; local extraction
+uses exact anchors and excludes the next chapter. It never falls back to the
+book opening or truncates an oversized chapter. Apply commits the reviewed excerpt.
+Only that excerpt goes to narrative generation, while the locator necessarily
+inspects book structure. New uploads block stale-source reuse until selection.
+
+Final Script appears beside Review Audio. Select a passage, choose Improve with AI,
+enter instructions above the selected text and review the replacement. Apply changes
+only that range, rejects stale edits and preserves character assignments. Existing
+recordings stay unchanged until the user generates again.
+
+Per-character native controls require the matching CPU coordinator and audio worker
+update; GitHub Pages publication alone does not install that runtime.

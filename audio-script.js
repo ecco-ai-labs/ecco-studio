@@ -7,7 +7,7 @@
  const split=text=>{const parts=[];let rest=text.trim();while(rest.length>500){let cut=Math.max(rest.lastIndexOf('\n',500),rest.lastIndexOf(' ',500));if(cut<100)cut=500;parts.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}if(rest)parts.push(rest);return parts;};
  function validatePlan(plan,cast,expectedTurns,scenes=[]){
   const ids=new Set(cast.map(c=>c.id)),sceneIds=new Set(scenes.map(s=>s.scene_number));
-  const clean=part=>{if(!part||typeof part.text!=='string'||!part.text.trim()||!ids.has(part.character_id))throw Error('AI returned an invalid character or empty turn. Your script was preserved.');return {text:part.text.trim(),character_id:part.character_id,...(sceneIds.has(part.scene_number)?{scene_number:part.scene_number}:{})};};
+  const clean=part=>{if(!part||typeof part.text!=='string'||!part.text.trim()||!ids.has(part.character_id))throw Error('AI returned an invalid character or empty turn. Your script was preserved.');return {text:part.text.trim(),character_id:part.character_id,...(part.performance?{performance:window.EccoAudioDirection.clean(part.performance)}:{}),...(sceneIds.has(part.scene_number)?{scene_number:part.scene_number}:{})};};
   if(!plan||!Array.isArray(plan.segments)||plan.segments.length!==expectedTurns)throw Error('AI did not return the requested number of turns. Try Generate again.');
   const result={opening:plan.opening?.text?.trim()?clean(plan.opening):null,segments:plan.segments.map(clean)};
   if(result.opening?.text.length>300)throw Error('Shorten the opening title to 300 characters.');
@@ -15,6 +15,7 @@
   if(parts.reduce((n,p)=>n+p.text.length,0)>MAX_TEXT)throw Error('Shorten the script to 4,000 characters before applying.');
   if(parts.reduce((n,p)=>n+split(p.text).length,0)>MAX_SEGMENTS)throw Error('Shorten the script to fit 20 speech segments before applying.');
   if(cast.length>1&&cast.some(c=>!result.segments.some(p=>p.character_id===c.id)))throw Error('The script must include every selected character. Try Generate again.');
+  if(Number.isFinite(plan.expressiveness))result.expressiveness=plan.expressiveness;
   return result;
  }
  async function readSource(file){
@@ -84,7 +85,7 @@
     checkReview();if(result.questions?.length)throw Error(result.questions.join(' '));
     if(result.revisions?.length!==1||result.revisions[0].id!=='audio_plan'||typeof result.revisions[0].text!=='string')throw Error('AI returned an incomplete script. Try again.');
     let parsed;try{parsed=JSON.parse(result.revisions[0].text.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));}catch{throw Error('AI returned an unreadable script. Try again.');}
-    plan=validatePlan(parsed,cast,request.turns,scenes());renderReview();
+    plan=validatePlan(parsed,cast,request.turns,scenes());status.textContent='Refining Script for Audience…';plan=await window.EccoAudioDirection.refine({plan,cast,brief:{...request,genre:getDraft().genre,audience:getDraft().script_brief?.audience||'General audience'},model:model(),source:{source_text:request.source_text,research},request:api,assertCurrent:checkReview});renderReview();
    }catch(error){if(current()){status.textContent=error.message||'Script generation failed. Try again.';window.EccoErrorLog?.record(error,{source:'audio script',stage:'generation'});}}
    finally{if(current()){busy=false;button.disabled=false;button.textContent='Generate Script';q('[data-brief]').disabled=false;}}
   };

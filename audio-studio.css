@@ -18,7 +18,7 @@
 
 
 .audio-speaker-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
-.audio-speaker-tabs [aria-pressed=true]{border-color:var(--accent,#ffdc24);color:var(--accent,#ffdc24);box-shadow:0 0 0 1px #ffdc2420}
+.audio-speaker-tabs [aria-pressed=true],.audio-speaker-tabs [aria-selected=true]{border-color:var(--accent,#ffdc24);color:var(--accent,#ffdc24);box-shadow:0 0 0 1px #ffdc2420}
 [data-delivery-controls],[data-speaker-panel]{display:flex;flex-direction:column;gap:12px}
 .audio-voice-row,.audio-turn-heading{display:flex;align-items:flex-end;gap:10px}
 .audio-voice-row>label,.audio-turn-heading>label{flex:1;min-width:0}
@@ -53,3 +53,4 @@
 #audio-guided-dialog .audio-guided-steps [aria-current=step]{color:var(--accent);font-weight:600}
 #audio-guided-dialog [data-status],#audio-guided-dialog .audio-source-review{white-space:pre-wrap;overflow-wrap:anywhere}
 #audio-guided-dialog textarea{min-height:100px}
+

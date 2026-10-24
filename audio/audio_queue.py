@@ -47,6 +47,7 @@ def availability():
     for target in ('cpu', 'a100', 'b200'):
         models = sorted({model for w in live if w['compute'] == target for model in supported(w)})
         compute[target] = {'ready': bool(models), 'models': models,
+                           'character_controls_version': 1 if models and all(w.get('character_controls_version') == 1 for w in live if w['compute'] == target) else 0,
                            'reason': '' if models else target.upper() + ' audio worker is not connected.'}
     return {'routing_version': 1, 'ready': any(v['ready'] for v in compute.values()), 'compute': compute}
 

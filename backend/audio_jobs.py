@@ -39,6 +39,8 @@ def generate(body, env, *, job_id=None):
         target = queue.availability()['compute'][request['compute']]
         if not target['ready']:
             raise env['Problem'](target['reason'], 503)
+        if request.get('character_controls_version') and target.get('character_controls_version') != 1:
+            raise env['Problem']('Update the selected audio worker before using per-character pitch, speed or expressiveness.', 503)
         if request['model'] not in target['models']:
             raise env['Problem']('This audio model is not enabled on ' + request['compute'].upper() + '. Choose another compute target.', 503)
         active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running')]

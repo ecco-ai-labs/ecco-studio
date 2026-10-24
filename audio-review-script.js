@@ -1,0 +1,34 @@
+'use strict';
+(()=>{
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const all=plan=>[...(plan.opening?[{...plan.opening,opening:true}]:[]),...plan.segments];
+ function mount({root,getPlan,setPlan,getCast,getBrief}){
+  if(!root)return;
+  let section=root.querySelector('[data-final-script]');if(section)return section.update();
+  section=document.createElement('section');section.dataset.finalScript='';section.className='form';section.innerHTML='<div class="section-head"><h3>Final Script</h3><button type="button" class="secondary" data-improve-selection>Improve with AI</button></div><p class="help">Select a word, sentence or paragraph, then choose Improve with AI.</p><div data-final-turns class="form"></div><p role="status" data-script-edit-status></p>';root.querySelector('.section-head').after(section);
+  let signature='',chosen=null;const host=section.querySelector('[data-final-turns]'),note=section.querySelector('[data-script-edit-status]');
+  section.update=()=>{
+   const plan=getPlan(),next=JSON.stringify([plan,getCast()]);if(next===signature||host.contains(document.activeElement))return;signature=next;chosen=null;
+   host.innerHTML=all(plan).map((part,i)=>'<label>'+esc((part.opening?'Opening · ':'')+(getCast().find(c=>c.id===part.character_id)?.name||'Narrator'))+'<textarea data-final-turn="'+i+'" dir="auto" rows="3" maxlength="4000">'+esc(part.text)+'</textarea></label>').join('');
+   if(!all(plan).length)host.textContent='Your script will appear here.';
+   host.querySelectorAll('textarea').forEach(field=>{const select=()=>{chosen=field;};field.addEventListener('select',select);field.addEventListener('focus',select);field.addEventListener('keyup',select);field.addEventListener('mouseup',select);field.oninput=()=>{const plan=getPlan(),index=Number(field.dataset.finalTurn),part=plan.opening?(index===0?plan.opening:plan.segments[index-1]):plan.segments[index];part.text=field.value;delete part.performance;setPlan(plan);signature=JSON.stringify([plan,getCast()]);note.textContent='Script changed. Generate audio to hear the revision.';};});
+  };
+  section.querySelector('[data-improve-selection]').onclick=()=>{
+   if(!chosen?.isConnected||chosen.selectionStart===chosen.selectionEnd){note.textContent='Select the words you want to improve first.';chosen?.focus();return;}
+   const field=chosen,start=field.selectionStart,end=field.selectionEnd,original=field.value,selected=original.slice(start,end),planSnapshot=JSON.stringify(getPlan()),story=activeStory,opener=section.querySelector('[data-improve-selection]');
+   const dialog=document.createElement('dialog');dialog.id='audio-selection-ai';dialog.className='generation-dialog';dialog.setAttribute('aria-label','Improve with AI');dialog.innerHTML='<form class="form"><div class="section-head"><h2>Improve with AI</h2><button type="button" class="secondary" data-close aria-label="Close">×</button></div><label>How should AI change this?<textarea data-instructions rows="3" maxlength="2000" required placeholder="Replace this word, make this sentence more fun, or use simpler spoken Hindi."></textarea></label><label>Selected Text<textarea data-selected-text readonly rows="3" dir="auto"></textarea></label><button type="submit" data-improve>Improve</button><label data-suggestion-label hidden>Suggested Replacement<textarea data-replacement rows="4" dir="auto" maxlength="4000"></textarea></label><p role="status"></p><button type="button" data-apply hidden>Apply</button></form>';document.body.append(dialog);
+   const q=s=>dialog.querySelector(s),status=q('[role=status]'),button=q('[data-improve]');q('[data-selected-text]').value=selected;let busy=false,closed=false;
+   const valid=()=>{if(closed||!dialog.open||!field.isConnected||activeStory!==story||field.value!==original||JSON.stringify(getPlan())!==planSnapshot)throw Error('The script changed. Select the current passage and try again.');};
+   q('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{closed=true;dialog.remove();if(opener.isConnected)opener.focus();},{once:true});
+   q('form').onsubmit=async event=>{event.preventDefault();if(busy||!q('form').reportValidity())return;try{
+    valid();if(!window.EccoStorage?.ready||!window.EccoAI?.enabled)throw Error('Connect AI and workspace storage first. Your script is unchanged.');busy=true;button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Improving…';q('[data-apply]').hidden=true;
+    const brief=getBrief(),instruction='Revise ONLY the selected spoken passage according to the user instruction. Return only replacement words, no labels, quotes around the answer, stage directions or explanation. Preserve its language and meaning unless the user requests a change. Do not add a new introduction, ending or unprovided facts. Do not reconstruct the surrounding story. Questions and notes must be English. Audience: '+(brief.audience||'General audience')+'. Genre: '+(brief.genre||'Story Book Reading')+'. Language style: '+(brief.language_style||'Everyday / Conversational')+'. User instruction: '+q('[data-instructions]').value.trim();
+    const result=await api('ai/enhance',{stage:'audio',mode:'improve',story_id:null,fields:[{id:'selected_audio_text',text:selected,max_length:4000}],context:{instructions:instruction},review_only:false});valid();if(result.questions?.length)throw Error(result.questions.join(' '));const revision=result.revisions?.find(r=>r.id==='selected_audio_text')?.text;if(typeof revision!=='string')throw Error('AI returned no replacement. Your script is unchanged.');q('[data-replacement]').value=revision;q('[data-suggestion-label]').hidden=false;q('[data-apply]').hidden=false;status.textContent='Review the replacement, then Apply.';
+   }catch(error){if(!closed)status.textContent=error.message;}finally{busy=false;if(!closed){button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Improve';}}};
+   q('[data-apply]').onclick=()=>{try{valid();const value=original.slice(0,start)+q('[data-replacement]').value+original.slice(end),plan=getPlan(),index=Number(field.dataset.finalTurn),part=plan.opening?(index===0?plan.opening:plan.segments[index-1]):plan.segments[index];part.text=value;delete part.performance;window.EccoAudioScript.validatePlan(plan,getCast(),plan.segments.length);setPlan(plan);field.value=value;signature=JSON.stringify([plan,getCast()]);note.textContent='Selected text updated. Generate audio to hear the revision.';dialog.close();}catch(error){status.textContent=error.message;}};
+   dialog.showModal();q('[data-instructions]').focus();
+  };
+  section.update();
+ }
+ window.EccoAudioReviewScript={mount};
+})();

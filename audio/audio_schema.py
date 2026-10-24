@@ -44,6 +44,15 @@ def validate(body):
         if voice not in [v['id'] for v in model['voices']]:
             raise ValueError('Choose one of the available voices.')
         clean.append(dict(text=text.strip(), language=language, emotion=emotion, voice=voice))
+        controls = {'speed': (.75, 1.5), 'pitch': (-4, 4)}
+        if model_id == 'chatterbox':
+            controls.update(exaggeration=(0, 2), cfg_weight=(0, 1))
+        for key, (low, high) in controls.items():
+            if key in line:
+                value = line[key]
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
+                    raise ValueError(f'Character {key} must be between {low} and {high}.')
+                clean[-1][key] = value
         if 'pause_before' in line:
             pause = line['pause_before']
             if isinstance(pause, bool) or not isinstance(pause, (int, float)) or not math.isfinite(pause) or not 0 <= pause <= 10:
@@ -64,6 +73,8 @@ def validate(body):
                 pause=bounded('pause', 0.35, 0, 2))
     if model_id == 'chatterbox':
         result['exaggeration'] = bounded('exaggeration', .5, 0, 2)
+    if any(any(key in line for key in ('speed', 'pitch', 'exaggeration', 'cfg_weight')) for line in clean):
+        result['character_controls_version'] = 1
     return result
 
 
