@@ -9,6 +9,29 @@ scripts, and generated WAV assets persist on the network volume independently.
 An English-and-Hindi request passed generation, checksum-verified asset commit,
 and authenticated media retrieval on 2026-10-18.
 
+## CPU activation recorded — 2026-10-24
+
+The existing CPU audio worker and storage API were updated at 14:52 PDT
+(21:52 UTC), using audio source revision
+`3f692c86f6356727fcfe9c316f0717e5570bae5a` and deployment helper
+`a8784b4b2c3c7db298a20d032077de1e2886fc99`. No GPU was started.
+
+All 16 destination checksums matched the pinned plan (9 source files, with
+shared audio modules installed in both service directories). The restarted API
+returned `{"ok": true, "service": "ecco-storage-api", "gpu_required": false}`.
+The fresh CPU heartbeat advertised Indic-Mio, Chatterbox and IndicF5 with
+`character_controls_version: 1` and `sound_design_version: 1`.
+Source backups and the deployment result are retained at
+`/workspace/ecco-audio-update-1792878724640331142/`.
+
+This establishes CPU runtime activation and health, not successful new audio
+generation. Authenticated end-to-end generation, a saved playable mixed recording,
+and listening acceptance for the updated delivery are still pending. Real-book
+chapter-boundary and selected-text AI acceptance are also not established by this
+deployment. Generating new sound files and scheduled soundtracks remain
+unimplemented; selected existing Audio Library sounds are the supported mixing
+input. GPU activation/readiness was not tested.
+
 ## Ownership
 
 | Part | Location |
@@ -166,7 +189,7 @@ An authenticated Indic-Mio job completed on the CPU pod in 33.61 seconds, saved
 a 4.62-second mono 24 kHz WAV, and passed checksum verification through the
 media endpoint. These short-test timings are observations, not latency promises.
 
-## Character delivery update (runtime activation required)
+## Character delivery update (CPU activation recorded above)
 
 The UI now preserves per-character pitch, speed, pause and Chatterbox expressiveness.
 The schema, coordinator, queue and both inference workers must be deployed together
@@ -186,7 +209,7 @@ model prompt. Indic-Mio uses supported emotion tags; IndicF5 uses its reference
 voice and common timing controls. These mappings require listening acceptance;
 unit tests do not establish professional voice quality or accent accuracy.
 
-## Sound design update (runtime activation required)
+## Sound design update (CPU activation recorded above)
 
 Music and effects use selected Audio Library assets, not a generative sound model.
 The UI suggests/reviews cues separately from dialogue and requires explicit files.
