@@ -51,6 +51,17 @@ class StorageTest(unittest.TestCase):
   with self.assertRaises(HTTPError) as error:
    self.call('/api/state',auth=False,extra={'Authorization':'Bearer '+signed['session_token']})
   self.assertEqual(error.exception.code,401)
+ def test_support_inbox_setup_requires_existing_workspace_owner(self):
+  import ecco_desk_inbox as inbox
+  with patch.object(inbox,'start',return_value={'url':'https://accounts.google.com/fixture'}) as start:
+   for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:
+    with self.assertRaises(HTTPError) as error:self.call('/api/desk/inbox/connect',{},auth=auth,origin=origin,extra={'Content-Type':'application/json'})
+    self.assertEqual(error.exception.code,code)
+   start.assert_not_called()
+   with self.call('/api/desk/inbox/connect',{},extra={'Content-Type':'application/json'}) as response:self.assertIn('url',json.load(response))
+   start.assert_called_once()
+   with self.assertRaises(HTTPError) as error:self.call('/api/desk/inbox/connect')
+   self.assertEqual(error.exception.code,405)
  def test_google_routes_origin_and_json(self):
   import google_signin
   with patch.object(google_signin,'ready',return_value=True):

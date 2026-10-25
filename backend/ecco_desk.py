@@ -273,6 +273,29 @@ def write(db, me, body, workspace_key, configured_key):
 
 
 def handle(handler, path, allowed_origin, database, configured_key):
+    if path == '/api/desk/inbox/connect':
+        # The existing workspace owner can configure the support mailbox before
+        # a team administrator is enrolled. This is the same private owner key
+        # used for other backend provider connections, never a customer session.
+        try:
+            if handler.headers.get('Origin') != allowed_origin:
+                raise DeskError('Origin denied.', 403)
+            if not configured_key or not hmac.compare_digest(handler.headers.get('Authorization',''), 'Bearer '+configured_key):
+                raise DeskError('Workspace owner authentication is required.', 401)
+            if handler.command != 'POST':
+                raise DeskError('Use POST to start an inbox connection.', 405)
+            length=int(handler.headers.get('Content-Length','0'))
+            if not 0 < length <= 32 or handler.headers.get('Content-Type','').split(';')[0]!='application/json':
+                raise DeskError('Expected an empty JSON object.')
+            if json.loads(handler.rfile.read(length)) != {}:
+                raise DeskError('Inbox settings cannot be supplied in this request.')
+            import ecco_desk_inbox
+            handler.send(ecco_desk_inbox.start())
+        except DeskError as exc:
+            handler.send({'error':str(exc)},exc.status)
+        except Exception:
+            handler.send({'error':'Could not start support inbox authorization. Check the existing Google OAuth configuration.'},503)
+        return True
     if path == '/api/youtube/callback' and any(s.startswith('desk-inbox-') for s in parse_qs(urlsplit(handler.path).query).get('state', [])):
         import ecco_desk_inbox
         ecco_desk_inbox.callback(handler)

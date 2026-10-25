@@ -116,7 +116,10 @@ Message-ID reference, never merely a ticket number in the subject.
 An administrator selects **Team members → Connect support email** and authorizes
 `support@saazztechnologies.com`. The existing Ecco OAuth client and registered
 callback are reused; the existing YouTube token is not changed. Enable Gmail API
-in that OAuth client's project if necessary. Refresh credentials are encrypted in
+in that OAuth client's project if necessary. Before team enrollment, the existing
+workspace owner may POST an empty JSON object to `/api/desk/inbox/connect`
+using the existing private workspace key and approved Studio Origin; customer
+sessions cannot use this setup route. Refresh credentials are encrypted in
 `/workspace/ecco-storage-private/desk-inbox.json`, mode 0600. No mailbox password
 is stored. Only this exact mailbox is accepted, and the service does not change
 Gmail labels, mark mail read or delete mail. SMTP relay setup alone does not grant
