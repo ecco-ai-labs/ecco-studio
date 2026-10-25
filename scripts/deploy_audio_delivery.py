@@ -16,14 +16,9 @@ import subprocess
 import time
 from urllib.request import urlopen
 
-SOURCE_COMMIT = 'a30d3c372ad057c1b85e6aaf7af02c7624b637d9'
+SOURCE_COMMIT = '9e3f04bb9e9c428b1c80d001af67cf2e4d0504d7'
 SOURCE_HASHES = {
-    'audio/audio_routing.py': '2c5155779036f487f69f4edff67b4f4cfc2903d98f64fb955b1d897006d81e0f',
-    'audio/audio_queue.py': 'bdec193466ceb2aebe71cacdd54884a42f0505e7a4eea12d6d2b93a864e0fe78',
-    'audio/audio_schema.py': '2247cbcf3c2ba3bb54f6d9813db05fbee6f7d6f57baefbc8741af957d2e29c3a',
-    'audio/sound_schema.py': '29bf33af1f26020bda1ae22184fafd5bf90073ba8d6784900eb8e3a88dbbd15c',
-    'audio/queue_worker.py': 'b0e608edd1d6252d8f837c6b293881ebeb99958ab18951b1aa957891dc3a6e30',
-    'backend/audio_jobs.py': 'f42944a8d48ff269cf37a129758880ca13b7f5954a5267b43a2fa31539ff3aae',
+    'backend/openai_assistant.py': 'fd881816e926b41a90f368eb5e457c2133f6689f29ecaf343cc7d3590cdfe8fc',
 }
 APP = Path('/workspace/ecco-storage-app')
 AUDIO = Path('/workspace/ecco-audio')
