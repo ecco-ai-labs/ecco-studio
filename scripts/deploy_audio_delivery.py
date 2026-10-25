@@ -16,10 +16,8 @@ import subprocess
 import time
 from urllib.request import urlopen
 
-SOURCE_COMMIT = '9e3f04bb9e9c428b1c80d001af67cf2e4d0504d7'
-SOURCE_HASHES = {
-    'backend/openai_assistant.py': 'fd881816e926b41a90f368eb5e457c2133f6689f29ecaf343cc7d3590cdfe8fc',
-}
+SOURCE_COMMIT = 'fd624a3cadd0007f7d39fe1287dff40ed1ea29fc'
+SOURCE_HASHES = {'audio/audio_schema.py': '68e6552821c33b2eecccc8daaecc86404fe2a127832cff9d54dda733f87c377d', 'backend/audio_stories.py': '93635f6f3f917850e9df505c88669b7b1cdbd17f7d8595cf2736bf8f281f2132'}
 APP = Path('/workspace/ecco-storage-app')
 AUDIO = Path('/workspace/ecco-audio')
 DATABASE = Path('/workspace/ecco-studio-data/studio.sqlite')
