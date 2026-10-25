@@ -133,7 +133,7 @@
   if(initial.opening==='include'&&!Object.hasOwn(initial,'opening_instructions'))data.opening_instructions='Introduce this recording.';
   data.opening=data.opening_instructions.trim()?'include':'none';
   if(!languageStyles.includes(data.language_style))data.language_style=languageStyles[0];
-  data.cast=data.cast.map((c,i)=>profile(c,i,model,data.language));data.turns=Math.min(20,Math.max(Number(data.turns)||4,data.cast.length||1));
+  data.cast=data.cast.map((c,i)=>profile(c,i,model,data.language));data.turns=Math.min(80,Math.max(Number(data.turns)||4,data.cast.length||1));
   let step=0,busy=false,epoch=0,closed=false,plan=null,version=0,planVersion=-1,pendingTurns=null;
   dialog.innerHTML='<form class="form"><div class="section-head"><h2 id="audio-guided-title">Generate with AI</h2><button type="button" class="secondary" data-close aria-label="Close">×</button></div><nav class="audio-guided-steps" aria-label="Audio preparation steps"></nav><section data-connections-needed class="panel" hidden><p data-connection-message role="status"></p><button type="button" class="secondary" data-open-connections>Open Connections</button></section><div class="row"><button type="button" class="secondary" data-resume-draft hidden>Resume Saved Draft</button><span data-draft-status role="status" aria-live="polite"></span></div><div data-stage></div><p data-status role="status" aria-live="polite" tabindex="-1"></p><div class="row"><button type="button" class="secondary" data-back>Back</button><button type="button" class="secondary" data-save-draft>Save Draft</button><button type="submit" data-next>Continue</button></div></form>';
   document.body.append(dialog);const el=s=>dialog.querySelector(s),stage=el('[data-stage]'),status=el('[data-status]');
