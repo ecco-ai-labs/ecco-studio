@@ -100,7 +100,7 @@
     "disconnectedIndicator": "white",
     "errorText": "red",
     "popupClose": {
-      "glyph": "×",
+      "glyph": "\u00d7",
       "placement": "upper right",
       "background": "Theme accent, matching Minimize",
       "behavior": "Close only the owning popup; preserve parent popup"
@@ -108,7 +108,7 @@
     "newObjects": "Register component type and properties, reuse existing component rules, regenerate inventory in the same change.",
     "numericValues": "Do not invent sizes or silently normalize existing differences. Record actual declarations and obtain approval for changed standards.",
     "connectionOrder": "Storage is always first in both the Connections dialog and the control-panel icon order, followed by AI, GPU and publishing connections; independent of connection state.",
-    "audioDraftIsolation": "Every newly started unsaved story has a stable local draft ID. Audio Studio uses that ID until the story is saved; never reuse another new story’s script, cast or sounds. Earlier local drafts and legacy standalone audio remain preserved. Restoring a local story restores its own audio.",
+    "audioDraftIsolation": "Every newly started unsaved story has a stable local draft ID. Audio Studio uses that ID until the story is saved; never reuse another new story\u2019s script, cast or sounds. Earlier local drafts and legacy standalone audio remain preserved. Restoring a local story restores its own audio.",
     "aiKeyEntry": "OpenAI key dialog opens with an empty, initially read-only password field and focus on its heading. Pointer or keyboard focus unlocks entry and browser password-manager selection; preserve the selected key until explicit Verify & connect. Never prefill a key, connect automatically, or persist the key in browser storage. Clear on submit and close.",
     "popupMinimize": {
       "approval": "User requested universally minimizing popups to visit previous screens and connect services without losing work.",
@@ -121,7 +121,19 @@
     "publishingStatus": "Publishing control-panel icon shows only YouTube: Connected or YouTube: Not Connected (or the connected platform name). Hover, keyboard focus and click reveal compact theme-aware status; never open Connections from the indicator or its channel list. Connection management stays in the Connections menu.",
     "popupControlAppearance": "All Studio modal close/minimize controls, Activity drawer close, and Desk dialog/ticket close controls use popup-controls.css. Fixed 26x26 border-box with no padding, margin or shadow; 14x14 SVG strokes at 2px; theme accent background and contrast foreground for default/hover/focus; focus outline uses theme text. Behaviors and popup positioning remain unchanged. Explicit flex centering, zero SVG margins and higher specificity than dialog-wide button sizing ensure icons stay centered, including Connections.",
     "libraryBrowsing": "Image, Audio, Video, Story and Workflow Library headers provide right-aligned compact search, date/status filter and sort controls. Preferences survive library navigation in the current tab. Sort by creation time or name; media also by byte size, unknown values last. Audio/Video List uses compact media rows with Created, Size, Duration, Model and Status metadata. Existing players, selections and actions remain available; no generation or new remote downloads. Size uses known records or already-loaded media bytes; unavailable metadata is shown as an em dash. Global sorting hides collection headings; row collection captions remain. Responsive wrapping and native labelled search/select controls.",
-    "studioWorkspaceTabs": "Audio, Image and Video use a joined Final Script / Progress / Review tab strip in the right workspace: transparent tab surfaces, square corners, theme-accent underline on active tab; native tablist/tab/tabpanel semantics, roving tabindex and Arrow/Home/End navigation. Image edits the existing prompt and previews the composed generation prompt. Video shows source speech plus selected shot directions and opens existing script/shot editors. Progress mirrors current form status without moving form-owned state; sequence controls live in Progress. Review retains existing media nodes and actions. Polling never changes the selected tab; submit opens Progress. No new generation backend or speech re-recording is implied."
+    "studioWorkspaceTabs": "Audio, Image and Video use a joined Final Script / Progress / Review tab strip in the right workspace: transparent tab surfaces, square corners, theme-accent underline on active tab; native tablist/tab/tabpanel semantics, roving tabindex and Arrow/Home/End navigation. Image edits the existing prompt and previews the composed generation prompt. Video shows source speech plus selected shot directions and opens existing script/shot editors. Progress mirrors current form status without moving form-owned state; sequence controls live in Progress. Review retains existing media nodes and actions. Polling never changes the selected tab; submit opens Progress. No new generation backend or speech re-recording is implied.",
+    "notifications": {
+      "types": [
+        "icon-button",
+        "badge",
+        "panel",
+        "list",
+        "button"
+      ],
+      "appearance": "Bell in GitHub/Support control panel, matching 16px icons; compact theme-aware dropdown, exact unread count in small top-right badge; hide zero badge.",
+      "behavior": "List all unread public product announcements. Mark as read removes one and updates count; simply opening does not discard unread items. Escape, outside click and focus departure dismiss. Per-Google-identity browser-local receipts persist across refresh and synchronize tabs; no cross-device receipt sync. Announcements maintained in notifications.json and refreshed every five minutes while visible. No referral reward or referral backend implied.",
+      "accessibility": "Named button, aria-expanded/controls, keyboard-readable items and explicit mark-read actions, focus retained after dismissal; textContent for feed content."
+    }
   },
   "components": [
     {
@@ -1552,7 +1564,7 @@
     }
   ],
   "theme": {
-    "editor": "Settings → Theme side-sliding menu",
+    "editor": "Settings \u2192 Theme side-sliding menu",
     "properties": [
       "background",
       "surface",
@@ -1761,7 +1773,7 @@
     "source": "Simple Icons SVG brand marks, bundled inline in publishing-platforms.js; attribution in assets/publishing/README.md.",
     "entry": "Publish journey step opens tabs directly; no intermediate review text or Open publishing action.",
     "submit": "One Publish button above tabs; disabled with visible explanation when no channel, destination choice or approved video is available, or selected platform is unsupported. Existing form validation and explicit upload confirmation remain required.",
-    "youtubeAuthorization": "Connections → YouTube → Connect opens Google synchronously from the user click after workspace and OAuth configuration are ready. Pending requests disable duplicate attempts. Backend-verified status updates the control panel and publishing destination selector without replacing drafts, platform selection or focus. Backend authorization, PKCE and token encryption are unchanged.",
+    "youtubeAuthorization": "Connections \u2192 YouTube \u2192 Connect opens Google synchronously from the user click after workspace and OAuth configuration are ready. Pending requests disable duplicate attempts. Backend-verified status updates the control panel and publishing destination selector without replacing drafts, platform selection or focus. Backend authorization, PKCE and token encryption are unchanged.",
     "youtubeSetup": "Connections control panel owns the YouTube Connect/Connected and Disconnect controls. Connect remains enabled unless a request is in flight, and opens Set up YouTube before storage authentication when needed. The JSON file picker stays accessible; installation requires authenticated CPU setup availability. A separate Connect storage action opens a nested storage dialog and preserves the current page and selected file. Storage and Google secrets are never interchangeable. Closing a child preserves Connections and restores focus. Existing configuration discovered after storage login offers explicit Google authorization instead of replacement. No secrets are rendered or cached; bounded JSON goes only to the existing authenticated CPU endpoint.",
     "selection": "The Publish navigation step remains active on the publishing page, using the existing theme-colored inset left highlight. Selected platform tabs use the same 3px inset left accent, replacing the bottom underline; no full accent border. Default yellow, active theme accent otherwise.",
     "forms": "All six platforms retain editable video/title/description/visibility/audience and confirmation forms. Connection cards, Connect buttons and connection shortcuts are removed from Publishing. YouTube has a required destination dropdown populated only from authorized CPU channel metadata. Other platforms remain unavailable until backend integration exists.",
@@ -1774,7 +1786,7 @@
     "libraryOptions": "Each platform production-video chooser opens the existing Video or Audio Library in selection mode. Checkbox on every available item; Select all, Clear selection, Add selected (N), Cancel. Selections span stories, retain previews and survive library refresh/filter changes. Add selected returns to the originating platform with its draft and selected items; Cancel restores the original selection. Uploaded videos cannot be selected. Items have editable publishing titles and individual Remove buttons; shared description, visibility, audience and optional playlist apply to every selected video. Changing selection or titles clears explicit upload consent. Audio can be selected but YouTube publication explains that it requires video and remains disabled. No automatic conversion or GPU work.",
     "batchPublishing": "Explicitly confirmed YouTube selection queues the existing authenticated single-video API once per approved video, with individual titles. Prevent concurrent submissions and re-submission of accepted or uncertain requests. Stop on a failed request, retain per-item status and direct the owner to Activity. Other platforms keep selections but uploads remain unavailable.",
     "pickerAppearance": "Existing library cards/previews and form/button styles. Checkbox labels use 12px padding; selected-item rows wrap with 8px gap and 12px bottom margin; title labels flex with 180px minimum width. Selection controls remain keyboard accessible; empty state disables Add selected and focuses Cancel.",
-    "publishingFeedback": "User requested visible ongoing publishing and traceable Activity/Debugging/Errors. Publish shows a 16px circular theme-colored spinner, Publishing… and aria-busy during confirmed submission/queued/running work. A persistent status panel shows the last five attempts with real worker progress, timestamp, job/request ID, actual visibility and a YouTube link only after the server reports an uploaded video ID. Failures and uncertain outcomes are explicit; no synthetic progress or automatic upload retries. Completed uploads loaded from workspace records are recovered into history; reserved uploads without a known job remain unknown.",
+    "publishingFeedback": "User requested visible ongoing publishing and traceable Activity/Debugging/Errors. Publish shows a 16px circular theme-colored spinner, Publishing\u2026 and aria-busy during confirmed submission/queued/running work. A persistent status panel shows the last five attempts with real worker progress, timestamp, job/request ID, actual visibility and a YouTube link only after the server reports an uploaded video ID. Failures and uncertain outcomes are explicit; no synthetic progress or automatic upload retries. Completed uploads loaded from workspace records are recovered into history; reserved uploads without a known job remain unknown.",
     "publishingDiagnostics": "Keep up to 50 credential-free attempts in this browser before calling youtube/publish, retaining returned server job IDs across navigation/reload. Activity lists all retained attempts even if submission failed before job creation. Debugging includes video/asset/channel IDs, status, progress, visibility, playlist and returned YouTube video ID; Errors records rejected/failed/unknown outcomes with redaction. Successful uploads do not create errors. Polling updates status without replacing draft fields or focus. Backend upload records remain authoritative; browser history is supplementary."
   },
   "educationDiscord": {
@@ -1805,7 +1817,7 @@
     ],
     "characters": {
       "location": "Characters section after References and before Spoken script",
-      "count": "1–20 active characters, matching the existing 20-segment audio request limit",
+      "count": "1\u201320 active characters, matching the existing 20-segment audio request limit",
       "defaults": "News: 1 newsreader. Podcast, Interview and Casual Conversation: Host + Guest. Other genres: 1 narrator. Genre presets apply only before user cast customization or script content.",
       "identity": "Stable character IDs, independent from voice IDs. Reducing the count keeps inactive names and settings for later reuse.",
       "voices": "Additional Controls contains exactly one accessible tab per active character. Each shows the selected voice with Preview, Delivery Style, Emotion, Pitch, Speed, Pause Before Speaking, optional model Expressiveness, collapsible Language and Accent, and Extra Speaking Instructions. Existing values persist when switching tabs; Left/Right/Home/End support keyboard navigation. Main screen retains compact Characters and Additional Controls sections. Explicit user voice choices remain fixed; new Chatterbox characters default to a same-language reference or Model default rather than an arbitrary cross-language sample."
@@ -1842,7 +1854,7 @@
       "handoff": "Title, genre, audience, language, tone, narration, cast directions, source and structured script populate the main form. Save preserves manual transcript edits and seeds audio voices and turns.",
       "appearance": "Existing generation-dialog, field groups, theme tokens and upper-right close control. Four text steps with current-step accent, keyboard focus and Escape dismissal.",
       "interfaceLanguage": "English for menus, clarification questions, source reviews, cast explanations and character-property descriptions, independently of the selected script language. Spoken content retains the selected language and native script; preserve source quotations and character proper names. All AI enhancement requests explicitly keep user-facing questions and notes in English.",
-      "progress": "Use the existing generation-spinner (16px, currentColor, existing reduced-motion behavior) in the primary action with Generating Script…, disabled duplicate submission and aria-busy. Preserve the current step and character edits while waiting. AI follow-up questions appear in Script Clarifications on the current Characters step, preserving earlier answers. Only a valid script advances to review; failures stop the spinner and allow retry in place.",
+      "progress": "Use the existing generation-spinner (16px, currentColor, existing reduced-motion behavior) in the primary action with Generating Script\u2026, disabled duplicate submission and aria-busy. Preserve the current step and character edits while waiting. AI follow-up questions appear in Script Clarifications on the current Characters step, preserving earlier answers. Only a valid script advances to review; failures stop the spinner and allow retry in place.",
       "languageStyle": {
         "default": "Everyday / Conversational",
         "choices": [
@@ -1860,9 +1872,9 @@
         "placement": "Audience dropdown on the main Audio setup and Questions step; genre comes first in Questions.",
         "categories": {
           "Story Book Reading": [
-            "Children (3–5)",
-            "Children (6–8)",
-            "Children (9–12)",
+            "Children (3\u20135)",
+            "Children (6\u20138)",
+            "Children (9\u201312)",
             "Teenagers",
             "Adults",
             "Families"
@@ -1937,7 +1949,7 @@
         "placement": "Optional Opening and Closing textareas in Questions, with English example placeholders; replace the separate Opening Title choice in Characters.",
         "behavior": "Blank fields omit the corresponding spoken section. Accept wording or directions such as a welcome or moral; AI adapts them to the selected script language and style. Opening uses the existing opening field; Closing occupies the final script segment, within existing character/turn limits. Review shows editable Opening and Closing labels; added body turns go before Closing. Apply, save, Audio Studio and reopening retain the directions and spoken output. No new backend schema or speech runtime is required."
       },
-      "saveProgress": "All Story setup saves use the existing generation-spinner and Saving Story… inside the submit button, aria-busy and duplicate-submit protection. Preserve the busy label through Audio setup observers. On failure restore the prior idle label and retain the draft. Acknowledge creation before progressing; update the story list from that confirmed response. Do not wait for an unrelated full workspace refresh: normal background polling handles it.",
+      "saveProgress": "All Story setup saves use the existing generation-spinner and Saving Story\u2026 inside the submit button, aria-busy and duplicate-submit protection. Preserve the busy label through Audio setup observers. On failure restore the prior idle label and retain the draft. Acknowledge creation before progressing; update the story list from that confirmed response. Do not wait for an unrelated full workspace refresh: normal background polling handles it.",
       "editorialReview": "Generate Script first drafts then refines for audience, idiomatic spoken language, listening rhythm and character interplay. Storybook defaults allocate multiple narrative beats. The second request receives only selected source plus the draft; it adds bounded English delivery cues outside spoken words. Source facts, plot, selected chapter boundaries, cast identities and bookends remain fixed. Existing drafts change only on Apply. Spinners remain active through both requests and stale results are rejected.",
       "chapterSelection": "Main Upload and Audio Upload share PDF Pages and Chapter selection in the same source-picker. Select Pages extracts only physical PDF page ranges locally. Find Chapter with AI uses a bounded numbered outline, then verifies every candidate chapter page plus neighboring boundary pages; exact page/line/text anchors bound local extraction, excluding the next chapter. Never use contents entries or fall back to page 1/full book. Ambiguity, invalid anchors and oversize sources fail without selecting/truncating. Show chapter title and PDF page range for review; explicit Apply alone commits the selected text. Narrative AI gets only the applied excerpts; locator AI may inspect the book outline, every candidate chapter page and neighboring boundary pages to find it. New uploads are pending until a selection is applied, preventing stale-source reuse.",
       "tone": "Tone uses Natural, Warm, Conversational, Playful, Dramatic, Calm, Professional, Informative, Suspenseful, Inspirational and Custom. Preserve custom saved instructions; no unrelated field or style changes.",
@@ -2031,7 +2043,7 @@
     },
     "appearance": "Preserves the user-approved Desk design: navy sidebar, yellow primary action, light ticket surfaces. Studio retains its selected theme and existing header dimensions. Desk CSS is scoped in a shadow root so it never restyles Studio. Embedded support hides the standalone sidebar, topbar and footer. Its sign-in panel and page heading inherit Studio theme text, surface, border and accent; ticket surfaces retain the approved light Desk style. The headset reuses community-panel theme text, accent hover/focus and focus outline, with transparent button background; SVG strokes stay visible and do not shrink.",
     "layout": "Support uses a headset with microphone beside Discord/GitHub, inside the existing 32px asset-icon button with a 16px glyph. Support renders in the main page with Back to Studio. No team-workspace link appears on the customer surface. Desk retains its metric cards, scrollable table, right detail drawer and centered dialogs.",
-    "content": "Ecco Desk branding; internal tasks, customer support, personal assignments, explicit team access, activity history. Customer support shows only the requester’s support tickets.",
+    "content": "Ecco Desk branding; internal tasks, customer support, personal assignments, explicit team access, activity history. Customer support shows only the requester\u2019s support tickets.",
     "states": "Loading, signed out, empty, error, filtered empty, populated, busy, open dialog/drawer. Errors use role=alert and success uses role=status; network requests time out. Refresh rechecks server permissions.",
     "interaction": "Header Support opens inside Studio without needing storage/GPU access. Existing Google sign-in is reused on welcome with a return intent. Esc dismisses the current Desk dialog/drawer; focus is trapped and returned, including within Shadow DOM. Tab order follows the visible content. No nested Desk dialogs.",
     "accessibility": "Support icon has an accessible name. Forms have labels, constraints and inline errors. Dialog/drawer have named dialog roles and aria-modal. Icon-only actions are named; decorative SVG icons are hidden. Reduced motion supported.",
@@ -2039,7 +2051,7 @@
     "storage": "Existing CPU storage API and SQLite on persistent Ecco volume. Dedicated desk_* tables are excluded from legacy workspace records. No tickets, tokens or access keys are stored in GitHub Pages/source. Separate ChatGPT login is not used.",
     "build": "Run npm ci && npm run build in desk/. Checked-in desk-app.mjs is the generated browser bundle; authored TSX/CSS are included in the inventory.",
     "conversations": {
-      "approval": "User requested email replies in ticket history, switching to queued live support, agent acceptance and 7 AM–11:59 PM Pacific support hours.",
+      "approval": "User requested email replies in ticket history, switching to queued live support, agent acceptance and 7 AM\u201311:59 PM Pacific support hours.",
       "types": [
         "panel",
         "status-indicator",
@@ -2066,7 +2078,7 @@
       "accessibility": "Status changes use role=status, errors use role=alert; checkbox has an accessible label; all chat actions are buttons with disabled states. Existing dialog focus trap and Escape dismissal apply.",
       "authorization": "Server enforces requester ownership on customer endpoints, active staff role and assigned-agent rights on chat actions, FIFO acceptance, presence expiry and America/Los_Angeles 07:00 inclusive through 23:59, closing at midnight. Every transcript is attached to its existing ticket. Only administrators can start support-inbox OAuth.",
       "email": "Reply headers and a random ticket reply address establish thread identity. Authenticated active agents can accept, reply, delegate, resolve, close or reopen from the mailbox; commands are private action events with an agent-only acknowledgement. First agent reply accepts an unowned case. Another agent must receive an explicit delegation before replying. Customer and staff thread references stay separate; subjects alone never authorize a ticket.",
-      "hours": "7 AM–11:59 PM Pacific daily, including automatic PST/PDT changes. Outside hours, ticket/email replies remain available.",
+      "hours": "7 AM\u201311:59 PM Pacific daily, including automatic PST/PDT changes. Outside hours, ticket/email replies remain available.",
       "ownership": "Accept case or Accept chat assigns one responsible agent. Only that agent sends public replies or resolves/closes the issue. The owner or an administrator can explicitly delegate to an active agent. Accepted cases cannot be unassigned. Delegating live chat queues it until the delegate accepts; transcripts stay on the same ticket.",
       "nativeSupport": "Support email includes Accept, Resolve, Close, Delegate and Reopen compose actions. Sending the action email confirms it; authenticated commands never enter the customer transcript or get forwarded. Normal agent replies use the ticket reply address and forward only to its opener. Native Google Chat cards use verified app callbacks and exact Google member identities; activation requires an owner-configured interactive Chat app and approved support space.",
       "staffSignIn": "Standalone team Desk uses a separate persistent staff session and its own Google account chooser. It never reuses, replaces or logs out the Studio customer session. Embedded customer support continues to use Studio identity and requester-only permissions."
@@ -2075,11 +2087,11 @@
       "approval": "User requested replies only to the ticket opener, exact ticket association for multiple tickets from the same user, and a very small support-response badge over the headset.",
       "type": "badge",
       "variant": "support-unread",
-      "appearance": "12px badge positioned at the headset button’s upper-right, 8px white count on the theme error color with a 2px contrasting ring; 9+ cap, hidden for zero. Unread customer ticket rows have a pale yellow background, a 3px left accent and a compact Support replied badge. The conversation tab shows New reply. Existing header button dimensions and icon stay unchanged.",
+      "appearance": "12px badge positioned at the headset button\u2019s upper-right, 8px white count on the theme error color with a 2px contrasting ring; 9+ cap, hidden for zero. Unread customer ticket rows have a pale yellow background, a 3px left accent and a compact Support replied badge. The conversation tab shows New reply. Existing header button dimensions and icon stay unchanged.",
       "content": "Support has responded on N tickets in the tooltip and accessible button name.",
       "interaction": "Poll the authenticated customer-only notification endpoint every 10 seconds while visible, and after reading. Read receipts are per requester and ticket, acknowledge only when the latest support reply end is visible inside the ticket drawer in the focused browser tab. Opening or polling a ticket does not acknowledge off-screen replies. Reading updates that ticket and the headset badge immediately; never clear another ticket or a newer unseen reply. Hidden/history/background views do not mark replies read.",
       "authorization": "Only own public support responses count; customer messages, private notes and other customers never appear. Logout/account changes discard stale responses.",
-      "email": "Each email is bound by original message headers or its unique ticket reply address. Accepted staff replies are relayed only to that ticket’s opener, without CC/BCC. Native mailbox commands are acknowledged only to the agent; legacy direct-to-customer Sent copies are logged without duplicate delivery."
+      "email": "Each email is bound by original message headers or its unique ticket reply address. Accepted staff replies are relayed only to that ticket\u2019s opener, without CC/BCC. Native mailbox commands are acknowledged only to the agent; legacy direct-to-customer Sent copies are logged without duplicate delivery."
     }
   },
   "persistentConnections": {
