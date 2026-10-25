@@ -56,9 +56,10 @@ class Conversations(unittest.TestCase):
 
     def test_pacific_hours_summer_winter_and_close_boundary(self):
         for month,offset in [(7,7),(12,8)]:
-            for hour,minute,expected in [(6,59,False),(7,0,True),(18,59,True),(19,0,False)]:
+            for hour,minute,expected in [(0,0,False),(6,59,False),(7,0,True),(19,0,True),(23,59,True),(24,0,False)]:
                 stamp=(dt.datetime(2026,month,10,tzinfo=dt.timezone.utc)+dt.timedelta(hours=hour+offset,minutes=minute)).timestamp()
                 self.assertEqual(chat.is_open(stamp),expected)
+                self.assertEqual(chat.is_open(stamp+59.999999),expected)
 
     def test_queue_does_not_connect_until_available_agent_accepts(self):
         result=self.action(self.alice,'chatRequest')['chat']
@@ -121,7 +122,7 @@ class Conversations(unittest.TestCase):
         self.connect(); original=self.clock.return_value
         self.clock.return_value=original+chat.AGENT_TTL+1
         self.assertEqual(self.detail(self.alice)['chat']['state'],'queued')
-        self.clock.return_value=dt.datetime(2026,10,25,2,tzinfo=dt.timezone.utc).timestamp()
+        self.clock.return_value=dt.datetime(2026,10,25,7,tzinfo=dt.timezone.utc).timestamp()
         self.assertEqual(self.detail(self.alice)['chat']['state'],'ended')
         with self.assertRaises(desk.DeskError): self.action(self.alice,'chatRequest')
 

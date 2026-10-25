@@ -243,7 +243,7 @@ continued presence; a lost agent returns the customer to the queue. Closing the
 customer's ticket eventually expires their presence. Customers can leave the
 queue or end chat and resume email replies. Internal notes remain private.
 
-Hours are enforced by the server: 7 AM–7 PM America/Los_Angeles, every day,
+Hours are enforced by the server: 7 AM–11:59 PM America/Los_Angeles, every day,
 including PST/PDT. At closing time live sessions return to ticket replies.
 Live messages do not produce an email for every chat message. Administrators
 connect the support mailbox in Team members; inbox authorization and reply

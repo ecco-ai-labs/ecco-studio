@@ -2026,7 +2026,7 @@
     "storage": "Existing CPU storage API and SQLite on persistent Ecco volume. Dedicated desk_* tables are excluded from legacy workspace records. No tickets, tokens or access keys are stored in GitHub Pages/source. Separate ChatGPT login is not used.",
     "build": "Run npm ci && npm run build in desk/. Checked-in desk-app.mjs is the generated browser bundle; authored TSX/CSS are included in the inventory.",
     "conversations": {
-      "approval": "User requested email replies in ticket history, switching to queued live support, agent acceptance and 7 AM–7 PM Pacific support hours.",
+      "approval": "User requested email replies in ticket history, switching to queued live support, agent acceptance and 7 AM–11:59 PM Pacific support hours.",
       "types": [
         "panel",
         "status-indicator",
@@ -2051,9 +2051,9 @@
       ],
       "interaction": "Customer explicitly joins/leaves the queue; staff explicitly enables availability and accepts the next waiting customer. One live chat per agent. Polling preserves the reply draft and current focus. Closing the detail panel stops customer presence refresh.",
       "accessibility": "Status changes use role=status, errors use role=alert; checkbox has an accessible label; all chat actions are buttons with disabled states. Existing dialog focus trap and Escape dismissal apply.",
-      "authorization": "Server enforces requester ownership on customer endpoints, active staff role and assigned-agent rights on chat actions, FIFO acceptance, presence expiry and America/Los_Angeles 07:00 inclusive to 19:00 exclusive. Every transcript is attached to its existing ticket. Only administrators can start support-inbox OAuth.",
+      "authorization": "Server enforces requester ownership on customer endpoints, active staff role and assigned-agent rights on chat actions, FIFO acceptance, presence expiry and America/Los_Angeles 07:00 inclusive through 23:59, closing at midnight. Every transcript is attached to its existing ticket. Only administrators can start support-inbox OAuth.",
       "email": "Reply headers and a random ticket reply address establish thread identity; ticket numbers in subjects alone never grant access. Only the authenticated requester, an active staff address or the connected support mailbox may add email replies. Imports deduplicate Gmail/message IDs and ignore automated mail. Internal notes never email customers.",
-      "hours": "7 AM–7 PM Pacific daily, including automatic PST/PDT changes. Outside hours, ticket/email replies remain available."
+      "hours": "7 AM–11:59 PM Pacific daily, including automatic PST/PDT changes. Outside hours, ticket/email replies remain available."
     },
     "responseNotifications": {
       "approval": "User requested replies only to the ticket opener, exact ticket association for multiple tickets from the same user, and a very small support-response badge over the headset.",

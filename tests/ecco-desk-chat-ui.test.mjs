@@ -4,7 +4,7 @@ const dom=new JSDOM('<!doctype html><body></body>',{url:'https://ecco-ai-labs.gi
 for(const k of ['window','document','HTMLElement','HTMLTextAreaElement','Element','Node','Event','MouseEvent','KeyboardEvent','location','sessionStorage','FormData'])globalThis[k]=dom.window[k];
 Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
 const tick=()=>new Promise(r=>setTimeout(r,40));
-const hours='7 AM–7 PM Pacific time, daily';
+const hours='7 AM–11:59 PM Pacific time, daily';
 const ticket={id:1,type:'support',title:'Email to chat test',description:'Keep the conversation together',reporterId:'customer',reporterName:'Customer',reporterEmail:'customer@example.test',status:'open',priority:'normal',category:'General',version:1,createdAt:'2026-10-24T18:00:00Z'};
 let staff=false,open=true,state='idle',available=false;
 let messages=[{id:'email1',authorName:'Support',body:'An earlier email reply',visibility:'public',channel:'email',createdAt:'2026-10-24T18:00:00Z'}],calls=[];

@@ -20,7 +20,7 @@
   bar.append(back);root.append(bar);
   host=document.createElement('section');host.id='ecco-desk-support';host.setAttribute('aria-label','Ecco Desk customer support');root.append(host);
   const target=host;target.textContent='Opening support…';
-  try{loading=loading||import(new URL('desk/desk-app.mjs?v=20261024-4',base).href);const app=await loading;if(target!==host||!target.isConnected)return;target.replaceChildren();unmount=app.mount(target,{embedded:true,portalOnly:true,onSignIn:signIn});}
+  try{loading=loading||import(new URL('desk/desk-app.mjs?v=20261025-hours',base).href);const app=await loading;if(target!==host||!target.isConnected)return;target.replaceChildren();unmount=app.mount(target,{embedded:true,portalOnly:true,onSignIn:signIn});}
   catch{loading=null;if(target===host){target.replaceChildren();const message=document.createElement('p');message.textContent='Support could not load. Please try again.';const retry=document.createElement('button');retry.textContent='Try again';retry.onclick=()=>{clear();support()};target.append(message,retry);}}
  }
  const previousNavigate=navigate;navigate=function(p,...args){if(p==='support')return support();clear();document.title='Ecco AI Labs Studios';return previousNavigate.call(this,p,...args)};

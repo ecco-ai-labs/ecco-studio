@@ -5,7 +5,7 @@ import uuid
 from zoneinfo import ZoneInfo
 
 PACIFIC = ZoneInfo('America/Los_Angeles')
-HOURS = '7 AM–7 PM Pacific time, daily'
+HOURS = '7 AM–11:59 PM Pacific time, daily'
 AGENT_TTL = 75
 CUSTOMER_TTL = 150
 
@@ -31,7 +31,7 @@ def initialize(db):
 
 def is_open(stamp=None):
     local = dt.datetime.fromtimestamp(time.time() if stamp is None else stamp, PACIFIC)
-    return 7 <= local.hour < 19
+    return 7 <= local.hour < 24
 
 
 def _event(db, tid, detail):
