@@ -29,6 +29,15 @@ class AudioJobsTest(unittest.TestCase):
         with self.assertRaises(Problem) as error:
             jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
         self.assertEqual(error.exception.code, 503)
+    def test_exact_cpu_instance_is_preserved_and_unavailable_never_falls_back(self):
+        for pod in ('small', 'large'):
+            jobs.queue.write(jobs.queue.ROOT / ('worker-' + pod + '.json'), dict(updated=time.time(), compute='cpu', pod=pod, instance_routing_version=1, models=['chatterbox']))
+        body = dict(compute='cpu', worker_id='large', model='chatterbox', lines=[{'text': 'Hello', 'voice': 'default'}])
+        job = jobs.generate(body, self.env)
+        self.assertEqual(jobs.queue.read(jobs.queue.ROOT / job['id'] / 'request.json')['worker_id'], 'large')
+        (jobs.queue.ROOT / 'worker-large.json').unlink()
+        with self.assertRaises(Problem) as error: jobs.generate(body, self.env)
+        self.assertEqual(error.exception.code, 503)
     def test_character_controls_wait_for_a_capable_worker(self):
         heartbeat = {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']}
         jobs.queue.write(jobs.queue.ROOT / 'worker-cpu.json', heartbeat)

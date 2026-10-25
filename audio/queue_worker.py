@@ -7,8 +7,10 @@ import subprocess
 import sys
 import time
 import traceback
+from contextlib import contextmanager
 from audio_queue import ROOT, MODELS, read, write
 from sound_schema import MODELS as SOUND_MODELS
+from audio_routing import worker_id, memory_bytes, cpu_count, sound_memory_ready
 
 def compute_from_name(name):
     for target in ('a100', 'b200'):
@@ -16,16 +18,41 @@ def compute_from_name(name):
             return target
     raise RuntimeError('This audio worker requires a supported A100 or B200 GPU.')
 
-def owns(request, compute):
+def owns(request, compute, pod=''):
     # Jobs queued before compute selection was introduced belong to the original B200 worker.
-    return request.get('compute', 'b200') == compute
+    return request.get('compute', 'b200') == compute and (not request.get('worker_id') or request['worker_id'] == pod)
 
-def recover_jobs(compute):
+def recover_jobs(compute, pod=''):
     for directory in ROOT.glob('[a-f0-9]' * 32):
         request = read(directory / 'request.json', {})
         status = read(directory / 'status.json', {})
-        if owns(request, compute) and status.get('status') == 'running':
+        if owns(request, compute, pod) and status.get('status') == 'running' and (not pod or status.get('worker_pod') == pod):
             write(directory / 'status.json', {'status': 'error', 'error': 'Audio worker restarted. Please generate again.'})
+
+@contextmanager
+def claim_job(directory, compute, pod, models, sounds):
+    """One owner per job across hosts; never consume a job for another instance."""
+    with (directory / 'claim.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield None
+            return
+        request = read(directory / 'request.json', {})
+        status = read(directory / 'status.json', {})
+        enabled = sounds if request.get('task') == 'sound' else models
+        if not request or not owns(request, compute, pod) or status.get('status') != 'queued' or request.get('model', 'indic-mio') not in enabled:
+            yield None
+            return
+        write(directory / 'status.json', {'status': 'running', 'compute': compute, 'worker_pod': pod, 'started': time.time(),
+                                         'progress': 'Loading sound model' if request.get('task') == 'sound' else 'Generating speech'})
+        yield request
+
+def cpu_threads():
+    pod = worker_id(os.environ.get('RUNPOD_POD_ID', 'local'))
+    config = read(Path(__file__).with_name('worker-configs') / (pod + '.json'), {})
+    wanted = config.get('threads', 1)
+    return str(min(cpu_count(), max(1, int(wanted))))
 
 def worker_command(request, directory):
     model = request.get('model', 'indic-mio')
@@ -37,10 +64,13 @@ def worker_command(request, directory):
         python = runtime / (request['compute'] + '-venv/bin/python')
         if not python.is_file():
             raise RuntimeError('Install and verify this sound model on the selected compute first.')
+        if request['compute'] == 'cpu' and not sound_memory_ready():
+            raise RuntimeError('Choose a CPU audio worker with at least 16 GiB RAM for sound generation.')
         env = dict(os.environ, HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', TORCHDYNAMO_DISABLE='1')
         env.pop('PYTHONPATH', None)
         if request['compute'] == 'cpu':
-            env.update(CUDA_VISIBLE_DEVICES='', ECCO_AUDIO_CPU_THREADS='1', OMP_NUM_THREADS='1', MKL_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1', MALLOC_ARENA_MAX='2')
+            threads = cpu_threads()
+            env.update(CUDA_VISIBLE_DEVICES='', ECCO_AUDIO_CPU_THREADS=threads, OMP_NUM_THREADS=threads, MKL_NUM_THREADS=threads, OPENBLAS_NUM_THREADS=threads, MALLOC_ARENA_MAX='2')
         return [str(python), str(base / 'sound_worker.py'), '--request', str(directory / 'request.json'), '--runtime', str(base / 'sounds'), '--output', str(directory / 'output.wav')], env
     if model not in MODELS:
         raise ValueError('Unsupported audio model.')
@@ -64,9 +94,9 @@ def worker_command(request, directory):
         env['HF_HUB_OFFLINE'] = '1'
     if request.get('compute') == 'cpu':
         env['CUDA_VISIBLE_DEVICES'] = ''
-        env['ECCO_AUDIO_CPU_THREADS'] = '1'
+        env['ECCO_AUDIO_CPU_THREADS'] = cpu_threads()
         for key in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS'):
-            env[key] = '1'
+            env[key] = env['ECCO_AUDIO_CPU_THREADS']
         env['MALLOC_ARENA_MAX'] = '2'
     return [python, str(script), '--request', str(directory / 'request.json'),
             '--runtime', str(base / 'models'), '--output', str(directory / 'output.wav')], env
@@ -79,60 +109,62 @@ def main():
     else:
         gpu = subprocess.check_output(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'], text=True).splitlines()[0].strip()
         compute = compute_from_name(gpu)
+    pod = worker_id(os.environ.get('RUNPOD_POD_ID', 'local'))
+    config = read(Path(__file__).with_name('worker-configs') / (pod + '.json'), {})
     def enabled_models():
         verified = read(Path(__file__).with_name('cpu-ready-models.json'), []) if compute == 'cpu' else list(MODELS)
-        return [m for m in MODELS if isinstance(verified, list) and m in verified]
+        return [m for m in MODELS if isinstance(verified, list) and m in verified and (compute != 'cpu' or Path('/opt/ecco-audio-cpu', 'cpu-' + m + '-venv/bin/python').is_file())]
     def enabled_sounds():
         verified = read(Path(__file__).with_name('sound-ready-' + compute + '.json'), [])
-        return [m for m in SOUND_MODELS if isinstance(verified, list) and m in verified]
+        return [m for m in SOUND_MODELS if isinstance(verified, list) and m in verified
+                and (compute != 'cpu' or sound_memory_ready())
+                and (Path(__file__).parent / 'sounds' / m / (compute + '-venv/bin/python')).is_file()]
     # Independent queues allow A100 audio and B200 work to coexist on the shared volume.
-    lock = (ROOT / ('worker-' + compute + '.lock')).open('a')
+    lock = (ROOT / ('worker-' + compute + '-' + pod + '.lock')).open('a')
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         return
-    pod = os.environ.get('RUNPOD_POD_ID', 'local')
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'updated': time.time(), 'pod': pod, 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'sound_models': enabled_sounds()})
-    recover_jobs(compute)
+        write(heartbeat, {'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'sound_models': enabled_sounds()})
+    recover_jobs(compute, pod)
     while True:
         beat()
         for d in sorted(ROOT.glob('[a-f0-9]' * 32)):
-            request = read(d / 'request.json')
-            status = read(d / 'status.json', {})
-            if not request or not owns(request, compute) or status.get('status') != 'queued':
-                continue
-            write(d / 'status.json', {'status': 'running', 'progress': 'Loading sound model' if request.get('task') == 'sound' else 'Generating speech', 'started': time.time()})
-            try:
-                if request.get('model', 'indic-mio') not in (enabled_sounds() if request.get('task') == 'sound' else enabled_models()):
-                    raise RuntimeError('The selected audio model is not enabled on ' + compute.upper() + '.')
-                with (d / 'worker.log').open('wb') as log:
-                    command, env = worker_command(request, d)
-                    process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
-                    started = time.monotonic()
-                    while process.poll() is None:
-                        beat()
-                        progress = read(d / 'progress.json', {}).get('progress')
-                        if progress in ('Mixing music and effects', 'Loading sound model', 'Generating sound effect', 'Generating instrumental music'):
-                            write(d / 'status.json', {'status': 'running', 'progress': progress})
-                        if time.monotonic() - started > 1800:
-                            process.kill()
-                            process.wait()
-                            raise RuntimeError('Audio generation timed out. Split the script into shorter recordings.')
-                        time.sleep(2)
-                    if process.returncode:
-                        phase = read(d / 'progress.json', {}).get('progress', '')
-                        raise RuntimeError('Soundtrack mixing failed. Check the sound files and audio worker log.' if phase == 'Mixing music and effects' else 'Sound generation failed. Check the sound worker log and try again.' if request.get('task') == 'sound' else 'Speech inference failed. Check the audio worker log and try again.')
-                output = d / 'output.wav'
-                if not output.is_file() or output.stat().st_size <= 44:
-                    raise RuntimeError('The audio model returned an empty recording.')
-                write(d / 'status.json', {'status': 'complete', 'compute': compute, 'worker_pod': pod,
-                    'provenance': read(d / 'provenance.json', {}), 'sha256': hashlib.sha256(output.read_bytes()).hexdigest()})
-            except Exception as error:
-                traceback.print_exc()
-                write(d / 'status.json', {'status': 'error', 'error': str(error)})
+            with claim_job(d, compute, pod, enabled_models(), enabled_sounds()) as request:
+                if request is None:
+                    continue
+                run_job(request, d, compute, pod, beat)
         time.sleep(2)
+
+def run_job(request, d, compute, pod, beat):
+    try:
+        with (d / 'worker.log').open('wb') as log:
+            command, env = worker_command(request, d)
+            process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
+            started = time.monotonic()
+            while process.poll() is None:
+                beat()
+                progress = read(d / 'progress.json', {}).get('progress')
+                if progress in ('Mixing music and effects', 'Loading sound model', 'Generating sound effect', 'Generating instrumental music'):
+                    write(d / 'status.json', {'status': 'running', 'progress': progress, 'compute': compute, 'worker_pod': pod})
+                if time.monotonic() - started > 1800:
+                    process.kill()
+                    process.wait()
+                    raise RuntimeError('Audio generation timed out. Split the script into shorter recordings.')
+                time.sleep(2)
+            if process.returncode:
+                phase = read(d / 'progress.json', {}).get('progress', '')
+                raise RuntimeError('Soundtrack mixing failed. Check the sound files and audio worker log.' if phase == 'Mixing music and effects' else 'Sound generation failed. Check the sound worker log and try again.' if request.get('task') == 'sound' else 'Speech inference failed. Check the audio worker log and try again.')
+        output = d / 'output.wav'
+        if not output.is_file() or output.stat().st_size <= 44:
+            raise RuntimeError('The audio model returned an empty recording.')
+        write(d / 'status.json', {'status': 'complete', 'compute': compute, 'worker_pod': pod,
+            'provenance': read(d / 'provenance.json', {}), 'sha256': hashlib.sha256(output.read_bytes()).hexdigest()})
+    except Exception as error:
+        traceback.print_exc()
+        write(d / 'status.json', {'status': 'error', 'error': str(error)})
 
 if __name__ == '__main__':
     main()

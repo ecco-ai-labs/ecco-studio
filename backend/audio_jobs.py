@@ -38,7 +38,7 @@ def generate(body, env, *, job_id=None, sound=False):
                     queue.write(directory / 'status.json', {'status': 'queued'})
                     queue.write(directory / 'request.json', request)
                 return public(existing)
-        target = queue.availability()['compute'][request['compute']]
+        target = queue.target(queue.availability(), request['compute'], request.get('worker_id', ''))
         if sound and request['model'] not in target.get('sound_models', []):
             raise env['Problem']('This sound model is not installed and verified on ' + request['compute'].upper() + '. Connect a worker with this sound model enabled.', 503)
         if not sound and not target['ready']:
@@ -53,7 +53,7 @@ def generate(body, env, *, job_id=None, sound=False):
         if len(active) >= 4:
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
         job = dict(id=job_id or uuid.uuid4().hex, kind='audio_job', media='audio', status='queued',
-                   story_id=sid, task=request.get('task', 'speech'), created=time.time(), title=request['title'], compute=request['compute'], request=request)
+                   story_id=sid, task=request.get('task', 'speech'), created=time.time(), title=request['title'], compute=request['compute'], worker_id=request.get('worker_id', ''), request=request)
         directory = queue.ROOT / job['id']
         try:
             snapshot_assets(request, directory, env)
@@ -74,6 +74,8 @@ def job_status(jid, env):
             return public(job)
         directory = queue.ROOT / jid
         status = queue.read(directory / 'status.json', {})
+        if status.get('worker_pod'):
+            job['worker_pod'] = status['worker_pod']
         if status.get('status') == 'complete':
             source = directory / 'output.wav'
             digest = hashlib.sha256(source.read_bytes()).hexdigest()
@@ -107,7 +109,7 @@ def job_status(jid, env):
             job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved', asset=asset if request.get('task') == 'sound' else None)
         elif status.get('status') in ('running', 'error'):
             job.update(status=status['status'], progress=status.get('progress', ''), error=status.get('error', ''))
-        if job['status'] in ('queued', 'running') and not (queue.sound_ready(job['request']['compute'], job['request']['model']) if job['request'].get('task') == 'sound' else queue.ready(job['request'].get('compute', 'b200'))) and time.time() - job['created'] > 60:
+        if job['status'] in ('queued', 'running') and not (queue.sound_ready(job['request']['compute'], job['request']['model'], job['request'].get('worker_id', '')) if job['request'].get('task') == 'sound' else queue.ready(job['request'].get('compute', 'b200'), job['request'].get('model'), job['request'].get('worker_id', ''))) and time.time() - job['created'] > 60:
             job['progress'] = 'Waiting for the audio worker to reconnect'
         env['save'](job)
         return public(job)

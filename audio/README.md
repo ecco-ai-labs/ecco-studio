@@ -2,6 +2,16 @@
 
 ## Release status
 
+CPU instance selection now routes speech, voice previews and new sound requests
+to an explicit worker ID. The existing Compute dropdown shows each registered
+CPU by name, vCPU/RAM and Ready/Unavailable status. An unavailable selected CPU
+stays selected; jobs never silently move to another CPU or GPU. Per-instance
+worker locks and per-job claims allow both CPU workers to share the queue.
+Worker registration is in `worker-configs/<pod-id>.json`; a fresh version-1
+instance-routing heartbeat is required. Sound readiness is per instance and
+requires model qualification plus at least 16 GiB RAM. This code update alone
+does not qualify the newly provisioned worker or complete the audiobook test.
+
 The storybook integration and new sound-generation adapter described below are
 deployed, with model qualification and full-journey testing still pending.
 They are **not an end-to-end acceptance result**. Follow

@@ -1,6 +1,7 @@
 """Portable audio request validation. No storage, API or GPU ownership."""
 import math
 import json
+from audio_routing import worker_id
 from pathlib import Path
 
 MODELS = {m['id']: m for m in json.loads(Path(__file__).with_name('model_catalog.json').read_text())}
@@ -71,6 +72,8 @@ def validate(body):
     result = dict(model=model_id, compute=compute, genre=genre, title=title.strip()[:160] or 'Audio recording', lines=clean,
                 speed=bounded('speed', 1, 0.75, 1.5), pitch=bounded('pitch', 0, -4, 4),
                 pause=bounded('pause', 0.35, 0, 2))
+    if worker_id(body.get('worker_id')):
+        result['worker_id'] = worker_id(body['worker_id'])
     if model_id == 'chatterbox':
         result['exaggeration'] = bounded('exaggeration', .5, 0, 2)
     if any(any(key in line for key in ('speed', 'pitch', 'exaggeration', 'cfg_weight')) for line in clean):

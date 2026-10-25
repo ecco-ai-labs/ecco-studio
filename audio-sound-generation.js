@@ -9,7 +9,9 @@
   box.querySelector('[data-field=description]').closest('label').after(area);
   const q=s=>area.querySelector(s),model=modelFor(cue.kind),duration=q('[data-sound-duration]'),compute=q('[data-sound-compute]'),button=q('button'),status=q('[data-sound-status]');
   q('[data-sound-model]').add(new Option(models[model],model));duration.min=cue.kind==='music'?10:1;duration.max=cue.kind==='music'?60:30;duration.value=cue.duration||(cue.kind==='music'?20:5);compute.value=cue.compute||'cpu';
-  const collect=()=>{cue.duration=Number(duration.value);cue.compute=compute.value;};collect();duration.oninput=collect;compute.onchange=collect;
+  const collect=()=>{cue.duration=Number(duration.value);Object.assign(cue,window.EccoAudioCompute?.parse(compute.value)||{compute:compute.value,worker_id:''});};duration.oninput=collect;compute.onchange=collect;
+  if(cue.worker_id)compute.add(new Option('CPU · '+cue.worker_id,'cpu:'+cue.worker_id));compute.value=window.EccoAudioCompute?.value(cue.compute||'cpu',cue.worker_id)||cue.compute||'cpu';
+  const refreshChoices=async()=>{if(!window.EccoStorage?.ready||!window.EccoAudioCompute)return;const available=await api('audio/status');if(!area.isConnected||pending)return;const choices=window.EccoAudioCompute.choices(available),previous=compute.value;if(!choices.length)return;compute.replaceChildren(...choices.map(c=>new Option(c.label,c.value)));compute.value=choices.some(c=>c.value===previous)?previous:previous==='cpu'?(choices.find(c=>c.compute==='cpu'&&c.ready)?.value||choices.find(c=>c.compute==='cpu')?.value||''):'';if(compute.value)collect();};
   let pending=false;
   button.onclick=async()=>{
    if(pending)return;
@@ -17,10 +19,11 @@
     valid();collect();if(!window.EccoStorage?.ready)throw Error('Connect workspace storage first.');
     if(!cue.description.trim())throw Error('Describe the sound you want to create.');if(!duration.reportValidity())return;
     pending=true;button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Checking Worker…';
-    const request={kind:cue.kind,description:cue.description.trim(),title:cue.name,model,duration:cue.duration,compute:cue.compute,story_id:activeStory||null};
-    const signature=()=>JSON.stringify([cue.kind,cue.description.trim(),cue.name,cue.duration,cue.compute,cue.asset_id]),before=signature();
+    const request={kind:cue.kind,description:cue.description.trim(),title:cue.name,model,duration:cue.duration,compute:cue.compute,worker_id:cue.worker_id,story_id:activeStory||null};
+    const signature=()=>JSON.stringify([cue.kind,cue.description.trim(),cue.name,cue.duration,cue.compute,cue.worker_id,cue.asset_id]),before=signature();
     const available=await api('audio/status');valid();
-    if(!available.compute?.[request.compute]?.sound_models?.includes(model))throw Error(models[model]+' is not installed and verified on '+request.compute.toUpperCase()+'. Your sound description is saved when you Apply.');
+    const target=window.EccoAudioCompute?.target(available,request.compute,request.worker_id)||(!request.worker_id?available.compute?.[request.compute]:null);
+    if(!target?.sound_models?.includes(model))throw Error(models[model]+' is not installed and verified on the selected '+request.compute.toUpperCase()+' worker. Your sound description is saved when you Apply.');
     if(signature()!==before)throw Error('The sound changed. Generate again with the current description.');
     const job=await api('audio/sounds/generate',request);if(!job.id)throw Error('The service did not confirm a sound job. Check Activity before retrying.');
     button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Generating Sound…';status.textContent='Sound queued. It will be saved to Audio Library even if you close this popup.';
@@ -40,6 +43,7 @@
    }catch(error){if(area.isConnected)status.textContent=error.message;}
    finally{pending=false;if(area.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate Sound';}}
   };
+  refreshChoices().catch(error=>{if(area.isConnected)status.textContent=error.message;});
  }
  window.EccoSoundGeneration={mount,modelFor,models};
 })();

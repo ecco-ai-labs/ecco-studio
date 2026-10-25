@@ -1650,10 +1650,11 @@
     "type": "dropdown",
     "label": "Compute",
     "imageAndVideo": "Connected GPU instances only; selection drives per-instance model readiness and request routing",
-    "audio": "Only audio compute classes with a fresh ready worker: CPU, A100 or B200. Existing backend routes by compute class.",
+    "audio": "Registered CPU instances remain selectable with their name, vCPU/RAM and Ready/Unavailable status. Selection routes speech, previews and new sounds by exact worker_id; never fall back to another CPU or GPU. Legacy class-only services remain compatible. CPU stays the default.",
     "empty": "Disabled placeholder when no eligible compute is connected",
     "disconnection": "Clear displayed selection; never silently switch compute",
-    "appearance": "Existing generation-section and native select styles; no new dimensions"
+    "appearance": "Existing generation-section and native select styles; no new dimensions",
+    "audioDisconnected": "Preserve the selected CPU instance and mark it Unavailable until its fresh compatible worker heartbeat returns."
   },
   "errorKnowledge": {
     "source": "error-knowledge.js",

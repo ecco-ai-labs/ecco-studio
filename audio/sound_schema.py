@@ -1,6 +1,7 @@
 """Sound requests are separate from speech: descriptions never enter narration."""
 import math
 import secrets
+from audio_routing import worker_id
 
 MODELS = {
     'moss-soundeffect-v2': {'name': 'MOSS SoundEffect v2', 'kinds': ('effect', 'ambience'), 'minimum': 1, 'maximum': 30},
@@ -31,6 +32,9 @@ def validate(body):
     title = body.get('title') or description.strip()[:100]
     if not isinstance(title, str) or len(title) > 160:
         raise ValueError('Sound title must be at most 160 characters.')
-    return dict(task='sound', sound_generation_version=1, kind=kind, model=model,
+    result = dict(task='sound', sound_generation_version=1, kind=kind, model=model,
                 description=description.strip(), duration=float(duration), compute=compute,
                 seed=seed, title=title.strip(), instrumental=kind == 'music')
+    if worker_id(body.get('worker_id')):
+        result['worker_id'] = worker_id(body['worker_id'])
+    return result

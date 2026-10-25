@@ -14,17 +14,27 @@
  let draft,story,signature='',submitting=false,service=null,recordings=[],lastJob=null,polling=false,submissionLabel='Submitting…';
  const serviceReady=()=>!!service;
  let computeStatus=null,computeChecked=0;
+ const computeTarget=(status,compute,workerId='')=>workerId?status?.instances?.find(w=>w.compute===compute&&w.id===workerId):status?.compute?.[compute];
+ const computeValue=(compute,workerId='')=>workerId?compute+':'+workerId:compute;
+ const parseCompute=value=>{const [compute,worker_id='']=value.split(':');return {compute,worker_id};};
+ function computeChoices(status){
+  const cpus=(status?.instances||[]).filter(w=>w.compute==='cpu').map(w=>({value:computeValue('cpu',w.id),compute:'cpu',worker_id:w.id,ready:w.ready,label:'CPU · '+w.name+(w.cpu_count&&w.memory_gb?' · '+w.cpu_count+' vCPU / '+w.memory_gb+' GB':'')+' · '+(w.ready?'Ready':'Unavailable')}));
+  const classes=Object.entries(status?.compute||{}).filter(([id,target])=>(id!=='cpu'||!cpus.length)&&target.ready&&(id==='cpu'||window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===id))).map(([id,target])=>({value:id,compute:id,worker_id:'',ready:target.ready,label:id.toUpperCase()}));
+  return [...cpus,...classes];
+ }
+ window.EccoAudioCompute={target:computeTarget,choices:computeChoices,value:computeValue,parse:parseCompute};
  function showComputeStatus(){
   const note=q('[data-audio-compute-status]');if(!note||!draft)return;
   const select=q('#audio-form [name=compute]');
-  const choices=Object.entries(computeStatus?.compute||{}).filter(([id,target])=>target.ready&&(id==='cpu'||window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===id)));
+  const choices=computeChoices(computeStatus);
+  if(draft.compute==='cpu'&&!draft.worker_id){const preferred=choices.find(c=>c.compute==='cpu'&&c.ready)||choices.find(c=>c.compute==='cpu');if(preferred?.worker_id){draft.worker_id=preferred.worker_id;save();}}
   if(select){
-   const signature=JSON.stringify(choices.map(([id])=>id));
-   if(select.dataset.options!==signature){select.replaceChildren(new Option('Select connected compute',''),...choices.map(([id])=>new Option(id.toUpperCase(),id)));select.dataset.options=signature;}
-   select.value=choices.some(([id])=>id===draft.compute)?draft.compute:'';
+   const signature=JSON.stringify(choices);
+   if(select.dataset.options!==signature){select.replaceChildren(new Option('Select connected compute',''),...choices.map(c=>new Option(c.label,c.value)));select.dataset.options=signature;}
+   const selected=computeValue(draft.compute,draft.worker_id);select.value=choices.some(c=>c.value===selected)?selected:'';
    select.disabled=!choices.length;
   }
-  const target=computeStatus?.compute?.[draft.compute];
+  const target=computeTarget(computeStatus,draft.compute,draft.worker_id);
   note.textContent=!service?'Connect workspace storage to check availability.':target?.ready?(target.models&&!target.models.includes(draft.model)?model().name+' is not available on '+draft.compute.toUpperCase()+'.':''):target?.reason||'Checking '+draft.compute.toUpperCase()+' availability…';
  }
  async function checkCompute(){
@@ -36,10 +46,10 @@
   if(result?.routing_version!==1)throw Error('The audio service needs an update to support compute selection.');
   computeStatus=result;computeChecked=Date.now();showComputeStatus();return result;
  }
- async function requireCompute(compute,modelId){
+ async function requireCompute(compute,modelId,workerId=''){
   if(!compute)throw Error('Select connected compute first.');
   const result=await checkCompute();
-  const target=result?.compute?.[compute];
+  const target=computeTarget(result,compute,workerId);
   if(compute!=='cpu'&&!window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===compute))throw Error('Connect the selected audio GPU first.');
   if(!target?.ready)throw Error(target?.reason||compute.toUpperCase()+' audio worker is not connected.');
   if(target.models&&!target.models.includes(modelId))throw Error('This audio model is not enabled on '+compute.toUpperCase()+'. Choose another compute target.');
@@ -69,7 +79,7 @@
   if(!draft||!Array.isArray(draft.lines)||!draft.lines.length)draft={title:'',speed:1,pitch:0,pause:0.35,lines:[blank()]};
   draft={title:'',speed:1,pitch:0,pause:0.35,...draft};
   // Each visit starts on CPU; a GPU is used only after an explicit selection.
-  draft.compute='cpu';
+  if(draft.compute!=='cpu')delete draft.worker_id;draft.compute='cpu';
   if(!audioModels.some(m=>m.id===draft.model))draft.model=audioModels[0].id;
   if(!readAudioModelSaved()&&audioModels.some(m=>m.id===modelProfiles.selected.voice))draft.model=modelProfiles.selected.voice;
   if(!genres.includes(draft.genre))draft.genre=genres[0];
@@ -240,7 +250,7 @@
  function previewVoice(selected){
   clearPreview();q('#audio-voice-preview-dialog')?.remove();
   const d=document.createElement('dialog');d.id='audio-voice-preview-dialog';d.className='generation-dialog';d.setAttribute('aria-label','Voice Preview');
-  const settings={model:draft.model,compute:draft.compute,...modelParameters(),genre:draft.genre,speed:selected.speed??draft.speed,pitch:selected.pitch??draft.pitch,...(draft.model==='chatterbox'?{exaggeration:selected.exaggeration??draft.exaggeration??draft.planned_expressiveness??0.5}:{}),pause:0,story_id:activeStory,title:'Voice preview · '+(selected.name||'Narrator')},voice={voice:selected.voice,language:selected.language,...window.EccoAudioDirection.lineControls({},selected,model())},character=JSON.parse(JSON.stringify(selected)),previewModel=model();
+  const settings={model:draft.model,compute:draft.compute,worker_id:draft.worker_id,...modelParameters(),genre:draft.genre,speed:selected.speed??draft.speed,pitch:selected.pitch??draft.pitch,...(draft.model==='chatterbox'?{exaggeration:selected.exaggeration??draft.exaggeration??draft.planned_expressiveness??0.5}:{}),pause:0,story_id:activeStory,title:'Voice preview · '+(selected.name||'Narrator')},voice={voice:selected.voice,language:selected.language,...window.EccoAudioDirection.lineControls({},selected,model())},character=JSON.parse(JSON.stringify(selected)),previewModel=model();
   d.innerHTML=`<div class="form"><div class="section-head"><h2>Voice Preview</h2><button type="button" class="secondary" data-close>Close</button></div><p>${esc(model().voices.find(v=>v.id===selected.voice)?.name)} · ${esc(selected.language)} · ${esc(selected.emotion)}</p><label>Preview text<textarea maxlength="300" rows="3" dir="auto" placeholder="Enter a short sample in the language you want to hear."></textarea></label><button type="button" id="audio-voice-preview-generate">Generate preview</button><p role="status"></p><audio controls preload="metadata" aria-label="Voice preview playback" hidden></audio></div>`;
   document.body.append(d);const token={dialog:d,story:activeStory,timer:null};preview=token;
   const valid=()=>preview===token&&d.open&&d.isConnected&&page==='audio'&&activeStory===token.story;
@@ -253,7 +263,7 @@
    const current=service,started=Date.now();button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Generating Preview…';player.hidden=true;player.removeAttribute('src');status.textContent='Generating voice preview…';
    const fail=error=>{if(valid()){status.textContent=error.message||'Could not create the voice preview.';button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate preview';}};
    try{
-    await requireCompute(settings.compute,settings.model);if(!valid()||current!==service)return;
+    await requireCompute(settings.compute,settings.model,settings.worker_id);if(!valid()||current!==service)return;
     let previewLine={text,...voice};if(character.delivery||character.style||character.delivery_style&&character.delivery_style!=='Voice Default'||!previewModel.emotions&&character.emotion!=='neutral'){if(!window.EccoAI?.enabled)throw Error('Connect OpenAI to preview the character’s speaking instructions.');status.textContent='Preparing Delivery…';const plan=await window.EccoAudioDirection.refine({plan:{opening:null,segments:[{character_id:character.id,text}]},cast:[character],brief:{...draft.script_brief,genre:settings.genre,language:character.language},model:previewModel,directionOnly:true,request:api,assertCurrent:()=>{if(!valid()||current!==service)throw Error('The preview changed. Try again.');}});previewLine={text,...voice,...window.EccoAudioDirection.lineControls(plan.segments[0],character,previewModel)};if(settings.model==='chatterbox'&&character.exaggeration===undefined&&plan.expressiveness!==null)settings.exaggeration=plan.expressiveness;}const job=await current.generate({...settings,lines:[previewLine]});if(!valid()||current!==service)return;
     const check=async()=>{if(!valid()||current!==service)return;try{
      const result=await current.job(job.id);if(!valid()||current!==service)return;
@@ -335,8 +345,8 @@
   q('#audio-form').insertAdjacentHTML('afterbegin',`<div data-audio-compute><select name="compute" aria-label="Audio compute" aria-describedby="audio-compute-status"><option value="">Checking connected compute…</option></select><p id="audio-compute-status" class="help" data-audio-compute-status role="status"></p></div>`);
   drawLines();
   q('#add-audio-line').onclick=()=>{if(draft.presentation==='conversation'&&draft.lines.length<20){const previous=draft.lines.at(-1).speaker_id,cast=activeSpeakers(),next=cast[(cast.findIndex(s=>s.id===previous)+1)%cast.length];draft.lines.push({text:'',speaker_id:next.id});save();drawLines();drawControls();}};
-  q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'){draft[e.target.name]=['title','model','genre','compute'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
-  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='genre'){draft.genre=e.target.value;genreDefaults(e.target.value);}if(e.target.name==='compute'){draft.compute=e.target.value;save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
+  q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'&&e.target.name!=='compute'){draft[e.target.name]=['title','model','genre','compute'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
+  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='genre'){draft.genre=e.target.value;genreDefaults(e.target.value);}if(e.target.name==='compute'){Object.assign(draft,parseCompute(e.target.value));save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
   q('#audio-form').onsubmit=async e=>{
    e.preventDefault();save();
    if(submitting||q('#generate-audio').disabled)return;
@@ -345,9 +355,9 @@
    const requestedStory=activeStory;submitting=true;submissionLabel='Submitting…';q('[data-audio-tab=progress]')?.click();update();
    try{
     const current=service,baseline=JSON.stringify(draft),form=q('#audio-form');
-    await requireCompute(draft.compute,draft.model);
+    await requireCompute(draft.compute,draft.model,draft.worker_id);
     if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==baseline)throw Error('The script or settings changed. Generate again with the current draft.');
-    if(draft.sound_design?.enabled&&draft.sound_design.cues?.length&&computeStatus?.compute?.[draft.compute]?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
+    if(draft.sound_design?.enabled&&draft.sound_design.cues?.length&&computeTarget(computeStatus,draft.compute,draft.worker_id)?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
     const hasDirection=activeSpeakers().some(s=>s.delivery||s.style||s.delivery_style&&s.delivery_style!=='Voice Default'||!model().emotions&&s.emotion!=='neutral');
     const signature=JSON.stringify([turns(),activeSpeakers(),draft.genre,draft.model,draft.opening_text]);
     if(hasDirection&&draft.delivery_signature!==signature){
@@ -358,9 +368,9 @@
      draft.lines=directed.segments.map(p=>({text:p.text,speaker_id:p.character_id,performance:p.performance}));draft.opening_performance=directed.opening?.performance;draft.planned_expressiveness=directed.expressiveness;draft.delivery_signature=JSON.stringify([turns(),activeSpeakers(),draft.genre,draft.model,draft.opening_text]);save();lines=requestLines();
     }
     const sounds=window.EccoSoundDesign?.prepare(draft.sound_design,lines,window.EccoAudioLibrary?.items()||[])||{lines};
-    if(sounds.sound_design_version&&computeStatus?.compute?.[draft.compute]?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
-    const request={model:draft.model,compute:draft.compute,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,...sounds,story_id:requestedStory};
-    applyCharacterCompatibility(request,computeStatus?.compute?.[draft.compute]);
+    if(sounds.sound_design_version&&computeTarget(computeStatus,draft.compute,draft.worker_id)?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
+    const request={model:draft.model,compute:draft.compute,worker_id:draft.worker_id,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,...sounds,story_id:requestedStory};
+    applyCharacterCompatibility(request,computeTarget(computeStatus,draft.compute,draft.worker_id));
     if(current!==service||activeStory!==requestedStory||!form.isConnected)throw Error('The workspace changed. Generate again from the current story.');
     submissionLabel='Submitting…';update();const job=await current.generate(request);window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);if(activeStory===requestedStory)lastJob=job;update();refresh();notice('Audio queued. You can keep working while it generates.');await poll();
    }

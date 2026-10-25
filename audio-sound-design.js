@@ -16,7 +16,7 @@
    const id=String(c.asset_id||'');
    if(id&&!assets.some(a=>a.id===id))throw Error('A selected sound is no longer in Audio Library. Choose another file.');
    if(requireAssets&&!id)throw Error('Choose or upload an audio file for every sound cue before generating.');
-   return {...defaults(c.kind),name,duration:Number(c.duration)||(c.kind==='music'?20:5),compute:['cpu','a100','b200'].includes(c.compute)?c.compute:'cpu',description:String(c.description||'').trim().slice(0,600),asset_id:id,start:c.start,end:c.end,phrase,level_db:c.level_db,duck:!!c.duck,loop:!!c.loop,fade:c.fade};
+   return {...defaults(c.kind),name,duration:Number(c.duration)||(c.kind==='music'?20:5),compute:['cpu','a100','b200'].includes(c.compute)?c.compute:'cpu',worker_id:typeof c.worker_id==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(c.worker_id)?c.worker_id:'',description:String(c.description||'').trim().slice(0,600),asset_id:id,start:c.start,end:c.end,phrase,level_db:c.level_db,duck:!!c.duck,loop:!!c.loop,fade:c.fade};
   });
  }
  function prepare(plan,lines,assets){
