@@ -1,6 +1,19 @@
 # Audio Studio — GitHub Pages interface and disposable inference worker
 
-## Current Chapter 1 run — 25 October 2026
+## Full Chapter 1 recording — 25 October 2026
+
+**The full CPU-generated mixed recording is saved and playable. This is not a blanket journey-completion or subjective quality claim.**
+
+- Audio Library → **Storybooks** → **Arabian Nights — Chapter 1 · Full story with music & effects**. Job `e6acc0ee462d465088f2b4c2498298af`; generated asset `dc5ffadfd5e5d96c903b666c8e4bcfc9`.
+- 259.841958 seconds (about 4:20), stereo 48 kHz PCM, 49,889,734 bytes. SHA-256 `5a74ac9c0049c660d3d95545a5d574b8e21a56ea6f3941d79527ee7d7295f2c8`. All 49 rendered speech segments and eight sound cues are included. Six distinct new sound files were generated on the same CPU; one derived spring file was level-balanced and uploaded through the UI.
+- The job used Chatterbox on `smiling_sapphire_mandrill` / `0g6485yvcjldmo`, CPU only. The live Progress tab showed real completed-passage counters. Displayed and submitted script text match after whitespace normalization. Character voice/pitch/speed settings and all six sound-asset snapshot hashes were verified in the accepted request.
+- The first final mix **failed** because this pod had FFmpeg 4.2.7, which rejected `adelay:all`. Installing the pinned `imageio-ffmpeg==0.6.0` package supplied FFmpeg 7.0.2; `/usr/local/bin/ffmpeg` now selects it on this CPU. A real full mixer rerun succeeded. Guarded helper `4e215537d7d2b9f099ba75de462f9771e0d54116` recovered this one failed job using its retained complete speech. The normal storage finalizer then copied, hashed and saved the generated asset. The failed status, original speech and request remain in the recovery audit directory; no success was claimed before a real mix existed.
+- Recovery audit: `queue/e6acc0ee462d465088f2b4c2498298af/mix-recovery-1792906641121670014/`. Five recovery guard tests passed (valid promotion, mixer failure, truncated output, wrong CPU, changed request). This was an administrative recovery, **not an uninterrupted first-attempt UI success**.
+- After a full browser refresh the authenticated library retrieved the recording. Playback advanced through 36.85 seconds without a media error, then a separate end check reached `ended=true` at 259.841958 seconds. The Storybooks label was saved through the normal UI. The downloaded WAV hash matches the worker and saved asset; measured RMS −21.26 dBFS, peak −1.87 dBFS, zero clipped PCM samples.
+- A full-length 192 kbps MP3 export was also produced with 1 dB additional headroom: 259.872 seconds, 6,237,634 bytes, SHA-256 `cddaea8dc4dd1135572b25f0fd2cbeabd9c19cae0426268748c73f7ae9b2eee1`. An incomplete intermediate export was detected and replaced before delivery; the retained version is the verified full-length file.
+- **Remaining:** actual listening review and voice/mix quality acceptance; a fresh uninterrupted mixed-generation run after the dependency repair; complete cross-browser persistence and all source-selection variants; durable post-pod-replacement sound/mixer installation. The requested 21 distinct male/female/child voice identities and separately scheduled soundtracks are not complete. Do not disable the readiness watch or claim Amazon-sale quality from playback, waveform checks or source tests.
+
+## Earlier voice-only checkpoint — 25 October 2026
 
 **Full voice performance saved; final mixed-audiobook acceptance is still pending.**
 
@@ -26,7 +39,8 @@ requires model qualification plus at least 16 GiB RAM. This code update alone
 does not qualify the newly provisioned worker or complete the audiobook test.
 
 The storybook integration and new sound-generation adapter described below are
-deployed, with model qualification and full-journey testing still pending.
+deployed. Real CPU qualification and a recovered full mixed recording are recorded
+above; complete journey and listening acceptance remain pending.
 They are **not an end-to-end acceptance result**. Follow
 [STORYBOOK_ACCEPTANCE.md](STORYBOOK_ACCEPTANCE.md) for deployment and test evidence.
 
