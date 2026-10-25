@@ -2,14 +2,16 @@
 
 ## Current Chapter 1 run — 25 October 2026
 
-**Not acceptance-complete.** The full Chapter 1 mixed audiobook has not yet been saved or listened to.
+**Full voice performance saved; final mixed-audiobook acceptance is still pending.**
 
-- Chapter dialogue now supports 80 speech segments with the existing 4,000-character spoken-text budget. CPU schema activation from `fd624a3cadd0007f7d39fe1287dff40ed1ea29fc` completed at `2026-10-25T03:33:01Z`; backup: `/workspace/ecco-audio-update-1792899179561221127/backup`.
-- Live UI source review used the explicitly selected 8,174-character Chapter 1 excerpt. A requested 38 turns produced 43; the real mismatch choice was accepted. The edited, applied script has 3,570 spoken characters, 43 dialogue turns plus its opening, ten speaking roles and eight named sound cues. No next-chapter resolution was added.
-- Full CPU speech job `afec87d254b84e6f806055bca3332cf8` targeted `0g6485yvcjldmo` with all 44 passages. It was interrupted by the shared workspace volume's `Errno 122` disk quota before an output WAV was saved. A running UI label was not accepted as success.
-- The existing 300 GB shared volume filled during sound dependency installation. Disposable package caches were removed; the duplicate speech runtime archive was verified and moved to both CPUs' local `/opt` directories. Partial sound installations are being cached temporarily in the new CPU's RAM to restore workspace capacity. These are not qualified sound runtimes and are not durable across pod replacement.
-- The worker progress update records completed speech passages; it must be activated on both idle CPU workers before its status is considered live. Sound qualification can use the explicitly configured CPU threads, bounded at eight.
-- New sound-file generation, a completed authenticated full mixed recording, playback after refresh and actual listening acceptance remain pending. Scheduled soundtracks remain separately pending. No GPU was started.
+- Authenticated UI job `5e28aad5540a47a181c6fc5ee0892931` completed on CPU `0g6485yvcjldmo` (`smiling_sapphire_mandrill`). Chatterbox rendered all 44 passages: opening plus 43 dialogue turns, 3,570 spoken characters, ten speaking roles. The final timing entry ends at 257.602625 seconds.
+- The file is in Audio Library → Storybooks as **Arabian Nights — Chapter 1 · Voice performance**. It was downloaded, retrieved again after a full browser refresh and played with advancing media time, readyState 4 and no media error. WAV: mono 24 kHz, 12,364,970 bytes; SHA-256 `144ad5f16490f2d00da639f316d0c585d3c9e9835882f438063b5a4c06cd0838`. This voice pass has no soundtrack; do not describe it as the finished mix.
+- Worker progress activation from `dd36c342bd36464bc5b8f6d4cb13c70b87c023d5` completed on both CPU workers; backup/result: `/workspace/ecco-audio-update-1792900809778004095/`. The live UI displayed actual completed-passage counters through 43 of 44, then Audio saved. The 80-segment schema had already activated at 03:33:01 UTC from `fd624a3cadd0007f7d39fe1287dff40ed1ea29fc`.
+- The original 255-page PDF was uploaded again in Generate with AI. A real chapter lookup exposed missing interior-page evidence in the verifier. Fix `d1d0baa74138032a0f3106b7c6816a618229fb86` includes every intervening page; Pages [40160941366](https://github.com/ecco-ai-labs/ecco-studio/actions/runs/40160941366) and UI Registry passed. After refreshing, Find Chapter with AI successfully returned **The Story of the Merchant and the Genius · PDF pages 8–12 · 8,174 characters**, matching the reviewed source length.
+- The earlier full job `afec87d254b84e6f806055bca3332cf8` failed when sound installation exhausted the 300 GB shared volume. Reproducible installation caches were removed; the speech archive was verified and moved to each CPU's local /opt. RAM-cached sound packages and weights restored space. These sound installations are temporary and do not survive pod replacement.
+- ACE-Step 1.5 passed real CPU qualification with a 10-second instrumental WAV at `sounds/ace-step-1.5/verification-cpu-1792902055141434979/output.wav`. MOSS qualification is running. The UI has submitted separate opening, farewell and closing music jobs; none is reported complete in this checkpoint.
+- Eight named sound cues and their timing, volume, fades and ducking settings remain saved. New effects, finished cue assignments, a full mixed render and its refresh/replay test are pending. Actual listening is **not available in this test environment**; playback and waveform checks do not validate perceived voice/mix quality.
+- Scheduled soundtracks and the requested expanded voice catalog remain separately incomplete. No GPU was started or used.
 
 ## Release status
 

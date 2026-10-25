@@ -1,6 +1,6 @@
 # Storybook journey acceptance
 
-Status on 2026-10-25: two CPU instances verified for short speech previews; **not ready for a completion notice**.
+Status on 2026-10-25: full 44-passage CPU voice performance saved and replayed after refresh; soundtrack generation is in progress. **Not ready for a completion notice.**
 Source checks, Pages publication, runtime activation and audible quality are
 separate gates. Never infer one from another.
 
@@ -79,8 +79,8 @@ Review the frame narrative explicitly rather than accidentally merging speakers.
 - Storage and AI were subsequently connected by the user. Live authenticated
   source preparation, Story save and short CPU preview requests now work.
   No access keys were recovered and the rejected sign-in flow was not bypassed.
-- No new sound model has passed real inference qualification. No full Chapter 1
-  mixed recording has been produced or listened to for this acceptance run.
+- The latest checkpoint below supersedes the initial empty sound-model list.
+  No full Chapter 1 mixed recording has yet been produced or listened to.
 - Scheduled soundtracks remain separately pending. Do not label all historical
   audio requests complete when the first storybook journey passes.
 
@@ -128,3 +128,16 @@ before marking this journey complete or sending its one-time readiness notice.
   distinct-voice review, new effects/music and assignments, full mixed recording,
   final replay and actual listening review. The requested expanded voice catalog
   and separately scheduled soundtracks are also not complete.
+
+
+## Full Chapter 1 voice checkpoint — 2026-10-25 UTC
+
+- CPU-only UI generation completed job `5e28aad5540a47a181c6fc5ee0892931` on `0g6485yvcjldmo`. All 44 requested passages have timing entries; final entry: 254.6255–257.602625 seconds. The 43 dialogue turns plus opening preserve the reviewed Chapter 1 plot and frame-story exchanges. No next-chapter resolution is added.
+- Saved under Audio Library → Storybooks as **Arabian Nights — Chapter 1 · Voice performance**. Browser refresh, authenticated retrieval and advancing playback passed. The 257.602625-second WAV is 24 kHz mono, 12,364,970 bytes, SHA-256 `144ad5f16490f2d00da639f316d0c585d3c9e9835882f438063b5a4c06cd0838`. Objective RMS is −18.22 dBFS with zero fully clipped PCM samples. These measurements do not establish perceived quality.
+- The same story reopened with the complete script and ten character assignments retained. The sound plan retains eight named cues. The voice pass deliberately has sound design disabled while real sound files are being generated.
+- Worker source `dd36c342bd36464bc5b8f6d4cb13c70b87c023d5` was activated on both CPUs; backup/result `/workspace/ecco-audio-update-1792900809778004095/`. Actual live counters reached 43 of 44 and then Audio saved. The interrupted previous job `afec87d254b84e6f806055bca3332cf8` is recorded as failed, not successful.
+- Real PDF upload and chapter lookup exposed an omitted interior page in verification evidence. Fix `d1d0baa74138032a0f3106b7c6816a618229fb86` passed Pages 40160941366, UI Registry and eight focused tests. A live retest after refresh returned the reviewed 8,174-character Chapter 1 selection on physical pages 8–12 and preserved existing main-script content when nested dialogs were dismissed.
+- ACE-Step 1.5 has generated a real 10-second instrumental CPU qualification recording; model revision `19671f406d603126926c1b7e2adc169acbcade22`, source `ca1e85fe9430179831e6bc6be790c332190a3866`. MOSS weights revision `e35df4d82fbe87fcd5d14e5d100e349c0c3c076d` is downloaded; qualification is still running at this checkpoint.
+- Three authenticated UI music jobs were submitted: Story Invitation `0074d0685fab4867a3655a3de090129e`, Year Farewell `1e42bac40a4e4931929100a18d5e6363`, Mercy Offered `cb9d310b97834829be76af55acbfb969`. Completion, cue attachment and replay are not claimed here.
+- Sound packages/weights use temporary RAM-backed paths on the 64 GB CPU because the shared network volume reached quota during installation. Native libraries stay on an executable filesystem; no mount security flags were changed. This is not a durable post-replacement installation.
+- Remaining: real effect/ambience generation, all cue assignments, full mixed recording and refresh/replay; comprehensive selected-word/sentence/paragraph acceptance; broader workflow persistence; actual listening and voice distinction. The catalog does not provide 21 distinct male/female/child voice identities. Scheduled soundtracks remain separately pending. No GPU was used.
