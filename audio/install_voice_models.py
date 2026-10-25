@@ -36,7 +36,7 @@ def install(model):
     def pip(*packages, constraints=True):
         subprocess.run([python, '-m', 'pip', 'install', *(['-c', str(base/'cpu-model-constraints.txt')] if constraints else []), *packages], check=True, env=env)
     if model == 'kokoro':
-        pip('kokoro==0.9.4', 'misaki[en,ja,zh]==0.9.4', 'spacy==3.8.7', 'soundfile', 'huggingface_hub<1', 'transformers==4.51.3')
+        pip('kokoro==0.9.4', 'misaki[en,ja,zh]==0.9.4', 'spacy==3.8.7', 'preshed==3.0.10', 'soundfile', 'huggingface_hub<1', 'transformers==4.51.3')
         subprocess.run(['apt-get', 'update', '-qq'], check=True)
         subprocess.run(['apt-get', 'install', '-y', '-qq', 'espeak-ng'], check=True)
         subprocess.run([python, '-m', 'spacy', 'download', 'en_core_web_sm'], check=True, env=env)

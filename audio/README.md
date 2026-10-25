@@ -402,3 +402,34 @@ consume it in native direction prompts, separate from spoken words. Chatterbox
 acting cues use its real expressiveness/pause controls; explicit settings win.
 Kokoro has no arbitrary acting-prompt input; no equivalent compliance is claimed.
 Audience/tone changes invalidate delivery refinement and voice-sample cache keys.
+
+### CPU installation checkpoint — 25 October 2026
+
+RunPod sign-in was restored. The shared 300 GB volume had reached its quota;
+the Kokoro installer and both CPU worker heartbeat writes failed with `Errno 122`.
+Only the disposable pip HTTP download cache was removed. The existing storage
+API then passed `/healthz`, and both CPU workers resumed fresh heartbeats with
+the existing Indic-Mio, Chatterbox and IndicF5 models. No models or recordings
+were deleted and no GPU was started.
+
+Kokoro weights were downloaded at revision
+`f3ff3571791e39611d31c381e3a41a3af07b4987`. Qualification uses the prepared
+worker/schema from `489a0c73794a1b0df12b16773eade8047e1e0481`, isolated from
+live service source. The first inference attempts caught an unsigned-hash overflow
+in preshed 3.0.14; the CPU installer now pins preshed 3.0.10 with spaCy 3.8.7.
+It also disables the optional inherited hf_transfer setting during downloads.
+
+Real English (`af_heart`) and Hindi (`hm_omega`) CPU synthesis passed on
+`smiling_sapphire_mandrill` / `0g6485yvcjldmo`, with torch `2.8.0+cpu`:
+14.97 seconds of mono 24 kHz PCM audio, 44.39 seconds wall time, SHA-256
+`36b5995f1ac779f17b0f51b2b04f1e85b4dbfcf4a0b4f09ac18b01ad382b06c8`.
+The report and output are in `/workspace/ecco-audio/cpu-verification/kokoro/`.
+This is isolated runtime qualification, not authenticated Studio/Audio Library
+acceptance or listening evidence. The live worker still uses the existing catalog.
+
+VoxCPM2 and Indic Parler weights require approximately 4.96 GB and 3.75 GB,
+respectively, before dependencies. Additional shared storage is required; no
+capacity increase has been submitted. Their installation and qualification remain
+pending. Feature runtime activation, UI publication, live voice previews, mixed
+recording generation and refresh/playback acceptance remain pending. Scheduled
+soundtracks remain separately outstanding.
