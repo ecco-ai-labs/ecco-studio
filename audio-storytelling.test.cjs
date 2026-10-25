@@ -40,6 +40,16 @@ test('Chatterbox casting uses the default voice for Hindi instead of arbitrary c
  const x=await fixture(t),models=x.w.EccoAudioModels;assert.equal(x.w.EccoAudioDirection.defaultVoice(models.find(m=>m.id==='chatterbox'),'Hindi',2),'default');assert.equal(x.w.EccoAudioDirection.defaultVoice(models[0],'Hindi',1),'en_male');
  const guide=x.w.EccoAudioDirection.guidance({genre:'Story Book Reading',audience:'Children (6–8)',language:'Hindi'});assert.match(guide,/not a plot summary/);assert.match(guide,/familiar concrete words/);assert.match(guide,/everyday spoken phrasing/);
 });
+test('Chapter verification receives all interior pages, not only boundary neighbors',async t=>{
+ const x=await fixture(t),pages=[['Preface'],['Chapter 1','Start'],['First event'],['Essential middle event'],['Last event'],['Ending','Chapter 2'],['Next chapter']];
+ const selection=await x.w.EccoSourceChapters.locate({pages,chapter:'Chapter 1',maxSelection:20000,request:async(path,body)=>{
+  if(body.fields[0].id==='chapter_location')return reply('chapter_location',{chapter_title:'Chapter 1',start:{page:2,line:1,text:'Chapter 1'},end:{page:6,line:2,text:'Chapter 2'}});
+  const evidence=JSON.parse(body.context.summary).pages;
+  assert.deepEqual(evidence.map(p=>p.page),[1,2,3,4,5,6,7]);assert.equal(evidence[3].lines[0].text,'Essential middle event');
+  return reply('chapter_verification',{valid:true,reason:'All intervening pages verified.'});
+ }});
+ assert.match(selection.text,/Essential middle event/);assert.ok(!selection.text.includes('Chapter 2'));
+});
 module.exports={directed};
 test('Chapter dialogue can retain more than twenty short speaker turns',async t=>{
  const x=await fixture(t);const cast=[{id:'a',name:'Mira'},{id:'b',name:'Grandmother'}];
