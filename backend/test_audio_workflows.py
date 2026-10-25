@@ -54,6 +54,12 @@ class AudioWorkflowsTest(unittest.TestCase):
         return workflows.control({'id':w['id'],'action':'run','request_id':uuid.uuid4().hex},self.env)
     def record(self,kind): return self.env['records'](kind)[0]
 
+    def test_schedule_rejects_model_override_instead_of_losing_it(self):
+        setup=copy.deepcopy(self.base['audio_snapshot'])
+        setup['speakers'][0]['model']='chatterbox'
+        with self.assertRaisesRegex(Problem,'Per-character speech models'):
+            self.workflow(audio_snapshot=setup)
+
     def test_timezone_weekdays_weekly_and_dst(self):
         w={**self.base,'timezone':'America/Los_Angeles','time':'02:30','start_date':'2026-03-08'}
         due=workflows.next_due(w,datetime(2026,3,8,0,tzinfo=timezone.utc))
