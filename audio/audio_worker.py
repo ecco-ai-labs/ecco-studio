@@ -45,12 +45,12 @@ def assemble(clips, request, output, sample_rate):
             frames += len(spoken)
             final.append(spoken)
         sf.write(output, np.concatenate(final), sample_rate, subtype='PCM_16')
+    from audio_queue import write
+    output = Path(output)
+    write(output.with_suffix('.timeline.json'), timeline)
     if request.get('soundtrack'):
         from audio_soundtrack import mix
-        from audio_queue import write
-        output = Path(output)
         write(output.parent / 'progress.json', {'progress': 'Mixing music and effects'})
-        write(output.with_suffix('.timeline.json'), timeline)
         mixed = output.with_name('soundtrack.wav')
         mix(request, output, timeline, mixed)
         mixed.replace(output)

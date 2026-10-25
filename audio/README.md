@@ -1,5 +1,16 @@
 # Audio Studio — GitHub Pages interface and disposable inference worker
 
+## Current Chapter 1 run — 25 October 2026
+
+**Not acceptance-complete.** The full Chapter 1 mixed audiobook has not yet been saved or listened to.
+
+- Chapter dialogue now supports 80 speech segments with the existing 4,000-character spoken-text budget. CPU schema activation from `fd624a3cadd0007f7d39fe1287dff40ed1ea29fc` completed at `2026-10-25T03:33:01Z`; backup: `/workspace/ecco-audio-update-1792899179561221127/backup`.
+- Live UI source review used the explicitly selected 8,174-character Chapter 1 excerpt. A requested 38 turns produced 43; the real mismatch choice was accepted. The edited, applied script has 3,570 spoken characters, 43 dialogue turns plus its opening, ten speaking roles and eight named sound cues. No next-chapter resolution was added.
+- Full CPU speech job `afec87d254b84e6f806055bca3332cf8` targeted `0g6485yvcjldmo` with all 44 passages. It was interrupted by the shared workspace volume's `Errno 122` disk quota before an output WAV was saved. A running UI label was not accepted as success.
+- The existing 300 GB shared volume filled during sound dependency installation. Disposable package caches were removed; the duplicate speech runtime archive was verified and moved to both CPUs' local `/opt` directories. Partial sound installations are being cached temporarily in the new CPU's RAM to restore workspace capacity. These are not qualified sound runtimes and are not durable across pod replacement.
+- The worker progress update records completed speech passages; it must be activated on both idle CPU workers before its status is considered live. Sound qualification can use the explicitly configured CPU threads, bounded at eight.
+- New sound-file generation, a completed authenticated full mixed recording, playback after refresh and actual listening acceptance remain pending. Scheduled soundtracks remain separately pending. No GPU was started.
+
 ## Release status
 
 CPU instance selection now routes speech, voice previews and new sound requests
