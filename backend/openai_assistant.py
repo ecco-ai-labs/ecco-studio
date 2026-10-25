@@ -213,7 +213,8 @@ def enhance(body, env):
     if mode == 'generate':
         instructions += '''\nThe user explicitly chose Generate with AI. Create ready-to-use content for the supplied field from their brief, selected references and controls. For image and video fields write a generation prompt; for audio fields write only speakable dialogue or narration. If the brief is empty, use the selected references and saved story. You may add ordinary creative detail consistent with that context, but never invent reference IDs, real-person identities or model capabilities. Preserve requested language and attributes. If no usable brief or context exists, ask one concise question. Return content for only the supplied field.'''
     audio_plan = mode == 'generate' and stage == 'storyboard' and len(fields) == 1 and fields[0]['id'] == 'audio_plan'
-    if audio_plan:
+    directed_plan = mode == 'generate' and stage == 'storyboard' and len(fields) == 1 and fields[0]['id'] == 'audio_directed_script'
+    if audio_plan or directed_plan:
         cast = context.get('lines', [])
         ids = [c.get('character_id', c.get('id')) for c in cast if isinstance(c, dict)] if isinstance(cast, list) else []
         if not 1 <= len(ids) <= 20 or any(not isinstance(i, str) or not i or len(i) > 160 for i in ids) or len(set(ids)) != len(ids):
@@ -221,17 +222,25 @@ def enhance(body, env):
         spoken = {'type': 'object', 'additionalProperties': False,
                   'properties': {'character_id': {'type': 'string', 'enum': ids}, 'text': {'type': 'string'}},
                   'required': ['character_id', 'text']}
-        segment = {**spoken, 'properties': {**spoken['properties'], 'title': {'type': 'string'}},
+        if directed_plan:
+            spoken['properties']['performance'] = {'type': 'object', 'additionalProperties': False,
+                'properties': {'emotion': {'type': 'string', 'enum': ['neutral','happy','sad','angry','disgust','fear','surprise','enunciated','confused','whisper']},
+                               'direction': {'type': 'string'}, 'pause_before': {'type': 'number'}},
+                'required': ['emotion', 'direction', 'pause_before']}
+            spoken['required'].append('performance')
+        segment = spoken if directed_plan else {**spoken, 'properties': {**spoken['properties'], 'title': {'type': 'string'}},
                    'required': ['character_id', 'text', 'title']}
+        plan_properties = {'opening': {'anyOf': [{'type': 'null'}, spoken]}, 'segments': {'type': 'array', 'items': segment}}
+        if directed_plan:
+            plan_properties['expressiveness'] = {'anyOf': [{'type': 'number'}, {'type': 'null'}]}
         schema = {'type': 'object', 'additionalProperties': False,
                   'properties': {'plan': {'type': 'object', 'additionalProperties': False,
-                      'properties': {'opening': {'anyOf': [{'type': 'null'}, spoken]},
-                                     'segments': {'type': 'array', 'items': segment}},
-                      'required': ['opening', 'segments']},
+                      'properties': plan_properties, 'required': list(plan_properties)},
                       'notes': {'type': 'array', 'items': {'type': 'string'}},
                       'questions': {'type': 'array', 'items': {'type': 'string'}}},
                   'required': ['plan', 'notes', 'questions']}
-        instructions += '\nThe audio_plan field is structured assembly data. Return the required plan object, with speech only inside text properties. Use the supplied character IDs, requested turn count and language. Use an empty title when none is requested. The plain narration rule does not apply to this structured field.'
+        instructions += '\nThe '+fields[0]['id']+' field is structured assembly data. Return the required plan object, with speech only inside text properties. Use the supplied character IDs, requested turn count and language. The plain narration rule does not apply to this structured field.'
+        instructions += (' For a delivery-only request preserve every supplied spoken text and character assignment exactly, and add the requested performance cues. Do not request chapter source material for a voice preview. Performance directions are English and are never spoken.' if directed_plan else ' Use an empty title when none is requested.')
     payload = {'model': config['model'], 'instructions': instructions, 'store': False,
                'input': [{'role': 'user', 'content': [{'type': 'input_text', 'text': json.dumps(user, ensure_ascii=False)}, *images]}],
                'reasoning': {'effort': 'low'}, 'max_output_tokens': 16000,
@@ -242,9 +251,9 @@ def enhance(body, env):
         response = _request(config['api_key'], payload)
         try:
             result = json.loads(_output(response))
-            if audio_plan:
+            if audio_plan or directed_plan:
                 if not isinstance(result.get('plan'), dict): raise ValueError()
-                result = {'revisions': [{'id': 'audio_plan', 'text': json.dumps(result['plan'], ensure_ascii=False)}],
+                result = {'revisions': [{'id': fields[0]['id'], 'text': json.dumps(result['plan'], ensure_ascii=False)}],
                           'notes': result['notes'], 'questions': result['questions']}
             revisions = result['revisions']
             by_id = {r['id']: r['text'] for r in revisions}

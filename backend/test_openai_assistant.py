@@ -34,6 +34,21 @@ class AssistantTest(unittest.TestCase):
         self.assertNotIn(self.key, json.dumps(result))
         self.assertEqual(stat.S_IMODE(ai.CONFIG_FILE.stat().st_mode), 0o600)
         self.assertFalse(request.call_args.args[1]['store'])
+    def test_delivery_plan_is_structured_and_not_plain_narration(self):
+        self.connect()
+        text='एक दिन की बात है।'
+        body={'stage':'storyboard','mode':'generate','fields':[{'id':'audio_directed_script','text':'Add delivery cues only','max_length':24000}], 'context':{'lines':[{'id':'n','voice':'default'}]}}
+        plan={'opening':None,'segments':[{'character_id':'n','text':text,'performance':{'emotion':'neutral','direction':'Warm storyteller','pause_before':.4}}],'expressiveness':.5}
+        with patch.object(ai,'_request',return_value=response(json.dumps({'plan':plan,'notes':[],'questions':[]}))) as request:
+            result=ai.enhance(body,self.env)
+        self.assertEqual(json.loads(result['revisions'][0]['text']),plan)
+        self.assertEqual(result['revisions'][0]['id'],'audio_directed_script')
+        payload=request.call_args.args[1];schema=payload['text']['format']['schema']['properties']['plan']
+        self.assertIn('performance',schema['properties']['segments']['items']['required'])
+        self.assertIn('expressiveness',schema['required'])
+        self.assertIn('preserve every supplied spoken text',payload['instructions'])
+        with patch.object(ai,'_request',return_value=response(json.dumps({'revisions':[{'id':'audio_directed_script','text':text}],'notes':[],'questions':[]}))):
+            with self.assertRaises(ai.AssistantError): ai.enhance(body,self.env)
     def test_failed_replacement_preserves_previous_connection(self):
         self.connect(); original = ai.CONFIG_FILE.read_bytes()
         with patch.object(ai, '_request', side_effect=ai.AssistantError('Rejected', 502)):
