@@ -4,7 +4,7 @@ import wave
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
-from audio_schema import validate, required_models
+from audio_schema import validate, required_models, performance_direction
 from audio_queue import request_ready
 from mixed_worker import stitch
 
@@ -64,3 +64,11 @@ class MixedVoices(TestCase):
         self.assertEqual(r['lines'][0]['text'],line['text'])
         self.assertEqual(r['lines'][0]['direction'],line['direction'])
         with self.assertRaises(ValueError):validate({'lines':[{**line,'direction':'x'*1201}]})
+
+    def test_final_narration_brief_reaches_native_prompt_without_source_or_spoken_changes(self):
+        r=validate({'model':'voxcpm2','performance_brief':{'audience':'Children (6–12)','tone':'Playful','genre':'Story Book Reading','narration_style':'Storyteller','source_text':'UNSELECTED SOURCE'},'lines':[{'text':'The door opened.','language':'English','voice':'mar_m','direction':'Quiet anticipation.'}]})
+        direction=performance_direction(r,r['lines'][0])
+        for value in ('Children (6–12)','Playful','Story Book Reading','Storyteller','Quiet anticipation'):
+            self.assertIn(value,direction)
+        self.assertNotIn('UNSELECTED',direction)
+        self.assertEqual(r['lines'][0]['text'],'The door opened.')

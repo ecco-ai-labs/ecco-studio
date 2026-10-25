@@ -47,7 +47,7 @@ def generate(body, env, *, job_id=None, sound=False):
             raise env['Problem']('Update the selected audio worker before using per-character pitch, speed or expressiveness.', 503)
         if request.get('sound_design_version') and target.get('sound_design_version') != 1:
             raise env['Problem']('Update the audio service before generating music and effects.', 503)
-        if not sound and not queue.request_ready(request):
+        if not sound and (not queue.required_models(request).issubset(target['models']) or (request.get('mixed_models_version') and not queue.request_ready(request))):
             raise env['Problem']('The selected worker must support every character model and mixed-model generation. Choose an available CPU instance or install and verify its missing models.', 503)
         active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running', 'cancelling')]
         if len(active) >= 4:

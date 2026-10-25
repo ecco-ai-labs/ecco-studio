@@ -394,3 +394,11 @@ activation, real inference for new models, authenticated mixed generation, durab
 Audio Library retrieval and actual listening acceptance are still required. A green
 Pages deployment does not establish any of those. Scheduled soundtracks remain a
 separate outstanding item.
+
+The prepared Final Script view also exposes Generation Directions: audience, genre,
+tone, narration/language style and character delivery. A bounded `performance_brief`
+is preserved in the submitted request and saved recording. VoxCPM2/Indic Parler
+consume it in native direction prompts, separate from spoken words. Chatterbox
+acting cues use its real expressiveness/pause controls; explicit settings win.
+Kokoro has no arbitrary acting-prompt input; no equivalent compliance is claimed.
+Audience/tone changes invalidate delivery refinement and voice-sample cache keys.

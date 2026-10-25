@@ -14,6 +14,13 @@ MODEL = 'SPRINGLab/Indic-Mio'
 def required_models(request):
     return {line.get('model', request.get('model', 'indic-mio')) for line in request.get('lines', [])} or {request.get('model', 'indic-mio')}
 
+BRIEF_FIELDS = ('audience', 'genre', 'tone', 'narration_style', 'language_style', 'language_style_instructions', 'purpose')
+
+def performance_direction(request, line):
+    brief = request.get('performance_brief', {})
+    labels = {'audience': 'Audience', 'genre': 'Genre', 'tone': 'Tone', 'narration_style': 'Narration style', 'language_style': 'Language style', 'language_style_instructions': 'Language guidance', 'purpose': 'Listening goal'}
+    return '. '.join([labels[k] + ': ' + brief[k] for k in BRIEF_FIELDS if brief.get(k)] + [line.get('direction', '')]).strip('. ')
+
 def validate(body):
     if not isinstance(body, dict):
         raise ValueError('Invalid audio request.')
@@ -87,6 +94,17 @@ def validate(body):
     result = dict(model=model_id, compute=compute, genre=genre, title=title.strip()[:160] or 'Audio recording', lines=clean,
                 speed=bounded('speed', 1, 0.75, 1.5), pitch=bounded('pitch', 0, -4, 4),
                 pause=bounded('pause', 0.35, 0, 2))
+    if 'performance_brief' in body:
+        brief = body['performance_brief']
+        if not isinstance(brief, dict):
+            raise ValueError('Invalid narration directions.')
+        result['performance_brief'] = {}
+        for key in BRIEF_FIELDS:
+            value = brief.get(key, '')
+            if not isinstance(value, str) or len(value) > (1000 if key in ('language_style_instructions', 'purpose') else 200):
+                raise ValueError('Invalid narration direction: ' + key)
+            if value.strip():
+                result['performance_brief'][key] = value.strip()
     if worker_id(body.get('worker_id')):
         result['worker_id'] = worker_id(body['worker_id'])
     if model_id == 'chatterbox':

@@ -2,7 +2,7 @@
 import argparse
 import json
 from pathlib import Path
-from audio_schema import MODELS, validate
+from audio_schema import MODELS, validate, performance_direction
 from audio_worker import assemble, inference_device, speech_progress
 
 
@@ -37,7 +37,7 @@ def synthesize(request, output, runtime):
             reference = runtime/'reference-voices'/voices[line['voice']]['file']
             if not reference.is_file():
                 raise RuntimeError('The selected reference voice is not installed.')
-            direction = line.get('direction', '').replace('(', '').replace(')', '')
+            direction = performance_direction(request, line).replace('(', '').replace(')', '')
             text = (f'({direction})' if direction else '') + line['text']
             return model.generate(text=text, reference_wav_path=str(reference), normalize=False, denoise=False, seed=42)
     elif model_id == 'indic-parler':
@@ -49,7 +49,7 @@ def synthesize(request, output, runtime):
         rate = model.config.sampling_rate
         def render(line):
             identity = voices[line['voice']].get('speaker')
-            description = (identity + ' speaks' if identity else 'A speaker speaks') + ' in '+line['language']+'. Clear close-microphone recording with no background noise. '+line.get('direction', '')
+            description = (identity + ' speaks' if identity else 'A speaker speaks') + ' in '+line['language']+'. Clear close-microphone recording with no background noise. '+performance_direction(request, line)
             desc = description_tokenizer(description, return_tensors='pt').to(device)
             prompt = tokenizer(line['text'], return_tensors='pt').to(device)
             result = model.generate(input_ids=desc.input_ids, attention_mask=desc.attention_mask, prompt_input_ids=prompt.input_ids, prompt_attention_mask=prompt.attention_mask)
