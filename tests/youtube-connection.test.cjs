@@ -137,7 +137,8 @@ test('Connections owns all platform controls and header icon preserves publishin
  assert.equal(w.$('#page #connect-youtube'),null);assert.equal(w.$('#page #disconnect-youtube'),null);
  w.$('[name=title]').value='Preserve my draft';w.$('#connection-dialog').close();
  assert.equal(w.$('#open-youtube-connections'),null);assert.equal(w.$('#page .connection'),null);assert.ok(!w.$('#page').textContent.includes('Connect TikTok'));w.$('#studio-publishing-icon').click();
- assert.equal(w.$('#connection-dialog').open,true);assert.equal(w.document.activeElement,w.$('#connect-youtube'));
+ assert.equal(w.$('#connection-dialog').open,false);assert.equal(w.document.activeElement,w.$('#studio-publishing-icon'));
+ assert.equal(w.$('#studio-publishing-control').dataset.iconTooltip,'YouTube: Not Connected');assert.equal(w.$('#studio-publishing-icon').hasAttribute('aria-haspopup'),false);
  assert.equal(w.$('[name=title]').value,'Preserve my draft');assert.equal(w.document.querySelectorAll('#connect-youtube').length,1);
 });
 test('disconnected workspace can choose JSON but cannot install or open Google before authentication',async t=>{
@@ -182,14 +183,15 @@ test('nested storage authentication preserves the JSON selection and publishing 
 });
 
 // Multiple destinations must stay explicit across refreshes and disconnections.
-test('header dropdown shows connected destinations only, supports keyboard and focuses Connections',t=>{
+test('header status and channel list never open Connections and support keyboard dismissal',t=>{
  const {dom,w}=setup();t.after(()=>dom.window.close());const menu=w.$('#publishing-connection-menu');assert.equal(menu.hidden,true);assert.equal(w.$('#studio-publishing-icon').disabled,false);
  w.state.config.youtube_channel={id:'UC-one',title:'One'};w.updateYouTubeConnection();assert.equal(menu.hidden,true);assert.equal(w.$('#studio-publishing-icon').dataset.connected,'true');
  w.state.config.publishing_connections=[{platform:'instagram',id:'ig-1',title:'Instagram owner',connected:true},{platform:'x',id:'x-1',title:'Disconnected',connected:false}];w.updateYouTubeConnection();
  assert.equal(menu.hidden,false);assert.equal(menu.querySelectorAll('button').length,2);assert.ok(menu.textContent.includes('Instagram owner'));assert.ok(!menu.textContent.includes('Disconnected'));
  const summary=menu.querySelector('summary');summary.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));assert.equal(w.document.activeElement,menu.querySelector('button'));
  w.document.activeElement.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));assert.equal(menu.open,false);assert.equal(w.document.activeElement,summary);
- menu.querySelector('button').click();assert.equal(w.$('#connection-dialog').open,true);assert.equal(w.document.activeElement,w.$('#connect-youtube'));
+ w.$('#connection-dialog').close();menu.querySelector('button').click();assert.equal(w.$('#connection-dialog').open,false);
+ assert.equal(w.$('#studio-publishing-control').dataset.iconTooltip,'YouTube: Connected');w.$('#studio-publishing-icon').click();assert.equal(w.$('#connection-dialog').open,false);
  w.EccoStorage.ready=false;w.updateYouTubeConnection();assert.equal(menu.hidden,true);assert.equal(menu.querySelectorAll('button').length,0);assert.equal(w.$('#studio-publishing-icon').dataset.connected,'false');
 });
 test('Publish explains absence of an approved video and unsupported platform without enabling upload',t=>{

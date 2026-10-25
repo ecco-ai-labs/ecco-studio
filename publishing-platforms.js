@@ -12,12 +12,6 @@
   }
   return entries.filter((entry,index)=>entries.findIndex(other=>other.id===entry.id&&other.platform===entry.platform)===index);
  }
- function openConnections(entry={platform:'youtube'}){
-  window.EccoAI?.connections();
-  if(entry.platform==='youtube'){
-   document.querySelector('#connect-youtube')?.focus();
-  }else document.querySelector('#publishing-connection-'+entry.platform)?.focus();
- }
  function mountConnections(root){
   for(const [id,name] of platforms.filter(([id])=>id!=='youtube')){
    const row=document.createElement('section');row.id='publishing-connection-'+id;row.className='connection';row.tabIndex=-1;
@@ -30,10 +24,10 @@
   let control=document.querySelector('#studio-publishing-control');
   if(!control){
    control=document.createElement('div');control.id='studio-publishing-control';
-   control.innerHTML='<button type="button" id="studio-publishing-icon" aria-haspopup="dialog"></button><details id="publishing-connection-menu" class="workspace-menu" hidden><summary aria-label="Connected publishing channels" aria-controls="publishing-connection-items" aria-expanded="false"><span aria-hidden="true">▾</span></summary><div class="workspace-menu-items" id="publishing-connection-items" role="group" aria-label="Connected publishing channels"></div></details>';
+   control.innerHTML='<button type="button" id="studio-publishing-icon"></button><details id="publishing-connection-menu" class="workspace-menu" hidden><summary aria-label="Connected publishing channels" aria-controls="publishing-connection-items" aria-expanded="false"><span aria-hidden="true">▾</span></summary><div class="workspace-menu-items" id="publishing-connection-items" role="group" aria-label="Connected publishing channels"></div></details>';
    panel.insertBefore(control,before||null);
    const menu=control.querySelector('details'),summary=menu.querySelector('summary');
-   control.querySelector('button').onclick=()=>openConnections(destinations()[0]);
+   control.querySelector('button').onclick=event=>{event.stopPropagation();update();event.currentTarget.focus();};
    const close=focus=>{menu.open=false;summary.setAttribute('aria-expanded','false');if(focus)summary.focus();};
    menu.addEventListener('toggle',()=>summary.setAttribute('aria-expanded',String(menu.open)));
    menu.addEventListener('keydown',event=>{
@@ -55,14 +49,14 @@
    const primary=entries[0],button=control.querySelector('#studio-publishing-icon'),platform=primary?.platform||'youtube';
    const name=platforms.find(([id])=>id===platform)[1];
    if(button.dataset.provider!==platform){button.innerHTML=icons[platform];button.dataset.provider=platform;}
-   button.dataset.connected=String(!!primary);button.title=primary?name+': '+primary.title+' · Connected':'YouTube: Not connected';button.setAttribute('aria-label',button.title+' — open Connections');
+   button.dataset.connected=String(!!primary);const status=primary?name+': Connected':'YouTube: Not Connected';button.removeAttribute('title');button.setAttribute('aria-label',status);control.dataset.iconTooltip=status;control.dataset.tooltipConnected=String(!!primary);
    const menu=control.querySelector('details'),items=menu.querySelector('.workspace-menu-items'),signature=JSON.stringify(entries);
    if(items.dataset.entries!==signature){
     const focusInside=items.contains(document.activeElement);items.replaceChildren();
     for(const entry of entries){
      const item=document.createElement('button');item.type='button';item.dataset.connected='true';item.innerHTML=icons[entry.platform];
      const label=document.createElement('span');label.textContent=platforms.find(([id])=>id===entry.platform)[1]+' · '+(entry.handle||entry.title)+' · Connected';item.append(label);
-     item.onclick=()=>{menu.open=false;openConnections(entry);};items.append(item);
+     item.onclick=event=>{event.stopPropagation();};items.append(item);
     }
     items.dataset.entries=signature;if(focusInside)button.focus();
    }
