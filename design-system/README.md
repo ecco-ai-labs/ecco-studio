@@ -232,3 +232,19 @@ installed, verified runtime on the explicitly selected compute; no fallback.
 The earlier description of library-only sound design is superseded by this
 authorized generation path. Runtime, live end-to-end and listening acceptance
 are separate release gates; local tests do not establish artistic quality.
+
+## Ecco Desk email and live support
+
+Customer support tickets keep email, in-app replies and live-chat messages in one
+conversation with a source label. Online support in the ticket drawer joins a
+FIFO waiting queue; a chat becomes live only after an available staff member
+accepts it in the team console's Live support view. Staff availability requires
+continued presence; a lost agent returns the customer to the queue. Closing the
+customer's ticket eventually expires their presence. Customers can leave the
+queue or end chat and resume email replies. Internal notes remain private.
+
+Hours are enforced by the server: 7 AM–7 PM America/Los_Angeles, every day,
+including PST/PDT. At closing time live sessions return to ticket replies.
+Live messages do not produce an email for every chat message. Administrators
+connect the support mailbox in Team members; inbox authorization and reply
+synchronization are separate from the existing outbound SMTP relay.

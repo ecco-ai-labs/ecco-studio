@@ -64,6 +64,18 @@ def main():
     module_path = cwd / 'ecco_desk.py'
     mail_path = cwd / 'ecco_desk_mail.py'
     old_mail = mail_path.read_bytes() if mail_path.exists() else None
+    extras = {}
+    for name in ('ecco_desk_chat.py', 'ecco_desk_replies.py', 'ecco_desk_inbox.py'):
+        with urlopen(f'https://raw.githubusercontent.com/ecco-ai-labs/ecco-studio/{args.commit}/backend/{name}', timeout=30) as response:
+            content = response.read(1024 * 1024)
+        compile(content, name, 'exec')
+        target = cwd / name
+        previous = target.read_bytes() if target.exists() else None
+        # First installation only. A later update must be reviewed against its
+        # live hashes, rather than silently overwriting another deployment.
+        if previous is not None and previous != content:
+            raise SystemExit('Conversation module already exists with different content: ' + name)
+        extras[name] = (content, previous)
     if old_mail is not None and (not args.previous_mail_module_sha256 or
             hashlib.sha256(old_mail).hexdigest() != args.previous_mail_module_sha256):
         raise SystemExit('Existing mail module changed. Inspect it before updating.')
@@ -95,10 +107,15 @@ def main():
         (backup / 'ecco_desk.py').write_bytes(old_module)
     if old_mail is not None:
         (backup / 'ecco_desk_mail.py').write_bytes(old_mail)
+    for name, (_, previous) in extras.items():
+        if previous is not None:
+            (backup / name).write_bytes(previous)
     with sqlite3.connect(database) as live, sqlite3.connect(backup / 'studio.sqlite') as saved:
         live.backup(saved)
     os.chmod(backup / 'studio.sqlite', 0o600)
     idle()
+    for name, (content, _) in extras.items():
+        (cwd / name).write_bytes(content)
     module_path.write_bytes(module)
     mail_path.write_bytes(mail_module)
     source.write_text(updated)
@@ -128,6 +145,11 @@ def main():
             mail_path.write_bytes(old_mail)
         else:
             mail_path.unlink(missing_ok=True)
+        for name, (_, previous) in extras.items():
+            if previous is None:
+                (cwd / name).unlink(missing_ok=True)
+            else:
+                (cwd / name).write_bytes(previous)
 
     os.kill(args.pid, signal.SIGTERM)
     for _ in range(50):

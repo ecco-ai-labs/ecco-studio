@@ -55,8 +55,8 @@ Python. In-memory Google sessions expire on service restart; sign in again.
 ## New-ticket email notifications
 
 Every newly created support ticket or internal task queues one notification in
-`desk_mail_outbox`, in the same transaction as the ticket. Comments and status
-updates do not generate another notification. Existing tickets are not backfilled.
+`desk_mail_outbox`, in the same transaction as the ticket. Status updates do not generate another new-ticket notification. Public replies
+use a separate conversation outbox. Existing tickets are not backfilled.
 The confirmed destination is `support@saazztechnologies.com`.
 
 The CPU worker delivers pending messages within about 10 seconds when configured,
@@ -99,6 +99,49 @@ crashes after acceptance but before recording success. Sent messages are never
 deliberately resent. Inspect pending counts/`lastError` in the private outbox and
 the service log to diagnose delivery without exposing credentials or SMTP replies.
 
-This version supports text tickets, in-app replies/status and outbound new-ticket
-notifications. Attachments, inbound email, SLAs and customer organizations are not
-configured.
+The system supports text tickets, in-app replies/status, threaded email replies
+and queued live chat. Email attachments remain in the support mailbox; SLAs and
+customer organizations are not configured.
+
+## Email conversations and live chat
+
+The conversation update supersedes the outbound-only limitation above. New
+support tickets also send the requester a replyable acknowledgement. Public
+web replies email the other side; internal notes never email customers. Chat
+messages are retained in `desk_comments` with channel metadata and do not email
+per message. Emails are threaded by a random per-ticket reply address or a known
+Message-ID reference, never merely a ticket number in the subject.
+
+`ecco_desk_inbox.py` uses read-only Gmail OAuth for the configured support mailbox.
+An administrator selects **Team members → Connect support email** and authorizes
+`support@saazztechnologies.com`. The existing Ecco OAuth client and registered
+callback are reused; the existing YouTube token is not changed. Enable Gmail API
+in that OAuth client's project if necessary. Refresh credentials are encrypted in
+`/workspace/ecco-storage-private/desk-inbox.json`, mode 0600. No mailbox password
+is stored. Only this exact mailbox is accepted, and the service does not change
+Gmail labels, mark mail read or delete mail. SMTP relay setup alone does not grant
+inbox access. Import activates only after successful mailbox authorization.
+
+The first inbox sync reads up to seven recent days, then uses Gmail history and
+an idempotent message ledger; an expired history cursor falls back to the recent
+scan. Only matching ticket replies from the authenticated requester, active staff
+or the authorized support mailbox become public comments. Gmail's trusted DMARC
+result is required for received mail; sent mail is trusted only for the connected
+mailbox's own address. Automatic responses and unrelated mail are ignored.
+Attachments remain in Gmail; the ticket records their names. Plain email replies
+are capped at 30,000 characters with explicit truncation notice.
+
+**Online support** in a customer ticket joins the FIFO queue. **Live support** in
+the team console provides an explicit availability checkbox and Accept chat.
+There is one live conversation per agent; simultaneous accepts are serialized
+by SQLite. Agent presence expires after 75 seconds and customer presence after
+150 seconds. Disconnected agents requeue their customers. Chat hours are
+07:00–19:00 America/Los_Angeles daily (PST/PDT); closed hours and 19:00 cutoffs are
+server-enforced. Ticket replies remain available outside those hours.
+
+Additional checks:
+
+```sh
+PYTHONPATH=backend python3 -m unittest backend/test_ecco_desk_conversations.py backend/test_ecco_desk_inbox.py
+node tests/ecco-desk-chat-ui.test.mjs
+```

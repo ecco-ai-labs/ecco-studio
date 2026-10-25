@@ -97,6 +97,8 @@ def message(ticket, pending, config):
     msg = EmailMessage()
     msg['From'] = 'Ecco Desk <' + address(config['sender']) + '>'
     msg['To'] = address(pending['recipient'])
+    if pending.get('replyTo'):
+        msg['Reply-To'] = address(pending['replyTo'])
     msg['Date'] = formatdate(localtime=False, usegmt=True)
     msg['Message-ID'] = pending['messageId']
     label = 'Support ticket' if ticket['type'] == 'support' else 'Internal task'
@@ -114,7 +116,7 @@ def message(ticket, pending, config):
         f'{ticket["description"]}\n\n'
         f'Open Ecco Desk: {TEAM_URL}\n'
         f'Sign in with an authorized team account and open ticket #{ticket["id"]}.\n'
-        'This is an automatic notification. Reply to the ticket in Ecco Desk.\n')
+        'This is an automatic notification. Reply to this email or continue in Ecco Desk.\n')
     return msg
 
 
@@ -160,6 +162,9 @@ def deliver_one(path, config):
             leaseUntil=?,claimToken=? WHERE ticketId=?''',
             (pending['recipient'], stamp+600, token, pending['ticketId']))
         ticket = dict(db.execute('SELECT * FROM desk_tickets WHERE id=?', (pending['ticketId'],)).fetchone())
+        if ticket['type']=='support':
+            import ecco_desk_replies
+            pending['replyTo'] = ecco_desk_replies.reply_address(db, ticket['id'], config)
     try:
         send(message(ticket, pending, config), config)
     except Exception as exc:
@@ -186,6 +191,8 @@ def deliver_one(path, config):
 
 
 def _run(path, stop):
+    import ecco_desk_replies
+    import ecco_desk_inbox
     prior_status = None
     while not stop.is_set():
         try:
@@ -196,6 +203,10 @@ def _run(path, stop):
                 prior_status = status
             if config and deliver_one(path, config):
                 continue
+            if config and ecco_desk_replies.deliver_one(path, config):
+                continue
+            if config:
+                ecco_desk_inbox.sync(path)
         except Exception as exc:
             status = type(exc).__name__
             if status != prior_status:

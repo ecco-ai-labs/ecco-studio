@@ -68,6 +68,28 @@ class DeskTest(unittest.TestCase):
         self.assertEqual(code, 201, data)
         return data['ticket']
 
+    def test_live_chat_routes_preserve_customer_isolation_and_require_staff_acceptance(self):
+        import ecco_desk_chat as chat
+        self.setup_team()
+        t = self.create()
+        with patch.object(chat, 'is_open', return_value=True):
+            for user in ('owner', 'staff', 'alice'):
+                code, _ = self.call(user, {'op':'chatPresence','available':True}, path='/api/desk/support')
+                self.assertEqual(code, 403)
+            code, result = self.call('alice', {'op':'chatRequest','id':t['id']}, path='/api/desk/support')
+            self.assertEqual(code, 200)
+            self.assertEqual(result['chat']['state'], 'queued')
+            self.assertEqual(self.call('bob', {'op':'chatRequest','id':t['id']}, path='/api/desk/support')[0], 404)
+            self.assertEqual(self.call('alice', {'op':'chatAccept','id':t['id']})[0], 403)
+            self.assertEqual(self.call('staff', {'op':'chatPresence','available':True})[0], 200)
+            self.assertEqual(self.call('staff', {'op':'chatAccept','id':t['id']})[0], 200)
+            self.assertEqual(self.call('alice', {'op':'chatMessage','id':t['id'],'body':'Customer chat'}, path='/api/desk/support')[0], 200)
+            self.assertEqual(self.call('staff', {'op':'chatMessage','id':t['id'],'body':'Wrong surface'}, path='/api/desk/support')[0], 404)
+            self.assertEqual(self.call('staff', {'op':'chatMessage','id':t['id'],'body':'Staff chat'})[0], 200)
+            code, detail = self.call('alice', path='/api/desk/support?ticket='+str(t['id']))
+            self.assertEqual(code, 200)
+            self.assertEqual([c['channel'] for c in detail['comments']], ['chat','chat'])
+
     def test_identity_does_not_grant_internal_or_shared_workspace_access(self):
         self.assertEqual(self.call('missing')[0], 401)
         self.assertEqual(self.call(origin='https://evil.example')[0], 403)

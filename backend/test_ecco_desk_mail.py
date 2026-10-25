@@ -81,7 +81,9 @@ class DeskMailTest(unittest.TestCase):
         key_file.write_text('test-only-' + 'x' * 32)
         for startup in ('current', 'legacy'):
             with self.subTest(startup=startup), ExitStack() as stack:
+                self.configure(enabled=False)
                 ticket = self.create(title='Queued before service startup')
+                self.configure()
                 send = stack.enter_context(patch.object(mail, 'send'))
                 if startup == 'current':
                     stack.enter_context(patch.object(api, 'TOKEN_FILE', key_file))

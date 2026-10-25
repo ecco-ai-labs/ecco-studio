@@ -14,6 +14,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import google_signin
 import ecco_desk_mail
+import ecco_desk_chat
+import ecco_desk_replies
 
 STATUSES = ('open', 'in_progress', 'waiting', 'resolved', 'closed')
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
@@ -68,6 +70,8 @@ def initialize(path, start_notifications=True):
         CREATE INDEX IF NOT EXISTS desk_events_ticket ON desk_events(ticketId, createdAt);
         ''')
         ecco_desk_mail.initialize(db)
+        ecco_desk_chat.initialize(db)
+        ecco_desk_replies.initialize(db)
     if start_notifications:
         ecco_desk_mail.start(path)
 
@@ -147,20 +151,33 @@ def properties(db, body):
 def read(db, me, query):
     if 'ticket' in query:
         t = ticket(db, me, query['ticket'][0])
+        chat_state = ecco_desk_chat.detail(db, me, t) if t['type']=='support' else None
         clause = '' if staff(me) else " AND visibility='public'"
-        comments = [dict(r) for r in db.execute('SELECT id,authorName,body,visibility,createdAt FROM desk_comments WHERE ticketId=?' + clause + ' ORDER BY createdAt', (t['id'],))]
+        comments = [dict(r) for r in db.execute("SELECT c.id,authorName,body,visibility,createdAt,COALESCE(s.channel,'web') AS channel FROM desk_comments c LEFT JOIN desk_comment_sources s ON s.commentId=c.id WHERE ticketId=?" + clause + ' ORDER BY createdAt,c.rowid', (t['id'],))]
         events = [dict(r) for r in db.execute('SELECT id,ticketId,actorName,detail,visibility,createdAt FROM desk_events WHERE ticketId=?' + clause + ' ORDER BY createdAt', (t['id'],))]
-        return dict(ticket=customer_ticket(t, me), comments=comments, events=events)
+        return dict(ticket=customer_ticket(t, me), comments=comments, events=events,
+                    chat=chat_state)
     rows = db.execute('SELECT * FROM desk_tickets ORDER BY updatedAt DESC') if staff(me) else db.execute("SELECT * FROM desk_tickets WHERE type='support' AND reporterId=? ORDER BY updatedAt DESC", (me['userId'],))
-    return dict(me=me, tickets=[customer_ticket(dict(r), me) for r in rows],
+    result = dict(me=me, tickets=[customer_ticket(dict(r), me) for r in rows],
                 members=[dict(r) for r in db.execute('SELECT * FROM desk_members ORDER BY name')] if staff(me) else [],
                 users=[dict(r) for r in db.execute('SELECT * FROM desk_users ORDER BY name')] if me['role'] == 'admin' else [],
                 activity=[dict(r) for r in db.execute('SELECT id,ticketId,actorName,detail,visibility,createdAt FROM desk_events ORDER BY createdAt DESC LIMIT 100')] if staff(me) else [],
-                needsSetup=not bool(db.execute("SELECT 1 FROM desk_members WHERE role='admin' AND active=1").fetchone()))
+                needsSetup=not bool(db.execute("SELECT 1 FROM desk_members WHERE role='admin' AND active=1").fetchone()),
+                chatSupport=ecco_desk_chat.support_status(db, me))
+    if me['role']=='admin':
+        import ecco_desk_inbox
+        result['inbox'] = ecco_desk_inbox.status()
+    return result
 
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op in ('chatRequest','chatCancel','chatEnd','chatMessage','chatPresence','chatAccept'):
+        return ecco_desk_chat.write(db, me, body)
+    if op == 'connectInbox':
+        require_staff(me, admin=True)
+        import ecco_desk_inbox
+        return ecco_desk_inbox.start()
     if op == 'bootstrap':
         if not configured_key or not hmac.compare_digest(workspace_key, configured_key):
             raise DeskError('Connect your existing Studio storage account before activating the team workspace.', 403)
@@ -186,7 +203,9 @@ def write(db, me, body, workspace_key, configured_key):
                          (kind, title, description, priority, category, me['userId'], me['name'], me['email'], assignee, due, stamp, stamp)).lastrowid
         event(db, me, 'Ticket opened' if kind == 'support' else 'Task created', tid, 'public' if kind == 'support' else 'internal')
         ecco_desk_mail.enqueue(db, tid)
-        return {'ticket': customer_ticket(ticket(db, me, tid), me)}
+        created = ticket(db, me, tid)
+        ecco_desk_replies.acknowledge(db, created)
+        return {'ticket': customer_ticket(created, me)}
     if op == 'updateTicket':
         require_staff(me)
         t = ticket(db, me, body.get('id'))
@@ -213,9 +232,16 @@ def write(db, me, body, workspace_key, configured_key):
         if t['type'] == 'internal':
             visibility = 'internal'
         stamp = now()
-        db.execute('INSERT INTO desk_comments VALUES (?,?,?,?,?,?,?)', (uuid.uuid4().hex, t['id'], me['userId'], me['name'], content, visibility, stamp))
+        if visibility=='public' and t['type']=='support':
+            ecco_desk_chat.maintain(db)
+            if db.execute("SELECT 1 FROM desk_chat_sessions WHERE ticketId=? AND state='live'", (t['id'],)).fetchone():
+                raise DeskError('This ticket is in live chat. Use the chat composer or end chat to return to email.', 409)
+        cid = uuid.uuid4().hex
+        db.execute('INSERT INTO desk_comments VALUES (?,?,?,?,?,?,?)', (cid, t['id'], me['userId'], me['name'], content, visibility, stamp))
         db.execute('UPDATE desk_tickets SET version=version+1,updatedAt=? WHERE id=?', (stamp, t['id']))
         event(db, me, 'Internal note added' if visibility == 'internal' else 'Reply added', t['id'], visibility)
+        if visibility=='public':
+            ecco_desk_replies.notify_comment(db, t, me, cid, content)
         return {'ok': True}
     if op == 'addMember':
         require_staff(me, admin=True)
@@ -247,6 +273,10 @@ def write(db, me, body, workspace_key, configured_key):
 
 
 def handle(handler, path, allowed_origin, database, configured_key):
+    if path == '/api/youtube/callback' and any(s.startswith('desk-inbox-') for s in parse_qs(urlsplit(handler.path).query).get('state', [])):
+        import ecco_desk_inbox
+        ecco_desk_inbox.callback(handler)
+        return True
     if path not in ('/api/desk', '/api/desk/support'):
         return False
     personal_support = path == '/api/desk/support'
@@ -264,7 +294,7 @@ def handle(handler, path, allowed_origin, database, configured_key):
             body = json.loads(handler.rfile.read(length))
             if not isinstance(body, dict):
                 raise DeskError('Expected an object.')
-            if personal_support and not (body.get('op') == 'comment' or
+            if personal_support and not (body.get('op') in ('comment','chatRequest','chatCancel','chatEnd','chatMessage') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
         with connect(database) as db:

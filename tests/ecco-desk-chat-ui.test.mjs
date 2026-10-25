@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import {JSDOM} from '../desk/node_modules/jsdom/lib/api.js';
+const dom=new JSDOM('<!doctype html><body></body>',{url:'https://ecco-ai-labs.github.io/ecco-studio/desk/'});
+for(const k of ['window','document','HTMLElement','HTMLTextAreaElement','Element','Node','Event','MouseEvent','KeyboardEvent','location','sessionStorage','FormData'])globalThis[k]=dom.window[k];
+Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
+const tick=()=>new Promise(r=>setTimeout(r,40));
+const hours='7 AM–7 PM Pacific time, daily';
+const ticket={id:1,type:'support',title:'Email to chat test',description:'Keep the conversation together',reporterId:'customer',reporterName:'Customer',reporterEmail:'customer@example.test',status:'open',priority:'normal',category:'General',version:1,createdAt:'2026-10-24T18:00:00Z'};
+let staff=false,open=true,state='idle',available=false;
+let messages=[{id:'email1',authorName:'Support',body:'An earlier email reply',visibility:'public',channel:'email',createdAt:'2026-10-24T18:00:00Z'}],calls=[];
+const me=()=>staff?{userId:'agent',name:'Agent',email:'agent@example.test',role:'admin',memberId:'m1'}:{userId:'customer',name:'Customer',email:'customer@example.test',role:'customer',memberId:null};
+const chat=()=>({state,open,hours,position:state==='queued'?1:null,agentName:state==='live'?'Agent':null,assignedToMe:staff&&state==='live'});
+const support=()=>({open,hours,availableAgents:available?1:0,available,queue:staff&&['queued','live'].includes(state)?[{ticketId:1,state,requestedAt:1,title:ticket.title,reporterName:ticket.reporterName,agentId:state==='live'?'agent':null}]:[]});
+globalThis.fetch=async(url,options)=>{
+ const p=options.body?JSON.parse(options.body):null;calls.push({url,p});
+ if(p?.op==='chatRequest')state='queued';
+ if(p?.op==='chatEnd')state='ended';
+ if(p?.op==='chatPresence')available=p.available;
+ if(p?.op==='chatAccept'){assert(available);state='live'}
+ if(p?.op==='chatMessage'){assert.equal(state,'live');messages.push({id:'chat1',authorName:me().name,body:p.body,visibility:'public',channel:'chat',createdAt:'2026-10-24T18:01:00Z'})}
+ if(String(url).includes('?ticket='))return new Response(JSON.stringify({ticket,comments:messages,events:[],chat:chat()}));
+ if(p)return new Response(JSON.stringify({ok:true,chat:chat()}));
+ return new Response(JSON.stringify({me:me(),tickets:[ticket],members:[],users:[],activity:[],needsSetup:false,chatSupport:support(),inbox:{connected:true,mailbox:'support@example.test'}}));
+};
+sessionStorage.setItem('ecco-user-session','fixture');
+const {mount}=await import('../desk/desk-app.mjs');
+const button=(root,text)=>Array.from(root.querySelectorAll('button')).find(b=>b.textContent.trim()===text);
+const host=document.createElement('div');document.body.append(host);let cleanup=mount(host,{portalOnly:true,embedded:true});await tick();await tick();let root=host.shadowRoot;
+root.querySelector('.ticket-title').click();await tick();await tick();
+assert(root.textContent.includes('An earlier email reply'));assert(root.textContent.includes('Email'));
+button(root,'Online support').click();await tick();await tick();
+assert(root.textContent.includes('Queue position 1'));assert(!root.textContent.includes('Connected with Agent'));
+assert(calls.find(c=>c.p?.op==='chatRequest').url.endsWith('/api/desk/support'));
+state='live';root.querySelector('[aria-label="Refresh workspace"]').click();await tick();await tick();
+assert(root.textContent.includes('Connected with Agent'));assert(root.querySelector('[aria-label="Chat message"]'));
+assert(button(root,'Send chat'));
+button(root,'End chat & return to email').click();await tick();await tick();
+assert(root.querySelector('[aria-label="Reply message"]'));assert(button(root,'Send reply'));
+open=false;root.querySelector('[aria-label="Refresh workspace"]').click();await tick();await tick();
+assert(button(root,'Online support').disabled);assert(root.textContent.includes('Online support is closed'));cleanup();
+// Staff must opt into availability and explicitly accept the queue entry.
+staff=true;open=true;state='queued';available=false;
+const staffHost=document.createElement('div');document.body.append(staffHost);cleanup=mount(staffHost);await tick();await tick();root=staffHost.shadowRoot;
+Array.from(root.querySelectorAll('.nav-item')).find(b=>b.textContent.includes('Live support')).click();await tick();
+assert(button(root,'Accept chat').disabled);
+root.querySelector('.agent-availability input').click();await tick();await tick();
+assert(!button(root,'Accept chat').disabled);
+button(root,'Accept chat').click();await tick();await tick();
+assert(root.textContent.includes('Connected with Customer'));
+assert(calls.find(c=>c.p?.op==='chatAccept').url.endsWith('/api/desk'));cleanup();
+console.log('PASS: email transcript, customer queue position, accepted live chat, email return, closed hours, staff availability and accept controls.');

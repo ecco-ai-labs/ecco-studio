@@ -2001,6 +2001,36 @@
     "accessibility": "Support icon has an accessible name. Forms have labels, constraints and inline errors. Dialog/drawer have named dialog roles and aria-modal. Icon-only actions are named; decorative SVG icons are hidden. Reduced motion supported.",
     "authorization": "Server verifies existing opaque Google session. Identity is keyed by Google sub. Customers cannot see other tickets, internal notes, staff directory or staff audit data. Roles never come from email/domain. First administrator explicitly activates using existing workspace access plus verified identity; later grants refer to an existing verified account. No email invitations are sent. Studio uses /api/desk/support: every request uses requester permissions even for staff/admin identities; lists, details, replies and history are limited to the authenticated Google subject. The endpoint never returns members, internal notes, team activity or setup controls, and rejects team operations. Separately authorized team operations remain on /api/desk. Account changes clear cached tickets and discard responses for the previous identity.",
     "storage": "Existing CPU storage API and SQLite on persistent Ecco volume. Dedicated desk_* tables are excluded from legacy workspace records. No tickets, tokens or access keys are stored in GitHub Pages/source. Separate ChatGPT login is not used.",
-    "build": "Run npm ci && npm run build in desk/. Checked-in desk-app.mjs is the generated browser bundle; authored TSX/CSS are included in the inventory."
+    "build": "Run npm ci && npm run build in desk/. Checked-in desk-app.mjs is the generated browser bundle; authored TSX/CSS are included in the inventory.",
+    "conversations": {
+      "approval": "User requested email replies in ticket history, switching to queued live support, agent acceptance and 7 AM–7 PM Pacific support hours.",
+      "types": [
+        "panel",
+        "status-indicator",
+        "button",
+        "checkbox",
+        "list",
+        "textarea",
+        "help-text"
+      ],
+      "appearance": "Reuse existing Desk colors, controls, drawer and conversation layout. Email, chat and ticket replies carry source labels; internal notes retain their separate styling.",
+      "layout": "Online support controls sit inside each support ticket drawer. Team navigation adds Live support with a queue and availability checkbox; team administrators can connect the support inbox in Team members.",
+      "states": [
+        "closed",
+        "idle",
+        "queued with position",
+        "live after agent accepts",
+        "ended",
+        "connection interrupted",
+        "inbox disconnected",
+        "inbox connected",
+        "inbox retrying"
+      ],
+      "interaction": "Customer explicitly joins/leaves the queue; staff explicitly enables availability and accepts the next waiting customer. One live chat per agent. Polling preserves the reply draft and current focus. Closing the detail panel stops customer presence refresh.",
+      "accessibility": "Status changes use role=status, errors use role=alert; checkbox has an accessible label; all chat actions are buttons with disabled states. Existing dialog focus trap and Escape dismissal apply.",
+      "authorization": "Server enforces requester ownership on customer endpoints, active staff role and assigned-agent rights on chat actions, FIFO acceptance, presence expiry and America/Los_Angeles 07:00 inclusive to 19:00 exclusive. Every transcript is attached to its existing ticket. Only administrators can start support-inbox OAuth.",
+      "email": "Reply headers and a random ticket reply address establish thread identity; ticket numbers in subjects alone never grant access. Only the authenticated requester, an active staff address or the connected support mailbox may add email replies. Imports deduplicate Gmail/message IDs and ignore automated mail. Internal notes never email customers.",
+      "hours": "7 AM–7 PM Pacific daily, including automatic PST/PDT changes. Outside hours, ticket/email replies remain available."
+    }
   }
 }
