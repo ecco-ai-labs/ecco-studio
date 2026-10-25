@@ -16,22 +16,14 @@ import subprocess
 import time
 from urllib.request import urlopen
 
-SOURCE_COMMIT = 'a9fc138de19f51f8954300e99bec4f8e15f21f69'
+SOURCE_COMMIT = 'a30d3c372ad057c1b85e6aaf7af02c7624b637d9'
 SOURCE_HASHES = {
-    'audio/audio_schema.py': 'b4fe79e0bdea833f6ab376d2e1116a8e731f4cc3f87ce1a052f665b1386dd96d',
-    'audio/audio_queue.py': '2fb9967dbbb16d31778871fa07b7dad36ab1307076deec1b0a384725defa1707',
-    'audio/audio_worker.py': '2e0d855d1c4a8c1f8a12a9ce0603b177f3d251a5638988541f67c4a215e7f43a',
-    'audio/extra_worker.py': '8606eba5cf8179615bb19c31d6af26dffb0eefe43c0a0e6bec62aead9ad864be',
-    'audio/queue_worker.py': '2dbcb8587afb01372972910704e9ea6d83f94434815803318e4c461039e5dfd0',
-    'audio/audio_soundtrack.py': '4d5d13f309ec6141d82c9112f0135bd6e83e257c66ff9c2f515263e98d700d95',
-    'audio/model_catalog.json': 'bbe5dc0ca7eb62ff4721df680fcbb316f6882a841ebcd8fe456593429d87914c',
-    'backend/audio_jobs.py': '31ac1fcba15157979c17b6fa3a75c5662509d4fce4eb471333e5481e047fa555',
-    'backend/audio_workflows.py': 'a73123b26c247b96ba5ef7baeabfa763826c3150eed39ee3b74ccb7c0d8f8615',
-    'backend/storage_api.py': 'e3f4f1831d3487f578af174f39c28de76c9ca7d9a9261b793b95dd580f3d444b',
-    'backend/audio_stories.py': 'd1653fb2e1ee552210c9532417768258f9bd3533dbe23dcafd5946dc1c489191',
-    'audio/sound_schema.py': 'efa5be9a44f9093524be46dee19e267f259a74a6e2cade1491acd87c91fec0b0',
-    'audio/sound_worker.py': '215094b37e9803d6d7aa6507ce3afdf64a8b1c346818bb8d53442b1c1c9b6657',
-    'audio/install_sound_models.py': '7357403b2eb3eb568dd1141892fe4fb6b161ab901dede268da2c7c3bbe0c5332',
+    'audio/audio_routing.py': '2c5155779036f487f69f4edff67b4f4cfc2903d98f64fb955b1d897006d81e0f',
+    'audio/audio_queue.py': 'bdec193466ceb2aebe71cacdd54884a42f0505e7a4eea12d6d2b93a864e0fe78',
+    'audio/audio_schema.py': '2247cbcf3c2ba3bb54f6d9813db05fbee6f7d6f57baefbc8741af957d2e29c3a',
+    'audio/sound_schema.py': '29bf33af1f26020bda1ae22184fafd5bf90073ba8d6784900eb8e3a88dbbd15c',
+    'audio/queue_worker.py': 'b0e608edd1d6252d8f837c6b293881ebeb99958ab18951b1aa957891dc3a6e30',
+    'backend/audio_jobs.py': 'f42944a8d48ff269cf37a129758880ca13b7f5954a5267b43a2fa31539ff3aae',
 }
 APP = Path('/workspace/ecco-storage-app')
 AUDIO = Path('/workspace/ecco-audio')
@@ -235,7 +227,7 @@ def activate(root):
         paused.remove('launcher')
         for _ in range(80):
             workers = [w for w in live_workers() if w.get('compute') == 'cpu']
-            if workers and all(w.get('character_controls_version') == 1 and w.get('sound_design_version') == 1 and w.get('sound_generation_version') == 1 for w in workers):
+            if workers and all(w.get('instance_routing_version') == 1 and w.get('character_controls_version') == 1 and w.get('sound_design_version') == 1 and w.get('sound_generation_version') == 1 for w in workers):
                 break
             time.sleep(.25)
         else:
@@ -244,7 +236,7 @@ def activate(root):
         if not healthy(child):
             raise RuntimeError('Updated CPU service did not become healthy.')
         report = {'source_commit': SOURCE_COMMIT, 'api_pid': child.pid,
-                  'completed_at': time.time(), 'character_controls_version': 1,
+                  'completed_at': time.time(), 'instance_routing_version': 1, 'character_controls_version': 1,
                   'sound_design_version': 1, 'sound_generation_version': 1, 'compute': 'cpu',
                   'sound_models_verified': sorted(set(m for w in workers for m in w.get('sound_models', []))),
                   'authenticated_generation_verified': False}

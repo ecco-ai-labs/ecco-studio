@@ -84,7 +84,7 @@ class DeploymentGuards(unittest.TestCase):
         normal_read = Path.read_bytes
         def read_bytes(path):
             return b'PATH=/usr/bin\0' if str(path) == '/proc/100/environ' else normal_read(path)
-        ready = [{'compute': 'cpu', 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1}]
+        ready = [{'compute': 'cpu', 'instance_routing_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1}]
         with patch.object(deploy, 'SOURCE_HASHES', hashes), \
              patch.object(deploy, 'assert_same'), patch.object(deploy, 'assert_idle'), \
              patch.object(deploy, 'live_workers', return_value=ready), \
