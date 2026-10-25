@@ -2111,5 +2111,12 @@
     "states": "Disabled when idle; enabled during preparation, queued, running or paused; Stopping while cancellation awaits worker acknowledgement; retry after request failure.",
     "behavior": "Stop the current story generation including sound cues and video sequence children. Prevent pending preparation from launching more jobs; cancel a late accepted submission. Keep completed assets and drafts. Workers terminate only the target process group or Comfy prompt.",
     "accessibility": "Native type=button; contextual accessible name Stop image/audio/video generation, keyboard activation and existing focus styles."
+  },
+  "educationGuide": {
+    "approval": "User requested Education and Learning updated for all newly released features.",
+    "updated": "2026-10-25",
+    "content": "Current task-based instructions for story journeys, persistent connections/disconnect, source selection and drafts, audio cast/script/voices, sounds, image/video tabs and assembly, libraries, workflows, publishing, model settings, cancellation/logs, support/notifications/themes and Learning Log.",
+    "appearance": "Content-only refresh using existing How to tree, topic buttons and collapsible guide sections. Preserve labels, styles and Learning Log records.",
+    "availability": "Distinguish model/worker readiness and server-enabled scheduling from UI presence; document unsupported publishing destinations, direct audio publishing and scheduled sound-cue plans without claiming they work."
   }
 }
