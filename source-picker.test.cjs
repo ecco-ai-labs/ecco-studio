@@ -24,10 +24,33 @@ test('Oversize selections cannot apply and cancelled late document reads cannot 
  x.q('[data-selected]').value='a'.repeat(20001);x.q('[data-selected]').dispatchEvent(new x.w.Event('input'));assert.equal(x.q('[data-extract]').disabled,true);assert.match(x.q('[role=status]').textContent,/20,000/);assert.equal(x.applied.length,0);
  let finish;const pending=x.picker.load({name:'late.txt',size:10,text:()=>new Promise(resolve=>finish=resolve)},x.q('#opener'));x.picker.destroy();finish('Late words');await pending;assert.equal(x.q('dialog'),null);assert.equal(x.picker.ready,false);assert.equal(x.applied.length,0);
 });
-test('PDF page range selection extracts only those pages and invalid ranges never reuse the previous selection',async t=>{
+test('PDF page selections append and invalid ranges preserve the earlier excerpts with a visible error',async t=>{
  const x=fixture(t);await x.picker.load({name:'book.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));
  x.q('[data-pages]').value='2';x.q('[data-select-pages]').click();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(x.q('[data-selected]').value,'Use only page two.');assert.equal(x.q('[data-extract]').disabled,false);
- x.q('[data-extract]').click();assert.equal(x.applied[0].text,'Use only page two.');assert.deepEqual(Array.from(x.applied[0].pages),[2]);x.picker.open();x.q('[data-pages]').value='9-12';x.q('[data-select-pages]').click();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(x.q('[data-selected]').value,'');assert.equal(x.q('[data-extract]').disabled,true);assert.match(x.q('[role=status]').textContent,/between 1 and 2/);
+ x.q('[data-extract]').click();assert.equal(x.applied[0].text,'Use only page two.');assert.deepEqual(Array.from(x.applied[0].pages),[2]);x.picker.open();x.q('[data-pages]').value='9-12';x.q('[data-select-pages]').click();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(x.q('[data-selected]').value,'Use only page two.');assert.equal(x.q('[data-extract]').disabled,false);assert.match(x.q('[role=status]').textContent,/between 1 and 2/);
+ x.q('[data-pages]').value='1';x.q('[data-select-pages]').click();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(x.q('[data-selected]').value,'Use only page two.\n\nExcluded first page.');x.q('[data-extract]').click();assert.deepEqual(Array.from(x.applied[1].pages),[1,2]);assert.equal(x.applied[1].selection_label,'Selected excerpts');
+});
+test('Separate highlights accumulate once each and survive reopening the same source',async t=>{
+ const x=fixture(t);await x.picker.load({name:'excerpts.txt',size:100,text:async()=>'First excerpt. Omit this gap. Last excerpt.'},x.q('#opener'));
+ const node=x.q('.source-text-preview').firstChild,highlight=(start,end,event='mouseup')=>{const range=x.w.document.createRange();range.setStart(node,start);range.setEnd(node,end);x.w.getSelection().removeAllRanges();x.w.getSelection().addRange(range);x.q('.pdf-page-scroll').dispatchEvent(new x.w.MouseEvent(event));};
+ highlight(0,14);x.q('.pdf-page-scroll').dispatchEvent(new x.w.KeyboardEvent('keyup',{key:'Shift'}));assert.equal(x.q('[data-selected]').value,'First excerpt.');
+ highlight(node.textContent.indexOf('Last excerpt.'),node.textContent.length);assert.equal(x.q('[data-selected]').value,'First excerpt.\n\nLast excerpt.');assert.doesNotMatch(x.q('[data-selected]').value,/Omit/);
+ x.q('[data-extract]').click();x.picker.open();assert.equal(x.q('[data-selected]').value,x.applied[0].text);
+});
+test('An oversized appended selection leaves prior text untouched and reports the limit',async t=>{
+ const x=fixture(t);await x.picker.load({name:'excerpts.txt',size:100,text:async()=>'Another excerpt.'},x.q('#opener'));
+ x.q('[data-selected]').value='a'.repeat(19995);x.q('[data-selected]').dispatchEvent(new x.w.Event('input'));
+ const range=x.w.document.createRange();range.selectNodeContents(x.q('.source-text-preview'));x.w.getSelection().removeAllRanges();x.w.getSelection().addRange(range);x.q('.pdf-page-scroll').dispatchEvent(new x.w.MouseEvent('mouseup'));
+ assert.equal(x.q('[data-selected]').value,'a'.repeat(19995));assert.match(x.q('[data-selection-feedback]').textContent,/Existing text preserved/);assert.equal(x.q('[data-extract]').disabled,false);
+});
+test('Find and Replace targets the caret line or all selected text using literal matches',async t=>{
+ const x=fixture(t);await x.picker.load({name:'excerpts.txt',size:100,text:async()=>'Merchant met Jinn.\nMerchant smiled.\nMerchant left.'},x.q('#opener'));
+ const selected=x.q('[data-selected]');selected.value='Merchant met Jinn.\nMerchant smiled.\nMerchant left.';selected.dispatchEvent(new x.w.Event('input'));selected.setSelectionRange(20,20);selected.dispatchEvent(new x.w.MouseEvent('click'));
+ x.q('[data-find-text]').value='Merchant';x.q('[data-find-text]').dispatchEvent(new x.w.Event('input'));x.q('[data-replace-text]').value='Trader';assert.match(x.q('[data-replace-scope] option').textContent,/2/);x.q('[data-replace]').click();
+ assert.equal(selected.value,'Merchant met Jinn.\nTrader smiled.\nMerchant left.');assert.match(x.q('[data-replace-feedback]').textContent,/1 match in line 2/);
+ x.q('[data-replace-scope]').value='all';x.q('[data-replace-text]').value='Traveller';x.q('[data-replace]').click();assert.equal(selected.value,'Traveller met Jinn.\nTrader smiled.\nTraveller left.');assert.match(x.q('[data-replace-feedback]').textContent,/2 matches throughout/);
+ x.q('[data-find-text]').value='.';x.q('[data-replace-text]').value='!';x.q('[data-replace]').click();assert.equal(selected.value,'Traveller met Jinn!\nTrader smiled!\nTraveller left!');
+ x.q('[data-find-text]').value='missing';x.q('[data-replace]').click();assert.match(x.q('[data-replace-feedback]').textContent,/No exact matches/);x.q('[data-extract]').click();assert.equal(x.applied[0].text,selected.value);
 });
 test('Chapter lookup shows missing-input and connection errors beside its button',async t=>{
  const x=fixture(t);await x.picker.load({name:'book.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));

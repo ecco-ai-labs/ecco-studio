@@ -336,11 +336,28 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .workspace-ribbon .workspace-menu[open]>summary,
 .workspace-ribbon .workspace-menu>summary:is(:active,:focus-visible){background:#38305e!important;color:var(--accent,#ffdc24)!important;box-shadow:inset 3px 0 var(--accent,#ffdc24)!important;border-radius:7px}
 
-/* Let readers resize the PDF preview within the browser viewport. */
-.pdf-story-dialog{resize:both;overflow:auto;min-width:min(360px,94vw);min-height:300px;max-width:96vw;max-height:94vh}
-.pdf-story-dialog[open]{display:flex;flex-direction:column;height: min(820px,90vh)}
-.pdf-story-dialog .pdf-page-scroll{flex:1 1 auto;min-height:140px;height:auto}
-.pdf-story-dialog>.pdf-dialog-head,.pdf-story-dialog>.pdf-selected-label,.pdf-story-dialog>.row{flex-shrink:0}
+/* Keep selection controls left and two equally sized, resizable reading boxes right. */
+.pdf-story-dialog{width:min(1320px,96vw);resize:both;overflow:auto;min-width:min(360px,94vw);min-height:400px;max-width:96vw;max-height:94vh}
+.pdf-story-dialog[open]{display:flex;flex-direction:column;height:min(1000px,94vh)}
+.pdf-selection-layout{display:grid;grid-template-columns:minmax(190px,230px) minmax(0,1fr);gap:20px;flex:1 1 auto;min-height:0;overflow:auto;align-items:start}
+.pdf-selection-tools{position:sticky;top:0;min-width:0}
+.pdf-selection-tools .generation-filter-row{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.pdf-selection-tools label{width:100%;min-width:0}
+.pdf-selection-tools input{width:100%;box-sizing:border-box}
+.pdf-selection-review{display:flex;flex-direction:column;gap:16px;min-width:0;align-items:flex-start;padding:0 3px 6px 0}
+.pdf-review-box{display:flex;flex-direction:column;gap:8px;box-sizing:border-box;width:100%;height:clamp(280px,35vh,480px);min-width:min(360px,100%);min-height:240px;max-width:100%;max-height:80vh;resize:both;overflow:auto;padding:12px;border:1px solid #45405e;border-radius:6px;background:#201d44;margin:0;flex:none}
+.pdf-review-heading{font-size:16px;font-weight:600;flex:none}
+.pdf-story-dialog .pdf-page-guidance{font-size:15px;line-height:1.5;margin:0;flex:none}
+.pdf-story-dialog .pdf-page-scroll{flex:1 1 auto;min-height:0;height:auto}
+.pdf-review-box.pdf-selected-label textarea{flex:1 1 auto;min-height:0;height:auto;width:100%;box-sizing:border-box;resize:none;font-size:16px;line-height:1.6;padding:12px}
+.pdf-story-dialog>.pdf-dialog-head,.pdf-selection-footer{flex-shrink:0}
+.pdf-selection-footer{margin-top:12px}
+.pdf-find-replace{width:100%;box-sizing:border-box}
+.pdf-find-replace summary{cursor:pointer}
+.pdf-replace-fields{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-top:10px}
+.pdf-replace-fields label{display:flex;flex-direction:column;gap:4px;flex:1 1 150px;min-width:0}
+.pdf-replace-fields input,.pdf-replace-fields select{width:100%;box-sizing:border-box}
+@media(max-width:700px){.pdf-selection-layout{grid-template-columns:minmax(0,1fr)}.pdf-selection-tools{position:static}.pdf-selection-tools [data-document-selection]{display:flex;flex-wrap:wrap;gap:12px}.pdf-selection-tools [data-document-selection][hidden]{display:none}.pdf-selection-tools .generation-filter-row{flex:1 1 200px}.pdf-review-box{min-width:min(280px,100%)}}
 
 /* Custom story types are edited within the dropdown. */
 .story-type-dropdown{position:relative;font-size:12px}

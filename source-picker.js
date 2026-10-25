@@ -3,16 +3,43 @@
 (()=>{
  function create({onApply,title='Select story from PDF',selectedLabel='Selected story text',applyLabel='Extract selected text as story',maxSelection=Infinity}){
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label',title);
-  dialog.innerHTML='<div class="pdf-dialog-head"><strong></strong><button type="button" class="secondary" data-close>Close</button></div><div data-document-selection class="form" hidden><div class="generation-filter-row"><label>PDF Pages<input data-pages placeholder="e.g. 10–12, 15"></label><button type="button" class="secondary" data-select-pages>Select Pages</button></div><div class="generation-filter-row"><label>Chapter<input data-chapter maxlength="160" placeholder="e.g. Chapter 1, or its title"></label><button type="button" class="secondary" data-find-chapter>Find Chapter with AI</button></div><p class="help" data-selection-feedback aria-live="polite"></p><p class="help">Page numbers refer to PDF pages. Review the selected text before Apply.</p></div><div class="pdf-page-scroll" tabindex="0" aria-label="Document preview"></div><label class="pdf-selected-label"><span></span><textarea data-selected rows="3" placeholder="Highlight text in the document to review it here."></textarea></label><div class="row"><button type="button" data-extract disabled></button><span role="status" aria-live="polite"></span></div>';
+  dialog.innerHTML='<div class="pdf-dialog-head"><strong></strong><button type="button" class="secondary" data-close>Close</button></div><div class="pdf-selection-layout"><div class="pdf-selection-tools"><div data-document-selection class="form" hidden><div class="generation-filter-row"><label>PDF Pages<input data-pages placeholder="e.g. 10–12, 15"></label><button type="button" class="secondary" data-select-pages>Select Pages</button></div><div class="generation-filter-row"><label>Chapter<input data-chapter maxlength="160" placeholder="e.g. Chapter 1, or its title"></label><button type="button" class="secondary" data-find-chapter>Find Chapter with AI</button></div></div><p class="help">Select excerpts in the preview, or add pages or a chapter. Each new selection is added below the existing text.</p><p class="help" data-selection-feedback aria-live="polite"></p></div><div class="pdf-selection-review"><section class="pdf-review-box" aria-label="Document preview panel"><strong class="pdf-review-heading">Document Preview</strong><p class="help pdf-page-guidance">Page numbers refer to PDF pages. Review the selected text before Apply.</p><div class="pdf-page-scroll" tabindex="0" aria-label="Document preview"></div></section><label class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading"></span><textarea data-selected rows="12" placeholder="Highlight excerpts in the document to add them here. You can edit or remove any text before Apply."></textarea></label><details class="pdf-find-replace"><summary>Find and Replace</summary><div class="pdf-replace-fields"><label>Find<input data-find-text type="text" autocomplete="off"></label><label>Replace with<input data-replace-text type="text" autocomplete="off"></label><label>Replace in<select data-replace-scope><option value="line">This line (1)</option><option value="all">All selected text</option></select></label><button type="button" class="secondary" data-replace disabled>Replace</button></div><p class="help" data-replace-feedback aria-live="polite">Click a line in Selected Text to target it. Matches use exact text.</p></details></div></div><div class="row pdf-selection-footer"><button type="button" data-extract disabled></button><span role="status" aria-live="polite"></span></div>';
   dialog.querySelector('strong').textContent=title;dialog.querySelector('.pdf-selected-label span').textContent=selectedLabel;dialog.querySelector('[data-extract]').textContent=applyLabel;
   document.body.append(dialog);
   const scroll=dialog.querySelector('.pdf-page-scroll'),selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]');
   const feedback=dialog.querySelector('[data-selection-feedback]');
-  let task=null,doc=null,pdfjs=null,file=null,metadataTitle='',ready=false,busy=false,disposed=false,epoch=0,opener=null,observer=null,shells=[],renderQueue=[],rendering=0,selectionMeta={},pageText=null,selectionEpoch=0;
+  let task=null,doc=null,pdfjs=null,file=null,metadataTitle='',ready=false,busy=false,disposed=false,epoch=0,opener=null,observer=null,shells=[],renderQueue=[],rendering=0,selectionMeta={},pageText=null,selectionEpoch=0,lastCaptured=null,linePosition=0;
   const controls=()=>{dialog.querySelectorAll('[data-document-selection] input,[data-document-selection] button').forEach(el=>el.disabled=busy||!ready);extract.disabled=!ready||busy||!selected.value.trim()||selected.value.trim().length>maxSelection;};
   const reportSelection=()=>{const count=selected.value.trim().length;note.textContent=count>maxSelection?'Select at most '+maxSelection.toLocaleString()+' characters. Your selection has '+count.toLocaleString()+'.':count?count.toLocaleString()+' characters selected. Only this text will be used.':'';controls();};
-  selected.oninput=()=>{selectionMeta={};selectionEpoch++;reportSelection();};
-  const capture=()=>{const selection=window.getSelection();if(selection?.rangeCount&&scroll.contains(selection.anchorNode)&&scroll.contains(selection.focusNode)){const text=selection.toString().trim();if(text){selected.value=text;selectionMeta={};selectionEpoch++;}}reportSelection();};
+  const find=dialog.querySelector('[data-find-text]'),replacement=dialog.querySelector('[data-replace-text]'),scope=dialog.querySelector('[data-replace-scope]'),replace=dialog.querySelector('[data-replace]'),replaceFeedback=dialog.querySelector('[data-replace-feedback]');
+  function lineBounds(){const value=selected.value,pos=Math.min(linePosition,value.length),start=pos===0?0:value.lastIndexOf('\n',pos-1)+1,next=value.indexOf('\n',pos);return {start,end:next<0?value.length:next,number:value.slice(0,pos).split('\n').length};}
+  function updateReplace(){scope.options[0].textContent='This line ('+lineBounds().number+')';replace.disabled=!ready||busy||!find.value;}
+  function edited(){selectionMeta={};selectionEpoch++;lastCaptured=null;linePosition=selected.selectionStart;feedback.textContent='';reportSelection();updateReplace();}
+  selected.oninput=edited;
+  for(const event of ['click','keyup','select'])selected.addEventListener(event,()=>{linePosition=selected.selectionStart;updateReplace();});
+  find.oninput=updateReplace;
+  replace.onclick=()=>{
+   if(replace.disabled)return;const bounds=scope.value==='all'?{start:0,end:selected.value.length}:lineBounds(),old=selected.value.slice(bounds.start,bounds.end),count=old.split(find.value).length-1;
+   if(!count){replaceFeedback.textContent='No exact matches in '+(scope.value==='all'?'the selected text.':'line '+bounds.number+'.');return;}
+   const changed=old.split(find.value).join(replacement.value),value=selected.value.slice(0,bounds.start)+changed+selected.value.slice(bounds.end);
+   if(value.trim().length>maxSelection){replaceFeedback.textContent='Replacement exceeds '+maxSelection.toLocaleString()+' characters. Existing text preserved.';return;}
+   selected.value=value;selected.setSelectionRange(bounds.start,bounds.start);edited();replaceFeedback.textContent='Replaced '+count+' match'+(count===1?'':'es')+(scope.value==='all'?' throughout the selected text.':' in line '+bounds.number+'.');selected.focus();
+  };
+  function appendSelection(text,meta={}){
+   const previous=selected.value,hasPrevious=!!previous.trim(),next=previous+(hasPrevious?'\n\n':'')+text.trim();
+   if(next.trim().length>maxSelection)throw Error('Combined excerpts exceed '+maxSelection.toLocaleString()+' characters. Existing text preserved; choose a smaller excerpt.');
+   selected.value=next;selectionEpoch++;
+   selectionMeta=hasPrevious?{selection_label:'Selected excerpts',...(selectionMeta.pages&&meta.pages?{pages:[...new Set([...selectionMeta.pages,...meta.pages])].sort((a,b)=>a-b)}:{})}:meta;
+   linePosition=next.length;updateReplace();reportSelection();return next;
+  }
+  const capture=event=>{
+   if(event.type==='keyup'&&event.shiftKey)return;const selection=window.getSelection();
+   if(selection?.rangeCount&&scroll.contains(selection.anchorNode)&&scroll.contains(selection.focusNode)){
+    const text=selection.toString().trim(),range=selection.getRangeAt(0),current={start:range.startContainer,startOffset:range.startOffset,end:range.endContainer,endOffset:range.endOffset,text};
+    if(text&&(!lastCaptured||Object.keys(current).some(key=>lastCaptured[key]!==current[key]))){try{appendSelection(text);lastCaptured=current;feedback.textContent='Excerpt added. Earlier selections are preserved.';}catch(error){feedback.textContent=error.message;}}
+   }
+   reportSelection();
+  };
   scroll.addEventListener('mouseup',capture);scroll.addEventListener('keyup',capture);
   async function renderPage(shell,generation){
    if(generation!==epoch||shell.dataset.rendered)return;const currentDoc=doc;
@@ -42,7 +69,7 @@
    shells.forEach(shell=>observer.observe(shell));enqueue(shells[0]);enqueue(shells[1]);
   }
   function open(from){if(disposed)return;opener=from||document.activeElement;if(!dialog.open)dialog.showModal();scroll.focus();}
-  function clear(){epoch++;selectionEpoch++;selectionMeta={};pageText=null;feedback.textContent='';dialog.querySelector('[data-document-selection]').hidden=true;observer?.disconnect();observer=null;renderQueue=[];shells=[];file=null;doc=null;ready=false;busy=false;metadataTitle='';selected.value='';note.textContent='';scroll.replaceChildren();controls();const previous=task;task=null;if(previous)void previous.destroy().catch(()=>{});if(dialog.open)dialog.close();}
+  function clear(){epoch++;selectionEpoch++;selectionMeta={};lastCaptured=null;linePosition=0;pageText=null;feedback.textContent='';dialog.querySelector('[data-document-selection]').hidden=true;observer?.disconnect();observer=null;renderQueue=[];shells=[];file=null;doc=null;ready=false;busy=false;metadataTitle='';selected.value='';note.textContent='';scroll.replaceChildren();controls();updateReplace();const previous=task;task=null;if(previous)void previous.destroy().catch(()=>{});if(dialog.open)dialog.close();}
   async function load(chosen,from){
    if(disposed)throw Error('Reopen the source picker.');
    if(!chosen||chosen.size>20*1024*1024)throw Error('Choose a PDF or text document smaller than 20 MB.');
@@ -61,9 +88,9 @@
      const text=(await chosen.text()).replace(/\u0000/g,'');if(generation!==epoch)return;if(!text.trim())throw Error('No readable text was found.');
      const preview=document.createElement('div');preview.className='source-text-preview';preview.dir='auto';preview.textContent=text;scroll.append(preview);
     }
-    file=chosen;ready=true;dialog.querySelector('[data-document-selection]').hidden=!doc;note.textContent='Highlight the text to use, review your selection below, then apply it.';
+    file=chosen;ready=true;dialog.querySelector('[data-document-selection]').hidden=!doc;note.textContent='Highlight excerpts to add them to Selected Text, then Apply.';
    }catch(error){if(generation===epoch){note.textContent=error.name==='PasswordException'?'Upload an unlocked PDF.':'Could not open document: '+error.message;throw error;}}
-   finally{if(generation===epoch){busy=false;controls();}}
+   finally{if(generation===epoch){busy=false;controls();updateReplace();}}
   }
   async function pdfText(progress=()=>{}){
    if(pageText)return pageText;const generation=epoch,currentDoc=doc,result=[];
@@ -74,7 +101,7 @@
    if(busy)return;if(!ready||!doc){feedback.textContent='Upload a PDF and wait for its preview before selecting a chapter or pages.';return;}const generation=epoch,token=++selectionEpoch;
    const assertCurrent=()=>{if(disposed||generation!==epoch||token!==selectionEpoch||!dialog.open)throw Error('The document selection changed. Nothing was applied.');};
    const button=dialog.querySelector(kind==='pages'?'[data-select-pages]':'[data-find-chapter]'),idle=button.textContent;
-   selected.value='';selectionMeta={};busy=true;controls();button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>'+(kind==='pages'?'Selecting Pages…':'Finding Chapter…');feedback.textContent=note.textContent=kind==='pages'?'Extracting only the requested PDF pages…':'Locating and verifying chapter boundaries…';
+   busy=true;controls();updateReplace();button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>'+(kind==='pages'?'Selecting Pages…':'Finding Chapter…');feedback.textContent=note.textContent=kind==='pages'?'Extracting only the requested PDF pages…':'Locating and verifying chapter boundaries…';
    try{
     let selection;
     if(kind==='pages'){
@@ -88,9 +115,9 @@
      const pages=await pdfText((n,total)=>{feedback.textContent='Reading PDF page '+n+' of '+total+' to locate the chapter…';});assertCurrent();feedback.textContent='Finding and verifying the chapter’s start and end with AI…';selection=await window.EccoSourceChapters.locate({pages,chapter,request:api,maxSelection,assertCurrent});
     }
     assertCurrent();if(!selection.text)throw Error('No readable text was found in that selection.');if(selection.text.length>maxSelection)throw Error('The selection exceeds '+maxSelection.toLocaleString()+' characters. Choose a smaller passage; nothing was truncated.');
-    selected.value=selection.text;selectionMeta={pages:selection.pages,selection_label:selection.selection_label};feedback.textContent=note.textContent=selection.selection_label+' · '+selection.text.length.toLocaleString()+' characters. Review the beginning and end, then Apply.';selected.focus();
+    appendSelection(selection.text,{pages:selection.pages,selection_label:selection.selection_label});feedback.textContent=selection.selection_label+' added · '+selection.text.length.toLocaleString()+' characters. Earlier selections are preserved. Review the beginning and end, then Apply.';selected.focus();selected.setSelectionRange(selected.value.length,selected.value.length);
    }catch(error){if(generation===epoch&&token===selectionEpoch&&!disposed)feedback.textContent=note.textContent=error.message;}
-   finally{if(generation===epoch&&!disposed){busy=false;button.textContent=idle;button.setAttribute('aria-busy','false');controls();}}
+   finally{if(generation===epoch&&!disposed){busy=false;button.textContent=idle;button.setAttribute('aria-busy','false');controls();updateReplace();}}
   }
   dialog.querySelector('[data-select-pages]').onclick=()=>selectDocument('pages');dialog.querySelector('[data-find-chapter]').onclick=()=>selectDocument('chapter');
   extract.onclick=()=>{if(extract.disabled)return;try{onApply({text:selected.value.trim(),name:file.name,title:metadataTitle&&metadataTitle!=='Untitled'?metadataTitle:file.name.replace(/\.[^.]+$/,'').replace(/[_-]/g,' '),scope:'selected',...selectionMeta});dialog.close();}catch(error){note.textContent=error.message;}};
