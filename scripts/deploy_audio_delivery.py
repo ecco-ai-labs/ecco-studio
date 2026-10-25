@@ -16,8 +16,8 @@ import subprocess
 import time
 from urllib.request import urlopen
 
-SOURCE_COMMIT = 'fd624a3cadd0007f7d39fe1287dff40ed1ea29fc'
-SOURCE_HASHES = {'audio/audio_schema.py': '68e6552821c33b2eecccc8daaecc86404fe2a127832cff9d54dda733f87c377d', 'backend/audio_stories.py': '93635f6f3f917850e9df505c88669b7b1cdbd17f7d8595cf2736bf8f281f2132'}
+SOURCE_COMMIT = 'dd36c342bd36464bc5b8f6d4cb13c70b87c023d5'
+SOURCE_HASHES = {'audio/audio_worker.py': 'b15e3eebf01b80bcd140e123301e2c9ef915a1dbba74e07fac5e757a4a79bec4', 'audio/extra_worker.py': '538d094b1433c5b196fec2181089a62dafe50142e5857bc30d39336f2cb5123d', 'audio/queue_worker.py': '286d6413ec94eaaacda1b60ebbfaf4d1a06932764cd03d2281fc4bb986fbc95a', 'audio/install_sound_models.py': '25258ab8433fc132d1251918e941309b55c220374d9a30d34c7430f514c3ad3b'}
 APP = Path('/workspace/ecco-storage-app')
 AUDIO = Path('/workspace/ecco-audio')
 DATABASE = Path('/workspace/ecco-studio-data/studio.sqlite')
