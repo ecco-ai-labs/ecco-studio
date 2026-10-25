@@ -20,7 +20,7 @@
   bar.append(back);root.append(bar);
   host=document.createElement('section');host.id='ecco-desk-support';host.setAttribute('aria-label','Ecco Desk customer support');root.append(host);
   const target=host;target.textContent='Opening support…';
-  try{loading=loading||import(new URL('desk/desk-app.mjs?v=20261025-unified-controls',base).href);const app=await loading;if(target!==host||!target.isConnected)return;target.replaceChildren();unmount=app.mount(target,{embedded:true,portalOnly:true,onSignIn:signIn});}
+  try{loading=loading||import(new URL('desk/desk-app.mjs?v=20261025-native-support',base).href);const app=await loading;if(target!==host||!target.isConnected)return;target.replaceChildren();unmount=app.mount(target,{embedded:true,portalOnly:true,onSignIn:signIn});}
   catch{loading=null;if(target===host){target.replaceChildren();const message=document.createElement('p');message.textContent='Support could not load. Please try again.';const retry=document.createElement('button');retry.textContent='Try again';retry.onclick=()=>{clear();support()};target.append(message,retry);}}
  }
  const previousNavigate=navigate;navigate=function(p,...args){if(p==='support')return support();clear();document.title='Ecco AI Labs Studios';return previousNavigate.call(this,p,...args)};
@@ -31,7 +31,7 @@
  const supportButton=q('#workspace-support');
  if(supportButton){
   const badge=document.createElement('span');badge.className='desk-response-badge';badge.setAttribute('aria-hidden','true');badge.hidden=true;supportButton.append(badge);
-  style.textContent+='#workspace-support{position:relative;overflow:visible}#workspace-support .desk-response-badge{position:absolute;top:1px;right:1px;display:flex;align-items:center;justify-content:center;min-width:12px;height:12px;box-sizing:border-box;padding:0 2px;border-radius:8px;background:var(--ecco-theme-error,#d93849);color:#fff;font:700 8px/1 sans-serif;pointer-events:none}#workspace-support .desk-response-badge[hidden]{display:none}';
+  style.textContent+='#workspace-support{position:relative;overflow:visible}#workspace-support .desk-response-badge{position:absolute;top:1px;right:1px;display:flex;align-items:center;justify-content:center;min-width:12px;height:12px;box-sizing:border-box;padding:0 2px;border-radius:8px;background:var(--ecco-theme-error,#d93849);color:#fff;font:700 8px/1 sans-serif;box-shadow:0 0 0 2px var(--ecco-theme-surface,#1c1c35);z-index:1;pointer-events:none}#workspace-support .desk-response-badge[hidden]{display:none}';
   let notificationRequest=0;
   function showUnread(count){const n=Number.isSafeInteger(count)&&count>0?count:0;badge.hidden=!n;badge.textContent=n>9?'9+':String(n);const label=n?`Technical support — Support has responded on ${n} ticket${n===1?'':'s'}`:'Technical support';supportButton.title=label;supportButton.setAttribute('aria-label',label);}
   async function refreshUnread(){

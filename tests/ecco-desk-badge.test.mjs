@@ -12,7 +12,7 @@ w.fetch=async(url,options)=>{requests.push({url,options});if(hold)return new Pro
 w.eval(fs.readFileSync(new URL('../ecco-desk.js',import.meta.url),'utf8'));
 const tick=()=>new Promise(r=>setTimeout(r,10));await tick();
 const button=w.document.querySelector('#workspace-support'),badge=button.querySelector('.desk-response-badge');
-assert.equal(badge.hidden,false);assert.equal(badge.textContent,'2');assert.match(button.title,/Support has responded on 2 tickets/);
+assert.equal(badge.parentElement.id,'workspace-support');assert.equal(badge.hidden,false);assert.equal(badge.textContent,'2');assert.match(button.title,/Support has responded on 2 tickets/);
 assert(requests.every(r=>r.url.endsWith('/api/desk/support?notifications=1')));
 count=1;w.document.dispatchEvent(new w.Event('ecco:desk-unread-change'));await tick();assert.equal(badge.textContent,'1');
 count=0;w.document.dispatchEvent(new w.Event('ecco:desk-unread-change'));await tick();assert.equal(badge.hidden,true);

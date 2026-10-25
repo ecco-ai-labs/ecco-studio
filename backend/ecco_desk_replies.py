@@ -48,8 +48,7 @@ def queue(db, t, recipient, subject, content, comment_id=None, parent=None):
         (id,ticketId,commentId,recipient,messageId,subject,body,replyTo,parentMessageId)
         VALUES (?,?,?,?,?,?,?,?,?)''', (uuid.uuid4().hex,t['id'],comment_id,recipient,
         f'<ecco-reply-{uuid.uuid4().hex}@eccoailabs.com>',subject,content,
-        mail.address(t['reporterEmail']) if recipient.casefold()==config['recipient'].casefold()
-        else reply_address(db,t['id'],config),parent))
+        reply_address(db,t['id'],config),parent))
 
 
 def acknowledge(db, t):
@@ -98,6 +97,10 @@ def deliver_one(path, config):
             msg['In-Reply-To'] = r['parentMessageId']
             msg['References'] = r['parentMessageId']
         msg.set_content(r['body'])
+        with mail.connect(path) as db:
+            is_agent = r['recipient'].casefold()==config['recipient'].casefold() or db.execute('SELECT 1 FROM desk_members WHERE lower(email)=? AND active=1',(r['recipient'].casefold(),)).fetchone()
+        if is_agent:
+            mail.add_controls(msg,r['body'],r['replyTo'],r['subject'])
         mail.send(msg,config)
     except Exception as exc:
         code = getattr(exc,'smtp_code',None)
@@ -219,19 +222,32 @@ def import_message(db, data, config):
         return record('internal_ticket_ignored',tid)
     if sender==t['reporterEmail'].casefold():
         me=dict(userId=t['reporterId'],name=t['reporterName'])
-    elif sender==mailbox:
-        me=dict(userId='system:support-mailbox',name='Support')
     else:
-        staff=db.execute('SELECT userId,name FROM desk_members WHERE lower(email)=? AND active=1',(sender,)).fetchall()
+        staff=db.execute('SELECT userId,name,email,id AS memberId,role FROM desk_members WHERE lower(email)=? AND active=1',(sender,)).fetchall()
         if len(staff)!=1:
-            return record('sender_not_participant',tid)
-        me=dict(staff[0])
+            if sender==mailbox and not staff and not t['assigneeId']:
+                me=dict(userId='system:support-mailbox',name='Support')
+            else:
+                return record('sender_not_participant',tid)
+        else:
+            me=dict(staff[0])
     try:
         content=body_text(msg)
     except (LookupError, ValueError, UnicodeError):
         return record('malformed',tid)
     if not content:
         return record('empty_reply',tid)
+    if me.get('memberId') and content.splitlines()[0].strip().startswith('/'):
+        return mailbox_action(db,me,t,content,msg,mid,record)
+    if me.get('memberId'):
+        try:
+            # The first authenticated agent email accepts an unowned case.
+            # An owned case must be explicitly delegated before another agent replies.
+            desk.claim_support(db,me,t)
+        except desk.DeskError:
+            queue(db,t,me['email'],f'Re: [Ecco Desk #{tid}] Reply not sent',
+                  'This case belongs to another agent. Ask the owner to delegate it before replying.',parent=mid)
+            return record('agent_not_owner',tid)
     cid,stamp=uuid.uuid4().hex,desk.now()
     db.execute('INSERT INTO desk_comments VALUES (?,?,?,?,?,?,?)',(cid,tid,me['userId'],me['name'],content,'public',stamp))
     db.execute('INSERT INTO desk_comment_sources VALUES (?,?,?)',(cid,'email',gmail_id))
@@ -240,3 +256,36 @@ def import_message(db, data, config):
     delivered=[a for _,a in getaddresses(msg.get_all('To',[])+msg.get_all('Cc',[]))]
     notify_comment(db,t,me,cid,content,delivered)
     return record('logged',tid)
+
+
+def mailbox_action(db, me, t, content, msg, mid, record):
+    """An authenticated agent's explicit first-line command never reaches the customer."""
+    import ecco_desk as desk
+    first = content.splitlines()[0].strip()
+    command, _, argument = first.partition(' ')
+    try:
+        if command == '/accept' and not argument:
+            desk.claim_support(db, me, t)
+            result = 'Case accepted. You are responsible until resolution or delegation.'
+        elif command in ('/close', '/resolve', '/reopen') and not argument:
+            desk.require_case_owner(me,t)
+            status = {'/close':'closed','/resolve':'resolved','/reopen':'open'}[command]
+            desk.write(db,me,dict(op='updateTicket',id=t['id'],version=t['version'],status=status),'','')
+            result = 'Issue '+status+'. Conversation history is retained.'
+        elif command == '/delegate':
+            desk.require_case_owner(me,t)
+            delegates=db.execute('SELECT id,name,email FROM desk_members WHERE lower(email)=? AND active=1',(argument.strip().casefold(),)).fetchall()
+            if len(delegates)!=1:
+                raise desk.DeskError('Choose the email address of one active support agent.')
+            target=dict(delegates[0])
+            desk.write(db,me,dict(op='updateTicket',id=t['id'],version=t['version'],assigneeId=target['id']),'','')
+            result='Delegated to '+target['name']+'.'
+            queue(db,t,target['email'],f'[Ecco Desk #{t["id"]}] Case delegated to you',
+                  'You are now responsible for this issue. Resolve it or delegate it to another active agent.\n\n'+t['title']+'\n'+t['description'])
+        else:
+            raise desk.DeskError('Use /accept, /resolve, /close, /reopen, or /delegate agent@example.com on the first line. No action was taken.')
+        outcome='action_applied'
+    except desk.DeskError as exc:
+        result=str(exc);outcome='action_rejected'
+    queue(db,t,me['email'],f'Re: [Ecco Desk #{t["id"]}] Action result',result,parent=mid)
+    return record(outcome,t['id'])

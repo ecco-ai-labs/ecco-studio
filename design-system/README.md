@@ -277,3 +277,20 @@ The Studio headset shows a small count of tickets with unread public support
 responses. Counts and read receipts are scoped to the signed-in requester and
 each ticket. Opening its visible conversation acknowledges only the responses
 actually loaded. Other tickets and later responses remain unread.
+
+Customer support reply indicators use per-ticket unread counts: a small count on
+the headset, a highlighted ticket row with Support replied, and New reply in the
+conversation tab. Read receipts wait until the latest support reply end is visible
+in the focused drawer; loading or polling a conversation alone does not clear it.
+
+Customer ticket drawers include Close issue and Reopen issue. Closing preserves
+history and ends a queued or active chat. Closed issues must be reopened before
+joining online support. The drawer X only dismisses the panel.
+
+Ecco Desk staff use a separate Google session from Studio customers. Accepting a
+case or chat establishes one owner; public responses and resolution require that
+owner, and delegation transfers responsibility to an active agent. Customers have
+Close issue and Reopen issue without deleting history. Mailbox action buttons
+compose explicit commands whose acknowledgements stay private to the agent.
+Native Chat cards use the same server rules and remain disabled until the
+interactive Google Chat app is configured for the approved space.

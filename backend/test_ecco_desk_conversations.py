@@ -151,8 +151,9 @@ class Conversations(unittest.TestCase):
         self.assertEqual(self.ingest(self.message(sender='agent@example.test')),'logged')
         with desk.connect(self.db) as db:
             self.assertEqual(db.execute('SELECT recipient FROM desk_reply_outbox ORDER BY rowid DESC LIMIT 1').fetchone()[0],'alice@example.test')
-        self.assertEqual(self.ingest(self.message(sender='support@example.test',authenticated=False,sent=True,mid='<supportsent@example.test>')),'logged')
-        self.assertEqual(len(self.detail(self.alice)['comments']),2)
+        self.assertEqual(self.ingest(self.message(sender='support@example.test',authenticated=False,sent=True,mid='<supportsent@example.test>')),'sender_not_participant')
+        # Shared-mailbox replies cannot impersonate the agent who owns this case.
+        self.assertEqual(len(self.detail(self.alice)['comments']),1)
 
     def test_wrong_sender_spoof_and_automatic_mail_never_log(self):
         self.assertEqual(self.ingest(self.message(sender='bob@example.test')),'sender_not_participant')
@@ -198,6 +199,7 @@ class Conversations(unittest.TestCase):
             with self.assertRaises(desk.DeskError):self.action(me,'readTicket',through=through)
 
     def test_read_acknowledges_only_rendered_response_not_newer_reply(self):
+        self.action(self.agent,'claimTicket')
         self.action(self.agent,'comment',body='First response')
         seen=self.detail(self.alice)['readThrough']
         self.action(self.agent,'comment',body='Arrived after the fetch')
@@ -211,7 +213,8 @@ class Conversations(unittest.TestCase):
             mail.deliver_one(self.db,self.config)
             notification=send.call_args.args[0]
             self.assertEqual(str(notification['To']),'support@example.test')
-            self.assertEqual(str(notification['Reply-To']),'alice@example.test')
+            self.assertIn('support+desk-',str(notification['Reply-To']))
+            self.assertIn('Accept case',notification.get_body(preferencelist=('html',)).get_content())
             self.assertIsNone(notification['Cc']);self.assertIsNone(notification['Bcc'])
         m=EmailMessage();m['From']='support@example.test';m['To']='alice@example.test'
         m['Message-ID']='<direct-reply@example.test>';m['In-Reply-To']=str(notification['Message-ID'])
@@ -243,6 +246,47 @@ class Conversations(unittest.TestCase):
         with desk.connect(self.db) as db:self.assertEqual(db.execute('SELECT id,state FROM desk_chat_alerts').fetchone()[:],(first_id,'sent'))
         self.action(self.alice,'chatEnd');self.clock.return_value+=1;self.action(self.alice,'chatRequest')
         with desk.connect(self.db) as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_chat_alerts').fetchone()[0],2)
+
+    def test_owner_only_response_delegate_close_and_unassign(self):
+        self.action(self.agent,'claimTicket')
+        with self.assertRaises(desk.DeskError):self.action(self.agent2,'comment',body='Other agent')
+        t=self.detail(self.agent)['ticket']
+        with self.assertRaises(desk.DeskError):self.action(self.agent,'updateTicket',version=t['version'],assigneeId=None)
+        self.action(self.agent,'updateTicket',version=t['version'],assigneeId=self.agent2['memberId'])
+        with self.assertRaises(desk.DeskError):self.action(self.agent,'comment',body='Old agent')
+        self.action(self.agent2,'comment',body='New owner')
+        t=self.detail(self.agent2)['ticket']
+        self.action(self.agent2,'updateTicket',version=t['version'],status='resolved')
+        self.assertEqual(self.detail(self.alice)['ticket']['status'],'resolved')
+
+    def test_live_delegation_requires_new_owner_to_accept(self):
+        self.connect()
+        t=self.detail(self.agent)['ticket']
+        self.action(self.agent,'updateTicket',version=t['version'],assigneeId=self.agent2['memberId'])
+        self.assertEqual(self.detail(self.alice)['chat']['state'],'queued')
+        with self.assertRaises(desk.DeskError):self.action(self.agent,'chatMessage',body='Old owner')
+        self.action(self.agent2,'chatPresence',available=True)
+        self.action(self.agent2,'chatAccept')
+        self.action(self.agent2,'chatMessage',body='Taking over')
+        self.assertEqual(self.detail(self.alice)['comments'][-1]['body'],'Taking over')
+
+    def test_native_mail_actions_never_reach_customer_and_require_owner(self):
+        for body,sender,outcome in [('/accept','agent','action_applied'),('/close','agent2','action_rejected'),('/delegate agent2@example.test','agent','action_applied'),('/close','agent','action_rejected'),('/close','agent2','action_applied')]:
+            self.assertEqual(self.ingest(self.message(sender=sender+'@example.test',body=body,mid='<'+str(__import__('uuid').uuid4())+'@example.test>')),outcome)
+        self.assertEqual(self.detail(self.alice)['ticket']['status'],'closed')
+        self.assertEqual(self.detail(self.alice)['comments'],[])
+        with desk.connect(self.db) as db:
+            messages=db.execute('SELECT recipient,body FROM desk_reply_outbox WHERE rowid>1').fetchall()
+            self.assertTrue(messages)
+            self.assertNotIn('alice@example.test',{r['recipient'] for r in messages})
+        self.assertEqual(self.ingest(self.message(sender='agent@example.test',body='Wrong owner reply',mid='<wrong-owner@example.test>')),'agent_not_owner')
+
+    def test_simultaneous_case_accept_only_one_owner(self):
+        from concurrent.futures import ThreadPoolExecutor
+        def accept(me):
+            try:self.action(me,'claimTicket');return True
+            except desk.DeskError:return False
+        with ThreadPoolExecutor(max_workers=2) as pool:self.assertEqual(sorted(pool.map(accept,(self.agent,self.agent2))),[False,True])
 
     def test_google_webhook_uses_supported_post_without_request_id(self):
         url='https://chat.googleapis.com/v1/spaces/ABC/messages?key=fixture&token=fixture'

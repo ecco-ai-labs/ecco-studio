@@ -76,6 +76,8 @@ def initialize(path, start_notifications=True):
         ecco_desk_mail.initialize(db)
         ecco_desk_chat.initialize(db)
         ecco_desk_replies.initialize(db)
+        import ecco_desk_google_chat
+        ecco_desk_google_chat.initialize(db)
     if start_notifications:
         ecco_desk_mail.start(path)
 
@@ -119,6 +121,23 @@ def staff(me):
 def require_staff(me, admin=False):
     if (me['role'] != 'admin') if admin else not staff(me):
         raise DeskError('This action requires team access.', 403)
+
+
+def require_case_owner(me, t, allow_admin=False):
+    if t['type'] == 'support' and (not allow_admin or me['role'] != 'admin'):
+        if not me.get('memberId') or t['assigneeId'] != me['memberId']:
+            raise DeskError('Accept this case first, or ask its current owner to delegate it to you.', 403)
+
+
+def claim_support(db, me, t):
+    require_staff(me)
+    if t['type'] != 'support':
+        raise DeskError('Accept case is available for support issues only.')
+    if t['assigneeId']:
+        require_case_owner(me, t)
+        return
+    db.execute("UPDATE desk_tickets SET assigneeId=?,status=CASE WHEN status='open' THEN 'in_progress' ELSE status END,version=version+1,updatedAt=? WHERE id=? AND assigneeId IS NULL", (me['memberId'], now(), t['id']))
+    event(db, me, 'Case accepted by ' + me['name'], t['id'], 'public')
 
 
 def event(db, me, detail, ticket=None, visibility='internal'):
@@ -190,6 +209,23 @@ def read(db, me, query):
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op == 'claimTicket':
+        t = ticket(db, me, body.get('id'))
+        claim_support(db, me, t)
+        return {'ticket': ticket(db, me, t['id'])}
+    if op in ('closeIssue', 'reopenIssue'):
+        t = ticket(db, me, body.get('id'))
+        if t['type'] != 'support' or t['reporterId'] != me['userId']:
+            raise DeskError('Ticket not found.', 404)
+        if body.get('version') != t['version']:
+            raise DeskError('This ticket changed. Refresh it before changing its status.', 409)
+        status = 'closed' if op == 'closeIssue' else 'open'
+        if status != t['status']:
+            if status == 'closed':
+                ecco_desk_chat.end_for_closed_ticket(db, t['id'])
+            db.execute('UPDATE desk_tickets SET status=?,version=version+1,updatedAt=? WHERE id=?', (status, now(), t['id']))
+            event(db, me, 'Issue closed by requester' if status == 'closed' else 'Issue reopened by requester', t['id'], 'public')
+        return {'ticket': customer_ticket(ticket(db, me, t['id']), me)}
     if op == 'readTicket':
         t=ticket(db,me,body.get('id'))
         if t['type']!='support' or t['reporterId']!=me['userId']:
@@ -237,19 +273,26 @@ def write(db, me, body, workspace_key, configured_key):
     if op == 'updateTicket':
         require_staff(me)
         t = ticket(db, me, body.get('id'))
+        require_case_owner(me, t, allow_admin=True)
         if body.get('version') != t['version']:
             raise DeskError('This ticket changed. Refresh it before saving again.', 409)
         status = choice(body, 'status', STATUSES, t['status'])
         priority = choice(body, 'priority', PRIORITIES, t['priority'])
         assignee, due = properties(db, {**t, **body})
+        if t['type'] == 'support' and t['assigneeId'] and assignee is None:
+            raise DeskError('Choose an active delegate instead of leaving an accepted case unassigned.')
         db.execute('UPDATE desk_tickets SET status=?,priority=?,assigneeId=?,dueDate=?,version=version+1,updatedAt=? WHERE id=?', (status, priority, assignee, due, now(), t['id']))
+        if t['type'] == 'support' and status in ('resolved', 'closed'):
+            ecco_desk_chat.end_for_closed_ticket(db, t['id'])
         visibility = 'public' if t['type'] == 'support' else 'internal'
         for key, value in (('status', status), ('priority', priority)):
             if value != t[key]:
                 event(db, me, f'{key.title()} changed to {value.replace("_", " ")}', t['id'], visibility)
         if assignee != t['assigneeId']:
             name = db.execute('SELECT name FROM desk_members WHERE id=?', (assignee,)).fetchone() if assignee else None
-            event(db, me, 'Assigned to ' + name[0] if name else 'Assignment cleared', t['id'])
+            event(db, me, ('Delegated to ' if t['type']=='support' and t['assigneeId'] else 'Assigned to ') + name[0] if name else 'Assignment cleared', t['id'], visibility)
+            if t['type'] == 'support':
+                ecco_desk_chat.delegate(db, t['id'], assignee)
         if due != t['dueDate']:
             event(db, me, 'Due date set to ' + due if due else 'Due date cleared', t['id'])
         return {'ticket': ticket(db, me, t['id'])}
@@ -259,6 +302,8 @@ def write(db, me, body, workspace_key, configured_key):
         visibility = choice(body, 'visibility', ('public', 'internal'), 'public') if staff(me) else 'public'
         if t['type'] == 'internal':
             visibility = 'internal'
+        if t['type'] == 'support' and visibility == 'public' and me['userId'] != t['reporterId']:
+            require_case_owner(me, t)
         stamp = now()
         if visibility=='public' and t['type']=='support':
             ecco_desk_chat.maintain(db)
@@ -328,6 +373,8 @@ def handle(handler, path, allowed_origin, database, configured_key):
         import ecco_desk_inbox
         ecco_desk_inbox.callback(handler)
         return True
+    import ecco_desk_google_chat
+    if ecco_desk_google_chat.handle(handler,path,database): return True
     if path not in ('/api/desk', '/api/desk/support'):
         return False
     personal_support = path == '/api/desk/support'
@@ -345,7 +392,7 @@ def handle(handler, path, allowed_origin, database, configured_key):
             body = json.loads(handler.rfile.read(length))
             if not isinstance(body, dict):
                 raise DeskError('Expected an object.')
-            if personal_support and not (body.get('op') in ('comment','readTicket','chatRequest','chatCancel','chatEnd','chatMessage') or
+            if personal_support and not (body.get('op') in ('comment','readTicket','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
         with connect(database) as db:

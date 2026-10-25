@@ -45,6 +45,20 @@ def _end(db, row, reason, stamp):
     _event(db, row['ticketId'], reason + ' Continue through ticket replies.')
 
 
+def end_for_closed_ticket(db, tid):
+    row = db.execute("SELECT * FROM desk_chat_sessions WHERE ticketId=? AND state IN ('queued','live')", (tid,)).fetchone()
+    if row:
+        _end(db, row, 'Live chat ended because the issue was closed', time.time())
+
+
+def delegate(db, tid, member_id):
+    row = db.execute("SELECT * FROM desk_chat_sessions WHERE ticketId=? AND state IN ('queued','live')", (tid,)).fetchone()
+    if row:
+        db.execute("UPDATE desk_chat_sessions SET state='queued',agentId=NULL,connectedAt=NULL,reason='Waiting for the delegated support agent to accept' WHERE ticketId=?", (tid,))
+        db.execute('INSERT INTO desk_chat_alerts(id,ticketId,requestedAt) VALUES (?,?,?)', (str(uuid.uuid4()), tid, row['requestedAt']))
+        _event(db, tid, 'Chat delegated; waiting for the new agent to accept')
+
+
 def maintain(db, stamp=None):
     stamp = time.time() if stamp is None else stamp
     for r in db.execute("SELECT * FROM desk_chat_sessions WHERE state IN ('queued','live')").fetchall():
@@ -55,6 +69,8 @@ def maintain(db, stamp=None):
         elif r['state'] == 'live':
             active = db.execute('''SELECT 1 FROM desk_chat_presence p JOIN desk_members m ON m.userId=p.userId
                 WHERE p.userId=? AND m.active=1 AND p.seenAt>?''', (r['agentId'], stamp-AGENT_TTL)).fetchone()
+            if not active:
+                active=db.execute('SELECT 1 FROM desk_native_chat_presence p JOIN desk_members m ON m.userId=p.userId WHERE p.userId=? AND p.expires>? AND m.active=1',(r['agentId'],stamp)).fetchone()
             if not active:
                 db.execute("UPDATE desk_chat_sessions SET state='queued',agentId=NULL,connectedAt=NULL,reason=NULL WHERE ticketId=?", (r['ticketId'],))
                 _event(db, r['ticketId'], 'Support agent disconnected; returned to the chat queue')
@@ -72,7 +88,7 @@ def support_status(db, me):
         p = db.execute('SELECT * FROM desk_chat_presence WHERE userId=?', (me['userId'],)).fetchone()
         result['available'] = bool(p and p['available'] and p['seenAt']>stamp-AGENT_TTL)
         result['queue'] = [dict(r) for r in db.execute('''SELECT c.ticketId,c.state,c.requestedAt,t.title,t.reporterName,
-            c.agentId FROM desk_chat_sessions c JOIN desk_tickets t ON t.id=c.ticketId
+            c.agentId,t.assigneeId FROM desk_chat_sessions c JOIN desk_tickets t ON t.id=c.ticketId
             WHERE c.state IN ('queued','live') ORDER BY c.requestedAt,c.ticketId''')]
     return result
 
@@ -120,6 +136,8 @@ def write(db, me, body):
     if op == 'chatRequest':
         if me['userId'] != t['reporterId']:
             raise desk.DeskError('Only the requester can join the chat queue.', 403)
+        if t['status'] in ('resolved', 'closed'):
+            raise desk.DeskError('Reopen this issue before requesting online support.', 409)
         if not is_open(stamp):
             raise desk.DeskError('Live chat is open ' + HOURS + '. You can still send a ticket reply.', 409)
         if not r or r['state'] == 'ended':
@@ -133,6 +151,8 @@ def write(db, me, body):
         return {'chat': detail(db, me, t)}
     if op == 'chatAccept':
         desk.require_staff(me)
+        if t['assigneeId'] and t['assigneeId'] != me['memberId']:
+            raise desk.DeskError('This case belongs to another agent. Its owner must delegate it first.', 403)
         if not is_open(stamp):
             raise desk.DeskError('Live chat is closed. ' + HOURS + '.', 409)
         presence = db.execute('SELECT * FROM desk_chat_presence WHERE userId=?', (me['userId'],)).fetchone()
@@ -140,9 +160,10 @@ def write(db, me, body):
             raise desk.DeskError('Set yourself available before accepting a chat.', 409)
         if db.execute("SELECT 1 FROM desk_chat_sessions WHERE agentId=? AND state='live'", (me['userId'],)).fetchone():
             raise desk.DeskError('Finish your current chat before accepting another.', 409)
-        first = db.execute("SELECT ticketId FROM desk_chat_sessions WHERE state='queued' ORDER BY requestedAt,ticketId LIMIT 1").fetchone()
+        first = db.execute("SELECT c.ticketId FROM desk_chat_sessions c JOIN desk_tickets t ON t.id=c.ticketId WHERE c.state='queued' AND (t.assigneeId IS NULL OR t.assigneeId=?) ORDER BY c.requestedAt,c.ticketId LIMIT 1", (me['memberId'],)).fetchone()
         if not first or first['ticketId'] != t['id']:
             raise desk.DeskError('Accept the next waiting customer in queue order.', 409)
+        desk.claim_support(db, me, t)
         db.execute("UPDATE desk_chat_sessions SET state='live',agentId=?,connectedAt=?,reason=NULL WHERE ticketId=? AND state='queued'",
                    (me['userId'], stamp, t['id']))
         _event(db, t['id'], me['name'] + ' connected to live chat')
@@ -166,6 +187,9 @@ def write(db, me, body):
         db.execute('INSERT INTO desk_comments VALUES (?,?,?,?,?,?,?)', (cid,t['id'],me['userId'],me['name'],content,'public',created))
         db.execute('INSERT INTO desk_comment_sources VALUES (?,?,NULL)', (cid,'chat'))
         db.execute('UPDATE desk_tickets SET version=version+1,updatedAt=? WHERE id=?', (created,t['id']))
+        if me['userId']==t['reporterId']:
+            import ecco_desk_google_chat
+            ecco_desk_google_chat.enqueue_customer_message(db,t,content)
         return {'ok': True}
     raise desk.DeskError('Unknown chat action.')
 
@@ -192,7 +216,7 @@ def send_alert(url,tid):
     from urllib.request import Request,build_opener,HTTPRedirectHandler
     class NoRedirect(HTTPRedirectHandler):
         def redirect_request(self,*args,**kwargs): return None
-    text=f'Online support requested for SUP-{tid:04d}. Open Ecco Desk → Live support to accept the next waiting customer.\nhttps://ecco-ai-labs.github.io/ecco-studio/desk/\nThe customer remains queued until an available agent accepts.'
+    text=f'Online support requested for SUP-{tid:04d}. Open Live support, switch on Available for chats, then choose Accept chat for the next waiting customer.\nhttps://ecco-ai-labs.github.io/ecco-studio/desk/?view=chat\nChat with the customer inside Ecco Desk. This Google Chat space receives alerts only.'
     # Incoming webhooks reject the Chat API's requestId option. The outbox
     # handles local deduplication; send only the webhook's key/token query.
     request=Request(url,data=json.dumps({'text':text}).encode(),headers={'Content-Type':'application/json; charset=UTF-8'})

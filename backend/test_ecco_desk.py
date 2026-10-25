@@ -83,12 +83,34 @@ class DeskTest(unittest.TestCase):
             self.assertEqual(self.call('alice', {'op':'chatAccept','id':t['id']})[0], 403)
             self.assertEqual(self.call('staff', {'op':'chatPresence','available':True})[0], 200)
             self.assertEqual(self.call('staff', {'op':'chatAccept','id':t['id']})[0], 200)
+
             self.assertEqual(self.call('alice', {'op':'chatMessage','id':t['id'],'body':'Customer chat'}, path='/api/desk/support')[0], 200)
             self.assertEqual(self.call('staff', {'op':'chatMessage','id':t['id'],'body':'Wrong surface'}, path='/api/desk/support')[0], 404)
             self.assertEqual(self.call('staff', {'op':'chatMessage','id':t['id'],'body':'Staff chat'})[0], 200)
             code, detail = self.call('alice', path='/api/desk/support?ticket='+str(t['id']))
             self.assertEqual(code, 200)
             self.assertEqual([c['channel'] for c in detail['comments']], ['chat','chat'])
+
+    def test_customer_can_close_and_reopen_only_own_issue_without_losing_history(self):
+        import ecco_desk_chat as chat
+        t = self.create()
+        path = '/api/desk/support'
+        with patch.object(chat, 'is_open', return_value=True):
+            self.assertEqual(self.call('alice', {'op':'chatRequest','id':t['id']}, path=path)[0], 200)
+            self.assertEqual(self.call('bob', {'op':'closeIssue','id':t['id'],'version':t['version']}, path=path)[0], 404)
+            code, closed = self.call('alice', {'op':'closeIssue','id':t['id'],'version':t['version'],'assigneeId':'forged'}, path=path)
+            self.assertEqual(code, 200)
+            self.assertEqual(closed['ticket']['status'], 'closed')
+            self.assertIsNone(closed['ticket']['assigneeId'])
+            detail = self.call('alice', path=path+'?ticket='+str(t['id']))[1]
+            self.assertEqual(detail['chat']['state'], 'ended')
+            self.assertTrue(any(e['detail']=='Issue closed by requester' for e in detail['events']))
+            self.assertEqual(self.call('alice', {'op':'chatRequest','id':t['id']}, path=path)[0], 409)
+            self.assertEqual(self.call('alice', {'op':'reopenIssue','id':t['id'],'version':t['version']}, path=path)[0], 409)
+            code, reopened = self.call('alice', {'op':'reopenIssue','id':t['id'],'version':closed['ticket']['version']}, path=path)
+            self.assertEqual(code, 200)
+            self.assertEqual(reopened['ticket']['status'], 'open')
+            self.assertEqual(self.call('alice', {'op':'chatRequest','id':t['id']}, path=path)[0], 200)
 
     def test_identity_does_not_grant_internal_or_shared_workspace_access(self):
         self.assertEqual(self.call('missing')[0], 401)
@@ -118,6 +140,7 @@ class DeskTest(unittest.TestCase):
         for tid in (other['id'], task['id'], 999):
             self.assertEqual(self.call('alice', path=f'/api/desk?ticket={tid}')[0], 404)
             self.assertEqual(self.call('alice', {'op':'comment','id':tid,'body':'intrusion'})[0], 404)
+        self.assertEqual(self.call('staff', {'op':'claimTicket','id':own['id']})[0],200)
         for visibility in ('public','internal'):
             self.assertEqual(self.call('staff', {'op':'comment','id':own['id'],'body':visibility+' message','visibility':visibility})[0], 200)
         detail = self.call('alice', path=f'/api/desk?ticket={own["id"]}')[1]
@@ -131,7 +154,8 @@ class DeskTest(unittest.TestCase):
         self.setup_team()
         mid = self.call('staff')[1]['me']['memberId']
         t = self.create()
-        body = {'op':'updateTicket','id':t['id'],'version':1,'status':'in_progress','priority':'urgent','assigneeId':mid,'dueDate':'2026-12-01'}
+        t = self.call('staff', {'op':'claimTicket','id':t['id']})[1]['ticket']
+        body = {'op':'updateTicket','id':t['id'],'version':t['version'],'status':'in_progress','priority':'urgent','assigneeId':mid,'dueDate':'2026-12-01'}
         code, result = self.call('staff', body)
         self.assertEqual(code,200)
         self.assertEqual(result['ticket']['assigneeId'],mid)

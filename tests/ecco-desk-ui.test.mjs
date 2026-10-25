@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {JSDOM} from '../desk/node_modules/jsdom/lib/api.js';
 const dom=new JSDOM('<!doctype html><body><section id="host"></section></body>',{url:'https://ecco-ai-labs.github.io/ecco-studio/desk/'});
-for(const key of ['window','document','HTMLElement','Element','Node','Event','MouseEvent','KeyboardEvent','location','sessionStorage','FormData'])globalThis[key]=dom.window[key];
+for(const key of ['window','document','HTMLElement','Element','Node','Event','MouseEvent','KeyboardEvent','location','localStorage','sessionStorage','FormData'])globalThis[key]=dom.window[key];
 Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
 const me={userId:'google:owner',name:'Example Owner',email:'owner@example.test',role:'admin',memberId:'m1'};
 const own={id:1,type:'support',title:'My customer issue',description:'My description',reporterId:me.userId,reporterName:me.name,status:'open',priority:'normal',category:'General',version:1};
@@ -9,6 +9,7 @@ const other={...own,id:2,title:'Other customer issue',reporterId:'google:other'}
 const internal={...own,id:3,title:'Private internal task',type:'internal'};
 const data={me,tickets:[own,other,internal],members:[{id:'m1',userId:me.userId,name:me.name,email:me.email,role:'admin',active:1}],users:[],activity:[],needsSetup:false};
 sessionStorage.setItem('ecco-user-session','test-session');
+localStorage.setItem('ecco-desk-staff-session','staff-session');
 let calls=[];
 globalThis.fetch=async(url,options)=>{
  calls.push({url,options});
@@ -56,6 +57,8 @@ assert(root.textContent.includes('Other customer issue'));
 Array.from(root.querySelectorAll('button')).find(b=>b.textContent==='Team members').click();await tick();
 assert(root.textContent.includes('Add team member'));
 assert.equal(new URL(calls.at(-1).url).pathname,'/api/desk');
+assert.equal(calls.at(-1).options.headers.Authorization,'Bearer staff-session');
+assert.equal(sessionStorage.getItem('ecco-user-session'),'test-session');
 cleanup();
 // A late response for a previous sign-in must not repopulate another user's UI.
 let finishOld;
@@ -76,10 +79,10 @@ sessionStorage.removeItem('ecco-user-session');document.dispatchEvent(new Event(
 assert(!root.textContent.includes('Other customer issue'));
 assert(root.textContent.includes('Sign in with Ecco Studio'));cleanup();
 // No token: show Studio sign-in and do not send a request.
-sessionStorage.removeItem('ecco-user-session');const before=calls.length;let signIn=0;
+sessionStorage.setItem('ecco-user-session','still-customer');localStorage.removeItem('ecco-desk-staff-session');const before=calls.length;let signIn=0;
 const guestHost=document.createElement('section');document.body.append(guestHost);cleanup=mount(guestHost,{onSignIn(){signIn++}});await tick();await tick();
 assert.equal(calls.length,before);
 root=guestHost.shadowRoot;
-Array.from(root.querySelectorAll('button')).find(b=>b.textContent.includes('Sign in with Ecco Studio')).click();
+Array.from(root.querySelectorAll('button')).find(b=>b.textContent.includes('Choose support Google account')).click();
 assert.equal(signIn,1);cleanup();
 console.log('PASS: requester-only API for Studio, private ticket UI, account-switch races, dialogs/focus, separate staff queues and sign-in.');

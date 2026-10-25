@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import {JSDOM} from '../desk/node_modules/jsdom/lib/api.js';
 const dom=new JSDOM('<!doctype html><body></body>',{url:'https://ecco-ai-labs.github.io/ecco-studio/desk/'});
-for(const k of ['window','document','HTMLElement','HTMLTextAreaElement','Element','Node','Event','MouseEvent','KeyboardEvent','location','sessionStorage','FormData'])globalThis[k]=dom.window[k];
+for(const k of ['window','document','HTMLElement','HTMLTextAreaElement','Element','Node','Event','MouseEvent','KeyboardEvent','location','localStorage','sessionStorage','FormData'])globalThis[k]=dom.window[k];
 Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
+document.hasFocus=()=>true;
+dom.window.HTMLElement.prototype.getBoundingClientRect=function(){return this.classList?.contains('reply-read-marker')?{top:100,bottom:101,height:1}:{top:0,bottom:500,height:500}};
 const tick=()=>new Promise(r=>setTimeout(r,40));
 const hours='7 AM–11:59 PM Pacific time, daily';
 const ticket={id:1,type:'support',title:'Email to chat test',description:'Keep the conversation together',reporterId:'customer',reporterName:'Customer',reporterEmail:'customer@example.test',status:'open',priority:'normal',category:'General',version:1,createdAt:'2026-10-24T18:00:00Z'};
@@ -16,13 +18,14 @@ globalThis.fetch=async(url,options)=>{
  if(p?.op==='chatRequest')state='queued';
  if(p?.op==='chatEnd')state='ended';
  if(p?.op==='chatPresence')available=p.available;
- if(p?.op==='chatAccept'){assert(available);state='live'}
+ if(p?.op==='chatAccept'){assert(available);state='live';ticket.assigneeId='m1'}
  if(p?.op==='chatMessage'){assert.equal(state,'live');messages.push({id:'chat1',authorName:me().name,body:p.body,visibility:'public',channel:'chat',createdAt:'2026-10-24T18:01:00Z'})}
  if(String(url).includes('?ticket='))return new Response(JSON.stringify({ticket,comments:messages,events:[],chat:chat(),readThrough:staff?null:'email1'}));
  if(p)return new Response(JSON.stringify({ok:true,chat:chat()}));
  return new Response(JSON.stringify({me:me(),tickets:[ticket],members:[],users:[],activity:[],needsSetup:false,chatSupport:support(),inbox:{connected:true,mailbox:'support@example.test'}}));
 };
 sessionStorage.setItem('ecco-user-session','fixture');
+localStorage.setItem('ecco-desk-staff-session','staff-fixture');
 const {mount}=await import('../desk/desk-app.mjs');
 const button=(root,text)=>Array.from(root.querySelectorAll('button')).find(b=>b.textContent.trim()===text);
 const host=document.createElement('div');document.body.append(host);let cleanup=mount(host,{portalOnly:true,embedded:true});await tick();await tick();let root=host.shadowRoot;

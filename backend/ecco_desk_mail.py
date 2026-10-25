@@ -117,7 +117,21 @@ def message(ticket, pending, config):
         f'Open Ecco Desk: {TEAM_URL}\n'
         f'Sign in with an authorized team account and open ticket #{ticket["id"]}.\n'
         'This is an automatic notification. Reply to this email or continue in Ecco Desk.\n')
+    if ticket['type']=='support' and pending.get('replyTo'):
+        add_controls(msg,msg.get_content(),pending['replyTo'],str(msg['Subject']))
     return msg
+
+
+
+def add_controls(msg, content, destination, subject):
+    """Native mail compose actions; sending the command is the explicit confirmation."""
+    from html import escape
+    from urllib.parse import urlencode,quote
+    buttons=[]
+    for label,command in [('Accept case','/accept'),('Resolve','/resolve'),('Close issue','/close'),('Delegate','/delegate '),('Reopen','/reopen')]:
+        href='mailto:'+destination+'?'+urlencode({'subject':subject,'body':command},quote_via=quote)
+        buttons.append('<a style="display:inline-block;padding:10px 14px;margin:4px;background:#202d3a;color:#fff;border-radius:6px;text-decoration:none" href="'+escape(href,quote=True)+'">'+label+'</a>')
+    msg.add_alternative('<html><body><div style="font-family:Arial,sans-serif;white-space:pre-wrap">'+escape(content)+'</div><p>'+''.join(buttons)+'</p><p>These buttons compose an action email. Send it from your support account. For Delegate, add the active agent’s email after /delegate. Ordinary replies go only to this ticket’s customer after ownership is checked.</p></body></html>',subtype='html')
 
 
 def send(msg, config):
@@ -163,10 +177,10 @@ def deliver_one(path, config):
             (pending['recipient'], stamp+600, token, pending['ticketId']))
         ticket = dict(db.execute('SELECT * FROM desk_tickets WHERE id=?', (pending['ticketId'],)).fetchone())
         if ticket['type']=='support':
-            # Staff's ordinary email Reply goes only to this ticket's opener.
-            # The connected support mailbox's Sent folder logs the response by
-            # its In-Reply-To reference, without copying anybody else.
-            pending['replyTo'] = address(ticket['reporterEmail'])
+            import ecco_desk_replies
+            # Route through the ticket address to enforce ownership and keep
+            # accept/delegate/close commands out of customer correspondence.
+            pending['replyTo'] = ecco_desk_replies.reply_address(db,ticket['id'],config)
     try:
         send(message(ticket, pending, config), config)
     except Exception as exc:
@@ -196,10 +210,12 @@ def _run(path, stop):
     import ecco_desk_chat
     import ecco_desk_replies
     import ecco_desk_inbox
+    import ecco_desk_google_chat
     prior_status = None
     while not stop.is_set():
         try:
             if ecco_desk_chat.deliver_alert(path): stop.wait(1)
+            ecco_desk_google_chat.deliver(path)
         except Exception as exc:
             LOG.warning('Ecco Desk Google Chat alert unavailable: %s',type(exc).__name__)
         try:

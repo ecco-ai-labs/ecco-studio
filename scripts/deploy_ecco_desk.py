@@ -68,7 +68,7 @@ def main():
     mail_path = cwd / 'ecco_desk_mail.py'
     old_mail = mail_path.read_bytes() if mail_path.exists() else None
     extras = {}
-    for name in ('ecco_desk_chat.py', 'ecco_desk_replies.py', 'ecco_desk_inbox.py'):
+    for name in ('ecco_desk_chat.py', 'ecco_desk_replies.py', 'ecco_desk_inbox.py', 'ecco_desk_google_chat.py'):
         with urlopen(f'https://raw.githubusercontent.com/ecco-ai-labs/ecco-studio/{args.commit}/backend/{name}', timeout=30) as response:
             content = response.read(1024 * 1024)
         compile(content, name, 'exec')

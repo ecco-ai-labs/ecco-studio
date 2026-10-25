@@ -172,3 +172,27 @@ Alerts contain the ticket number and team queue link, without customer content.
 Repeated join clicks do not duplicate alerts; abandoned/accepted queue entries
 are skipped. Chat connection still requires staff availability and acceptance.
 Without the webhook configuration, no Google Chat alert is claimed or sent.
+
+## Staff ownership and native support
+
+The standalone Desk keeps its staff Google session separate from Ecco Studio.
+Staff accept a case or chat and retain responsibility until resolution or an
+explicit delegation. Customers can close/reopen their own issues; history stays.
+
+New support emails contain native compose actions: Accept, Resolve, Close,
+Delegate and Reopen. Sending the action email confirms it. `/delegate email`
+requires an existing active agent; commands are never forwarded to the customer.
+Normal replies are checked for ownership and delivered only to that ticket’s opener.
+
+`backend/ecco_desk_google_chat.py` provides native Google Chat cards and replies.
+It is disabled until `/workspace/ecco-storage-private/desk-native-chat.json`
+(mode 0600) sets `enabled`, the approved `space`, and the configured app’s
+`serviceAccount`. Configure the Chat app HTTP URL and authentication audience as
+`https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk/google-chat`. Existing incoming
+webhooks alone cannot receive interactions. The app must be enabled in Google
+Cloud, restricted to authorized support accounts/group, and added to the support
+space. Staff ask the app for the queue and act through its cards; Google identity
+is mapped to exact active Desk membership. Test real callbacks before enabling
+native Chat in production. Native chat has a 15-minute agent inactivity lease.
+Google Group membership synchronization is not configured; no domain-wide grant
+is implied. Future agents require verified individual identities and membership.
