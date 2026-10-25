@@ -180,12 +180,15 @@ def video_graph(scene, image, ident, seed, settings=None):
         '11':node('SaveImage',images=['10',0],filename_prefix=f'ecco-studio/{ident}')}
 
 def comfy_execute(graph, job_id):
+    if (get(job_id,'job').get('cancel_requested') or (DATA/'generation-control'/job_id/'cancel.json').exists()): raise Problem('Stopped by user',409)
     result=request(COMFY+'/prompt',{'prompt':graph,'client_id':'ecco-studio'})
     if 'prompt_id' not in result: raise Problem('Comfy rejected the workflow',502)
     job=get(job_id); job['comfy_prompt_id']=result['prompt_id']; save(job)
     deadline=time.monotonic()+3600
     while time.monotonic()<deadline:
-        if get(job_id,'job').get('cancel_requested'): raise Problem('Generation cancelled',409)
+        if (get(job_id,'job').get('cancel_requested') or (DATA/'generation-control'/job_id/'cancel.json').exists()):
+            request(COMFY+'/api/jobs/'+result['prompt_id']+'/cancel',{})
+            raise Problem('Stopped by user',409)
         history=request(COMFY+'/history/'+result['prompt_id'])
         entry=history.get(result['prompt_id'])
         if entry:
@@ -199,6 +202,7 @@ def comfy_execute(graph, job_id):
                         if not path.is_relative_to(COMFY_ROOT/'output') or not path.is_file(): raise Problem('Invalid Comfy output',502)
                         paths.append(path)
                 if not paths: raise Problem('Comfy returned no images',502)
+                if (get(job_id,'job').get('cancel_requested') or (DATA/'generation-control'/job_id/'cancel.json').exists()): raise Problem('Stopped by user',409)
                 return paths
         time.sleep(2)
     raise Problem('Generation timed out; Comfy may still be running. Check its queue before retrying.',504)
@@ -212,16 +216,19 @@ def launch(label, fn, metadata=None):
         if len([j for j in records('job') if j['status'] in ('queued','running')])>=8: raise Problem('Queue is full',429)
         job=save(new('job',label=label,status='queued',owner_pid=os.getpid(),owner_start=process_start(os.getpid()),**(metadata or {})))
     def run():
-        start=time.monotonic(); job_update(job['id'],status='running',started=time.time())
+        start=time.monotonic()
         try:
+            if (get(job['id'],'job').get('cancel_requested') or (DATA/'generation-control'/job['id']/'cancel.json').exists()): raise Problem('Stopped by user',409)
+            job_update(job['id'],status='running',started=time.time())
             result=fn(job['id'])
+            if (get(job['id'],'job').get('cancel_requested') or (DATA/'generation-control'/job['id']/'cancel.json').exists()): raise Problem('Stopped by user',409)
             job_update(job['id'],status='done',result=result)
             if github_token() and label != 'Sync media to GitHub':
                 try: sync_github(job['id'])
                 except Exception: job_update(job['id'],sync_warning='Saved locally; GitHub sync failed. Use Sync to GitHub to retry.')
         except Exception as exc:
             message=exc.message if isinstance(exc,Problem) else f'{type(exc).__name__}: operation failed; check server configuration.'
-            job_update(job['id'],status='cancelled' if get(job['id'],'job').get('cancel_requested') else 'failed',error=message)
+            job_update(job['id'],status='cancelled' if (get(job['id'],'job').get('cancel_requested') or (DATA/'generation-control'/job['id']/'cancel.json').exists()) else 'failed',progress='Stopped by user' if (get(job['id'],'job').get('cancel_requested') or (DATA/'generation-control'/job['id']/'cancel.json').exists()) else '',error='' if (get(job['id'],'job').get('cancel_requested') or (DATA/'generation-control'/job['id']/'cancel.json').exists()) else message)
         finally:
             elapsed=time.monotonic()-start
             job_update(job['id'],seconds=round(elapsed,2),estimated_compute_usd=round(elapsed*RATE/3600,4))
@@ -283,7 +290,7 @@ def create_image(body):
             if source_file: source_file.unlink(missing_ok=True)
         rel=f'image-dev/{aid}.png'; shutil.copyfile(paths[0],DATA/rel)
         return save(dict(id=aid,kind='asset',created=time.time(),media='image',stage='dev',story_id=sid,path=rel,prompt=p['prompt'],settings=p,job_id=jid,sync='pending',workflow=graph))['id']
-    return launch('Generate '+('Qwen-Image-2512' if is_qwen else 'SDXL')+' image',generate)
+    return launch('Generate '+('Qwen-Image-2512' if is_qwen else 'SDXL')+' image',generate,metadata={'media':'image','story_id':sid})
 
 def clean_shot_controls(scene):
     options={'shot_size':['','Wide shot','Medium shot','Close-up','Extreme close-up','Over-the-shoulder'],
@@ -315,8 +322,11 @@ def save_board(body):
     if github_token(): launch('Sync media to GitHub',sync_github)
     return board
 
-def ffmpeg(args):
-    try: subprocess.run(['ffmpeg','-nostdin','-y','-loglevel','error',*args],check=True,capture_output=True,timeout=1800)
+def ffmpeg(args, jid=None):
+    import sys
+    sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'audio'))
+    import generation_cancel
+    try: generation_cancel.run(DATA/'generation-control'/str(jid), ['ffmpeg','-nostdin','-y','-loglevel','error',*args],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=1800)
     except subprocess.CalledProcessError: raise Problem('FFmpeg assembly failed',502)
 
 def render_video(body):
@@ -353,19 +363,19 @@ def render_video(body):
                     vp.stage(jid,'Encoding scene',globals())
                     frame_dir=work/f'frames-{index}'; frame_dir.mkdir()
                     for n,frame in enumerate(frames): os.symlink(frame,frame_dir/f'{n:05}.png')
-                    ffmpeg(['-framerate',str(settings['fps']),'-i',str(frame_dir/'%05d.png'),'-t',str(duration),'-vf','scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2','-c:v','libx264','-pix_fmt','yuv420p',str(clip)])
+                    ffmpeg(['-framerate',str(settings['fps']),'-i',str(frame_dir/'%05d.png'),'-t',str(duration),'-vf','scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2','-c:v','libx264','-pix_fmt','yuv420p',str(clip)],jid=jid)
                 finally: target.unlink(missing_ok=True)
             else:
                 vp.stage(jid,'Encoding scene',globals())
                 frames=round(duration*24)
                 vf=f"scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,zoompan=z='min(zoom+0.0006,1.12)':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d={frames}:s=1280x720:fps=24"
-                ffmpeg(['-i',str(image),'-vf',vf,'-frames:v',str(frames),'-c:v','libx264','-pix_fmt','yuv420p',str(clip)])
+                ffmpeg(['-i',str(image),'-vf',vf,'-frames:v',str(frames),'-c:v','libx264','-pix_fmt','yuv420p',str(clip)],jid=jid)
             clips.append(clip)
             vp.scene_done(jid,globals())
         vp.stage(jid,'Assembling video',globals())
         listing=work/'concat.txt'; listing.write_text(''.join(f"file '{c}'\n" for c in clips))
         aid=uuid.uuid4().hex; rel=f'video-dev/{aid}.mp4'
-        ffmpeg(['-f','concat','-safe','0','-i',str(listing),'-c','copy','-movflags','+faststart',str(DATA/rel)])
+        ffmpeg(['-f','concat','-safe','0','-i',str(listing),'-c','copy','-movflags','+faststart',str(DATA/rel)],jid=jid)
         vp.check(jid,globals())
         result=save(dict(id=aid,kind='asset',created=time.time(),media='video',stage='dev',story_id=board.get('story_id',LEGACY_STORY),path=rel,board_id=board['id'],title=board['title'],mode=mode,settings=settings,workflows=[json.loads(p.read_text()) for p in sorted(work.glob('workflow-*.json'))],narration='script only; no audio track',job_id=jid,sync='pending'))
         shutil.rmtree(work)
@@ -435,7 +445,7 @@ def create_edit(body):
         if a.get('media')!='image' or a.get('deleted') or a.get('story_id',LEGACY_STORY)!=sid:raise Problem('Choose an image from this story')
         refs=[a['id']]
     settings={'seed':number(body.get('seed',42),0,2**53-1,True),'steps':number(body.get('steps',40),5,60,True),'cfg':number(body.get('cfg',3),1,15)}
-    return launch('Instruction edit / compose scene',lambda jid:edited_asset(jid,refs,prompt,sid,**settings)['id'])
+    return launch('Instruction edit / compose scene',lambda jid:edited_asset(jid,refs,prompt,sid,**settings)['id'],metadata={'media':'image','story_id':sid})
 
 def create_character_sheet(body):
     if not qwen_edit_ready():raise Problem('Character sheets require the instruction-edit model and additional persistent storage.',503)
@@ -800,4 +810,5 @@ if __name__=='__main__':
     threading.Thread(target=billing_worker,daemon=True).start()
     print('ECCO AI Labs Studio listening on 127.0.0.1:8765 behind authenticated proxy',flush=True)
     ThreadingHTTPServer(('127.0.0.1',8765),Handler).serve_forever()
+
 

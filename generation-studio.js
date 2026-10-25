@@ -18,7 +18,7 @@
   const saved=localStorage.getItem('ecco-'+kind+'-job:'+story);
   const job=knownJob?.id===saved?knownJob:state.records.find(r=>r.kind==='job'&&r.id===saved);
   // Resume an unfinished generation after reload, but do not restore completed previews.
-  if(job&&['queued','running'].includes(job.status)){currentJobs.set(key,job.id);return job.id;}
+  if(job&&['queued','running','cancelling','paused'].includes(job.status)){currentJobs.set(key,job.id);return job.id;}
   return null;
  }
  function results(kind,list,story=activeStory,knownJob){
@@ -213,12 +213,13 @@
   if(c.data.reference_ids.some(id=>!record(id))){notice('A selected reference is unavailable. Reselect it in References.',true);return;}
   if(c.kind==='image'&&!text&&!objectInstructions(c)){q('[data-open-prompt]',c.form).click();notice('Add a prompt or choose object attributes first.',true);return;}
   if(c.kind==='video'&&!c.data.reference_ids.length){referencePicker(c);notice('Choose the images to animate.',true);return;}
+  const stopToken=window.EccoGenerationStop?.begin(c.kind,c.story);
   c.submitting=true;button.disabled=true;status.textContent='Preparing generation…';
   const tracking=c.kind==='image'?submittingImages:submittingVideos;tracking.add(c.story);
   try{
    const gpu=c.compute.value;
    const computeConfig=await window.EccoCompute.validate(gpu,c.kind==='image'&&c.data.reference_ids.length?'qwen-image-edit-2511':c.model.value);
-   let job;
+   window.EccoGenerationStop?.assert(stopToken);let job;
    if(c.kind==='image'){
     const prompt=compose(c,text),refs=c.data.reference_ids;
     if(prompt.length>4000)throw Error('Keep the combined prompt and object attributes within 4,000 characters.');
@@ -245,7 +246,7 @@
    }
    localStorage.setItem('ecco-'+c.kind+'-job:'+c.story,job.id);status.textContent='Queued. Follow progress in Activity.';await refresh();
   }catch(error){status.textContent=error.message;window.EccoErrors.show(error);}
-  finally{c.submitting=false;tracking.delete(c.story);button.disabled=false;if(c.kind==='image')updateImageStatus();else updateVideoStatus();}
+  finally{window.EccoGenerationStop?.finish(stopToken);c.submitting=false;tracking.delete(c.story);button.disabled=false;if(c.kind==='image')updateImageStatus();else updateVideoStatus();}
  }
  function aiContext(scope,element){const c=contexts.get(scope)||contexts.get(scope.closest?.('form'));if(!c)return null;return {reference_ids:referenceIds(c).filter(id=>record(id)?.media==='image'),context:{...(c.kind==='video'?{scenes:referenceKind(c)==='video'?[]:c.data.scenes||c.data.reference_ids.map(image_id=>({image_id})),video_references:selected(c).filter(a=>a.media==='video').map(a=>({id:a.id,title:a.title||'Untitled video'})),seconds:Number(q('[data-video-seconds]',c.form)?.value)||3}:{}),style:c.data.style,scene_controls:objectInstructions(c),instructions:'Reference-specific attributes: '+objectInstructions(c),...(c.kind==='audio'?{...window.EccoAudioStudio?.aiContext(element),genre:c.form.elements.genre.value}:{} )}};}
  MODEL_CATALOG['qwen-image-edit-2511']={name:'Qwen Image Edit',defaults:{steps:40,cfg:3,seed:42}};
@@ -254,6 +255,7 @@
  document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
  window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
 })();
+
 
 
 

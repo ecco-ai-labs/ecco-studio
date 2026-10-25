@@ -104,7 +104,7 @@
    storageIndependentOfGPU:true,
    status:()=>storageRequest('audio/status'),
    list:async({story_id})=>(await storageRequest('state')).records.filter(a=>a.kind==='asset'&&a.media==='audio'&&!a.deleted&&(a.story_id||LEGACY_STORY)===story_id),
-   generate:body=>storageRequest('audio/generate',body),
+   generate:body=>api('audio/generate',body),
    job:id=>storageRequest('audio/jobs/'+encodeURIComponent(id)),
    mediaURL:async id=>{
     if(audioMedia.has(id))return audioMedia.get(id);
@@ -218,5 +218,6 @@
  window.addEventListener('online',()=>{if(key)refresh();});
  if(key)setTimeout(()=>refresh(),0);
 })();
+
 
 

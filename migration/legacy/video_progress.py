@@ -1,7 +1,7 @@
 import json,time,uuid
 
 def check(jid,e):
-    if e['get'](jid,'job').get('cancel_requested'):raise e['Problem']('Cancelled by user',409)
+    if e['get'](jid,'job').get('cancel_requested') or (e.get('DATA') and (e['DATA']/'generation-control'/jid/'cancel.json').exists()):raise e['Problem']('Cancelled by user',409)
 
 def cancel(body,e):
     jid=body.get('job_id','');j=e['get'](jid,'job')
@@ -119,3 +119,4 @@ def execute(graph,jid,e):
         if ws:
             try:ws.close()
             except Exception:pass
+

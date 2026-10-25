@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'video'))
 import longcat_jobs
 import longcat_progress
 import audio_video_sequence
+import generation_controls
 import gpu_relay
 import openai_assistant
 import scene_planner
@@ -31,6 +32,7 @@ import youtube_connection
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
+    '/api/generation/stop',
     '/api/audio/workflows/save', '/api/audio/workflows/control',
     '/api/youtube/playlists', '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect', '/api/youtube/configure',
     '/api/library/rename',
@@ -166,6 +168,7 @@ class Handler(legacy.Handler):
             if path.startswith('/api/ai/'):
                 return self.send(openai_assistant.handle(path, body, vars(legacy)))
             if path == '/api/library/rename': return self.send(library_rename.rename(body, vars(legacy)))
+            if path == '/api/generation/stop': return self.send(generation_controls.stop(body, vars(legacy)))
             if path == '/api/gpu/request': return self.send(gpu_relay.submit(body))
             if path == '/api/longcat/control':
                 return self.send(audio_video_sequence.control(body, vars(legacy)))
@@ -217,3 +220,4 @@ def main():
     ThreadingHTTPServer((address, port), Handler).serve_forever()
 
 if __name__ == '__main__': main()
+

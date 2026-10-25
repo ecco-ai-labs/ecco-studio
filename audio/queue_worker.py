@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import traceback
+import generation_cancel as cancellation
 from contextlib import contextmanager
 from audio_queue import ROOT, MODELS, read, write
 from sound_schema import MODELS as SOUND_MODELS
@@ -27,7 +28,7 @@ def recover_jobs(compute, pod=''):
         request = read(directory / 'request.json', {})
         status = read(directory / 'status.json', {})
         if owns(request, compute, pod) and status.get('status') == 'running' and (not pod or status.get('worker_pod') == pod):
-            write(directory / 'status.json', {'status': 'error', 'error': 'Audio worker restarted. Please generate again.'})
+            write(directory / 'status.json', {'status': 'cancelled', 'progress': 'Stopped by user'} if (directory / 'cancel.json').exists() else {'status': 'error', 'error': 'Audio worker restarted. Please generate again.'})
 
 @contextmanager
 def claim_job(directory, compute, pod, models, sounds):
@@ -42,6 +43,10 @@ def claim_job(directory, compute, pod, models, sounds):
         status = read(directory / 'status.json', {})
         enabled = sounds if request.get('task') == 'sound' else models
         if not request or not owns(request, compute, pod) or status.get('status') != 'queued' or request.get('model', 'indic-mio') not in enabled:
+            yield None
+            return
+        if (directory / 'cancel.json').exists():
+            write(directory / 'status.json', {'status': 'cancelled', 'progress': 'Stopped by user'})
             yield None
             return
         write(directory / 'status.json', {'status': 'running', 'compute': compute, 'worker_pod': pod, 'started': time.time(),
@@ -127,7 +132,7 @@ def main():
         return
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'sound_models': enabled_sounds()})
+        write(heartbeat, {'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'sound_models': enabled_sounds()})
     recover_jobs(compute, pod)
     while True:
         beat()
@@ -139,12 +144,15 @@ def main():
         time.sleep(2)
 
 def run_job(request, d, compute, pod, beat):
+    process = None
     try:
+        cancellation.check(d)
         with (d / 'worker.log').open('wb') as log:
             command, env = worker_command(request, d)
-            process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(command, start_new_session=True, env=env, stdout=log, stderr=subprocess.STDOUT)
             started = time.monotonic()
             while process.poll() is None:
+                cancellation.check(d)
                 beat()
                 details = read(d / 'progress.json', {})
                 progress = details.get('progress')
@@ -156,24 +164,32 @@ def run_job(request, d, compute, pod, beat):
                 if progress in ('Mixing music and effects', 'Loading sound model', 'Generating sound effect', 'Generating instrumental music'):
                     write(d / 'status.json', {'status': 'running', 'progress': progress, 'compute': compute, 'worker_pod': pod})
                 if time.monotonic() - started > 1800:
-                    process.kill()
-                    process.wait()
+                    cancellation.terminate(process)
                     raise RuntimeError('Audio generation timed out. Split the script into shorter recordings.')
                 time.sleep(2)
+            cancellation.check(d)
             if process.returncode:
                 phase = read(d / 'progress.json', {}).get('progress', '')
                 raise RuntimeError('Soundtrack mixing failed. Check the sound files and audio worker log.' if phase == 'Mixing music and effects' else 'Sound generation failed. Check the sound worker log and try again.' if request.get('task') == 'sound' else 'Speech inference failed. Check the audio worker log and try again.')
         output = d / 'output.wav'
         if not output.is_file() or output.stat().st_size <= 44:
             raise RuntimeError('The audio model returned an empty recording.')
+        cancellation.check(d)
         write(d / 'status.json', {'status': 'complete', 'compute': compute, 'worker_pod': pod,
             'provenance': read(d / 'provenance.json', {}), 'sha256': hashlib.sha256(output.read_bytes()).hexdigest()})
+    except cancellation.Cancelled:
+        if process is not None:
+            cancellation.terminate(process)
+        write(d / 'status.json', {'status': 'cancelled', 'progress': 'Stopped by user'})
     except Exception as error:
+        if process is not None and process.poll() is None:
+            cancellation.terminate(process)
         traceback.print_exc()
         write(d / 'status.json', {'status': 'error', 'error': str(error)})
 
 if __name__ == '__main__':
     main()
+
 
 
 

@@ -65,7 +65,7 @@ def generate(body, env):
         except (ValueError, TypeError, AttributeError) as error: raise env['Problem'](str(error))
         if body.get('resolution','832x480') not in ('832x480','1280x720'):
             raise env['Problem']('Choose 480p or 720p.')
-        if any(j['status'] in ('queued','running') for j in env['records']('audio_video_job')):
+        if any(j['status'] in ('queued','running','cancelling') for j in env['records']('audio_video_job')):
             raise env['Problem']('An audio video sequence is already running.',429)
         for clip in clips:
             image_id = body['shots'][clip['shot']].get('image_id') or image['id']
@@ -116,7 +116,7 @@ def assemble(job, env):
         record = env['get'](child,'longcat_job')
         asset = env['get'](record['result'][0],'asset')
         source = env['asset_path'](asset)
-        subprocess.run(['ffmpeg','-y','-v','error','-i',str(source),'-an','-vf',
+        renderer.cancellation.run(directory, ['ffmpeg','-y','-v','error','-i',str(source),'-an','-vf',
             'fps=25,tpad=stop_mode=clone:stop_duration=1,trim=end_frame='+str(clip['frames'])+',setpts=PTS-STARTPTS',
             '-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p',str(directory/(str(i)+'.mp4'))],
             check=True,timeout=180)
@@ -126,7 +126,7 @@ def assemble(job, env):
     target = env['DATA']/'video-dev'/(job['id']+'.mp4')
     target.parent.mkdir(parents=True,exist_ok=True)
     temp = directory/'output.mp4'
-    subprocess.run(['ffmpeg','-y','-v','error','-f','concat','-safe','1','-i',str(manifest),
+    renderer.cancellation.run(directory, ['ffmpeg','-y','-v','error','-f','concat','-safe','1','-i',str(manifest),
         '-i',str(env['asset_path'](audio)),'-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac',
         '-t',str(request['duration']),'-movflags','+faststart',str(temp)],check=True,timeout=180)
     info=renderer.probe(temp)
@@ -134,6 +134,7 @@ def assemble(job, env):
         raise ValueError('Assembled video duration does not match the audio.')
     if not any(s['codec_type']=='audio' for s in info['streams']):
         raise ValueError('The assembled video is missing the original audio.')
+    renderer.cancellation.check(directory)
     import shutil
     pending=target.with_suffix('.tmp');shutil.copyfile(temp,pending);pending.replace(target)
     aid=hashlib.sha256(('audio-video-asset:'+job['id']).encode()).hexdigest()[:32]
@@ -148,14 +149,22 @@ def assemble(job, env):
 def advance(job, env):
     with LOCK:
         job = env['get'](job['id'], 'audio_video_job')
-        if job.get('status') not in ('queued', 'running', 'paused'): return
+        if job.get('status') not in ('queued', 'running', 'paused', 'cancelling'): return
         _advance(job, env)
 
 def _advance(job, env):
     request=job['request']
+    immediate=(renderer.ROOT/'sequences'/job['id']/'cancel.json').exists()
+    if immediate:
+        job.update(stop_requested=True, pause_requested=False)
     if job['children']:
         child=env['get'](job['children'][-1],'longcat_job')
-        if child['status'] in ('queued','running'): return
+        if immediate: child=renderer.cancel(child['id'],env)
+        if child['status'] in ('queued','running','cancelling'):
+            if immediate:
+                job.update(status='cancelling',progress='Stopping…');env['save'](job)
+            return
+        if child['status']=='cancelled': job['stop_requested']=True
         if child['status'] in ('failed','error') and not job.get('stop_requested'):
             job.update(status='failed',error=child.get('error','A video clip failed.'),error_details=renderer.with_error_details(child).get('error_details'),finished=time.time());env['save'](job);return
     if job.get('stop_requested'):
@@ -179,6 +188,8 @@ def _advance(job, env):
         if error.code in (429,503):
             job.update(progress='Waiting for the LongCat worker');env['save'](job);return
         raise
+    if (renderer.ROOT/'sequences'/job['id']/'cancel.json').exists():
+        renderer.cancel(child['id'],env)
     job['children'].append(child['id'])
     job.update(status='running',progress='Rendering clip '+str(index+1)+' of '+str(len(request['clips'])))
     env['save'](job)
@@ -188,11 +199,29 @@ def start(env):
     def loop():
         while True:
             for job in env['records']('audio_video_job'):
-                if job.get('status') not in ('queued','running','paused'): continue
+                if job.get('status') not in ('queued','running','paused','cancelling'): continue
                 try: advance(job,env)
+                except renderer.cancellation.Cancelled:
+                    job=env['get'](job['id'],'audio_video_job')
+                    job.update(status='cancelled',progress='Stopped; completed clips retained',finished=time.time());env['save'](job)
                 except Exception as error:
                     job.update(status='failed',error='Audio video assembly failed: '+renderer.redact_error(error),error_details={'component':'video assembly','exception_type':type(error).__name__,'traceback':renderer.redact_error(__import__('traceback').format_exc()),'occurred_at':time.time()},finished=time.time());env['save'](job)
             time.sleep(3)
     threading.Thread(target=loop,daemon=True,name='audio-video-sequences').start()
 
 
+
+
+
+def cancel(jid, env):
+    job=env['get'](jid,'audio_video_job')
+    if job['status'] in ('done','failed','error','cancelled'): return renderer.public(job)
+    # Written before the lock so an assembly subprocess can stop while holding it.
+    renderer.write(renderer.ROOT/'sequences'/jid/'cancel.json',dict(reason='Stopped by user'))
+    with LOCK:
+        job=env['get'](jid,'audio_video_job')
+        if job['status'] in ('done','failed','error','cancelled'): return renderer.public(job)
+        job.update(stop_requested=True,pause_requested=False,status='cancelling',progress='Stopping…')
+        env['save'](job)
+        _advance(job,env)
+        return renderer.public(env['get'](jid,'audio_video_job'))

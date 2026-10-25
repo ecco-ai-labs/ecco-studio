@@ -14,6 +14,9 @@ import time
 import uuid
 import traceback
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'audio'))
+import generation_cancel as cancellation
+
 ROOT = Path(os.getenv('ECCO_LONGCAT_ROOT', '/workspace/ecco-video/longcat'))
 QUEUE = ROOT / 'queue'
 MODEL = 'longcat-avatar-1.5'
@@ -108,7 +111,7 @@ def generate(body, env):
         if resolution not in ('832x480','1280x720'): raise env['Problem']('Unsupported LongCat resolution.')
         seed = int(body.get('seed',42))
         if not 0<=seed<=2147483647: raise env['Problem']('Seed must be between 0 and 2147483647.')
-        if any(j.get('status') in ('queued','running') for j in env['records']('longcat_job')):
+        if any(j.get('status') in ('queued','running','cancelling') for j in env['records']('longcat_job')):
             raise env['Problem']('A LongCat shot is already running. Wait for it to finish.',429)
         jid = supplied_id or uuid.uuid4().hex; directory = QUEUE/jid
         directory.mkdir(parents=True,mode=0o700)
@@ -130,9 +133,13 @@ def generate(body, env):
 def finalize(job, env):
     with LOCK:
         job=env['get'](job['id'],'longcat_job')
-        if job['status'] not in ('queued','running'): return
+        if job['status'] not in ('queued','running','cancelling'): return
         d=QUEUE/job['id']; result=read(d/'status.json',{})
         s=result.get('status')
+        if (d/'cancel.json').exists():
+            stopped=s in ('queued','complete','error','cancelled')
+            job.update(status='cancelled' if stopped else 'cancelling',progress='Stopped by user' if stopped else 'Stopping…',error='')
+            env['save'](job); return
         if s=='complete':
             source=d/'output.mp4'; digest=hashlib.sha256(source.read_bytes()).hexdigest()
             if digest!=result['sha256']: raise ValueError('Video integrity verification failed')
@@ -158,7 +165,7 @@ def start(env):
     def loop():
         while True:
             for job in env['records']('longcat_job'):
-                if job.get('status') not in ('queued','running'): continue
+                if job.get('status') not in ('queued','running','cancelling'): continue
                 try: finalize(job,env)
                 except Exception:
                     import traceback; traceback.print_exc()
@@ -166,7 +173,7 @@ def start(env):
     threading.Thread(target=loop,daemon=True,name='longcat-finalizer').start()
 
 def run_shot(d, request):
-    subprocess.run(['ffmpeg','-y','-v','error','-i',str(d/'audio-source'),'-ac','1','-ar','16000',str(d/'audio.wav')],check=True,timeout=30)
+    cancellation.run(d, ['ffmpeg','-y','-v','error','-i',str(d/'audio-source'),'-ac','1','-ar','16000',str(d/'audio.wav')],check=True,timeout=30)
     write(d/'input.json',dict(prompt=request['prompt'],cond_image=str(d/'image.png'),cond_audio={'person1':str(d/'audio.wav')}))
     segments=max(1,math.ceil((request['duration']*25-93)/80)+1)
     command=[str(ROOT/'venv/bin/python'),'-m','torch.distributed.run','--standalone','--nproc_per_node=1',
@@ -177,13 +184,14 @@ def run_shot(d, request):
     env={**os.environ,'PYTHONPATH':str(ROOT/'source'),'ECCO_LONGCAT_SEED':str(request['seed']),
          'HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1','OMP_NUM_THREADS':'4'}
     with (d/'worker.log').open('w') as log:
-        subprocess.run(command,cwd=d,env=env,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=2400)
+        cancellation.run(d, command,cwd=d,env=env,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=2400)
     name='ai2v_demo_1.mp4' if segments==1 else 'video_continue_'+str(segments)+'.mp4'
-    subprocess.run(['ffmpeg','-y','-v','error','-i',str(d/'render'/name),'-t',str(request['duration']),
+    cancellation.run(d, ['ffmpeg','-y','-v','error','-i',str(d/'render'/name),'-t',str(request['duration']),
                     '-c:v','copy','-c:a','aac','-movflags','+faststart',str(d/'output.mp4')],check=True,timeout=60)
     info=probe(d/'output.mp4')
     if not all(any(s['codec_type']==kind for s in info['streams']) for kind in ('audio','video')):
         raise ValueError('Output must include video and audio streams')
+    cancellation.check(d)
     write(d/'status.json',dict(status='complete',duration=float(info['format']['duration']),
           sha256=hashlib.sha256((d/'output.mp4').read_bytes()).hexdigest()))
 
@@ -210,19 +218,32 @@ def worker():
             write(heart,dict(updated=time.time(),pod=pod,ready=ready,model=MODEL)); stop.wait(3)
     threading.Thread(target=beat,daemon=True).start()
     for d in QUEUE.glob('[a-f0-9]'*32):
-        if read(d/'request.json',{}).get('pod')==pod and read(d/'status.json',{}).get('status')=='running': write(d/'status.json',dict(status='error',error='Worker restarted. Generate this shot again.'))
+        if read(d/'request.json',{}).get('pod')==pod and read(d/'status.json',{}).get('status')=='running': write(d/'status.json',dict(status='cancelled',progress='Stopped by user') if (d/'cancel.json').exists() else dict(status='error',error='Worker restarted. Generate this shot again.'))
     while True:
         for d in sorted(QUEUE.glob('[a-f0-9]'*32)):
             r=read(d/'request.json',{}); s=read(d/'status.json',{})
             if not ready or r.get('pod')!=pod or s.get('status')!='queued': continue
+            if (d/'cancel.json').exists():
+                write(d/'status.json',dict(status='cancelled',progress='Stopped by user')); continue
             write(d/'status.json',dict(status='running',progress='Running Generation'))
             try: run_shot(d,r)
+            except cancellation.Cancelled:
+                write(d/'status.json',dict(status='cancelled',progress='Stopped by user'))
             except Exception as error:
                 details=diagnostics(d,error)
                 write(d/'status.json',dict(status='error',error='LongCat generation failed: '+redact_error(error),error_details=details))
         time.sleep(2)
 
+def cancel(jid, env):
+    with LOCK:
+        job=env['get'](jid,'longcat_job')
+        if job['status'] not in ('queued','running','cancelling'): return public(job)
+        write(QUEUE/jid/'cancel.json',dict(reason='Stopped by user',requested=time.time()))
+        finalize(job,env)
+        return public(env['get'](jid,'longcat_job'))
+
 if __name__=='__main__': worker()
+
 
 
 

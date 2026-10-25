@@ -49,7 +49,7 @@ def generate(body, env, *, job_id=None, sound=False):
             raise env['Problem']('Update the audio service before generating music and effects.', 503)
         if not sound and request['model'] not in target['models']:
             raise env['Problem']('This audio model is not enabled on ' + request['compute'].upper() + '. Choose another compute target.', 503)
-        active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running')]
+        active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running', 'cancelling')]
         if len(active) >= 4:
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
         job = dict(id=job_id or uuid.uuid4().hex, kind='audio_job', media='audio', status='queued',
@@ -70,12 +70,17 @@ def public(job):
 def job_status(jid, env):
     with LOCK:
         job = env['get'](jid, 'audio_job')
-        if job['status'] in ('done', 'error'):
+        if job['status'] in ('done', 'error', 'cancelled'):
             return public(job)
         directory = queue.ROOT / jid
         status = queue.read(directory / 'status.json', {})
         if status.get('worker_pod'):
             job['worker_pod'] = status['worker_pod']
+        if (directory / 'cancel.json').exists():
+            stopped = status.get('status') in ('queued', 'complete', 'error', 'cancelled')
+            job.update(status='cancelled' if stopped else 'cancelling', progress='Stopped by user' if stopped else 'Stopping…', error='')
+            env['save'](job)
+            return public(job)
         if status.get('status') == 'complete':
             source = directory / 'output.wav'
             digest = hashlib.sha256(source.read_bytes()).hexdigest()
@@ -107,9 +112,9 @@ def job_status(jid, env):
             asset['id'] = hashlib.sha256(('audio-asset:' + jid).encode()).hexdigest()[:32]
             env['save'](asset)
             job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved', asset=asset if request.get('task') == 'sound' else None)
-        elif status.get('status') in ('running', 'error'):
+        elif status.get('status') in ('running', 'error', 'cancelled'):
             job.update(status=status['status'], progress=status.get('progress', ''), error=status.get('error', ''))
-        if job['status'] in ('queued', 'running') and not (queue.sound_ready(job['request']['compute'], job['request']['model'], job['request'].get('worker_id', '')) if job['request'].get('task') == 'sound' else queue.ready(job['request'].get('compute', 'b200'), job['request'].get('model'), job['request'].get('worker_id', ''))) and time.time() - job['created'] > 60:
+        if job['status'] in ('queued', 'running', 'cancelling') and not (queue.sound_ready(job['request']['compute'], job['request']['model'], job['request'].get('worker_id', '')) if job['request'].get('task') == 'sound' else queue.ready(job['request'].get('compute', 'b200'), job['request'].get('model'), job['request'].get('worker_id', ''))) and time.time() - job['created'] > 60:
             job['progress'] = 'Waiting for the audio worker to reconnect'
         env['save'](job)
         return public(job)
@@ -124,7 +129,7 @@ def start(env):
         while True:
             try:
                 for job in env['records']('audio_job'):
-                    if job.get('status') in ('queued', 'running'):
+                    if job.get('status') in ('queued', 'running', 'cancelling'):
                         job_status(job['id'], env)
             except Exception:
                 import traceback
@@ -133,3 +138,14 @@ def start(env):
     threading.Thread(target=loop, daemon=True, name='audio-finalizer').start()
 
 
+
+
+
+def cancel(jid, env):
+    with LOCK:
+        job = env['get'](jid, 'audio_job')
+        if job['status'] in ('done', 'error', 'failed', 'cancelled'):
+            return public(job)
+        directory = queue.ROOT / jid
+        queue.write(directory / 'cancel.json', {'reason': 'Stopped by user', 'requested': time.time()})
+        return job_status(jid, env)

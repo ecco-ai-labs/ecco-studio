@@ -21,12 +21,12 @@
    let record=journal()[id];
    if(record?.status==='submitting')throw Error('The sound submission was not confirmed. Check Activity or Audio Library before submitting this sound again.');
    if(record?.status==='done'&&!replace){window.EccoAudioLibrary?.remember(record.asset);return record.asset;}
-   if(!record?.id||['done','error'].includes(record.status)){
+   if(!record?.id||['done','error','cancelled'].includes(record.status)){
     progress('Checking sound worker…');const available=await api('audio/status');valid();
     const target=window.EccoAudioCompute?.target(available,request.compute,request.worker_id)||(!request.worker_id?available.compute?.[request.compute]:null);
     if(!target?.sound_models?.includes(request.model))throw Error(models[request.model]+' is not installed and verified on the selected '+request.compute.toUpperCase()+' worker. Choose a CPU with this sound model.');
     rememberJob(id,{status:'submitting'});
-    const job=await api('audio/sounds/generate',request);
+    let job;try{job=await api('audio/sounds/generate',request);}catch(error){if(error.job?.id)rememberJob(id,{id:error.job.id,status:error.job.status==='cancelled'?'cancelled':'queued'});throw error;}
     if(!job.id)throw Error('The service did not confirm a sound job. Check Activity before retrying.');
     record={id:job.id,status:'queued'};rememberJob(id,record);
    }
@@ -34,6 +34,7 @@
    while(Date.now()-started<1850000){
     valid();progress('Waiting for the sound worker…');
     const result=await api('audio/jobs/'+encodeURIComponent(record.id));
+    if(result.status==='cancelled'){rememberJob(id,{...record,status:'cancelled'});throw Error('Stopped by user.');}
     if(['error','failed'].includes(result.status)){rememberJob(id,{...record,status:'error'});throw Error(result.error||'Sound generation failed.');}
     if(result.status==='done'){
      const asset=result.asset;if(!asset?.id||asset.media!=='audio'||asset.kind!=='asset')throw Error('The job finished without a saved sound asset. Check Audio Library.');
@@ -74,21 +75,23 @@
   let pending=false;
   button.onclick=async()=>{
    if(pending)return;
+   const stopToken=window.EccoGenerationStop?.begin('audio',activeStory);
    try{
     valid();collect();if(!window.EccoStorage?.ready)throw Error('Connect workspace storage first.');
     if(!cue.description.trim())throw Error('Describe the sound you want to create.');if(!duration.reportValidity())return;
     pending=true;button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Checking Worker…';
     const request=soundRequest(cue,{compute:cue.compute,worker_id:cue.worker_id,story_id:activeStory||null});
     const signature=()=>JSON.stringify([cue.kind,cue.description.trim(),cue.name,cue.duration,cue.compute,cue.worker_id,cue.asset_id]),before=signature();
-    const current=()=>{valid();if(!area.isConnected||signature()!==before)throw Error('The sound changed. Your edits were kept; find the completed file in Audio Library.');};
+    const current=()=>{window.EccoGenerationStop?.assert(stopToken);valid();if(!area.isConnected||signature()!==before)throw Error('The sound changed. Your edits were kept; find the completed file in Audio Library.');};
     button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Generating Sound…';
     const asset=await generate(request,{valid:current,replace:!!cue.asset_id,progress:message=>{if(area.isConnected)status.textContent=message;}});
     current();cue.asset_id=asset.id;changed();
 
    }catch(error){if(area.isConnected)status.textContent=error.message;}
-   finally{pending=false;if(area.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate Sound';}}
+   finally{pending=false;window.EccoGenerationStop?.finish(stopToken);if(area.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate Sound';}}
   };
   refreshChoices().catch(error=>{if(area.isConnected)status.textContent=error.message;});
  }
  window.EccoSoundGeneration={mount,modelFor,models,generate,ensure,soundRequest};
 })();
+

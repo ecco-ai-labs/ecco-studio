@@ -233,13 +233,13 @@
   };
   form.onsubmit=async e=>{
    e.preventDefault();if(ctx.submitting)return;
-   const selectedModel=model.value,gpu=ctx.compute.value;
+   const selectedModel=model.value,gpu=ctx.compute.value,stopToken=window.EccoGenerationStop?.begin('video',story);
    ctx.submitting=true;
    try{
     if(!data.image_ids.length||data.image_ids.some(id=>!find(id,'image')))throw Error('Choose an available avatar in step 2.');
     const shots=activeShots();if(!shots.length)throw Error('Add at least one shot.');
     if(shots.some(s=>!find(s.image_id,'image')||!Number.isFinite(s.seconds)||s.seconds<.2))throw Error('Each shot needs an available avatar and duration.');
-    await window.EccoCompute.validate(gpu,selectedModel);
+    await window.EccoCompute.validate(gpu,selectedModel);window.EccoGenerationStop?.assert(stopToken);
     if(model.value!==selectedModel||ctx.compute.value!==gpu)throw Error('Model or compute changed while checking. Generate again with your current selection.');
     if(data.audio_ids.length&&selectedModel!=='longcat-avatar-1.5')throw Error('Select LongCat in step 1 for synchronized speech.');
     if(selectedModel==='longcat-avatar-1.5'&&!data.audio_ids.length)throw Error('Select audio from Audio Library for LongCat.');
@@ -248,7 +248,7 @@
      if(data.video_ids.length){status.textContent='Analyzing video references…';if(!await writeDirections())throw Error(aiStatus.textContent||'Could not analyze reference videos.');}
      else{data.directions=shots.map(s=>[shotPrompt(s)].filter(Boolean).join('. '));data.analyzed=fingerprint();persist();drawDirections();}
     }
-    let job;
+    window.EccoGenerationStop?.assert(stopToken);let job;
     if(data.audio_ids.length){
      if(Math.abs(shots.reduce((n,s)=>n+s.seconds,0)-totalAudio())>.05)throw Error('Shot durations must cover the selected speech. Adjust seconds in step 5.');
      const payload={story_id:story,audio_ids:data.audio_ids,image_id:data.image_ids[0],video_reference_ids:data.video_ids,gpu,
@@ -260,7 +260,7 @@
      job=await api('videos',{...modelPayload('video',gpu,selectedModel),board_id:board.id});
     }
     localStorage.setItem('ecco-video-job:'+story,job.id);window.EccoGeneration.trackJob('video',story,job);status.textContent='Queued. Your video will appear in Review videos.';await refresh();
-   }catch(error){status.textContent=error.message;window.EccoErrorLog?.record(error,{source:'video submission',model:selectedModel,gpu,displayed_model:model.value,profile_model:modelProfiles.selected.video});window.EccoErrors.show(error,{logged:true});}finally{ctx.submitting=false;setGenerationBusy(button,false,'','Generate video');}
+   }catch(error){status.textContent=error.message;window.EccoErrorLog?.record(error,{source:'video submission',model:selectedModel,gpu,displayed_model:model.value,profile_model:modelProfiles.selected.video});window.EccoErrors.show(error,{logged:true});}finally{window.EccoGenerationStop?.finish(stopToken);ctx.submitting=false;setGenerationBusy(button,false,'','Generate video');}
   };
   drawBoards();if(!data.shots.length)loadBoard();drawLists();drawShots();drawDirections();persist();
  }
@@ -268,6 +268,7 @@
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});
  mount();
 })();
+
 
 
 
