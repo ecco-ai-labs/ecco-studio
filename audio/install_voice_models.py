@@ -30,12 +30,13 @@ def install(model):
     if not link.exists():
         link.symlink_to(envdir, target_is_directory=True)
     python = str(envdir/'bin/python')
-    env = dict(os.environ, CUDA_VISIBLE_DEVICES='', PIP_NO_CACHE_DIR='1', PIP_PROGRESS_BAR='off')
+    env = dict(os.environ, CUDA_VISIBLE_DEVICES='', PIP_NO_CACHE_DIR='1', PIP_PROGRESS_BAR='off',
+               HF_HUB_ENABLE_HF_TRANSFER='0', HF_HUB_OFFLINE='0', TRANSFORMERS_OFFLINE='0')
     env.pop('PYTHONPATH', None)
     def pip(*packages, constraints=True):
         subprocess.run([python, '-m', 'pip', 'install', *(['-c', str(base/'cpu-model-constraints.txt')] if constraints else []), *packages], check=True, env=env)
     if model == 'kokoro':
-        pip('kokoro==0.9.4', 'misaki[en,ja,zh]==0.9.4', 'soundfile', 'huggingface_hub<1', 'transformers==4.51.3')
+        pip('kokoro==0.9.4', 'misaki[en,ja,zh]==0.9.4', 'spacy==3.8.7', 'soundfile', 'huggingface_hub<1', 'transformers==4.51.3')
         subprocess.run(['apt-get', 'update', '-qq'], check=True)
         subprocess.run(['apt-get', 'install', '-y', '-qq', 'espeak-ng'], check=True)
         subprocess.run([python, '-m', 'spacy', 'download', 'en_core_web_sm'], check=True, env=env)
