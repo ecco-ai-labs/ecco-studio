@@ -187,14 +187,15 @@ def alert_settings():
     return config
 
 
-def send_alert(url,tid,request_id):
+def send_alert(url,tid):
     import json
     from urllib.request import Request,build_opener,HTTPRedirectHandler
-    from urllib.parse import urlencode
     class NoRedirect(HTTPRedirectHandler):
         def redirect_request(self,*args,**kwargs): return None
     text=f'Online support requested for SUP-{tid:04d}. Open Ecco Desk → Live support to accept the next waiting customer.\nhttps://ecco-ai-labs.github.io/ecco-studio/desk/\nThe customer remains queued until an available agent accepts.'
-    request=Request(url+'&'+urlencode({'requestId':request_id}),data=json.dumps({'text':text}).encode(),headers={'Content-Type':'application/json; charset=UTF-8'})
+    # Incoming webhooks reject the Chat API's requestId option. The outbox
+    # handles local deduplication; send only the webhook's key/token query.
+    request=Request(url,data=json.dumps({'text':text}).encode(),headers={'Content-Type':'application/json; charset=UTF-8'})
     with build_opener(NoRedirect).open(request,timeout=20) as response:
         if not json.load(response).get('name'): raise ValueError('Chat did not confirm the message.')
 
@@ -214,7 +215,7 @@ def deliver_alert(path):
         row=dict(row)
         db.execute('UPDATE desk_chat_alerts SET attempts=attempts+1,leaseUntil=? WHERE id=?',(stamp+60,row['id']))
     try:
-        send_alert(config['webhook'],row['ticketId'],row['id'])
+        send_alert(config['webhook'],row['ticketId'])
     except Exception as exc:
         error=type(exc).__name__+(f' ({exc.code})' if type(getattr(exc,'code',None)) is int else '')
         with mail.connect(path) as db:

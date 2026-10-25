@@ -3,6 +3,7 @@ import base64
 import datetime as dt
 from email.message import EmailMessage
 import json
+import io
 import os
 from pathlib import Path
 import tempfile
@@ -226,19 +227,34 @@ class Conversations(unittest.TestCase):
         self.assertEqual(self.detail(self.alice)['comments'],[])
         self.assertEqual(self.detail(self.alice,t2['id'])['comments'],[])
 
-    def test_chat_alert_once_per_join_and_retry_uses_same_request_id(self):
+    def test_chat_alert_once_per_join_and_retry_uses_same_outbox_event(self):
         self.action(self.alice,'chatRequest');self.action(self.alice,'chatRequest')
         with desk.connect(self.db) as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_chat_alerts').fetchone()[0],1)
         with patch.object(chat,'alert_settings',return_value={'webhook':'fixture'}),patch.object(chat,'send_alert',side_effect=OSError('secret webhook URL')) as send:
-            self.assertTrue(chat.deliver_alert(self.db));first_id=send.call_args.args[2]
+            self.assertTrue(chat.deliver_alert(self.db))
         with desk.connect(self.db) as db:
+            first_id=db.execute('SELECT id FROM desk_chat_alerts').fetchone()[0]
             self.assertEqual(db.execute('SELECT lastError FROM desk_chat_alerts').fetchone()[0],'OSError')
             db.execute('UPDATE desk_chat_alerts SET availableAt=0')
         with patch.object(chat,'alert_settings',return_value={'webhook':'fixture'}),patch.object(chat,'send_alert') as send:
             self.assertTrue(chat.deliver_alert(self.db));self.assertFalse(chat.deliver_alert(self.db))
-            send.assert_called_once_with('fixture',self.t['id'],first_id)
+            send.assert_called_once_with('fixture',self.t['id'])
+        with desk.connect(self.db) as db:self.assertEqual(db.execute('SELECT id,state FROM desk_chat_alerts').fetchone()[:],(first_id,'sent'))
         self.action(self.alice,'chatEnd');self.clock.return_value+=1;self.action(self.alice,'chatRequest')
         with desk.connect(self.db) as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_chat_alerts').fetchone()[0],2)
+
+    def test_google_webhook_uses_supported_post_without_request_id(self):
+        url='https://chat.googleapis.com/v1/spaces/ABC/messages?key=fixture&token=fixture'
+        with patch('urllib.request.build_opener') as build:
+            build.return_value.open.return_value=io.BytesIO(b'{"name":"spaces/ABC/messages/accepted"}')
+            chat.send_alert(url,42)
+        request=build.return_value.open.call_args.args[0]
+        self.assertEqual(request.full_url,url)
+        self.assertEqual(request.get_method(),'POST')
+        body=json.loads(request.data)
+        self.assertEqual(set(body),{'text'})
+        self.assertIn('SUP-0042',body['text'])
+        self.assertIn('https://ecco-ai-labs.github.io/ecco-studio/desk/',body['text'])
 
     def test_chat_alert_skips_departed_customers_and_never_connects_them(self):
         self.action(self.alice,'chatRequest');self.action(self.alice,'chatEnd')
