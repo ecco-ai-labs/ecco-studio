@@ -116,7 +116,8 @@
       "behavior": "Keep the complete dialog stack and its fields alive in this tab without close cleanup; remove modal blocking. Resume popups menu at bottom right restores the original screen, popup stack and focus. Close retains existing local dismissal semantics.",
       "persistence": "Minimize is in-memory only. Explicit Save Draft persists the story preparation or source selection in browser IndexedDB, including local PDF bytes. No credential values or unrelated form fields are stored.",
       "accessibility": "Native keyboard-focusable buttons, named Minimize popup; Resume popups uses a native details menu. Theme tokens, wrapped labels and viewport-constrained menu."
-    }
+    },
+    "studioEntry": "Tell Your Story is disabled by default, including during Google session restoration and sign-in failures. Signed-out opacity is 0.5 with a not-allowed cursor. Enable only after backend-verified Google identity is available. Entry handlers also require the current identity. Preserve button dimensions, wording, themes and explicit click to enter."
   },
   "components": [
     {

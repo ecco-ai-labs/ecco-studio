@@ -63,6 +63,7 @@
   storyControls();const savedStep=localStorage.getItem('ecco-story-page:'+id);const allowed=window.EccoStoryJourneys?.steps([])||[];navigate(allowed.some(s=>s[0]===savedStep)?savedStep:'board');productionGroup();journeyGuide();
  }
  function workspaceStart(){
+  if(!window.EccoAuth?.user)return;
   page='empty';document.body.classList.remove('workspace-entry-mode');document.body.classList.add('story-choice-mode');q('#heading').textContent='';
   const choices=document.createElement('section');choices.id='story-choice-screen';choices.setAttribute('aria-label','Story choices');
   const source=q('#workspace-entry .entry-logo-motion')||q('#workspace-entry .entry-logo');
