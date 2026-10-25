@@ -6,7 +6,9 @@
 #notification-bell svg,#notification-bell svg *{fill:none!important;stroke:currentColor!important}
 #notification-bell .notification-count{position:absolute;top:0;right:0;display:flex;align-items:center;justify-content:center;min-width:12px;height:12px;padding:0 2px;box-sizing:border-box;border-radius:8px;background:var(--ecco-theme-error,#d93849);color:#fff;font:700 8px/1 sans-serif;box-shadow:0 0 0 2px var(--ecco-theme-surface,#1c1c35);pointer-events:none}
 #notification-list{position:absolute;right:0;top:calc(100% + 8px);z-index:1200;width:320px;max-width:calc(100vw - 24px);max-height:65vh;overflow:auto;box-sizing:border-box;padding:14px;border:1px solid var(--ecco-theme-accent,#ffdc24);border-radius:10px;background:var(--ecco-theme-surface,#241f43);color:var(--ecco-theme-text,#fff);box-shadow:0 8px 24px #0004;text-align:left;font-size:13px}
-#notification-list article{padding:12px 0;border-top:1px solid var(--ecco-theme-border,#ffffff30);margin-top:10px}
-#notification-list p{font-size:12px;line-height:1.5;margin:8px 0;white-space:normal}
-#notification-list .notification-read{font:inherit;width:auto;min-height:0;padding:5px 8px;background:transparent!important;color:var(--ecco-theme-accent,#ffdc24)!important;border:1px solid var(--ecco-theme-border,#ffffff30);box-shadow:none!important}
+#notification-list .notification-item{display:block!important;width:100%!important;height:auto!important;min-height:0!important;margin:10px 0 0!important;padding:12px 0!important;text-align:left!important;white-space:normal!important;border:0!important;border-top:1px solid var(--ecco-theme-border,#ffffff30)!important;border-radius:0!important;background:transparent!important;color:var(--ecco-theme-text,#fff)!important;box-shadow:none!important;font:inherit!important;cursor:pointer}
+#notification-list .notification-item .notification-title,#notification-list .notification-item .notification-body{display:block;white-space:normal;font-weight:400!important}
+#notification-list .notification-item[data-read="false"] .notification-title,#notification-list .notification-item[data-read="false"] .notification-body{font-weight:700!important}
+#notification-list .notification-body{font-size:12px;line-height:1.5;margin-top:8px}
+#notification-list .notification-item:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24)!important;outline-offset:2px}
 #notification-list[hidden],#notification-bell .notification-count[hidden]{display:none!important}
