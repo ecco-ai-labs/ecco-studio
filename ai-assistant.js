@@ -59,8 +59,13 @@
  function openKeyDialog(){
   if(!window.EccoStorage?.ready){showError('Connect workspace storage first, then return to Connect to OpenAI. No GPU is required.');return;}
   let dialog=q('#openai-key-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='openai-key-dialog';document.body.append(dialog);}
-  dialog.innerHTML='<form class="form"><h2>Connect to OpenAI</h2><label>OpenAI project API key<input type="password" name="api_key" required autocomplete="off" spellcheck="false" placeholder="sk-…"></label><label>AI model<select name="model"><option value="gpt-6.1-sol">GPT-6.1 Sol</option><option value="gpt-6-astra">GPT-6 Astra</option></select></label><p role="status"></p><div class="row"><button type="submit">Verify & connect</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';
+  dialog.innerHTML='<form class="form"><h2 tabindex="-1" autofocus>Connect to OpenAI</h2><label>OpenAI project API key<input type="password" name="api_key" required readonly autocomplete="current-password" spellcheck="false"></label><label>AI model<select name="model"><option value="gpt-6.1-sol">GPT-6.1 Sol</option><option value="gpt-6-astra">GPT-6 Astra</option></select></label><p role="status"></p><div class="row"><button type="submit">Verify & connect</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';
   const form=dialog.querySelector('form');form.elements.model.value=connection.connected?connection.model:'gpt-6.1-sol';
+  // Keep browser autofill out of the unopened field; unlock on deliberate focus.
+  const keyInput=form.elements.api_key;keyInput.value='';
+  const activateKeyInput=()=>{if(keyInput.readOnly){keyInput.value='';keyInput.readOnly=false;}};
+  keyInput.addEventListener('pointerdown',activateKeyInput);
+  keyInput.addEventListener('focus',activateKeyInput);
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   dialog.onclose=()=>{form.elements.api_key.value='';};
   form.onsubmit=async event=>{
@@ -71,6 +76,7 @@
    finally{button.disabled=false;}
   };
   if(!dialog.open)dialog.showModal();
+  dialog.querySelector('h2').focus();
  }
  function contextFor(scope,stage){
   const context={workflow:window.EccoStoryJourneys?.current()?.label||'',creative_direction:window.EccoStoryJourneys?.brief(storyDescription())||'',model:scope.querySelector('#job-model')?.value||scope.querySelector('[name=model]')?.value||''};

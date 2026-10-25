@@ -96,3 +96,28 @@ test('Connections mounts YouTube alongside AI, Storage and GPU without opening p
  x.w.EccoYouTube={mount:root=>{mounted++;const row=x.w.document.createElement('section');row.id='youtube-connection';root.append(row);},update:()=>updated++};
  x.w.EccoAI.connections();await delay();assert.equal(mounted,1);assert.ok(updated>0);assert.ok(x.w.document.querySelector('#connections #youtube-connection'));assert.ok(x.w.document.querySelector('#connections [data-storage]'));x.close();
 });
+
+test('API key opens blank, unlocks on user focus and keeps a chosen key until explicit connect',async()=>{
+ const x=await setup();
+ try{
+  x.w.EccoAI.open();
+  let dialog=x.w.document.querySelector('#openai-key-dialog'),input=dialog.querySelector('[name=api_key]');
+  assert.equal(input.value,'');assert.equal(input.readOnly,true);
+  assert.equal(x.w.document.activeElement,dialog.querySelector('h2'));
+  assert.equal(input.autocomplete,'current-password');
+  input.value='unwanted-autofill';input.focus();
+  assert.equal(input.value,'');assert.equal(input.readOnly,false);
+  input.value='sk-test-user-selected';input.dispatchEvent(new x.w.Event('input',{bubbles:true}));
+  input.blur();input.focus();
+  assert.equal(input.value,'sk-test-user-selected');
+  assert.equal(x.calls.filter(c=>c.path==='ai/connect').length,0);
+  dialog.querySelector('[type=submit]').click();await delay();
+  assert.equal(x.calls.find(c=>c.path==='ai/connect').body.api_key,'sk-test-user-selected');
+  assert.equal(input.value,'');
+  x.w.EccoAI.open();input=dialog.querySelector('[name=api_key]');
+  assert.equal(input.value,'');assert.equal(input.readOnly,true);
+  input.dispatchEvent(new x.w.Event('pointerdown'));
+  assert.equal(input.readOnly,false);
+  input.value='sk-test-cancelled';dialog.close();assert.equal(input.value,'');
+ }finally{x.close();}
+});
