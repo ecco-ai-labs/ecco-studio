@@ -16,6 +16,21 @@ test('Each character has one accessible settings tab; values survive switches an
  assert.equal(x.q('[data-speaker-field=pitch]').closest('dialog').id,'generation-controls-dialog');x.q('#generation-controls-dialog').close();x.q('#audio-form').requestSubmit();await tick();await tick();
  assert.equal(requests.length,1);assert.equal(requests[0].character_controls_version,1);assert.deepEqual(Array.from(requests[0].lines,l=>l.pitch),[-2,2]);assert.deepEqual(Array.from(requests[0].lines,l=>l.speed),[.9,1.1]);assert.equal(requests[0].lines[0].emotion,'neutral');assert.equal(requests[0].lines[1].exaggeration,.6);assert.equal(requests[0].lines[0].pause_before,.6);assert.deepEqual(x.errors,[]);
 });
+test('Spoken script popup edits keep numbered Final Script turns and opening in sync',async t=>{
+ const x=await fixture(t);x.q('[data-open-prompt]').click();
+ const words=input(x,'#audio-lines [data-line="1"] [data-field=text]','The merchant laughed and caught his hat.');
+ assert.equal(x.q('[data-final-turn="1"]').value,words.value);
+ assert.equal(x.q('#audio-lines [data-line="1"] [data-field=text]'),words);
+ input(x,'[data-opening-text]','Welcome to our adventure.');
+ assert.equal(x.q('[data-final-turn="0"]').value,'Welcome to our adventure.');
+ assert.equal(x.q('[data-final-turn="2"]').value,words.value);
+ input(x,'[data-opening-speaker]','b','change');
+ assert.match(x.q('[data-final-turn="0"]').parentElement.textContent,/Grandmother/);
+ x.q('#generation-prompt-dialog [data-close]').click();
+ assert.equal(x.q('#generation-prompt-dialog').open,false);
+ assert.equal(x.q('[data-final-turn="2"]').value,words.value);
+ assert.deepEqual(x.errors,[]);
+});
 test('An old worker cannot silently drop different character pitch settings',async t=>{
  const x=await fixture(t),requests=[];x.w.EccoAudioStudio.connect({storageIndependentOfGPU:true,status:async()=>({routing_version:1,compute:{cpu:{ready:true,models:['chatterbox']}}}),list:async()=>[],generate:async body=>{requests.push(body);return{id:'j'};},job:async()=>({status:'done'}),mediaURL:async()=>'',download:async()=>{}});await tick();x.q('[data-open-controls]').click();input(x,'[data-speaker-field=pitch]','-2','change');x.q('#generation-controls-dialog').close();x.q('#audio-form').requestSubmit();await tick();assert.equal(requests.length,0);assert.match(x.q('#notice').textContent,/character-controls update/);
 });

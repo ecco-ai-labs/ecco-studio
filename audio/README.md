@@ -471,3 +471,24 @@ This supersedes the earlier capacity blocker above.
   inventory verification pass. GitHub UI Registry passed at `bb88194b`.
   Scheduled mixed-model workflows now reject unsupported overrides rather than
   silently dropping them. Scheduled soundtracks remain separately unsupported.
+
+
+### Live Studio UI checkpoint — 25 October 2026
+
+Google sign-in was verified. The live per-character Kokoro/VoxCPM2/Chatterbox
+controls retained voice, style, pitch, speed and speaking instructions across tab
+switches. Kokoro offered four Hindi and 28 English voices. Keyboard character-tab
+navigation and nested Voice Preview Escape/focus return were checked. A three-turn
+test draft was prepared; these checks did not synthesize audio.
+
+Live testing found that edits in the Spoken script popup left numbered Final Script
+turns stale. The input handlers now refresh the review from the same saved draft,
+including the opening and its speaker, without replacing the active popup field.
+The regression reproduced the old behavior and passes after the fix; 22 focused
+storytelling, mixed-model and automatic-sound tests pass. No layout or labels changed.
+
+Workspace storage still requires its private access key in this browser. Authenticated
+voice previews, UI mixed-generation submission, Audio Library save/reload/playback and
+listening acceptance for the new models remain pending. The direct CPU smoke test
+above is not a substitute for these gates. Indic Parler access and scheduled soundtracks
+remain outstanding.
