@@ -1,0 +1,9 @@
+/* Joined tabs, not separate action-button surfaces. */
+#page .studio-workspace-tabs[role=tablist]{display:flex;flex-wrap:nowrap;gap:0;margin:0 0 16px;padding:0;border-bottom:1px solid var(--ecco-theme-border,#51496f);overflow-x:auto}
+#page .studio-workspace-tabs[role=tablist]>[role=tab]{flex:1 0 auto;width:auto;min-width:0;margin:0!important;padding:10px 14px!important;border:0!important;border-bottom:3px solid transparent!important;border-radius:0!important;background:transparent!important;color:var(--ecco-theme-muted,#b1acc9)!important;box-shadow:none!important;font-size:13px;line-height:1.4;cursor:pointer}
+#page .studio-workspace-tabs[role=tablist]>[role=tab][aria-selected=true]{border-bottom-color:var(--ecco-theme-accent,#ffdc24)!important;color:var(--ecco-theme-accent,#ffdc24)!important}
+#page .studio-workspace-tabs[role=tablist]>[role=tab]:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:-3px}
+#page [role=tabpanel][hidden],#page [data-studio-status-source]{display:none!important}
+.studio-workspace{min-width:0}.studio-workspace [role=tabpanel]{min-width:0}
+.studio-workspace pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+.studio-workspace [data-final-shots] p{white-space:pre-wrap;overflow-wrap:anywhere}

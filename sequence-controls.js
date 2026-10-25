@@ -20,11 +20,11 @@
  function draw(){
   if(typeof state==='undefined')return;
   const enabled=state.config?.longcat?.sequence_controls;
-  const gallery=document.querySelector('#video-gallery'),form=gallery?.parentElement,panel=document.querySelector('#activity-panel');
+  const gallery=document.querySelector('#video-gallery'),form=document.querySelector('#video-progress-panel')||gallery?.parentElement,panel=document.querySelector('#activity-panel');
   for(const [host,id,jobs] of [[form,'video-sequence-controls',window.EccoClipProgress?.select(state.records||[],activeStory,window.EccoGeneration?.jobId('video'))||[]],[panel,'activity-sequence-controls',sequences()]]){
    let root=document.getElementById(id);
    if(!host||!enabled||!jobs.length){root?.remove();continue;}
-   if(!root){root=document.createElement('section');root.id=id;root.setAttribute('aria-label','Sequence controls');if(host===form)gallery.before(root);else host.querySelector('#jobs').before(root);}
+   if(!root){root=document.createElement('section');root.id=id;root.setAttribute('aria-label','Sequence controls');if(host===form)form.append(root);else host.querySelector('#jobs').before(root);}
    render(root,jobs);
   }
  }

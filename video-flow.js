@@ -214,6 +214,7 @@
   model.addEventListener('change',()=>{persist();drawLists();});
   const aiStatus=q('[data-ai-status]',root);let writingDirections=false;
   const shotPrompt=s=>[s.video_prompt??data.brief,...shotControlOptions.filter(([key])=>s[key]).map(([key,label])=>label+': '+s[key])].filter(Boolean).join('. ');
+  root.eccoFinalScript=()=>({speech:q('[data-transcript]',root).value,shots:activeShots().map((shot,i)=>({title:shot.title||'Shot '+(i+1),seconds:shot.seconds,prompt:data.analyzed===fingerprint()?data.directions[i]||shotPrompt(shot):shotPrompt(shot),edit:()=>openShotControls(shot,data.shots.indexOf(shot))}))});
   const writeDirections=async()=>{
    if(writingDirections)return false;
    const shots=activeShots(),snapshot=fingerprint();if(!shots.length){aiStatus.textContent='Add a shot first.';return;}
