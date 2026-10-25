@@ -87,3 +87,44 @@ Review the frame narrative explicitly rather than accidentally merging speakers.
 Record exact source commit, Pages run, runtime checksums/capabilities, job/asset
 IDs, output duration/checksum, replay-after-refresh result and listening findings
 before marking this journey complete or sending its one-time readiness notice.
+
+## Preparation recovery checks — 24 October 2026, 6:10 PM Pacific
+
+UI commit `4c100125818b5d4a7d813b680c8018fc1526f620` deployed successfully
+in Pages run [40149226484](https://github.com/ecco-ai-labs/ecco-studio/actions/runs/40149226484)
+at 01:05:45 UTC on 25 October (6:05:45 PM Pacific on 24 October). The UI registry
+run passed. No runtime activation or paid generation was performed in this check.
+
+- 44 focused local tests passed, including the explicit requested/returned turn
+  decision, preservation after a failed retry, stale-cast rejection, draft resume,
+  nested minimize/resume and existing source/script controls. AI is mocked in
+  these tests; the turn decision still needs authenticated live AI acceptance.
+- The live browser uploaded the actual 255-page PDF on the main Story page and
+  separately inside Generate with AI. Main-page selection of physical pages 8–12
+  returned 10,242 characters, including the start of Chapter 2 as expected for a
+  whole-page range. No whole-page selection was submitted for narration.
+- Main Save Draft persisted the PDF and selection in IndexedDB. Minimize → Story
+  Library → Resume restored the exact selected text. After a full browser refresh,
+  Existing Story → Audiobook → the named test draft → Upload → Resume Saved
+  Selection restored the same PDF and all 10,242 selected characters exactly.
+- Manual selection narrowed this to 8,174 characters: the Chapter 1 heading through
+  the genius's agreement, excluding the next story heading. Apply carried that
+  bounded excerpt into the main form and Generate with AI.
+- The AI upload's nested source picker saved successfully; minimizing and resuming
+  the entire parent/child stack preserved the exact bounded excerpt. Apply returned
+  to its parent. The preparation, source PDF and English adaptation brief were saved.
+- Read Source and Continue displayed the missing Storage/AI connections explicitly.
+  Open Connections minimized the prepared chapter and opened Connections without
+  closing the draft. Chapter lookup also reported the same missing connection;
+  this is error-path evidence, not successful AI boundary detection.
+- The public storage health endpoint was reachable from the live browser and
+  returned `ok: true`. Authenticated storage access has not passed in this session;
+  that health response does not diagnose the user's intermittent network error.
+
+The test draft is titled **Arabian Nights — Chapter 1 acceptance**. Storage and AI
+are still disconnected in the test browser. Secure user-assisted sign-in is the
+immediate blocker. New sound-model qualification, distinct voice selection,
+authenticated full-chapter mixing, replay after refresh and actual listening are
+still pending. There is no completed Chapter 1 recording to announce. The separate
+21-voice request (7 male, 7 female and 7 child voices) and scheduled soundtracks are
+not satisfied by this UI change.
