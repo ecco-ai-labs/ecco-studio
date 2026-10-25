@@ -13,6 +13,12 @@ import tempfile
 
 
 class MultiModelRequests(TestCase):
+    def test_full_story_dialogue_and_cue_splits_fit_without_raising_text_budget(self):
+        body={'model':'chatterbox','compute':'cpu','lines':[{'text':'Hello there.','voice':'default'} for _ in range(40)]}
+        self.assertEqual(len(validate(body)['lines']),40)
+        with self.assertRaises(ValueError): validate({**body,'lines':body['lines']*3})
+        with self.assertRaises(ValueError): validate({**body,'lines':[{'text':'x'*300,'voice':'default'} for _ in range(20)]})
+
     def test_cpu_inference_never_queries_or_uses_cuda(self):
         torch = Mock()
         self.assertEqual(inference_device({'compute': 'cpu'}, torch), 'cpu')

@@ -187,7 +187,7 @@
    const s=draft.presentation==='single'?draft.speakers[0]:speaker(draft.opening_speaker),pause=Number(draft.opening_pause??2);if(!Number.isFinite(pause)||pause<0||pause>10)throw Error('Choose a title pause between 0 and 10 seconds.');
    lines[0].pause_before=pause;lines.unshift({text:draft.opening_text.trim(),voice:s.voice,language:s.language,...window.EccoAudioDirection.lineControls({performance:draft.opening_performance},s,model()),...Object.fromEntries(['speed','pitch','exaggeration'].filter(k=>s[k]!==undefined&&(k!=='exaggeration'||model().expressiveness)).map(k=>[k,s[k]]))});
   }
-  if(lines.length>20)throw Error('Shorten the script or combine some speaker turns. This model accepts up to 20 speech segments.');
+  if(lines.length>80)throw Error('Shorten the script or combine some speaker turns. This model accepts up to 80 speech segments.');
   return lines;
  }
  function applyCharacterCompatibility(request,target){

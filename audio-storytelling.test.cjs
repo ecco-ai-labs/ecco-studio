@@ -41,3 +41,9 @@ test('Chatterbox casting uses the default voice for Hindi instead of arbitrary c
  const guide=x.w.EccoAudioDirection.guidance({genre:'Story Book Reading',audience:'Children (6–8)',language:'Hindi'});assert.match(guide,/not a plot summary/);assert.match(guide,/familiar concrete words/);assert.match(guide,/everyday spoken phrasing/);
 });
 module.exports={directed};
+test('Chapter dialogue can retain more than twenty short speaker turns',async t=>{
+ const x=await fixture(t);const cast=[{id:'a',name:'Mira'},{id:'b',name:'Grandmother'}];
+ const plan={opening:{character_id:'a',text:'A chapter begins.'},segments:Array.from({length:40},(_,i)=>({character_id:i%2?'a':'b',text:'A short spoken reply.'}))};
+ assert.equal(x.w.EccoAudioScript.validatePlan(plan,cast,40).segments.length,40);
+ assert.throws(()=>x.w.EccoAudioScript.validatePlan({...plan,segments:Array.from({length:81},(_,i)=>({character_id:i%2?'a':'b',text:'A reply.'}))},cast),/80 speech/);
+});

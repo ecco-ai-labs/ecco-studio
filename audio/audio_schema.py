@@ -25,8 +25,8 @@ def validate(body):
     if genre not in GENRES:
         raise ValueError('Choose a supported audio genre.')
     lines = body.get('lines')
-    if not isinstance(lines, list) or not 1 <= len(lines) <= 20:
-        raise ValueError('Add between 1 and 20 dialogue lines.')
+    if not isinstance(lines, list) or not 1 <= len(lines) <= 80:
+        raise ValueError('Add between 1 and 80 dialogue lines.')
     clean = []
     for line in lines:
         if not isinstance(line, dict):

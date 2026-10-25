@@ -23,7 +23,7 @@ def save(body, env):
     if len(ids) != len(cast) or len({c['name'].strip().casefold() for c in cast}) != len(cast):
         raise env['Problem']('Use distinct character identities and names.')
     parts = plan.get('segments')
-    if not isinstance(parts, list) or not 1 <= len(parts) <= 20:
+    if not isinstance(parts, list) or not 1 <= len(parts) <= 80:
         raise env['Problem']('Review the spoken turns before saving.')
     parts = ([plan['opening']] if plan.get('opening') else []) + parts
     if any(not isinstance(p, dict) or p.get('character_id') not in ids or not isinstance(p.get('text'), str) or not p['text'].strip() for p in parts):

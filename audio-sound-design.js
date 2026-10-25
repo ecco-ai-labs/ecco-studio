@@ -32,7 +32,7 @@
    }
    map.end=split.length-1;mapping.push(map);
   });
-  if(split.length>20)throw Error('The sound triggers need more than 20 speech segments. Reduce the cues or shorten the script.');
+  if(split.length>80)throw Error('The sound triggers need more than 80 speech segments. Reduce the cues or shorten the script.');
   const soundtrack=cues.map(c=>({kind:c.kind,description:c.description,asset_id:c.asset_id,start_line:c.phrase?mapping[c.start].ends.get(lines[c.start].text.indexOf(c.phrase)+c.phrase.length):mapping[c.start].start,start_edge:c.phrase?'end':'start',end_line:mapping[c.end].end,level_db:c.level_db,duck:c.duck,loop:c.loop,fade:c.fade}));
   for(const c of soundtrack)if(c.kind!=='effect'&&c.start_edge==='end'&&c.start_line===c.end_line)throw Error('Background audio must cover some spoken text after its trigger. Choose a later ending passage.');
   return {lines:split,soundtrack,sound_design_version:1};
