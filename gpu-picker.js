@@ -35,7 +35,8 @@ window.EccoGPUPicker = (() => {
     if(gateway) return {kind:'running',title:'Running · gateway available',detail:'The GPU workspace is responding. Studio may be starting or require sign-in.'};
     return {kind:'unknown',title:'Unavailable from this browser',detail:'May be stopped, starting, or blocked by sign-in/network settings. Refresh to check again.'};
   }
-  function mount(container, open) {
+  function mount(container, open, options={}) {
+    const disconnectMode=!!options.disconnect;
     dispose();
     let active=true,busy=false,statuses=new Map();
     const connecting=new Set(),classes=['B200','A100'];
@@ -60,7 +61,7 @@ window.EccoGPUPicker = (() => {
     const statusFor=gpu=>gpu&&(window.EccoGPUConnection?.status?.(gpu)||statuses.get(gpu.id));
     function statusLabel(gpu){
       const status=statusFor(gpu);
-      return isConnected(gpu.id)?'Connected':status?.kind==='ready'?'Available':status?.title||'Checking…';
+      return disconnectMode?(window.EccoGPUConnection?.isRemembered(gpu.id)?'Connected':'Not connected'):isConnected(gpu.id)?'Connected':status?.kind==='ready'?'Available':status?.title||'Checking…';
     }
     function draw(){
       for(const card of cards){
@@ -71,11 +72,11 @@ window.EccoGPUPicker = (() => {
         const pending=gpu&&connecting.has(gpu.id),connected=!!gpu&&isConnected(gpu.id);
         card.root.dataset.status=connected?'connected':status?.kind||'';
         card.select.disabled=Boolean(pending);
-        card.button.disabled=Boolean(pending)||busy||!gpu||status?.kind!=='ready'||connected;
+        card.button.disabled=disconnectMode?(!gpu||!window.EccoGPUConnection?.isRemembered(gpu.id)||Boolean(pending)):Boolean(pending)||busy||!gpu||status?.kind!=='ready'||connected;
         card.button.dataset.connected=String(connected);
         card.button.setAttribute('aria-busy',String(Boolean(pending)));
-        card.button.textContent=pending?'Connecting…':connected?'Connected':!gpu?'Connect':!status?'Checking…':status.kind==='ready'?'Connect':status.title||'Unavailable';
-        card.root.querySelector('.gpu-health-detail').textContent=gpu?status?.detail||'Checking generation service…':'';
+        card.button.textContent=disconnectMode?(pending?'Disconnecting…':gpu&&!window.EccoGPUConnection?.isRemembered(gpu.id)?'Not connected':'Disconnect'):pending?'Connecting…':connected?'Connected':!gpu?'Connect':!status?'Checking…':status.kind==='ready'?'Connect':status.title||'Unavailable';
+        card.root.querySelector('.gpu-health-detail').textContent=disconnectMode?'Disconnecting does not stop the pod or cancel accepted jobs.':gpu?status?.detail||'Checking generation service…':'';
         card.button.title=gpu&&!connected&&status?.kind!=='ready'?status?.detail||'This instance is unavailable.':'';
       }
     }
@@ -90,6 +91,7 @@ window.EccoGPUPicker = (() => {
     }
     async function update(){
       if(busy||!active)return;
+      if(disconnectMode){refresh.hidden=true;container.querySelector('#gpu-checked').hidden=true;draw();return;}
       busy=true;refresh.disabled=true;refresh.textContent='Checking…';draw();
       let results;
       try{results=window.EccoStorage?.ready&&window.EccoGPUConnection?.checkAll?await window.EccoGPUConnection.checkAll(gpus):await Promise.all(gpus.map(gpu=>check(gpu)));}

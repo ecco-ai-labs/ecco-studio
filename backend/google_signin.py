@@ -1,16 +1,31 @@
 """Google identity sessions, deliberately NOT shared workspace authorization."""
 import hashlib
+import json
+import os
+import sqlite3
+from pathlib import Path
 import secrets
 import threading
 import time
 
 CLIENT_ID = '219292517219-tngp5k9kso8jvk4ps6oqee45l0j97p78.apps.googleusercontent.com'
 CHALLENGE_TTL = 300
-SESSION_TTL = 3600
+SESSION_DB = Path(os.getenv("ECCO_SIGNIN_DB", "/workspace/ecco-storage-private/google-sessions.sqlite3"))
 MAX_ENTRIES = 1000
 _lock = threading.RLock()
 _challenges = {}
-_sessions = {}
+_sessions = {}  # Legacy in-process sessions may be imported during a live upgrade.
+
+
+def _database():
+    SESSION_DB.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd = os.open(SESSION_DB, os.O_CREAT | os.O_RDWR, 0o600)
+    os.close(fd)
+    os.chmod(SESSION_DB, 0o600)
+    db = sqlite3.connect(SESSION_DB, timeout=15)
+    db.execute('CREATE TABLE IF NOT EXISTS sessions (digest TEXT PRIMARY KEY, user_json TEXT NOT NULL, created REAL NOT NULL)')
+    return db
+
 
 
 class AuthError(Exception):
@@ -46,7 +61,7 @@ def ready():
 
 def _prune():
     now = time.time()
-    for entries in (_challenges, _sessions):
+    for entries in (_challenges,):
         for key in list(entries):
             if entries[key]['expires'] <= now:
                 del entries[key]
@@ -85,24 +100,32 @@ def login(body):
     user = {'id': 'google:' + claims['sub'], 'name': str(claims.get('name', ''))[:200],
             'email': str(claims.get('email', ''))[:320]}
     token = secrets.token_urlsafe(32)
-    expires = min(time.time() + SESSION_TTL, float(claims['exp']))
-    with _lock:
-        _prune()
-        if len(_sessions) >= MAX_ENTRIES:
-            raise AuthError('Sign-in is busy. Please try again shortly.', 429)
-        _sessions[hashlib.sha256(token.encode()).hexdigest()] = {'user': user, 'expires': expires}
-    return {'user': user, 'session_token': token, 'expires_at': expires}
+    with _lock, _database() as db:
+        db.execute('INSERT INTO sessions VALUES (?, ?, ?)',
+                   (hashlib.sha256(token.encode()).hexdigest(), json.dumps(user), time.time()))
+    return {'user': user, 'session_token': token, 'expires_at': None, 'persistent': True}
 
 
 def session(authorization, logout=False):
-    token = authorization.removeprefix('Bearer ')
-    key = hashlib.sha256(token.encode()).hexdigest()
-    with _lock:
-        _prune()
-        value = _sessions.pop(key, None) if logout else _sessions.get(key)
-    if not value:
+    if not isinstance(authorization, str) or not authorization.startswith('Bearer '):
         raise AuthError('Please sign in again.')
-    return {'ok': True} if logout else {'user': value['user'], 'expires_at': value['expires']}
+    token = authorization[7:]
+    if not token or len(token) > 512:
+        raise AuthError('Please sign in again.')
+    key = hashlib.sha256(token.encode()).hexdigest()
+    with _lock, _database() as db:
+        row = db.execute('SELECT user_json FROM sessions WHERE digest=?', (key,)).fetchone()
+        # Accept only a still-valid, previously verified legacy session.
+        legacy = _sessions.pop(key, None)
+        if not row and legacy and legacy.get('expires', 0) > time.time():
+            row = (json.dumps(legacy['user']),)
+            db.execute('INSERT INTO sessions VALUES (?, ?, ?)', (key, row[0], time.time()))
+        if logout:
+            db.execute('DELETE FROM sessions WHERE digest=?', (key,))
+            return {'ok': True}
+        if not row:
+            raise AuthError('Please sign in again.')
+        return {'user': json.loads(row[0]), 'expires_at': None, 'persistent': True}
 
 
 def handle(handler, path, allowed_origin):

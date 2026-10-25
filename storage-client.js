@@ -3,7 +3,8 @@
  'use strict';
  const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net';
  let connecting=false,verified=false;
- let key=sessionStorage.getItem('ecco-storage-access')||'';
+ let key=localStorage.getItem('ecco-storage-access')||sessionStorage.getItem('ecco-storage-access')||'';
+ if(key){localStorage.setItem('ecco-storage-access',key);sessionStorage.setItem('ecco-storage-access',key);}
  const compact=document.createElement('style');compact.textContent='#storage-access-dialog{width:min(480px,calc(100vw - 32px))}#storage-access-dialog .row{justify-content:flex-end;flex-wrap:wrap;gap:8px}#storage-access-dialog .row>button{flex:0 0 auto;padding:6px 10px;font-size:12px;min-height:30px}#storage-access-dialog .storage-key-field{position:relative;display:block}#storage-access-dialog .storage-key-field input{padding-right:42px}#storage-access-dialog .storage-key-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:30px;height:30px;padding:5px;background:transparent;color:var(--muted)}#storage-access-dialog .storage-key-toggle svg{width:18px;height:18px}#storage-access-dialog [data-disconnect]{margin-right:auto;background:transparent;color:var(--muted)}';document.head.append(compact);
  const gpuAPI=api;
 
@@ -23,11 +24,11 @@
  const isGPUConnected=id=>Boolean(key)&&Date.now()-gpuChecked<60000&&connectedGPUs.has(id)&&Boolean(gpuHealth.find(g=>g.id===id)?.ready);
  function gpuStatus(gpu){
   if(!key)return {kind:'unchecked',title:'Not checked',detail:'Connect workspace storage to check GPU availability.'};
-  if(!gpuChecked||Date.now()-gpuChecked>=60000)return {kind:'unknown',title:'Unavailable',detail:'GPU availability could not be verified.'};
+  if(!gpuChecked||Date.now()-gpuChecked>=60000)return {kind:'unknown',title:connectedGPUs.has(gpu.id)?'Reconnecting':'Not checked',detail:'GPU availability could not be verified. Saved connections are retained and will recover automatically.'};
   const health=gpuHealth.find(g=>g.id===gpu.id);
   if(health?.ready)return {kind:'ready',title:'Available',detail:'Generation service and relay are responding.'};
   if(!health?.last_seen)return {kind:'unknown',title:'No heartbeat',detail:'No relay heartbeat received. RunPod power state is not verified.'};
-  if(Date.now()/1000-health.last_seen>=45)return {kind:'unknown',title:'Heartbeat lost',detail:'Generation relay last seen '+new Date(health.last_seen*1000).toLocaleString()+'. The pod may be running without Studios services.'};
+  if(Date.now()/1000-health.last_seen>=45)return {kind:'unknown',title:connectedGPUs.has(gpu.id)?'Reconnecting':'Heartbeat lost',detail:'Generation relay last seen '+new Date(health.last_seen*1000).toLocaleString()+'. The pod may be running without Studios services.'};
   return {kind:'unknown',title:'Service not ready',detail:health.detail||'Relay is running, but the generation service is not responding.'};
  }
  window.EccoGPUConnection={
@@ -36,6 +37,14 @@
   get connectedIds(){return [...connectedGPUs].filter(isGPUConnected);},
   get ready(){return this.connectedIds.length>0;},
   isConnected:isGPUConnected,
+  get savedIds(){return [...connectedGPUs];},
+  isRemembered:id=>connectedGPUs.has(id),
+  disconnect(id){
+   const removed=id?[id]:[...connectedGPUs];for(const gpu of removed)connectedGPUs.delete(gpu);
+   localStorage.setItem('ecco-connected-gpus',JSON.stringify([...connectedGPUs]));
+   if(!id||selectedGPU===id){selectedGPU='';localStorage.removeItem('ecco-selected-gpu');}
+   notifyGPUConnection();connectionLog('GPU disconnected',{gpus:removed,reason:'User requested'});
+  },
   status:gpuStatus,
   async checkAll(gpus){
    const started=Date.now();connectionLog('Checking GPU connections',{gpus:gpus.map(g=>g.id),stage:'storage → relay'});
@@ -56,7 +65,8 @@
  gpuConnected=()=>window.EccoGPUConnection.ready;
  async function inferenceRequest(path,body){
   const request_id=crypto.randomUUID().replaceAll('-',''),gpu=body?.gpu||selectedGPU;
-  if(!isGPUConnected(gpu))throw Error('Connect the selected accelerator before generating.');
+  if(!connectedGPUs.has(gpu))throw Error('Connect the selected accelerator before generating.');
+  if(!isGPUConnected(gpu)){await window.EccoGPUConnection.check({id:gpu});if(!isGPUConnected(gpu))throw Error('Saved GPU connection is temporarily unavailable. No generation was submitted.');}
   connectionLog('Generation dispatch requested',{gpu,path,request_id});
   const payload={gpu,path,body,request_id};
   let accepted;
@@ -75,7 +85,7 @@
  }
 
  const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','github/sync','billing/connect','billing/refresh']);
- window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,reportError,mediaURL:async id=>{if(audioMedia.has(id))return audioMedia.get(id);const access=key,{buffer,mime}=await storageRequest('media/'+encodeURIComponent(id));if(access!==key)throw Error('Storage disconnected.');const url=URL.createObjectURL(new Blob([buffer],{type:mime||'audio/wav'}));audioMedia.set(id,url);return url;}};
+ window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,disconnect,reportError,mediaURL:async id=>{if(audioMedia.has(id))return audioMedia.get(id);const access=key,{buffer,mime}=await storageRequest('media/'+encodeURIComponent(id));if(access!==key)throw Error('Storage disconnected.');const url=URL.createObjectURL(new Blob([buffer],{type:mime||'audio/wav'}));audioMedia.set(id,url);return url;}};
  // Present CPU-owned audio jobs through the shared Activity job view.
  // This is a UI projection only; the durable record stays audio_job.
  function audioJobView(job){
@@ -121,6 +131,7 @@
    }
    if(path.startsWith('media/'))return {buffer:await response.arrayBuffer(),mime:response.headers.get('Content-Type')};
    const data=await response.json();
+   if(accessKey!==key&&accessKey!==options.connectingKey)throw Error('Workspace connection changed; stale response ignored.');
    if(path==='state'&&(!Array.isArray(data.records)||!data.config))throw Error('Storage returned an invalid workspace response.');
    if(path==='state')data.records=data.records.map(audioJobView);
    if(path==='audio/generate'||path.startsWith('audio/jobs/'))return audioJobView(data);
@@ -148,7 +159,7 @@
   window.EccoErrors.show(error,{title:'Workspace storage error',retryLabel:'Reconnect storage',retry:dialog});
  }
  function counts(){const active=state.records.filter(r=>!r.deleted);return active.filter(r=>r.kind==='asset'&&r.media==='image').length+' images · '+active.filter(r=>r.kind==='story').length+' stories';}
- function disconnect(){key='';notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');window.EccoYouTube?.update();}
+ function disconnect(){connectionLog('Storage disconnected',{reason:'User requested'});key='';notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();localStorage.removeItem('ecco-storage-access');sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');window.EccoYouTube?.update();}
  function dialog(options={}){
   let modal=document.querySelector('#storage-access-dialog');
   if(!modal){modal=document.createElement('dialog');modal.id='storage-access-dialog';document.body.append(modal);}
@@ -175,12 +186,12 @@
    connecting=true;
    const close=modal.querySelector('[data-close]');close.disabled=true;
    try{
-    const next=await storageRequest('state',undefined,entered);
+    const next=await storageRequest('state',undefined,entered,{connectingKey:entered});
     status.textContent='Storage reached. Connecting…';
     // Reuse this response: no second state fetch, and render failures stay visible.
     const previousKey=key;key=entered;
     try{await refresh(next,true);}catch(error){key=previousKey;throw Error('Storage connected, but workspace data could not refresh: '+error.message);}
-    sessionStorage.setItem('ecco-storage-access',key);verified=true;errorShown=false;connectAudio();form.elements.key.value='';
+    localStorage.setItem('ecco-storage-access',key);sessionStorage.setItem('ecco-storage-access',key);verified=true;errorShown=false;connectAudio();form.elements.key.value='';
     notice('Connected · '+counts());modal.close();
    }catch(error){window.EccoErrors.show(error);status.textContent=error.message;status.setAttribute('role','alert');}
    finally{connecting=false;button.disabled=false;button.textContent='Connect storage';close.disabled=false;window.EccoYouTube?.update();}
@@ -197,6 +208,14 @@
  if(noticeBox)new MutationObserver(connectNotice).observe(noticeBox,{childList:true});
  connectNotice();
  mount();new MutationObserver(mount).observe(document.querySelector('main > header'),{childList:true,subtree:true});
+ window.addEventListener('storage',event=>{
+  if(event.key==='ecco-storage-access'){
+   if(!event.newValue){disconnect();return;}
+   key=event.newValue;sessionStorage.setItem('ecco-storage-access',key);refresh();
+  }
+  if(event.key==='ecco-connected-gpus'){try{connectedGPUs=new Set(JSON.parse(event.newValue||'[]'));}catch{connectedGPUs=new Set();}notifyGPUConnection();}
+ });
+ window.addEventListener('online',()=>{if(key)refresh();});
  if(key)setTimeout(()=>refresh(),0);
 })();
 

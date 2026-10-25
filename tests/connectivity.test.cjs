@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const source=fs.readFileSync('storage-client.js','utf8');
 const statusSource=source.slice(source.indexOf(' function gpuStatus('),source.indexOf(' window.EccoGPUConnection='));
-const context={key:'test',gpuChecked:Date.now(),gpuHealth:[],Date};vm.createContext(context);vm.runInContext(statusSource,context);
+const context={key:'test',gpuChecked:Date.now(),gpuHealth:[],connectedGPUs:new Set(),Date};vm.createContext(context);vm.runInContext(statusSource,context);
 const status=()=>context.gpuStatus({id:'test'});
 assert.equal(status().title,'No heartbeat');
 context.gpuHealth=[{id:'test',ready:false,last_seen:Date.now()/1000-100}];assert.equal(status().title,'Heartbeat lost');

@@ -35,6 +35,8 @@
   root.innerHTML='<section class="connection"><div class="connection-heading"><h3>Storage</h3><button type="button" class="secondary" data-storage>Connect</button></div></section><section class="connection" id="openai-connection"><div class="connection-heading"><h3>AI</h3><button type="button" class="secondary" id="connect-openai">Connect</button></div><label class="ai-global-control"><input type="checkbox" role="switch" id="enable-studio-ai"><span>Enable AI across Studios</span></label></section><section class="connection" id="gpu-connection"><div class="connection-heading"><h3>GPU</h3><button type="button" class="secondary" data-gpu-connect>Connect</button></div></section>';
   window.EccoYouTube?.mount(root);
   window.EccoPublishing?.mountConnections(root);
+  const identity=document.createElement('section');identity.className='connection';identity.innerHTML='<div class="connection-heading"><h3>Sign-in</h3><button type="button" class="secondary" data-signin>Connect</button></div>';root.prepend(identity);
+  identity.querySelector('button').onclick=()=>window.EccoAuth?.open();
   const gpu=root.querySelector('#gpu-connection');
   gpu.querySelector('button').onclick=()=>{connectGPU('accelerator-status');};
   root.querySelector('[data-storage]').onclick=()=>{window.EccoStorage.open();};
@@ -49,12 +51,43 @@
  }
  function renderConnection(){
   window.EccoYouTube?.update();
+  const identity=q('#connections [data-signin]');if(identity){const saved=!!window.EccoAuth?.connected;identity.textContent=saved?'Connected':'Connect';identity.dataset.connected=String(saved);}
   const root=q('#openai-connection');if(!root)return;
   const control=root.querySelector('#enable-studio-ai');control.checked=!!connection.enabled;control.disabled=!connection.connected;
   const button=root.querySelector('#connect-openai');button.textContent=connection.connected?'Connected':'Connect';button.dataset.connected=String(!!connection.connected);
   const storage=q('#connections [data-storage]'),gpu=q('#connections [data-gpu-connect]');
   if(storage){const ready=!!window.EccoStorage?.ready;storage.dataset.connected=String(ready);storage.textContent=ready?'Connected':'Connect';}
   if(gpu){const ready=!!q('#connected-accelerator')?.classList.contains('accelerator-connected');gpu.dataset.connected=String(ready);gpu.textContent=ready?'Connected':'Connect';}
+ }
+
+ function disconnectMenu(){
+  let dialog=q('#disconnect-connections-dialog');
+  if(!dialog){dialog=document.createElement('dialog');dialog.id='disconnect-connections-dialog';document.body.append(dialog);}
+  dialog.innerHTML='<div class="section-head"><h2>Disconnect</h2><button type="button" class="secondary" data-close aria-label="Close popup">×</button></div><div data-disconnect-items></div><p role="status"></p>';
+  const root=dialog.querySelector('[data-disconnect-items]');const updates=[];
+  const rows=[
+   ['Sign-in',()=>!!window.EccoAuth?.connected,()=>window.EccoAuth.signOut()],
+   ['Storage',()=>!!window.EccoStorage?.ready,()=>window.EccoStorage.disconnect()],
+   ['AI',()=>!!connection.connected,async()=>{setConnection(await rawAPI('ai/disconnect',{}));renderConnection();}],
+   ['GPU',()=>!!window.EccoGPUConnection?.savedIds.length,()=>disconnectGPUs()],
+   ['YouTube',()=>!!state.config?.youtube_channel,async()=>{const value=await rawAPI('youtube/disconnect',{});Object.assign(state.config,value||{youtube_channel:null,youtube_channels:[]});window.EccoYouTube?.update();}],
+   ...['TikTok','Instagram','WhatsApp','Meta','X'].map(name=>[name,()=>false,()=>{}])
+  ];
+  for(const [name,connected,run] of rows){
+   const row=document.createElement('section');row.className='connection';const head=document.createElement('div');head.className='connection-heading';
+   const label=document.createElement('h3');label.textContent=name;const button=document.createElement('button');button.type='button';button.className='secondary';
+   const update=()=>{button.textContent=connected()?'Disconnect':'Not connected';button.disabled=!connected();button.dataset.connected=String(connected());};updates.push(update);update();
+   button.onclick=async()=>{button.disabled=true;button.textContent='Disconnecting…';try{await run();dialog.querySelector('[role=status]').textContent=name==='GPU'?'Choose the GPU instance to disconnect.':name+' disconnected.';window.EccoConnectivityLog?.record(name+' disconnect requested');}catch(error){showError(error);}finally{update();}};
+   head.append(label,button);row.append(head);root.append(row);
+  }
+  const refresh=()=>updates.forEach(update=>update());document.addEventListener('ecco:gpu-connection-change',refresh);dialog.addEventListener('close',()=>document.removeEventListener('ecco:gpu-connection-change',refresh),{once:true});
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.showModal();
+ }
+ function disconnectGPUs(){
+  let dialog=q('#gpu-disconnect-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='gpu-disconnect-dialog';dialog.style.width='min(900px,94vw)';document.body.append(dialog);}
+  dialog.innerHTML='<div class="section-head"><h2>Disconnect GPU</h2><button type="button" class="secondary" aria-label="Close popup">×</button></div><div data-gpu-disconnect></div>';
+  dialog.querySelector('button').onclick=()=>dialog.close();
+  window.EccoGPUPicker.mount(dialog.querySelector('[data-gpu-disconnect]'),async gpu=>{window.EccoGPUConnection.disconnect(gpu.id);},{disconnect:true});dialog.showModal();
  }
  function openKeyDialog(){
   if(!window.EccoStorage?.ready){showError('Connect workspace storage first, then return to Connect to OpenAI. No GPU is required.');return;}
@@ -280,6 +313,7 @@
    const items=menu.querySelector('.workspace-menu-items');
    if(settings&&settings.parentElement!==items)items.append(settings);
    if(settings)settings.onclick=()=>{menu.open=false;connections();};
+   if(!q('#disconnect-connections')){const disconnect=document.createElement('button');disconnect.id='disconnect-connections';disconnect.type='button';disconnect.className='secondary';disconnect.textContent='Disconnect';disconnect.onclick=()=>{menu.open=false;disconnectMenu();};items.append(disconnect);}
   }
   for(const id of ['connect-storage','reconnect-gpu']){const extra=document.getElementById(id);if(extra)extra.hidden=true;}
   const pageRoot=q('#page');let bar=q('#studio-ai-status');
@@ -287,7 +321,7 @@
   if(show&&!bar){bar=document.createElement('div');bar.id='studio-ai-status';bar.innerHTML='<span data-ai-message></span><button type="button" class="small secondary" data-review>View AI review</button>';pageRoot.prepend(bar);bar.querySelector('[data-review]').onclick=reviewDialog;}
   if(bar){bar.hidden=!progressMessage&&!lastReview;bar.dataset.enabled=String(!!connection.enabled);const text=progressMessage,label=bar.querySelector('[data-ai-message]');if(label.textContent!==text)label.textContent=text;bar.querySelector('[data-review]').hidden=!lastReview;}
  }
- window.EccoAI={improveField:element=>{const binding=bindings().get(element);if(!binding)return notice('Select an editable prompt first.',true);return improve({...binding,label:promptControls.get(element)?.label||fieldName(element)});},generateField:element=>{const binding=bindings().get(element);if(!binding)return notice('Select an editable text field first.',true);return generateWithInstructions({...binding,label:promptControls.get(element)?.label||fieldName(element),generateField:true});},requestGeneration,generationInstructions,connections,open:openKeyDialog,generateStory:form=>{const element=form.elements.summary;return generateWithInstructions({element,scope:form,stage:'story',label:'Story Idea / Summary',generateStory:true,generateField:true});},get enabled(){return connection.enabled;},refresh:readStatus};
+ window.EccoAI={improveField:element=>{const binding=bindings().get(element);if(!binding)return notice('Select an editable prompt first.',true);return improve({...binding,label:promptControls.get(element)?.label||fieldName(element)});},generateField:element=>{const binding=bindings().get(element);if(!binding)return notice('Select an editable text field first.',true);return generateWithInstructions({...binding,label:promptControls.get(element)?.label||fieldName(element),generateField:true});},requestGeneration,generationInstructions,connections,disconnectMenu,open:openKeyDialog,generateStory:form=>{const element=form.elements.summary;return generateWithInstructions({element,scope:form,stage:'story',label:'Story Idea / Summary',generateStory:true,generateField:true});},get enabled(){return connection.enabled;},refresh:readStatus};
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;setTimeout(()=>{scheduled=false;mount();},0);}).observe(document.body,{childList:true,subtree:true});
  setInterval(()=>{mount();if(q('#connection-dialog')?.open)renderConnection();},2000);
  mount();if(window.EccoStorage?.ready)readStatus().catch(()=>{});

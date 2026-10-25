@@ -3,14 +3,16 @@
 (()=>{
  const CLIENT_ID='219292517219-tngp5k9kso8jvk4ps6oqee45l0j97p78.apps.googleusercontent.com';
  const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/auth/';
- let user=null,token=sessionStorage.getItem('ecco-user-session')||'',expires=0,library=null,expiryTimer=null;
+ let user=null,token=localStorage.getItem('ecco-user-session')||sessionStorage.getItem('ecco-user-session')||'',library=null;
+ if(token){localStorage.setItem('ecco-user-session',token);sessionStorage.setItem('ecco-user-session',token);}
+ let restoring=null,authVersion=0;
  let ready=false,busy=false,error='',preparing=null,renewTimer=null;
  const q=s=>document.querySelector(s);
  async function request(path,body){
   const response=await fetch(endpoint+path,{method:body===undefined?'GET':'POST',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(20000),headers:{...(body===undefined?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});
   if(!response.headers.get('content-type')?.includes('application/json'))throw Error('Google sign-in service is unavailable.');
   const result=await response.json();
-  if(!response.ok)throw Error(path==='config'?'Google sign-in service is not enabled yet.':result.error||'Google sign-in failed.');
+  if(!response.ok){const error=Error(path==='config'?'Google sign-in service is not enabled yet.':result.error||'Google sign-in failed.');error.status=response.status;throw error;}
   return result;
  }
  function loadGoogle(){
@@ -22,13 +24,15 @@
    script.onload=()=>{clearTimeout(timeout);resolve();};script.onerror=()=>{clearTimeout(timeout);script.remove();library=null;reject(Error('Google sign-in could not load. Please try again.'));};document.head.append(script);
   });return library;
  }
- function changed(){mount();document.dispatchEvent(new CustomEvent('ecco:auth-change',{detail:{user}}));}
+ function changed(){if(user)q('#persistent-signin-dialog')?.close();mount();document.dispatchEvent(new CustomEvent('ecco:auth-change',{detail:{user}}));}
+ function forgetIdentity(){
+  authVersion++;user=null;token='';localStorage.removeItem('ecco-user-session');sessionStorage.removeItem('ecco-user-session');
+  window.EccoCredits?.disconnect();window.google?.accounts?.id.disableAutoSelect();changed();
+ }
  async function signOut(){
-  try{if(token)await request('logout',{});}catch{}
-  user=null;token='';expires=0;sessionStorage.removeItem('ecco-user-session');clearTimeout(expiryTimer);window.google?.accounts?.id.disableAutoSelect();
-  window.EccoCredits?.disconnect();sessionStorage.removeItem('ecco-storage-access');
-  // Reload also removes in-memory workspace credentials and rendered shared data.
-  location.reload();
+  // Server revocation must succeed before claiming Disconnect completed.
+  if(token)await request('logout',{});
+  forgetIdentity();window.EccoConnectivityLog?.record('Sign-in disconnected');return prepare();
  }
  async function prepare(){
   if(preparing)return preparing;
@@ -41,9 +45,9 @@
      if(busy)return;busy=true;error='';mount();
      try{
       const verified=await request('google',{credential:result.credential,challenge:pending.challenge});
-      if(!verified.user?.id||!verified.session_token||!Number.isFinite(verified.expires_at))throw Error('Invalid sign-in response.');
-      user=verified.user;token=verified.session_token;expires=verified.expires_at;sessionStorage.setItem('ecco-user-session',token);
-      clearTimeout(renewTimer);clearTimeout(expiryTimer);expiryTimer=setTimeout(signOut,Math.max(0,expires*1000-Date.now()));changed();
+      if(!verified.user?.id||!verified.session_token)throw Error('Invalid sign-in response.');
+      authVersion++;user=verified.user;token=verified.session_token;localStorage.setItem('ecco-user-session',token);sessionStorage.setItem('ecco-user-session',token);
+      clearTimeout(renewTimer);changed();
      }catch(e){ready=false;error=e.message;}
      finally{busy=false;mount();}
     }});
@@ -54,17 +58,29 @@
   })();return preparing;
  }
  async function restore(){
-  if(token){
+  if(restoring)return restoring;
+  if(!token)return prepare();
+  const version=authVersion;
+  restoring=(async()=>{
    try{
-    const verified=await request('me');
-    if(!verified.user?.id||!Number.isFinite(verified.expires_at)||verified.expires_at*1000<=Date.now())throw Error('Session expired');
-    user=verified.user;expires=verified.expires_at;
-    expiryTimer=setTimeout(signOut,Math.max(0,expires*1000-Date.now()));changed();return;
-   }catch{token='';sessionStorage.removeItem('ecco-user-session');}
-  }
-  return prepare();
+    const verified=await request('me');if(version!==authVersion)return;
+    if(!verified.user?.id)throw Error('Invalid sign-in response');
+    user=verified.user;error='';changed();
+   }catch(e){
+    if(version!==authVersion)return;
+    if(e.status===401){forgetIdentity();error='Sign-in was revoked or is no longer valid. Sign in again.';await prepare();}
+    else {error='Sign-in service is temporarily unreachable. Your connection is retained.';mount();}
+   }finally{restoring=null;}
+  })();return restoring;
  }
- function open(){return user?Promise.resolve():prepare();}
+ window.addEventListener('storage',event=>{if(event.key!=='ecco-user-session')return;authVersion++;token=event.newValue||'';user=null;if(token){sessionStorage.setItem('ecco-user-session',token);restore();}else{sessionStorage.removeItem('ecco-user-session');window.EccoCredits?.disconnect();changed();prepare();}});
+ window.addEventListener('online',()=>{if(token)restore();});
+ setInterval(()=>{if(token)restore();},60000);
+ function open(){
+  if(user)return Promise.resolve();
+  let dialog=q('#persistent-signin-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='persistent-signin-dialog';dialog.innerHTML='<div class="section-head"><h2>Sign-in</h2><button type="button" class="secondary" aria-label="Close popup">×</button></div><div id="persistent-signin-content"></div>';dialog.querySelector('button').onclick=()=>dialog.close();document.body.append(dialog);}
+  if(!dialog.open)dialog.showModal();return prepare();
+ }
  function userIcon(){const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.classList.add('user-login-icon');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','none');icon.setAttribute('stroke','currentColor');icon.setAttribute('stroke-width','1.8');icon.setAttribute('stroke-linecap','round');icon.setAttribute('stroke-linejoin','round');icon.setAttribute('aria-hidden','true');icon.setAttribute('focusable','false');icon.innerHTML='<circle cx="12" cy="12" r="10"/><g class="user-person" stroke="none"><circle cx="12" cy="9" r="3.5"/><path d="M5 19a7 6 0 0 1 14 0 10 10 0 0 1-14 0Z"/></g>';return icon;}
  function mount(){
   const entryButton=q('#entry-tell-story');if(entryButton){entryButton.disabled=!user;entryButton.setAttribute('aria-disabled',String(!user));}
@@ -82,7 +98,7 @@
     const icon=userIcon();
     const label=document.createElement('span');label.dataset.userLabel='';const arrow=document.createElement('span');arrow.textContent='⌄';arrow.setAttribute('aria-hidden','true');name.append(icon,label,arrow);
     const items=document.createElement('div');items.className='workspace-menu-items';
-    const logout=document.createElement('button');logout.type='button';logout.textContent='Log Off';logout.onclick=signOut;
+    const logout=document.createElement('button');logout.type='button';logout.textContent='Log Off';logout.onclick=()=>signOut().catch(e=>window.EccoErrors?.show(e));
     const credits=document.createElement('button');credits.type='button';credits.textContent='Credit and Usage';credits.dataset.userFlyout='usage';credits.setAttribute('aria-controls','workspace-usage-drawer');credits.setAttribute('aria-expanded','false');credits.onclick=()=>window.EccoCredits?.open('usage',credits);credits.addEventListener('pointerenter',()=>window.EccoCredits?.open('usage',credits));
     const billing=document.createElement('button');billing.type='button';billing.textContent='Billing';billing.dataset.userFlyout='billing';billing.setAttribute('aria-controls','workspace-billing-drawer');billing.setAttribute('aria-expanded','false');billing.onclick=()=>window.EccoBilling?.open(billing);billing.addEventListener('pointerenter',()=>window.EccoBilling?.open(billing));
     for(const trigger of [credits,billing])trigger.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();trigger.click();document.getElementById(trigger.getAttribute('aria-controls'))?.querySelector('button')?.focus();}});
@@ -92,9 +108,9 @@
    const label=identity.querySelector('[data-user-label]');if(label.textContent!==name)label.textContent=name;
    const menus=q('#workspace-menus');if(menus&&menus.lastElementChild!==identity)menus.append(identity);
   }else if(identity)identity.remove();
-  for(const parent of [q('#workspace-entry'),q('[data-category="Account"] .workspace-menu-items')].filter(Boolean)){
+  for(const parent of [q('#workspace-entry'),q('[data-category="Account"] .workspace-menu-items'),q('#persistent-signin-content')].filter(Boolean)){
    let box=parent.querySelector('[data-google-account]');
-   if(parent.id!=='workspace-entry'&&!user){box?.remove();continue;}
+   if(parent.id!=='workspace-entry'&&parent.id!=='persistent-signin-content'&&!user){box?.remove();continue;}
    if(!box){box=document.createElement('div');box.dataset.googleAccount='';if(parent.id==='workspace-entry')parent.insertBefore(box,parent.querySelector('.entry-copyright'));else parent.prepend(box);}
    const mode=user?'user:'+user.id:busy?'busy':error?'error:'+error:ready?'ready':'loading';
    if(box.dataset.mode===mode)continue;
@@ -103,7 +119,7 @@
     if(parent.id==='workspace-entry'){
      const label=document.createElement('span');label.textContent='Signed in as '+(user.name||user.email);box.append(label);
     }else{
-     const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='Log off';button.onclick=signOut;box.append(button);
+     const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='Log off';button.onclick=()=>signOut().catch(e=>window.EccoErrors?.show(e));box.append(button);
     }
    }else if(ready&&!busy&&!error){
     window.google.accounts.id.renderButton(box,{type:'standard',theme:'outline',size:'large',width:190,text:'signin_with',shape:'rectangular'});
@@ -117,5 +133,5 @@
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;mount();});}).observe(document.body,{childList:true,subtree:true});mount();restore();
  document.addEventListener('click',event=>{const menu=q('#google-user-menu');if(menu?.open&&!menu.contains(event.target))menu.open=false;});
  document.addEventListener('keydown',event=>{const menu=q('#google-user-menu');if(event.key==='Escape'&&menu?.open){menu.open=false;menu.querySelector('summary').focus();}});
- window.EccoAuth={open,signOut,get user(){return user;}};
+ window.EccoAuth={open,signOut,get connected(){return Boolean(token);},get user(){return user;}};
 })();

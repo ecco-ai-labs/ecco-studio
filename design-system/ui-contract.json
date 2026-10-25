@@ -1628,7 +1628,7 @@
     "selection": "Each card contains a RunPod instance dropdown; no instance selected by default",
     "status": "Fresh relay health controls availability. Distinguish No heartbeat, Heartbeat lost, Service not ready and Available; do not infer RunPod power state. Visible existing help-text paragraph explains failed check.",
     "connection": "Explicit Connect adds that instance without removing any existing connection, including another instance in the same class",
-    "persistence": "Connected instance IDs persist in this browser and require fresh authenticated health before displaying Connected",
+    "persistence": "Saved instance choices survive refresh, new tabs and outages until explicit Disconnect. Health gates new generation; stale heartbeat means Reconnecting, never forgets selection.",
     "refreshSeconds": 20,
     "styling": "Existing gpu-grid, gpu-card, dropdown and secondary button rules; no new dimensions",
     "connectedText": "Uses the theme connected color: yellow in Default and Forest, mint in Dark Mode, dark brown in Desert. Connected buttons retain full opacity when disabled.",
@@ -1704,7 +1704,7 @@
     "audience": "Any Google account, no domain filter",
     "verification": "Server-verified Google token with one-time nonce, audience, issuer and expiry checks; identity keyed by sub",
     "authorization": "Identity session cannot access shared workspace API or start GPUs",
-    "session": "Opaque session token in sessionStorage; same-tab refresh restores only after server /me verification; expires within one hour. Log off revokes token and clears it and shared workspace key.",
+    "session": "Opaque session remains until explicit Disconnect/Log Off or server revocation. Browser-local token restored through server /me; server stores only its hash durably. Google ID tokens still require expiry/signature/audience/nonce verification at sign-in. Network outages retain credentials and never reload the app. Explicit identity disconnect does not disconnect separately authorized workspace services.",
     "dismiss": "No intermediate Studio dialog. Google controls account-selection dismissal.",
     "appearance": "Welcome Tell Your Story and native Google sign-in buttons have equal visible dimensions of 190px by 40px, with 16px between them. The native Google iframe transparent gutters are clipped to the button outline. Google SDK supplies unchanged logo, Google font and generic Sign in with Google text; width below 200px suppresses personalization. User menu is compact, minimum width 110px.",
     "signedInIdentity": "Verified user name at far right after Education and Learning; visible dropdown arrow. Menu order: Credit and Usage, Billing, Log Off. Ribbon menu triggers share 36px height, 12px font, 10px horizontal padding and content-fit widths; user name capped at 220px; user dropdown items equal width and 40px height. Existing credit and billing actions reused. A decorative circular person icon appears immediately left of the name. The inner head and shoulders use the active theme accent; the outer ring uses theme text color. No separate keyboard stop.",
@@ -2067,5 +2067,12 @@
       "authorization": "Only own public support responses count; customer messages, private notes and other customers never appear. Logout/account changes discard stale responses.",
       "email": "Each email is bound by its original message headers or unique ticket reply address. Support responses have only the original requester as recipient, with no CC/BCC. Team notification Reply-To is that ticket’s requester; the support mailbox’s Sent copy is logged without sending a duplicate."
     }
+  },
+  "persistentConnections": {
+    "approval": "User requested connections persist until explicit disconnect, with a Disconnect menu matching Connections.",
+    "entry": "Control-panel + menu: Connections and Disconnect. Both include Sign-in, Storage, AI, GPU, YouTube and existing unavailable publishing platforms.",
+    "appearance": "Reuse connection, connection-heading, secondary button and existing native modal/close styles. No changed dimensions except GPU dialog reuses existing 900px/94vw.",
+    "behavior": "Disconnect acts on selected service only. GPU submenu uses existing class/instance dropdowns; disconnect does not stop pods or cancel accepted jobs. AI and YouTube revoke saved workspace connection through existing authenticated endpoints. Unavailable integrations have disabled controls.",
+    "persistence": "Workspace key saved locally on successful connection; migrated from same-tab storage. Explicit disconnect clears both stores and updates other tabs. No forced page reload. Temporary auth/network failure does not erase unrelated services."
   }
 }

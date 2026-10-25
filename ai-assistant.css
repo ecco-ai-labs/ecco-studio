@@ -1,6 +1,6 @@
-#openai-key-dialog,#connection-dialog{width:min(540px,calc(100vw - 32px))}
+#openai-key-dialog,:is(#connection-dialog,#disconnect-connections-dialog){width:min(540px,calc(100vw - 32px))}
 #openai-key-dialog .row,#openai-connection .row{flex-wrap:wrap;gap:8px}
-#openai-key-dialog button,#openai-connection button,#connections [data-storage]{font-size:12px;min-height:30px;padding:6px 10px}
+#openai-key-dialog button,#openai-connection button,:is(#connections,[data-disconnect-items]) [data-storage]{font-size:12px;min-height:30px;padding:6px 10px}
 .ai-global-control{display:flex;flex-direction:row;align-items:center;gap:10px;margin:14px 0}
 .ai-global-control input{width:16px;height:16px;min-height:16px;margin:0;accent-color:var(--accent,#ffdc24)}
 #studio-ai-status{display:flex;align-items:center;gap:12px;justify-content:space-between;font-size:12px;color:var(--muted);margin:0 0 14px}
@@ -28,16 +28,16 @@ body.workspace-entry-mode #studio-storage-indicator{display:none!important}
 #connection-indicators{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid rgba(190,180,215,.22);border-radius:10px;background:linear-gradient(180deg,#302a43,#242031);box-shadow:inset 0 1px 3px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.04);flex:none}
 #connection-indicators>span{width:24px;height:26px;min-height:26px}
 body.workspace-entry-mode #connection-indicators{display:none!important}
-#connections .connection{padding:16px 0;border-bottom:1px solid rgba(190,180,215,.15)}
-#connections .connection:last-child{border-bottom:0}
-#connections .connection-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
-#connections .connection-heading h3{margin:0}
-#connection-dialog button{box-sizing:border-box;width:112px!important;min-height:32px!important;height:32px!important;padding:5px 10px!important;font-size:12px!important;white-space:nowrap}
-#connections button[data-connected=true]{color:var(--accent,#ffdc24)!important;border-color:var(--accent,#ffdc24)!important}
-#connections .help{margin:8px 0 0;line-height:1.5}
-#connections [data-ai-disconnect]{margin-left:auto;display:block}
+:is(#connections,[data-disconnect-items]) .connection{padding:16px 0;border-bottom:1px solid rgba(190,180,215,.15)}
+:is(#connections,[data-disconnect-items]) .connection:last-child{border-bottom:0}
+:is(#connections,[data-disconnect-items]) .connection-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+:is(#connections,[data-disconnect-items]) .connection-heading h3{margin:0}
+:is(#connection-dialog,#disconnect-connections-dialog) button{box-sizing:border-box;width:112px!important;min-height:32px!important;height:32px!important;padding:5px 10px!important;font-size:12px!important;white-space:nowrap}
+:is(#connections,[data-disconnect-items]) button[data-connected=true]{color:var(--accent,#ffdc24)!important;border-color:var(--accent,#ffdc24)!important}
+:is(#connections,[data-disconnect-items]) .help{margin:8px 0 0;line-height:1.5}
+:is(#connections,[data-disconnect-items]) [data-ai-disconnect]{margin-left:auto;display:block}
 
-#connection-dialog > .section-head > h2{font-size:18px;color:var(--accent,#ffdc24)}
+:is(#connection-dialog,#disconnect-connections-dialog) > .section-head > h2{font-size:18px;color:var(--accent,#ffdc24)}
 
 #connection-panel-menu>summary{min-height:26px;padding:0 4px;justify-content:center}
 #connection-panel-menu{margin-left:2px}
