@@ -15,6 +15,10 @@ def inference_device(request, torch):
         raise RuntimeError('The selected GPU is not available on this audio worker.')
     return 'cuda'
 
+def speech_progress(output, completed, total):
+    from audio_queue import write
+    write(Path(output).parent / 'progress.json', {'phase': 'speech', 'completed': completed, 'total': total})
+
 def assemble(clips, request, output, sample_rate):
     """Apply delivery DSP to speech first; insert exact silence in the final sample rate."""
     import numpy as np
@@ -58,6 +62,8 @@ def synthesize(request, output, runtime):
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from miocodec import MioCodecModel
 
+    speech_progress(output, 0, len(request['lines']))
+
     device = inference_device(request, torch)
     tokenizer = AutoTokenizer.from_pretrained(runtime / 'model', local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(runtime / 'model', local_files_only=True,
@@ -91,6 +97,7 @@ def synthesize(request, output, runtime):
             if clip.ndim != 1 or not len(clip) or not np.isfinite(clip).all():
                 raise RuntimeError('The codec returned invalid audio.')
             clips.append(clip)
+            speech_progress(output, index + 1, len(request['lines']))
     assemble(clips, request, output, sample_rate)
 
 if __name__ == '__main__':

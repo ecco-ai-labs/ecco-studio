@@ -146,7 +146,13 @@ def run_job(request, d, compute, pod, beat):
             started = time.monotonic()
             while process.poll() is None:
                 beat()
-                progress = read(d / 'progress.json', {}).get('progress')
+                details = read(d / 'progress.json', {})
+                progress = details.get('progress')
+                if details.get('phase') == 'speech':
+                    completed, total = details.get('completed'), details.get('total')
+                    if type(completed) is int and type(total) is int and total == len(request['lines']) and 0 <= completed <= total:
+                        progress = f'Generating speech · {completed} of {total} passages complete'
+                        write(d / 'status.json', {'status': 'running', 'progress': progress, 'compute': compute, 'worker_pod': pod})
                 if progress in ('Mixing music and effects', 'Loading sound model', 'Generating sound effect', 'Generating instrumental music'):
                     write(d / 'status.json', {'status': 'running', 'progress': progress, 'compute': compute, 'worker_pod': pod})
                 if time.monotonic() - started > 1800:

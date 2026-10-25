@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from audio_schema import MODELS, validate
-from audio_worker import assemble, inference_device
+from audio_worker import assemble, inference_device, speech_progress
 
 
 def reference(runtime, voice):
@@ -35,18 +35,20 @@ def synthesize(request, output, runtime):
     if device == 'cuda':
         torch.set_num_threads(4)
     clips = []
+    speech_progress(output, 0, len(request['lines']))
     if request['model'] == 'chatterbox':
         from chatterbox.mtl_tts import ChatterboxMultilingualTTS
         model = ChatterboxMultilingualTTS.from_local(runtime / 'chatterbox', device, t3_model='v3')
         original = copy.deepcopy(model.conds)
         rate = model.sr
-        for line in request['lines']:
+        for index, line in enumerate(request['lines']):
             # Reset between speakers; the default must never inherit another voice.
             model.conds = copy.deepcopy(original)
             ref = None if line['voice'] == 'default' else str(reference(runtime, line['voice']))
             clip = model.generate(line['text'], language_id=MODELS['chatterbox']['language_codes'][line['language']],
                                   audio_prompt_path=ref, **chatterbox_controls(request, line))
             clips.append(clip.squeeze().float().cpu().numpy())
+            speech_progress(output, index + 1, len(request['lines']))
     elif request['model'] == 'indicf5':
         from safetensors.torch import load_file
         from f5_tts.model import DiT
@@ -61,7 +63,7 @@ def synthesize(request, output, runtime):
         vocoder = load_vocoder(is_local=True, local_path=str(runtime / 'vocos'), device=device)
         transcripts = json.loads((runtime / 'reference-voices/transcripts.json').read_text())
         rate = 24000
-        for line in request['lines']:
+        for index, line in enumerate(request['lines']):
             ref = reference(runtime, line['voice'])
             text = transcripts.get(line['voice'], '').strip()
             if not text:
@@ -70,6 +72,7 @@ def synthesize(request, output, runtime):
             if returned_rate != rate:
                 raise RuntimeError('Unexpected IndicF5 sample rate.')
             clips.append(np.asarray(clip, dtype=np.float32))
+            speech_progress(output, index + 1, len(request['lines']))
     else:
         raise ValueError('Unsupported model for this worker.')
     for clip in clips:

@@ -84,7 +84,9 @@ def verify(model, compute, root):
     request = dict(kind='music' if music else 'effect', model=model, compute=compute, duration=10 if music else 3,
                    seed=41, description='Gentle instrumental acoustic oud and soft hand percussion, calm desert atmosphere, no vocals.' if music else 'A gentle magical whoosh followed by a soft shimmering chime, clean isolated sound, no speech.')
     write(directory / 'request.json', request)
-    env = dict(os.environ, ECCO_AUDIO_CPU_THREADS='1', OMP_NUM_THREADS='1', MALLOC_ARENA_MAX='2')
+    from audio_routing import cpu_count
+    threads = str(max(1, min(8, cpu_count(), int(os.getenv('ECCO_AUDIO_CPU_THREADS', '1')))))
+    env = dict(os.environ, ECCO_AUDIO_CPU_THREADS=threads, OMP_NUM_THREADS=threads, MALLOC_ARENA_MAX='2')
     if compute == 'cpu':
         env['CUDA_VISIBLE_DEVICES'] = ''
     run([root / 'sounds' / model / (compute + '-venv/bin/python'), root / 'sound_worker.py',
