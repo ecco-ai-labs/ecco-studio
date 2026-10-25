@@ -29,7 +29,7 @@
  bell.onclick=()=>{panel.hidden=!panel.hidden;bell.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){render();if(failed)load();}};
  document.addEventListener('pointerdown',e=>{if(!host.contains(e.target))close();});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){close();bell.focus();e.stopPropagation();}});
- host.addEventListener('focusout',()=>{queueMicrotask(()=>{if(!host.contains(document.activeElement))close();});});
+ host.addEventListener('focusout',event=>{if(event.relatedTarget&&!host.contains(event.relatedTarget))close();});
  document.addEventListener('ecco:auth-change',()=>{close();render();});
  window.addEventListener('storage',e=>{if(e.key===key()||e.key===null){memory.delete(key());render();}});
  async function load(){try{const response=await fetch(new URL('notifications.json',document.baseURI),{cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();if(!Array.isArray(data))throw Error();const ids=new Set();feed=data.filter(n=>{if(!n||typeof n.id!=='string'||typeof n.title!=='string'||typeof n.body!=='string'||ids.has(n.id))return false;ids.add(n.id);return true;});failed=false;}catch{failed=true;}render();}
