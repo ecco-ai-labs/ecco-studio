@@ -49,7 +49,7 @@ class AudioRequests(unittest.TestCase):
                     validate(dict(self.body,**{field:value}))
 
     def test_no_empty_or_unbounded_dialogue(self):
-        for lines in [None, {}, [], self.body['lines']*11, [None]]:
+        for lines in [None, {}, [], self.body['lines']*81, [None]]:
             with self.subTest(lines_type=type(lines)),self.assertRaises(ValueError):validate(dict(self.body,lines=lines))
 
 if __name__ == '__main__':unittest.main()

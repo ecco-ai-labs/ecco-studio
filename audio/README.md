@@ -368,3 +368,29 @@ planning is implemented; existing voice-only workflows remain supported.
 Final Script now starts with Spoken script, followed by numbered turns and inline sound cue review. Existing Generate with AI and exact-range Improve with AI dialogs remain unchanged. Each cue can use Audio Library, upload, preview or generate a new sound. Generate audio creates missing sounds serially on the selected compute, saves assignments, then submits the mixed recording. Confirmed jobs resume after interruption; uncertain submissions are not retried automatically. Script changes require timing review. Progress uses real worker completed/total passage counts.
 
 This frontend update uses the already qualified sound-generation and mixing service. It does not install models or activate another worker. Automated UI tests cover ordering, partial retry, interrupted polling, stale drafts, inline assignment and worker-count progress. Focused authenticated CPU acceptance is recorded at the top of this file. Scheduled soundtracks remain separate and pending.
+
+## Prepared: mixed character models and audition samples
+
+Kokoro-82M, VoxCPM2 and Indic Parler-TTS are registered alongside existing models.
+Each character can override the recording model and retain its own voice, language,
+style, pitch, speed and expressiveness where supported. Listen requests a short
+sample and reuses saved assets or resumes an existing confirmed sample job.
+
+Model weights are downloaded once to shared `models/<model>` storage. CPU/GPU
+selection belongs to the generation request; each connected machine needs its own
+compatible runtime. The new installer currently prepares CPU runtimes and records
+immutable model revisions. It does not advertise readiness. Indic Parler may require
+the operator to accept the upstream Hugging Face access conditions. No auth bypass
+or GPU provisioning is part of installation.
+
+The mixed worker groups passages by model, runs isolated interpreters serially,
+restores original order from actual passage boundaries, resamples to 48 kHz, applies
+original pauses and mixes the soundtrack once. Each child's delivery DSP runs once.
+A failure aborts the recording; no partial or silently substituted voice is saved.
+Stop/timeout terminates the complete process group.
+
+Release status: implementation and local checks only. CPU installation, runtime
+activation, real inference for new models, authenticated mixed generation, durable
+Audio Library retrieval and actual listening acceptance are still required. A green
+Pages deployment does not establish any of those. Scheduled soundtracks remain a
+separate outstanding item.

@@ -5,9 +5,9 @@ from pathlib import Path
 import time
 import uuid
 from sound_schema import MODELS as SOUND_MODELS
+from audio_schema import MODELS, required_models
 
 ROOT = Path(os.getenv('ECCO_AUDIO_QUEUE', '/workspace/ecco-audio/queue'))
-MODELS = ('indic-mio', 'chatterbox', 'indicf5')
 
 def write(path, data):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -36,7 +36,7 @@ def workers():
     return result
 
 def supported(worker):
-    models = worker.get('models', [] if worker['compute'] == 'cpu' else MODELS)
+    models = worker.get('models', [] if worker['compute'] == 'cpu' else ('indic-mio', 'chatterbox', 'indicf5'))
     return [model for model in MODELS if isinstance(models, (list, tuple)) and model in models]
 
 def ready(compute=None, model=None, worker_id=''):
@@ -44,6 +44,14 @@ def ready(compute=None, model=None, worker_id=''):
                and (not worker_id or w.get('pod') == worker_id)
                and (not worker_id or w.get('instance_routing_version') == 1)
                and (model is None or model in supported(w)) for w in workers())
+
+def request_ready(request):
+    needed = required_models(request)
+    return any(w['compute'] == request['compute']
+               and (not request.get('worker_id') or (w.get('pod') == request['worker_id'] and w.get('instance_routing_version') == 1))
+               and needed.issubset(supported(w))
+               and (not request.get('mixed_models_version') or w.get('mixed_models_version') == 1)
+               for w in workers())
 
 def sound_models(worker):
     installed = worker.get('sound_models', [])
@@ -65,6 +73,7 @@ def availability():
         compatible = [w for w in live if w['compute'] == target]
         sounds = sorted(set.intersection(*(set(sound_models(w)) for w in compatible))) if compatible else []
         compute[target] = {'ready': bool(models), 'models': models, 'sound_models': sounds,
+                           'mixed_models_version': 1 if models and all(w.get('mixed_models_version') == 1 for w in compatible) else 0,
                            'sound_generation_version': 1 if sounds else 0,
                            'character_controls_version': 1 if models and all(w.get('character_controls_version') == 1 for w in live if w['compute'] == target) else 0,
                            'sound_design_version': 1 if models and all(w.get('sound_design_version') == 1 for w in live if w['compute'] == target) else 0,
@@ -90,6 +99,7 @@ def availability():
                           'cpu_count': w.get('cpu_count', config.get('cpu_count')),
                           'memory_gb': w.get('memory_gb', config.get('memory_gb')),
                           'character_controls_version': w.get('character_controls_version', 0) if routable else 0,
+                          'mixed_models_version': w.get('mixed_models_version', 0) if routable else 0,
                           'sound_design_version': w.get('sound_design_version', 0) if routable else 0,
                           'sound_generation_version': w.get('sound_generation_version', 0) if routable else 0,
                           'reason': '' if available else 'Audio worker update required.' if w and not routable else 'Audio worker is unavailable or still starting.'})

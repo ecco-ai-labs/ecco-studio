@@ -24,7 +24,7 @@
   return common+' '+specific+' Read the draft aloud mentally before returning it: simplify awkward phrasing, cut repetition and exposition, and preserve the listener’s reason to keep listening.';
  }
  function defaultVoice(model,language,index=0){
-  if(model.id!=='chatterbox')return model.voices[index%model.voices.length].id;
+  if(model.id!=='chatterbox'){const choices=model.voices.filter(v=>!v.language||v.language===language);return choices.length?choices[index%choices.length].id:'';}
   const matching=model.voices.filter(v=>v.name.startsWith(language+' ·')||v.name.startsWith(language+' '));
   return matching.length?matching[index%matching.length].id:'default';
  }
@@ -54,7 +54,8 @@
  function lineControls(turn,speaker,model){
   const cue=clean(turn.performance),allowed=model.emotions?(speaker.language==='English'?['neutral','happy','sad','angry','enunciated','confused','whisper']:['neutral','happy','sad','angry','disgust','fear','surprise']):['neutral'];
   const chosen=speaker.emotion_override||speaker.emotion!=='neutral'?speaker.emotion:cue?.emotion||speaker.emotion;
-  return {emotion:allowed.includes(chosen)?chosen:'neutral',...(cue?{pause_before:cue.pause_before}:{})};
+  const direction=model.voice_direction?[speaker.delivery_style&&speaker.delivery_style!=='Voice Default'?speaker.delivery_style:'',chosen&&chosen!=='neutral'?chosen+' emotion':'',speaker.delivery||speaker.style||'',cue?.direction||''].filter(Boolean).join('. ').slice(0,1200):'';
+  return {emotion:allowed.includes(chosen)?chosen:'neutral',...(direction?{direction}:{}),...(cue?{pause_before:cue.pause_before}:{})};
  }
  window.EccoAudioDirection={clean,guidance,defaultVoice,refine,reconcile,lineControls};
 })();

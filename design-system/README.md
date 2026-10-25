@@ -304,3 +304,16 @@ Close issue and Reopen issue without deleting history. Mailbox action buttons
 compose explicit commands whose acknowledgements stay private to the agent.
 Native Chat cards use the same server rules and remain disabled until the
 interactive Google Chat app is configured for the approved space.
+
+## Mixed character models and voice samples
+
+Prepared update: each character has a Character Model override in the existing
+Additional Controls tab. Recording default remains available; explicit overrides
+and saved model voices survive switching. Voices are filtered by language. Listen
+opens a short editable sample using the character settings, reuses saved samples
+and resumes confirmed preview jobs. It does not replace the story script.
+
+Weights live once under shared models storage. Device-specific runtimes load those
+weights on the selected worker. Mixed speech renders one model group at a time,
+then restores passage order and applies original pauses and the existing soundtrack.
+Live runtime qualification and authenticated playback remain release gates.

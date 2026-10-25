@@ -11,6 +11,9 @@ INDIC_EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'disgust', 'fear', 'surpri
 ENGLISH_EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'enunciated', 'confused', 'whisper']
 GENRES = ["Story Book Reading","Podcast","Movie","Theatre","Casual Conversation","Documentary","News","Interview","Educational"]
 MODEL = 'SPRINGLab/Indic-Mio'
+def required_models(request):
+    return {line.get('model', request.get('model', 'indic-mio')) for line in request.get('lines', [])} or {request.get('model', 'indic-mio')}
+
 def validate(body):
     if not isinstance(body, dict):
         raise ValueError('Invalid audio request.')
@@ -31,10 +34,15 @@ def validate(body):
     for line in lines:
         if not isinstance(line, dict):
             raise ValueError('Invalid dialogue line.')
+        line_model = line.get('model', model_id)
+        if not isinstance(line_model, str) or line_model not in MODELS:
+            raise ValueError('Choose a supported character audio model.')
+        model = MODELS[line_model]
         text = line.get('text', '')
         language = line.get('language', 'Hindi')
         emotion = line.get('emotion', 'neutral')
-        voice = line.get('voice', model['voices'][0]['id'])
+        voices = [v for v in model['voices'] if not v.get('language') or v['language'] == language]
+        voice = line.get('voice', voices[0]['id'] if voices else '')
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 500:
             raise ValueError('Each line needs 1–500 characters.')
         if language not in model['languages']:
@@ -42,11 +50,18 @@ def validate(body):
         allowed_emotions = (ENGLISH_EMOTIONS if language == 'English' else INDIC_EMOTIONS) if model['emotions'] else ['neutral']
         if emotion not in allowed_emotions:
             raise ValueError('This emotion is not supported for the selected language.')
-        if voice not in [v['id'] for v in model['voices']]:
-            raise ValueError('Choose one of the available voices.')
+        if voice not in [v['id'] for v in voices]:
+            raise ValueError('Choose an available voice for this model and language.')
         clean.append(dict(text=text.strip(), language=language, emotion=emotion, voice=voice))
+        if 'model' in line:
+            clean[-1]['model'] = line_model
+        if model.get('voice_direction') and 'direction' in line:
+            direction = line['direction']
+            if not isinstance(direction, str) or len(direction) > 1200:
+                raise ValueError('Keep character speaking direction within 1,200 characters.')
+            clean[-1]['direction'] = direction.strip()
         controls = {'speed': (.75, 1.5), 'pitch': (-4, 4)}
-        if model_id == 'chatterbox':
+        if line_model == 'chatterbox':
             controls.update(exaggeration=(0, 2), cfg_weight=(0, 1))
         for key, (low, high) in controls.items():
             if key in line:
@@ -78,6 +93,8 @@ def validate(body):
         result['exaggeration'] = bounded('exaggeration', .5, 0, 2)
     if any(any(key in line for key in ('speed', 'pitch', 'exaggeration', 'cfg_weight')) for line in clean):
         result['character_controls_version'] = 1
+    if required_models(result) != {model_id}:
+        result['mixed_models_version'] = 1
     if body.get('soundtrack') or body.get('sound_design_version'):
         from audio_soundtrack import validate_tracks
         if body.get('sound_design_version') != 1:

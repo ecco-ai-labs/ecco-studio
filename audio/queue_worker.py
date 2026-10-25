@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from audio_queue import ROOT, MODELS, read, write
 from sound_schema import MODELS as SOUND_MODELS
 from audio_routing import worker_id, memory_bytes, cpu_count, sound_memory_ready
+from audio_schema import required_models
 
 def compute_from_name(name):
     for target in ('a100', 'b200'):
@@ -42,7 +43,8 @@ def claim_job(directory, compute, pod, models, sounds):
         request = read(directory / 'request.json', {})
         status = read(directory / 'status.json', {})
         enabled = sounds if request.get('task') == 'sound' else models
-        if not request or not owns(request, compute, pod) or status.get('status') != 'queued' or request.get('model', 'indic-mio') not in enabled:
+        needed = {request.get('model')} if request.get('task') == 'sound' else required_models(request)
+        if not request or not owns(request, compute, pod) or status.get('status') != 'queued' or not needed.issubset(enabled):
             yield None
             return
         if (directory / 'cancel.json').exists():
@@ -62,6 +64,12 @@ def cpu_threads():
 def worker_command(request, directory):
     model = request.get('model', 'indic-mio')
     base = Path(__file__).parent
+    if request.get('mixed_models_version') == 1:
+        env = dict(os.environ, HF_HUB_OFFLINE='1')
+        if request.get('compute') == 'cpu':
+            env['CUDA_VISIBLE_DEVICES'] = ''
+        env.pop('PYTHONPATH', None)
+        return [sys.executable, str(base / 'mixed_worker.py'), '--request', str(directory / 'request.json'), '--runtime', str(base / 'models'), '--output', str(directory / 'output.wav')], env
     if request.get('task') == 'sound':
         if model not in SOUND_MODELS:
             raise ValueError('Unsupported sound model.')
@@ -81,7 +89,7 @@ def worker_command(request, directory):
         raise ValueError('Unsupported audio model.')
     if request.get('compute') == 'cpu':
         python = str(Path('/opt/ecco-audio-cpu') / ('cpu-' + model + '-venv/bin/python'))
-        script = base / ('audio_worker.py' if model == 'indic-mio' else 'extra_worker.py')
+        script = base / ('audio_worker.py' if model == 'indic-mio' else 'extra_worker.py' if model in ('chatterbox', 'indicf5') else 'modern_worker.py')
         if not Path(python).is_file():
             raise RuntimeError('The selected CPU audio model runtime is not installed.')
     elif model == 'indic-mio':
@@ -91,7 +99,9 @@ def worker_command(request, directory):
         if not Path(python).is_file():
             raise RuntimeError('The selected audio model runtime is not installed on this worker.')
     else:
-        raise ValueError('Unsupported audio model.')
+        python, script = str(base / (model + '-venv/bin/python')), base / 'modern_worker.py'
+        if not Path(python).is_file():
+            raise RuntimeError('Install and verify the selected model runtime on this worker.')
     env = dict(os.environ)
     if model != 'indic-mio' or request.get('compute') == 'cpu':
         env.pop('PYTHONPATH', None)
@@ -117,7 +127,7 @@ def main():
     pod = worker_id(os.environ.get('RUNPOD_POD_ID', 'local'))
     config = read(Path(__file__).with_name('worker-configs') / (pod + '.json'), {})
     def enabled_models():
-        verified = read(Path(__file__).with_name('cpu-ready-models.json'), []) if compute == 'cpu' else list(MODELS)
+        verified = read(Path(__file__).with_name('cpu-ready-models.json'), []) if compute == 'cpu' else ['indic-mio', 'chatterbox', 'indicf5'] + read(Path(__file__).with_name('gpu-ready-models.json'), [])
         return [m for m in MODELS if isinstance(verified, list) and m in verified and (compute != 'cpu' or Path('/opt/ecco-audio-cpu', 'cpu-' + m + '-venv/bin/python').is_file())]
     def enabled_sounds():
         verified = read(Path(__file__).with_name('sound-ready-' + compute + '.json'), [])
@@ -132,7 +142,7 @@ def main():
         return
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'sound_models': enabled_sounds()})
+        write(heartbeat, {'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'sound_models': enabled_sounds()})
     recover_jobs(compute, pod)
     while True:
         beat()
@@ -189,6 +199,7 @@ def run_job(request, d, compute, pod, beat):
 
 if __name__ == '__main__':
     main()
+
 
 
 
