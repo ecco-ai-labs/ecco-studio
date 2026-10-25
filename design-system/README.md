@@ -202,13 +202,23 @@ update; GitHub Pages publication alone does not install that runtime.
 
 ## Narrative sound design
 
-Review Audio → Music & Effects opens the shared Sound Design modal. AI suggests
-cues from the final spoken script and the user's directions; it does not generate
-audio files. Users select existing Audio Library recordings or upload sounds in a
-nested dialog, preview them, choose passage/phrase timing, gain, fades, looping and
-automatic volume reduction under narration, then Apply. Exact phrase triggers split
-speech before synthesis, so mixing uses measured PCM boundaries rather than guessed
-word timings. Missing files and changed scripts require review before generation.
+Final Script starts with the existing Spoken script overview and actions, followed
+by numbered turns. Each turn exposes Add Sound and its named cue cards. Expand a
+cue to describe/generate a sound, attach Audio Library audio, upload or preview it;
+settings and timing/mix controls stay collapsed. Generate with AI and exact-range
+Improve with AI retain their existing dialogs and Apply behavior.
+
+Generate audio automatically generates missing cue assets serially on the selected
+compute, saves each assignment, then submits the complete speech and soundtrack.
+If music/effects are enabled without cues, AI first plans cues from the spoken
+script. Existing assets are retained; disabled sound design is untouched. Confirmed
+sound jobs resume after interruption, failed jobs can retry, and an uncertain POST
+response blocks automatic resubmission. Script edits still require timing review.
+The existing Music & Effects modal remains available for whole-plan edits.
+
+The Progress tab renders a native bar from actual worker passage counts, followed
+by “Generating Speech: 1 of 14 passages complete”. Without a worker count it is
+indeterminate; sound generation and mixing show their own real status.
 
 The matching service/worker update enables one mixed stereo WAV across all speech
 models. Per-compute capability gates stop older workers from silently dropping the

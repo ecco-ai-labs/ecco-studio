@@ -11,7 +11,7 @@
   let localId;try{localId=JSON.parse(localStorage.getItem('ecco-new-story-draft')||'{}').localDraftId;}catch{}
   return 'ecco-audio-draft:'+(localId?'local:'+localId:'');
  };
- let draft,story,signature='',submitting=false,service=null,recordings=[],lastJob=null,polling=false,submissionLabel='Submitting…';
+ let draft,story,signature='',submitting=false,service=null,recordings=[],lastJob=null,polling=false,submissionLabel='Submitting…',submissionError='';
  const serviceReady=()=>!!service;
  let computeStatus=null,computeChecked=0;
  const computeTarget=(status,compute,workerId='')=>workerId?status?.instances?.find(w=>w.compute===compute&&w.id===workerId):status?.compute?.[compute];
@@ -281,7 +281,9 @@
   };d.showModal();d.querySelector('textarea').focus();
  }
  function reviewScript(){
+  const panel=q('#audio-final-script-panel'),prompt=q('#audio-form [data-section=prompt]');if(panel&&prompt)panel.prepend(prompt);
   window.EccoAudioReviewScript?.mount({root:q('#audio-final-script-panel'),generate:generateScript,getCast:()=>activeSpeakers(),getBrief:()=>({...draft.script_brief,genre:draft.genre}),getPlan:()=>({opening:draft.opening_text?.trim()?{text:draft.opening_text,character_id:draft.opening_speaker||draft.speakers[0].id,performance:draft.opening_performance}:null,segments:turns().map(t=>({text:t.text,character_id:t.speaker_id,performance:t.performance}))}),setPlan:plan=>{draft.lines=plan.segments.map(p=>({text:p.text,speaker_id:p.character_id,performance:p.performance}));draft.single_text=plan.segments.map(p=>p.text).join('\n\n');draft.opening_text=plan.opening?.text||'';draft.opening_performance=plan.opening?.performance;delete draft.delivery_signature;save();drawLines();}});
+  window.EccoInlineSounds?.mount({root:q('#audio-final-script-panel'),getPlan:()=>draft.sound_design,setPlan:plan=>{draft.sound_design=plan;save();},getLines:requestLines,getRanges:()=>{let offset=0;return [...(draft.opening_text?.trim()?[{text:draft.opening_text,opening:true}]:[]),...turns()].map(t=>{const start=offset;offset+=t.opening?1:splitText(t.text).length;return {start,end:offset-1};});},getCompute:()=>({compute:draft.compute,worker_id:draft.worker_id||''}),mediaURL:async id=>{if(!service)throw Error('Connect workspace storage to preview sounds.');return service.mediaURL(id);}});
   window.EccoSoundDesign?.mount({root:q('#audio-final-script-panel'),getPlan:()=>draft.sound_design,setPlan:plan=>{draft.sound_design=plan;save();},getLines:requestLines,getBrief:()=>({...draft.script_brief,genre:draft.genre}),mediaURL:async id=>{if(!service)throw Error('Connect workspace storage to preview sounds.');return service.mediaURL(id);}});
  }
  const audioAssets=()=>recordings.filter(a=>!a.deleted&&(a.story_id||LEGACY_STORY)===activeStory);
@@ -330,7 +332,8 @@
   const busy=submitting||['queued','running'].includes(job?.status);
   const label=submitting?submissionLabel:/reconnect/i.test(job?.progress||'')?'Waiting for worker…':job?.status==='queued'?'Queued…':'Generating audio…';
   setGenerationBusy(button,busy,label,'Generate audio');const spinner=q('[data-audio-progress-spinner]');if(spinner)spinner.hidden=!busy;
-  q('#audio-job-status').textContent=submitting?submissionLabel:job?(job.progress||{queued:'Queued',running:'Generating speech',done:'Audio saved.',failed:'Generation failed',error:'Generation failed'}[job.status]||job.status)+(job.error?' · '+job.error:''):'';
+  q('#audio-job-status').textContent=submitting?submissionLabel:submissionError|| (job?(job.progress||{queued:'Queued',running:'Generating speech',done:'Audio saved.',failed:'Generation failed',error:'Generation failed'}[job.status]||job.status)+(job.error?' · '+job.error:''):'');
+  showSpeechProgress(job,submitting,submissionError);
   const list=window.EccoGeneration?.results('audio',audioAssets(),activeStory,lastJob)||[],next=JSON.stringify(list);
   if(next!==signature){
    signature=next;const empty=q('[data-audio-review-empty]');if(empty)empty.hidden=!!list.length;
@@ -339,8 +342,18 @@
   }
 
  }
+ function showSpeechProgress(job,pending,error){
+  const bar=q('[data-speech-progress]'),count=q('[data-speech-count]');if(!bar||!count)return;
+  const text=job?.progress||'',match=/^Generating speech\s*[·:]\s*(\d+) of (\d+) passages complete$/i.exec(text);
+  const speech=!pending&&!error&&job?.status==='running'&&/^Generating speech/i.test(text);
+  bar.hidden=count.hidden=!speech;if(!speech)return;
+  const completed=match?Number(match[1]):null,total=match?Number(match[2]):null;
+  if(total>0&&completed>=0&&completed<=total){bar.max=total;bar.value=completed;count.textContent='Generating Speech: '+completed+' of '+total+' passages complete';}
+  else{bar.removeAttribute('value');bar.removeAttribute('max');count.textContent='Generating Speech: waiting for the first passage update';}
+  const spinner=q('[data-audio-progress-spinner]');if(spinner)spinner.hidden=true;q('#audio-job-status').textContent='';
+ }
  function render(){
-  clearPreview();q('#audio-voice-preview-dialog')?.close();load();signature='';
+  clearPreview();q('#audio-voice-preview-dialog')?.close();load();signature='';submissionError='';
   q('#page').innerHTML=`<section class="audio-studio"><div class="grid audio-workspace"><form id="audio-form" class="panel form"><div class="audio-model-controls model-summary"><label>Audio model<select name="model">${audioModels.map(model=>`<option value="${esc(model.id)}" ${draft.model===model.id?'selected':''}>${esc(model.name)}</option>`).join('')}</select></label><label>Genre<select name="genre">${options(genres,draft.genre)}</select></label></div><label>Recording title<input name="title" maxlength="160" value="${esc(draft.title)}" placeholder="Scene 1 · opening dialogue"></label><div id="audio-lines"></div><button type="button" class="secondary" id="add-audio-line">Add speaker turn</button><div class="audio-output-controls" hidden><input type="hidden" name="speed" value="${draft.speed}"><input type="hidden" name="pitch" value="${draft.pitch}"><input type="hidden" name="pause" value="${draft.pause}"></div><div class="row"><button id="generate-audio">Generate audio</button><span class="help">Draft saved in this browser · up to 4,000 characters</span></div><p id="audio-job-status" role="status"></p></form></div></section>`;
   q('#audio-form').insertAdjacentHTML('afterbegin',`<div data-audio-compute><select name="compute" aria-label="Audio compute" aria-describedby="audio-compute-status"><option value="">Checking connected compute…</option></select><p id="audio-compute-status" class="help" data-audio-compute-status role="status"></p></div>`);
   drawLines();
@@ -352,12 +365,12 @@
    if(submitting||q('#generate-audio').disabled)return;
    if(!serviceReady()){window.EccoStorage?.open();return;}
    let lines;try{lines=requestLines();}catch(error){notice(error.message,true);q('[data-open-prompt]')?.click();return;}
-   const requestedStory=activeStory;submitting=true;submissionLabel='Submitting…';q('[data-audio-tab=progress]')?.click();update();
+   const requestedStory=activeStory;submitting=true;submissionError='';submissionLabel='Submitting…';q('[data-audio-tab=progress]')?.click();update();
    try{
     const current=service,baseline=JSON.stringify(draft),form=q('#audio-form');
     await requireCompute(draft.compute,draft.model,draft.worker_id);
     if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==baseline)throw Error('The script or settings changed. Generate again with the current draft.');
-    if(draft.sound_design?.enabled&&draft.sound_design.cues?.length&&computeTarget(computeStatus,draft.compute,draft.worker_id)?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
+    if(draft.sound_design?.enabled&&computeTarget(computeStatus,draft.compute,draft.worker_id)?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
     const hasDirection=activeSpeakers().some(s=>s.delivery||s.style||s.delivery_style&&s.delivery_style!=='Voice Default'||!model().emotions&&s.emotion!=='neutral');
     const signature=JSON.stringify([turns(),activeSpeakers(),draft.genre,draft.model,draft.opening_text]);
     if(hasDirection&&draft.delivery_signature!==signature){
@@ -367,6 +380,17 @@
      const directed=await window.EccoAudioDirection.refine({plan:existing,cast:activeSpeakers(),brief:{...draft.script_brief,genre:draft.genre,language:draft.speakers[0].language},model:model(),directionOnly:true,request:api,assertCurrent:()=>{if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==baseline)throw Error('The script or character settings changed. Generate again with the current draft.');}});
      draft.lines=directed.segments.map(p=>({text:p.text,speaker_id:p.character_id,performance:p.performance}));draft.opening_performance=directed.opening?.performance;draft.planned_expressiveness=directed.expressiveness;draft.delivery_signature=JSON.stringify([turns(),activeSpeakers(),draft.genre,draft.model,draft.opening_text]);save();lines=requestLines();
     }
+    let soundBaseline=JSON.stringify(draft);
+    const soundCurrent=()=>{if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==soundBaseline)throw Error('The script or settings changed. Your edits are preserved. Generate again to continue.');};
+    if(draft.sound_design?.enabled){
+     if(!draft.sound_design.cues?.length){
+      if(!window.EccoAI?.enabled)throw Error('Connect OpenAI to plan sounds, or add sound cues in Final Script.');
+      submissionLabel='Planning Sounds…';update();const cues=await window.EccoSoundDesign.suggest({lines,brief:{...draft.script_brief,genre:draft.genre},direction:draft.sound_design.direction,assets:window.EccoAudioLibrary?.items()||[]});soundCurrent();
+      draft.sound_design={...draft.sound_design,cues,speech_key:window.EccoSoundDesign.key(lines)};save();soundBaseline=JSON.stringify(draft);
+     }
+     await window.EccoSoundGeneration.ensure({plan:draft.sound_design,lines,assets:window.EccoAudioLibrary?.items()||[],compute:draft.compute,worker_id:draft.worker_id||'',story_id:requestedStory||null,valid:soundCurrent,changed:()=>{save();soundBaseline=JSON.stringify(draft);},progress:message=>{submissionLabel=message;update();}});
+     soundCurrent();
+    }
     const sounds=window.EccoSoundDesign?.prepare(draft.sound_design,lines,window.EccoAudioLibrary?.items()||[])||{lines};
     if(sounds.sound_design_version&&computeTarget(computeStatus,draft.compute,draft.worker_id)?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
     const request={model:draft.model,compute:draft.compute,worker_id:draft.worker_id,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,...sounds,story_id:requestedStory};
@@ -374,10 +398,10 @@
     if(current!==service||activeStory!==requestedStory||!form.isConnected)throw Error('The workspace changed. Generate again from the current story.');
     submissionLabel='Submitting…';update();const job=await current.generate(request);window.EccoGeneration?.trackJob('audio',requestedStory,job);localStorage.setItem('ecco-audio-job:'+requestedStory,job.id);if(activeStory===requestedStory)lastJob=job;update();refresh();notice('Audio queued. You can keep working while it generates.');await poll();
    }
-   catch(error){notice(error.message,true);}
+   catch(error){submissionError=error.message;notice(error.message,true);}
    finally{submitting=false;update();}
   };
-  if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Audio</h2></div><div class="audio-speaker-tabs" role="tablist" aria-label="Audio workspace"><button type="button" class="secondary" role="tab" id="audio-tab-script" data-audio-tab="script" aria-controls="audio-final-script-panel" aria-selected="true">Final Script</button><button type="button" class="secondary" role="tab" id="audio-tab-progress" data-audio-tab="progress" aria-controls="audio-progress-panel" aria-selected="false" tabindex="-1">Progress</button><button type="button" class="secondary" role="tab" id="audio-tab-review" data-audio-tab="review" aria-controls="audio-review-panel" aria-selected="false" tabindex="-1">Review</button></div><div id="audio-final-script-panel" role="tabpanel" aria-labelledby="audio-tab-script"></div><div id="audio-progress-panel" role="tabpanel" aria-labelledby="audio-tab-progress" hidden><span class="generation-spinner" data-audio-progress-spinner aria-hidden="true" hidden></span><p class="help">Generation status appears here after you submit.</p></div><div id="audio-review-panel" role="tabpanel" aria-labelledby="audio-tab-review" hidden><p class="help" data-audio-review-empty>Your newly generated recording will appear here.</p></div>';q('.audio-workspace').append(review);q('#audio-progress-panel').append(q('#audio-job-status'));const tabs=[...review.querySelectorAll('[data-audio-tab]')];tabs.forEach((tab,index)=>{tab.onclick=()=>{tabs.forEach(t=>{const selected=t===tab;t.setAttribute('aria-selected',String(selected));t.tabIndex=selected?0:-1;document.getElementById(t.getAttribute('aria-controls')).hidden=!selected;});};tab.onkeydown=e=>{const next=e.key==='ArrowRight'?(index+1)%tabs.length:e.key==='ArrowLeft'?(index+tabs.length-1)%tabs.length:e.key==='Home'?0:e.key==='End'?tabs.length-1:null;if(next!==null){e.preventDefault();tabs[next].click();tabs[next].focus();}};});}
+  if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Audio</h2></div><div class="audio-speaker-tabs" role="tablist" aria-label="Audio workspace"><button type="button" class="secondary" role="tab" id="audio-tab-script" data-audio-tab="script" aria-controls="audio-final-script-panel" aria-selected="true">Final Script</button><button type="button" class="secondary" role="tab" id="audio-tab-progress" data-audio-tab="progress" aria-controls="audio-progress-panel" aria-selected="false" tabindex="-1">Progress</button><button type="button" class="secondary" role="tab" id="audio-tab-review" data-audio-tab="review" aria-controls="audio-review-panel" aria-selected="false" tabindex="-1">Review</button></div><div id="audio-final-script-panel" role="tabpanel" aria-labelledby="audio-tab-script"></div><div id="audio-progress-panel" role="tabpanel" aria-labelledby="audio-tab-progress" hidden><span class="generation-spinner" data-audio-progress-spinner aria-hidden="true" hidden></span><progress data-speech-progress hidden aria-label="Speech generation progress"></progress><p class="help" data-speech-count role="status" hidden></p></div><div id="audio-review-panel" role="tabpanel" aria-labelledby="audio-tab-review" hidden><p class="help" data-audio-review-empty>Your newly generated recording will appear here.</p></div>';q('.audio-workspace').append(review);q('#audio-progress-panel').append(q('#audio-job-status'));const tabs=[...review.querySelectorAll('[data-audio-tab]')];tabs.forEach((tab,index)=>{tab.onclick=()=>{tabs.forEach(t=>{const selected=t===tab;t.setAttribute('aria-selected',String(selected));t.tabIndex=selected?0:-1;document.getElementById(t.getAttribute('aria-controls')).hidden=!selected;});};tab.onkeydown=e=>{const next=e.key==='ArrowRight'?(index+1)%tabs.length:e.key==='ArrowLeft'?(index+tabs.length-1)%tabs.length:e.key==='Home'?0:e.key==='End'?tabs.length-1:null;if(next!==null){e.preventDefault();tabs[next].click();tabs[next].focus();}};});}
   mountScenePicker();update();poll();
  }
  const oldNavigate=navigate;

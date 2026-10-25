@@ -74,10 +74,10 @@
   all('[data-ref-open]',box).forEach(b=>b.onclick=()=>{const a=record(b.dataset.refOpen);if(a?.media==='image')openControls(c,b.dataset.refOpen);else{c.data.reference_library=a?.media||'audio';q('[data-reference-library]',c.form).value=c.data.reference_library;save(c);referencePicker(c);}});
   all('[data-ref-remove]',box).forEach(b=>b.onclick=()=>{const kind=record(b.dataset.refRemove)?.media||referenceKind(c),scope={...c,data:{...c.data,reference_library:kind}};setReferences(c,referenceIds(scope).filter(id=>id!==b.dataset.refRemove),kind);});
   }
-  const text=c.kind==='audio'?all('textarea[data-field=text]',c.form).map(x=>x.value).join('\n'):q('textarea[name=prompt]',c.form)?.value||'';
-  q('[data-prompt-summary]',c.form).textContent=text.trim();
+  const text=c.kind==='audio'?[q('[data-opening-text]',c.form)?.value,...all('textarea[data-field=text]',c.form).map(x=>x.value)].filter(Boolean).join('\n\n'):q('textarea[name=prompt]',c.form)?.value||'';
+  q('[data-prompt-summary]',c.promptSection||c.form).textContent=text.trim();
   fitPrompt(c);
-  q('[data-open-prompt]',c.form).textContent=c.kind==='audio'?(text.trim()?'Edit script':'Write script'):(text.trim()?'Edit prompt':'Add prompt');
+  q('[data-open-prompt]',c.promptSection||c.form).textContent=c.kind==='audio'?(text.trim()?'Edit script':'Write script'):(text.trim()?'Edit prompt':'Add prompt');
   const referenceNote=q('[data-reference-note]',c.form);
   if(referenceNote){referenceNote.textContent='';referenceNote.hidden=true;}
   if(c.kind==='image'){
@@ -175,6 +175,7 @@
   const retained=[modelLabel,promptNode,addLine,negative,board,audioCompute,...audioSettings,...audioReferences].filter(Boolean);retained.forEach(el=>el.remove());footer.remove();
   form.replaceChildren();
   form.innerHTML=section('model','Model and Settings','<div data-model></div><details class="generation-settings"><summary>Model Settings</summary><div class="generation-settings-body" data-settings></div></details>')+ (kind==='audio'?'<section class="generation-section" data-section="references"><details class="generation-settings generation-references"><summary>References</summary><div class="generation-settings-body" data-audio-references></div></details></section>':section('references','References',(kind==='video'?'<select data-reference-library aria-label="Reference library"><option value="image">Image Library</option><option value="video">Video Library</option><option value="audio">Audio Library</option></select>':'')+'<button type="button" class="secondary generation-action" data-open-library>'+(kind==='video'?'Browse Library':'Image Library')+'</button><div class="generation-selected" data-selected></div><p class="help" data-reference-note></p>'))+(kind==='audio'?section('characters','Characters','<div data-audio-characters></div>'):'')+section('prompt',kind==='audio'?'Spoken script':'Prompt','<button type="button" class="secondary generation-action" data-open-prompt>Add prompt</button>'+(kind==='audio'?'<button type="button" class="secondary generation-action" data-generate-audio-script>Generate with AI</button>':'')+'<p class="help generation-prompt-summary" data-prompt-summary></p>')+section('controls','Additional Controls','<button type="button" class="secondary generation-action" data-open-controls>Additional Controls</button>');
+  c.promptSection=q('[data-section=prompt]',form);
   q('[data-model]',form).append(modelLabel);q('[data-settings]',form).innerHTML=kind==='audio'?'':'<div class="generation-attribute-grid" data-model-fields></div><p class="help" data-model-status></p>';
   if(audioCompute){q('[data-section=model]',form).insertAdjacentHTML('afterend',section('compute','Compute',''));q('[data-section=compute]',form).append(audioCompute);}
   if(kind!=='audio'){c.compute=window.EccoCompute.mount(form,kind);form.addEventListener('ecco:compute-change',()=>settingsFields(c));}

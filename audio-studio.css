@@ -54,3 +54,10 @@
 #audio-guided-dialog [data-status],#audio-guided-dialog .audio-source-review{white-space:pre-wrap;overflow-wrap:anywhere}
 #audio-guided-dialog textarea{min-height:100px}
 
+
+/* Inline cue review and measured speech progress use the existing theme. */
+.audio-inline-cue{border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px 0;min-width:0}
+.audio-inline-cue>summary{cursor:pointer}
+.audio-inline-cue>.form{margin-top:12px}
+.audio-inline-cue audio,[data-speech-progress]{width:100%;accent-color:var(--accent)}
+[data-turn-sounds]:empty{display:none}

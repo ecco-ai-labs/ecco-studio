@@ -348,3 +348,9 @@ Synthetic timing/ducking tests establish the mixer behavior, not artistic qualit
 Scheduled generation with sound cues is deliberately rejected until per-run cue
 planning is implemented; existing voice-only workflows remain supported.
 
+
+## Automatic soundtrack preparation — 25 October 2026
+
+Final Script now starts with Spoken script, followed by numbered turns and inline sound cue review. Existing Generate with AI and exact-range Improve with AI dialogs remain unchanged. Each cue can use Audio Library, upload, preview or generate a new sound. Generate audio creates missing sounds serially on the selected compute, saves assignments, then submits the mixed recording. Confirmed jobs resume after interruption; uncertain submissions are not retried automatically. Script changes require timing review. Progress uses real worker completed/total passage counts.
+
+This frontend update uses the already qualified sound-generation and mixing service. It does not install models or activate another worker. Automated UI tests cover ordering, partial retry, interrupted polling, stale drafts, inline assignment and worker-count progress. Live acceptance evidence will be recorded after deployment. Scheduled soundtracks remain separate and pending.

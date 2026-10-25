@@ -91,5 +91,5 @@
    draw();d.showModal();q('[data-direction]').focus();if(local.speech_key&&local.speech_key!==base)status.textContent='The script changed. Review cue passages and trigger words before Apply.';
   };
  }
- window.EccoSoundDesign={mount,prepare,validate,key,suggest,planLines};
+ window.EccoSoundDesign={mount,prepare,validate,key,suggest,planLines,defaults};
 })();
