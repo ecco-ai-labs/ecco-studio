@@ -65,7 +65,11 @@
    try{
     const verified=await request('me');if(version!==authVersion)return;
     if(!verified.user?.id)throw Error('Invalid sign-in response');
-    user=verified.user;error='';changed();
+    const identityChanged=user?.id!==verified.user.id;
+    user=verified.user;error='';
+    // A successful heartbeat is not an account switch. Keep open ticket drafts
+    // and conversations intact while still refreshing the displayed identity.
+    if(identityChanged)changed();else mount();
    }catch(e){
     if(version!==authVersion)return;
     if(e.status===401){forgetIdentity();error='Sign-in was revoked or is no longer valid. Sign in again.';await prepare();}

@@ -41,9 +41,28 @@ test('reload restores identity only from server-verified session',async()=>{
   try{w.__observers=[];const Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);w.__observers.push(this);}};w.eval(fs.readFileSync('google-signin.js','utf8'));await new Promise(r=>setTimeout(r,20));assert.ok(verified);assert.equal(w.document.querySelector('#entry-tell-story').disabled,!valid);assert.equal(w.document.querySelector('#google-user-name [data-user-label]')?.textContent,valid?'Restored User':undefined);assert.equal(w.sessionStorage.getItem('ecco-user-session'),valid?'existing-session':null);}finally{for(const observer of w.__observers||[])observer.disconnect();await Promise.resolve();w.close();}
  }
 });
+test('session heartbeats retain open work; an actual identity change still clears it',async()=>{
+ const dom=new JSDOM('<body><div id="workspace-entry"></div><textarea id="draft">Unsent support reply</textarea></body>',{url:'https://ecco-ai-labs.github.io/ecco-studio/',runScripts:'outside-only'});
+ const w=dom.window;w.AbortSignal={timeout:()=>undefined};w.localStorage.setItem('ecco-user-session','retained');
+ let identity='google:123',heartbeat,changes=0;
+ w.__observers=[];const Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);w.__observers.push(this);}};
+ w.setInterval=(fn,ms)=>{if(ms===60000)heartbeat=fn;return 1;};
+ w.document.addEventListener('ecco:auth-change',()=>{changes++;w.document.querySelector('#draft').value='';});
+ w.fetch=async()=>({ok:true,headers:{get:()=> 'application/json'},json:async()=>({user:{id:identity,name:'Verified user'}})});
+ try{
+  w.eval(fs.readFileSync('google-signin.js','utf8'));await new Promise(r=>setTimeout(r,20));
+  assert.equal(changes,1);w.document.querySelector('#draft').value='Unsent support reply';
+  heartbeat();await new Promise(r=>setTimeout(r,20));
+  heartbeat();await new Promise(r=>setTimeout(r,20));
+  assert.equal(changes,1);assert.equal(w.document.querySelector('#draft').value,'Unsent support reply');
+  identity='google:456';heartbeat();await new Promise(r=>setTimeout(r,20));
+  assert.equal(changes,2);assert.equal(w.document.querySelector('#draft').value,'');
+ }finally{for(const observer of w.__observers)observer.disconnect();await Promise.resolve();w.close();}
+});
 test('transient outage retains sign-in and independent connections; explicit disconnect needs confirmed revocation',async()=>{
  const dom=new JSDOM('<body><div id="workspace-entry"></div></body>',{url:'https://ecco-ai-labs.github.io/ecco-studio/',runScripts:'outside-only'});
  const w=dom.window;w.AbortSignal={timeout:()=>undefined};w.localStorage.setItem('ecco-user-session','retained');w.localStorage.setItem('ecco-storage-access','storage');w.localStorage.setItem('ecco-connected-gpus','["gpu"]');
+ w.__observers=[];const Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);w.__observers.push(this);}};
  w.fetch=async()=>{throw Error('Network unavailable');};
  try{
   w.eval(fs.readFileSync('google-signin.js','utf8'));await new Promise(r=>setTimeout(r,20));
@@ -51,5 +70,5 @@ test('transient outage retains sign-in and independent connections; explicit dis
   await assert.rejects(w.EccoAuth.signOut(),/Network unavailable/);
   assert.equal(w.EccoAuth.connected,true);
   assert.equal(w.localStorage.getItem('ecco-storage-access'),'storage');assert.equal(w.localStorage.getItem('ecco-connected-gpus'),'["gpu"]');
- }finally{w.close();}
+ }finally{for(const observer of w.__observers)observer.disconnect();await Promise.resolve();w.close();}
 });

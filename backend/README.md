@@ -233,3 +233,5 @@ Validation: `PYTHONPATH=backend python3 -m unittest test_audio_workflows test_au
 The tests use fake AI responses, temporary storage and synthetic worker status.
 Live acceptance still requires three playable outputs in Audio Library and an
 observed scheduled run with the browser closed; unit tests do not prove that.
+
+Session health checks preserve open Desk conversations and unsent ticket drafts when the verified Google subject is unchanged. Account changes and revoked sessions still clear the previous user’s work.
