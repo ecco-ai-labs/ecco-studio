@@ -30,18 +30,18 @@ tbody tr.has-support-reply{background:#fff9e4}tbody tr.has-support-reply:hover{b
 
 .case-owner{padding:14px;border:1px solid var(--line);border-radius:8px;background:#f5f8f8;margin:16px 0}.case-owner strong{font-size:12px}.case-owner p{font-size:11px;color:#637680;line-height:1.5;margin:6px 0 10px}.case-owner .primary{padding:8px 12px;font-size:12px}
 `;var Sg=`/* One visual contract for close/minimize, including the Desk shadow root. */
-:is(#close-activity,.ecco-popup-close,.ecco-popup-minimize,.icon-button[aria-label="Close dialog"],.icon-button[aria-label="Close ticket"]){
+button:is(#close-activity,.ecco-popup-close,.ecco-popup-minimize,.icon-button[aria-label="Close dialog"],.icon-button[aria-label="Close ticket"]):not([hidden]){
  box-sizing:border-box!important;width:26px!important;height:26px!important;
  min-width:26px!important;min-height:26px!important;max-width:26px!important;max-height:26px!important;
- flex:0 0 26px!important;padding:0!important;margin:0!important;display:inline-grid!important;place-items:center!important;
+ flex:0 0 26px!important;padding:0!important;margin:0!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:0!important;
  border:0!important;border-radius:5px!important;background:var(--ecco-theme-accent,#ffdc24)!important;
  color:var(--ecco-theme-contrast,#211b33)!important;box-shadow:none!important;
  font:600 20px/1 Arial,sans-serif!important;letter-spacing:normal!important;cursor:pointer;transform:none!important;
 }
-:is(#close-activity,.ecco-popup-close,.ecco-popup-minimize,.icon-button[aria-label="Close dialog"],.icon-button[aria-label="Close ticket"]):focus-visible{
+button:is(#close-activity,.ecco-popup-close,.ecco-popup-minimize,.icon-button[aria-label="Close dialog"],.icon-button[aria-label="Close ticket"]):not([hidden]):focus-visible{
  outline:2px solid var(--ecco-theme-text,#fff)!important;outline-offset:2px!important;
 }
-:is(#close-activity,.ecco-popup-close,.ecco-popup-minimize,.icon-button[aria-label="Close dialog"],.icon-button[aria-label="Close ticket"]) svg{
- width:14px!important;height:14px!important;fill:none!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;
+button:is(#close-activity,.ecco-popup-close,.ecco-popup-minimize,.icon-button[aria-label="Close dialog"],.icon-button[aria-label="Close ticket"]):not([hidden]) svg{
+ display:block!important;flex:0 0 14px!important;margin:0!important;padding:0!important;transform:none!important;width:14px!important;height:14px!important;fill:none!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;
 }
 `;var vg=Da(bo(),1);function sS(e,a={}){let t=e.attachShadow({mode:"open"}),l=document.createElement("style");l.textContent=Lg+Sg,t.append(l);let u=document.createElement("div");t.append(u);let o=(0,Cg.createRoot)(u),d=a.onSignIn||on,i=og;return o.render((0,vg.jsx)(rn,{...a,onSignIn:d,onSignOut:i})),()=>o.unmount()}var yg=document.querySelector("#ecco-desk-root");yg&&sS(yg);export{sS as mount};

@@ -119,7 +119,7 @@
     },
     "studioEntry": "Tell Your Story is disabled by default, including during Google session restoration and sign-in failures. Signed-out opacity is 0.5 with a not-allowed cursor. Enable only after backend-verified Google identity is available. Entry handlers also require the current identity. Preserve button dimensions, wording, themes and explicit click to enter.",
     "publishingStatus": "Publishing control-panel icon shows only YouTube: Connected or YouTube: Not Connected (or the connected platform name). Hover, keyboard focus and click reveal compact theme-aware status; never open Connections from the indicator or its channel list. Connection management stays in the Connections menu.",
-    "popupControlAppearance": "All Studio modal close/minimize controls, Activity drawer close, and Desk dialog/ticket close controls use popup-controls.css. Fixed 26x26 border-box with no padding, margin or shadow; 14x14 SVG strokes at 2px; theme accent background and contrast foreground for default/hover/focus; focus outline uses theme text. Behaviors and popup positioning remain unchanged."
+    "popupControlAppearance": "All Studio modal close/minimize controls, Activity drawer close, and Desk dialog/ticket close controls use popup-controls.css. Fixed 26x26 border-box with no padding, margin or shadow; 14x14 SVG strokes at 2px; theme accent background and contrast foreground for default/hover/focus; focus outline uses theme text. Behaviors and popup positioning remain unchanged. Explicit flex centering, zero SVG margins and higher specificity than dialog-wide button sizing ensure icons stay centered, including Connections."
   },
   "components": [
     {
