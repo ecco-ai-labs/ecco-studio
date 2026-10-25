@@ -40,7 +40,7 @@
     // Inline creation uses the main Audio Studio compute selection, CPU by default.
     window.EccoSoundGeneration?.mount({box,cue,valid,changed:attached,settingsChanged:persist,preferredCompute:getCompute()});
     const advanced=box.querySelector('[data-sound-compute]')?.closest('.generation-filter-row');if(advanced){const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Sound Settings';details.append(summary);advanced.before(details);details.append(advanced);}
-    box.querySelector('[data-inline-remove]').onclick=()=>{setPlan({...getPlan(),cues:getPlan().cues.filter(c=>c!==cue)});host.dataset.signature='';mount({root,getPlan,setPlan,getLines,getRanges,getCompute,mediaURL});};
+    box.querySelector('[data-inline-remove]').onclick=()=>{setPlan({...getPlan(),cues:getPlan().cues.filter(c=>c!==cue)});host.dataset.signature='';box.querySelector('[data-inline-remove]').blur();mount({root,getPlan,setPlan,getLines,getRanges,getCompute,mediaURL});host.querySelector('[data-add-turn-sound]')?.focus();};
     box.querySelector('[data-inline-upload]').onclick=()=>window.EccoAudioLibrary?.upload(asset=>{try{valid();cue.asset_id=asset.id;attached();}catch(error){note.textContent=error.message;}});
     box.querySelector('[data-inline-preview]').onclick=async()=>{try{valid();if(!cue.asset_id)throw Error('Generate or choose a sound first.');const url=await mediaURL(cue.asset_id);valid();const parsed=new URL(url);if(parsed.protocol!=='https:'&&!(parsed.protocol==='blob:'&&parsed.origin===location.origin))throw Error('Could not open this audio.');root.querySelectorAll('audio').forEach(a=>a.pause());const player=box.querySelector('audio');player.src=url;player.hidden=false;note.textContent='Press Play to listen.';}catch(error){note.textContent=error.message;}};
    }
@@ -51,7 +51,7 @@
     if(selection)for(let n=currentRange.start;n<=currentRange.end;n++){const text=currentLines[n].text;if(text.includes(selection)&&text.indexOf(selection)===text.lastIndexOf(selection)){start=n;phrase=selection;break;}}
     const prior=getPlan()||{},existing=prior.cues||[];if(existing.length>=12)return;let n=1;while(existing.some(c=>c.name==='Sound '+n))n++;
     const cue={...window.EccoSoundDesign.defaults(),...getCompute(),name:'Sound '+n,start,end:start,phrase,description:'A brief sound effect for this action: '+(phrase||currentLines[start].text).slice(0,400)};
-    setPlan({...prior,enabled:true,cues:[...existing,cue],speech_key:prior.speech_key||window.EccoSoundDesign.key(currentLines)});host.dataset.signature='';mount({root,getPlan,setPlan,getLines,getRanges,getCompute,mediaURL});const created=[...host.querySelectorAll('[data-inline-cue]')].find(b=>b.dataset.inlineCue===cue.name);if(created){created.open=true;created.querySelector('textarea').focus();}
+    setPlan({...prior,enabled:true,cues:[...existing,cue],speech_key:prior.speech_key||window.EccoSoundDesign.key(currentLines)});host.dataset.signature='';add.blur();mount({root,getPlan,setPlan,getLines,getRanges,getCompute,mediaURL});const created=[...host.querySelectorAll('[data-inline-cue]')].find(b=>b.dataset.inlineCue===cue.name);if(created){created.open=true;created.querySelector('textarea').focus();}
    };
   });
  }
