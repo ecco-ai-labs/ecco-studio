@@ -86,6 +86,12 @@ test('Changing the requested count permits regeneration; a failed retry preserve
  const calls=mock(x);await submit(x);assert.equal(x.q('[data-turn-list]').querySelectorAll('[data-review-turn]').length,4);assert.match(calls[0].body.fields[0].text,/Aim for 4 spoken turns/);assert.equal(x.q('[data-turn-decision]'),null);assert.deepEqual(x.errors,[]);
 });
 
+test('Automatic repair restores editable cast and turn count before the mismatch decision',async t=>{
+ const x=await ready(t);mock(x);await open(x);await questions(x);await submit(x);let attempts=0;
+ x.w.testUI.setAPI(async(path,body)=>{attempts++;const cast=body.context.lines;return {revisions:[{id:'audio_plan',text:JSON.stringify({opening:null,segments:Array.from({length:4},(_,i)=>({character_id:attempts===1?'unknown':cast[i%cast.length].character_id,text:'Spoken turn '+(i+1)+'.'}))})}],questions:[]};});
+ await submit(x);assert.equal(attempts,2);assert.match(x.q('[data-turn-decision]').textContent,/selected 6 turns, but AI generated 4 turns/);assert.equal(x.q('[data-value=turns]').disabled,false);assert.equal(x.q('[data-character-property=name]').disabled,false);assert.equal(x.q('[data-accept-turns]').disabled,false);field(x,'turns','4');assert.equal(x.q('[data-value=turns]').value,'4');assert.deepEqual(x.errors,[]);
+});
+
 test('Changed cast cannot silently accept an older mismatched script',async t=>{
  const x=await ready(t);mock(x,{turnDifference:-2});await open(x);await questions(x);await submit(x);await submit(x);input(x,'[data-cast-row="0"] [data-character-property=name]','Different host');assert.equal(x.q('[data-accept-turns]').disabled,true);assert.match(x.q('[data-turn-decision]').textContent,/characters changed/);assert.match(x.q('[aria-label="Preserved generated draft"]').value,/Host:/);assert.equal(x.q('[data-review-turn]'),null);
 });
