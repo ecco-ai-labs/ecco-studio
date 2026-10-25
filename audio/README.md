@@ -17,6 +17,22 @@ deployed, with model qualification and full-journey testing still pending.
 They are **not an end-to-end acceptance result**. Follow
 [STORYBOOK_ACCEPTANCE.md](STORYBOOK_ACCEPTANCE.md) for deployment and test evidence.
 
+## Two CPU choices — 2026-10-25
+
+Both registered CPU workers are live and selectable: `ecco-storage-api`
+(2 vCPU / 8 GB) and `smiling_sapphire_mandrill` (16 vCPU / 64 GB).
+Real authenticated Chatterbox previews completed on each explicitly selected
+machine and replayed from Audio Library after refresh. The new CPU selection
+also survived refresh. No GPU was started or used.
+
+The new CPU's first 4.6785-second preview took 46.0 seconds including loading.
+The original CPU's separate preview was 1.518417 seconds. These verify routing,
+inference and saved playback; they do not validate audiobook quality.
+The delivery planner now uses a strict structured response after a live preview
+exposed an intermittent formatting failure. Runtime revisions, job IDs,
+checksums and the still-incomplete storybook checklist are recorded in
+[STORYBOOK_ACCEPTANCE.md](STORYBOOK_ACCEPTANCE.md).
+
 ## Storybook integration — 2026-10-24
 
 Pages deployment [40140910982](https://github.com/ecco-ai-labs/ecco-studio/actions/runs/40140910982)
