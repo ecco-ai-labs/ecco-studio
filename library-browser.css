@@ -1,0 +1,19 @@
+#page>.section-head:has(.library-browser-tools){flex-wrap:wrap;gap:12px}
+.library-browser-tools{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.library-browser-tools input,.library-browser-tools select{width:auto;max-width:100%;min-height:30px;padding:5px 8px;font-size:12px}
+.library-browser-tools input{width:170px}.library-filter-count{font-size:12px;color:var(--ecco-theme-muted,#b1acc9);white-space:nowrap}
+:is(#library-gallery,#audio-library-gallery,#video-library-gallery,#story-library-list,#workflow-library-list) [hidden]{display:none!important}
+.library-metadata{display:none}
+:is(.library-view-list,.library-list) .library-metadata{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px 16px;margin:8px 0;font-size:12px}
+.library-metadata dt{grid-row:1;color:var(--ecco-theme-muted,#b1acc9)}.library-metadata dd{grid-row:2;margin:0;overflow-wrap:anywhere;color:var(--ecco-theme-text,#fff)}
+:is(#audio-library-gallery,#video-library-gallery):is(.library-view-list,.library-list){display:flex!important;flex-direction:column;gap:8px}
+:is(#audio-library-gallery,#video-library-gallery):is(.library-view-list,.library-list)>.card{display:grid;grid-template-columns:minmax(160px,230px) minmax(0,1fr);align-items:center;gap:16px;padding:12px;min-width:0;width:100%;box-sizing:border-box}
+:is(#audio-library-gallery,#video-library-gallery):is(.library-view-list,.library-list)>.card>:is(audio,video){width:100%;max-height:100px;object-fit:contain}
+:is(#audio-library-gallery,#video-library-gallery):is(.library-view-list,.library-list) .card-body{min-width:0;padding:0 64px 0 0}
+#video-library-gallery.library-list .card-body>p{margin:4px 0}
+#video-library-gallery.library-list .actions{font-size:12px;flex-wrap:wrap}
+#library-gallery.library-view-list .library-metadata{grid-template-columns:repeat(4,minmax(0,1fr))}
+.text-library-gallery.library-list .library-metadata{margin:8px 12px}
+#story-library-list.library-list .library-metadata,#workflow-library-list.library-list .library-metadata{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:700px){.library-browser-tools{width:100%}.library-browser-tools input{flex:1;min-width:120px}:is(#audio-library-gallery,#video-library-gallery):is(.library-view-list,.library-list)>.card{grid-template-columns:1fr}.library-metadata{overflow-x:auto}.library-metadata dd{min-width:65px}}
+:is(#audio-library-gallery,#video-library-gallery):is(.library-view-list,.library-list) .publishing-library-choice{grid-column:1/-1}

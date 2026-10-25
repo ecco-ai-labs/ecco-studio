@@ -129,7 +129,7 @@
     try{message=(await response.json()).error||message;}catch{}
     const error=Error(message);error.status=response.status;throw error;
    }
-   if(path.startsWith('media/'))return {buffer:await response.arrayBuffer(),mime:response.headers.get('Content-Type')};
+   if(path.startsWith('media/')){const buffer=await response.arrayBuffer();(window.EccoMediaMetadata||(window.EccoMediaMetadata=new Map())).set(decodeURIComponent(path.slice(6)),{size:buffer.byteLength});window.dispatchEvent(new Event('ecco:media-metadata'));return {buffer,mime:response.headers.get('Content-Type')};}
    const data=await response.json();
    if(accessKey!==key&&accessKey!==options.connectingKey)throw Error('Workspace connection changed; stale response ignored.');
    if(path==='state'&&(!Array.isArray(data.records)||!data.config))throw Error('Storage returned an invalid workspace response.');
