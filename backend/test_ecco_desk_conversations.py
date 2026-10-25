@@ -176,3 +176,83 @@ class Conversations(unittest.TestCase):
         with patch.object(mail,'send') as send:
             self.assertTrue(replies.deliver_one(self.db,self.config));self.assertFalse(replies.deliver_one(self.db,self.config));send.assert_called_once()
             self.assertIn('+desk-',str(send.call_args.args[0]['Reply-To']))
+
+    def test_two_tickets_for_same_customer_keep_email_responses_and_unread_separate(self):
+        t2=self.create(self.alice)
+        for tid,body,mid in [(self.t['id'],'Response for ticket one','<one@example.test>'),(t2['id'],'Response for ticket two','<two@example.test>')]:
+            self.assertEqual(self.ingest(self.message(sender='support@example.test',sent=True,tid=tid,body=body,mid=mid)),'logged')
+        first=self.detail(self.alice);second=self.detail(self.alice,t2['id'])
+        self.assertEqual([c['body'] for c in first['comments']],['Response for ticket one'])
+        self.assertEqual([c['body'] for c in second['comments']],['Response for ticket two'])
+        with desk.connect(self.db) as db:
+            self.assertEqual(desk.read(db,self.alice,{'notifications':['1']})['unreadTickets'],2)
+            self.assertEqual(desk.read(db,self.bob,{'notifications':['1']})['unreadTickets'],0)
+        self.action(self.alice,'readTicket',through=first['readThrough'])
+        with desk.connect(self.db) as db:
+            self.assertEqual(desk.unread(db,self.alice)['unreadByTicket'],{str(t2['id']):1})
+            self.assertEqual({r[0] for r in db.execute('SELECT recipient FROM desk_reply_outbox')},{'alice@example.test'})
+        # Reading ticket 1 must not accept the cursor from ticket 2 or another user.
+        for me,through in [(self.alice,second['readThrough']),(self.bob,first['readThrough'])]:
+            with self.assertRaises(desk.DeskError):self.action(me,'readTicket',through=through)
+
+    def test_read_acknowledges_only_rendered_response_not_newer_reply(self):
+        self.action(self.agent,'comment',body='First response')
+        seen=self.detail(self.alice)['readThrough']
+        self.action(self.agent,'comment',body='Arrived after the fetch')
+        self.action(self.alice,'readTicket',through=seen)
+        self.action(self.alice,'comment',body='Customer reply')
+        self.action(self.agent,'comment',body='Private note',visibility='internal')
+        with desk.connect(self.db) as db:self.assertEqual(desk.unread(db,self.alice)['unreadByTicket'],{str(self.t['id']):1})
+
+    def test_staff_sends_directly_to_requester_and_sent_copy_logs_without_forward(self):
+        with patch.object(mail,'send') as send:
+            mail.deliver_one(self.db,self.config)
+            notification=send.call_args.args[0]
+            self.assertEqual(str(notification['To']),'support@example.test')
+            self.assertEqual(str(notification['Reply-To']),'alice@example.test')
+            self.assertIsNone(notification['Cc']);self.assertIsNone(notification['Bcc'])
+        m=EmailMessage();m['From']='support@example.test';m['To']='alice@example.test'
+        m['Message-ID']='<direct-reply@example.test>';m['In-Reply-To']=str(notification['Message-ID'])
+        m.set_content('Direct response only for Alice')
+        with desk.connect(self.db) as db:before=db.execute('SELECT count(*) FROM desk_reply_outbox').fetchone()[0]
+        self.assertEqual(self.ingest(dict(id='sent-direct',raw=base64.urlsafe_b64encode(m.as_bytes()).decode(),labelIds=['SENT'])),'logged')
+        with desk.connect(self.db) as db:self.assertEqual(db.execute('SELECT count(*) FROM desk_reply_outbox').fetchone()[0],before)
+        self.assertEqual(self.detail(self.alice)['comments'][0]['body'],'Direct response only for Alice')
+
+    def test_conflicting_references_never_mix_two_tickets_from_same_user(self):
+        t2=self.create(self.alice)
+        with desk.connect(self.db) as db:ref=db.execute('SELECT messageId FROM desk_mail_outbox WHERE ticketId=?',(t2['id'],)).fetchone()[0]
+        self.assertEqual(self.ingest(self.message(sender='support@example.test',sent=True,ref=ref)),'unmatched_or_ambiguous_thread')
+        self.assertEqual(self.detail(self.alice)['comments'],[])
+        self.assertEqual(self.detail(self.alice,t2['id'])['comments'],[])
+
+    def test_chat_alert_once_per_join_and_retry_uses_same_request_id(self):
+        self.action(self.alice,'chatRequest');self.action(self.alice,'chatRequest')
+        with desk.connect(self.db) as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_chat_alerts').fetchone()[0],1)
+        with patch.object(chat,'alert_settings',return_value={'webhook':'fixture'}),patch.object(chat,'send_alert',side_effect=OSError('secret webhook URL')) as send:
+            self.assertTrue(chat.deliver_alert(self.db));first_id=send.call_args.args[2]
+        with desk.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT lastError FROM desk_chat_alerts').fetchone()[0],'OSError')
+            db.execute('UPDATE desk_chat_alerts SET availableAt=0')
+        with patch.object(chat,'alert_settings',return_value={'webhook':'fixture'}),patch.object(chat,'send_alert') as send:
+            self.assertTrue(chat.deliver_alert(self.db));self.assertFalse(chat.deliver_alert(self.db))
+            send.assert_called_once_with('fixture',self.t['id'],first_id)
+        self.action(self.alice,'chatEnd');self.clock.return_value+=1;self.action(self.alice,'chatRequest')
+        with desk.connect(self.db) as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_chat_alerts').fetchone()[0],2)
+
+    def test_chat_alert_skips_departed_customers_and_never_connects_them(self):
+        self.action(self.alice,'chatRequest');self.action(self.alice,'chatEnd')
+        with patch.object(chat,'alert_settings',return_value={'webhook':'fixture'}),patch.object(chat,'send_alert') as send:
+            self.assertFalse(chat.deliver_alert(self.db));send.assert_not_called()
+        self.assertEqual(self.detail(self.alice)['chat']['state'],'ended')
+
+    def test_chat_alert_configuration_restricts_host_and_private_file(self):
+        path=Path(self.tmp.name)/'chat.json'
+        with patch.dict(os.environ,{'ECCO_DESK_CHAT_CONFIG':str(path)}):
+            self.assertIsNone(chat.alert_settings())
+            for url in ['https://evil.example/v1/spaces/ABC/messages?key=x&token=y','http://chat.googleapis.com/v1/spaces/ABC/messages?key=x&token=y']:
+                path.write_text(json.dumps({'enabled':True,'webhook':url}));path.chmod(0o600)
+                with self.assertRaises(ValueError):chat.alert_settings()
+            path.write_text(json.dumps({'enabled':True,'webhook':'https://chat.googleapis.com/v1/spaces/ABC/messages?key=x&token=y'}));path.chmod(0o600)
+            self.assertTrue(chat.alert_settings());path.chmod(0o644)
+            with self.assertRaises(ValueError):chat.alert_settings()

@@ -25,9 +25,12 @@ def main():
     parser.add_argument('--runtime-sha256', required=True)
     parser.add_argument('--previous-module-sha256')
     parser.add_argument('--previous-mail-module-sha256')
+    parser.add_argument('--previous-conversations-commit')
     args = parser.parse_args()
     if len(args.commit) != 40 or any(c not in '0123456789abcdef' for c in args.commit):
         raise SystemExit('A full pinned commit is required.')
+    if args.previous_conversations_commit and (len(args.previous_conversations_commit)!=40 or any(c not in '0123456789abcdef' for c in args.previous_conversations_commit)):
+        raise SystemExit('A full previous conversations commit is required.')
     proc = Path('/proc') / str(args.pid)
     cwd = (proc / 'cwd').resolve()
     command = [s.decode() for s in (proc / 'cmdline').read_bytes().split(b'\0') if s]
@@ -71,10 +74,13 @@ def main():
         compile(content, name, 'exec')
         target = cwd / name
         previous = target.read_bytes() if target.exists() else None
-        # First installation only. A later update must be reviewed against its
-        # live hashes, rather than silently overwriting another deployment.
         if previous is not None and previous != content:
-            raise SystemExit('Conversation module already exists with different content: ' + name)
+            if not args.previous_conversations_commit:
+                raise SystemExit('Conversation module already exists with different content: ' + name)
+            with urlopen(f'https://raw.githubusercontent.com/ecco-ai-labs/ecco-studio/{args.previous_conversations_commit}/backend/{name}',timeout=30) as response:
+                expected_previous=response.read(1024 * 1024)
+            if previous!=expected_previous:
+                raise SystemExit('Live conversation module differs from the reviewed previous commit: '+name)
         extras[name] = (content, previous)
     if old_mail is not None and (not args.previous_mail_module_sha256 or
             hashlib.sha256(old_mail).hexdigest() != args.previous_mail_module_sha256):

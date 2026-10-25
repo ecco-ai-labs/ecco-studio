@@ -21,6 +21,7 @@ _lock=threading.RLock()
 _sync_lock=threading.Lock()
 _last_sync=0
 _last_error=None
+_last_connect_error=None
 
 
 def _saved():
@@ -41,7 +42,7 @@ def _saved():
 def status():
     saved=_saved()
     return dict(connected=bool(saved),mailbox=saved['mailbox'] if saved else None,
-                lastSync=_last_sync or None,error=_last_error)
+                lastSync=_last_sync or None,error=_last_error or _last_connect_error)
 
 
 def _save(credentials,mailbox):
@@ -83,6 +84,7 @@ def _build(credentials):
 
 
 def finish(query):
+    global _last_connect_error
     state=query.get('state',[])
     with _lock:
         pending=_pending.pop(state[0],None) if len(state)==1 else None
@@ -93,20 +95,40 @@ def finish(query):
     codes=query.get('code',[])
     if len(codes)!=1 or not codes[0] or len(codes[0])>8192:
         raise ValueError('Google did not return a valid inbox authorization.')
+    stage='token exchange'
     try:
         flow=pending[1]; flow.fetch_token(code=codes[0],timeout=20); credentials=flow.credentials
         if not credentials.has_scopes(SCOPES) or not credentials.refresh_token:
             raise ValueError('Allow read-only Gmail access to log support replies.')
+        stage='mailbox verification'
         profile=_build(credentials).users().getProfile(userId='me').execute()
         expected=mail.settings()['recipient']
         if profile['emailAddress'].casefold()!=expected.casefold():
             raise ValueError('Connect '+expected+'; other inboxes are not accepted.')
+        stage='saving the connection'
         _save(credentials,expected)
+        _last_connect_error=None
         return expected
     except ValueError:
         raise
-    except Exception:
-        raise ValueError('Could not connect the support inbox. Check Gmail API access and Google consent, then try again.') from None
+    except Exception as exc:
+        # Whitelist provider reasons, never print OAuth codes, tokens, URLs or
+        # exception text. The previous generic error hid the failing setup step.
+        status=getattr(getattr(exc,'resp',None),'status',None)
+        reasons=set()
+        try:
+            error=json.loads(exc.content).get('error',{})
+            reasons={d.get('reason') for d in error.get('errors',[])+error.get('details',[]) if isinstance(d,dict)}
+        except (AttributeError,ValueError,TypeError): pass
+        if reasons & {'accessNotConfigured','SERVICE_DISABLED','serviceDisabled'}:
+            message='Enable Gmail API in the existing Ecco Google Cloud project, then reconnect support email.'
+        elif reasons & {'insufficientPermissions','ACCESS_TOKEN_SCOPE_INSUFFICIENT'}:
+            message='Google did not grant Gmail read access. Reconnect support email with the requested permission.'
+        else:
+            message=f'Could not connect support email during {stage} ({type(exc).__name__}'+(f', HTTP {status}' if type(status) is int else '')+').'
+        _last_connect_error=message
+        mail.LOG.warning('Ecco Desk inbox authorization: %s',message)
+        raise ValueError(message) from None
 
 
 def callback(handler):

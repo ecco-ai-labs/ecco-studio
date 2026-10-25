@@ -272,3 +272,8 @@ creator can instead change the requested count and generate again. Failed retrie
 keep the candidate; source/brief/cast edits prevent stale acceptance. Save Draft
 also retains this unresolved decision. Character coverage and runtime limits still
 apply. A failed editorial pass retains the valid script for targeted refinement.
+
+The Studio headset shows a small count of tickets with unread public support
+responses. Counts and read receipts are scoped to the signed-in requester and
+each ticket. Opening its visible conversation acknowledges only the responses
+actually loaded. Other tickets and later responses remain unread.

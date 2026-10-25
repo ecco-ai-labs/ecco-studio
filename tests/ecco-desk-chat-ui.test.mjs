@@ -18,7 +18,7 @@ globalThis.fetch=async(url,options)=>{
  if(p?.op==='chatPresence')available=p.available;
  if(p?.op==='chatAccept'){assert(available);state='live'}
  if(p?.op==='chatMessage'){assert.equal(state,'live');messages.push({id:'chat1',authorName:me().name,body:p.body,visibility:'public',channel:'chat',createdAt:'2026-10-24T18:01:00Z'})}
- if(String(url).includes('?ticket='))return new Response(JSON.stringify({ticket,comments:messages,events:[],chat:chat()}));
+ if(String(url).includes('?ticket='))return new Response(JSON.stringify({ticket,comments:messages,events:[],chat:chat(),readThrough:staff?null:'email1'}));
  if(p)return new Response(JSON.stringify({ok:true,chat:chat()}));
  return new Response(JSON.stringify({me:me(),tickets:[ticket],members:[],users:[],activity:[],needsSetup:false,chatSupport:support(),inbox:{connected:true,mailbox:'support@example.test'}}));
 };
@@ -27,6 +27,7 @@ const {mount}=await import('../desk/desk-app.mjs');
 const button=(root,text)=>Array.from(root.querySelectorAll('button')).find(b=>b.textContent.trim()===text);
 const host=document.createElement('div');document.body.append(host);let cleanup=mount(host,{portalOnly:true,embedded:true});await tick();await tick();let root=host.shadowRoot;
 root.querySelector('.ticket-title').click();await tick();await tick();
+assert(calls.some(c=>c.p?.op==='readTicket'&&c.p.id===1&&c.p.through==='email1'));
 assert(root.textContent.includes('An earlier email reply'));assert(root.textContent.includes('Email'));
 button(root,'Online support').click();await tick();await tick();
 assert(root.textContent.includes('Queue position 1'));assert(!root.textContent.includes('Connected with Agent'));

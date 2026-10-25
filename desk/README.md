@@ -148,3 +148,27 @@ Additional checks:
 PYTHONPATH=backend python3 -m unittest backend/test_ecco_desk_conversations.py backend/test_ecco_desk_inbox.py
 node tests/ecco-desk-chat-ui.test.mjs
 ```
+
+### Requester-only replies and unread responses
+
+Support emails are sent only to the original requester. New-ticket/team email
+notifications set Reply-To to that specific requester; replies from the connected
+support mailbox are imported from Sent using the original Message-ID references.
+No CC/BCC is added. Ticket reply aliases and header references keep two tickets
+from the same user separate; conflicting references are rejected.
+
+`GET /api/desk/support?notifications=1` returns only the signed-in requester’s
+unread ticket count. `readTicket` acknowledges a rendered response ID belonging
+to that exact ticket; another ticket or a later unseen reply is never cleared.
+
+### Google Chat queue alerts
+
+The CPU mail worker also drains a durable Google Chat alert queue. Configure the
+explicitly approved incoming webhook in private `desk-chat.json` (mode 0600), with
+`enabled: true` and `webhook` set to its Google Chat URL. Never put it in GitHub,
+activity logs or customer payloads. Only chat.googleapis.com space message URLs
+are accepted, redirects are refused, and retries reuse the same Google request ID.
+Alerts contain the ticket number and team queue link, without customer content.
+Repeated join clicks do not duplicate alerts; abandoned/accepted queue entries
+are skipped. Chat connection still requires staff availability and acceptance.
+Without the webhook configuration, no Google Chat alert is claimed or sent.

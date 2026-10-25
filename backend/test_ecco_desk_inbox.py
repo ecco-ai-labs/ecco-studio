@@ -43,6 +43,14 @@ class InboxSecurity(unittest.TestCase):
         with self.assertRaises(ValueError) as error:self.authorize('support@example.test')
         self.assertNotIn('secret',str(error.exception));self.assertNotIn('fixture-code',str(error.exception))
 
+    def test_disabled_api_returns_actionable_error_without_provider_secrets(self):
+        error=RuntimeError('do not expose bearer token')
+        error.resp=Mock(status=403)
+        error.content=json.dumps({'error':{'errors':[{'reason':'accessNotConfigured','message':'sensitive provider detail'}]}}).encode()
+        self.flow.fetch_token.side_effect=error
+        with self.assertRaisesRegex(ValueError,'Enable Gmail API') as caught:self.authorize('support@example.test')
+        self.assertNotIn('token',str(caught.exception));self.assertNotIn('sensitive',str(caught.exception))
+
     def test_cancel_and_expired_states_do_not_exchange_code(self):
         for when,query in [(time.monotonic()-601,{}),(time.monotonic(),{'error':['access_denied']})]:
             inbox._pending['desk-inbox-x']=(when,self.flow)

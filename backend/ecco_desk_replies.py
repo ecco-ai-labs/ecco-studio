@@ -48,7 +48,8 @@ def queue(db, t, recipient, subject, content, comment_id=None, parent=None):
         (id,ticketId,commentId,recipient,messageId,subject,body,replyTo,parentMessageId)
         VALUES (?,?,?,?,?,?,?,?,?)''', (uuid.uuid4().hex,t['id'],comment_id,recipient,
         f'<ecco-reply-{uuid.uuid4().hex}@eccoailabs.com>',subject,content,
-        reply_address(db,t['id'],config),parent))
+        mail.address(t['reporterEmail']) if recipient.casefold()==config['recipient'].casefold()
+        else reply_address(db,t['id'],config),parent))
 
 
 def acknowledge(db, t):

@@ -163,8 +163,10 @@ def deliver_one(path, config):
             (pending['recipient'], stamp+600, token, pending['ticketId']))
         ticket = dict(db.execute('SELECT * FROM desk_tickets WHERE id=?', (pending['ticketId'],)).fetchone())
         if ticket['type']=='support':
-            import ecco_desk_replies
-            pending['replyTo'] = ecco_desk_replies.reply_address(db, ticket['id'], config)
+            # Staff's ordinary email Reply goes only to this ticket's opener.
+            # The connected support mailbox's Sent folder logs the response by
+            # its In-Reply-To reference, without copying anybody else.
+            pending['replyTo'] = address(ticket['reporterEmail'])
     try:
         send(message(ticket, pending, config), config)
     except Exception as exc:
@@ -191,10 +193,15 @@ def deliver_one(path, config):
 
 
 def _run(path, stop):
+    import ecco_desk_chat
     import ecco_desk_replies
     import ecco_desk_inbox
     prior_status = None
     while not stop.is_set():
+        try:
+            if ecco_desk_chat.deliver_alert(path): stop.wait(1)
+        except Exception as exc:
+            LOG.warning('Ecco Desk Google Chat alert unavailable: %s',type(exc).__name__)
         try:
             config = settings()
             status = 'ready' if config else 'not configured; new-ticket notifications remain queued'

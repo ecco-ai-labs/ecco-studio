@@ -1195,7 +1195,8 @@
         "status"
       ],
       "variants": [
-        "ecco-desk"
+        "ecco-desk",
+        "support-unread"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -2053,6 +2054,16 @@
       "authorization": "Server enforces requester ownership on customer endpoints, active staff role and assigned-agent rights on chat actions, FIFO acceptance, presence expiry and America/Los_Angeles 07:00 inclusive to 19:00 exclusive. Every transcript is attached to its existing ticket. Only administrators can start support-inbox OAuth.",
       "email": "Reply headers and a random ticket reply address establish thread identity; ticket numbers in subjects alone never grant access. Only the authenticated requester, an active staff address or the connected support mailbox may add email replies. Imports deduplicate Gmail/message IDs and ignore automated mail. Internal notes never email customers.",
       "hours": "7 AM–7 PM Pacific daily, including automatic PST/PDT changes. Outside hours, ticket/email replies remain available."
+    },
+    "responseNotifications": {
+      "approval": "User requested replies only to the ticket opener, exact ticket association for multiple tickets from the same user, and a very small support-response badge over the headset.",
+      "type": "badge",
+      "variant": "support-unread",
+      "appearance": "12px badge positioned at the headset button’s upper-right, 8px white count on the theme error color; 9+ cap, hidden for zero. Existing button dimensions and icon stay unchanged.",
+      "content": "Support has responded on N tickets in the tooltip and accessible button name.",
+      "interaction": "Poll the authenticated customer-only notification endpoint every 10 seconds while visible, and after reading. Read receipts are per requester and ticket, acknowledge only the displayed support-reply cursor, and never clear another ticket or a newer unseen reply. Hidden/history views do not mark replies read.",
+      "authorization": "Only own public support responses count; customer messages, private notes and other customers never appear. Logout/account changes discard stale responses.",
+      "email": "Each email is bound by its original message headers or unique ticket reply address. Support responses have only the original requester as recipient, with no CC/BCC. Team notification Reply-To is that ticket’s requester; the support mailbox’s Sent copy is logged without sending a duplicate."
     }
   }
 }

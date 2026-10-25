@@ -22,6 +22,10 @@ def initialize(db):
     CREATE TABLE IF NOT EXISTS desk_comment_sources (
         commentId TEXT PRIMARY KEY REFERENCES desk_comments(id), channel TEXT NOT NULL,
         externalId TEXT UNIQUE);
+    CREATE TABLE IF NOT EXISTS desk_chat_alerts (
+        id TEXT PRIMARY KEY,ticketId INTEGER NOT NULL REFERENCES desk_tickets(id),requestedAt REAL NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,availableAt REAL NOT NULL DEFAULT 0,
+        leaseUntil REAL NOT NULL DEFAULT 0,state TEXT NOT NULL DEFAULT 'pending',lastError TEXT);
     ''')
 
 
@@ -125,6 +129,7 @@ def write(db, me, body):
             db.execute("INSERT INTO desk_chat_sessions(ticketId,state,requestedAt,customerSeen) VALUES (?,'queued',?,?) ON CONFLICT(ticketId) DO UPDATE SET state='queued',requestedAt=excluded.requestedAt,customerSeen=excluded.customerSeen,agentId=NULL,connectedAt=NULL,endedAt=NULL,reason=NULL",
                        (t['id'], stamp, stamp))
             _event(db, t['id'], 'Customer joined the live chat queue')
+            db.execute('INSERT INTO desk_chat_alerts(id,ticketId,requestedAt) VALUES (?,?,?)',(str(uuid.uuid4()),t['id'],stamp))
         return {'chat': detail(db, me, t)}
     if op == 'chatAccept':
         desk.require_staff(me)
@@ -163,3 +168,58 @@ def write(db, me, body):
         db.execute('UPDATE desk_tickets SET version=version+1,updatedAt=? WHERE id=?', (created,t['id']))
         return {'ok': True}
     raise desk.DeskError('Unknown chat action.')
+
+
+def alert_settings():
+    """The owner installs the approved Chat webhook privately, never via tickets."""
+    import json,os,re
+    from pathlib import Path
+    from urllib.parse import urlsplit,parse_qs
+    path=Path(os.getenv('ECCO_DESK_CHAT_CONFIG','/workspace/ecco-storage-private/desk-chat.json'))
+    if not path.exists(): return None
+    if path.stat().st_mode & 0o077: raise ValueError('Chat configuration must be private.')
+    config=json.loads(path.read_text())
+    if config.get('enabled') is not True: return None
+    url=urlsplit(config.get('webhook',''))
+    query=parse_qs(url.query)
+    if url.scheme!='https' or url.netloc!='chat.googleapis.com' or url.fragment or not re.fullmatch(r'/v1/spaces/[A-Za-z0-9_-]+/messages',url.path) or set(query)!={'key','token'} or any(len(v)!=1 or not v[0] for v in query.values()):
+        raise ValueError('Use the approved Google Chat incoming webhook.')
+    return config
+
+
+def send_alert(url,tid,request_id):
+    import json
+    from urllib.request import Request,build_opener,HTTPRedirectHandler
+    from urllib.parse import urlencode
+    class NoRedirect(HTTPRedirectHandler):
+        def redirect_request(self,*args,**kwargs): return None
+    text=f'Online support requested for SUP-{tid:04d}. Open Ecco Desk → Live support to accept the next waiting customer.\nhttps://ecco-ai-labs.github.io/ecco-studio/desk/\nThe customer remains queued until an available agent accepts.'
+    request=Request(url+'&'+urlencode({'requestId':request_id}),data=json.dumps({'text':text}).encode(),headers={'Content-Type':'application/json; charset=UTF-8'})
+    with build_opener(NoRedirect).open(request,timeout=20) as response:
+        if not json.load(response).get('name'): raise ValueError('Chat did not confirm the message.')
+
+
+def deliver_alert(path):
+    import ecco_desk_mail as mail
+    config=alert_settings()
+    if not config: return False
+    stamp=time.time()
+    with mail.connect(path) as db:
+        db.execute('BEGIN IMMEDIATE');maintain(db,stamp)
+        db.execute("""UPDATE desk_chat_alerts SET state='skipped' WHERE state='pending' AND NOT EXISTS
+            (SELECT 1 FROM desk_chat_sessions s WHERE s.ticketId=desk_chat_alerts.ticketId
+             AND s.requestedAt=desk_chat_alerts.requestedAt AND s.state='queued')""")
+        row=db.execute("SELECT * FROM desk_chat_alerts WHERE state='pending' AND availableAt<=? AND leaseUntil<=? ORDER BY requestedAt,id LIMIT 1",(stamp,stamp)).fetchone()
+        if not row:return False
+        row=dict(row)
+        db.execute('UPDATE desk_chat_alerts SET attempts=attempts+1,leaseUntil=? WHERE id=?',(stamp+60,row['id']))
+    try:
+        send_alert(config['webhook'],row['ticketId'],row['id'])
+    except Exception as exc:
+        error=type(exc).__name__+(f' ({exc.code})' if type(getattr(exc,'code',None)) is int else '')
+        with mail.connect(path) as db:
+            db.execute('UPDATE desk_chat_alerts SET lastError=?,availableAt=?,leaseUntil=0 WHERE id=?',(error,time.time()+min(300,10*2**min(row['attempts'],5)),row['id']))
+        mail.LOG.warning('Ecco Desk Google Chat alert deferred: %s',error)
+    else:
+        with mail.connect(path) as db:db.execute("UPDATE desk_chat_alerts SET state='sent',leaseUntil=0,lastError=NULL WHERE id=?",(row['id'],))
+    return True

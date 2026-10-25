@@ -64,6 +64,10 @@ def initialize(path, start_notifications=True):
             authorId TEXT NOT NULL, authorName TEXT NOT NULL, body TEXT NOT NULL,
             visibility TEXT NOT NULL CHECK(visibility IN ('internal','public')), createdAt TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS desk_comments_ticket ON desk_comments(ticketId, createdAt);
+        CREATE TABLE IF NOT EXISTS desk_ticket_reads (
+            ticketId INTEGER NOT NULL REFERENCES desk_tickets(id),
+            userId TEXT NOT NULL REFERENCES desk_users(id), lastCommentRow INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY(ticketId,userId));
         CREATE TABLE IF NOT EXISTS desk_events (
             id TEXT PRIMARY KEY, ticketId INTEGER REFERENCES desk_tickets(id), actorId TEXT NOT NULL,
             actorName TEXT NOT NULL, detail TEXT NOT NULL, visibility TEXT NOT NULL, createdAt TEXT NOT NULL);
@@ -148,15 +152,28 @@ def properties(db, body):
     return assignee, due
 
 
+def unread(db, me):
+    rows=db.execute('''SELECT t.id,COUNT(*) AS replies FROM desk_tickets t
+        JOIN desk_comments c ON c.ticketId=t.id
+        LEFT JOIN desk_ticket_reads r ON r.ticketId=t.id AND r.userId=t.reporterId
+        WHERE t.type='support' AND t.reporterId=? AND c.visibility='public'
+        AND c.authorId<>t.reporterId AND c.rowid>COALESCE(r.lastCommentRow,0)
+        GROUP BY t.id''',(me['userId'],)).fetchall()
+    return dict(unreadTickets=len(rows),unreadByTicket={str(r['id']):r['replies'] for r in rows})
+
+
 def read(db, me, query):
+    if 'notifications' in query:
+        return unread(db, me)
     if 'ticket' in query:
         t = ticket(db, me, query['ticket'][0])
         chat_state = ecco_desk_chat.detail(db, me, t) if t['type']=='support' else None
         clause = '' if staff(me) else " AND visibility='public'"
         comments = [dict(r) for r in db.execute("SELECT c.id,authorName,body,visibility,createdAt,COALESCE(s.channel,'web') AS channel FROM desk_comments c LEFT JOIN desk_comment_sources s ON s.commentId=c.id WHERE ticketId=?" + clause + ' ORDER BY createdAt,c.rowid', (t['id'],))]
         events = [dict(r) for r in db.execute('SELECT id,ticketId,actorName,detail,visibility,createdAt FROM desk_events WHERE ticketId=?' + clause + ' ORDER BY createdAt', (t['id'],))]
+        through=db.execute("SELECT id FROM desk_comments WHERE ticketId=? AND visibility='public' AND authorId<>? ORDER BY rowid DESC LIMIT 1",(t['id'],t['reporterId'])).fetchone() if t['reporterId']==me['userId'] else None
         return dict(ticket=customer_ticket(t, me), comments=comments, events=events,
-                    chat=chat_state)
+                    chat=chat_state,readThrough=through[0] if through else None)
     rows = db.execute('SELECT * FROM desk_tickets ORDER BY updatedAt DESC') if staff(me) else db.execute("SELECT * FROM desk_tickets WHERE type='support' AND reporterId=? ORDER BY updatedAt DESC", (me['userId'],))
     result = dict(me=me, tickets=[customer_ticket(dict(r), me) for r in rows],
                 members=[dict(r) for r in db.execute('SELECT * FROM desk_members ORDER BY name')] if staff(me) else [],
@@ -167,11 +184,22 @@ def read(db, me, query):
     if me['role']=='admin':
         import ecco_desk_inbox
         result['inbox'] = ecco_desk_inbox.status()
+    result.update(unread(db,me))
     return result
 
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op == 'readTicket':
+        t=ticket(db,me,body.get('id'))
+        if t['type']!='support' or t['reporterId']!=me['userId']:
+            raise DeskError('Ticket not found.',404)
+        through=text(body,'through',64)
+        row=db.execute("SELECT rowid FROM desk_comments WHERE id=? AND ticketId=? AND visibility='public' AND authorId<>?",(through,t['id'],t['reporterId'])).fetchone()
+        if not row: raise DeskError('Reply not found.',404)
+        db.execute('''INSERT INTO desk_ticket_reads VALUES (?,?,?)
+            ON CONFLICT(ticketId,userId) DO UPDATE SET lastCommentRow=MAX(lastCommentRow,excluded.lastCommentRow)''',(t['id'],me['userId'],row[0]))
+        return unread(db,me)
     if op in ('chatRequest','chatCancel','chatEnd','chatMessage','chatPresence','chatAccept'):
         return ecco_desk_chat.write(db, me, body)
     if op == 'connectInbox':
@@ -317,7 +345,7 @@ def handle(handler, path, allowed_origin, database, configured_key):
             body = json.loads(handler.rfile.read(length))
             if not isinstance(body, dict):
                 raise DeskError('Expected an object.')
-            if personal_support and not (body.get('op') in ('comment','chatRequest','chatCancel','chatEnd','chatMessage') or
+            if personal_support and not (body.get('op') in ('comment','readTicket','chatRequest','chatCancel','chatEnd','chatMessage') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
         with connect(database) as db:
