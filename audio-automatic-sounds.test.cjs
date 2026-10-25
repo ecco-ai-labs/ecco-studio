@@ -47,6 +47,12 @@ test('Final Script has spoken overview first, numbered turns, inline library ass
  x.q('[data-open-prompt]').click();assert.equal(x.q('#generation-prompt-dialog').open,true);x.q('#generation-prompt-dialog').close();
  field.focus();field.setSelectionRange(0,3);field.dispatchEvent(new x.w.Event('select'));x.q('[data-improve-selection]').click();assert.equal(x.q('#audio-selection-ai [data-selected-text]').value,'The');x.q('#audio-selection-ai').close();assert.deepEqual(x.errors,[]);
 });
+test('Typed inline mix settings persist before blur and reach the submitted soundtrack',async t=>{
+ const x=await fixture(t,[sound('Door',0,'existing')]);input(x,'[data-inline-level]','-24');input(x,'[data-inline-fade]','1');
+ assert.equal(x.draft().sound_design.cues[0].level_db,-24);assert.equal(x.draft().sound_design.cues[0].fade,1);
+ await x.go('images');await x.go('audio');await tick();assert.equal(x.q('[data-inline-level]').value,'-24');assert.equal(x.q('[data-inline-fade]').value,'1');
+ x.q('#audio-form').requestSubmit();await tick();const mix=x.calls.find(c=>c.path==='speech').body;assert.equal(mix.soundtrack[0].level_db,-24);assert.equal(mix.soundtrack[0].fade,1);
+});
 test('Progress bar reflects only real worker passage counts and uses an indeterminate bar without counts',async t=>{
  const x=await fixture(t,[]);x.setJob({id:'speech',status:'running',progress:'Generating speech · 1 of 14 passages complete'});x.q('#audio-form').requestSubmit();await tick();
  const bar=x.q('[data-speech-progress]');assert.equal(bar.hidden,false);assert.equal(bar.value,1);assert.equal(bar.max,14);assert.equal(x.q('[data-speech-count]').textContent,'Generating Speech: 1 of 14 passages complete');
