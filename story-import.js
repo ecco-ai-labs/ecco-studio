@@ -49,7 +49,11 @@
   panel.querySelector('[data-story-manual]').onclick=()=>{mode('manual');menu.open=false;form.elements.summary.focus();};
   panel.querySelector('[data-story-library]').onclick=()=>navigate('story-library');
   mainForm=form;
-  const picker=window.EccoSourcePicker.create({onApply({text,name:filename,title,pages,selection_label}){
+  const draftKey='source:'+ (activeStory||saved.localDraftId||form.dataset.draftKey);
+  const resume=document.createElement('button');resume.type='button';resume.className='secondary';resume.textContent='Resume Saved Selection';resume.hidden=true;row.append(resume);let savedSelection=null;
+  const picker=window.EccoSourcePicker.create({onSave:async()=>{
+   savedSelection=await picker.snapshot();await window.EccoPopupDrafts.put(draftKey,savedSelection);form.dataset.preparationDraft='true';form.dispatchEvent(new Event('input',{bubbles:true}));window.EccoWorkspaceUI?.preserveNewStoryDraft();resume.hidden=false;
+  },onApply({text,name:filename,title,pages,selection_label}){
    if(!form.isConnected)throw Error('Reopen Upload from the current story.');
    if(form.elements.story_format.value==='audio'&&text.length>20000)throw Error('Select at most 20,000 source characters. Nothing was truncated.');
    delete form.dataset.sourcePending;if(form.elements.audio_preparation)form.elements.audio_preparation.value='';
@@ -59,6 +63,8 @@
    box.querySelector('details').open=true;status.textContent=text.length+' characters extracted from your selection.'+(text.length>4000?' Summary contains an excerpt; the full selection is in Source text.':'')+' Review, then save to continue.';
    if(form.elements.story_format.value!=='audio')form.requestSubmit();
   }});mainPicker=picker;
+  window.EccoPopupDrafts?.get(draftKey).then(value=>{if(value&&form.isConnected){savedSelection=value;resume.hidden=false;}}).catch(()=>{});
+  resume.onclick=async()=>{if(!savedSelection)return;resume.disabled=true;try{await picker.restore(savedSelection);if(!form.isConnected)return;form.dataset.sourcePending='true';panel.querySelector('[data-filename]').textContent=picker.name;panel.querySelector('[data-file-wrap]').hidden=!picker.ready;open.disabled=!picker.ready;menu.open=false;mode('upload');picker.open(menu.querySelector('summary'));}catch(error){status.textContent=error.message;}finally{resume.disabled=false;}};
   open.onclick=()=>picker.open(menu.querySelector('summary'));
   panel.querySelector('[data-remove]').onclick=()=>{picker.clear();delete form.dataset.sourcePending;source.value='';for(const name of ['audio_source_scope','audio_source_name','audio_source_pages','audio_source_selection'])if(form.elements[name])form.elements[name].value='';if(form.elements.audio_preparation)form.elements.audio_preparation.value='';source.dispatchEvent(new Event('input',{bubbles:true}));open.disabled=true;input.value='';panel.querySelector('[data-filename]').textContent='';panel.querySelector('[data-file-wrap]').hidden=true;status.textContent='';};
   input.onchange=async()=>{

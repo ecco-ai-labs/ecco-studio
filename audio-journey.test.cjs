@@ -11,6 +11,37 @@ const submit=async x=>{x.q(dlg+' form').requestSubmit();await tick();};
 const field=(x,key,value)=>input(x,dlg+' [data-value='+key+']',value);
 const saved=(x,key)=>JSON.parse(x.w.localStorage.getItem(key));
 
+test('Disconnected Read Source explains the blocker and Open Connections minimizes without closing the draft',async t=>{
+ const x=await ready(t);x.w.EccoStorage={ready:false};x.w.EccoAI={...x.w.EccoAI,enabled:false};await open(x);field(x,'instructions','Keep my selected chapter.');await submit(x);
+ assert.match(x.q(dlg+' [data-status]').textContent,/Connect workspace storage and enable AI/);assert.equal(x.q(dlg+' [data-connections-needed]').hidden,false);
+ const original=x.q(dlg);x.q(dlg+' [data-open-connections]').click();await tick();assert.equal(original.isConnected,true);assert.equal(original.open,true);assert.equal(original.dataset.eccoMinimized,'true');assert.ok(x.q('#connection-dialog').open);
+ x.q('#connection-dialog .ecco-popup-close').click();await tick();x.q('#ecco-popup-resume button').click();await tick();assert.equal(x.q(dlg),original);assert.equal(x.q(dlg+' [data-value=instructions]').value,'Keep my selected chapter.');assert.equal(original.hasAttribute('data-ecco-minimized'),false);assert.deepEqual(x.errors,[]);
+});
+
+test('Minimized preparation survives another page and resumes its original editable story',async t=>{
+ const x=await ready(t),calls=mock(x);input(x,'[name=title]','Original story');await open(x);field(x,'instructions','Keep this brief.');const form=x.q('#story-setup-form');
+ x.q(dlg+' .ecco-popup-minimize').click();await tick();await x.go('story-library');assert.equal(form.isConnected,true);assert.ok(form.closest('[data-popup-page]'));x.q('#ecco-popup-resume button').click();await tick();assert.equal(x.q('#page #story-setup-form'),form);assert.equal(x.q(dlg+' [data-value=instructions]').value,'Keep this brief.');await submit(x);assert.ok(x.q(dlg+' [data-value=audience]'));assert.equal(calls.length,1);assert.deepEqual(x.errors,[]);
+});
+
+test('Nested source preview minimizes and resumes with its parent and selection intact',async t=>{
+ const x=await ready(t);await open(x);field(x,'source_text','Keep the chosen words.');x.q(dlg+' [data-preview]').click();await tick();const viewer=x.q('.pdf-story-dialog[open]');input(x,'.pdf-story-dialog[open] [data-selected]','chosen words');viewer.querySelector('.ecco-popup-minimize').click();await tick();assert.equal(x.q(dlg).dataset.eccoMinimized,'true');assert.equal(viewer.dataset.eccoMinimized,'true');
+ x.q('#ecco-popup-resume button').click();await tick();assert.equal(viewer.querySelector('[data-selected]').value,'chosen words');viewer.querySelector('.ecco-popup-close').click();await tick();assert.equal(viewer.open,false);assert.equal(x.q(dlg).open,true);assert.deepEqual(x.errors,[]);
+});
+
+test('A source request finishing while minimized retains its result for resume',async t=>{
+ const x=await ready(t);let finish;x.w.testUI.setAPI(()=>new Promise(resolve=>finish=resolve));await open(x);field(x,'instructions','Read this chapter.');await submit(x);x.q(dlg+' .ecco-popup-minimize').click();await tick();await x.go('story-library');finish({revisions:[{id:'source_review',text:'Chapter summary.'},{id:'working_title',text:'Chapter One'}],questions:[]});await tick();assert.ok(x.q(dlg+' [data-value=audience]'));x.q('#ecco-popup-resume button').click();await tick();assert.equal(x.q(dlg+' [data-value=title]').value,'Chapter One');assert.deepEqual(x.errors,[]);
+});
+
+test('Save Draft restores step, cast, script edits and sounds after closing and a new page session',async t=>{
+ const drafts=new Map(),db={get:async key=>structuredClone(drafts.get(key)),put:async(key,value)=>{drafts.set(key,structuredClone(value));}};
+ const x=await ready(t,'audiobook');x.w.EccoPopupDrafts=db;mock(x);input(x,'[name=title]','Saved audiobook');await open(x);field(x,'instructions','Adapt this selected chapter.');await submit(x);field(x,'audience','Children (9–12)');field(x,'language','Hindi');await submit(x);await submit(x);input(x,'[data-review-text]','नमस्ते दोस्त!');x.q(dlg+' [data-save-draft]').click();await tick();assert.match(x.q('[data-draft-status]').textContent,/Draft saved/);assert.equal(drafts.size,1);const storage=x.snapshot();
+ const y=await setup(storage);t.after(y.close);y.w.EccoPopupDrafts=db;y.w.EccoAI={...y.w.EccoAI,enabled:true};y.w.EccoStorage={ready:true};await y.go('story-library');y.q('[data-local-story-id]').click();await tick();await open(y);y.q('[data-resume-draft]').click();await tick();assert.equal(y.q('[data-review-text]').value,'नमस्ते दोस्त!');assert.ok(y.q('[data-turn-list]'));assert.equal(y.q(dlg+' [data-next]').textContent,'Apply');await submit(y);assert.match(y.q('[name=summary]').value,/नमस्ते दोस्त!/);const p=JSON.parse(y.q('[name=audio_preparation]').value);assert.equal(p.audience,'Children (9–12)');assert.equal(p.sound_design.cues[0].name,'Jinn Arrival');assert.deepEqual(y.errors,[]);
+});
+
+test('Save Draft reports a storage failure without claiming success or changing the open script',async t=>{
+ const x=await ready(t);x.w.EccoPopupDrafts={get:async()=>null,put:async()=>{throw Error('Storage full');}};await open(x);field(x,'instructions','Do not lose this.');x.q('[data-save-draft]').click();await tick();assert.match(x.q('[data-draft-status]').textContent,/Storage full/);assert.equal(x.q('[data-save-draft]').disabled,false);assert.equal(x.q('[data-value=instructions]').value,'Do not lose this.');
+});
+
 test('new audiobooks isolate unsaved audio scripts while earlier drafts remain recoverable',async t=>{
  const legacy={lines:[{text:'Earlier unsaved audio',language:'Hindi',voice:'en_female',emotion:'neutral'}]};
  const x=await ready(t,'audiobook',{'ecco-audio-draft:':JSON.stringify(legacy)});
@@ -25,17 +56,17 @@ test('new audiobooks isolate unsaved audio scripts while earlier drafts remain r
  await x.go('story-library');x.q('[data-local-story-id="'+first+'"]').click();await tick();await x.go('audio');
  assert.equal(x.q('[data-final-turn]').value,'Keep this first audiobook.');assert.deepEqual(x.errors,[]);
 });
-function mock(x,{names=['Host','Guest'],questions=['Should the discussion include practical examples?'],texts,invalid=false}={}){
+function mock(x,{names=['Host','Guest'],questions=['Should the discussion include practical examples?'],texts,invalid=false,turnDifference=0,brokenRefinement=false,suggestedTurns=null}={}){
  const calls=[];x.w.testUI.setAPI(async(path,body)=>{
-  calls.push({path,body});if(body?.fields?.[0].id==='audio_directed_script')return directedReply(body);if(path==='stories')return{id:'created-story',...body};
+  calls.push({path,body});if(body?.fields?.[0].id==='audio_directed_script'){const reply=directedReply(body);if(brokenRefinement){const plan=JSON.parse(reply.revisions[0].text);plan.segments.pop();reply.revisions[0].text=JSON.stringify(plan);}return reply;}if(path==='stories')return{id:'created-story',...body};
   if(path==='ai/news/research')return{research:{items:[{title:'Test report',summary:'Supported facts',sources:[{title:'Test source',url:'https://example.org/news'}]}]}};
   if(body.fields[0].id==='sound_cues')return {revisions:[{id:'sound_cues',text:JSON.stringify({cues:[{name:'Jinn Arrival',kind:'effect',description:'A gentle magical whoosh',asset_id:'',start:0,end:0,phrase:'',level_db:-14,fade:.1,duck:false,loop:false}]})}]};
   if(body.fields[0].id==='selected_audio_text')return {revisions:[{id:'selected_audio_text',text:body.fields[0].text+' improved'}]};
   if(body.fields[0].id==='audio_plan'){
-   const count=Number(body.fields[0].text.match(/exactly (\d+)/)[1]),cast=body.context.lines;
+   const count=Number(body.fields[0].text.match(/(?:exactly|for) (\d+)/)[1])+turnDifference,cast=body.context.lines;
    return{revisions:[{id:'audio_plan',text:JSON.stringify({opening:null,segments:Array.from({length:count},(_,i)=>({character_id:invalid?'unknown':cast[i%cast.length].character_id,text:texts?.[i]||'Spoken turn '+(i+1)+'.'}))})}],questions:[]};
   }
-  const values={source_review:'The chosen excerpt explains the paper.',working_title:'Paper discussion',character_count:String(names.length),cast_reason:'One host and one guest suit this podcast.'};
+  const values={source_review:'The chosen excerpt explains the paper.',working_title:'Paper discussion',character_count:String(names.length),cast_reason:'One host and one guest suit this podcast.',suggested_turns:String(suggestedTurns??((names.length===1?1:Math.min(20,Math.max(6,names.length*3)))+(body.context.instructions.includes('Closing direction: None.')?0:1))),turn_reason:'One narration beat and the source dialogue exchanges.'};
   names.forEach((name,i)=>Object.assign(values,{['character_'+(i+1)+'_name']:name,['character_'+(i+1)+'_role']:i?'Guest':'Host',['character_'+(i+1)+'_gender']:'Unspecified',['character_'+(i+1)+'_age_group']:'Adult',['character_'+(i+1)+'_style']:'Professional'}));
   return {revisions:body.fields.map(f=>({id:f.id,text:values[f.id]||''})),questions:body.fields[0].id==='source_review'?questions:[]};
  });return calls;
@@ -43,6 +74,29 @@ function mock(x,{names=['Host','Guest'],questions=['Should the discussion includ
 async function open(x){x.q('#story-description-ai [data-generate]').click();await tick();assert.ok(x.q(dlg)?.open);}
 async function questions(x){field(x,'instructions','Turn this paper into a helpful audio discussion.');await submit(x);assert.ok(x.q(dlg+' [data-value=audience]'));field(x,'audience','Adults');field(x,'language','Hindi');field(x,'tone','Warm and professional');}
 async function review(x){await questions(x);await submit(x);assert.ok(x.q('[data-cast-row]'));await submit(x);assert.ok(x.q('[data-review-turn]'),x.q(dlg+' [data-status]')?.textContent);}
+
+test('A 14-to-10 turn mismatch pauses and preserves the candidate until explicit Continue',async t=>{
+ const x=await ready(t,'audiobook'),calls=mock(x,{names:['Narrator','Merchant','Jinn','King','Queen','Elder','Child'],turnDifference:-4});await open(x);await questions(x);await submit(x);assert.equal(x.q('[data-value=turns]').value,'14');await submit(x);
+ assert.equal(x.q('[data-review-turn]'),null);assert.match(x.q('[data-turn-decision]').textContent,/You selected 14 turns, but AI generated 10 turns/);assert.equal(x.q('[data-value=turns]').value,'14');assert.equal(calls.filter(c=>c.body?.fields?.[0].id==='audio_directed_script').length,0);assert.equal(x.q('[name=summary]').value,'');
+ x.q('[data-accept-turns]').click();await tick();assert.equal(x.q('[data-turn-list]').querySelectorAll('[data-review-turn]').length,10);const spoken=[...x.w.document.querySelectorAll('[data-review-character]')].map(field=>field.value);assert.equal(new Set(spoken).size,7);await submit(x);const p=JSON.parse(x.q('[name=audio_preparation]').value);assert.equal(p.plan.segments.length,10);assert.equal(p.cast.length,7);assert.equal(calls.filter(c=>c.body?.fields?.[0].id==='audio_plan').length,1);assert.deepEqual(x.errors,[]);
+});
+
+test('Changing the requested count permits regeneration; a failed retry preserves the prior candidate',async t=>{
+ const x=await ready(t);mock(x,{turnDifference:-2});await open(x);await questions(x);await submit(x);await submit(x);const original=x.q('[aria-label="Preserved generated draft"]').value;field(x,'turns','4');x.w.testUI.setAPI(async()=>{throw Error('Connection interrupted');});await submit(x);assert.equal(x.q('[aria-label="Preserved generated draft"]').value,original);assert.match(x.q('[data-status]').textContent,/Connection interrupted/);assert.equal(x.q('[data-accept-turns]').disabled,false);
+ const calls=mock(x);await submit(x);assert.equal(x.q('[data-turn-list]').querySelectorAll('[data-review-turn]').length,4);assert.match(calls[0].body.fields[0].text,/Aim for 4 spoken turns/);assert.equal(x.q('[data-turn-decision]'),null);assert.deepEqual(x.errors,[]);
+});
+
+test('Changed cast cannot silently accept an older mismatched script',async t=>{
+ const x=await ready(t);mock(x,{turnDifference:-2});await open(x);await questions(x);await submit(x);await submit(x);input(x,'[data-cast-row="0"] [data-character-property=name]','Different host');assert.equal(x.q('[data-accept-turns]').disabled,true);assert.match(x.q('[data-turn-decision]').textContent,/characters changed/);assert.match(x.q('[aria-label="Preserved generated draft"]').value,/Host:/);assert.equal(x.q('[data-review-turn]'),null);
+});
+
+test('Save Draft retains an unresolved turn decision across close and resume',async t=>{
+ const drafts=new Map();const x=await ready(t);x.w.EccoPopupDrafts={get:async key=>structuredClone(drafts.get(key)),put:async(key,value)=>drafts.set(key,structuredClone(value))};mock(x,{turnDifference:-2});await open(x);await questions(x);await submit(x);await submit(x);x.q('[data-save-draft]').click();await tick();x.q(dlg).close();await open(x);x.q('[data-resume-draft]').click();await tick();assert.match(x.q('[data-turn-decision]').textContent,/selected 6 turns, but AI generated 4 turns/);assert.equal(x.q('[data-review-turn]'),null);x.q('[data-accept-turns]').click();await tick();assert.equal(x.q('[data-turn-list]').querySelectorAll('[data-review-turn]').length,4);assert.deepEqual(x.errors,[]);
+});
+
+test('Failed delivery refinement preserves the complete draft for editing and a targeted retry',async t=>{
+ const x=await ready(t);mock(x,{brokenRefinement:true});await open(x);await review(x);assert.equal(x.q('[data-turn-list]').querySelectorAll('[data-review-turn]').length,6);assert.match(x.q('[data-stage]').textContent,/Retry Script Refinement/);input(x,'[data-review-text]','Keep this edit.');x.q('[data-save-draft]').disabled=false;await submit(x);assert.match(x.q('[name=summary]').value,/Keep this edit/);assert.deepEqual(x.errors,[]);
+});
 
 test('All Audio entry journeys open the guided popup; Video keeps its existing popup',async t=>{
  const x=await ready(t);for(const intent of ['audiobook','podcast','audio-drama']){x.w.EccoWorkspaceUI.startNewStory(x.w.EccoStoryJourneys.get(intent));await tick();assert.equal(x.q('#story-setup-form [type=submit]').textContent,'Save and Continue with Script');await open(x);assert.match(x.q(dlg+' nav').textContent,/Source.*Questions.*Characters.*Script/);x.q(dlg+' [data-close]').click();}
@@ -96,7 +150,7 @@ test('Topic-only news researches citations, displays them in review, and keeps t
  const x=await ready(t),calls=mock(x,{names:['Newsreader']});await open(x);await questions(x);field(x,'genre','News');await submit(x);assert.equal(x.q('[data-remove-character]').disabled,true);await submit(x);assert.equal(x.q('[data-remove-turn]').disabled,true);assert.equal(x.q('[data-news-sources] a').href,'https://example.org/news');assert.ok(calls.some(c=>c.path==='ai/news/research'));await submit(x);assert.match(x.q('[name=summary]').value,/Newsreader:/);
 });
 
-const scriptReply=body=>body.fields[0].id==='audio_directed_script'?directedReply(body):({questions:[],revisions:[{id:'audio_plan',text:JSON.stringify({opening:null,segments:Array.from({length:Number(body.fields[0].text.match(/exactly (\d+)/)[1])},(_,i)=>({character_id:body.context.lines[i%body.context.lines.length].character_id,text:'नमस्ते, चलिए बात करते हैं।'}))})}]});
+const scriptReply=body=>body.fields[0].id==='audio_directed_script'?directedReply(body):({questions:[],revisions:[{id:'audio_plan',text:JSON.stringify({opening:null,segments:Array.from({length:Number(body.fields[0].text.match(/(?:exactly|for) (\d+)/)[1])},(_,i)=>({character_id:body.context.lines[i%body.context.lines.length].character_id,text:'नमस्ते, चलिए बात करते हैं।'}))})}]});
 
 test('Generate Script spins while waiting; clarification stays in place and preserves earlier answers and characters',async t=>{
  const x=await ready(t);mock(x);await open(x);await questions(x);input(x,'[data-answer="0"]','Use one practical example.');await submit(x);

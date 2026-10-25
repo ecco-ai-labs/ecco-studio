@@ -35,9 +35,9 @@
  }
  function localStoryDrafts(){
   const rows=[];
-  for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key.startsWith('ecco-story-setup:'))continue;const saved=readStory(key);if(!saved.cloudId&&(saved.title||saved.summary||saved.sourceText||saved.boardDraft?.scenes?.length))rows.push({id:key.slice('ecco-story-setup:'.length),...saved});}
+  for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key.startsWith('ecco-story-setup:'))continue;const saved=readStory(key);if(!saved.cloudId&&(saved.preparationDraft||saved.title||saved.summary||saved.sourceText||saved.boardDraft?.scenes?.length))rows.push({id:key.slice('ecco-story-setup:'.length),...saved});}
   const pending=readStory('ecco-new-story-draft'),board=readStory('ecco-board-new-draft');
-  if(!pending.cloudId&&(pending.title||pending.summary||pending.sourceText||board.story||board.scenes?.length)){
+  if(!pending.cloudId&&(pending.preparationDraft||pending.title||pending.summary||pending.sourceText||board.story||board.scenes?.length)){
    const current={...pending,id:'pending',title:pending.title||board.title||'Untitled draft',boardDraft:board};
    const duplicate=rows.findIndex(row=>row.id===pending.localDraftId);if(duplicate>=0)rows.splice(duplicate,1);rows.push(current);
   }
@@ -46,7 +46,7 @@
  function preserveNewStoryDraft(force=false){
   if(activeStory&&!force)return;
   const saved=readStory('ecco-new-story-draft'),board=readStory('ecco-board-new-draft');
-  if(saved.cloudId||!(saved.title||saved.summary||saved.sourceText||board.story||board.scenes?.length))return;
+  if(saved.cloudId||!(saved.preparationDraft||saved.title||saved.summary||saved.sourceText||board.story||board.scenes?.length))return;
   const id=saved.localDraftId||crypto.randomUUID(),data={...saved,localDraftId:id,title:saved.title||board.title||'Untitled draft',boardDraft:board};
   localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));
  }
@@ -403,7 +403,7 @@
   // Restoring draft text is not a format choice in a new browser session.
   if(saved.workflow_id)selectedJourneyStory=activeStory;else if(selectedJourneyStory!==activeStory)form.elements.story_format.value='';
   window.EccoStoryJourneys?.setup(form,saved);
-  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText&&!form.elements.audio_preparation?.value)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(saved.parent_story_id)data.parent_story_id=saved.parent_story_id;if(saved.source_asset_ids)data.source_asset_ids=saved.source_asset_ids;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=(data.audio_preparation?data.summary:data.sourceText||data.summary)||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){window.EccoAudioJourney?.mountSetup();selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
+  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText&&!form.elements.audio_preparation?.value)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(form.dataset.preparationDraft==='true'||saved.preparationDraft)data.preparationDraft=true;if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(saved.parent_story_id)data.parent_story_id=saved.parent_story_id;if(saved.source_asset_ids)data.source_asset_ids=saved.source_asset_ids;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=(data.audio_preparation?data.summary:data.sourceText||data.summary)||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){window.EccoAudioJourney?.mountSetup();selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
   form.addEventListener('input',save);form.addEventListener('change',save);
   form.onsubmit=async event=>{
    event.preventDefault();
@@ -599,7 +599,23 @@
  if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
  document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!e.composedPath().includes(d))d.open=false;});});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
- window.EccoWorkspaceUI={openLibrary(kind){if(kind==='video')libraryOverview('video');else if(kind==='audio')navigate('audio-library');},labelDialog,createFolder,uploadDialog,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
+ function capturePopupContext(){
+  const root=q('#page'),nodes=[...root.childNodes],heading=q('#heading').textContent,origin={page,activeStory,draft,refinementSource,savedBoard,newStoryStarted,selectedJourneyStory},pending=readStory('ecco-new-story-draft');
+  const modes=['workspace-entry-mode','story-choice-mode'].filter(name=>document.body.classList.contains(name));let parking=null;
+  return {
+   suspend(){if(parking||!nodes.some(node=>node.parentNode===root))return;parking=document.createElement('div');parking.hidden=true;parking.dataset.popupPage='';document.body.append(parking);parking.append(...nodes);},
+   restore(){
+    if(!parking)return;preserveNewStoryDraft();if(activeStory)persistDraft();
+    page=origin.page;activeStory=origin.activeStory;draft=origin.draft;refinementSource=origin.refinementSource;savedBoard=origin.savedBoard;newStoryStarted=origin.newStoryStarted;selectedJourneyStory=origin.selectedJourneyStory;
+    if(!activeStory&&pending.localDraftId&&readStory('ecco-new-story-draft').localDraftId!==pending.localDraftId)localStorage.setItem('ecco-new-story-draft',JSON.stringify(pending));
+    localStorage.setItem('ecco-active-story',activeStory);root.replaceChildren(...nodes);parking.remove();parking=null;
+    document.body.classList.remove('workspace-entry-mode','story-choice-mode');document.body.classList.add(...modes);q('#heading').textContent=heading;
+    document.querySelectorAll('[data-page]').forEach(button=>button.classList.toggle('active',button.dataset.page===page));productionGroup();journeyGuide();
+   },
+   dispose(){if(parking){parking.remove();parking=null;}}
+  };
+ }
+ window.EccoWorkspaceUI={capturePopupContext,openLibrary(kind){if(kind==='video')libraryOverview('video');else if(kind==='audio')navigate('audio-library');},labelDialog,createFolder,uploadDialog,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
  const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
  modernize();welcomePage();
 })();

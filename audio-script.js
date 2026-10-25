@@ -8,7 +8,10 @@
  function validatePlan(plan,cast,expectedTurns,scenes=[]){
   const ids=new Set(cast.map(c=>c.id)),sceneIds=new Set(scenes.map(s=>s.scene_number));
   const clean=part=>{if(!part||typeof part.text!=='string'||!part.text.trim()||!ids.has(part.character_id))throw Error('AI returned an invalid character or empty turn. Your script was preserved.');return {text:part.text.trim(),character_id:part.character_id,...(part.performance?{performance:window.EccoAudioDirection.clean(part.performance)}:{}),...(sceneIds.has(part.scene_number)?{scene_number:part.scene_number}:{})};};
-  if(!plan||!Array.isArray(plan.segments)||plan.segments.length!==expectedTurns)throw Error('AI did not return the requested number of turns. Try Generate again.');
+  if(!plan||!Array.isArray(plan.segments)||!plan.segments.length)throw Error('AI returned no usable dialogue. The source and character choices are preserved.');
+  // Initial generation may use a natural number of turns. Exact counts are only
+  // required when editing an existing plan whose turn assignments must stay aligned.
+  if(Number.isInteger(expectedTurns)&&plan.segments.length!==expectedTurns)throw Error('The script review changed the number of existing dialogue turns. The original draft is preserved.');
   const result={opening:plan.opening?.text?.trim()?clean(plan.opening):null,segments:plan.segments.map(clean)};
   if(result.opening?.text.length>300)throw Error('Shorten the opening title to 300 characters.');
   const parts=[...(result.opening?[result.opening]:[]),...result.segments];

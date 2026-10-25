@@ -109,7 +109,14 @@
     "numericValues": "Do not invent sizes or silently normalize existing differences. Record actual declarations and obtain approval for changed standards.",
     "connectionOrder": "Storage is always first in both the Connections dialog and the control-panel icon order, followed by AI, GPU and publishing connections; independent of connection state.",
     "audioDraftIsolation": "Every newly started unsaved story has a stable local draft ID. Audio Studio uses that ID until the story is saved; never reuse another new story’s script, cast or sounds. Earlier local drafts and legacy standalone audio remain preserved. Restoring a local story restores its own audio.",
-    "aiKeyEntry": "OpenAI key dialog opens with an empty, initially read-only password field and focus on its heading. Pointer or keyboard focus unlocks entry and browser password-manager selection; preserve the selected key until explicit Verify & connect. Never prefill a key, connect automatically, or persist the key in browser storage. Clear on submit and close."
+    "aiKeyEntry": "OpenAI key dialog opens with an empty, initially read-only password field and focus on its heading. Pointer or keyboard focus unlocks entry and browser password-manager selection; preserve the selected key until explicit Verify & connect. Never prefill a key, connect automatically, or persist the key in browser storage. Clear on submit and close.",
+    "popupMinimize": {
+      "approval": "User requested universally minimizing popups to visit previous screens and connect services without losing work.",
+      "control": "Minimize popup icon beside the existing Close; same 26px size, secondary theme styling.",
+      "behavior": "Keep the complete dialog stack and its fields alive in this tab without close cleanup; remove modal blocking. Resume popups menu at bottom right restores the original screen, popup stack and focus. Close retains existing local dismissal semantics.",
+      "persistence": "Minimize is in-memory only. Explicit Save Draft persists the story preparation or source selection in browser IndexedDB, including local PDF bytes. No credential values or unrelated form fields are stored.",
+      "accessibility": "Native keyboard-focusable buttons, named Minimize popup; Resume popups uses a native details menu. Theme tokens, wrapped labels and viewport-constrained menu."
+    }
   },
   "components": [
     {
@@ -151,7 +158,10 @@
         "loading",
         "disabled"
       ],
-      "variants": [],
+      "variants": [
+        "save-preparation-draft",
+        "resume-preparation-draft"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -173,7 +183,8 @@
         "action"
       ],
       "variants": [
-        "studio-support"
+        "studio-support",
+        "popup-minimize"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -644,7 +655,9 @@
         "placement",
         "open"
       ],
-      "variants": [],
+      "variants": [
+        "resume-popups"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -1922,7 +1935,15 @@
       "chapterSelection": "Main Upload and Audio Upload share PDF Pages and Chapter selection in the same source-picker. Select Pages extracts only physical PDF page ranges locally. Find Chapter with AI uses a bounded numbered outline, then verifies candidate boundary pages; exact page/line/text anchors bound local extraction, excluding the next chapter. Never use contents entries or fall back to page 1/full book. Ambiguity, invalid anchors and oversize sources fail without selecting/truncating. Show chapter title and PDF page range for review; explicit Apply alone commits the selected text. Narrative AI gets only the applied excerpts; locator AI may inspect the book outline and boundary pages to find it. New uploads are pending until a selection is applied, preventing stale-source reuse.",
       "tone": "Tone uses Natural, Warm, Conversational, Playful, Dramatic, Calm, Professional, Informative, Suspenseful, Inspirational and Custom. Preserve custom saved instructions; no unrelated field or style changes.",
       "chapterFeedback": "Show missing input/connection errors and per-page reading/AI-boundary progress beside Chapter controls. Large book indexes omit repeated headers/footers and prioritize heading candidates; exact boundary verification remains mandatory.",
-      "scriptReview": "Selected-text Improve with AI is available while reviewing character turns before Apply. Repeated improvement operates on the current suggested replacement, preserving the original exact replacement range. Storybook generation suggests uniquely named sound cues after script refinement; errors preserve the script and remain visible for retry."
+      "scriptReview": "Selected-text Improve with AI is available while reviewing character turns before Apply. Repeated improvement operates on the current suggested replacement, preserving the original exact replacement range. Storybook generation suggests uniquely named sound cues after script refinement; errors preserve the script and remain visible for retry.",
+      "drafts": {
+        "controls": "Save Draft on every preparation step and source selection; Resume Saved Draft in Generate with AI and Resume Saved Selection in main Upload.",
+        "content": "Source file, selected excerpts, scope and pending-selection state; instructions, audience, language, tone, questions, answers, cast, edited script, sound cues, current step and script version.",
+        "scope": "Explicit browser-local save keyed by story/local-draft identity and entry surface. Parent story remains in Story Library as a local draft. Resume is explicit and does not apply or generate.",
+        "feedback": "Saving Draft spinner, confirmed saved time, readable failure with current work retained. AI/storage not required for saving.",
+        "connections": "Show missing workspace storage/AI before Read Source and Continue. Open Connections minimizes this preparation; returning refreshes the connection notice. Submission failures are focused and scrolled into view."
+      },
+      "turnPlanning": "Keep the existing editable Number of Turns proposal. On generation count mismatch, preserve the valid draft and pause with requested/actual counts, Review Generated Draft, and Continue with N turns. The creator may instead edit Number of Turns and regenerate. Do not silently accept or discard the candidate. Failed retries preserve it; source/brief/cast changes block stale acceptance. Save Draft restores the pending decision. Validate character coverage and runtime limits independently of count. Failed editorial refinement retains valid dialogue for a targeted retry."
     },
     "finalScriptReview": {
       "placement": "Right-hand Audio workspace contains Final Script, Progress and Review tabs. Final Script supports manual editing, Generate with AI and selected-text Improve with AI; Sound Design remains in this panel. Progress shows actual service state with a spinner, not invented percentages. Review shows only the newly generated recording. Reuse the existing responsive two-column grid, theme tokens and character-tab styles. Native tab roles, arrow/Home/End navigation; no automatic tab switching on polling.",

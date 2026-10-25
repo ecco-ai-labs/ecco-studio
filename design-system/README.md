@@ -248,3 +248,27 @@ including PST/PDT. At closing time live sessions return to ticket replies.
 Live messages do not produce an email for every chat message. Administrators
 connect the support mailbox in Team members; inbox authorization and reply
 synchronization are separate from the existing outbound SMTP relay.
+
+## Minimize and save preparation drafts
+
+Studio native dialogs share a Minimize control beside Close. The Resume popups
+menu keeps each nested stack and its originating screen alive while the user
+visits another screen or Connections. Minimize does not run close cleanup.
+The menu explicitly distinguishes in-tab retention from saving before refresh.
+
+Generate with AI and both source-pickers offer Save Draft. Browser IndexedDB
+stores the local document, excerpts and complete preparation step, including
+answers, cast, script edits and named sounds. Resume Saved Draft/Selection is
+explicit and never generates or applies content. Story Library retains the
+parent local story. Nothing is sent to AI or workspace storage by Save Draft;
+the saved draft is available only in the same browser profile. Credentials are
+not part of the draft schema. Missing AI/storage is explained before Continue,
+and Open Connections minimizes the preparation without discarding it.
+
+Number of Turns retains its existing editable proposal. If Generate Script returns
+a different valid count, pause on Characters and show the requested and actual
+counts, the preserved draft and an explicit Continue with N turns action. The
+creator can instead change the requested count and generate again. Failed retries
+keep the candidate; source/brief/cast edits prevent stale acceptance. Save Draft
+also retains this unresolved decision. Character coverage and runtime limits still
+apply. A failed editorial pass retains the valid script for targeted refinement.

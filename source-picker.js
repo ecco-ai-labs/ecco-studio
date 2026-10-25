@@ -1,7 +1,7 @@
 'use strict';
 /* Shared local-only document preview. Only an explicit selection leaves this component. */
 (()=>{
- function create({onApply,title='Select story from PDF',selectedLabel='Selected story text',applyLabel='Extract selected text as story',maxSelection=Infinity}){
+ function create({onApply,onSave,title='Select story from PDF',selectedLabel='Selected story text',applyLabel='Extract selected text as story',maxSelection=Infinity}){
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label',title);
   dialog.innerHTML='<div class="pdf-dialog-head"><strong></strong><button type="button" class="secondary" data-close>Close</button></div><div class="pdf-selection-layout"><div class="pdf-selection-tools"><div data-document-selection class="form" hidden><div class="generation-filter-row"><label>PDF Pages<input data-pages placeholder="e.g. 10–12, 15"></label><button type="button" class="secondary" data-select-pages>Select Pages</button></div><div class="generation-filter-row"><label>Chapter<input data-chapter maxlength="160" placeholder="e.g. Chapter 1, or its title"></label><button type="button" class="secondary" data-find-chapter>Find Chapter with AI</button></div></div><p class="help">Select excerpts in the preview, or add pages or a chapter. Each new selection is added below the existing text.</p><p class="help" data-selection-feedback aria-live="polite"></p></div><div class="pdf-selection-review"><section class="pdf-review-box" aria-label="Document preview panel"><strong class="pdf-review-heading">Document Preview</strong><p class="help pdf-page-guidance">Page numbers refer to PDF pages. Review the selected text before Apply.</p><div class="pdf-page-scroll" tabindex="0" aria-label="Document preview"></div></section><label class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading"></span><textarea data-selected rows="12" placeholder="Highlight excerpts in the document to add them here. You can edit or remove any text before Apply."></textarea></label><details class="pdf-find-replace"><summary>Find and Replace</summary><div class="pdf-replace-fields"><label>Find<input data-find-text type="text" autocomplete="off"></label><label>Replace with<input data-replace-text type="text" autocomplete="off"></label><label>Replace in<select data-replace-scope><option value="line">This line (1)</option><option value="all">All selected text</option></select></label><button type="button" class="secondary" data-replace disabled>Replace</button></div><p class="help" data-replace-feedback aria-live="polite">Click a line in Selected Text to target it. Matches use exact text.</p></details></div></div><div class="row pdf-selection-footer"><button type="button" data-extract disabled></button><span role="status" aria-live="polite"></span></div>';
   dialog.querySelector('strong').textContent=title;dialog.querySelector('.pdf-selected-label span').textContent=selectedLabel;dialog.querySelector('[data-extract]').textContent=applyLabel;
@@ -70,11 +70,11 @@
   }
   function open(from){if(disposed)return;opener=from||document.activeElement;if(!dialog.open)dialog.showModal();scroll.focus();}
   function clear(){epoch++;selectionEpoch++;selectionMeta={};lastCaptured=null;linePosition=0;pageText=null;feedback.textContent='';dialog.querySelector('[data-document-selection]').hidden=true;observer?.disconnect();observer=null;renderQueue=[];shells=[];file=null;doc=null;ready=false;busy=false;metadataTitle='';selected.value='';note.textContent='';scroll.replaceChildren();controls();updateReplace();const previous=task;task=null;if(previous)void previous.destroy().catch(()=>{});if(dialog.open)dialog.close();}
-  async function load(chosen,from){
+  async function load(chosen,from,{show=true}={}){
    if(disposed)throw Error('Reopen the source picker.');
    if(!chosen||chosen.size>20*1024*1024)throw Error('Choose a PDF or text document smaller than 20 MB.');
    const extension=chosen.name.split('.').pop().toLowerCase();if(!['pdf','txt','md'].includes(extension))throw Error('Upload a PDF, TXT or Markdown document.');
-   clear();const generation=epoch;busy=true;controls();open(from);note.textContent='Opening document…';
+   clear();const generation=epoch;busy=true;controls();if(show)open(from);note.textContent='Opening document…';
    try{
     if(extension==='pdf'){
      const library=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.min.mjs');if(generation!==epoch)return;
@@ -123,7 +123,17 @@
   extract.onclick=()=>{if(extract.disabled)return;try{onApply({text:selected.value.trim(),name:file.name,title:metadataTitle&&metadataTitle!=='Untitled'?metadataTitle:file.name.replace(/\.[^.]+$/,'').replace(/[_-]/g,' '),scope:'selected',...selectionMeta});dialog.close();}catch(error){note.textContent=error.message;}};
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{selectionEpoch++;if(opener?.isConnected)opener.focus();});
-  return {load,open,clear,get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
+  async function snapshot(){
+   if(busy)throw Error('Wait for the document selection to finish, then save.');
+   const source=file?{name:file.name,bytes:file.arrayBuffer?await file.arrayBuffer():new TextEncoder().encode(await file.text()).buffer}:null;
+   return {source,text:selected.value,meta:selectionMeta,pages:dialog.querySelector('[data-pages]').value,chapter:dialog.querySelector('[data-chapter]').value,scroll:scroll.scrollTop};
+  }
+  async function restore(saved){
+   if(saved?.source)await load(new File([saved.source.bytes],saved.source.name),null,{show:false});else clear();
+   selected.value=saved?.text||'';selectionMeta=saved?.meta||{};dialog.querySelector('[data-pages]').value=saved?.pages||'';dialog.querySelector('[data-chapter]').value=saved?.chapter||'';scroll.scrollTop=saved?.scroll||0;reportSelection();updateReplace();
+  }
+  if(onSave){const save=document.createElement('button');save.type='button';save.className='secondary';save.textContent='Save Draft';save.dataset.saveSourceDraft='';extract.after(save);save.onclick=async()=>{save.disabled=true;save.setAttribute('aria-busy','true');save.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Saving Draft…';try{await onSave();note.textContent='Draft saved in this browser. You can return to it later.';}catch(error){note.textContent=error.message;}finally{save.disabled=false;save.setAttribute('aria-busy','false');save.textContent='Save Draft';}};}
+  return {load,open,clear,snapshot,restore,get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
  }
  window.EccoSourcePicker={create};
 })();
