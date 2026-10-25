@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import runpy
 import shutil
+import sys
 
 
 def digest(path):
@@ -19,6 +20,7 @@ def digest(path):
 
 def finish(model):
     base = Path('/workspace/ecco-audio')
+    sys.path.insert(0, str(base))
     runtime = base / 'sounds' / model / 'cpu-venv'
     ram = Path('/dev/shm/ecco-sound-install-snapshot') / model / 'cpu-venv'
     native = base / 'sound-native-cache' / model
