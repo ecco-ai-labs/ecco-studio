@@ -102,7 +102,7 @@
     "popupClose": {
       "glyph": "×",
       "placement": "upper right",
-      "background": "yellow",
+      "background": "Theme accent, matching Minimize",
       "behavior": "Close only the owning popup; preserve parent popup"
     },
     "newObjects": "Register component type and properties, reuse existing component rules, regenerate inventory in the same change.",
@@ -112,13 +112,14 @@
     "aiKeyEntry": "OpenAI key dialog opens with an empty, initially read-only password field and focus on its heading. Pointer or keyboard focus unlocks entry and browser password-manager selection; preserve the selected key until explicit Verify & connect. Never prefill a key, connect automatically, or persist the key in browser storage. Clear on submit and close.",
     "popupMinimize": {
       "approval": "User requested universally minimizing popups to visit previous screens and connect services without losing work.",
-      "control": "Minimize popup icon beside the existing Close; same 26px size, secondary theme styling.",
+      "control": "Minimize beside Close; both use shared popup-controls.css: 26px square, 14px SVG, 2px stroke, 5px radius, identical theme accent/contrast colors and focus styles.",
       "behavior": "Keep the complete dialog stack and its fields alive in this tab without close cleanup; remove modal blocking. Resume popups menu at bottom right restores the original screen, popup stack and focus. Close retains existing local dismissal semantics.",
       "persistence": "Minimize is in-memory only. Explicit Save Draft persists the story preparation or source selection in browser IndexedDB, including local PDF bytes. No credential values or unrelated form fields are stored.",
       "accessibility": "Native keyboard-focusable buttons, named Minimize popup; Resume popups uses a native details menu. Theme tokens, wrapped labels and viewport-constrained menu."
     },
     "studioEntry": "Tell Your Story is disabled by default, including during Google session restoration and sign-in failures. Signed-out opacity is 0.5 with a not-allowed cursor. Enable only after backend-verified Google identity is available. Entry handlers also require the current identity. Preserve button dimensions, wording, themes and explicit click to enter.",
-    "publishingStatus": "Publishing control-panel icon shows only YouTube: Connected or YouTube: Not Connected (or the connected platform name). Hover, keyboard focus and click reveal compact theme-aware status; never open Connections from the indicator or its channel list. Connection management stays in the Connections menu."
+    "publishingStatus": "Publishing control-panel icon shows only YouTube: Connected or YouTube: Not Connected (or the connected platform name). Hover, keyboard focus and click reveal compact theme-aware status; never open Connections from the indicator or its channel list. Connection management stays in the Connections menu.",
+    "popupControlAppearance": "All Studio modal close/minimize controls, Activity drawer close, and Desk dialog/ticket close controls use popup-controls.css. Fixed 26x26 border-box with no padding, margin or shadow; 14x14 SVG strokes at 2px; theme accent background and contrast foreground for default/hover/focus; focus outline uses theme text. Behaviors and popup positioning remain unchanged."
   },
   "components": [
     {

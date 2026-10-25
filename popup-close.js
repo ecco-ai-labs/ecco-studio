@@ -7,17 +7,9 @@
  style.textContent=`
  dialog{position:fixed}
  dialog.ecco-popup-close-ready{padding-top:44px!important}
- :is(#ecco-error-popup,dialog).ecco-popup-close-ready > button.ecco-popup-close{
-  position:absolute!important;top:10px!important;right:10px!important;
-  width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important;
-  max-width:26px!important;padding:0!important;margin:0!important;
-  display:grid!important;place-items:center!important;border:0!important;border-radius:5px!important;
-  background:#ffdc24!important;color:#211b33!important;font-size:20px!important;
-  font-weight:600!important;line-height:1!important;box-shadow:none!important;cursor:pointer;z-index:20;
- }
- dialog .ecco-popup-close:focus-visible{outline:2px solid white!important;outline-offset:2px}
+ dialog.ecco-popup-close-ready > button.ecco-popup-close{position:absolute!important;top:10px!important;right:10px!important;z-index:20}
+ dialog.ecco-popup-close-ready > button.ecco-popup-minimize{position:absolute!important;top:10px!important;right:46px!important;z-index:20}
  dialog [data-ecco-replaced-close]{display:none!important}
- dialog.ecco-popup-close-ready > button.ecco-popup-minimize{position:absolute;top:10px;right:46px;width:26px;height:26px;min-height:26px;padding:0;display:grid;place-items:center;border-radius:5px;font-size:20px;line-height:1;z-index:20}
  dialog[data-ecco-minimized]{display:none!important}
  #ecco-popup-resume{position:fixed;right:20px;bottom:20px;z-index:9999;max-width:min(360px,calc(100vw - 40px));padding:10px;background:var(--ecco-theme-surface,#252039);border:1px solid var(--ecco-theme-border,#51496f);border-radius:9px;color:var(--ecco-theme-text,#fff)}
  #ecco-popup-resume[hidden]{display:none!important}
@@ -88,13 +80,13 @@
    }
    if([...dialog.children].some(el=>el.classList.contains('ecco-popup-close')))continue;
    const close=document.createElement('button');close.type='button';close.className='ecco-popup-close';
-   close.textContent='×';close.setAttribute('aria-label','Close popup');close.title='Close';
+   close.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>';close.setAttribute('aria-label','Close popup');close.title='Close';
    close.addEventListener('click',event=>{
     event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
     dialog.close('cancel');
    });
    dialog.append(close);
-   const minimizeButton=document.createElement('button');minimizeButton.type='button';minimizeButton.className='secondary ecco-popup-minimize';minimizeButton.textContent='−';minimizeButton.setAttribute('aria-label','Minimize popup');minimizeButton.title='Minimize and keep your work';minimizeButton.onclick=event=>{event.preventDefault();event.stopPropagation();minimize();};dialog.append(minimizeButton);
+   const minimizeButton=document.createElement('button');minimizeButton.type='button';minimizeButton.className='secondary ecco-popup-minimize';minimizeButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 12h12"/></svg>';minimizeButton.setAttribute('aria-label','Minimize popup');minimizeButton.title='Minimize and keep your work';minimizeButton.onclick=event=>{event.preventDefault();event.stopPropagation();minimize();};dialog.append(minimizeButton);
   }
  }
  let queued=false;
