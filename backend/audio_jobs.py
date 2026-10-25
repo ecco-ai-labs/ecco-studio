@@ -47,8 +47,8 @@ def generate(body, env, *, job_id=None, sound=False):
             raise env['Problem']('Update the selected audio worker before using per-character pitch, speed or expressiveness.', 503)
         if request.get('sound_design_version') and target.get('sound_design_version') != 1:
             raise env['Problem']('Update the audio service before generating music and effects.', 503)
-        if not sound and request['model'] not in target['models']:
-            raise env['Problem']('This audio model is not enabled on ' + request['compute'].upper() + '. Choose another compute target.', 503)
+        if not sound and (not queue.required_models(request).issubset(target['models']) or (request.get('mixed_models_version') and not queue.request_ready(request))):
+            raise env['Problem']('The selected worker must support every character model and mixed-model generation. Choose an available CPU instance or install and verify its missing models.', 503)
         active = [j for j in env['records']('audio_job') if j.get('status') in ('queued', 'running', 'cancelling')]
         if len(active) >= 4:
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
@@ -114,7 +114,7 @@ def job_status(jid, env):
             job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved', asset=asset if request.get('task') == 'sound' else None)
         elif status.get('status') in ('running', 'error', 'cancelled'):
             job.update(status=status['status'], progress=status.get('progress', ''), error=status.get('error', ''))
-        if job['status'] in ('queued', 'running', 'cancelling') and not (queue.sound_ready(job['request']['compute'], job['request']['model'], job['request'].get('worker_id', '')) if job['request'].get('task') == 'sound' else queue.ready(job['request'].get('compute', 'b200'), job['request'].get('model'), job['request'].get('worker_id', ''))) and time.time() - job['created'] > 60:
+        if job['status'] in ('queued', 'running', 'cancelling') and not (queue.sound_ready(job['request']['compute'], job['request']['model'], job['request'].get('worker_id', '')) if job['request'].get('task') == 'sound' else queue.request_ready(job['request'])) and time.time() - job['created'] > 60:
             job['progress'] = 'Waiting for the audio worker to reconnect'
         env['save'](job)
         return public(job)
@@ -149,3 +149,4 @@ def cancel(jid, env):
         directory = queue.ROOT / jid
         queue.write(directory / 'cancel.json', {'reason': 'Stopped by user', 'requested': time.time()})
         return job_status(jid, env)
+

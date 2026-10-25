@@ -17,6 +17,12 @@ CASES = {
                    {'text': 'नमस्ते।', 'language': 'Hindi', 'voice': 'mar_m'}],
     'indicf5': [{'text': 'नमस्ते। आपका स्वागत है।', 'language': 'Hindi', 'voice': 'mar_f'},
                 {'text': 'வணக்கம். நலமா?', 'language': 'Tamil', 'voice': 'tam_f'}],
+    'kokoro': [{'text': 'Welcome to our story. Settle down and imagine a wonderful adventure through a quiet forest.', 'language':'English','voice':'af_heart'},
+               {'text':'हमारी कहानी में आपका स्वागत है। आराम से बैठिए और सुनिए। आज हम एक नए सफ़र पर चलेंगे।','language':'Hindi','voice':'hm_omega'}],
+    'voxcpm2': [{'text':'Welcome to our story. The merchant smiled as he stepped through the door.','language':'English','voice':'mar_m'},
+                {'text':'हमारी कहानी में आपका स्वागत है। आराम से बैठिए और सुनिए।','language':'Hindi','voice':'kan_f'}],
+    'indic-parler': [{'text':'हमारी कहानी में आपका स्वागत है। आज हम एक नए सफ़र पर चलेंगे।','language':'Hindi','voice':'hindi-rohit'},
+                     {'text':'எங்கள் கதைக்கு உங்களை வரவேற்கிறோம். அமைதியாக உட்கார்ந்து கேளுங்கள்.','language':'Tamil','voice':'tamil-kavitha'}],
 }
 
 def verify(model):
@@ -24,14 +30,16 @@ def verify(model):
     directory.mkdir(parents=True, exist_ok=True)
     request = {'compute': 'cpu', 'model': model, 'lines': CASES[model]}
     (directory / 'request.json').write_text(json.dumps(request))
-    env = dict(os.environ, CUDA_VISIBLE_DEVICES='', ECCO_AUDIO_CPU_THREADS='1',
-               OMP_NUM_THREADS='1', MKL_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1',
+    from queue_worker import cpu_threads
+    threads = cpu_threads()
+    env = dict(os.environ, CUDA_VISIBLE_DEVICES='', ECCO_AUDIO_CPU_THREADS=threads,
+               OMP_NUM_THREADS=threads, MKL_NUM_THREADS=threads, OPENBLAS_NUM_THREADS=threads,
                MALLOC_ARENA_MAX='2', HF_HOME=str(BASE/'hf-cache'), HF_HUB_OFFLINE='1',
                HF_HUB_ENABLE_HF_TRANSFER='0', TORCH_HOME=str(BASE/'torch-cache'))
     env.pop('PYTHONPATH', None)
     python = str(Path('/opt/ecco-audio-cpu') / ('cpu-' + model + '-venv/bin/python'))
     subprocess.run([python, '-c', 'import torch; assert torch.version.cuda is None; print(torch.__version__)'], env=env, check=True, timeout=120)
-    script = Path(__file__).with_name('audio_worker.py' if model == 'indic-mio' else 'extra_worker.py')
+    script = Path(__file__).with_name('audio_worker.py' if model == 'indic-mio' else 'extra_worker.py' if model in ('chatterbox','indicf5') else 'modern_worker.py')
     started = time.monotonic()
     with (directory / 'inference.log').open('wb') as log:
         subprocess.run([python, str(script), '--request', str(directory/'request.json'), '--runtime',
@@ -44,7 +52,7 @@ def verify(model):
         duration = audio.getnframes()/audio.getframerate()
         samples = array.array('h', audio.readframes(audio.getnframes()))
         assert duration > .1 and max(abs(x) for x in samples) > 2
-        report = dict(model=model, compute='cpu', seconds=round(duration, 2), wall_seconds=elapsed,
+        report = dict(model=model, compute='cpu', worker_pod=os.environ.get('RUNPOD_POD_ID','local'), seconds=round(duration, 2), wall_seconds=elapsed,
                       sample_rate=audio.getframerate(), sha256=hashlib.sha256(raw).hexdigest())
     (directory/'report.json').write_text(json.dumps(report, indent=2))
     ready = BASE/'cpu-ready-models.json'

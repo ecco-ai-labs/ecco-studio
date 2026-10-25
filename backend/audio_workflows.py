@@ -107,6 +107,8 @@ def clean(body, env):
     cast = cast[:count]
     if any(not isinstance(c,dict) or not isinstance(c.get('id'),str) or not c['id'] for c in cast) or len({c['id'] for c in cast})!=count:
         raise problem('Characters need distinct saved identities.')
+    if any(c.get('model') and c['model'] != snapshot.get('model') for c in cast):
+        raise problem('Per-character speech models are currently supported for individual recordings only. Use one model for a scheduled workflow.')
     sounds = snapshot.get('sound_design') or {}
     if isinstance(sounds,dict) and sounds.get('enabled') and sounds.get('cues'):
         raise problem('Scheduled scripts need new sound-cue timing. Sound Design is currently supported for individual recordings only.')

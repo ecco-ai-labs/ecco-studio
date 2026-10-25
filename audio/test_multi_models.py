@@ -70,6 +70,7 @@ class MultiModelRequests(TestCase):
         for model, settings in MODELS.items():
             for language in settings['languages']:
                 for voice in settings['voices']:
+                    if voice.get('language') and voice['language'] != language: continue
                     with self.subTest(model=model, language=language, voice=voice['id']):
                         result = validate({'model': model, 'lines': [{'text': 'Test.', 'language': language, 'voice': voice['id']}]})
                         self.assertEqual(result['model'], model)

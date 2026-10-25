@@ -368,3 +368,106 @@ planning is implemented; existing voice-only workflows remain supported.
 Final Script now starts with Spoken script, followed by numbered turns and inline sound cue review. Existing Generate with AI and exact-range Improve with AI dialogs remain unchanged. Each cue can use Audio Library, upload, preview or generate a new sound. Generate audio creates missing sounds serially on the selected compute, saves assignments, then submits the mixed recording. Confirmed jobs resume after interruption; uncertain submissions are not retried automatically. Script changes require timing review. Progress uses real worker completed/total passage counts.
 
 This frontend update uses the already qualified sound-generation and mixing service. It does not install models or activate another worker. Automated UI tests cover ordering, partial retry, interrupted polling, stale drafts, inline assignment and worker-count progress. Focused authenticated CPU acceptance is recorded at the top of this file. Scheduled soundtracks remain separate and pending.
+
+## Mixed character models and audition samples — runtime active, Studio acceptance pending
+
+Kokoro-82M, VoxCPM2 and Indic Parler-TTS are registered alongside existing models.
+Each character can override the recording model and retain its own voice, language,
+style, pitch, speed and expressiveness where supported. Listen requests a short
+sample and reuses saved assets or resumes an existing confirmed sample job.
+
+Model weights are downloaded once to shared `models/<model>` storage. CPU/GPU
+selection belongs to the generation request; each connected machine needs its own
+compatible runtime. The new installer currently prepares CPU runtimes and records
+immutable model revisions. It does not advertise readiness. Indic Parler may require
+the operator to accept the upstream Hugging Face access conditions. No auth bypass
+or GPU provisioning is part of installation.
+
+The mixed worker groups passages by model, runs isolated interpreters serially,
+restores original order from actual passage boundaries, resamples to 48 kHz, applies
+original pauses and mixes the soundtrack once. Each child's delivery DSP runs once.
+A failure aborts the recording; no partial or silently substituted voice is saved.
+Stop/timeout terminates the complete process group.
+
+Release status: CPU runtime activation and real Kokoro/VoxCPM2/mixed-worker inference are recorded below. Indic Parler access, authenticated Studio previews/mixed generation, durable Audio Library retrieval and actual listening acceptance remain pending. A green Pages deployment does not establish those results. Scheduled soundtracks remain a separate outstanding item.
+
+The prepared Final Script view also exposes Generation Directions: audience, genre,
+tone, narration/language style and character delivery. A bounded `performance_brief`
+is preserved in the submitted request and saved recording. VoxCPM2/Indic Parler
+consume it in native direction prompts, separate from spoken words. Chatterbox
+acting cues use its real expressiveness/pause controls; explicit settings win.
+Kokoro has no arbitrary acting-prompt input; no equivalent compliance is claimed.
+Audience/tone changes invalidate delivery refinement and voice-sample cache keys.
+
+### Earlier CPU installation checkpoint — 25 October 2026
+
+RunPod sign-in was restored. The shared 300 GB volume had reached its quota;
+the Kokoro installer and both CPU worker heartbeat writes failed with `Errno 122`.
+Only the disposable pip HTTP download cache was removed. The existing storage
+API then passed `/healthz`, and both CPU workers resumed fresh heartbeats with
+the existing Indic-Mio, Chatterbox and IndicF5 models. No models or recordings
+were deleted and no GPU was started.
+
+Kokoro weights were downloaded at revision
+`f3ff3571791e39611d31c381e3a41a3af07b4987`. Qualification uses the prepared
+worker/schema from `489a0c73794a1b0df12b16773eade8047e1e0481`, isolated from
+live service source. The first inference attempts caught an unsigned-hash overflow
+in preshed 3.0.14; the CPU installer now pins preshed 3.0.10 with spaCy 3.8.7.
+It also disables the optional inherited hf_transfer setting during downloads.
+
+Real English (`af_heart`) and Hindi (`hm_omega`) CPU synthesis passed on
+`smiling_sapphire_mandrill` / `0g6485yvcjldmo`, with torch `2.8.0+cpu`:
+14.97 seconds of mono 24 kHz PCM audio, 44.39 seconds wall time, SHA-256
+`36b5995f1ac779f17b0f51b2b04f1e85b4dbfcf4a0b4f09ac18b01ad382b06c8`.
+The report and output are in `/workspace/ecco-audio/cpu-verification/kokoro/`.
+This is isolated runtime qualification, not authenticated Studio/Audio Library
+acceptance or listening evidence. The live worker still uses the existing catalog.
+
+VoxCPM2 and Indic Parler weights require approximately 4.96 GB and 3.75 GB,
+respectively, before dependencies. Additional shared storage is required; no
+capacity increase has been submitted. Their installation and qualification remain
+pending. Feature runtime activation, UI publication, live voice previews, mixed
+recording generation and refresh/playback acceptance remain pending. Scheduled
+soundtracks remain separately outstanding.
+
+
+### Current CPU runtime checkpoint — 25 October 2026, 17:05 UTC
+
+The user approved shared storage expansion from 300 GB to 350 GB. RunPod confirms
+350 GB provisioned at $24.50/month, an increase of $3.50/month. No GPU was started.
+This supersedes the earlier capacity blocker above.
+
+- Kokoro remains qualified in English and Hindi with the report above. VoxCPM2
+  installed revision `32279effe8c19989596f05d353d1447f51d9e915` and passed real
+  English/Hindi inference on `0g6485yvcjldmo`: 7.52 seconds mono 48 kHz PCM,
+  128.37 seconds wall time, SHA-256
+  `c6abb0edf3f7a65a7c5bb3854d1c2e05f8b6d033a15f291ab6cd440abcb85ba9`.
+- Indic Parler's CPU dependencies installed, but its weight download returned
+  `GatedRepoError: 403` for revision `660bc53c64ae83150613264111708a0465211237`.
+  Upstream authorized access is required. It is not advertised as ready; no gate
+  was bypassed and no alternate copy substituted.
+- The existing storage API and both CPU workers activated source
+  `47d50384b1af55ffc5203408989c951395bb30c9` using guarded helper
+  `bb88194bbb0d96b76a774a4bf598dd4b387c3b02`. Idle checks passed, source backups
+  were retained, the API health check passed, and fresh heartbeats report
+  `mixed_models_version: 1`. Audit and rollback source:
+  `/workspace/ecco-voice-update-1792947271279058356/`.
+- The larger CPU advertises Indic-Mio, Chatterbox, IndicF5, Kokoro and VoxCPM2,
+  plus its two existing sound models. The smaller CPU retains its three existing
+  speech models; shared weights do not imply a compatible runtime on every machine.
+- A real three-model CPU worker test rendered Kokoro, VoxCPM2 and Chatterbox in
+  original passage order with per-character settings, preserved narration brief,
+  and the existing Homecoming music snapshot at -24 dB with fades and speech
+  ducking. It completed without recovery: stereo 48 kHz PCM, 10.121 seconds,
+  no clipped PCM samples, SHA-256
+  `4bce786679c0cb4526a32868c4ff5aba56b8e42479ba0a84311e8772a54cdca9`.
+  Request, child logs, passage timing, provenance, report and WAV are under
+  `/workspace/ecco-audio/cpu-verification/mixed-voices/`.
+- This worker test did **not** use the authenticated Studio UI or create an Audio
+  Library asset. Studio's Google session is signed out again. Live voice preview,
+  mixed submit, refresh/retrieval/playback and visual/focus acceptance must still
+  be completed after sign-in. No subjective voice or mix quality is asserted.
+- Validation: 27 focused UI checks, 38 audio checks, 42 backend checks and UI
+  inventory verification pass. GitHub UI Registry passed at `bb88194b`.
+  Scheduled mixed-model workflows now reject unsupported overrides rather than
+  silently dropping them. Scheduled soundtracks remain separately unsupported.
