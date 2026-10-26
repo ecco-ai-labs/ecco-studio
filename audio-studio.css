@@ -86,3 +86,10 @@
 .audio-script-heading h3{margin:0}
 .audio-script-heading .generation-ai-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0}
 #audio-final-script-panel [data-script-edit-status]:empty{display:none}
+
+/* Compact column filters within Flow Verification only. */
+.audio-verification-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:12px}
+.audio-verification-filters label{display:grid;gap:4px;flex:1 1 120px;min-width:0;font-size:13px}
+.audio-verification-filters input,.audio-verification-filters select{width:100%;min-width:0}
+.audio-verification-filters button{width:auto}
+[data-verification-checks]>li[hidden]{display:none!important}

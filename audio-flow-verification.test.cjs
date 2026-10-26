@@ -36,3 +36,16 @@ test('memory and storage failures each show a specific resolution',async t=>{
 test('a missing new sound is verified as a description, never treated as an existing file',async t=>{
  const x=await fixture(t);x.q('[data-add-turn-sound]').click();await tick();x.q('[data-verify-audio]').click();await tick();const body=x.calls[0];assert.equal(body.sounds.length,1);assert.equal(body.sounds[0].worker_id,'large');assert.equal(body.sounds[0].model,'moss-soundeffect-v2');assert.equal(body.existing_soundtrack.length,0);assert.equal(body.speech.sound_design_version,1);assert.equal(x.calls.length,1);assert.deepEqual(x.errors,[]);
 });
+
+test('failures sort first and column/status filters retain the full failure summary',async t=>{
+ const x=await fixture(t);x.adapter.verify=async()=>{const r=report();Object.assign(r.checks.find(c=>c.id==='worker_storage'),{status:'failed',detail:'Disk is full'});Object.assign(r.checks.find(c=>c.id==='models'),{status:'unverified',detail:'Service error'});return r;};
+ x.q('[data-verify-audio]').click();await tick();const rows=()=>[...x.q('[data-verification-checks]').children],visible=()=>rows().filter(r=>!r.hidden);
+ assert.equal(rows()[0].dataset.check,'worker_storage');assert.equal(rows()[1].dataset.check,'models');
+ input(x,'[data-filter-status]','passed','change');assert.ok(visible().every(r=>r.dataset.status==='passed'));assert.match(x.q('[data-filter-count]').textContent,/1 failed checks hidden/);assert.match(x.q('[data-verification-summary]').textContent,/1 failed/);
+ x.q('[data-clear-filters]').click();input(x,'[data-filter-column]','detail','change');input(x,'[data-filter-text]','DISK');assert.deepEqual(visible().map(r=>r.dataset.check),['worker_storage']);
+ input(x,'[data-filter-column]','resolution','change');input(x,'[data-filter-text]','Free temporary');assert.deepEqual(visible().map(r=>r.dataset.check),['worker_storage']);
+ input(x,'[data-filter-column]','label','change');input(x,'[data-filter-text]','voices');assert.deepEqual(visible().map(r=>r.dataset.check),['voices']);
+ x.q('[data-verify-audio]').click();await tick();assert.equal(x.q('[data-filter-text]').value,'voices');assert.equal(visible().length,1);
+ x.q('[data-filter-text]').focus();input(x,'[data-filter-text]','no such check');assert.equal(visible().length,0);assert.match(x.q('[data-filter-count]').textContent,/No checks match/);assert.equal(x.w.document.activeElement,x.q('[data-filter-text]'));
+ x.q('[data-clear-filters]').click();assert.equal(visible().length,rows().length);assert.equal(rows()[0].dataset.check,'worker_storage');assert.deepEqual(x.errors,[]);
+});

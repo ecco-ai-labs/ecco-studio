@@ -1,5 +1,9 @@
 # Audio Studio — GitHub Pages interface and disposable inference worker
 
+## Verification priority and filters — 25 October 2026
+
+Flow Verification sorts failures first, then unverified/service errors and blocked checks, ahead of passes. Status and column-specific text filters (Check, Details, Resolution or all columns) combine without changing the full result summary. Counts explicitly show failures hidden by filters; Clear filters restores all checks. Filters persist during rechecks. This is a UI-only update.
+
 ## Audio workspace cleanup — 25 October 2026
 
 Final Script now contains one Generate with AI / Improve with AI action row, numbered editable turns and their inline sound cues. The duplicate Spoken script panel, Generation Directions summary, Audio heading and standalone Sound Design section are removed from that workspace. Existing Music & Effects and turn/opening structure editing remain in Additional Controls; Save as Workflow moves into collapsed References. Audience, genre, tone and voice settings still reach generation unchanged. Prompt improvements and selected audio passages share one instructions → suggestion → repeat refinement → exact-range Apply dialog. Existing guided Audio generation keeps its uploads, source selection, questions and cast steps.

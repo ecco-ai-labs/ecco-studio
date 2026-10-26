@@ -29,22 +29,36 @@
  function mount({host,buttonHost,snapshot,build,connected,remote,busy}){
   const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='Verify Flow';button.dataset.verifyAudio='';buttonHost.prepend(button);
   const panel=document.createElement('details');panel.className='generation-settings';panel.dataset.audioVerification='';panel.hidden=true;
-  panel.innerHTML='<summary>Flow Verification</summary><div class="generation-settings-body"><p class="help">Checks your setup and live resources before generation. Audio quality is assessed after generation.</p><p role="status" data-verification-summary></p><ul role="list" aria-label="Flow verification checks" data-verification-checks></ul></div>';
+  panel.innerHTML='<summary>Flow Verification</summary><div class="generation-settings-body"><p class="help">Checks your setup and live resources before generation. Audio quality is assessed after generation.</p><p role="status" data-verification-summary></p><div class="audio-verification-filters" role="group" aria-label="Filter verification checks"><label>Status<select data-filter-status><option value="">All statuses</option><option value="failed">Failed</option><option value="unverified">Not verified / errors</option><option value="blocked">Blocked</option><option value="passed">Passed</option><option value="checking">Checking</option><option value="stale">Recheck required</option></select></label><label>Column<select data-filter-column><option value="all">All columns</option><option value="label">Check</option><option value="detail">Details</option><option value="resolution">Resolution</option></select></label><label>Filter text<input type="search" data-filter-text placeholder="Search checks…"></label><button type="button" class="secondary" data-clear-filters>Clear filters</button></div><p class="help" role="status" data-filter-count></p><ul role="list" aria-label="Flow verification checks" data-verification-checks></ul></div>';
   host.append(panel);const summary=panel.querySelector('[data-verification-summary]'),list=panel.querySelector('ul');
   let running=false,baseline='',finished=0,stale=false;
   const fingerprint=()=>JSON.stringify(snapshot());
   const current=()=>panel.isConnected&&fingerprint()===baseline&&!stale;
+  const statusFilter=panel.querySelector('[data-filter-status]'),columnFilter=panel.querySelector('[data-filter-column]'),textFilter=panel.querySelector('[data-filter-text]'),filterCount=panel.querySelector('[data-filter-count]');
+  function applyView(){
+   const rank={failed:0,unverified:1,blocked:2,stale:3,checking:4,passed:5},items=[...list.children],ordered=items.slice().sort((a,b)=>(rank[a.dataset.status]??1)-(rank[b.dataset.status]??1)||Number(a.dataset.order)-Number(b.dataset.order));
+   ordered.forEach((item,index)=>{if(list.children[index]!==item)list.insertBefore(item,list.children[index]||null);});
+   const query=textFilter.value.trim().toLocaleLowerCase(),column=columnFilter.value;let visible=0,hiddenFailures=0;
+   for(const item of ordered){const fields={label:item.dataset.label,detail:item.querySelector('[data-check-detail]').textContent,resolution:item.querySelector('[data-check-resolution] span').textContent};
+    const text=column==='all'?Object.values(fields).join(' '):fields[column]||'';
+    item.hidden=!!(statusFilter.value&&item.dataset.status!==statusFilter.value||query&&!text.toLocaleLowerCase().includes(query));
+    if(!item.hidden)visible++;else if(item.dataset.status==='failed')hiddenFailures++;
+   }
+   filterCount.textContent=(visible?'Showing '+visible+' of '+items.length+' checks.':'No checks match your filters.')+(hiddenFailures?' '+hiddenFailures+' failed checks hidden by filters.':'');
+  }
+  statusFilter.onchange=columnFilter.onchange=textFilter.oninput=applyView;
+  panel.querySelector('[data-clear-filters]').onclick=()=>{statusFilter.value='';columnFilter.value='all';textFilter.value='';applyView();};
   function row(id,label,status,detail=''){
    let item=[...list.children].find(x=>x.dataset.check===id);
-   if(!item){item=document.createElement('li');item.dataset.check=id;item.innerHTML='<div class="audio-check-heading"><strong data-check-label></strong><span class="audio-check-state"><span data-check-icon aria-hidden="true"></span><span data-check-state></span></span></div><p data-check-detail></p><p data-check-resolution><strong>To resolve: </strong><span></span></p>';list.append(item);}
+   if(!item){item=document.createElement('li');item.dataset.check=id;item.dataset.order=String(list.children.length);item.innerHTML='<div class="audio-check-heading"><strong data-check-label></strong><span class="audio-check-state"><span data-check-icon aria-hidden="true"></span><span data-check-state></span></span></div><p data-check-detail></p><p data-check-resolution><strong>To resolve: </strong><span></span></p>';list.append(item);}
    item.dataset.status=status;item.dataset.label=label;
    item.querySelector('[data-check-label]').textContent=label;
    item.querySelector('[data-check-icon]').textContent={checking:'…',passed:'✓',failed:'✕',blocked:'!',unverified:'?',stale:'↻'}[status]||'?';
    item.querySelector('[data-check-state]').textContent={checking:'Checking',passed:'Passed',failed:'Failed',blocked:'Blocked',unverified:'Not verified',stale:'Recheck required'}[status]||'Not verified';
    const description=item.querySelector('[data-check-detail]');description.textContent=detail;description.hidden=!detail||status==='blocked';item.title=status==='blocked'?detail:'';
-   const fix=resolution(id,status,detail),suggestion=item.querySelector('[data-check-resolution]');suggestion.querySelector('span').textContent=fix;suggestion.hidden=!fix;
+   const fix=resolution(id,status,detail),suggestion=item.querySelector('[data-check-resolution]');suggestion.querySelector('span').textContent=fix;suggestion.hidden=!fix;applyView();
   }
-  function invalidate(){if(!baseline||stale)return;if(fingerprint()!==baseline||finished&&Date.now()-finished>=60000){stale=true;summary.dataset.status='stale';summary.textContent='Selections changed or live checks expired. Run Verify Flow again.';for(const item of list.children)row(item.dataset.check,item.dataset.label,'stale');}}
+  function invalidate(){if(!baseline||stale)return;if(fingerprint()!==baseline||finished&&Date.now()-finished>=60000){stale=true;summary.dataset.status='stale';summary.textContent='Selections changed or live checks expired. Run Verify Flow again.';for(const item of [...list.children])row(item.dataset.check,item.dataset.label,'stale');}}
   function refresh(){invalidate();button.disabled=running||busy();}
   button.onclick=async()=>{
    if(running||busy())return;running=true;stale=false;finished=0;baseline=fingerprint();panel.hidden=false;panel.open=true;list.replaceChildren();button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Verifying Flow…';summary.dataset.status='checking';summary.textContent='Checking your generation choices…';document.querySelector('[data-audio-tab=progress]')?.click();
