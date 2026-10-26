@@ -64,3 +64,10 @@ for(const resumed of [false,true])test(`Cancel stops ${resumed?'resumed':'new'} 
  await assert.rejects(result,e=>e.name==='GenerationStopped'&&!/Generate audio again/.test(e.message));w.EccoGenerationStop.finish(token);
  assert.deepEqual(cancelled,['lunch-bell']);assert.equal(submissions.length,resumed?0:1);assert.equal(plan.cues[0].asset_id,'saved-file');assert.equal(plan.cues[1].asset_id,'');assert.equal(button.disabled,true);
 });
+test('a minimized popup cancels its original story, not a newly selected story',async t=>{
+ const cancelled=[],w=setup(t,async(p,b)=>{if(p==='generation/stop'){cancelled.push(b.job_id);return{id:b.job_id,status:'cancelled'}}return{records:[]}});
+ w.document.body.insertAdjacentHTML('beforeend','<dialog><button data-cancel-generation="audio"></button></dialog>');
+ w.EccoGenerationStop.begin('audio','s');await w.EccoGenerationStop.track('audio','s',{id:'original',status:'running'});const button=w.document.querySelector('dialog button');assert.equal(button.dataset.generationStory,'s');
+ w.eval("activeStory='other'");w.EccoGenerationStop.begin('audio','other');await w.EccoGenerationStop.track('audio','other',{id:'unrelated',status:'running'});
+ button.click();await new Promise(r=>setImmediate(r));assert.deepEqual(cancelled,['original']);assert.equal(w.document.getElementById('stop-audio').disabled,false);
+});

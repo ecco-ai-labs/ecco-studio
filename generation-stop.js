@@ -49,15 +49,17 @@
    let button=form?.querySelector('#stop-'+kind);
    if(generate&&!button){button=document.createElement('button');button.id='stop-'+kind;button.type='button';button.className='secondary';generate.after(button);}
    const buttons=[...(button?[button]:[]),...document.querySelectorAll('[data-cancel-generation="'+kind+'"]')];
-   const token=operations.get(key(kind,activeStory)),running=jobs(kind,activeStory,token),preparing=token&&!token.finished;
-   const waiting=running.some(j=>pending.has(j.id)||j.status==='cancelling'||j.cancel_requested),busy=preparing||running.length>0;
-   const label=waiting||token?.stopped&&preparing?(kind==='audio'?'Cancelling…':'Stopping…'):action;
+   const activity=story=>{const token=operations.get(key(kind,story)),running=jobs(kind,story,token),preparing=token&&!token.finished;return{token,running,preparing,waiting:running.some(j=>pending.has(j.id)||j.status==='cancelling'||j.cancel_requested),busy:preparing||running.length>0};};
    for(const control of buttons){
+    // A minimized popup belongs to its original story, even after navigation.
+    if(control!==button&&!control.hasAttribute('data-generation-story'))control.dataset.generationStory=activeStory;
+    const target=control===button?activeStory:control.dataset.generationStory,{token,running,preparing,waiting,busy}=activity(target);
+    const label=waiting||token?.stopped&&preparing?(kind==='audio'?'Cancelling…':'Stopping…'):action;
     if(control.textContent!==label)control.textContent=label;
-    control.type='button';control.setAttribute('aria-label',action+' '+kind+' generation');control.title='Cancel this generation; keep completed media';control.onclick=()=>stop(kind,activeStory);
+    control.type='button';control.setAttribute('aria-label',action+' '+kind+' generation');control.title='Cancel this generation; keep completed media';control.onclick=()=>stop(kind,target);
     control.disabled=!busy||waiting||Boolean(token?.stopped&&!token.finished&&!running.length);control.setAttribute('aria-busy',String(waiting||!!(token?.stopped&&preparing)));
    }
-   const resumable=kind==='audio'&&token?.finished&&!token.stopped&&running.length&&running.every(j=>j.task==='sound');
+   const {token,running,busy}=activity(activeStory),resumable=kind==='audio'&&token?.finished&&!token.stopped&&running.length&&running.every(j=>j.task==='sound');
    if(busy&&generate&&!resumable)generate.disabled=true;
   }
  }
