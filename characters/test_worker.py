@@ -42,5 +42,22 @@ class WorkerTest(unittest.TestCase):
             config={k:str(file) for k in ('blender','trellis_python','trellis_root','trellis_weights','unirig_root','unirig_python')}
             self.assertFalse(any(worker.capabilities(config).values()))
 
+    def test_unknown_engine_and_missing_local_encoder_fail_before_worker_start(self):
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'config.json'
+            for config in ({'trellis_engine':'remote-command'}, {'trellis_engine':'trellis1'}):
+                path.write_text(json.dumps(config))
+                with self.assertRaises(ValueError): worker.configuration(path)
+
+    def test_missing_encoder_invalidates_qualified_reconstruction(self):
+        with tempfile.TemporaryDirectory() as root:
+            file=Path(root)/'binary';file.write_text('fixture')
+            qualification=Path(root)/'qualification.json'
+            config={k:str(file) for k in ('blender','trellis_python','trellis_root','trellis_weights')}
+            config.update(trellis_engine='trellis1',qualification=str(qualification),
+                          trellis_encoder_root=str(file),trellis_encoder_checkpoint=str(Path(root)/'missing'))
+            qualification.write_text(json.dumps({'configuration':worker.config_signature(config),'model':True}))
+            self.assertFalse(worker.capabilities(config)['model'])
+
 
 if __name__=='__main__': unittest.main()
