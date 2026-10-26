@@ -3,6 +3,8 @@
  const modelFor=kind=>kind==='music'?'ace-step-1.5':'moss-soundeffect-v2';
  const models={'moss-soundeffect-v2':'MOSS SoundEffect v2','ace-step-1.5':'ACE-Step 1.5'};
  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ const mounts=new Map();
+ function availability(status,selection){for(const [area,apply] of mounts){if(!area.isConnected)mounts.delete(area);else apply(status,selection);}}
  const running=new Map(),journalKey='ecco-sound-jobs-v1';
  const journal=()=>JSON.parse(localStorage.getItem(journalKey)||'{}');
  function rememberJob(key,value){const jobs=journal();jobs[key]=value;localStorage.setItem(journalKey,JSON.stringify(jobs));}
@@ -24,17 +26,19 @@
    if(!record?.id||['done','error','cancelled'].includes(record.status)){
     progress('Checking sound worker…');const available=await api('audio/status');valid();
     const target=window.EccoAudioCompute?.target(available,request.compute,request.worker_id)||(!request.worker_id?available.compute?.[request.compute]:null);
-    if(!target?.sound_models?.includes(request.model))throw Error(models[request.model]+' is not installed and verified on the selected '+request.compute.toUpperCase()+' worker. Choose a CPU with this sound model.');
+    if(!target?.ready||!target.sound_models?.includes(request.model))throw Error(models[request.model]+' is not installed and verified on the selected '+request.compute.toUpperCase()+' worker. Choose a CPU with this sound model.');
     rememberJob(id,{status:'submitting'});
     let job;try{job=await api('audio/sounds/generate',request);}catch(error){if(error.job?.id)rememberJob(id,{id:error.job.id,status:error.job.status==='cancelled'?'cancelled':'queued'});throw error;}
     if(!job.id)throw Error('The service did not confirm a sound job. Check Activity before retrying.');
     record={id:job.id,status:'queued'};rememberJob(id,record);
    }
+   await window.EccoGenerationStop?.track('audio',request.story_id||activeStory,{id:record.id,status:record.status||'queued',task:'sound'});
    const started=Date.now();
    while(Date.now()-started<1850000){
     valid();progress('Waiting for the sound worker…');
     const result=await api('audio/jobs/'+encodeURIComponent(record.id));
-    if(result.status==='cancelled'){rememberJob(id,{...record,status:'cancelled'});throw Error('Stopped by user.');}
+    window.EccoGenerationStop?.remember({id:record.id,...result});
+    if(result.status==='cancelled'){rememberJob(id,{...record,status:'cancelled'});throw Object.assign(Error('Stopped by user. Your draft and completed sounds are saved.'),{name:'GenerationStopped'});}
     if(['error','failed'].includes(result.status)){rememberJob(id,{...record,status:'error'});throw Error(result.error||'Sound generation failed.');}
     if(result.status==='done'){
      const asset=result.asset;if(!asset?.id||asset.media!=='audio'||asset.kind!=='asset')throw Error('The job finished without a saved sound asset. Check Audio Library.');
@@ -60,21 +64,41 @@
    try{
     const asset=await generate(soundRequest(cue,{compute,worker_id,story_id}),{valid:current,progress:message=>progress('Generating Sounds: '+completed+' of '+missing.length+' complete · '+cue.name+' · '+message)});
     current();cue.asset_id=asset.id;completed++;changed();progress('Generating Sounds: '+completed+' of '+missing.length+' complete · '+cue.name+' ready');
-   }catch(error){throw Error(cue.name+': '+error.message+' Completed sounds are saved. Generate audio again to continue.');}
+   }catch(error){if(error.name==='GenerationStopped')throw error;throw Error(cue.name+': '+error.message+' Completed sounds are saved. Generate audio again to continue.');}
   }
  }
  function mount({box,cue,changed,valid,settingsChanged=()=>{},preferredCompute}){
   const area=document.createElement('div');area.className='form';area.dataset.soundGeneration='';
-  area.innerHTML='<div class="generation-filter-row"><label>Sound Model<select data-sound-model></select></label><label>Duration (Seconds)<input type="number" data-sound-duration step="1"></label><label>Compute<select data-sound-compute><option value="cpu">CPU</option><option value="a100">A100</option><option value="b200">B200</option></select></label></div><button type="button" class="secondary" data-generate-sound>Generate Sound</button><p class="help" role="status" data-sound-status></p>';
+  area.innerHTML='<div class="generation-filter-row"><label>Sound Model<select data-sound-model></select></label><label>Duration (Seconds)<input type="number" data-sound-duration step="1"></label><label>Compute<select data-sound-compute><option value="cpu">CPU</option><option value="a100">A100</option><option value="b200">B200</option></select></label></div><button type="button" class="secondary" data-generate-sound>Generate Sound</button><button type="button" class="secondary" data-cancel-generation="audio">Cancel</button><p class="help" role="status" data-sound-availability></p><p class="help" role="status" data-sound-status></p>';
   box.querySelector('[data-field=description]').closest('label').after(area);
   const q=s=>area.querySelector(s),model=modelFor(cue.kind),duration=q('[data-sound-duration]'),compute=q('[data-sound-compute]'),button=q('button'),status=q('[data-sound-status]');
   q('[data-sound-model]').add(new Option(models[model],model));duration.min=cue.kind==='music'?10:1;duration.max=cue.kind==='music'?60:30;duration.value=cue.duration||(cue.kind==='music'?20:5);compute.value=cue.compute||'cpu';
-  const collect=()=>{cue.duration=Number(duration.value);Object.assign(cue,window.EccoAudioCompute?.parse(compute.value)||{compute:compute.value,worker_id:''});settingsChanged();};duration.oninput=collect;compute.onchange=collect;
+  const collect=()=>{cue.duration=Number(duration.value);Object.assign(cue,window.EccoAudioCompute?.parse(compute.value)||{compute:compute.value,worker_id:''});settingsChanged();};duration.oninput=collect;compute.onchange=()=>{collect();showAvailability();};
   const selected=preferredCompute||cue;if(selected.worker_id)compute.add(new Option('CPU · '+selected.worker_id,'cpu:'+selected.worker_id));compute.value=window.EccoAudioCompute?.value(selected.compute||'cpu',selected.worker_id)||selected.compute||'cpu';
-  const refreshChoices=async()=>{if(!window.EccoStorage?.ready||!window.EccoAudioCompute)return;const available=await api('audio/status');if(!area.isConnected||pending)return;const choices=window.EccoAudioCompute.choices(available),previous=compute.value;if(!choices.length)return;compute.replaceChildren(...choices.map(c=>new Option(c.label,c.value)));compute.value=choices.some(c=>c.value===previous)?previous:previous==='cpu'?(choices.find(c=>c.compute==='cpu'&&c.ready)?.value||choices.find(c=>c.compute==='cpu')?.value||''):'';};
-  let pending=false;
+  let pending=false,capabilities=null,mainValue=preferredCompute?window.EccoAudioCompute.value(preferredCompute.compute||'cpu',preferredCompute.worker_id||''):null;
+  function showAvailability(){
+   const choice=window.EccoAudioCompute?.parse(compute.value)||{},result=window.EccoAudioCompute?.readiness(capabilities,choice.compute,choice.worker_id,model,true)||{ready:false,reason:'Checking worker availability…'};
+   q('[data-sound-model]').options[0].disabled=!result.ready;
+   button.disabled=pending||!result.ready;
+   q('[data-sound-availability]').textContent=result.ready?'':result.reason;
+  }
+  function applyAvailability(available,main){
+   capabilities=available;if(pending)return;
+   let previous=compute.value;
+   if(preferredCompute&&main){const next=window.EccoAudioCompute.value(main.compute,main.worker_id);if(next!==mainValue){previous=next;mainValue=next;}}
+   const choices=window.EccoAudioCompute?.choices(available)||[];
+   if(choices.length){
+    const signature=JSON.stringify(choices);if(compute.dataset.options!==signature){compute.replaceChildren(...choices.map(c=>new Option(c.label,c.value)));compute.dataset.options=signature;}
+    if(previous==='cpu')previous=choices.find(c=>c.compute==='cpu'&&c.ready)?.value||choices.find(c=>c.compute==='cpu')?.value||previous;
+    if(previous&&![...compute.options].some(o=>o.value===previous))compute.add(new Option(previous+' · Unavailable',previous));
+    compute.value=previous;
+   }
+   showAvailability();
+  }
+  mounts.set(area,applyAvailability);showAvailability();
+  const refreshChoices=async()=>{if(!window.EccoStorage?.ready||!window.EccoAudioCompute){applyAvailability(null);return;}const available=await api('audio/status');if(area.isConnected)applyAvailability(available);};
   button.onclick=async()=>{
-   if(pending)return;
+   if(pending||button.disabled)return;
    const stopToken=window.EccoGenerationStop?.begin('audio',activeStory);
    try{
     valid();collect();if(!window.EccoStorage?.ready)throw Error('Connect workspace storage first.');
@@ -88,10 +112,10 @@
     current();cue.asset_id=asset.id;changed();
 
    }catch(error){if(area.isConnected)status.textContent=error.message;}
-   finally{pending=false;window.EccoGenerationStop?.finish(stopToken);if(area.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate Sound';}}
+   finally{pending=false;window.EccoGenerationStop?.finish(stopToken);if(area.isConnected){button.setAttribute('aria-busy','false');button.textContent='Generate Sound';showAvailability();}}
   };
-  refreshChoices().catch(error=>{if(area.isConnected)status.textContent=error.message;});
+  refreshChoices().catch(error=>{if(area.isConnected){applyAvailability(null);status.textContent=error.message;}});
  }
- window.EccoSoundGeneration={mount,modelFor,models,generate,ensure,soundRequest};
+ window.EccoSoundGeneration={mount,modelFor,models,generate,ensure,soundRequest,availability};
 })();
 

@@ -20,7 +20,7 @@ test('A failed sound retains successful assignments and retry generates only the
  const x=await fixture(t);let fail=true;const submitted=[];
  x.w.testUI.setAPI(async(path,body)=>{if(path==='audio/status')return status;if(path==='audio/sounds/generate'){submitted.push(body.title);return{id:body.title};}if(path==='audio/jobs/Wind'&&fail)return{status:'error',error:'Temporary model failure'};return{status:'done',asset:asset(path.slice(11)+'-file')};});
  x.q('#audio-form').requestSubmit();await tick();assert.equal(x.calls.filter(c=>c.path==='speech').length,0);assert.equal(x.draft().sound_design.cues[0].asset_id,'Door-file');assert.match(x.q('#audio-job-status').textContent,/Wind.*Temporary model failure/);
- fail=false;x.q('#audio-form').requestSubmit();await tick();assert.deepEqual(submitted,['Door','Wind','Wind']);assert.equal(x.calls.filter(c=>c.path==='speech').length,1);assert.deepEqual(x.errors,[]);
+ fail=false;x.q('#audio-form').requestSubmit();assert.ok(!x.q('#notice').textContent.includes('Temporary model failure'));await tick();assert.deepEqual(submitted,['Door','Wind','Wind']);assert.equal(x.calls.filter(c=>c.path==='speech').length,1);assert.deepEqual(x.errors,[]);
 });
 test('Confirmed jobs resume after a failed poll without creating another sound job',async t=>{
  const x=await fixture(t,[sound('Door')]);let fail=true,count=0;
