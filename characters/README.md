@@ -80,6 +80,11 @@ TRELLIS 1 has a different geometry ceiling: high quality retains more of the
 generated mesh and bakes a 4096-pixel texture, but does not increase the model's
 native spatial resolution. This alternate adapter still requires a real model
 qualification and visual review. It does not qualify body or facial rigging.
+The upstream Gaussian texture exporter includes a rasterizer whose license
+limits use to research evaluation. Keep this path as a technical prototype;
+production enablement also requires a suitably licensed exporter or permission
+from that component's licensors. Public model downloads alone do not resolve
+third-party dependency licensing.
 
 Keep a private worker configuration outside served assets, for example:
 
