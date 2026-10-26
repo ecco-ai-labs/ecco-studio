@@ -24,6 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python -m pip install -r backend/requirements-youtube.txt Pillow
       - run: npm install --prefix /tmp/ecco-test-deps jsdom@26.1.0 --no-audit --no-fund
       - name: Character, authorization and cancellation tests

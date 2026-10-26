@@ -54,7 +54,7 @@ class StorageTest(unittest.TestCase):
   import time
   pending=google_signin.challenge()
   claims={'sub':'new-user','aud':google_signin.CLIENT_ID,'iss':'https://accounts.google.com','exp':time.time()+3600,'nonce':pending['nonce']}
-  with patch.object(google_signin,'verifier',return_value=claims):
+  with patch.object(google_signin,'SESSION_DB',Path(self.tmp.name)/'sessions.sqlite3'),patch.object(google_signin,'verifier',return_value=claims):
    signed=google_signin.login({'challenge':pending['challenge'],'credential':'test'})
   with self.assertRaises(HTTPError) as error:
    self.call('/api/state',auth=False,extra={'Authorization':'Bearer '+signed['session_token']})
