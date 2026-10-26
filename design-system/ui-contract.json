@@ -762,7 +762,8 @@
         "nestedParent"
       ],
       "variants": [
-        "ecco-desk"
+        "ecco-desk",
+        "character-workflow"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -1133,7 +1134,9 @@
         "height",
         "accessibleAlternative"
       ],
-      "variants": [],
+      "variants": [
+        "character-model-preview"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -2132,5 +2135,39 @@
     "content": "Current task-based instructions for story journeys, persistent connections/disconnect, source selection and drafts, audio cast/script/voices, sounds, image/video tabs and assembly, libraries, workflows, publishing, model settings, cancellation/logs, support/notifications/themes and Learning Log.",
     "appearance": "Content-only refresh using existing How to tree, topic buttons and collapsible guide sections. Preserve labels, styles and Learning Log records.",
     "availability": "Distinguish model/worker readiness and server-enabled scheduling from UI presence; document unsupported publishing destinations, direct audio publishing and scheduled sound-cue plans without claiming they work."
+  },
+  "characterStudio": {
+    "approval": "User requested realistic reusable characters inside Image Studio \u2192 Generate with AI, with character sets, 3D reconstruction, rigging, performances and export.",
+    "types": [
+      "popup",
+      "step-navigation",
+      "dropdown",
+      "text-input",
+      "textarea",
+      "button",
+      "image",
+      "video",
+      "canvas",
+      "progress",
+      "file-upload",
+      "help-text"
+    ],
+    "entry": "Image prompt Generate with AI offers Image prompt or Character. No new ribbon or standalone Blender navigation.",
+    "stages": [
+      "Appearance",
+      "Character set",
+      "3D model",
+      "Rig",
+      "Performance",
+      "Export"
+    ],
+    "appearance": "Reuse generation-dialog, form, row, generation-attribute-grid and generation-picker-grid. Theme variables; 50vh media/3D preview within the existing 660px dialog. Native keyboard buttons/selects, aria-current stage, named model-viewer canvas, live progress.",
+    "persistence": "Workspace character records retain candidates, approved assets, views and performances. Browser retains unsaved brief, selected character and uncertain request identity. Jobs continue when closed or minimized; Stop explicitly requests worker cancellation.",
+    "validation": "Same-story assets, optimistic character revision, explicit approval gates. Repeated requests use the original idempotency key; uncertain submission blocks a new request. No GPU fallback or runtime readiness inferred from UI presence.",
+    "threeD": "Bundled model-viewer 4.1.0 displays authenticated self-contained GLB as a rotatable preview. TRELLIS.2 uses the approved front view; remaining views support review. High mode targets 4K textures, not guaranteed detail.",
+    "rigging": "UniRig creates body skeleton and skin weights. Facial shape keys are independent and are never claimed automatically. Blender review add-on maps body bones; self-contained skinned GLB imports allow reviewed facial controls. Unmapped actions and absent expressions remain unavailable.",
+    "performance": "Editable procedural previews for stand, sit, run, jump and kick; expression requires an actual corresponding facial shape key. Fixed camera choices, 1\u201310 seconds, still or clip. No arbitrary text-to-motion or multi-character scene generation is claimed.",
+    "handoff": "Download Blender scene, GLB, still and clip. Use frame in Video Studio approves the selected rendered image and carries reference, motion prompt and duration. It does not start video generation or submit a .blend file to a video model.",
+    "availability": "Backend deployment and per-compute model, rig and rendering qualification are distinct from GitHub Pages publication. Missing service/worker disables generation with an inline explanation."
   }
 }

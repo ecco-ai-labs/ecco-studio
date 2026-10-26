@@ -59,3 +59,13 @@ test('existing scene planning still works on older services without custom instr
 test('older services do not silently ignore custom scene instructions',async()=>{
  const x=await boardSetup(false,true),before=JSON.stringify(x.w.draft);options(x).requestSubmit();await delay();await delay();assert.equal(x.calls.filter(c=>['stories/plan','ai/enhance'].includes(c.path)).length,0);assert.equal(JSON.stringify(x.w.draft),before);x.close();
 });
+
+test('Image Generate with AI opens Character without rewriting or generating the image prompt',async()=>{
+ const x=await setup();try{
+  const opened=[];x.w.EccoCharacterStudio={open:async(form,brief)=>opened.push({form,brief})};
+  x.w.EccoAI.generateField(x.target.elements.prompt);
+  const form=options(x,'','Create Munnu');form.elements.generation_target.value='character';form.requestSubmit();await delay();
+  assert.equal(opened.length,1);assert.equal(opened[0].form,x.target);assert.equal(opened[0].brief,'Create Munnu');
+  assert.equal(x.target.elements.prompt.value,'A red scooter');assert.equal(x.calls.filter(c=>c.path==='ai/enhance').length,0);assert.equal(x.submits,0);
+ }finally{x.close();}
+});

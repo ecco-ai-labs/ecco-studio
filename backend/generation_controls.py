@@ -7,6 +7,9 @@ import longcat_jobs
 def stop(body, env):
     job = env['get'](body.get('job_id', ''))
     kind = job.get('kind')
+    if kind == 'character_job':
+        import character_studio
+        return character_studio.cancel(job['id'], env)
     if kind == 'audio_job':
         return audio_jobs.cancel(job['id'], env)
     if kind == 'longcat_job':

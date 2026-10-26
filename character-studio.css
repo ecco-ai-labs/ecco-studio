@@ -1,0 +1,10 @@
+/* Character workflow reuses existing generation dialog and theme primitives. */
+#character-studio-dialog [data-character-body]{display:flex;flex-direction:column;gap:16px}
+#character-studio-dialog .character-preview{margin:0;min-width:0}
+#character-studio-dialog .character-preview img{width:100%;max-height:50vh;object-fit:contain}
+#character-studio-dialog figcaption{color:var(--muted);font-size:12px}
+#character-studio-dialog model-viewer{width:100%;height:50vh;background:var(--panel)}
+#character-studio-dialog video{width:100%;max-height:50vh}
+#character-studio-dialog progress{width:100%;accent-color:var(--accent)}
+#character-studio-dialog input[type=radio]{width:auto;min-height:0}
+#character-studio-dialog [data-status]{overflow-wrap:anywhere}

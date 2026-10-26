@@ -14,7 +14,7 @@ def functions():
            'story_id': lambda body: body.get('story_id', 'story'), 'text': lambda text: text,
            'number': lambda n, lo, hi, integer=False: int(n) if integer else n,
            'node': lambda kind, **inputs: {'class_type': kind, 'inputs': inputs},
-           'launch': lambda label, fn: fn('job'), 'edited_asset': Mock(return_value={'id': 'output'})}
+           'launch': lambda label, fn, metadata=None: fn('job'), 'edited_asset': Mock(return_value={'id': 'output'})}
     assets = {name: {'id': name, 'kind': 'asset', 'media': 'image', 'story_id': 'story'} for name in ('a', 'b', 'c')}
     env['get'] = lambda aid, kind: assets[aid]
     exec(compile(ast.Module(body=wanted, type_ignores=[]), str(SOURCE), 'exec'), env)
