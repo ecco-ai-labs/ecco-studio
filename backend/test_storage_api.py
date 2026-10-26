@@ -7,6 +7,15 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('storage_api',Path(__file__).with_name('storage_api.py'))
 api=importlib.util.module_from_spec(spec);spec.loader.exec_module(api)
 class StorageTest(unittest.TestCase):
+ def test_audio_verification_is_authenticated_and_does_not_generate(self):
+  report={'version':1,'ready':False,'checks':[],'generates_audio':False}
+  with patch.object(api.audio_preflight,'verify',return_value=report) as verify:
+   with self.assertRaises(HTTPError) as error:self.call('/api/audio/verify',{},auth=False)
+   self.assertEqual(error.exception.code,401);verify.assert_not_called()
+   with self.assertRaises(HTTPError) as error:self.call('/api/audio/verify',{},origin='https://untrusted.example')
+   self.assertEqual(error.exception.code,403);verify.assert_not_called()
+   with self.call('/api/audio/verify',{'speech':{'model':'kokoro'}}) as response:self.assertEqual(json.load(response),report)
+   self.assertEqual(verify.call_args.args[0],{'speech':{'model':'kokoro'}})
  def test_character_routes_require_workspace_authorization(self):
   for path in ('save','approve','generate','upload'):
    with self.assertRaises(HTTPError) as error:self.call('/api/character-studio/'+path,{},auth=False)

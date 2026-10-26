@@ -16,6 +16,7 @@ import audio_library
 import audio_stories
 import library_rename
 import audio_jobs
+import audio_preflight
 import audio_workflows
 import character_studio
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'video'))
@@ -34,7 +35,7 @@ ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
     '/api/character-studio/save', '/api/character-studio/approve', '/api/character-studio/generate', '/api/character-studio/upload',
-    '/api/generation/stop',
+    '/api/generation/stop', '/api/audio/verify',
     '/api/audio/workflows/save', '/api/audio/workflows/control',
     '/api/youtube/playlists', '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect', '/api/youtube/configure',
     '/api/library/rename',
@@ -186,6 +187,8 @@ class Handler(legacy.Handler):
                 return self.send(longcat_jobs.generate(body, vars(legacy)))
             if path == '/api/audio/sounds/generate':
                 return self.send(audio_jobs.generate(body, vars(legacy), sound=True))
+            if path == '/api/audio/verify':
+                return self.send(audio_preflight.verify(body, vars(legacy)))
             if path == '/api/audio/generate':
                 return self.send(audio_jobs.generate(body, vars(legacy)))
             if path == '/api/audio/workflows/save':

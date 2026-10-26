@@ -98,6 +98,7 @@ def availability():
                           'ready': available, 'models': models if routable else [], 'sound_models': sounds if routable else [],
                           'cpu_count': w.get('cpu_count', config.get('cpu_count')),
                           'memory_gb': w.get('memory_gb', config.get('memory_gb')),
+                          'resources': w.get('resources'), 'updated': w.get('updated'),
                           'character_controls_version': w.get('character_controls_version', 0) if routable else 0,
                           'mixed_models_version': w.get('mixed_models_version', 0) if routable else 0,
                           'sound_design_version': w.get('sound_design_version', 0) if routable else 0,
