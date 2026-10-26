@@ -531,3 +531,7 @@ listening acceptance for the new models remain pending. The direct CPU smoke tes
 above is not a substitute for these gates. Indic Parler access and scheduled soundtracks
 remain outstanding.
 
+
+Activation evidence (26 October 2026): PR #13 merged as `9c223da9b46e1e92a494faf490c20f02bbd4c552`; Audio flow verification run `40285264219` and Pages deployment `40285466800` succeeded. The coordinator on `vowmjru85f2gzo` was restarted only after the active recording completed and no queued/running audio jobs remained. New service PID `1787932` returned `ok: true` at `/healthz`; deployed `backend/audio_jobs.py` SHA-256 is `a3667685e26b6fffa7c0aff53d7afeb6a6deddb5b3f83b4d7fb282d8937e05a8`. Activation/backup record: `/workspace/ecco-audio-task-progress-update/activation.json`. Inference workers were not restarted. The parser read actual Notebook Close sampler telemetry as 100/100.
+
+Acceptance boundary: 22 focused frontend/pipeline/cancellation tests and 22 backend job tests passed locally, plus the broader CI suite. The deployed module and Progress tab keyboard navigation were checked in the browser. A new authenticated generation using the new bars has **not** been observed: that browser's workspace storage connection is disconnected. This is not a full journey or audio-quality acceptance claim.
