@@ -1,5 +1,9 @@
 # Audio Studio — GitHub Pages interface and disposable inference worker
 
+## Per-task audio progress — 26 October 2026
+
+Progress now retains one compact row per sound, followed by Speech and Mix & save. Waiting rows name their current dependency, successful rows remain complete, and failures retain their reason. MOSS sampler steps are read from the real job log by the coordinator (bounded read, no raw log exposure); model loading and models without counters remain indeterminate. Step 100 does not mean the sound file is saved. Reload recovery polls known sound job IDs without generating or duplicating work. Generate explicitly resumes the pipeline from saved assets. Coordinator activation is required for detailed sound steps; Pages alone does not activate it.
+
 ## Verification priority and filters — 25 October 2026
 
 Flow Verification sorts failures first, then unverified/service errors and blocked checks, ahead of passes. Status and column-specific text filters (Check, Details, Resolution or all columns) combine without changing the full result summary. Counts explicitly show failures hidden by filters; Clear filters restores all checks. Filters persist during rechecks. This is a UI-only update.

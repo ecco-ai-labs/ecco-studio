@@ -1,6 +1,7 @@
 """Authenticated CPU-side audio job coordination and durable media commit."""
 import hashlib
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -67,6 +68,24 @@ def generate(body, env, *, job_id=None, sound=False):
 def public(job):
     return {k: v for k, v in job.items() if k != 'request'}
 
+def sound_step_progress(directory, request):
+    """Read bounded sampler telemetry; never infer progress from elapsed time."""
+    if request.get('task') != 'sound' or request.get('model') != 'moss-soundeffect-v2':
+        return None
+    try:
+        path = directory / 'worker.log'
+        with path.open('rb') as stream:
+            stream.seek(max(0, path.stat().st_size - 16384))
+            tail = stream.read(16384).decode('utf-8', errors='replace')
+        matches = re.findall(r'(?:^|[\r\n])\s*\d+%\|[^\r\n]*?\|\s*(\d+)/100\s*\[', tail)
+        if matches:
+            completed = int(matches[-1])
+            if 0 <= completed <= 100:
+                return dict(completed=completed, total=100, updated_at=path.stat().st_mtime)
+    except OSError:
+        pass
+    return None
+
 def job_status(jid, env):
     with LOCK:
         job = env['get'](jid, 'audio_job')
@@ -114,6 +133,12 @@ def job_status(jid, env):
             job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved', asset=asset if request.get('task') == 'sound' else None)
         elif status.get('status') in ('running', 'error', 'cancelled'):
             job.update(status=status['status'], progress=status.get('progress', ''), error=status.get('error', ''))
+        job.pop('sound_progress', None)
+        if job['status'] == 'running':
+            steps = sound_step_progress(directory, job['request'])
+            if steps:
+                job['sound_progress'] = steps
+                job['progress'] = ('Finishing sound file' if steps['completed'] == steps['total'] else 'Generating sound effect') + f" · Step {steps['completed']} of {steps['total']}"
         if job['status'] in ('queued', 'running', 'cancelling') and not (queue.sound_ready(job['request']['compute'], job['request']['model'], job['request'].get('worker_id', '')) if job['request'].get('task') == 'sound' else queue.request_ready(job['request'])) and time.time() - job['created'] > 60:
             job['progress'] = 'Waiting for the audio worker to reconnect'
         env['save'](job)

@@ -163,3 +163,19 @@ class SoundJobsTest(AudioJobsTest):
         for body in [dict(kind='effect',description=''),dict(kind='music',description='Quiet',duration=2),dict(kind='effect',description='Wind',duration=float('nan')),dict(kind='effect',description='Wind',model='ace-step-1.5')]:
             with self.assertRaises(ValueError): validate(body)
         self.assertTrue(validate(dict(kind='music',description='Quiet oud',duration=10))['instrumental'])
+
+class SoundStepProgressTest(unittest.TestCase):
+    def test_only_valid_moss_sampler_counts_are_exposed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory=Path(tmp);request={'task':'sound','model':'moss-soundeffect-v2'}
+            self.assertIsNone(jobs.sound_step_progress(directory,request))
+            log=directory/'worker.log'
+            log.write_text('Loading model\n')
+            self.assertIsNone(jobs.sound_step_progress(directory,request))
+            log.write_text(' 26%|xx | 26/100 [03:08<08:42, 7.06s/it]\r 32%|xxx | 32/100 [03:51<06:26, 5.68s/it]\r')
+            self.assertEqual(jobs.sound_step_progress(directory,request)['completed'],32)
+            self.assertIsNone(jobs.sound_step_progress(directory,{'task':'sound','model':'ace-step-1.5'}))
+            log.write_text('101%|xxxxx| 101/100 [bad]\r')
+            self.assertIsNone(jobs.sound_step_progress(directory,request))
+            log.write_text('100%|xxxxx| 100/100 [10:36<00:00, 6.37s/it]\r')
+            self.assertEqual(jobs.sound_step_progress(directory,request)['completed'],100)

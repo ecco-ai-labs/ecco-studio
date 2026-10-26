@@ -12,7 +12,7 @@
   return {kind:cue.kind,description:String(cue.description||'').trim(),title:cue.name,model:modelFor(cue.kind),duration:Number(cue.duration)||(cue.kind==='music'?20:5),compute,worker_id,story_id};
  }
  // Persist the job before polling. A lost response is not permission to submit twice.
- async function generate(request,{valid=()=>{},progress=()=>{},replace=false}={}){
+ async function generate(request,{valid=()=>{},progress=()=>{},task=()=>{},replace=false}={}){
   const id=JSON.stringify(request);
   if(running.has(id)){const asset=await running.get(id);valid();return asset;}
   const operation=(async()=>{
@@ -33,11 +33,13 @@
     record={id:job.id,status:'queued'};rememberJob(id,record);
    }
    await window.EccoGenerationStop?.track('audio',request.story_id||activeStory,{id:record.id,status:record.status||'queued',task:'sound'});
+   task({id:record.id,status:'queued',message:'Waiting for the sound worker…'});
    const started=Date.now();
    while(Date.now()-started<1850000){
-    valid();progress('Waiting for the sound worker…');
+    valid();
     const result=await api('audio/jobs/'+encodeURIComponent(record.id));
     window.EccoGenerationStop?.remember({id:record.id,...result});
+    task({id:record.id,status:result.status,message:result.error||result.progress||'Waiting for the sound worker…',steps:result.sound_progress});
     if(result.status==='cancelled'){rememberJob(id,{...record,status:'cancelled'});throw Object.assign(Error('Stopped by user. Your draft and completed sounds are saved.'),{name:'GenerationStopped'});}
     if(['error','failed'].includes(result.status)){rememberJob(id,{...record,status:'error'});throw Error(result.error||'Sound generation failed.');}
     if(result.status==='done'){
@@ -50,21 +52,23 @@
   })();
   running.set(id,operation);try{return await operation;}finally{running.delete(id);}
  }
- async function ensure({plan,lines,assets,compute='cpu',worker_id='',story_id,valid,changed,progress}){
+ async function ensure({plan,lines,assets,compute='cpu',worker_id='',story_id,valid,changed,progress,tasks=()=>{}}){
   if(!plan?.enabled)return;
   if(plan.speech_key!==window.EccoSoundDesign.key(lines))throw Error('The script changed. Review the sound timing in Final Script before generating.');
   window.EccoSoundDesign.validate(plan.cues,lines,{assets});
   // Validate timing and speech limits before spending time generating any files.
   const placeholders=plan.cues.map((cue,i)=>({...cue,asset_id:cue.asset_id||'pending-sound-'+i}));
   window.EccoSoundDesign.prepare({...plan,cues:placeholders},lines,[...assets,...placeholders.filter(c=>c.asset_id.startsWith('pending-sound-')).map(c=>({id:c.asset_id}))]);
+  const rows=plan.cues.map((cue,index)=>({key:'sound-'+index,name:cue.name,status:cue.asset_id?'done':'waiting',message:cue.asset_id?'Existing sound ready':''}));
+  const publish=()=>tasks(rows.map(r=>({...r})));publish();
   const missing=plan.cues.filter(c=>!c.asset_id);let completed=0;
   for(const cue of missing){
-   valid();const before=JSON.stringify(cue);
+   valid();const row=rows[plan.cues.indexOf(cue)],before=JSON.stringify(cue);row.status='running';row.message='Checking sound worker…';publish();
    const current=()=>{valid();if(JSON.stringify(cue)!==before)throw Error('The sound cue changed. Your edits are preserved; generate again.');};
    try{
-    const asset=await generate(soundRequest(cue,{compute,worker_id,story_id}),{valid:current,progress:message=>progress('Generating Sounds: '+completed+' of '+missing.length+' complete · '+cue.name+' · '+message)});
-    current();cue.asset_id=asset.id;completed++;changed();progress('Generating Sounds: '+completed+' of '+missing.length+' complete · '+cue.name+' ready');
-   }catch(error){if(error.name==='GenerationStopped')throw error;throw Error(cue.name+': '+error.message+' Completed sounds are saved. Generate audio again to continue.');}
+    const asset=await generate(soundRequest(cue,{compute,worker_id,story_id}),{valid:current,task:state=>{Object.assign(row,state);publish();},progress:message=>{row.message=message;publish();progress('Sound '+(completed+1)+' of '+missing.length+' · '+cue.name+' · '+message+' · '+completed+' files complete');}});
+    current();cue.asset_id=asset.id;completed++;row.status='done';row.message='Sound saved';publish();changed();progress('Generating Sounds: '+completed+' of '+missing.length+' complete · '+cue.name+' ready');
+   }catch(error){row.status=error.name==='GenerationStopped'?'cancelled':'error';row.message=error.message;publish();if(error.name==='GenerationStopped')throw error;throw Error(cue.name+': '+error.message+' Completed sounds are saved. Generate audio again to continue.');}
   }
  }
  function mount({box,cue,changed,valid,settingsChanged=()=>{},preferredCompute}){

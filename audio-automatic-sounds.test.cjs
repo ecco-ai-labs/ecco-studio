@@ -55,7 +55,7 @@ test('Typed inline mix settings persist before blur and reach the submitted soun
 });
 test('Progress bar reflects only real worker passage counts and uses an indeterminate bar without counts',async t=>{
  const x=await fixture(t,[]);x.setJob({id:'speech',status:'running',progress:'Generating speech · 1 of 14 passages complete'});x.q('#audio-form').requestSubmit();await tick();
- const bar=x.q('[data-speech-progress]');assert.equal(bar.hidden,false);assert.equal(bar.value,1);assert.equal(bar.max,14);assert.equal(x.q('[data-speech-count]').textContent,'Generating Speech: 1 of 14 passages complete');
- x.setJob({id:'speech',status:'running',progress:'Generating speech'});x.w.EccoAudioStudio.connect(x.adapter);await tick();assert.equal(bar.hasAttribute('value'),false);assert.match(x.q('[data-speech-count]').textContent,/waiting for the first passage update/);
- x.setJob({id:'speech',status:'running',progress:'Mixing music and effects'});x.w.EccoAudioStudio.connect(x.adapter);await tick();assert.equal(bar.hidden,true);assert.match(x.q('#audio-job-status').textContent,/Mixing/);assert.deepEqual(x.errors,[]);
+ const bar=x.q('[data-task=speech] progress');assert.equal(bar.value,1);assert.equal(bar.max,14);assert.match(x.q('[data-task=speech]').textContent,/1 of 14 passages complete/);
+ x.setJob({id:'speech',status:'running',progress:'Generating speech'});x.w.EccoAudioStudio.connect(x.adapter);await tick();assert.equal(bar.hasAttribute('value'),false);assert.match(x.q('[data-task=speech]').textContent,/Generating speech/);
+ x.setJob({id:'speech',status:'running',progress:'Mixing music and effects'});x.w.EccoAudioStudio.connect(x.adapter);await tick();assert.equal(x.q('[data-task=speech]').dataset.status,'done');assert.equal(x.q('[data-task=mix]').dataset.status,'running');assert.match(x.q('#audio-job-status').textContent,/Mixing/);assert.deepEqual(x.errors,[]);
 });
