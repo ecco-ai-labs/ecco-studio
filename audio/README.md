@@ -1,5 +1,14 @@
 # Audio Studio — GitHub Pages interface and disposable inference worker
 
+## Audio cancellation and selected-worker availability — 26 October 2026
+
+- Audio uses **Cancel** beside Generate, in the right-hand Progress panel, in sound generation controls and Voice Preview. All controls address the real current-story jobs through the existing authenticated cancellation endpoint. Preparation stops before another job is submitted; late accepted and resumed sound jobs remain cancellable. Completed assets and drafts are retained. Cancellation acknowledgement or a retryable failure stays visible.
+- Additional Controls greys out models unavailable on the exact selected CPU, and disables Voice/Listen for an unavailable saved choice. Saved per-character models/voices remain intact when switching CPUs. Sound creation is disabled when the selected worker does not advertise its qualified sound model; Library and Upload remain available. Stale availability is cleared on a failed health check. A new submission clears the previous attempt's banner error.
+- Verification: focused DOM/integration tests cover selected-instance gating, saved choices/focus, offline/reconnect, automatic sound retry/resume, cancellation before submission, late accepted/resumed jobs, failed cancellation retry and completed-asset preservation. Existing backend cancellation tests exercise process-group termination and queued/running/completed races. These are controlled tests, not proof of a live RunPod cancellation or subjective audio quality.
+- Live limitation for this update: the RunPod browser connection timed out, so the user's **Lunch Bell** queue progress has not been verified and their active generation has not been cancelled or restarted. The last successfully observed larger-CPU heartbeat advertised MOSS/ACE plus Kokoro/VoxCPM2; that earlier observation does not establish the current Lunch Bell job state. The 8 GB CPU remains below the sound worker's 16 GiB minimum; installing weights alone does not make it sound-capable. Indic Parler qualification and scheduled soundtracks remain pending.
+
+
+
 ## Automatic sound workflow — authenticated CPU acceptance, 25 October 2026
 
 A fresh main-button run automatically created a missing background music file, retained an existing effect, generated speech and saved the mix without administrative recovery. This is a focused Audio Studio functional test, not full storybook or subjective listening acceptance.
@@ -492,3 +501,4 @@ voice previews, UI mixed-generation submission, Audio Library save/reload/playba
 listening acceptance for the new models remain pending. The direct CPU smoke test
 above is not a substitute for these gates. Indic Parler access and scheduled soundtracks
 remain outstanding.
+
