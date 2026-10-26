@@ -46,8 +46,10 @@
  function update(){
   for(const kind of ['image','audio','video']){
    const form=document.getElementById(kind+'-form'),generate=form?.querySelector('#generate-'+kind),action=kind==='audio'?'Cancel':'Stop';
-   let button=form?.querySelector('#stop-'+kind);
-   if(generate&&!button){button=document.createElement('button');button.id='stop-'+kind;button.type='button';button.className='secondary';generate.after(button);}
+   const audioActions=kind==='audio'?document.getElementById('audio-progress-actions'):null;
+   let button=kind==='audio'?document.getElementById('stop-audio'):form?.querySelector('#stop-'+kind);
+   if(generate&&!button&&(kind!=='audio'||audioActions)){button=document.createElement('button');button.id='stop-'+kind;button.type='button';button.className='secondary';if(audioActions)audioActions.append(button);else generate.after(button);}
+   if(button&&audioActions&&button.parentElement!==audioActions)audioActions.append(button);
    const buttons=[...(button?[button]:[]),...document.querySelectorAll('[data-cancel-generation="'+kind+'"]')];
    const activity=story=>{const token=operations.get(key(kind,story)),running=jobs(kind,story,token),preparing=token&&!token.finished;return{token,running,preparing,waiting:running.some(j=>pending.has(j.id)||j.status==='cancelling'||j.cancel_requested),busy:preparing||running.length>0};};
    for(const control of buttons){

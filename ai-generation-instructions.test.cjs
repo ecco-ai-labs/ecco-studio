@@ -15,7 +15,7 @@ async function setup({enabled=true,form='image-form',fields='<label>Image prompt
  let status={connected:true,enabled,model:'gpt-6.1-sol',generation_modes:generationModes};
  w.api=async(path,body)=>{calls.push({path,body});if(path==='ai/status')return status;if(path==='ai/settings'){status={...status,...body};return status;}if(path==='ai/connect')return status;if(handler)return handler(path,body);return {model:'gpt-6.1-sol',notes:['Refined'],questions:[],revisions:body.fields.map(f=>({id:f.id,text:f.text+' refined'}))};};
  const target=w.document.querySelector('form');target.onsubmit=e=>{e.preventDefault();submits++;e.submitter.disabled=true;};
- w.eval(source);await delay();
+ w.eval(fs.readFileSync(__dirname+'/ai-text-refinement.js','utf8'));w.eval(source);await delay();
  return {dom,w,calls,errors,target,get submits(){return submits;},click:()=>w.document.querySelector('#submit').click(),improve:(i=0)=>w.document.querySelectorAll('.ai-prompt-assist')[i].click(),apply:()=>w.document.querySelector('[data-apply]').click(),close:()=>{observers.forEach(o=>o.disconnect());w.close();}};
 }
 

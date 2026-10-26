@@ -1,13 +1,16 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 function setup(t,handler){
- const dom=new JSDOM(['image','audio','video'].map(k=>`<form id="${k}-form"><button id="generate-${k}">Generate ${k}</button></form>`).join(''),{runScripts:'outside-only',url:'https://studio.example'}),w=dom.window;
+ const dom=new JSDOM(['image','audio','video'].map(k=>`<form id="${k}-form"><button id="generate-${k}">Generate ${k}</button></form>`).join('')+'<section id="audio-progress-panel"><div id="audio-progress-actions"></div></section>',{runScripts:'outside-only',url:'https://studio.example'}),w=dom.window;
  const observers=[],Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(cb){super(cb);observers.push(this)}};t.after(async()=>{await new Promise(r=>setImmediate(r));observers.forEach(o=>o.disconnect());w.close()});w.handler=handler;w.eval("var activeStory='s',state={records:[]};var api=(...args)=>window.handler(...args);var refresh=async()=>{const result=await api('state');state.records=result.records};var notice=()=>{};");
  w.EccoGeneration={jobId:()=>null};w.eval(fs.readFileSync('generation-stop.js','utf8'));
  w.eval('window.call=(...args)=>api(...args);window.rows=rows=>state.records=rows');return w;
 }
 test('each studio has an accessible idle Stop button that never submits the form',t=>{
  const w=setup(t,async()=>({records:[]}));for(const kind of ['image','audio','video']){const b=w.document.getElementById('stop-'+kind);assert.equal(b.type,'button');assert.equal(b.getAttribute('aria-label'),`${kind==='audio'?'Cancel':'Stop'} ${kind} generation`);assert.equal(b.disabled,true);}
+ assert.equal(w.document.querySelector('#audio-form #stop-audio'),null);
+ assert.ok(w.document.querySelector('#audio-progress-actions #stop-audio'));
+ w.EccoGenerationStop.update();w.EccoGenerationStop.update();assert.equal(w.document.querySelectorAll('#stop-audio').length,1);
 });
 test('Stop during preparation prevents a new generation request',async t=>{
  const calls=[],w=setup(t,async p=>{calls.push(p);return{records:[]}}),token=w.EccoGenerationStop.begin('audio','s');
@@ -32,7 +35,7 @@ test('a failed cancellation remains retryable',async t=>{
 
 test('Cancel is available in Progress and sound popups, including a recovered sound job',async t=>{
  const calls=[],w=setup(t,async(p,b)=>{if(p==='generation/stop'){calls.push(b.job_id);return{id:b.job_id,status:'cancelled'}}return{records:[]}});
- w.document.body.insertAdjacentHTML('beforeend','<section id="audio-progress-panel"><button data-cancel-generation="audio"></button></section><dialog open><button data-cancel-generation="audio"></button></dialog>');
+ w.document.body.insertAdjacentHTML('beforeend','<dialog open><button data-cancel-generation="audio"></button></dialog>');
  const token=w.EccoGenerationStop.begin('audio','s');await w.EccoGenerationStop.track('audio','s',{id:'resumed-sound',status:'running',task:'sound'});
  for(const b of w.document.querySelectorAll('[data-cancel-generation]')){assert.equal(b.textContent,'Cancel');assert.equal(b.disabled,false);assert.equal(b.type,'button');}
  w.document.querySelector('dialog button').click();await new Promise(r=>setImmediate(r));

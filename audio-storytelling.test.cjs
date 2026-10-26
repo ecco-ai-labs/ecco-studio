@@ -17,7 +17,7 @@ test('Each character has one accessible settings tab; values survive switches an
  assert.equal(requests.length,1);assert.equal(requests[0].character_controls_version,1);assert.deepEqual(Array.from(requests[0].lines,l=>l.pitch),[-2,2]);assert.deepEqual(Array.from(requests[0].lines,l=>l.speed),[.9,1.1]);assert.equal(requests[0].lines[0].emotion,'neutral');assert.equal(requests[0].lines[1].exaggeration,.6);assert.equal(requests[0].lines[0].pause_before,.6);assert.deepEqual(x.errors,[]);
 });
 test('Spoken script popup edits keep numbered Final Script turns and opening in sync',async t=>{
- const x=await fixture(t);x.q('[data-open-prompt]').click();
+ const x=await fixture(t);x.q('[data-open-controls]').click();x.q('[data-edit-script-structure]').click();
  const words=input(x,'#audio-lines [data-line="1"] [data-field=text]','The merchant laughed and caught his hat.');
  assert.equal(x.q('[data-final-turn="1"]').value,words.value);
  assert.equal(x.q('#audio-lines [data-line="1"] [data-field=text]'),words);

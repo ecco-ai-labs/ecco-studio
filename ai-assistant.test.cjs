@@ -15,18 +15,26 @@ async function setup({enabled=true,form='image-form',fields='<label>Image prompt
  let status={connected:true,enabled,model:'gpt-6.1-sol'};
  w.api=async(path,body)=>{calls.push({path,body});if(path==='ai/status')return status;if(path==='ai/settings'){status={...status,...body};return status;}if(path==='ai/connect')return status;if(handler)return handler(path,body);return {model:'gpt-6.1-sol',notes:['Refined'],questions:[],revisions:body.fields.map(f=>({id:f.id,text:f.text+' refined'}))};};
  const target=w.document.querySelector('form');target.onsubmit=e=>{e.preventDefault();submits++;e.submitter.disabled=true;};
- w.eval(source);await delay();
- return {dom,w,calls,errors,target,get submits(){return submits;},click:()=>w.document.querySelector('#submit').click(),improve:(i=0)=>w.document.querySelectorAll('.ai-prompt-assist')[i].click(),apply:()=>w.document.querySelector('[data-apply]').click(),close:()=>w.close()};
+ w.eval(fs.readFileSync(__dirname+'/ai-text-refinement.js','utf8'));w.eval(source);await delay();
+ return {dom,w,calls,errors,target,get submits(){return submits;},click:()=>w.document.querySelector('#submit').click(),improve:(i=0)=>{w.document.querySelectorAll('.ai-prompt-assist')[i].click();const f=w.document.querySelector('#ai-review-dialog form');if(f){f.querySelector('[data-instructions]').value='Make this clearer and more engaging.';f.requestSubmit();}},apply:()=>w.document.querySelector('[data-apply]').click(),close:()=>w.close()};
 }
 test('Save and Generate submit unchanged text without an automatic paid AI call',async()=>{
  for(const enabled of [true,false]){const x=await setup({enabled});x.click();await delay();assert.equal(x.submits,1);assert.equal(x.target.elements.prompt.value,'A red scooter');assert.equal(x.calls.filter(c=>c.path==='ai/enhance').length,0);assert.equal(x.w.document.querySelector('#submit').disabled,true);x.close();}
+});
+test('the shared improvement popup asks first, refines repeatedly and applies only the exact selection',async()=>{
+ const x=await setup();try{
+  const field=x.target.elements.prompt;field.focus();field.setSelectionRange(2,5);x.w.EccoAI.improveField(field);
+  const dialog=x.w.document.querySelector('[data-ai-text-refinement]');assert.ok(dialog);assert.equal(dialog.querySelector('[data-selected-text]').value,'red');assert.equal(x.calls.filter(c=>c.path==='ai/enhance').length,0);
+  dialog.querySelector('[data-instructions]').value='Make the color richer.';dialog.querySelector('form').requestSubmit();await delay();assert.equal(x.calls.find(c=>c.path==='ai/enhance').body.fields[0].text,'red');assert.match(x.calls.find(c=>c.path==='ai/enhance').body.context.instructions,/color richer/);
+  dialog.querySelector('[data-instructions]').value='Refine again.';dialog.querySelector('form').requestSubmit();await delay();assert.equal(x.calls.filter(c=>c.path==='ai/enhance').at(-1).body.fields[0].text,'red refined');dialog.querySelector('[data-apply]').click();assert.equal(field.value,'A red refined refined scooter');
+ }finally{x.close();}
 });
 test('ambient control is compact, accessible, persistent and never submits',async()=>{
  const x=await setup();const b=x.w.document.querySelector('.ai-prompt-assist');assert.equal(b.type,'button');assert.equal(b.textContent,'Improve with AI');assert.equal(b.getAttribute('aria-label'),'Improve image prompt with AI');assert.ok(x.target.elements.prompt.getAttribute('aria-labelledby'));x.improve();await delay();assert.equal(x.submits,0);assert.equal(x.target.elements.prompt.value,'A red scooter');assert.equal(x.w.document.querySelectorAll('.ai-prompt-assist').length,1);x.close();
 });
 test('suggestion is editable and Apply changes only the selected field and fires draft events',async()=>{
  const x=await setup({fields:'<label>Image prompt<textarea name="prompt">A red scooter</textarea></label><label>Negative prompt<input name="negative" value="blur"></label>'});let inputs=0,changes=0;x.target.elements.prompt.addEventListener('input',()=>inputs++);x.target.elements.prompt.addEventListener('change',()=>changes++);
- x.improve();await delay();assert.equal(x.w.document.querySelector('#ai-review-dialog').open,true);assert.equal(x.target.elements.prompt.value,'A red scooter');const suggestion=x.w.document.querySelector('[data-suggestion]');suggestion.value='My edited suggestion';suggestion.dispatchEvent(new x.w.Event('input'));x.apply();assert.equal(x.target.elements.prompt.value,'My edited suggestion');assert.equal(x.target.elements.negative.value,'blur');assert.equal(inputs,1);assert.equal(changes,1);assert.equal(x.submits,0);assert.equal(x.w.document.querySelector('#ai-review-dialog').open,false);x.click();await delay();assert.equal(x.submits,1);assert.equal(x.calls.filter(c=>c.path==='ai/enhance').length,1);x.close();
+ x.improve();await delay();assert.equal(x.w.document.querySelector('#ai-review-dialog').open,true);assert.equal(x.target.elements.prompt.value,'A red scooter');const suggestion=x.w.document.querySelector('[data-suggestion]');suggestion.value='My edited suggestion';suggestion.dispatchEvent(new x.w.Event('input'));x.apply();assert.equal(x.target.elements.prompt.value,'My edited suggestion');assert.equal(x.target.elements.negative.value,'blur');assert.equal(inputs,1);assert.equal(changes,1);assert.equal(x.submits,0);assert.equal(x.w.document.querySelector('#ai-review-dialog'),null);x.click();await delay();assert.equal(x.submits,1);assert.equal(x.calls.filter(c=>c.path==='ai/enhance').length,1);x.close();
 });
 test('Cancel and closing the review leave original text unchanged',async()=>{
  const x=await setup();x.improve();await delay();x.w.document.querySelector('[data-cancel]').click();assert.equal(x.target.elements.prompt.value,'A red scooter');assert.equal(x.submits,0);x.close();
@@ -38,13 +46,13 @@ test('empty prompt does not call AI',async()=>{
  const x=await setup({fields:'<label>Prompt<textarea name="prompt"></textarea></label>'});x.improve();await delay();assert.equal(x.calls.filter(c=>c.path==='ai/enhance').length,0);x.close();
 });
 test('API failure leaves text and generation controls intact',async()=>{
- const x=await setup({handler:()=>{throw Error('Quota reached');}});x.improve();await delay();assert.equal(x.target.elements.prompt.value,'A red scooter');assert.match(x.errors[0],/Quota reached/);assert.equal(x.w.document.querySelector('#submit').disabled,false);assert.equal(x.w.document.querySelector('.ai-prompt-assist').disabled,false);x.close();
+ const x=await setup({handler:()=>{throw Error('Quota reached');}});x.improve();await delay();assert.equal(x.target.elements.prompt.value,'A red scooter');assert.match(x.w.document.querySelector('[data-apply-status]').textContent,/Quota reached/);assert.equal(x.w.document.querySelector('#submit').disabled,false);assert.equal(x.w.document.querySelector('.ai-prompt-assist').disabled,false);x.close();
 });
 test('rapid clicks produce one AI request',async()=>{
  let resolve;const x=await setup({handler:()=>new Promise(r=>resolve=r)});x.improve();x.improve();await delay();assert.equal(x.calls.filter(c=>c.path==='ai/enhance').length,1);resolve({model:'test',notes:[],questions:[],revisions:[{id:'field_prompt',text:'Refined'}]});await delay();x.close();
 });
 test('editing the draft while waiting rejects the stale result',async()=>{
- let resolve;const x=await setup({handler:()=>new Promise(r=>resolve=r)});x.improve();await delay();x.target.elements.prompt.value='Changed by user';resolve({model:'test',notes:[],questions:[],revisions:[{id:'field_prompt',text:'Stale result'}]});await delay();assert.equal(x.target.elements.prompt.value,'Changed by user');assert.match(x.errors[0],/draft or selection changed/);x.close();
+ let resolve;const x=await setup({handler:()=>new Promise(r=>resolve=r)});x.improve();await delay();x.target.elements.prompt.value='Changed by user';resolve({model:'test',notes:[],questions:[],revisions:[{id:'field_prompt',text:'Stale result'}]});await delay();assert.equal(x.target.elements.prompt.value,'Changed by user');assert.match(x.w.document.querySelector('[data-apply-status]').textContent,/draft or selection changed/);x.close();
 });
 test('Apply rejects changed fields, references, story selection, and AI connection',async()=>{
  for(const change of ['field','reference','story','disabled']){
@@ -81,7 +89,7 @@ test('read-only source and review fields never gain improvement controls',async(
 });
 test('malformed and overlength API suggestions cannot overwrite a prompt',async()=>{
  for(const revisions of [[{id:'wrong',text:'Wrong'}],[{id:'field_prompt',text:'x'.repeat(21)}]]){
-  const x=await setup({fields:'<textarea name="prompt" maxlength="20">Original</textarea>',handler:()=>({model:'test',notes:[],questions:[],revisions})});x.improve();await delay();assert.equal(x.target.elements.prompt.value,'Original');assert.match(x.errors[0],/invalid suggestion/);x.close();
+  const x=await setup({fields:'<textarea name="prompt" maxlength="20">Original</textarea>',handler:()=>({model:'test',notes:[],questions:[],revisions})});x.improve();await delay();assert.equal(x.target.elements.prompt.value,'Original');assert.match(x.w.document.querySelector('[data-apply-status]').textContent,/invalid suggestion/);x.close();
  }
 });
 test('negative prompt requests include the positive prompt and selected references',async()=>{

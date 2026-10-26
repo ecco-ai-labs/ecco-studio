@@ -1824,7 +1824,7 @@
       "audio"
     ],
     "characters": {
-      "location": "Characters section after References and before Spoken script",
+      "location": "Characters section after References; Final Script is in the right workspace.",
       "count": "1\u201320 active characters, matching the existing 20-segment audio request limit",
       "defaults": "News: 1 newsreader. Podcast, Interview and Casual Conversation: Host + Guest. Other genres: 1 narrator. Genre presets apply only before user cast customization or script content.",
       "identity": "Stable character IDs, independent from voice IDs. Reducing the count keeps inactive names and settings for later reuse.",
@@ -1840,7 +1840,7 @@
       }
     },
     "scriptPopup": {
-      "entry": "Generate with AI on any Audio story setup or in Audio Studio Spoken script",
+      "entry": "Generate with AI on any Audio story setup or the single Audio Studio Final Script action row",
       "presentation": "Native modal dialog appended to body, using generation-dialog styling, shared upper-right close button and focus return",
       "fields": [
         "source/topic and PDF/TXT/Markdown upload",
@@ -1982,7 +1982,7 @@
       "turnPlanning": "Keep the existing editable Number of Turns proposal. On generation count mismatch, preserve the valid draft and pause with requested/actual counts, Review Generated Draft, and Continue with N turns. The creator may instead edit Number of Turns and regenerate. Do not silently accept or discard the candidate. Failed retries preserve it; source/brief/cast changes block stale acceptance. Save Draft restores the pending decision. Validate character coverage and runtime limits independently of count. Failed editorial refinement retains valid dialogue for a targeted retry."
     },
     "finalScriptReview": {
-      "placement": "Right-hand Audio workspace contains Final Script, Progress and Review tabs. Final Script supports manual editing, Generate with AI and selected-text Improve with AI; Sound Design remains in this panel. Progress shows actual service state with a spinner, not invented percentages. Review shows only the newly generated recording. Reuse the existing responsive two-column grid, theme tokens and character-tab styles. Native tab roles, arrow/Home/End navigation; no automatic tab switching on polling.",
+      "placement": "Right-hand Audio workspace contains Final Script, Progress and Review tabs. Final Script supports manual editing, Generate with AI and selected-text Improve with AI; Named cue attachments remain inline; global Music & Effects moves to Additional Controls. Progress shows actual service state with a spinner, not invented percentages. Review shows only the newly generated recording. Reuse the existing responsive two-column grid, theme tokens and character-tab styles. Native tab roles, arrow/Home/End navigation; no automatic tab switching on polling.",
       "selection": "Select a word, sentence or paragraph. Improve with AI opens a native generation-dialog with instructions above a read-only Selected Text area, followed by editable Suggested Replacement and Apply. Send only the selected passage and explicit instruction, no whole script, PDF or saved story.",
       "apply": "Snapshot story, text and selection. Apply replaces exactly that range, retains all surrounding words and character assignments, rejects stale state and enforces existing limits. Editing invalidates old delivery cues. Do not regenerate or modify an existing audio file; clearly state regeneration is needed.",
       "accessibility": "English labels, native modal focus, shared upper-right Close, Escape and focus return; visible spinner/aria-busy during requests.",
@@ -1990,7 +1990,7 @@
     },
     "soundDesign": {
       "approval": "User requested narrative sound effects and scene background music, including a Jinn arrival and Mediterranean-inspired desert music. On 25 October the user requested automatic missing-sound generation, one-stop cue review beside numbered turns, unchanged AI text editing, a worker-count progress bar, and Spoken script moved to Final Script.",
-      "placement": "Spoken script overview and its existing Edit/Generate actions at the top of the right-hand Final Script panel; numbered turn breakdown follows. Each turn has Add Sound and collapsible cue review with name/type, description, Audio Library, preview/upload/generation and collapsed settings/timing. Existing Music & Effects remains available for global cue review.",
+      "placement": "Final Script contains one compact Generate with AI / Improve with AI action row and numbered editable turns, with no duplicate Spoken script overview or Generation Directions summary. Each turn has Add Sound and collapsible cue review with name/type, description, Audio Library, preview/upload/generation and collapsed settings/timing. Music & Effects and Edit turns and opening remain available in Additional Controls. Save as Workflow sits inside collapsed References. Direction metadata still reaches generation unchanged.",
       "controls": [
         "Include music and effects",
         "Sound Direction",
@@ -2123,7 +2123,7 @@
     "approval": "User requested Stop for image, audio and video generation. User reiterated Cancel at every Audio generation stage, including automatic sounds.",
     "type": "button",
     "variant": "stop-generation",
-    "placement": "Existing generation footer immediately after Generate; Audio also exposes Cancel in the right-side Progress panel, each sound generator and Voice Preview popup.",
+    "placement": "Image/video retain their existing footer Stop. Audio primary Cancel appears only in the right-side Progress toolbar, alongside Verify Flow; each sound generator and Voice Preview popup retains its own Cancel.",
     "appearance": "Reuse secondary button and active theme; no new dimensions.",
     "states": "Disabled when idle; enabled during preparation, queued, running, mixing or paused; Audio shows Cancelling while cancellation awaits worker acknowledgement, with aria-busy. Failed cancellation remains retryable. Image/video retain Stop and Stopping labels.",
     "behavior": "Stop the current story generation including sound cues and video sequence children. Prevent pending preparation from launching more jobs; cancel a late accepted submission. Keep completed assets and drafts. Workers terminate only the target process group or Comfy prompt. Track resumed sound and preview job IDs as well as newly submitted jobs. Poll terminal states so completed assets are never cancelled. Allow a confirmed sound job to resume after a polling failure without submitting it twice. Clear the prior attempt error when a new Audio attempt starts. A minimized popup keeps its original story identity; its Cancel never targets a newly selected story.",
@@ -2171,12 +2171,19 @@
     "availability": "Backend deployment and per-compute model, rig and rendering qualification are distinct from GitHub Pages publication. Missing service/worker disables generation with an inline explanation."
   },
   "audioFlowVerification": {
-    "approval": "User requested an optional pre-generation verification checklist for model, memory, storage, voices, script and sounds, showing Checking/Passed/Failed like unit tests.",
-    "placement": "Verify Flow secondary button beside Generate in Audio Studio. Results expand in the existing right-hand Progress tab; the existing generation-settings disclosure collapses when actual generation begins so progress and Cancel stay visible.",
-    "appearance": "Existing native button, generation-spinner, generation-settings, help text and list styles; English labels and active theme; no unrelated layout, dimensions or colors.",
+    "approval": "User requested an optional pre-generation verification checklist for model, memory, storage, voices, script and sounds, showing Checking/Passed/Failed like unit tests. User then requested Verify Flow and Cancel in Progress, distinct failure colors and suggested resolutions.",
+    "placement": "Verify Flow and the single primary Audio Cancel share a compact toolbar at the top of the right-side Progress panel. Generate remains in the form. Results expand below live generation status and collapse when generation starts; popup Cancel controls remain available.",
+    "appearance": "Theme-aware compact check cards with a label and status badge, 8px gaps/radius and 12px padding. Failed uses the theme error color for border/status plus a subtle 7% error tint; Passed uses theme success; Checking/Blocked/Not verified use theme accent; stale uses muted. Detail and separate To resolve text use 13px/1.5 line height, headings 14px and status badges 12px. Blocked prerequisites stay compact without repeated resolution paragraphs. Toolbar uses existing secondary buttons with 36px minimum height, content-fit width, wrapping and 8px gaps. No unrelated styles change.",
     "checks": "Validate exact current script/character settings and sound timing; authenticate against workspace; verify exact worker fresh heartbeat, qualified speech/sound runtimes, supported voices/languages and shared reference files, worker RAM and disk guardrails, FFmpeg/FFprobe presence, decodable existing sound files, workspace/queue write-read-fsync probes with cleanup, recording database transaction rollback, queue capacity and saved AI configuration when required. No generation, model download, credential access from browser, automatic compute fallback or paid inference.",
     "states": "Checking, Passed, Failed with reason, Blocked for prerequisites and Not verified for missing/stale evidence or old service. No all-green result when a check is missing. Report is bound to story and all meaningful choices, invalidates on edit/disconnect and expires after 60 seconds; late results never certify a changed draft. Verify cannot submit or overlap the Generate action.",
     "limits": "This is a configuration/resources check, not a new inference, voice-quality or peak-memory benchmark. Known sound CPU minimum is 16 GiB total, free-memory guard is 1 GiB; CPU evidence never claims GPU VRAM capacity. A pass does not reserve resources or guarantee a later model run. Existing generation guards remain authoritative; verification is optional.",
-    "accessibility": "Native type=button, named result disclosure, aria-busy spinner, status summary and explicit text/symbol states; focus/typed content retained when reports refresh."
+    "accessibility": "Native type=button, named result disclosure, aria-busy spinner, status summary and explicit text/symbol states; focus/typed content retained when reports refresh. Text and symbols accompany colors. Resolution text is separate from the reported reason; native list semantics, focus preservation and existing keyboard tabs are retained."
+  },
+  "sharedTextRefinement": {
+    "approval": "User requested uncluttered Final Script and universally consistent Generate with AI / Improve with AI experiences.",
+    "source": "ai-text-refinement.js",
+    "flow": "All bound prompt improvements and audio selected-text improvements use one shared modal: explicit instructions above current/selected text, editable suggestion, Improve Again and Apply. No request runs before submission; only Apply updates the original exact field/range. Stale drafts, story/connection changes, overlength output and clarification questions block Apply. Generate keeps its shared instruction/language dialog and the shared Audio guided source/questions/cast/script flow; PDF upload and chapter selection remain available.",
+    "appearance": "Shared generation-dialog styling, 660px maximum width within 32px viewport margins, 14px/1.5 textarea text and 100px minimum textarea height. Existing English labels, spinner, Close, Minimize and keyboard focus behavior.",
+    "preservation": "Manual turn/opening structure editing is reachable from Additional Controls. Directions are removed only from the redundant visible summary; all selected audience, genre, tone and character settings continue into AI and audio generation."
   }
 }
