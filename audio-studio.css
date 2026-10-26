@@ -93,3 +93,13 @@
 .audio-verification-filters input,.audio-verification-filters select{width:100%;min-width:0}
 .audio-verification-filters button{width:auto}
 [data-verification-checks]>li[hidden]{display:none!important}
+
+[data-audio-task-progress]{display:grid;gap:10px;margin:12px 0}
+[data-audio-task-progress][hidden]{display:none!important}
+.audio-task-row{border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px;padding:10px}
+.audio-task-heading{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.audio-task-row progress{display:block;width:100%;height:6px;accent-color:var(--ecco-theme-accent,#ffdc24);margin:8px 0}
+.audio-task-row p{font-size:12px;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.audio-task-row[data-status=done] [data-task-state]{color:var(--ecco-theme-success,#7bcf9b)}
+.audio-task-row:is([data-status=error],[data-status=failed]){border-color:var(--ecco-theme-error,#ff6b6b)}
+.audio-task-row:is([data-status=error],[data-status=failed]) [data-task-state]{color:var(--ecco-theme-error,#ff6b6b)}

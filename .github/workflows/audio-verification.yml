@@ -4,6 +4,10 @@ on:
     paths:
       - 'audio-flow-verification*'
       - 'audio-studio.js'
+      - 'audio-task-progress*'
+      - 'audio-sound-generation.js'
+      - 'backend/audio_jobs.py'
+      - 'backend/test_audio_jobs.py'
       - 'audio-studio.css'
       - 'generation-stop.js'
       - 'ai-text-refinement.js'
@@ -32,7 +36,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python -m pip install -r backend/requirements-youtube.txt
       - run: npm install --prefix /tmp/ecco-test-deps jsdom@26.1.0 --no-audit --no-fund
-      - run: PYTHONPATH=backend python -m unittest test_audio_preflight test_storage_api
-      - run: NODE_PATH=/tmp/ecco-test-deps/node_modules node --test audio-flow-verification.test.cjs audio-worker-availability.test.cjs tests/generation-stop.test.cjs
+      - run: PYTHONPATH=backend python -m unittest test_audio_preflight test_audio_jobs test_storage_api
+      - run: NODE_PATH=/tmp/ecco-test-deps/node_modules node --test audio-task-progress.test.cjs audio-flow-verification.test.cjs audio-worker-availability.test.cjs tests/generation-stop.test.cjs
       - run: NODE_PATH=/tmp/ecco-test-deps/node_modules node --test ai-assistant.test.cjs ai-generation-instructions.test.cjs audio-storytelling.test.cjs audio-automatic-sounds.test.cjs audio-mixed-voices.test.cjs
       - run: python scripts/ui_inventory.py --check

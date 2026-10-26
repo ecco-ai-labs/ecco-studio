@@ -2186,5 +2186,13 @@
     "flow": "All bound prompt improvements and audio selected-text improvements use one shared modal: explicit instructions above current/selected text, editable suggestion, Improve Again and Apply. No request runs before submission; only Apply updates the original exact field/range. Stale drafts, story/connection changes, overlength output and clarification questions block Apply. Generate keeps its shared instruction/language dialog and the shared Audio guided source/questions/cast/script flow; PDF upload and chapter selection remain available.",
     "appearance": "Shared generation-dialog styling, 660px maximum width within 32px viewport margins, 14px/1.5 textarea text and 100px minimum textarea height. Existing English labels, spinner, Close, Minimize and keyboard focus behavior.",
     "preservation": "Manual turn/opening structure editing is reachable from Additional Controls. Directions are removed only from the redundant visible summary; all selected audience, genre, tone and character settings continue into AI and audio generation."
+  },
+  "audioTaskProgress": {
+    "approval": "User requested download-manager-style per-task bars and actual model steps, including waiting dependencies.",
+    "placement": "Progress tab below Verify Flow and Cancel. One Preparation row, one compact row per named sound, one Speech row and one Mix & save row; existing single speech bar remains only for legacy runs without task state.",
+    "appearance": "Existing theme tokens, 10px row gap/padding, 8px radius, 1px border; 13px heading and 12px/1.5 detail; native 6px-high progress bar with theme accent. Completed uses success color, failed uses error color; text states accompany color.",
+    "behavior": "Sequential work remains sequential. Each sound names the active dependency while waiting. Counts come only from authenticated job telemetry; no fake percentages, no elapsed-time inference. Loading/mixing are indeterminate; done means saved asset, not merely sampler step 100. Rows persist per story/run, preserve completed sounds, reject old speech job updates, and recheck known sound IDs read-only after reload. Generate remains the explicit resume action.",
+    "telemetry": "Coordinator reads a bounded 16KiB tail of MOSS sampler logs to report 0\u2013100 actual steps; raw logs are never returned. Other models without measured steps remain indeterminate. Existing auth and routing unchanged; no additional jobs, model switches or concurrency changes.",
+    "accessibility": "Named native progress bars, labelled row group, keyboard controls unchanged, no polling-driven focus moves."
   }
 }
