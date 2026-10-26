@@ -21,7 +21,7 @@ function choose(c,name,id){const card=c.card(name);card.select.value=id;card.sel
 test('two class cards contain their RunPod instances; both classes can stay connected',async t=>{
  const c=setup();t.after(()=>c.dom.window.close());await tick();
  assert.deepEqual([...c.w.document.querySelectorAll('h3')].map(x=>x.textContent),['B200','A100']);
- assert.equal(c.card('B200').select.options.length,3);assert.equal(c.card('A100').select.options.length,2);
+ assert.equal(c.card('B200').select.options.length,3);assert.equal(c.card('A100').select.options.length,3);
  assert.equal(c.card('B200').select.value,'');assert.equal(c.card('A100').select.value,'');assert.equal(c.checks,1);
  const b=choose(c,'B200',original);assert.equal(b.button.textContent,'Connect');assert.equal(c.calls.length,0);
  await b.button.onclick();assert.equal(b.button.textContent,'Connected');
@@ -40,12 +40,12 @@ test('multiple B200 instances stay connected and retain separate status',async t
 });
 test('status errors fail closed, preserve choices, and recover without connecting',async t=>{
  const c=setup();t.after(()=>c.dom.window.close());await tick();const b=choose(c,'B200',original);
- c.setError(true);await c.refresh.onclick();assert.equal(b.button.disabled,true);assert.equal(b.button.textContent,'Unavailable');
+ c.setError(true);await c.refresh.onclick();assert.equal(b.button.disabled,true);assert.equal(b.button.textContent,'Status unavailable');
  c.setError(false);await c.refresh.onclick();assert.equal(b.select.value,original);assert.equal(b.button.disabled,false);assert.equal(c.calls.length,0);
 });
 test('unchecked instances are unavailable and cannot claim a GPU connection',async t=>{
  const c=setup(false);t.after(()=>c.dom.window.close());await tick();
- const b=choose(c,'B200',original);assert.equal(c.checks,0);assert.equal(b.button.textContent,'Unavailable');assert.equal(b.button.disabled,true);
+ const b=choose(c,'B200',original);assert.equal(c.checks,0);assert.equal(b.button.textContent,'Not checked');assert.equal(b.button.disabled,true);
  await b.button.onclick();assert.equal(c.connected.size,0);assert.equal(c.calls.length,0);
 });
 
@@ -54,4 +54,11 @@ test('selecting an already connected A100 shows Connected on the button without 
  const a=choose(c,'A100',a100);assert.equal(a.button.textContent,'Connected');assert.equal(a.button.disabled,true);
  assert.equal(a.root.querySelector('.gpu-status'),null);assert.equal(c.calls.length,0);
  const b=choose(c,'B200',original);assert.equal(b.button.textContent,'Connect');assert.equal(b.button.disabled,false);
+});
+
+test('migrated A100 requires its own health check and connects independently',async t=>{
+ const c=setup();t.after(()=>c.dom.window.close());await tick();
+ const id='sup07jsgh2evnf',a=choose(c,'A100',id);assert.equal(a.select.value,id);assert.equal(a.button.disabled,true);
+ c.health.set(id,true);await c.refresh.onclick();assert.equal(a.button.disabled,false);await a.button.onclick();
+ assert.deepEqual(c.calls,[id]);assert.equal(c.connected.has(a100),false);assert.equal(a.button.textContent,'Connected');
 });

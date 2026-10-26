@@ -43,7 +43,7 @@ test('one unavailable instance does not disconnect the others; status errors inv
  const c=setup();t.after(()=>c.dom.window.close());const gpu=c.w.EccoGPUConnection;
  await gpu.select({id:original});await gpu.select({id:a100});c.gpus.find(x=>x.id===original).ready=false;
  await gpu.checkAll(c.gpus);assert.equal(gpu.isConnected(original),false);assert.equal(gpu.isConnected(a100),true);assert.equal(gpu.ready,true);
- await assert.rejects(gpu.select({id:original}),/unavailable/);assert.equal(gpu.isConnected(a100),true);
+ await assert.rejects(gpu.select({id:original}),/No relay heartbeat/);assert.equal(gpu.isConnected(a100),true);
  c.setFailed(true);await assert.rejects(gpu.checkAll(c.gpus),/Status request failed/);assert.equal(gpu.ready,false);
  c.setFailed(false);await gpu.checkAll(c.gpus);assert.equal(gpu.isConnected(a100),true);
 });
@@ -63,7 +63,7 @@ test('selected instance button immediately follows shared connection and availab
  const select=w.document.querySelector('#gpu-instance-A100'),button=w.document.querySelector('#gpu-status-A100');
  select.value=a100;select.dispatchEvent(new w.Event('change'));assert.equal(button.textContent,'Connect');assert.equal(button.disabled,false);
  await gpu.select({id:a100});assert.equal(button.textContent,'Connected');assert.equal(button.disabled,true);
- c.gpus.find(x=>x.id===a100).ready=false;await gpu.checkAll(c.gpus);assert.equal(button.textContent,'Unavailable');assert.equal(button.disabled,true);
+ c.gpus.find(x=>x.id===a100).ready=false;await gpu.checkAll(c.gpus);assert.equal(button.textContent,'No heartbeat');assert.equal(button.disabled,true);
  c.gpus.find(x=>x.id===a100).ready=true;await gpu.checkAll(c.gpus);assert.equal(button.textContent,'Connected');
- c.setFailed(true);await assert.rejects(gpu.checkAll(c.gpus));assert.equal(button.textContent,'Unavailable');
+ c.setFailed(true);await assert.rejects(gpu.checkAll(c.gpus));assert.equal(button.textContent,'Reconnecting');
 });
