@@ -61,3 +61,28 @@
 .audio-inline-cue>.form{margin-top:12px}
 .audio-inline-cue audio,[data-speech-progress]{width:100%;accent-color:var(--accent)}
 [data-turn-sounds]:empty{display:none}
+
+/* Audio verification and cancellation share the Progress workspace. */
+#audio-progress-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0}
+#audio-progress-actions button{width:auto;flex:0 1 auto;min-height:36px}
+#audio-progress-actions #stop-audio{margin-left:auto}
+[data-audio-verification]{margin-top:16px}
+[data-verification-summary]{margin:0;font-size:13px;line-height:1.5}
+[data-verification-checks]{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+[data-verification-checks]>li{--check-color:var(--ecco-theme-muted,#b1acc9);border:1px solid var(--ecco-theme-border,#51496f);border-left:3px solid var(--check-color);border-radius:8px;padding:12px;min-width:0;overflow-wrap:anywhere}
+[data-verification-checks]>li[data-status=passed]{--check-color:var(--ecco-theme-success,#7bcf9b)}
+[data-verification-checks]>li[data-status=failed]{--check-color:var(--ecco-theme-error,#ff6b6b);background:color-mix(in srgb,var(--ecco-theme-error,#ff6b6b) 7%,transparent)}
+[data-verification-checks]>li:is([data-status=blocked],[data-status=unverified],[data-status=checking]){--check-color:var(--ecco-theme-accent,#ffdc24)}
+.audio-check-heading{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px 12px;font-size:14px;line-height:1.5}
+.audio-check-state{display:inline-flex;align-items:center;gap:5px;color:var(--check-color);font-size:12px;font-weight:600;white-space:nowrap}
+[data-check-detail],[data-check-resolution]{margin:6px 0 0;font-size:13px;line-height:1.5}
+[data-check-detail]{color:var(--ecco-theme-muted,#b1acc9)}
+[data-check-resolution]{color:var(--ecco-theme-text,#fff)}
+[data-verification-summary][data-status=failed]{color:var(--ecco-theme-error,#ff6b6b)}
+[data-verification-summary][data-status=passed]{color:var(--ecco-theme-success,#7bcf9b)}
+
+/* One final-script editor and one shared AI action row. */
+.audio-script-heading{align-items:center;flex-wrap:wrap;gap:12px}
+.audio-script-heading h3{margin:0}
+.audio-script-heading .generation-ai-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+#audio-final-script-panel [data-script-edit-status]:empty{display:none}

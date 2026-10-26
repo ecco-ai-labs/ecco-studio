@@ -158,7 +158,7 @@
   const story=activeStory,draftKey='ecco-ai-generation:'+story+':'+key,languageKey='ecco-ai-language:'+story;
   let saved={};try{saved=JSON.parse(localStorage.getItem(draftKey)||'{}');}catch{}
   q('#ai-generation-dialog')?.remove();
-  const dialog=document.createElement('dialog');dialog.id='ai-generation-dialog';dialog.setAttribute('aria-label','Generate with AI');
+  const dialog=document.createElement('dialog');dialog.id='ai-generation-dialog';dialog.className='generation-dialog';dialog.setAttribute('aria-label','Generate with AI');
   const languages=['English','Hindi','Urdu','Tamil','Punjabi','Telugu','Bengali','Marathi','Gujarati','Kannada','Malayalam','Arabic','Spanish','Portuguese','French','German','Chinese','Japanese','Korean'];
   dialog.innerHTML='<form class="form"><div class="section-head"><h2>Generate with AI</h2><button type="button" class="secondary ai-dialog-close" data-cancel aria-label="Close" title="Close">×</button></div><p class="help">'+esc(label)+'</p><label>Output language<select name="language"><option value="">Use existing language</option>'+languages.map(language=>'<option>'+language+'</option>').join('')+'<option value="other">Other language</option></select></label><label data-other-language hidden>Language<input name="other_language" maxlength="80" placeholder="e.g. Assamese or Hindi and Urdu"></label><label>What should AI generate?<textarea name="instructions" maxlength="4000" rows="5" placeholder="e.g. Write 10 scenes in Hindi with natural dialogue and a dramatic tone."></textarea></label><p role="status" data-generation-status></p><div class="row"><button type="submit">Generate</button></div></form>';
   document.body.append(dialog);
@@ -205,12 +205,32 @@
   if(review.version!==connectionVersion||!connection.enabled||!window.EccoStorage?.ready)throw Error('The AI connection changed. Request a new suggestion before applying.');
   if(activeStory!==review.story||!review.scope.isConnected||!review.element.isConnected||review.element.value!==review.original||JSON.stringify(snapshotFor(review))!==review.snapshot)throw Error('Your draft or selection changed. Request a new suggestion for the current text.');
  }
+ function improveText(binding){
+  const {element,scope,stage}=binding,original=element.value,selected=element.selectionEnd>element.selectionStart,start=selected?element.selectionStart:0,end=selected?element.selectionEnd:original.length,details=snapshotFor(binding),maximum=element.maxLength>0?element.maxLength:100000;
+  const review={...binding,original,version:connectionVersion,story:activeStory,snapshot:JSON.stringify(details)},fieldId=('field_'+(element.name||element.dataset.field||element.dataset.dfield||element.id||'prompt')).replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,100);
+  lastReview=null;
+  return window.EccoTextRefinement.open({text:original.slice(start,end),sourceLabel:selected?'Selected Text':'Current Text',maxLength:maximum-(original.length-(end-start)),opener:document.activeElement,
+   valid:()=>validReview(review),
+   request:async(text,instructions)=>{
+    if(busy)throw Error('Wait for the current AI request to finish.');busy=true;binding.pending=true;showBusy('AI is improving '+binding.label.toLowerCase()+'…');document.dispatchEvent(new CustomEvent('ecco-ai-busy',{detail:{busy:true}}));mountPromptControls();
+    try{
+     const result=await rawAPI('ai/enhance',{stage,mode:'improve',story_id:['story-setup-form','new-story-form','director-form','workflow-form'].includes(scope.id)?null:activeStory,fields:[{id:fieldId,text,max_length:maximum}],...details,context:{...details.context,instructions:details.context.instructions+'\nRevise only the supplied text. Return replacement text without explanations. Keep interface questions in English. User instruction: '+instructions},review_only:false});
+     if(result.questions?.length)throw Object.assign(Error(result.questions.join(' ')),{questions:true});
+     if(!Array.isArray(result.revisions)||result.revisions.length!==1||result.revisions[0].id!==fieldId||typeof result.revisions[0].text!=='string'||result.revisions[0].text.length>maximum)throw Error('AI returned an invalid suggestion. Your original text is unchanged.');
+     showBusy('AI suggestion ready');return result.revisions[0].text;
+    }finally{busy=false;binding.pending=false;document.dispatchEvent(new CustomEvent('ecco-ai-busy',{detail:{busy:false}}));mount();}
+   },
+   apply:replacement=>{element.value=original.slice(0,start)+replacement+original.slice(end);element.dispatchEvent(new Event('input',{bubbles:true}));element.dispatchEvent(new Event('change',{bubbles:true}));showBusy('AI suggestion applied');mount();},
+   onError:()=>showBusy('AI suggestion stopped · your text is unchanged')
+  });
+ }
  async function improve(binding){
   if(busy)return;
   if(!window.EccoStorage?.ready||!connection.enabled){connections();return;}
   const {element,scope,stage}=binding;
-  if(binding.generateField&&scope.dataset.generationStudio&&!connection.generation_modes?.includes('generate')){showError('Generate with AI needs the prepared AI service update. Improve using AI is available now.');return;}
+  if(binding.generateField&&scope.dataset.generationStudio&&!connection.generation_modes?.includes('generate')){showError('Generate with AI needs the prepared AI service update. Improve with AI is available now.');return;}
   if(!element.value.trim()&&!binding.generateField){element.focus();notice('Enter an idea or prompt first, then choose Improve with AI.',true);return;}
+  if(!binding.generateField)return improveText(binding);
   const details=snapshotFor(binding),review={...binding,original:element.value,version:connectionVersion,story:activeStory,snapshot:JSON.stringify(details),maxLength:element.maxLength>0?element.maxLength:100000,applied:false};
   const fieldId=('field_'+(element.name||element.dataset.field||element.dataset.dfield||element.id||'prompt')).replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,100);
   busy=true;binding.pending=true;showBusy('AI is '+(binding.generateField?'generating ':'improving ')+binding.label.toLowerCase()+'…');document.dispatchEvent(new CustomEvent('ecco-ai-busy',{detail:{busy:true,generate:!!binding.generateField}}));mountPromptControls();

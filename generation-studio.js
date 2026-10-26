@@ -185,8 +185,8 @@
   if(board){q('[data-settings]',form).append(board);board.querySelector('select').onchange=e=>{
    const b=boards().find(b=>b.id===e.target.value);if(!b)return;c.data.reference_library='image';q('[data-reference-library]',form).value='image';c.data.board_id=b.id;c.data.scenes=clone(b.scenes);c.data.reference_ids=[...new Set(b.scenes.map(s=>s.image_id))];setReferences(c,c.data.reference_ids);q('[data-video-seconds]',form).value=b.scenes[0]?.seconds||3;
   };q('[data-settings]',form).insertAdjacentHTML('beforeend',field('Shot duration (seconds)','<input data-video-seconds type="number" min="1" max="30" value="'+(Number(c.data.seconds)||3)+'">'));q('[data-video-seconds]',form).oninput=e=>{c.data.seconds=Number(e.target.value);save(c);};}
-  c.prompt=pop(c,'generation-prompt-dialog',kind==='audio'?'Spoken script':'Prompt');const promptBody=q('[data-body]',c.prompt);promptBody.innerHTML='<div class="generation-ai-actions"><button type="button" class="secondary" data-ai-generate>Generate with AI</button><button type="button" class="secondary" data-ai-improve>Improve using AI</button></div>';
-  if(kind==='audio'){q('[data-ai-generate]',c.prompt).textContent='Generate script with AI';promptBody.insertAdjacentHTML('beforeend','');}
+  c.prompt=pop(c,'generation-prompt-dialog',kind==='audio'?'Spoken script':'Prompt');const promptBody=q('[data-body]',c.prompt);promptBody.innerHTML='<div class="generation-ai-actions"><button type="button" class="secondary" data-ai-generate>Generate with AI</button><button type="button" class="secondary" data-ai-improve>Improve with AI</button></div>';
+  if(kind==='audio'){q('[data-ai-generate]',c.prompt).textContent='Generate with AI';promptBody.insertAdjacentHTML('beforeend','');}
   if(promptNode)promptBody.append(promptNode);else promptBody.insertAdjacentHTML('beforeend',field('Motion prompt','<textarea name="prompt" data-generation-prompt maxlength="1600" placeholder="Describe the movement, camera and action.">'+esc(c.data.prompt||'')+'</textarea>'));
   if(addLine)promptBody.append(addLine);
   if(kind!=='audio'){const text=q('textarea',c.prompt);text.dataset.generationPrompt='';if(stored.prompt!==undefined)text.value=stored.prompt;text.oninput=()=>{c.data.prompt=text.value;save(c);};text.maxLength=kind==='video'?1600:4000;}
@@ -252,7 +252,7 @@
  MODEL_CATALOG['qwen-image-edit-2511']={name:'Qwen Image Edit',defaults:{steps:40,cfg:3,seed:42}};
  const oldImage=imagePage;imagePage=function(){oldImage.apply(this,arguments);mount(q('#image-form'),'image');};
  const oldVideo=renderPage;renderPage=function(){oldVideo.apply(this,arguments);mount(q('#video-form'),'video');};
- document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
+ document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve with AI');});});
  function useCharacterFrame(form,aid,prompt,story,seconds){
   const c=contexts.get(form),a=record(aid);
   if(!c||!['image','video'].includes(c.kind)||c.story!==story||activeStory!==story||!a||a.media!=='image'||(a.story_id||LEGACY_STORY)!==story)throw Error('Open the original story to use this character frame.');

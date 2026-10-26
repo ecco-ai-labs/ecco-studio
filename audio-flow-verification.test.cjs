@@ -10,12 +10,13 @@ async function fixture(t){
 }
 test('Verify Flow exposes progress/check results and sends the exact plan without generating',async t=>{
  const x=await fixture(t);let finish;x.adapter.verify=body=>{x.calls.push(body);return new Promise(r=>finish=r)};
+ assert.equal(x.q('#audio-form [data-verify-audio]'),null);assert.equal(x.q('#audio-form #stop-audio'),null);assert.ok(x.q('#audio-progress-actions [data-verify-audio]'));assert.ok(x.q('#audio-progress-actions #stop-audio'));
  x.q('[data-verify-audio]').click();assert.equal(x.q('[data-verify-audio]').getAttribute('aria-busy'),'true');assert.equal(x.q('#audio-progress-panel').hidden,false);assert.equal(x.q('[data-check=models]').dataset.status,'checking');assert.equal(x.q('[data-verify-audio]').type,'button');
  x.q('#audio-form').requestSubmit();assert.equal(x.calls.length,1);finish(report());await tick();assert.match(x.q('[data-verification-summary]').textContent,/Verification passed/);assert.equal(x.calls.length,1);assert.equal(x.calls[0].speech.worker_id,'large');assert.equal(x.calls[0].speech.lines[0].text,'The door opened.');assert.equal(x.q('[data-check=memory]').dataset.status,'passed');assert.deepEqual(x.errors,[]);
 });
 test('failures are named; script edits invalidate previous passes and keep the typed text',async t=>{
  const x=await fixture(t);x.adapter.verify=async()=>{const r=report();r.checks.find(c=>c.id==='models').status='failed';r.checks.find(c=>c.id==='models').detail='Kokoro unavailable';return r;};
- x.q('[data-verify-audio]').click();await tick();assert.match(x.q('[data-verification-summary]').textContent,/1 failed/);assert.match(x.q('[data-check=models]').textContent,/Kokoro unavailable/);
+ x.q('[data-verify-audio]').click();await tick();assert.match(x.q('[data-verification-summary]').textContent,/1 failed/);assert.match(x.q('[data-check=models]').textContent,/Kokoro unavailable/);assert.match(x.q('[data-check=models] [data-check-resolution]').textContent,/Additional Controls/);assert.equal(x.q('[data-check=models] [data-check-state]').textContent,'Failed');assert.equal(x.q('[data-check=memory] [data-check-resolution]').hidden,true);
  x.q('[data-audio-tab=script]').click();x.q('[data-final-turn="0"]').focus();const field=input(x,'[data-final-turn="0"]','A new door opened.');assert.equal(x.q('[data-check=models]').dataset.status,'stale');assert.equal(field.value,'A new door opened.');assert.equal(x.w.document.activeElement,field);
 });
 test('late reports cannot certify changed choices; retry verifies the current script',async t=>{
@@ -26,6 +27,11 @@ test('disconnected/old/failed services cannot produce a green verification',asyn
  const x=await fixture(t);delete x.adapter.verify;x.q('[data-verify-audio]').click();await tick();assert.equal(x.q('[data-check=storage]').dataset.status,'unverified');assert.match(x.q('[data-check=storage]').textContent,/update/);
  x.adapter.verify=async()=>{throw Error('Storage unavailable');};x.q('[data-verify-audio]').click();await tick();assert.equal(x.q('[data-check=connection]').dataset.status,'unverified');
  x.w.EccoAudioStudio.disconnect();x.q('[data-verify-audio]').click();await tick();assert.equal(x.q('[data-check=connection]').dataset.status,'failed');assert.equal(x.q('[data-check=models]').dataset.status,'blocked');assert.deepEqual(x.errors,[]);
+ assert.match(x.q('[data-check=connection] [data-check-resolution]').textContent,/Connections → Storage/);assert.equal(x.q('[data-check=models] [data-check-resolution]').hidden,true);
+});
+test('memory and storage failures each show a specific resolution',async t=>{
+ const x=await fixture(t);x.adapter.verify=async()=>{const r=report();Object.assign(r.checks.find(c=>c.id==='memory'),{status:'failed',detail:'New sound generation needs a CPU with at least 16 GiB RAM.'});Object.assign(r.checks.find(c=>c.id==='worker_storage'),{status:'failed',detail:'Less than 1 GiB free.'});return r;};
+ x.q('[data-verify-audio]').click();await tick();assert.match(x.q('[data-check=memory] [data-check-resolution]').textContent,/16 GiB RAM/);assert.match(x.q('[data-check=worker_storage] [data-check-resolution]').textContent,/Free temporary or shared storage/);assert.equal(x.q('[data-verification-summary]').dataset.status,'failed');assert.equal(x.calls.length,0);
 });
 test('a missing new sound is verified as a description, never treated as an existing file',async t=>{
  const x=await fixture(t);x.q('[data-add-turn-sound]').click();await tick();x.q('[data-verify-audio]').click();await tick();const body=x.calls[0];assert.equal(body.sounds.length,1);assert.equal(body.sounds[0].worker_id,'large');assert.equal(body.sounds[0].model,'moss-soundeffect-v2');assert.equal(body.existing_soundtrack.length,0);assert.equal(body.speech.sound_design_version,1);assert.equal(x.calls.length,1);assert.deepEqual(x.errors,[]);

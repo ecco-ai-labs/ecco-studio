@@ -15,6 +15,11 @@
 #ai-review-dialog .ai-questions{color:var(--accent,#ffdc24);white-space:pre-wrap}
 #ai-review-dialog [hidden],#studio-ai-status [hidden],#openai-connection [hidden]{display:none!important}
 
+/* Shared AI editing surfaces retain one instruction/review/Apply layout. */
+#ai-generation-dialog,#ai-review-dialog[data-ai-text-refinement],#audio-selection-ai[data-ai-text-refinement]{width:min(660px,calc(100vw - 32px));max-height:85vh;overflow:auto}
+#ai-review-dialog[data-ai-text-refinement] textarea,#audio-selection-ai[data-ai-text-refinement] textarea{font-size:14px;line-height:1.5;min-height:100px;resize:vertical}
+[data-ai-text-refinement] [hidden]{display:none!important}
+
 #studio-ai-status[hidden]{display:none!important}
 #studio-ai-button{color:#fff!important;font-size:12px;padding:5px 9px;min-height:28px;background:transparent}
 #studio-ai-button[data-connected=true]{color:var(--accent,#ffdc24)!important}
