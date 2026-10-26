@@ -8,6 +8,12 @@ This is a non-generating preflight, not an inference or listening test. It check
 
 The matching service and worker resource-heartbeat update is required. Older services/workers show Not verified, never a false pass. Prepared source and automated tests alone do not establish live runtime activation or authenticated UI acceptance; record that evidence separately after deployment. Scheduled soundtracks and subjective audiobook quality remain outside this change.
 
+Live deployment evidence (26 October 2026 UTC):
+- UI merge `041da7d424c6db396042353ed490e806e7e16efb` passed Pages [40271585835](https://github.com/ecco-ai-labs/ecco-studio/actions/runs/40271585835). PR [8](https://github.com/ecco-ai-labs/ecco-studio/pull/8) passed Audio flow verification, Character workflow and UI Registry checks; local checks passed 38 backend/HTTP tests and eight focused UI tests.
+- Runtime source `a1b1076ec1d5d1494a2bed9d6a90272ab58e70cf` activated at 04:54:50 UTC on the existing storage CPU, with source backup `/workspace/ecco-audio-preflight-update/backup-1792990482973650065`. Both CPU workers reported fresh resource version 1 after guarded idle restarts. No inference jobs were submitted or existing jobs cancelled.
+- Direct, non-authenticated internal service-function checks at 04:57:52 UTC used a synthetic short Chatterbox script. The small CPU passed all ten basic speech checks; adding a MOSS request correctly failed model availability and the 16 GiB sound-memory guard. The larger CPU passed speech/model/memory/voice checks, including a new MOSS request, but failed temporary-storage headroom: 994,385,920 bytes free, below the 1 GiB guard. Reports are in `/workspace/ecco-audio-preflight-update/live-checks.json`; these are configuration/resource checks, not inference acceptance.
+- The deployed browser UI showed Verify Flow beside Generate, switched to Progress, reported the disconnected workspace and blocked checks, and retained the draft/checklist across Additional Controls dismissal with focus restored. This browser is not connected to workspace storage, so authenticated all-pass UI acceptance remains unverified. No storage-key flow was retried or bypassed. The earlier Lunch Bell job was observed cancelled; it was not generating and was not cancelled by this update.
+
 
 ## Audio cancellation and selected-worker availability — 26 October 2026
 
