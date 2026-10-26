@@ -11,6 +11,7 @@
   let localId;try{localId=JSON.parse(localStorage.getItem('ecco-new-story-draft')||'{}').localDraftId;}catch{}
   return 'ecco-audio-draft:'+(localId?'local:'+localId:'');
  };
+ let verification=null;
  let draft,story,signature='',submitting=false,service=null,recordings=[],lastJob=null,polling=false,submissionLabel='Submitting…',submissionError='';
  const serviceReady=()=>!!service;
  let computeStatus=null,computeChecked=0;
@@ -137,7 +138,7 @@
   draft.model=value;modelProfiles.selected.voice=value;saveModelProfiles();normalizeSpeakers();save();drawControls();reviewScript();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();
  }
  const modelParameters=()=>draft.model==='chatterbox'?{exaggeration:Number(draft.exaggeration??draft.planned_expressiveness??0.5)}:{};
- function save(){localStorage.setItem(key(),JSON.stringify(draft));}
+ function save(){localStorage.setItem(key(),JSON.stringify(draft));verification?.refresh();}
  const options=(values,value)=>values.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v.charAt(0).toUpperCase()+v.slice(1))}</option>`).join('');
  const speakerOptions=value=>(activeSpeakers().some(s=>s.id===value)?'':'<option value="" selected disabled>Choose an active character</option>')+activeSpeakers().map(s=>`<option value="${esc(s.id)}" ${s.id===value?'selected':''}>${esc(s.name||'Speaker')}</option>`).join('');
  function drawLines(){
@@ -380,7 +381,7 @@
  function update(){
   if(page!=='audio'||!q('#audio-form'))return;
   if(story!==activeStory){render();return;}
-  showComputeStatus();reviewScript();
+  showComputeStatus();reviewScript();verification?.refresh();
   const button=q('#generate-audio');
   const currentId=window.EccoGeneration?.jobId('audio',activeStory,lastJob);
   const job=lastJob?.id===currentId?lastJob:state?.records.find(r=>r.id===currentId);
@@ -407,6 +408,30 @@
   else{bar.removeAttribute('value');bar.removeAttribute('max');count.textContent='Generating Speech: waiting for the first passage update';}
   const spinner=q('[data-audio-progress-spinner]');if(spinner)spinner.hidden=true;q('#audio-job-status').textContent='';
  }
+ function verificationRequest(){
+  const lines=requestLines(),cast=activeSpeakers(),names=new Set();
+  for(const c of cast){
+   const name=String(c.name||'').trim().toLowerCase();if(!name||names.has(name))throw Error('Give every character a unique name.');names.add(name);
+   const m=characterModel(c);if(!m.languages.includes(c.language)||!voiceChoices(c).some(v=>v.id===c.voice))throw Error(c.name+': choose a voice supported by the character model and language.');
+  }
+  const brief=performanceBrief(),directed=cast.some(c=>!characterModel(c).voice_direction&&(brief.audience||brief.tone||brief.narration_style||c.delivery||c.style||c.delivery_style&&c.delivery_style!=='Voice Default'||!characterModel(c).emotions&&c.emotion!=='neutral'));
+  const signature=JSON.stringify([turns(),cast,draft.genre,draft.model,draft.opening_text,brief]);
+  if(directed&&draft.delivery_signature!==signature&&!window.EccoAI?.enabled)throw Error('Connect OpenAI to apply the characters’ speaking instructions.');
+  let planned={lines},missing=[],existing=[];
+  if(draft.sound_design?.enabled){
+   const plan=draft.sound_design;
+   if(!plan.cues?.length)throw Error('Add or suggest the sound cues in Final Script first, so every sound can be verified.');
+   const assets=window.EccoAudioLibrary?.items()||[],cues=window.EccoSoundDesign.validate(plan.cues,lines,{assets});
+   const placeholders=cues.map((c,i)=>({...c,asset_id:c.asset_id||'verification-missing-'+i}));
+   planned=window.EccoSoundDesign.prepare({...plan,cues:placeholders},lines,[...assets,...placeholders.filter(c=>c.asset_id.startsWith('verification-missing-')).map(c=>({id:c.asset_id}))]);
+   existing=planned.soundtrack.filter(c=>!c.asset_id.startsWith('verification-missing-'));
+   missing=cues.filter(c=>!c.asset_id).map(c=>window.EccoSoundGeneration.soundRequest(c,{compute:draft.compute,worker_id:draft.worker_id||'',story_id:activeStory||null}));
+  }
+  const speech={performance_brief:brief,model:draft.model,compute:draft.compute,worker_id:draft.worker_id,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,...planned,story_id:activeStory};
+  // Capability failures belong in the server checklist; preserve the exact needed flags.
+  applyCharacterCompatibility(speech,{mixed_models_version:1,character_controls_version:1});
+  return {speech,sounds:missing,existing_soundtrack:existing,needs_ai:directed&&draft.delivery_signature!==signature};
+ }
  function render(){
   clearPreview();q('#audio-voice-preview-dialog')?.close();load();signature='';submissionError='';
   q('#page').innerHTML=`<section class="audio-studio"><div class="grid audio-workspace"><form id="audio-form" class="panel form"><div class="audio-model-controls model-summary"><label>Audio model<select name="model">${audioModels.map(model=>`<option value="${esc(model.id)}" ${draft.model===model.id?'selected':''}>${esc(model.name)}</option>`).join('')}</select></label><label>Genre<select name="genre">${options(genres,draft.genre)}</select></label></div><label>Recording title<input name="title" maxlength="160" value="${esc(draft.title)}" placeholder="Scene 1 · opening dialogue"></label><div id="audio-lines"></div><button type="button" class="secondary" id="add-audio-line">Add speaker turn</button><div class="audio-output-controls" hidden><input type="hidden" name="speed" value="${draft.speed}"><input type="hidden" name="pitch" value="${draft.pitch}"><input type="hidden" name="pause" value="${draft.pause}"></div><div class="row"><button id="generate-audio">Generate audio</button><span class="help">Draft saved in this browser · up to 4,000 characters</span></div><p id="audio-job-status" role="status"></p></form></div></section>`;
@@ -417,10 +442,10 @@
   q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='genre'){draft.genre=e.target.value;genreDefaults(e.target.value);reviewScript();}if(e.target.name==='compute'){Object.assign(draft,parseCompute(e.target.value));save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
   q('#audio-form').onsubmit=async e=>{
    e.preventDefault();save();
-   if(submitting||q('#generate-audio').disabled)return;
+   if(submitting||verification?.running||q('#generate-audio').disabled)return;
    if(!serviceReady()){window.EccoStorage?.open();return;}
    let lines;try{lines=requestLines();}catch(error){notice(error.message,true);q('[data-open-prompt]')?.click();return;}
-   const requestedStory=activeStory,stopToken=window.EccoGenerationStop?.begin('audio',activeStory);submitting=true;submissionError='';notice('');submissionLabel='Submitting…';q('[data-audio-tab=progress]')?.click();update();
+   verification?.collapse();const requestedStory=activeStory,stopToken=window.EccoGenerationStop?.begin('audio',activeStory);submitting=true;submissionError='';notice('');submissionLabel='Submitting…';q('[data-audio-tab=progress]')?.click();update();
    try{
     const current=service,baseline=JSON.stringify(draft),form=q('#audio-form');
     await requireCompute(draft.compute,draft.model,draft.worker_id,lines);window.EccoGenerationStop?.assert(stopToken);
@@ -457,6 +482,7 @@
    finally{submitting=false;window.EccoGenerationStop?.finish(stopToken);update();}
   };
   if(window.EccoGeneration){window.EccoGeneration.mount(q('#audio-form'),'audio');const review=document.createElement('div');review.id='audio-review-results';review.innerHTML='<div class="section-head"><h2>Audio</h2></div><div class="audio-speaker-tabs" role="tablist" aria-label="Audio workspace"><button type="button" class="secondary" role="tab" id="audio-tab-script" data-audio-tab="script" aria-controls="audio-final-script-panel" aria-selected="true">Final Script</button><button type="button" class="secondary" role="tab" id="audio-tab-progress" data-audio-tab="progress" aria-controls="audio-progress-panel" aria-selected="false" tabindex="-1">Progress</button><button type="button" class="secondary" role="tab" id="audio-tab-review" data-audio-tab="review" aria-controls="audio-review-panel" aria-selected="false" tabindex="-1">Review</button></div><div id="audio-final-script-panel" role="tabpanel" aria-labelledby="audio-tab-script"></div><div id="audio-progress-panel" role="tabpanel" aria-labelledby="audio-tab-progress" hidden><span class="generation-spinner" data-audio-progress-spinner aria-hidden="true" hidden></span><progress data-speech-progress hidden aria-label="Speech generation progress"></progress><p class="help" data-speech-count role="status" hidden></p></div><div id="audio-review-panel" role="tabpanel" aria-labelledby="audio-tab-review" hidden><p class="help" data-audio-review-empty>Your newly generated recording will appear here.</p></div>';q('.audio-workspace').append(review);q('#audio-progress-panel').append(q('#audio-job-status'));q('#audio-progress-panel').insertAdjacentHTML('beforeend','<button type="button" class="secondary" data-cancel-generation="audio">Cancel</button>');const tabs=[...review.querySelectorAll('[data-audio-tab]')];tabs.forEach((tab,index)=>{tab.onclick=()=>{tabs.forEach(t=>{const selected=t===tab;t.setAttribute('aria-selected',String(selected));t.tabIndex=selected?0:-1;document.getElementById(t.getAttribute('aria-controls')).hidden=!selected;});};tab.onkeydown=e=>{const next=e.key==='ArrowRight'?(index+1)%tabs.length:e.key==='ArrowLeft'?(index+tabs.length-1)%tabs.length:e.key==='Home'?0:e.key==='End'?tabs.length-1:null;if(next!==null){e.preventDefault();tabs[next].click();tabs[next].focus();}};});}
+  verification=window.EccoAudioVerification?.mount({host:q('#audio-progress-panel'),buttonHost:q('#generate-audio').parentElement,snapshot:()=>({story:activeStory,draft:{...draft,selected_speaker:undefined},ai:!!window.EccoAI?.enabled,connected:serviceReady()}),build:verificationRequest,connected:serviceReady,remote:async body=>{const current=service;if(!current?.verify)throw Error('The storage connection needs the Flow Verification update. Refresh Studio and try again.');const report=await current.verify(body);if(current!==service)throw Error('Workspace connection changed. Verify Flow again.');return report;},busy:()=>submitting||['queued','running','cancelling'].includes(lastJob?.status)});
   mountScenePicker();update();poll();
  }
  const oldNavigate=navigate;

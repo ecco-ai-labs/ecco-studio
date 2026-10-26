@@ -13,6 +13,7 @@ from audio_queue import ROOT, MODELS, read, write
 from sound_schema import MODELS as SOUND_MODELS
 from audio_routing import worker_id, memory_bytes, cpu_count, sound_memory_ready
 from audio_schema import required_models
+from preflight_resources import snapshot as preflight_resources
 
 def compute_from_name(name):
     for target in ('a100', 'b200'):
@@ -142,7 +143,7 @@ def main():
         return
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'sound_models': enabled_sounds()})
+        write(heartbeat, {'resources': preflight_resources(ROOT), 'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'sound_models': enabled_sounds()})
     recover_jobs(compute, pod)
     while True:
         beat()
