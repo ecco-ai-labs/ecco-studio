@@ -153,7 +153,7 @@
  function generationInstructions(options={}){
   return [options.instructions?.trim(),options.language?'Write the generated text in '+options.language+'. Use its native script unless the user asks for transliteration. Keep JSON keys, IDs and technical setting names unchanged.':''].filter(Boolean).join('\n');
  }
- function requestGeneration({label,key,onGenerate,isValid=()=>true}){
+ function requestGeneration({label,key,onGenerate,isValid=()=>true,characterForm=null}){
   if(busy)return;
   const story=activeStory,draftKey='ecco-ai-generation:'+story+':'+key,languageKey='ecco-ai-language:'+story;
   let saved={};try{saved=JSON.parse(localStorage.getItem(draftKey)||'{}');}catch{}
@@ -162,14 +162,17 @@
   const languages=['English','Hindi','Urdu','Tamil','Punjabi','Telugu','Bengali','Marathi','Gujarati','Kannada','Malayalam','Arabic','Spanish','Portuguese','French','German','Chinese','Japanese','Korean'];
   dialog.innerHTML='<form class="form"><div class="section-head"><h2>Generate with AI</h2><button type="button" class="secondary ai-dialog-close" data-cancel aria-label="Close" title="Close">×</button></div><p class="help">'+esc(label)+'</p><label>Output language<select name="language"><option value="">Use existing language</option>'+languages.map(language=>'<option>'+language+'</option>').join('')+'<option value="other">Other language</option></select></label><label data-other-language hidden>Language<input name="other_language" maxlength="80" placeholder="e.g. Assamese or Hindi and Urdu"></label><label>What should AI generate?<textarea name="instructions" maxlength="4000" rows="5" placeholder="e.g. Write 10 scenes in Hindi with natural dialogue and a dramatic tone."></textarea></label><p role="status" data-generation-status></p><div class="row"><button type="submit">Generate</button></div></form>';
   document.body.append(dialog);
+  if(characterForm&&window.EccoCharacterStudio){dialog.querySelector('form > .help').insertAdjacentHTML('afterend','<label>Generate<select name="generation_target"><option value="prompt">Image prompt</option><option value="character">Character</option></select></label>');}
   const form=dialog.querySelector('form'),select=form.elements.language,custom=form.elements.other_language,instructions=form.elements.instructions;
   const language=localStorage.getItem(languageKey)||saved.language||'';
   select.value=!language||languages.includes(language)?language:'other';custom.value=select.value==='other'?language:'';instructions.value=saved.instructions||'';
   const syncLanguage=()=>{form.querySelector('[data-other-language]').hidden=select.value!=='other';custom.required=select.value==='other';};syncLanguage();select.onchange=syncLanguage;
+  if(form.elements.generation_target)form.elements.generation_target.onchange=()=>{const character=form.elements.generation_target.value==='character';select.closest('label').hidden=character;form.querySelector('[data-other-language]').hidden=character||select.value!=='other';custom.required=!character&&select.value==='other';form.querySelector('[type=submit]').textContent=character?'Continue':'Generate';};
   form.querySelector('[data-cancel]').onclick=()=>dialog.close();
   form.onsubmit=event=>{
    event.preventDefault();if(!form.reportValidity())return;
    if(activeStory!==story||!isValid()){form.querySelector('[data-generation-status]').textContent='Your draft or selection changed. Reopen Generate with AI for the current field.';return;}
+   if(form.elements.generation_target?.value==='character'){dialog.close();window.EccoCharacterStudio.open(characterForm,instructions.value.trim()||characterForm.elements.prompt?.value||'').catch(showError);return;}
    const options={language:select.value==='other'?custom.value.trim():select.value,instructions:instructions.value.trim()};
    if(select.value==='other'&&!options.language){custom.focus();return;}
    localStorage.setItem(draftKey,JSON.stringify(options));localStorage.setItem(languageKey,options.language);
@@ -178,9 +181,9 @@
   dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.showModal();instructions.focus();
  }
  function generateWithInstructions(binding){
-  if(binding.scope.id==='story-setup-form'&&binding.scope.elements.story_format.value==='audio'&&window.EccoAudioJourney)return window.EccoAudioJourney.openStory(binding.scope);
+  if(binding.scope.id==='story-setup-form'&&binding.scope.elements.story_format?.value==='audio'&&window.EccoAudioJourney)return window.EccoAudioJourney.openStory(binding.scope);
   const original=binding.element.value,snapshot=JSON.stringify(snapshotFor(binding));
-  return requestGeneration({label:binding.label,key:binding.stage+':'+(binding.element.id||binding.element.name||binding.element.dataset.field||binding.label),isValid:()=>binding.element.isConnected&&binding.scope.isConnected&&binding.element.value===original&&JSON.stringify(snapshotFor(binding))===snapshot,onGenerate:options=>improve({...binding,generationRequest:options})});
+  return requestGeneration({characterForm:binding.scope.id==='image-form'&&binding.element.name==='prompt'?binding.scope:null,label:binding.label,key:binding.stage+':'+(binding.element.id||binding.element.name||binding.element.dataset.field||binding.label),isValid:()=>binding.element.isConnected&&binding.scope.isConnected&&binding.element.value===original&&JSON.stringify(snapshotFor(binding))===snapshot,onGenerate:options=>improve({...binding,generationRequest:options})});
  }
  function snapshotFor(binding){
   const flow=(binding.element.closest('#video-flow')||binding.element.closest('#video-shot-controls')||binding.element.closest('#video-audio-script'))?.eccoAIContext?.(binding.element);

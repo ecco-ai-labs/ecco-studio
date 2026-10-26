@@ -317,3 +317,18 @@ Weights live once under shared models storage. Device-specific runtimes load tho
 weights on the selected worker. Mixed speech renders one model group at a time,
 then restores passage order and applies original pauses and the existing soundtrack.
 Live runtime qualification and authenticated playback remain release gates.
+
+## Character generation and Blender
+
+Image Studio → Generate with AI offers Character alongside the existing prompt
+operation. Six stages retain explicit approval checkpoints: Appearance, Character
+set, 3D model, Rig, Performance and Export. Named actors, jobs and outputs persist
+in the workspace. Closing or minimizing preserves work; Stop cancels one job.
+
+The prepared backend connects existing image generation, TRELLIS.2 reconstruction,
+UniRig body rigging and Blender procedural movement previews. Facial shape keys
+are validated separately; no automatic facial rig generation is claimed. Missing
+worker qualification disables the relevant generation control with an explanation.
+Model preview uses bundled model-viewer, tracked by inventory hash. Existing
+generation styles and popup controls remain in use. Live deployment and visual
+acceptance are separate gates from the local automated tests.

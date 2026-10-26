@@ -253,7 +253,17 @@
  const oldImage=imagePage;imagePage=function(){oldImage.apply(this,arguments);mount(q('#image-form'),'image');};
  const oldVideo=renderPage;renderPage=function(){oldVideo.apply(this,arguments);mount(q('#video-form'),'video');};
  document.addEventListener('ecco-ai-busy',e=>{all('[data-ai-generate],[data-ai-improve]').forEach(b=>{b.disabled=e.detail.busy;b.textContent=b.hasAttribute('data-ai-generate')?(e.detail.busy&&e.detail.generate?'Generating…':'Generate with AI'):(e.detail.busy&&!e.detail.generate?'Improving…':'Improve using AI');});});
- window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,context:form=>contexts.get(form)};
+ function useCharacterFrame(form,aid,prompt,story,seconds){
+  const c=contexts.get(form),a=record(aid);
+  if(!c||!['image','video'].includes(c.kind)||c.story!==story||activeStory!==story||!a||a.media!=='image'||(a.story_id||LEGACY_STORY)!==story)throw Error('Open the original story to use this character frame.');
+  if(c.kind==='video'&&a.stage!=='prod')throw Error('Approve the rendered frame before using it in Video Studio.');
+  c.data.reference_library='image';c.data.board_id='';c.data.scenes=[];
+  const picker=q('[data-reference-library]',form);if(picker)picker.value='image';
+  setReferences(c,[aid],'image');
+  const text=q('textarea[name=prompt]',form);text.value=prompt.slice(0,text.maxLength);text.dispatchEvent(new Event('input',{bubbles:true}));
+  if(c.kind==='video'&&seconds){c.data.seconds=seconds;q('[data-video-seconds]',form).value=seconds;save(c);}
+ }
+ window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,useCharacterFrame,context:form=>contexts.get(form)};
 })();
 
 

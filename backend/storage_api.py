@@ -17,6 +17,7 @@ import audio_stories
 import library_rename
 import audio_jobs
 import audio_workflows
+import character_studio
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'video'))
 import longcat_jobs
 import longcat_progress
@@ -32,6 +33,7 @@ import youtube_connection
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
+    '/api/character-studio/save', '/api/character-studio/approve', '/api/character-studio/generate', '/api/character-studio/upload',
     '/api/generation/stop',
     '/api/audio/workflows/save', '/api/audio/workflows/control',
     '/api/youtube/playlists', '/api/youtube/connect', '/api/youtube/publish', '/api/youtube/disconnect', '/api/youtube/configure',
@@ -48,7 +50,8 @@ WRITE_ROUTES = frozenset({
 })
 
 def storage_state():
-    return {'records': [{**r, 'kind': 'job', 'source_kind': r['kind'], 'model': r.get('model') or longcat_jobs.MODEL, 'label': r.get('label') or 'Video · LongCat sequence'} if r['kind']=='audio_video_job' else r for r in longcat_progress.enrich(legacy.records())], 'storage_pending': False, 'config': {
+    return {'records': [character_studio.job_view({**r, 'kind': 'job', 'source_kind': r['kind'], 'model': r.get('model') or longcat_jobs.MODEL, 'label': r.get('label') or 'Video · LongCat sequence'} if r['kind']=='audio_video_job' else r) for r in longcat_progress.enrich(legacy.records())], 'storage_pending': False, 'config': {
+        'character_studio': character_studio.status(),
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
                     'rename_available': True, 'gpu_independent': True, 'service': 'ecco-storage-api'},
         'longcat': {**longcat_jobs.status(), 'sequence_available': True, 'sequence_controls': True}, 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
@@ -98,6 +101,7 @@ class Handler(legacy.Handler):
         try:
             if path == '/api/youtube/playlists': return self.send(youtube_connection.playlists())
             if path == '/api/state': return self.send(storage_state())
+            if path == '/api/character-studio/status': return self.send(character_studio.status())
             if path == '/api/gpu/status': return self.send(gpu_relay.status())
             if path.startswith('/api/gpu/requests/'):
                 parts = path.split('/')
@@ -156,9 +160,13 @@ class Handler(legacy.Handler):
             length = int(self.headers.get('Content-Length', '0'))
             maximum = 17*1024*1024 if path in ('/api/images/upload', '/api/audio/upload') else 1024*1024
             if path == '/api/youtube/configure': maximum = 32*1024
+            if path == '/api/character-studio/upload': maximum = 71*1024*1024
             if not 0 < length <= maximum: raise legacy.Problem('Request size invalid', 413)
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
+            if path == '/api/purge': character_studio.protect_purge(body, vars(legacy))
+            if path.startswith('/api/character-studio/'):
+                return self.send(character_studio.handle(path, body, vars(legacy)))
             if path == '/api/youtube/configure': return self.send(youtube_connection.configure(body))
             if path == '/api/youtube/connect': return self.send(youtube_connection.start(playlists=body.get('playlists') is True))
             if path == '/api/youtube/disconnect': return self.send(youtube_connection.disconnect())
@@ -214,6 +222,7 @@ def main():
     audio_video_sequence.start(vars(legacy))
     audio_jobs.start(vars(legacy))
     audio_workflows.start(vars(legacy))
+    character_studio.start(vars(legacy))
     address = os.getenv('ECCO_STORAGE_BIND', '127.0.0.1')
     port = int(os.getenv('ECCO_STORAGE_PORT', '8888'))
     print('Ecco storage service ready; GPU independent; authentication required', flush=True)

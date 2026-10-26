@@ -18,6 +18,7 @@ TAG = re.compile(r'<([a-zA-Z][\w-]*)\b((?:"[^"]*"|\x27[^\x27]*\x27|[^\x27">])*)>
 CREATE = re.compile(r'''createElement(?:NS)?\(\s*(?:['"][^'"]+['"]\s*,\s*)?['"]([\w-]+)['"]\s*\)''')
 
 def category(tag, attrs):
+    if tag == 'model-viewer': return 'canvas'
     role = attrs.get('role', '')
     if role in ('dialog','alertdialog'): return 'popup'
     if role in ('tab','tablist','menu','menuitem','switch','progressbar','status','alert'): return role
@@ -32,6 +33,8 @@ def generate():
     for p in files:
         source = p.read_text(); name = p.relative_to(ROOT).as_posix()
         result['sources'].append({'path':name,'sha256':hashlib.sha256(source.encode()).hexdigest()})
+        # Vendored components are hash-tracked; their minified internals are not authored Studio UI.
+        if p.relative_to(ROOT).parts[0] == 'vendor': continue
         def location(pos): return {'file':name,'line':source.count('\n',0,pos)+1,'offset':pos}
         if p.suffix != '.css':
             for m in TAG.finditer(source):

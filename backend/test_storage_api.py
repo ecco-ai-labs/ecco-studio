@@ -7,6 +7,14 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('storage_api',Path(__file__).with_name('storage_api.py'))
 api=importlib.util.module_from_spec(spec);spec.loader.exec_module(api)
 class StorageTest(unittest.TestCase):
+ def test_character_routes_require_workspace_authorization(self):
+  for path in ('save','approve','generate','upload'):
+   with self.assertRaises(HTTPError) as error:self.call('/api/character-studio/'+path,{},auth=False)
+   self.assertEqual(error.exception.code,401)
+   with self.assertRaises(HTTPError) as error:self.call('/api/character-studio/'+path,{},origin='https://untrusted.example')
+   self.assertEqual(error.exception.code,403)
+  with self.assertRaises(HTTPError) as error:self.call('/api/character-studio/status',auth=False)
+  self.assertEqual(error.exception.code,401)
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();api.legacy.DATA=Path(self.tmp.name)
   with sqlite3.connect(api.legacy.DATA/'studio.sqlite') as db:
@@ -46,7 +54,7 @@ class StorageTest(unittest.TestCase):
   import time
   pending=google_signin.challenge()
   claims={'sub':'new-user','aud':google_signin.CLIENT_ID,'iss':'https://accounts.google.com','exp':time.time()+3600,'nonce':pending['nonce']}
-  with patch.object(google_signin,'verifier',return_value=claims):
+  with patch.object(google_signin,'SESSION_DB',Path(self.tmp.name)/'sessions.sqlite3'),patch.object(google_signin,'verifier',return_value=claims):
    signed=google_signin.login({'challenge':pending['challenge'],'credential':'test'})
   with self.assertRaises(HTTPError) as error:
    self.call('/api/state',auth=False,extra={'Authorization':'Bearer '+signed['session_token']})
