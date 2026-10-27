@@ -58,12 +58,33 @@ Install Blender 4.2 LTS or a validated compatible release and use separate
 environments for the official engines:
 
 - TRELLIS.2: https://github.com/microsoft/TRELLIS.2
+- Optional TRELLIS 1: https://github.com/microsoft/TRELLIS
 - UniRig: https://github.com/VAST-AI-Research/UniRig
 
 Follow each upstream installation and model-access procedure. Pin the tested
 source/weights in the runtime's installation record. Ecco's existing downloaded
 TRELLIS.2 weights do not establish DINOv3 access or runtime readiness. No model
 download, new GPU provisioning or paid API enrollment occurs from the UI.
+
+An alternate `trellis_engine: "trellis1"` worker uses the public DINOv2 encoder
+and the official TRELLIS image-large model. Set `trellis_root`, `trellis_python`
+and `trellis_weights` to that installation, plus absolute paths for
+`trellis_encoder_root` (the official DINOv2 source tree) and
+`trellis_encoder_checkpoint` (`dinov2_vitl14_reg4_pretrain.pth`). The adapter
+loads the encoder locally with `weights_only=True`; it does not download
+weights or run background removal. Its input must be a reviewed RGBA PNG with
+a transparent background and opaque character pixels. An ordinary opaque
+character sheet is not valid input for this adapter.
+
+TRELLIS 1 has a different geometry ceiling: high quality retains more of the
+generated mesh and bakes a 4096-pixel texture, but does not increase the model's
+native spatial resolution. This alternate adapter still requires a real model
+qualification and visual review. It does not qualify body or facial rigging.
+The upstream Gaussian texture exporter includes a rasterizer whose license
+limits use to research evaluation. Keep this path as a technical prototype;
+production enablement also requires a suitably licensed exporter or permission
+from that component's licensors. Public model downloads alone do not resolve
+third-party dependency licensing.
 
 Keep a private worker configuration outside served assets, for example:
 
