@@ -2194,5 +2194,12 @@
     "behavior": "Sequential work remains sequential. Each sound names the active dependency while waiting. Counts come only from authenticated job telemetry; no fake percentages, no elapsed-time inference. Loading/mixing are indeterminate; done means saved asset, not merely sampler step 100. Rows persist per story/run, preserve completed sounds, reject old speech job updates, and recheck known sound IDs read-only after reload. Generate remains the explicit resume action.",
     "telemetry": "Coordinator reads a bounded 16KiB tail of MOSS sampler logs to report 0\u2013100 actual steps; raw logs are never returned. Other models without measured steps remain indeterminate. Existing auth and routing unchanged; no additional jobs, model switches or concurrency changes.",
     "accessibility": "Named native progress bars, labelled row group, keyboard controls unchanged, no polling-driven focus moves."
+  },
+  "audioEmotionBinding": {
+    "approval": "User requested expanded emotion dropdown and binding to final model input.",
+    "placement": "Existing Emotion select, unchanged styling; existing help typography with aria-describedby.",
+    "behavior": "29 shared choices; preserve saved turn cues through delivery preparation and prioritize them over character defaults. Concrete English acting descriptions for direction models, closest native tags for Indic-Mio, intensity approximation for Chatterbox even without AI cues; explicit numeric overrides remain authoritative. Disable unsupported emotion controls with an explanation. Never insert acting directions into spoken text.",
+    "validation": "Distinct anxious/ecstatic feeds, backend acceptance, preservation of dialogue and cues, saved selection and keyboard navigation. Listening acceptance is separate.",
+    "turnReview": "Each Final Script turn has collapsed Delivery instructions using existing generation-settings styles: Emotion select and Acting direction textarea. Explicit turn selections survive text edits. Script-selection AI targets spoken fields only. Save through the existing draft; no extra generation."
   }
 }
