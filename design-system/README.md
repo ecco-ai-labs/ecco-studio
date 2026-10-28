@@ -332,3 +332,15 @@ worker qualification disables the relevant generation control with an explanatio
 Model preview uses bundled model-viewer, tracked by inventory hash. Existing
 generation styles and popup controls remain in use. Live deployment and visual
 acceptance are separate gates from the local automated tests.
+
+
+## Clips & Frames
+
+Video Studio Review and its AI menu open a frame contact sheet with 3–4 second
+review segments. Original 25 fps frame IDs remain stable through nonconsecutive
+selection, cuts, reinsertion, replacement and undo/redo. Context repair requests
+are prepared locally; the UI does not claim an installed AI repair worker.
+Browser drafts are scoped by account, story and source. CPU export is separately
+capability-gated, cuts matching audio intervals and creates a new library asset.
+Local file review does not upload the source or modify the original file.
+See `video/FRAME_REVIEW.md` for workflow and validation details.
