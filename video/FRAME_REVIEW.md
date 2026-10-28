@@ -53,3 +53,5 @@ The local DOM fixtures test selection, cuts, reinsertion, persistence, context,
 boundary changes and zero inference submissions. FFmpeg tests check actual frame
 count, audio timing, replacement pixels and preservation of the original file.
 Live UI inspection is still required for layout and real media decoding.
+
+Export decoding uses local temporary storage, with bounded retries for transient shared-volume database writes. Temporary frames are removed after export.

@@ -26,15 +26,20 @@
 #clip-frame-dialog .cf-frame-tag{position:absolute;bottom:10px;left:10px;background:#111c;color:#fff;padding:5px 8px;border-radius:4px;font:11px ui-monospace,monospace;pointer-events:none}
 #clip-frame-dialog .cf-player-actions{display:flex;align-items:center;gap:7px;margin:9px 0;flex-wrap:wrap}
 #clip-frame-dialog .cf-player-actions button{padding:6px 10px}
+#clip-frame-dialog .cf-player-actions select{width:auto;flex:0 1 180px}
 #clip-frame-dialog .cf-player-actions [data-cf-position]{margin-left:auto;font:11px ui-monospace,monospace;color:var(--muted,#b7b0cf)}
 #clip-frame-dialog .cf-selection{border:1px solid var(--cf-border);border-radius:8px;padding:15px;background:var(--cf-control);display:flex;flex-direction:column;gap:11px}
 #clip-frame-dialog .cf-selection-count{font-size:26px;color:var(--accent,#ffdc24);line-height:1.2;font-weight:550}
 #clip-frame-dialog .cf-selection-list{font:12px/1.65 ui-monospace,monospace;max-height:65px;overflow:auto;overflow-wrap:anywhere;min-height:20px}
 #clip-frame-dialog .cf-selection .cf-actions>button{flex:1}
 #clip-frame-dialog .cf-selection .cf-actions button{padding:7px 8px}
+#clip-frame-dialog .cf-selection>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#clip-frame-dialog .cf-selection>div:first-child h3{max-width:120px}
+#clip-frame-dialog .cf-selection-count{font-size:22px;white-space:nowrap}
 #clip-frame-dialog [data-cf-impact]{font-size:11px;line-height:1.6;color:var(--muted,#b7b0cf)}
 #clip-frame-dialog .cf-toolbar{justify-content:space-between;margin:16px 0 10px;align-items:center}
 #clip-frame-dialog .cf-toolbar .cf-actions{align-items:center}
+#clip-frame-dialog .cf-toolbar select{width:auto;flex:0 0 auto}
 #clip-frame-dialog .cf-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
 #clip-frame-dialog .cf-tile{position:relative;display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden;border:1px solid var(--cf-border);border-radius:6px;background:var(--cf-control);color:var(--cf-text);text-align:left;min-width:0}
 #clip-frame-dialog .cf-tile img{width:100%;aspect-ratio:16/9;object-fit:contain;background:#100e1b;display:block}

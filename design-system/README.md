@@ -344,3 +344,5 @@ Browser drafts are scoped by account, story and source. CPU export is separately
 capability-gated, cuts matching audio intervals and creates a new library asset.
 Local file review does not upload the source or modify the original file.
 See `video/FRAME_REVIEW.md` for workflow and validation details.
+
+Frame review keeps its preview/group selectors compact and names the active local video. Thumbnail decoding is serialized across navigation; definitive rejected exports can be retried with updated edits.

@@ -33,7 +33,7 @@
   dialog.innerHTML=`
    <header class="cf-head"><div><div class="cf-eyebrow">VIDEO STUDIO / FRAME REVIEW</div><h2>Clips & Frames</h2><p class="cf-subtitle">Review a short segment. Pick the exact frames you want to change.</p></div><button type="button" class="secondary" data-cf-close aria-label="Close frame review">×</button></header>
    <div class="cf-sourcebar"><label>Source video<select data-cf-source><option value="">Choose a video from this story</option></select></label><button type="button" class="secondary" data-cf-upload>Open local video</button><input type="file" data-cf-file accept="video/mp4,video/webm,video/quicktime" hidden><label>Review segments<select data-cf-seconds><option value="3">3 seconds · 75 frames</option><option value="4">4 seconds · 100 frames</option></select></label></div>
-   <div class="cf-empty" data-cf-empty><h3>Your video, one frame at a time</h3><p>Choose a library video or open an MP4. Source files stay intact.</p><p class="cf-muted">Selections, cuts, replacements and undo history are saved in this browser.</p></div>
+   <div class="cf-empty" data-cf-empty><h3>Your video, one frame at a time</h3><p>Choose a library video or open an MP4. Source files stay intact.</p><p class="cf-muted">Cuts, replacements and undo history are saved in this browser.</p></div>
    <section data-cf-work hidden>
     <div class="cf-clipstrip" data-cf-clips role="group" aria-label="Review clips"></div>
     <div class="cf-main"><section aria-label="Frame inspector"><div class="cf-player"><video data-cf-player playsinline preload="auto"></video><img data-cf-replacement alt="Replacement frame" hidden><span class="cf-frame-tag" data-cf-frame-tag></span></div><div class="cf-player-actions"><button type="button" class="secondary" data-cf-prev aria-label="Previous frame">←</button><button type="button" data-cf-play>Play clip</button><button type="button" class="secondary" data-cf-next aria-label="Next frame">→</button><select data-cf-compare aria-label="Preview version"><option value="edited">Edited preview</option><option value="original">Original</option></select><span data-cf-position></span></div><p class="cf-muted" data-cf-continuity></p></section>
@@ -45,7 +45,7 @@
    </section><footer class="cf-footer"><p role="status" aria-live="polite" data-cf-status>Ready to open a video.</p><div class="cf-actions"><button type="button" class="secondary" data-cf-save disabled>Save edit</button><button type="button" class="secondary" data-cf-plan disabled>Download edit plan</button><button type="button" data-cf-export disabled>Export edited MP4</button></div></footer>`;
   document.body.append(dialog);dialog.showModal();q('[data-cf-source]',dialog).focus();
   const $=s=>q('[data-cf-'+s+']',dialog),player=$('player'),decoder=document.createElement('video');decoder.muted=true;decoder.preload='auto';decoder.playsInline=true;
-  let doc=null,source=null,key='',history=[],future=[],selected=new Set(),anchor=null,current=1,clipIndex=0,page=0,pageSize=25,token=0,sourceToken=0,closed=false,loading=false,playing=false,frameLoop=null,timer=null,saveChain=Promise.resolve(),draftBlob=null,ownedURL=null,capabilities=null,pendingExport=null;
+  let doc=null,source=null,key='',history=[],future=[],selected=new Set(),anchor=null,current=1,clipIndex=0,page=0,pageSize=25,token=0,sourceToken=0,closed=false,loading=false,playing=false,frameLoop=null,timer=null,saveChain=Promise.resolve(),decodeChain=Promise.resolve(),draftBlob=null,ownedURL=null,capabilities=null,pendingExport=null;
   const thumbs=new Map();const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;const painter=canvas.getContext('2d');
   function message(text){if(!closed)$('status').textContent=text;}
   function fail(error){message(error.message||String(error));}
@@ -134,7 +134,7 @@
    try{
     for(const [i,n] of frames.entries()){
      if(thisToken!==token||closed)return;
-     if(!thumbs.has(n)){await seek(decoder,frameTime(n));if(thisToken!==token||closed)return;painter.drawImage(decoder,0,0,320,180);thumbs.set(n,canvas.toDataURL('image/jpeg',.78));}
+     if(!thumbs.has(n)){decodeChain=decodeChain.catch(()=>{}).then(async()=>{if(thisToken!==token||closed)return;await seek(decoder,frameTime(n));if(thisToken!==token||closed)return;painter.drawImage(decoder,0,0,320,180);thumbs.set(n,canvas.toDataURL('image/jpeg',.78));});await decodeChain;if(thisToken!==token||closed)return;}
      const tile=q('[data-frame="'+n+'"]',dialog);if(tile)tile.querySelector('img').src=doc.replacements[n]?.dataUrl||thumbs.get(n);$('progress').value=i+1;
     }
    }catch(e){if(thisToken===token)fail(e);}
@@ -157,10 +157,13 @@
     if(blob){if(ownedURL)URL.revokeObjectURL(ownedURL);ownedURL=URL.createObjectURL(blob);url=ownedURL;}
     else if(!url){const a=records().find(a=>a.id===item.id);url=typeof media==='function'&&a?media(a):'';if(!url){const response=await api('media/'+item.id);blob=new Blob([response.buffer],{type:response.mime});if(ownedURL)URL.revokeObjectURL(ownedURL);ownedURL=URL.createObjectURL(blob);url=ownedURL;}}
     if(serial!==sourceToken||closed)return;
+    await decodeChain.catch(()=>{});
+    if(serial!==sourceToken||closed)return;
     await Promise.all([load(player,url),load(decoder,url)]);
     if(serial!==sourceToken||closed)return;
     if(!Number.isFinite(player.duration)||player.duration<=0)throw Error('This video has no readable duration.');
     source={id:item.id,name:item.name,duration:player.duration,library:!!item.library};draftBlob=item.library?null:blob;
+    await refreshSources();$('source').value=source.id;
     const total=Math.round(player.duration*M.FPS);key='frames:'+identity+':'+story+':'+source.id;
     let saved;try{saved=await readDraft(key);}catch(e){message('Browser draft storage is unavailable. Download the edit plan before closing.');}
     doc=saved?.doc?M.validate(saved.doc,total):M.create(total,Number($('seconds').value));history=(saved?.history||[]).slice(-30);future=(saved?.future||[]).slice(-30);pendingExport=saved?.pendingExport||null;
@@ -174,7 +177,7 @@
   }
   async function refreshSources(){
    const select=$('source'),value=select.value;select.replaceChildren(new Option('Choose a video from this story',''));
-   videoAssets(story).forEach(a=>select.add(new Option(a.title||'Untitled video',a.id)));select.value=value;
+   videoAssets(story).forEach(a=>select.add(new Option(a.title||'Untitled video',a.id)));if(source&&!source.library)select.add(new Option(source.name+' · local file',source.id));select.value=value;
   }
   async function openFile(file){if(!file)return;if(file.size>150*1024*1024)throw Error('Choose a video smaller than 150 MB.');const hash=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());const id='local-'+[...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');$('source').value='';await activate({id,name:file.name,library:false},file);}
   $('close').onclick=()=>dialog.close();$('upload').onclick=()=>$('file').click();$('file').onchange=()=>openFile($('file').files[0]).catch(fail);
@@ -213,7 +216,7 @@
     await persist();message('Exporting edited video on the CPU…');
     const response=await api('frame-editor/export',pendingExport);
     const poll=async()=>{if(closed||source?.id!==exportSource)return;try{const result=await api('frame-editor/jobs/'+response.id);if(result.status==='done'){pendingExport=null;await persist();message('Edited MP4 saved to Video Library. Original video retained.');if(typeof refresh==='function')await refresh();await refreshSources();$('export').disabled=false;$('export').textContent='Export edited MP4';}else if(result.status==='failed'){pendingExport=null;await persist();message('Export failed: '+result.error);$('export').disabled=false;$('export').textContent='Export edited MP4';}else{message(result.progress||'Exporting edited video…');setTimeout(poll,2000);}}catch(e){message('Export status is uncertain. Check export to resume this same request.');$('export').textContent='Check export';$('export').disabled=false;}};poll();
-   }catch(e){fail(e);$('export').textContent='Check export';$('export').disabled=false;}
+   }catch(e){if(e.status>=400&&e.status<500&&e.status!==408){pendingExport=null;await persist();}fail(e);$('export').textContent=pendingExport?'Check export':'Export edited MP4';$('export').disabled=false;}
    finally{$('source').disabled=false;$('upload').disabled=false;}
   };
   function authChanged(){if(owner()!==identity)dialog.close();}

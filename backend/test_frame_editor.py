@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import wave
+from unittest.mock import Mock, patch
 import frame_editor as fe
 
 class ExportTest(unittest.TestCase):
@@ -29,5 +30,18 @@ class ExportTest(unittest.TestCase):
  def test_bad_ids(self):
   for ids in [[0],[51],[True],['1'],[1.2]]:
    with self.assertRaises(ValueError):fe.frame_ids(ids,50)
+
+class PersistenceTest(unittest.TestCase):
+ def test_transient_volume_error_retries_same_record(self):
+  record={'id':'same-id'}
+  save=Mock(side_effect=[fe.sqlite3.OperationalError('disk I/O error'),record])
+  with patch.object(fe.time,'sleep'):
+   self.assertEqual(fe.persist(record,{'save':save}),record)
+  self.assertEqual(save.call_count,2)
+  self.assertIs(save.call_args.args[0],record)
+ def test_persistent_error_is_bounded(self):
+  save=Mock(side_effect=fe.sqlite3.OperationalError('disk I/O error'))
+  with patch.object(fe.time,'sleep'),self.assertRaises(fe.sqlite3.OperationalError):fe.persist({'id':'same'},{'save':save})
+  self.assertEqual(save.call_count,5)
 
 if __name__=='__main__':unittest.main()
