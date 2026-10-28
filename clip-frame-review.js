@@ -1,4 +1,4 @@
-/* Non-destructive frame review. Source media is never overwritten. No GPU jobs are submitted here. */
+/* Non-destructive frame review. Source media is never overwritten. AI repairs require an explicit Generate action and a ready worker. */
 (() => {
  'use strict';
  const M=window.EccoFrameModel, q=(s,r=document)=>r.querySelector(s);
@@ -36,16 +36,16 @@
    <div class="cf-empty" data-cf-empty><h3>Your video, one frame at a time</h3><p>Choose a library video or open an MP4. Source files stay intact.</p><p class="cf-muted">Cuts, replacements and undo history are saved in this browser.</p></div>
    <section data-cf-work hidden>
     <div class="cf-clipstrip" data-cf-clips role="group" aria-label="Review clips"></div>
-    <div class="cf-main"><section aria-label="Frame inspector"><div class="cf-player"><video data-cf-player playsinline preload="auto"></video><img data-cf-replacement alt="Replacement frame" hidden><span class="cf-frame-tag" data-cf-frame-tag></span></div><div class="cf-player-actions"><button type="button" class="secondary" data-cf-prev aria-label="Previous frame">←</button><button type="button" data-cf-play>Play clip</button><button type="button" class="secondary" data-cf-next aria-label="Next frame">→</button><select data-cf-compare aria-label="Preview version"><option value="edited">Edited preview</option><option value="original">Original</option></select><span data-cf-position></span></div><p class="cf-muted" data-cf-continuity></p></section>
+    <div class="cf-main"><section aria-label="Frame inspector"><div class="cf-player"><video data-cf-player playsinline preload="auto"></video><img data-cf-replacement alt="Replacement frame" hidden><span class="cf-frame-tag" data-cf-frame-tag></span></div><div class="cf-player-actions"><button type="button" class="secondary" data-cf-prev aria-label="Previous frame">←</button><select data-cf-play-scope aria-label="Playback scope"><option value="entire">Play entire clip</option><option value="selected">Play selected frames</option></select><button type="button" data-cf-play>Play entire clip</button><button type="button" class="secondary" data-cf-next aria-label="Next frame">→</button><select data-cf-compare aria-label="Preview version"><option value="edited">Edited preview</option><option value="original">Original</option></select><span data-cf-position></span></div><p class="cf-muted" data-cf-play-note>Entire clip ignores the selection. Selected playback is a silent, exact-frame inspection preview.</p><p class="cf-muted" data-cf-continuity></p></section>
     <section class="cf-selection" aria-label="Selected frames"><div><h3>Cherry-pick frames</h3><div class="cf-selection-count" data-cf-count>0 selected</div></div><div class="cf-selection-list" data-cf-selected>Click any thumbnail to begin.</div><label>Original frame numbers<input data-cf-range placeholder="128, 132, 137–140" autocomplete="off"></label><div class="cf-actions"><button type="button" class="secondary" data-cf-select-range>Select these</button><button type="button" class="secondary" data-cf-clear>Clear</button></div><p data-cf-impact></p><div class="cf-actions"><button type="button" data-cf-remove disabled>Remove selected</button><button type="button" class="secondary" data-cf-restore disabled>Reinsert</button></div><div class="cf-actions"><button type="button" class="secondary" data-cf-undo disabled>Undo</button><button type="button" class="secondary" data-cf-redo disabled>Redo</button></div></section></div>
     <div class="cf-toolbar"><div><h3 data-cf-grid-title>Frames</h3><p class="cf-muted">Click to select · Shift-click for a range · Double-click to inspect</p></div><div class="cf-actions"><button type="button" class="secondary" data-cf-page-prev aria-label="Previous group of frames">←</button><select data-cf-page-size aria-label="Frames per group"><option value="25">25 frames</option><option value="50">50 frames</option><option value="100">100 frames</option></select><button type="button" class="secondary" data-cf-page-next aria-label="Next group of frames">→</button><button type="button" class="secondary" data-cf-select-page>Select group</button></div></div>
     <progress class="cf-progress" data-cf-progress max="1" value="0" aria-label="Loading frame thumbnails"></progress><div class="cf-grid" data-cf-grid role="group" aria-label="Frame thumbnails"></div><div class="cf-grid-help"><span class="cf-muted" data-cf-page-caption></span><span class="cf-muted">Original frame IDs stay fixed after edits.</span></div>
-    <details class="cf-editor-details" data-cf-repair><summary>Repair or replace selected frames</summary><p class="cf-muted" data-cf-context></p><label>Correction<textarea data-cf-instructions maxlength="2000" placeholder="Keep the coconut tree rooted. Preserve Munni’s movement and the camera."></textarea></label><div class="cf-actions"><button type="button" class="secondary" data-cf-prepare>Save repair request</button><button type="button" class="secondary" data-cf-import>Replace one frame with an image</button><input type="file" data-cf-image accept="image/png,image/jpeg,image/webp" hidden><button type="button" class="secondary" data-cf-original>Restore original image</button></div><p class="cf-muted">AI frame repair is not connected yet. Saving a request prepares the frame IDs and 10-frame context; it does not generate video.</p></details>
+    <details class="cf-editor-details" data-cf-repair><summary>Repair or replace selected frames</summary><p class="cf-muted" data-cf-context></p><label>Correction<textarea data-cf-instructions maxlength="2000" placeholder="Keep the coconut tree rooted. Preserve Munni’s movement and the camera."></textarea></label><div class="cf-actions"><button type="button" data-cf-prepare>Repair selected frames</button><button type="button" class="secondary" data-cf-resume-repair hidden>Review repair</button><button type="button" class="secondary" data-cf-import>Replace one frame with an image</button><input type="file" data-cf-image accept="image/png,image/jpeg,image/webp" hidden><button type="button" class="secondary" data-cf-original>Restore original image</button></div><p class="cf-muted">Review the generated replacement before choosing Reinsert new frames. Only your selected frame IDs are replaced; context stays intact.</p></details>
     <details class="cf-editor-details"><summary>Clip ending & next clip</summary><p class="cf-muted" data-cf-ending-info></p><label>Ending direction<textarea data-cf-ending maxlength="1000" placeholder="End with Munni reaching the tree, ready to start climbing."></textarea></label><div class="cf-actions"><button type="button" class="secondary" data-cf-boundary>End this clip at the inspected frame</button><button type="button" class="secondary" data-cf-inspect-end>Inspect last frame</button><button type="button" class="secondary" data-cf-save-end>Save ending direction</button></div><p class="cf-muted">These are review boundaries and saved directions. Changing them does not regenerate the source video.</p></details>
    </section><footer class="cf-footer"><p role="status" aria-live="polite" data-cf-status>Ready to open a video.</p><div class="cf-actions"><button type="button" class="secondary" data-cf-save disabled>Save edit</button><button type="button" class="secondary" data-cf-plan disabled>Download edit plan</button><button type="button" data-cf-export disabled>Export edited MP4</button></div></footer>`;
   document.body.append(dialog);dialog.showModal();q('[data-cf-source]',dialog).focus();
   const $=s=>q('[data-cf-'+s+']',dialog),player=$('player'),decoder=document.createElement('video');decoder.muted=true;decoder.preload='auto';decoder.playsInline=true;
-  let doc=null,source=null,key='',history=[],future=[],selected=new Set(),anchor=null,current=1,clipIndex=0,page=0,pageSize=25,token=0,sourceToken=0,closed=false,loading=false,playing=false,frameLoop=null,timer=null,saveChain=Promise.resolve(),decodeChain=Promise.resolve(),draftBlob=null,ownedURL=null,capabilities=null,pendingExport=null;
+  let doc=null,source=null,key='',history=[],future=[],selected=new Set(),anchor=null,current=1,clipIndex=0,page=0,pageSize=25,token=0,sourceToken=0,closed=false,loading=false,playing=false,frameLoop=null,timer=null,saveChain=Promise.resolve(),decodeChain=Promise.resolve(),draftBlob=null,ownedURL=null,capabilities=null,pendingExport=null,repairDraft=null,playSerial=0,selectedPlaying=false;
   const thumbs=new Map();const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;const painter=canvas.getContext('2d');
   function message(text){if(!closed)$('status').textContent=text;}
   function fail(error){message(error.message||String(error));}
@@ -53,7 +53,7 @@
   const snapshot=()=>JSON.parse(JSON.stringify(doc));
   const isCurrent=()=>!closed&&owner()===identity&&currentStory()===story;
   function assertCurrent(){if(!isCurrent())throw Error('Return to the original story and account before applying this edit.');}
-  function payload(){return {source:{id:source.id,name:source.name,duration:source.duration,width:player.videoWidth,height:player.videoHeight},doc:snapshot(),history:history.slice(-30),future:future.slice(-30),blob:draftBlob,pendingExport};}
+  function payload(){return {source:{id:source.id,name:source.name,duration:source.duration,width:player.videoWidth,height:player.videoHeight},doc:snapshot(),history:history.slice(-30),future:future.slice(-30),blob:draftBlob,pendingExport,repairDraft};}
   function persist(){
    if(!doc||!key)return Promise.resolve();
    const saveKey=key,data=payload();
@@ -62,29 +62,67 @@
   }
   async function save(){try{assertCurrent();await persist();message('Edit saved in this browser. The source video is unchanged.');}catch(e){fail(e);}}
   function commit(next,text){assertCurrent();history.push(snapshot());if(history.length>30)history.shift();future=[];doc=next;clipIndex=Math.min(clipIndex,doc.ends.length-1);selected.clear();pause();refreshSelection();drawClips();persist().catch(e=>message('Edit is in this tab but could not be saved: '+e.message));message(text);}
-  function pause(){playing=false;player.pause();if(frameLoop!==null&&player.cancelVideoFrameCallback)player.cancelVideoFrameCallback(frameLoop);frameLoop=null;clearTimeout(timer);$('play').textContent='Play clip';}
+  function pause(){playSerial++;selectedPlaying=false;playing=false;player.pause();if(frameLoop!==null&&player.cancelVideoFrameCallback)player.cancelVideoFrameCallback(frameLoop);frameLoop=null;clearTimeout(timer);$('play').textContent=$('play-scope').value==='selected'?'Play selected frames':'Play entire clip';$('play').disabled=$('play-scope').value==='selected'&&!selected.size;}
   function frameTime(n){return Math.min((n-.5)/M.FPS,Math.max(0,source.duration-.001));}
   async function inspect(n){if(!doc)return;pause();current=Math.max(1,Math.min(doc.total,n));const c=clip();if(current<c.start||current>c.end){clipIndex=M.clips(doc).findIndex(c=>current>=c.start&&current<=c.end);page=Math.floor((current-clip().start)/pageSize);drawClips();drawGrid();}refreshInspector();try{await seek(player,frameTime(current));}catch(e){fail(e);}}
   function refreshInspector(){
    const replacement=doc.replacements[current],useReplacement=replacement&&$('compare').value==='edited';
-   $('replacement').hidden=!useReplacement;player.hidden=!!useReplacement;if(useReplacement)$('replacement').src=replacement.dataUrl;
+   if(!selectedPlaying){$('replacement').hidden=!useReplacement;player.hidden=!!useReplacement;if(useReplacement)$('replacement').src=replacement.dataUrl;}
    $('frame-tag').textContent='Original #'+String(current).padStart(4,'0')+' · '+time(current)+(doc.removed.includes(current)?' · removed':'');
    $('position').textContent='Clip '+(clipIndex+1)+' / frame '+(current-clip().start+1)+' · '+time(current);
    for(const tile of $('grid').children)tile.dataset.current=String(Number(tile.dataset.frame)===current);
   }
+  async function captureFrames(values,edited=true,valid=()=>!closed){
+   const result={};const capture=document.createElement('canvas');capture.width=player.videoWidth;capture.height=player.videoHeight;
+   for(const n of values){
+    if(!valid())throw Error('Preview cancelled.');
+    if(edited&&doc.replacements[n]){result[n]=doc.replacements[n].dataUrl;continue;}
+    decodeChain=decodeChain.catch(()=>{}).then(async()=>{if(!valid())return;await seek(decoder,frameTime(n));if(!valid())return;capture.getContext('2d').drawImage(decoder,0,0);result[n]=capture.toDataURL('image/jpeg',.88);});await decodeChain;
+   }
+   return result;
+  }
   async function play(){
-   if(playing){pause();return;}
-   const c=clip(),edited=$('compare').value==='edited',kept=edited?M.keep(doc,c.start,c.end):Array.from({length:c.count},(_,i)=>c.start+i);
-   if(!kept.length){message('This clip has no retained frames. Reinsert frames to preview it.');return;}
-   pause();current=kept[0];await seek(player,(current-1)/M.FPS);playing=true;$('play').textContent='Pause';await player.play();
+   if(playing){pause();refreshInspector();return;}
+   const c=clip(),scope=$('play-scope').value,edited=$('compare').value==='edited',kept=M.playback(doc,[...selected],c,scope,edited);
+   if(!kept.length){message(scope==='selected'?'Select frames to play.':'This clip has no retained frames.');return;}
+   pause();const serial=playSerial;playing=true;$('play').disabled=false;$('play').textContent='Pause';
+   if(scope==='selected'){
+    message('Preparing '+kept.length+' selected frames…');
+    const frames=await captureFrames(kept,edited,()=>!closed&&serial===playSerial);
+    if(serial!==playSerial||closed)return;
+    selectedPlaying=true;player.hidden=true;$('replacement').hidden=false;
+    let index=0;const tick=()=>{
+     if(!playing||closed||serial!==playSerial)return;
+     current=kept[index++];player.currentTime=frameTime(current);$('replacement').src=frames[current];refreshInspector();
+     if(index===kept.length){timer=setTimeout(()=>{pause();refreshInspector();message('Selected-frame preview complete. Only '+kept.length+' selected frames played.');},1000/M.FPS);return;}
+     timer=setTimeout(tick,1000/M.FPS);
+    };message('Playing only selected frames · 25 fps · silent preview');tick();return;
+   }
+   current=kept[0];await seek(player,(current-1)/M.FPS);if(serial!==playSerial)return;await player.play();
    const tick=()=>{
-    if(!playing||closed)return;
+    if(!playing||closed||serial!==playSerial)return;
     let f=Math.floor((player.currentTime+.00001)*M.FPS)+1;
     if(f>c.end||player.ended){pause();current=kept.at(-1);refreshInspector();return;}
     if(edited&&doc.removed.includes(f)){const next=kept.find(n=>n>f);if(!next){pause();return;}player.currentTime=(next-1)/M.FPS;f=next;}
     current=f;refreshInspector();
     if(player.requestVideoFrameCallback)frameLoop=player.requestVideoFrameCallback(tick);else timer=setTimeout(tick,20);
    };tick();
+  }
+  async function repairSelected(resume=false){
+   try{
+    assertCurrent();pause();
+    if(!resume){
+     const plan=M.repair(doc,[...selected],$('instructions').value);
+     if(plan.original_frame_ids.at(-1)-plan.original_frame_ids[0]>=100)throw Error('Repair a span of up to 100 frames (4 seconds) at a time.');
+     repairDraft={...plan,request_id:crypto.randomUUID().replaceAll('-',''),asset_id:source.id,story_id:story,total:doc.total,revision:M.revision(doc),replacements:JSON.parse(JSON.stringify(doc.replacements))};await persist();
+    }
+    if(!repairDraft)return;
+    $('resume-repair').hidden=false;
+    await window.EccoFrameRepair.open({draft:repairDraft,library:source.library,isCurrent:()=>isCurrent()&&source?.id===repairDraft.asset_id&&M.revision(doc)===repairDraft.revision,
+     capture:values=>captureFrames(values,true),persist:()=>persist(),
+     accept:candidate=>{assertCurrent();const next=M.acceptRepair(doc,repairDraft,candidate);commit(next,'Repaired frames reinserted at their original positions. Timing and audio are preserved.');repairDraft=null;$('resume-repair').hidden=true;persist().catch(fail);drawGrid();},
+     origin:$('prepare')});
+   }catch(e){fail(e);}
   }
   function drawClips(){
    $('clips').replaceChildren();
@@ -101,7 +139,7 @@
   function refreshSelection(){
    if(!doc)return;
    const values=[...selected].sort((a,b)=>a-b),cuts=values.filter(n=>!doc.removed.includes(n)).length;
-   $('count').textContent=values.length+' selected';$('selected').textContent=values.length?M.format(values):'Click any thumbnail to begin.';
+   $('play').disabled=$('play-scope').value==='selected'&&!values.length;$('count').textContent=values.length+' selected';$('selected').textContent=values.length?M.format(values):'Click any thumbnail to begin.';
    $('impact').textContent=values.length?'Remove: −'+(cuts/M.FPS).toFixed(2)+'s; matching audio is cut on export. Repair or replacement preserves duration.':doc.removed.length+' frames removed · '+(M.keep(doc).length/M.FPS).toFixed(2)+'s edited / '+(doc.total/M.FPS).toFixed(2)+'s original';
    $('remove').disabled=!values.length||loading;$('restore').disabled=!values.some(n=>doc.removed.includes(n))||loading;
    $('undo').disabled=!history.length||loading;$('redo').disabled=!future.length||loading;
@@ -166,7 +204,7 @@
     await refreshSources();$('source').value=source.id;
     const total=Math.round(player.duration*M.FPS);key='frames:'+identity+':'+story+':'+source.id;
     let saved;try{saved=await readDraft(key);}catch(e){message('Browser draft storage is unavailable. Download the edit plan before closing.');}
-    doc=saved?.doc?M.validate(saved.doc,total):M.create(total,Number($('seconds').value));history=(saved?.history||[]).slice(-30);future=(saved?.future||[]).slice(-30);pendingExport=saved?.pendingExport||null;
+    doc=saved?.doc?M.validate(saved.doc,total):M.create(total,Number($('seconds').value));history=(saved?.history||[]).slice(-30);future=(saved?.future||[]).slice(-30);pendingExport=saved?.pendingExport||null;repairDraft=saved?.repairDraft||null;$('resume-repair').hidden=!repairDraft;
     $('seconds').value=String(doc.seconds);selected.clear();anchor=null;thumbs.clear();clipIndex=0;page=0;current=1;loading=false;
     $('work').hidden=false;$('empty').hidden=true;$('save').disabled=false;$('plan').disabled=false;
     $('export').disabled=!source.library||!capabilities?.available;
@@ -183,16 +221,16 @@
   $('close').onclick=()=>dialog.close();$('upload').onclick=()=>$('file').click();$('file').onchange=()=>openFile($('file').files[0]).catch(fail);
   $('source').onchange=()=>{const a=videoAssets(story).find(a=>a.id===$('source').value);if(a)activate({id:a.id,name:a.title||'Untitled video',library:true});};
   $('seconds').onchange=()=>{if(!doc)return;const next=snapshot();next.seconds=Number($('seconds').value);next.ends=M.boundaries(doc.total,next.seconds);next.endings={};commit(next,'Review segments updated. Frame IDs and edits are unchanged.');clipIndex=0;page=0;drawClips();drawGrid();};
-  $('prev').onclick=()=>inspect(current-1);$('next').onclick=()=>inspect(current+1);$('play').onclick=()=>play().catch(fail);$('compare').onchange=()=>{pause();refreshInspector();};
+  $('prev').onclick=()=>inspect(current-1);$('next').onclick=()=>inspect(current+1);$('play').onclick=()=>play().catch(e=>{const cancelled=e.message==='Preview cancelled.';pause();refreshInspector();if(!cancelled)fail(e);});$('play-scope').onchange=()=>{pause();refreshInspector();};$('compare').onchange=()=>{pause();refreshInspector();};
   $('select-range').onclick=()=>{try{selected=new Set(M.parse($('range').value,doc.total));const first=[...selected][0];if(first){clipIndex=M.clips(doc).findIndex(c=>first>=c.start&&first<=c.end);page=Math.floor((first-clip().start)/pageSize);drawClips();drawGrid();inspect(first);}refreshSelection();}catch(e){fail(e);}};
   $('range').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('select-range').click();}};
-  $('clear').onclick=()=>{selected.clear();refreshSelection();};
+  $('clear').onclick=()=>{pause();selected.clear();refreshSelection();};
   $('remove').onclick=()=>{try{const count=[...selected].filter(n=>!doc.removed.includes(n)).length;commit(M.change(doc,'remove',[...selected]),count+' frames removed from this edit. Undo or Reinsert restores them.');}catch(e){fail(e);}};
   $('restore').onclick=()=>{try{commit(M.change(doc,'restore',[...selected]),'Selected frames reinserted at their original positions.');}catch(e){fail(e);}};
   $('undo').onclick=()=>{if(!history.length)return;future.push(snapshot());doc=history.pop();selected.clear();clipIndex=Math.min(clipIndex,doc.ends.length-1);pause();drawClips();drawGrid();persist().catch(fail);message('Undo applied.');};
   $('redo').onclick=()=>{if(!future.length)return;history.push(snapshot());doc=future.pop();selected.clear();clipIndex=Math.min(clipIndex,doc.ends.length-1);pause();drawClips();drawGrid();persist().catch(fail);message('Redo applied.');};
-  $('page-size').onchange=()=>{pageSize=Number($('page-size').value);page=0;drawGrid();};$('page-prev').onclick=()=>{page--;drawGrid();};$('page-next').onclick=()=>{page++;drawGrid();};$('select-page').onclick=()=>{visibleFrames().forEach(n=>selected.add(n));refreshSelection();};
-  $('prepare').onclick=()=>{try{const request=M.repair(doc,[...selected],$('instructions').value),next=snapshot();next.repairs.push({...request,created:Date.now()});commit(next,'Repair request saved with context. No AI generation was started.');}catch(e){fail(e);}};
+  $('page-size').onchange=()=>{pageSize=Number($('page-size').value);page=0;drawGrid();};$('page-prev').onclick=()=>{page--;drawGrid();};$('page-next').onclick=()=>{page++;drawGrid();};$('select-page').onclick=()=>{pause();visibleFrames().forEach(n=>selected.add(n));refreshSelection();};
+  $('prepare').onclick=()=>repairSelected();$('resume-repair').onclick=()=>repairSelected(true);
   $('import').onclick=()=>$('image').click();
   $('image').onchange=async()=>{
    const file=$('image').files[0],target=[...selected][0],sourceId=source?.id;if(!file||selected.size!==1)return;

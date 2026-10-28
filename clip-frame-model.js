@@ -79,5 +79,18 @@
   if(!prompt.trim()) throw Error('Describe the correction first.');
   return {version:1,fps:FPS,original_frame_ids:ids(selected,doc.total),context_frames:10,windows:context(selected,doc.total),instructions:prompt.trim(),status:'prepared',preserve_duration:true};
  }
- return {FPS,ids,parse,ranges,format,boundaries,clips,create,validate,keep,context,change,repair};
+ function playback(doc,selected,clip,scope,edited=true) {
+  if(scope==='selected')return ids(selected,doc.total);
+  return edited?keep(doc,clip.start,clip.end):Array.from({length:clip.count},(_,i)=>clip.start+i);
+ }
+ const revision=doc=>JSON.stringify({total:doc.total,fps:doc.fps,replacements:doc.replacements,removed:doc.removed});
+ function acceptRepair(doc,draft,candidate) {
+  if(draft.revision!==revision(doc))throw Error('The edit changed after this repair was prepared. Start a new repair from the current edit.');
+  const targets=ids(draft.original_frame_ids,doc.total),actual=Object.keys(candidate.frames||{}).map(Number).sort((a,b)=>a-b);
+  if(candidate.id!==draft.request_id||candidate.asset_id!==draft.asset_id||candidate.fps!==FPS||candidate.total!==doc.total||JSON.stringify(actual)!==JSON.stringify(targets))throw Error('The repaired frames do not match this source and selection.');
+  const next=JSON.parse(JSON.stringify(doc));
+  for(const n of targets){const dataUrl=candidate.frames[n];if(typeof dataUrl!=='string'||!/^data:image\/jpeg;base64,/.test(dataUrl)||dataUrl.length>120000)throw Error('Invalid repaired frame.');next.replacements[n]={dataUrl,name:'AI repair '+candidate.id,repairId:candidate.id};}
+  if(Object.keys(next.replacements).length>100)throw Error('Export this edit before adding more than 100 replacement frames.');next.removed=next.removed.filter(n=>!targets.includes(n));validate(next,doc.total);return next;
+ }
+ return {FPS,ids,parse,ranges,format,boundaries,clips,create,validate,keep,context,change,repair,playback,revision,acceptRepair};
 });

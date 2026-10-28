@@ -7,6 +7,14 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('storage_api',Path(__file__).with_name('storage_api.py'))
 api=importlib.util.module_from_spec(spec);spec.loader.exec_module(api)
 class StorageTest(unittest.TestCase):
+ def test_repair_routes_require_workspace_authorization(self):
+  for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:
+   with self.assertRaises(HTTPError) as error:self.call('/api/frame-editor/repair',{},auth=auth,origin=origin)
+   self.assertEqual(error.exception.code,code)
+  for route in ('repair-status','repairs/'+'b'*32,'repair-candidate/'+'b'*32):
+   with self.assertRaises(HTTPError) as error:self.call('/api/frame-editor/'+route,auth=False)
+   self.assertEqual(error.exception.code,401)
+
  def test_frame_export_routes_require_workspace_authorization(self):
   with patch.object(api.frame_editor,'export',return_value={'id':'test-export'}) as export:
    for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:

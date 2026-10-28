@@ -30,11 +30,35 @@ test('cherry-pick, remove, reinsert, undo and save preserve source IDs',async t=
  assert.match(q('[data-cf-impact]').textContent,/6 frames removed/);assert.equal(q('[data-cf-undo]').disabled,false);
  assert.equal(x.w.testCalls.filter(c=>['videos','longcat/generate','longcat/sequence','images'].includes(c.path)).length,0);
 });
-test('repair records exact target IDs and context without starting GPU inference',async t=>{
- const x=await fixture(t),q=x.q;q('[data-cf-range]').value='128-140';q('[data-cf-select-range]').click();await tick();
- assert.match(q('[data-cf-context]').textContent,/118–150|118-150/);q('[data-cf-instructions]').value='Keep the tree rooted';q('[data-cf-prepare]').click();await tick();
- const saved=await x.w.EccoFrameReview.readDraft('frames:local:video-story:film');assert.equal(saved.doc.repairs[0].windows[0].from,118);assert.equal(saved.doc.repairs[0].windows[0].to,150);assert.equal(saved.doc.repairs[0].original_frame_ids.length,13);
- assert.equal(x.w.testCalls.filter(c=>c.path==='frame-editor/export').length,0);
+test('repair review replaces only approved IDs and supports undo',async t=>{
+ const x=await fixture(t),q=x.q;
+ const generated=[];let candidate;
+ x.w.testUI.setAPI(async(path,body)=>{
+  if(path==='frame-editor/repair-status')return {available:true,workers:[{id:'gpu',available:true}]};
+  if(path==='frame-editor/repair'){generated.push(body);candidate={id:body.request_id,asset_id:'film',fps:25,total:750,frames:Object.fromEntries(body.original_frame_ids.map(n=>[n,'data:image/jpeg;base64,/9j/']))};return {id:body.request_id};}
+  if(path.startsWith('frame-editor/repairs/'))return {status:'done'};
+  if(path.startsWith('frame-editor/repair-candidate/'))return candidate;
+  return {};
+ });
+ q('[data-cf-range]').value='128,132,137-140';q('[data-cf-select-range]').click();await tick();
+ q('[data-cf-instructions]').value='Keep the tree rooted';await q('[data-cf-prepare]').onclick();await tick();
+ assert.equal(generated.length,0);assert.ok(q('[data-r-target]').textContent.includes('128, 132, 137–140'));
+ q('[data-r-worker]').value='gpu';q('[data-r-worker]').dispatchEvent(new x.w.Event('change'));
+ await q('[data-r-generate]').onclick();await tick();assert.equal(generated.length,1);
+ let saved=await x.w.EccoFrameReview.readDraft('frames:local:video-story:film');assert.equal(Object.keys(saved.doc.replacements).length,0);
+ assert.equal(q('[data-r-accept]').disabled,false);q('[data-r-accept]').click();await tick();
+ saved=await x.w.EccoFrameReview.readDraft('frames:local:video-story:film');assert.deepEqual(Object.keys(saved.doc.replacements),['128','132','137','138','139','140']);
+ assert.equal(q('.cf-repair-dialog'),null);assert.ok(q('#clip-frame-dialog').open);
+ q('[data-cf-undo]').click();await q('[data-cf-save]').onclick();await tick();saved=await x.w.EccoFrameReview.readDraft('frames:local:video-story:film');assert.equal(Object.keys(saved.doc.replacements).length,0);
+});
+test('selected playback displays no intervening frames and entire clip ignores selection',async t=>{
+ const x=await fixture(t),q=x.q;
+ q('[data-cf-range]').value='3,7,12';q('[data-cf-select-range]').click();await tick();
+ q('[data-cf-play-scope]').value='selected';q('[data-cf-play-scope]').dispatchEvent(new x.w.Event('change'));
+ const seen=[];const observer=new x.w.MutationObserver(()=>{const m=q('[data-cf-frame-tag]').textContent.match(/#(\d+)/);if(m)seen.push(Number(m[1]));});observer.observe(q('[data-cf-frame-tag]'),{childList:true});
+ await q('[data-cf-play]').onclick();await new Promise(r=>setTimeout(r,180));observer.disconnect();
+ assert.deepEqual([...new Set(seen)],[3,7,12]);
+ q('[data-cf-play-scope]').value='entire';q('[data-cf-play-scope]').dispatchEvent(new x.w.Event('change'));await q('[data-cf-play]').onclick();assert.match(q('[data-cf-frame-tag]').textContent,/#0001/);q('[data-cf-play]').click();
 });
 test('changing segment length at the final clip and crossing groups is safe',async t=>{
  const x=await fixture(t),q=x.q;q('[data-cf-clips]').lastElementChild.click();q('[data-cf-seconds]').value='4';q('[data-cf-seconds]').dispatchEvent(new x.w.Event('change'));await tick();
