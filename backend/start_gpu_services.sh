@@ -15,6 +15,9 @@ if [[ ! -x /opt/ecco-runtime-venv/bin/python ]]; then
 fi
 export PATH="/opt/ecco-runtime-venv/bin:$PATH"
 nohup bash /workspace/ecco-audio/start_worker.sh >> "$logs/audio.log" 2>&1 &
+if [[ -f /workspace/ecco-video/frame-repair/start_worker.sh ]]; then
+  nohup bash /workspace/ecco-video/frame-repair/start_worker.sh >> "$logs/frame-repair.log" 2>&1 &
+fi
 nohup bash /workspace/ecco-video/longcat/start_longcat.sh >> "$logs/longcat.log" 2>&1 &
 (
   while true; do

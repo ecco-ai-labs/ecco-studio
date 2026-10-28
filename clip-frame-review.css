@@ -67,3 +67,12 @@
 @media(max-width:1050px){#clip-frame-dialog .cf-grid{grid-template-columns:repeat(6,minmax(0,1fr))}#clip-frame-dialog .cf-main{grid-template-columns:minmax(0,1fr) 250px}}
 @media(max-width:720px){#clip-frame-dialog{padding:16px;width:96vw}#clip-frame-dialog .cf-main{grid-template-columns:1fr}#clip-frame-dialog .cf-grid{grid-template-columns:repeat(4,minmax(0,1fr))}#clip-frame-dialog .cf-selection{gap:8px}#clip-frame-dialog .cf-player,#clip-frame-dialog .cf-player video,#clip-frame-dialog .cf-player img{height:220px}#clip-frame-dialog .cf-footer [role=status]{max-width:100%}}
 @media(max-width:430px){#clip-frame-dialog .cf-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Selected-frame playback and explicit repair review, using existing theme controls. */
+#clip-frame-dialog [data-cf-play-scope]{width:auto;min-width:170px;max-width:220px}
+.cf-repair-dialog{width:min(1100px,94vw);max-width:1100px;max-height:90vh;overflow:auto}
+.cf-repair-dialog .cf-repair-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cf-repair-dialog figure{margin:0}.cf-repair-dialog figcaption{color:var(--accent);margin:8px 0}
+.cf-repair-dialog img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:var(--bg)}
+.cf-repair-dialog textarea{min-height:90px}.cf-repair-dialog .actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+@media(max-width:650px){.cf-repair-dialog .cf-repair-pair{grid-template-columns:1fr}}

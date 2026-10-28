@@ -27,7 +27,7 @@ _active = set()
 def status():
     return {'available': bool(shutil.which('ffmpeg') and shutil.which('ffprobe')),
             'fps': FPS, 'max_seconds': MAX_FRAMES // FPS, 'gpu_required': False,
-            'ai_repair_available': False}
+            'ai_repair_available': __import__('frame_repair').status()['available']}
 
 
 def persist(record, env):
@@ -234,6 +234,8 @@ def _work(job, asset, source, env):
 
 
 def handle_get(path, env):
+    if path.startswith(('/api/frame-editor/repair-status','/api/frame-editor/repairs/','/api/frame-editor/repair-candidate/')):
+        return __import__('frame_repair').handle_get(path, env)
     if path == '/api/frame-editor/status': return status()
     if path.startswith('/api/frame-editor/jobs/'):
         request_id=path.rsplit('/',1)[-1]

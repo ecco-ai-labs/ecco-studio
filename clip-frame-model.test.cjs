@@ -19,3 +19,18 @@ test('reject invalid IDs, empty exports and changed source drafts',()=>{
  assert.throws(()=>M.change(M.create(1),'remove',[1]));assert.throws(()=>M.validate(M.create(750),749));
  assert.throws(()=>M.validate({...M.create(750),ends:[100,99,750]},750));
 });
+
+test('playback scope keeps scattered picks exact and entire clip independent',()=>{
+ const doc=M.create(200);doc.removed=[4];const clip=M.clips(doc)[0];
+ assert.deepEqual(M.playback(doc,[8,2,5],clip,'selected'),[2,5,8]);
+ assert.equal(M.playback(doc,[8],clip,'entire').length,74);
+ assert.equal(M.playback(doc,[],clip,'entire',false).length,75);
+ assert.deepEqual(M.playback(doc,[4],clip,'selected'),[4]);
+});
+test('repair acceptance is exact, timing-preserving and rejects stale edits',()=>{
+ const doc=M.create(200);doc.removed=[8,9];const draft={request_id:'job',asset_id:'film',revision:M.revision(doc),original_frame_ids:[8,12]};
+ const candidate={id:'job',asset_id:'film',fps:25,total:200,frames:{8:'data:image/jpeg;base64,/9j/',12:'data:image/jpeg;base64,/9j/'}};
+ const next=M.acceptRepair(doc,draft,candidate);assert.deepEqual(next.removed,[9]);assert.deepEqual(Object.keys(next.replacements),['8','12']);assert.deepEqual(doc.removed,[8,9]);assert.equal(next.total,200);
+ assert.throws(()=>M.acceptRepair(M.change(doc,'remove',[10]),draft,candidate),/edit changed/);
+ assert.throws(()=>M.acceptRepair(doc,draft,{...candidate,frames:{...candidate.frames,13:candidate.frames[12]}}),/do not match/);
+});

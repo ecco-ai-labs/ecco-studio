@@ -4,6 +4,10 @@ on:
     paths:
       - 'clip-frame-*'
       - 'backend/frame_editor.py'
+      - 'backend/frame_repair.py'
+      - 'backend/test_frame_repair.py'
+      - 'video/frame-repair/**'
+      - 'scripts/install_frame_repair.py'
       - 'backend/test_frame_editor.py'
       - 'backend/storage_api.py'
       - 'backend/test_storage_api.py'
@@ -23,8 +27,8 @@ jobs:
         with:
           node-version: '22'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: python -m pip install -r backend/requirements-youtube.txt
+      - run: python -m pip install -r backend/requirements-youtube.txt Pillow
       - run: npm install --prefix /tmp/ecco-frame-tests jsdom@26.1.0 fake-indexeddb@6.2.4 --no-audit --no-fund
       - run: NODE_PATH=/tmp/ecco-frame-tests/node_modules node --test clip-frame-model.test.cjs clip-frame-review.test.cjs
-      - run: PYTHONPATH=backend python -m unittest test_frame_editor test_storage_api
+      - run: PYTHONPATH=backend python -m unittest test_frame_editor test_frame_repair test_storage_api
       - run: python scripts/ui_inventory.py --check

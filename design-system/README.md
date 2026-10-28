@@ -338,11 +338,15 @@ acceptance are separate gates from the local automated tests.
 
 Video Studio Review and its AI menu open a frame contact sheet with 3–4 second
 review segments. Original 25 fps frame IDs remain stable through nonconsecutive
-selection, cuts, reinsertion, replacement and undo/redo. Context repair requests
-are prepared locally; the UI does not claim an installed AI repair worker.
+selection, cuts, reinsertion, replacement and undo/redo. AI repair opens a separate candidate review and requires an explicitly selected,
+fresh ready VACE worker. Reinsertion is explicit and undoable.
 Browser drafts are scoped by account, story and source. CPU export is separately
 capability-gated, cuts matching audio intervals and creates a new library asset.
 Local file review does not upload the source or modify the original file.
 See `video/FRAME_REVIEW.md` for workflow and validation details.
 
 Frame review keeps its preview/group selectors compact and names the active local video. Thumbnail decoding is serialized across navigation; definitive rejected exports can be retried with updated edits.
+
+Playback scope now distinguishes the entire clip from only selected frames. Selected
+inspection is silent and skips all unselected IDs. Repair review uses a nested
+side-by-side comparison; closing it preserves the parent and pending candidate.

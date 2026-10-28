@@ -35,7 +35,7 @@ import youtube_connection
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
 WRITE_ROUTES = frozenset({
-    '/api/frame-editor/export',
+    '/api/frame-editor/export', '/api/frame-editor/repair',
     '/api/character-studio/save', '/api/character-studio/approve', '/api/character-studio/generate', '/api/character-studio/upload',
     '/api/generation/stop', '/api/audio/verify',
     '/api/audio/workflows/save', '/api/audio/workflows/control',
@@ -166,10 +166,11 @@ class Handler(legacy.Handler):
             maximum = 17*1024*1024 if path in ('/api/images/upload', '/api/audio/upload') else 1024*1024
             if path == '/api/youtube/configure': maximum = 32*1024
             if path == '/api/character-studio/upload': maximum = 71*1024*1024
-            if path == '/api/frame-editor/export': maximum = 12*1024*1024
+            if path in ('/api/frame-editor/export', '/api/frame-editor/repair'): maximum = 12*1024*1024
             if not 0 < length <= maximum: raise legacy.Problem('Request size invalid', 413)
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict): raise legacy.Problem('Expected an object')
+            if path == '/api/frame-editor/repair': return self.send(__import__('frame_repair').submit(body, vars(legacy)))
             if path == '/api/frame-editor/export': return self.send(frame_editor.export(body, vars(legacy)))
             if path == '/api/purge': character_studio.protect_purge(body, vars(legacy))
             if path.startswith('/api/character-studio/'):
