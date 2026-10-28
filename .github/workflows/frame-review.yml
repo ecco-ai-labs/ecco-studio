@@ -1,0 +1,30 @@
+name: Clip and frame review checks
+on:
+  pull_request:
+    paths:
+      - 'clip-frame-*'
+      - 'backend/frame_editor.py'
+      - 'backend/test_frame_editor.py'
+      - 'backend/storage_api.py'
+      - 'backend/test_storage_api.py'
+      - 'scripts/install_frame_editor.py'
+      - '.github/workflows/frame-review.yml'
+permissions:
+  contents: read
+jobs:
+  frames:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: python -m pip install -r backend/requirements-youtube.txt
+      - run: npm install --prefix /tmp/ecco-frame-tests jsdom@26.1.0 fake-indexeddb@6.2.4 --no-audit --no-fund
+      - run: NODE_PATH=/tmp/ecco-frame-tests/node_modules node --test clip-frame-model.test.cjs clip-frame-review.test.cjs
+      - run: PYTHONPATH=backend python -m unittest test_frame_editor test_storage_api
+      - run: python scripts/ui_inventory.py --check

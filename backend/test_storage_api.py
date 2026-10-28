@@ -7,6 +7,23 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('storage_api',Path(__file__).with_name('storage_api.py'))
 api=importlib.util.module_from_spec(spec);spec.loader.exec_module(api)
 class StorageTest(unittest.TestCase):
+ def test_frame_export_routes_require_workspace_authorization(self):
+  with patch.object(api.frame_editor,'export',return_value={'id':'test-export'}) as export:
+   for auth,origin,code in [(False,api.ALLOWED_ORIGIN,401),(True,'https://untrusted.example',403)]:
+    with self.assertRaises(HTTPError) as error:self.call('/api/frame-editor/export',{},auth=auth,origin=origin)
+    self.assertEqual(error.exception.code,code)
+   export.assert_not_called()
+   with self.call('/api/frame-editor/export',{'fps':25}) as response:self.assertEqual(json.load(response)['id'],'test-export')
+   self.assertEqual(export.call_args.args[0],{'fps':25})
+  for path in ('/api/frame-editor/status','/api/frame-editor/jobs/'+'b'*32):
+   with self.assertRaises(HTTPError) as error:self.call(path,auth=False)
+   self.assertEqual(error.exception.code,401)
+  with self.call('/api/frame-editor/status') as response:self.assertFalse(json.load(response)['gpu_required'])
+ def test_frame_edit_payload_is_private_in_state_and_job_route(self):
+  jid='b'*32
+  api.legacy.save({'id':jid,'kind':'frame_edit_job','status':'done','edit':{'private':'replacement-image-data'},'created':1})
+  for path in ('/api/state','/api/frame-editor/jobs/'+jid):
+   with self.call(path) as response:self.assertNotIn(b'replacement-image-data',response.read())
  def test_audio_verification_is_authenticated_and_does_not_generate(self):
   report={'version':1,'ready':False,'checks':[],'generates_audio':False}
   with patch.object(api.audio_preflight,'verify',return_value=report) as verify:

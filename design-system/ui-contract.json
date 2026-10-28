@@ -178,7 +178,8 @@
       "variants": [
         "save-preparation-draft",
         "resume-preparation-draft",
-        "stop-generation"
+        "stop-generation",
+        "clip-frame-review"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -457,7 +458,9 @@
         "resize",
         "validation"
       ],
-      "variants": [],
+      "variants": [
+        "clip-frame-review"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -566,7 +569,9 @@
         "preview",
         "remove"
       ],
-      "variants": [],
+      "variants": [
+        "clip-frame-review"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -610,7 +615,8 @@
         "addNewOption"
       ],
       "variants": [
-        "audio-character-model"
+        "audio-character-model",
+        "clip-frame-review"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -632,7 +638,9 @@
         "selectedValues",
         "selectionLimit"
       ],
-      "variants": [],
+      "variants": [
+        "clip-frame-review"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -763,7 +771,8 @@
       ],
       "variants": [
         "ecco-desk",
-        "character-workflow"
+        "character-workflow",
+        "clip-frame-review"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -830,7 +839,8 @@
         "actions"
       ],
       "variants": [
-        "ecco-desk"
+        "ecco-desk",
+        "clip-frame-review"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -851,7 +861,9 @@
         "items",
         "alignment"
       ],
-      "variants": [],
+      "variants": [
+        "clip-frame-review"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -961,7 +973,8 @@
         "actions"
       ],
       "variants": [
-        "ecco-desk"
+        "ecco-desk",
+        "clip-frame-review"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -1068,7 +1081,9 @@
         "fit",
         "aspectRatio"
       ],
-      "variants": [],
+      "variants": [
+        "clip-frame-review"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -1113,7 +1128,9 @@
         "controls",
         "aspectRatio"
       ],
-      "variants": [],
+      "variants": [
+        "clip-frame-review"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -1179,7 +1196,9 @@
         "max",
         "label"
       ],
-      "variants": [],
+      "variants": [
+        "clip-frame-review"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -2201,5 +2220,31 @@
     "behavior": "29 shared choices; preserve saved turn cues through delivery preparation and prioritize them over character defaults. Concrete English acting descriptions for direction models, closest native tags for Indic-Mio, intensity approximation for Chatterbox even without AI cues; explicit numeric overrides remain authoritative. Disable unsupported emotion controls with an explanation. Never insert acting directions into spoken text.",
     "validation": "Distinct anxious/ecstatic feeds, backend acceptance, preservation of dialogue and cues, saved selection and keyboard navigation. Listening acceptance is separate.",
     "turnReview": "Each Final Script turn has collapsed Delivery instructions using existing generation-settings styles: Emotion select and Acting direction textarea. Explicit turn selections survive text edits. Script-selection AI targets spoken fields only. Save through the existing draft; no extra generation."
+  },
+  "clipFrameReview": {
+    "approval": "User requested an in-Studio clip and frame workflow with 3\u20134 second segments, stable original frame numbers, individual nonconsecutive selection, removal, replacement, reinsertion and preview.",
+    "types": [
+      "popup",
+      "button",
+      "card",
+      "video",
+      "image",
+      "multi-select",
+      "progress",
+      "file-upload",
+      "textarea",
+      "dropdown",
+      "toolbar",
+      "panel"
+    ],
+    "entry": "Video Studio Review \u2192 Open frame editor; Video AI menu \u2192 Clips & Frames; video Generate with AI offers Clips & Frames. No new top-level navigation.",
+    "appearance": "Scoped clip-frame-review.css uses existing theme surface/control/text/border/accent tokens. New review popup up to 1400px/96vw; preview 280px, side inspector 290px; frame grid 8/6/4/3 columns at responsive widths. Existing UI dimensions remain unchanged.",
+    "review": "3 or 4 second review segments on a conformed 25 fps timeline, 25/50/100 thumbnails per group. Source IDs are one-based and never renumbered; clip-local position and timestamps are also shown. Existing source footage is not re-generated by splitting review segments.",
+    "selection": "Click toggles a frame. Shift-click adds a range; explicit numeric selection supports nonconsecutive ranges. Arrow keys navigate frames. Double-click enlarges the frame. Removed frames stay visible, marked and selectable for reinsertion.",
+    "editing": "Remove is a non-destructive edit decision; Reinsert restores source position. Matching audio samples are removed on CPU export. Imported replacement images preserve timing. Undo/redo retains 30 revisions. Original versus edited playback and source-preserving export are explicit.",
+    "continuity": "Clip endings and directions are editable; the next clip starts at the following original frame. Repair requests record disjoint target frames and 10-frame context on each side. No AI repair or automatic re-generation is claimed: the unavailable inference connection is explained inline.",
+    "persistence": "Browser IndexedDB, scoped by account, story and immutable source asset/file digest. Explicit Save edit and downloadable JSON plan. Local file sessions require reopening the source file to resume. No credentials stored. Server export creates a new Video Library asset.",
+    "accessibility": "Native dialog, focus return, named selection buttons with aria-pressed, visible focus, labelled inputs, polite progress, keyboard range selection. Nested frame inspector closes without dismissing the editor.",
+    "export": "Authenticated CPU-only frame-editor service must advertise availability. Source story and asset validated, 25 fps/2 minute/1920px limits, idempotent request IDs, original preserved. Local uploads can be reviewed; Video Library assets support server MP4 export. No GPU starts or AI submissions."
   }
 }
