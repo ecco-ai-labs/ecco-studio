@@ -41,3 +41,13 @@ test('changing segment length at the final clip and crossing groups is safe',asy
  assert.equal(q('[data-cf-clips]').children.length,8);assert.equal(q('[data-cf-grid]').firstElementChild.dataset.frame,'1');
  q('[data-cf-page-size]').value='100';q('[data-cf-page-size]').dispatchEvent(new x.w.Event('change'));await tick();assert.equal(q('[data-cf-grid]').children.length,100);
 });
+test('definitive export rejection permits retry with the updated edit',async t=>{
+ const x=await fixture(t),q=x.q,submitted=[];
+ assert.equal(q('[data-cf-export]').disabled,false,JSON.stringify(x.w.testCalls));
+ x.w.testUI.setAPI(async(path,body)=>{if(path==='frame-editor/export'){submitted.push(body);if(submitted.length===1)throw Object.assign(Error('Export busy'),{status:429});return {id:body.request_id};}if(path.startsWith('frame-editor/jobs/'))return {status:'failed',error:'fixture'};return {};});
+ q('[data-cf-range]').value='128';q('[data-cf-select-range]').click();q('[data-cf-remove]').click();await q('[data-cf-export]').onclick();await tick();
+ assert.equal(submitted.length,1,q('[data-cf-status]').textContent);
+ assert.equal(q('[data-cf-export]').textContent,'Export edited MP4');
+ q('[data-cf-range]').value='132';q('[data-cf-select-range]').click();q('[data-cf-remove]').click();await q('[data-cf-export]').onclick();await tick();
+ assert.equal(submitted.length,2);assert.notEqual(submitted[0].request_id,submitted[1].request_id);assert.deepEqual(Array.from(submitted[1].removed),[128,132]);
+});

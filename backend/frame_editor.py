@@ -10,6 +10,7 @@ import logging
 import math
 import re
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 import threading
@@ -27,6 +28,17 @@ def status():
     return {'available': bool(shutil.which('ffmpeg') and shutil.which('ffprobe')),
             'fps': FPS, 'max_seconds': MAX_FRAMES // FPS, 'gpu_required': False,
             'ai_repair_available': False}
+
+
+def persist(record, env):
+    """Retry the same idempotent record after a transient shared-volume write error."""
+    for attempt in range(5):
+        try:
+            return env['save'](record)
+        except sqlite3.OperationalError as error:
+            if attempt == 4 or not any(s in str(error).lower() for s in ('locked', 'busy', 'i/o')):
+                raise
+            time.sleep(.25 * 2**attempt)
 
 
 def run(command, timeout=300):
@@ -96,10 +108,15 @@ def render(source, output, edit, progress=lambda text: None):
     video = next(s for s in info['streams'] if s['codec_type'] == 'video')
     width, height = video['width'], video['height']
     has_audio = any(s['codec_type'] == 'audio' for s in info['streams'])
+    required = width * height * edit['total'] // 2 + edit['total'] * 7680 + 50000000
+    if shutil.disk_usage(tempfile.gettempdir()).free < required:
+        raise ValueError('Not enough temporary disk space for this export. Use a shorter source video.')
     keep = [n for n in range(1, edit['total']+1) if n not in set(edit['removed'])]
     if not keep:
         raise ValueError('Keep at least one frame.')
-    with tempfile.TemporaryDirectory(prefix='ecco-frames-', dir=str(output.parent)) as temp:
+    # Thousands of intermediate images belong on local scratch, away from the
+    # shared library database. Only the completed MP4 is retained on the volume.
+    with tempfile.TemporaryDirectory(prefix='ecco-frames-') as temp:
         root = Path(temp)
         original = root/'original'; original.mkdir()
         ordered = root/'ordered'; ordered.mkdir()
@@ -174,7 +191,7 @@ def export(body, env):
                 raise env['Problem']('Export request ID already used.',409)
             if existing['status'] in ('queued','running') and request_id not in _active:
                 existing.update(status='failed',error='Export interrupted by service restart. Submit a new export.')
-                env['save'](existing)
+                persist(existing, env)
             return view(existing)
         if _active:
             raise env['Problem']('Another frame export is running. Try again after it finishes.',429)
@@ -182,7 +199,7 @@ def export(body, env):
         job = env['new']('frame_edit_job', story_id=body['story_id'], asset_id=asset['id'], digest=digest,
                          status='queued', progress='Preparing CPU export', edit=edit)
         job['id'] = request_id
-        env['save'](job)
+        persist(job, env)
         _active.add(request_id)
         thread = threading.Thread(target=_work,args=(job,asset,source,env),daemon=True)
         thread.start()
@@ -195,7 +212,7 @@ def _work(job, asset, source, env):
         directory = env['DATA']/'frame-edits'; directory.mkdir(parents=True,exist_ok=True)
         output = directory/(job['id']+'.mp4')
         def progress(text):
-            job.update(status='running',progress=text);env['save'](job)
+            job.update(status='running',progress=text);persist(job, env)
         result = render(source,output,job['edit'],progress)
         generated = env['new']('asset',media='video',stage='dev',story_id=job['story_id'],
                     title=(asset.get('title') or 'Video').rsplit('.',1)[0]+' · frame edit.mp4',
@@ -203,15 +220,17 @@ def _work(job, asset, source, env):
                     settings={'model':'CPU frame edit','fps':FPS},source_asset_id=asset['id'],
                     frame_edit={'fps':FPS,'total':job['edit']['total'],'removed':job['edit']['removed'],
                                 'replaced':list(job['edit']['replacements'])},sync='pending',**result)
-        env['save'](generated)
+        persist(generated, env)
         job.update(status='done',progress='Edited MP4 saved to Video Library',output_asset_id=generated['id'],finished=time.time())
     except Exception as error:
         logging.exception('Frame export failed')
         job.update(status='failed',error=str(error),progress='Export failed',finished=time.time())
         if output and output.exists(): output.unlink()
     finally:
-        env['save'](job)
-        with _lock: _active.discard(job['id'])
+        try:
+            persist(job, env)
+        finally:
+            with _lock: _active.discard(job['id'])
 
 
 def handle_get(path, env):
