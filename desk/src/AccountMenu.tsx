@@ -18,6 +18,6 @@ export default function AccountMenu({me,onSignOut}:{me:Actor;onSignOut:()=>void}
   else if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();setOpen(true);signOut.current?.focus()}
  }}>
   <button ref={trigger} className="avatar small account-trigger" aria-label={`Account menu for ${me.name}`} title="Account" aria-haspopup="menu" aria-expanded={open} aria-controls={open?id:undefined} onClick={()=>setOpen(v=>!v)}>{initials}</button>
-  {open&&<div className="account-dropdown" id={id} role="menu" aria-label="Account"><div className="account-identity" role="presentation"><strong>{me.name}</strong><span>{me.email}</span><small>{me.role==='admin'?'Administrator':me.role==='staff'?'Team member':'Customer'}</small></div><button ref={signOut} type="button" role="menuitem" onClick={()=>{setOpen(false);onSignOut()}}><LogOut size={16} aria-hidden="true"/>Sign out</button></div>}
+  {open&&<div className="account-dropdown" id={id} role="menu" aria-label="Account"><div className="account-identity" role="presentation"><strong>{me.name}</strong><span>{me.email}</span><small>{me.role==='admin'?'Administrator':me.role==='staff'?'Team member':me.canManageNotifications?'Notification administrator':'Customer'}</small></div><button ref={signOut} type="button" role="menuitem" onClick={()=>{setOpen(false);onSignOut()}}><LogOut size={16} aria-hidden="true"/>Sign out</button></div>}
  </div>;
 }

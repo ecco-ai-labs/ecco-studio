@@ -58,6 +58,17 @@ for(const role of ['staff','customer']){
 // Administrators reach the publishing form from the same navigation item.
 data.me=me;({root,cleanup}=await create());Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='User Notifications').click();await tick();
 assert(root.textContent.includes('Publish notification'));cleanup();
+// Group-only administrators see publishing without staff navigation or support hours.
+data.me={...me,role:'customer',memberId:null,canManageNotifications:true,notificationAdminGroup:'group@example.test',notificationGroupStatus:'connected'};
+({root,cleanup}=await create());Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='User Notifications').click();await tick();
+assert(root.textContent.includes('Publish notification'));assert(!root.querySelector('.support-hours'));
+assert(!root.querySelector('nav').textContent.includes('Team members'));assert(!root.querySelector('nav').textContent.includes('Internal tasks'));
+root.querySelector('.account-trigger').click();await tick();assert(root.querySelector('[role="menu"]').textContent.includes('Notification administrator'));cleanup();
+data.me={...data.me,canManageNotifications:false,notificationGroupStatus:'unavailable'};
+({root,cleanup}=await create());const beforeGroupFailure=calls.length;
+Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='User Notifications').click();await tick();
+assert(root.textContent.includes('group@example.test'));assert(root.textContent.toLowerCase().includes('refresh'));
+assert(!calls.slice(beforeGroupFailure).some(c=>c.url.includes('manageNotifications')));cleanup();data.me=me;
 // Failure to load Google has an in-place retry, and successful sign-in enters Desk.
 localStorage.removeItem('ecco-desk-staff-session');delete window.google;({root,cleanup}=await create());
 const script=document.querySelector('script[src="https://accounts.google.com/gsi/client"]');script.onerror();await tick();
