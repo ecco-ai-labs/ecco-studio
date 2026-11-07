@@ -1,0 +1,9 @@
+/* Same compact surface and icon spacing as the Connections and Community panels. */
+#workspace-settings-controls{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;margin:0;flex:none;border:1px solid var(--ecco-theme-border,rgba(190,180,215,.22));border-radius:10px;background:linear-gradient(180deg,var(--ecco-theme-control,#302a43),var(--ecco-theme-surface,#242031));box-shadow:inset 0 1px 3px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.04)}
+#workspace-settings-controls>button,#workspace-settings-controls>.workspace-menu>summary{display:grid!important;place-items:center;width:32px!important;min-width:32px!important;height:32px!important;min-height:32px!important;padding:6px!important;margin:0!important;background:transparent!important;border:0!important;box-shadow:none!important;color:var(--ecco-theme-text,#fff)!important;border-radius:6px!important}
+#workspace-settings-controls svg{width:16px!important;height:16px!important;pointer-events:none}
+#workspace-settings-controls>button:is(:hover,:focus-visible),#workspace-settings-controls>.workspace-menu>summary:is(:hover,:focus-visible),#workspace-settings-controls>.workspace-menu[open]>summary{color:var(--ecco-theme-accent,#ffdc24)!important}
+#workspace-settings-controls>button:focus-visible,#workspace-settings-controls>.workspace-menu>summary:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:2px}
+#workspace-settings-controls>.workspace-menu>.workspace-menu-items{right:0;min-width:180px}
+#workspace-settings-controls #workspace-theme-drawer{left:auto;right:100%}
+body.workspace-entry-mode #workspace-settings-controls{display:none!important}

@@ -21,6 +21,9 @@ const server = http.createServer(async (req, res) => {
         .replace(/<link[^>]+href="https:[^>]+>/g, '')
         .replace('<head>', '<head><script src="/qa/tests/bootstrap.js"></script>')
         .replace('</body>', '<script src="/qa/tests/fixture.js"></script></body>'));
+      // Inject a known rendering defect only into the runner's isolated fixture.
+      // This verifies detection even after production search is repaired.
+      if(url.searchParams.get('tester')==='1')body=Buffer.from(body.toString().replace('</head>','<style>#page .library-files > .card[hidden]{display:grid!important}</style></head>'));
       res.setHeader('Content-Security-Policy', "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; img-src 'self' data: blob:; font-src 'self' data:; frame-src 'none'; object-src 'none'");
     }
     if(relative==='desk/index.html'&&url.searchParams.get('__qa')==='1'){

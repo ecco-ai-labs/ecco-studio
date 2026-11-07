@@ -17,7 +17,7 @@ test('AGENT-01 50 findings and 25 critical issues create 25 separate tickets',as
  await expect(page.locator('.agent-finding')).toHaveCount(50);
  await page.locator('.agent-finding summary').first().click();await expect(page.getByText('Fixture finding 0',{exact:true})).toBeVisible();
 });
-test('AGENT-02 run Video workflow, report observed search bug and decoded thumbnails',async({page})=>{
+test('AGENT-02 run Video workflow, detect injected search regression and decoded thumbnails',async({page})=>{
  test.setTimeout(90000);await open(page);
  await page.getByLabel('Action',{exact:true}).selectOption('workflow');await page.getByLabel('Workflow',{exact:true}).selectOption('video');
  await page.getByRole('button',{name:'Run checks',exact:true}).click();

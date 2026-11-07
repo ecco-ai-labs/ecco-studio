@@ -1635,7 +1635,7 @@
     }
   ],
   "theme": {
-    "editor": "Settings \u2192 Theme side-sliding menu",
+    "editor": "User Preferences \u2192 Themes side-sliding menu",
     "properties": [
       "background",
       "surface",
@@ -1737,8 +1737,12 @@
   },
   "settingsMenu": {
     "label": "Settings",
-    "internalCategory": "Activity",
-    "fileBrowserLabel": "Workspace Drive"
+    "internalCategory": "Activity retained on User Preferences disclosure",
+    "fileBrowserLabel": "Workspace Drive",
+    "presentation": "Three-icon control panel beside Connections and Community, ordered Model Garden (sprout), User Preferences (sliders), Workspace Drive (drive). Reuses existing model navigation and file dialog actions.",
+    "preferences": "Themes only; opens existing six-preset selector, retaining saved theme selection.",
+    "appearance": "Match adjacent panels: 8px gaps, 4px/10px padding, 1px theme border, 10px radius, theme surface/control gradient and glass variants; 32px icon targets with 16px SVGs.",
+    "accessibility": "Named Settings group, native button/disclosure keyboard behavior, immediate hover/focus tooltips, visible theme-accent focus, outside click/Escape dismissal. Themes retracts on pointer exit; Escape returns to Themes then User Preferences."
   },
   "generationCompute": {
     "type": "dropdown",
@@ -2225,7 +2229,7 @@
       "states": "Loading, unavailable old service, empty history, active, read (targeted recipient), expired, withdrawn, saving, failure retains draft and success resets form. History lists latest 200 notifications.",
       "interaction": "Only administrators can open management. Native recipient selector uses verified Studio identities with name/email; target is stored as stable subject. Publish uses a per-draft idempotency key to avoid duplicate retries. Polling preserves input focus and unsent draft. Withdraw removes future visibility without deleting history. History details disclose full message. Every recipient stops seeing a notice on read or expiry, whichever occurs first.",
       "accessibility": "Label-wrapped native form controls, browser required/min/max validation, aria-busy saving, role=alert errors, role=status success, visible keyboard focus, native details/summary and table headers. Responsive form stacks at 650px; wide history scrolls within its section.",
-      "authorization": "Server enforces active admin role for management and mutations. Customer support route denies management even for admin identities. Feed and receipts use only authenticated subject; no audience IDs or directory leak to customers. Notices and receipts stay in dedicated SQLite tables outside workspace records. Bell polling registers signed-in users for the verified directory.",
+      "authorization": "Server enforces an active Desk admin role or verified active direct membership of the privately configured Google group for notification management and mutations. Group capability grants no staff role, ticket access or team-management permission. Membership is bound to the authenticated Google subject, cached for at most 60 seconds on reads and checked fresh before publish/withdraw; provider failures deny the group grant. Customer support route denies management even for admin identities. Feed and receipts use only authenticated subject; no audience IDs or directory leak to customers. Notices and receipts stay in dedicated SQLite tables outside workspace records. Bell polling registers signed-in users for the verified directory.",
       "deployment": "Additive schema initialization and backend update must precede Pages. No sample or real notifications are sent during deployment.",
       "specialOffers": {
         "content": "Type: Notification or Special offer. Offers are informational; Purchase credits, Free bonus credits and Price (USD) required. History includes exact terms.",
@@ -2249,10 +2253,10 @@
       "appearance": "Keep existing 29px avatar, topbar dimensions, Desk navy, light surfaces and focus outline. Dropdown is 280px wide, viewport constrained, with 9px radius and 12px top gap. Signed-out welcome uses a 480px content column and 36px heading (30px narrow); Google provides its standard 280px sign-in button.",
       "layout": "Account menu anchors below the upper-right avatar. Signed-out page presents Google sign-in directly, without another intermediate dialog. Embedded customer support retains Studio sign-in.",
       "content": "Account name, email, role and Sign out. Sign in to Ecco Desk, direct Google button, support/admin account guidance, loading/error feedback and Try again. User Notifications is present in standalone left navigation for all signed-in roles.",
-      "states": "Closed/open account menu; signed in/out; Google loading, signing in, failed and retrying. Non-admin User Notifications shows Administrator access required with current account and sign-out guidance; no notification data or publishing controls are requested.",
+      "states": "Closed/open account menu; signed in/out; Google loading, signing in, failed and retrying. Accounts without notification permission see Administrator access required, current account and the configured administrator group; connection and verification failures explain how to recover. No management data is requested for these accounts. Verified group-only members are labeled Notification administrator and receive the publishing form.",
       "interaction": "Click avatar to toggle; opening focuses Sign out; Enter/Space activate; arrows focus the menu item; Escape closes only this menu and restores avatar focus; outside pointer or keyboard focus dismisses. Sign out clears only the Desk session immediately, requests server revocation using the captured old token, resets cached workspace data and returns to welcome without opening a popup. Disposed/stale sign-in callbacks cannot replace a newer account; stale server sessions are revoked.",
       "accessibility": "Named native avatar button with aria-haspopup, aria-expanded and aria-controls; named menu/menuitem, visible keyboard focus; Google accessible button; polite loading status and alert errors.",
-      "usage": "Standalone desk/index.html. Server admin-only publish/withdraw rules are unchanged. No real notification is sent by this change; no account role is granted."
+      "usage": "Standalone desk/index.html. Server verifies notification authority for publish/withdraw. The approved Google group grants only notification management; no persistent Desk account role is created. No real notification is sent during deployment."
     },
     "testerAgent": {
       "approval": "User requested Agents icon and agent pool, Tester Agent action choices, same-screen findings and one separate ticket for every selected issue.",
@@ -2462,7 +2466,7 @@
     "approval": "2026-11-07: user requested List first and default, Small icons then Large icons; Finder-style File Name, Type, Date Created and Date Last Accessed columns; no individual boxes in any view; conserve space.",
     "identity": "Existing library and library-item types; shared library-files variant in library-browser.js/css, table/row/cell roles, native header and file buttons; library-file-preview popup.",
     "appearance": "Existing theme text/surface/control/accent/border/muted colors, 12px rows, 20px line height, no item borders/radius/shadows or gaps; subtle alternating rows and hover/focus background. List rows 32px; small icons 28px in 36px rows; large icons 64px in 72px rows. Cells have 4px/8px padding.",
-    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Compact filter, count, then Search beside existing view/upload actions; Search is the final ribbon control in visual and keyboard order. Video Library has no Publish button in its ribbon. No separate sort dropdown.",
+    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Existing view/upload actions, filter and Search share a right-aligned library-control-panel variant with equal 8px gaps, 6px/8px padding, a 1px theme border, 10px radius and theme control/surface gradient. Controls keep their natural widths and wrap inside the panel on narrow screens, with no visible item counter; Search is the final ribbon control in visual and keyboard order. Video Library has no Publish button in its ribbon. No separate sort dropdown.",
     "content": [
       "File Name",
       "Type",
@@ -2472,7 +2476,7 @@
     "states": "List selected on explicit open, existing icon selection preserved during background Image/Audio refresh. Icons replace visible names in the first cell, retaining filename tooltip and accessible name. Unknown dates use an em dash and sort last in either direction. Empty, disconnected and no-match states remain.",
     "interaction": "Four clickable column headers toggle ascending/descending with visible up/down arrows; creation descending initially, natural filename/type sorting. File button opens media preview or existing story/workflow editor. Compact ellipsis exposes existing actions in preview. Search/filter/sort do not count as access. Preview retains original controls/media and restores keyboard focus on close. Existing publishing checkboxes stay in the first cell and survive filters/views.",
     "accessDates": "Use server last_accessed/last_accessed_at when supplied and latest explicit library open in this browser. Browser access timestamps persist per signed-in user ID and storage volume; guests are memory-only. Do not infer historical dates from creation or modification. Account changes close preview and switch scope. Header tooltip states scope.",
-    "accessibility": "Table, row, columnheader and cell roles; aria-sort, row counts and indices, named native buttons, visible keyboard focus, accessible icon names, polite count. Closing nested original dialogs retains the file preview; closing file preview returns to the originating file/action button.",
+    "accessibility": "Table, row, columnheader and cell roles; aria-sort, row counts and indices, named native buttons, visible keyboard focus, accessible icon names. Ribbon is a named Library controls group. Closing nested original dialogs retains the file preview; closing file preview returns to the originating file/action button.",
     "usage": "All five existing main library pages, including publishing selection. No storage API changes, generation, downloads or new external access.",
     "videoThumbnails": "Small and Large video icons show the real first decoded frame at the existing 28px/64px sizes. Lazily decode visible icons from their existing authenticated media source, at most two decoders at once, with a bounded 100-entry session cache of 128px JPEG thumbnails. Do not play audio, start generation, mark the video accessed, alter the original player or its playback position. Source replacement regenerates the thumbnail; account changes clear requests/cache. Unsupported, failed or timed-out media retain the video symbol. List view starts no thumbnail work.",
     "landing": "Existing list, list-item and button types in #library-home-list: vertical text choices with a 4px gap, no boxes, borders or shadows; reuse existing compact button sizing and theme text/accent. Visible 2px theme-accent keyboard focus. Main header reads Library. Native Enter/Space activation matches pointer clicks."
