@@ -98,6 +98,11 @@ to shared variables while preserving original values as Default fallbacks. Media
 pixels and cross-origin styles are not recolored. This remains a color bridge,
 not a completed shared-component migration.
 
+Left-navigation rows remain unboxed in all six themes: transparent backgrounds,
+no borders or shadows, theme-accent selection text and visible keyboard focus.
+This includes Library branches/actions, production steps and Trash; sidebar
+surfaces and popup menus retain their existing theme treatment.
+
 Activity, Logs and Errors is accessed through the right-edge sliding-panel arrow,
 not through an item in the Settings menu. Its Activity, Debugging and Errors tabs
 remain available in that panel. Background refresh reconciles existing rows and

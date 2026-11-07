@@ -22,3 +22,19 @@
 /* Generation panels must resolve the active theme before legacy fallbacks. */
 #page .generation-form{background:var(--ecco-theme-surface,var(--panel,#24203e))!important;color:var(--ecco-theme-text,inherit)}
 #page .generation-form .generation-section{border-color:var(--ecco-theme-border,#51496f)}
+
+/* Sidebar rows stay unboxed in every palette, including glass themes.
+   Keep selection in the text/markers and reserve outlines for keyboard focus. */
+html body>aside :is(#workspace-library-group,#workspace-production-group,nav) :is(button,summary),
+html body>aside>#workspace-trash{
+ background:transparent!important;border:0!important;box-shadow:none!important;
+}
+html body>aside :is(#workspace-library-group,#workspace-production-group,nav) :is(button,summary):is(:hover,:focus,:active,.active,.selected,[aria-selected="true"],[aria-pressed="true"]),
+html body>aside>#workspace-trash:is(:hover,:focus,:active){
+ background:transparent!important;border:0!important;box-shadow:none!important;
+ color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important;
+}
+html body>aside :is(#workspace-library-group,#workspace-production-group,nav) :is(button,summary):focus-visible,
+html body>aside>#workspace-trash:focus-visible{
+ outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24))!important;outline-offset:3px;
+}

@@ -1687,6 +1687,12 @@
       "backdrop": "Light coastal gradient for Ocean; midnight blue gradient for Dark Sky. No mockup UI or sample media embedded.",
       "fallback": "Opaque surfaces when backdrop-filter is unsupported or reduced transparency is preferred.",
       "persistence": "Existing theme preference; switching away removes glass styling."
+    },
+    "sidebarNavigation": {
+      "approval": "2026-11-07: User requested every theme use the same unboxed left navigation as Default.",
+      "scope": "Existing sidebar, menu-item, button, collapsible and library types; left Library and Tell Your Story groups, navigation rows and Trash only.",
+      "appearance": "Transparent row backgrounds, no borders or box shadows in idle, hover, pressed, focused and selected states across all six themes. Selected and hovered text uses the theme accent; disclosure markers retain existing colors. Sidebar surface, spacing, typography and dimensions remain unchanged.",
+      "accessibility": "Retain native keyboard behavior and a visible 2px theme-accent focus outline with 3px offset. Context menus, dialogs and main workspace controls retain their own surfaces."
     }
   },
   "activityPanel": {
