@@ -6,10 +6,10 @@
  let user=null,token=localStorage.getItem('ecco-user-session')||sessionStorage.getItem('ecco-user-session')||'',library=null;
  if(token){localStorage.setItem('ecco-user-session',token);sessionStorage.setItem('ecco-user-session',token);}
  let restoring=null,authVersion=0;
- let ready=false,busy=false,error='',preparing=null,renewTimer=null;
+ let ready=false,busy=false,error='',logoutNotice='',preparing=null,renewTimer=null;
  const q=s=>document.querySelector(s);
- async function request(path,body){
-  const response=await fetch(endpoint+path,{method:body===undefined?'GET':'POST',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(20000),headers:{...(body===undefined?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});
+ async function request(path,body,session=token){
+  const response=await fetch(endpoint+path,{method:body===undefined?'GET':'POST',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(20000),headers:{...(body===undefined?{}:{'Content-Type':'application/json'}),...(session?{Authorization:'Bearer '+session}:{})},body:body===undefined?undefined:JSON.stringify(body)});
   if(!response.headers.get('content-type')?.includes('application/json'))throw Error('Google sign-in service is unavailable.');
   const result=await response.json();
   if(!response.ok){const error=Error(path==='config'?'Google sign-in service is not enabled yet.':result.error||'Google sign-in failed.');error.status=response.status;throw error;}
@@ -25,36 +25,50 @@
   });return library;
  }
  function changed(){if(user)q('#persistent-signin-dialog')?.close();mount();document.dispatchEvent(new CustomEvent('ecco:auth-change',{detail:{user}}));}
- function forgetIdentity(){
-  authVersion++;user=null;token='';localStorage.removeItem('ecco-user-session');sessionStorage.removeItem('ecco-user-session');
-  window.EccoCredits?.disconnect();window.google?.accounts?.id.disableAutoSelect();changed();
+ function forgetIdentity(clearStored=true){
+  authVersion++;user=null;token='';if(clearStored)localStorage.removeItem('ecco-user-session');sessionStorage.removeItem('ecco-user-session');
+  clearTimeout(renewTimer);preparing=null;restoring=null;busy=false;ready=false;error='';logoutNotice='';
+  window.EccoCredits?.disconnect();window.google?.accounts?.id?.disableAutoSelect?.();changed();
  }
  async function signOut(){
-  // Server revocation must succeed before claiming Disconnect completed.
-  if(token)await request('logout',{});
-  forgetIdentity();window.EccoConnectivityLog?.record('Sign-in disconnected');return prepare();
+  // Explicit local sign-out must not depend on the network or Google loading.
+  const previous=token;
+  forgetIdentity();const version=authVersion;
+  window.EccoConnectivityLog?.record('Sign-in disconnected on this browser');
+  if(previous)void request('logout',{},previous).then(()=>{
+   window.EccoConnectivityLog?.record('Sign-in server revocation confirmed');
+  }).catch(e=>{
+   const message='Signed out on this browser. Server sign-out could not be confirmed.';
+   window.EccoConnectivityLog?.record('Sign-in server revocation unconfirmed',{level:'error',message,reason:e.message});
+   if(version===authVersion&&!token){logoutNotice=message;mount();}
+  });
+  void prepare();
  }
  async function prepare(){
   if(preparing)return preparing;
+  const version=authVersion;
   preparing=(async()=>{
    ready=false;error='';mount();
    try{
     const config=await request('config');if(config.client_id!==CLIENT_ID)throw Error('Google sign-in configuration does not match.');
-    await loadGoogle();const pending=await request('challenge',{});
+    if(version!==authVersion)return;
+    await loadGoogle();if(version!==authVersion)return;
+    const pending=await request('challenge',{});if(version!==authVersion)return;
     window.google.accounts.id.initialize({client_id:CLIENT_ID,nonce:pending.nonce,auto_select:false,callback:async result=>{
-     if(busy)return;busy=true;error='';mount();
+     if(busy||version!==authVersion)return;busy=true;error='';mount();
      try{
       const verified=await request('google',{credential:result.credential,challenge:pending.challenge});
+      if(version!==authVersion)return;
       if(!verified.user?.id||!verified.session_token)throw Error('Invalid sign-in response.');
       authVersion++;user=verified.user;token=verified.session_token;localStorage.setItem('ecco-user-session',token);sessionStorage.setItem('ecco-user-session',token);
-      clearTimeout(renewTimer);changed();
-     }catch(e){ready=false;error=e.message;}
-     finally{busy=false;mount();}
+      busy=false;logoutNotice='';clearTimeout(renewTimer);changed();
+     }catch(e){if(version===authVersion){ready=false;error=e.message;}}
+     finally{if(version===authVersion){busy=false;mount();}}
     }});
     ready=true;
     clearTimeout(renewTimer);renewTimer=setTimeout(()=>{if(!user&&!busy)prepare();},240000);
-   }catch(e){error=e.message;}
-   finally{preparing=null;mount();}
+   }catch(e){if(version===authVersion)error=e.message;}
+   finally{if(version===authVersion){preparing=null;mount();}}
   })();return preparing;
  }
  async function restore(){
@@ -74,10 +88,10 @@
     if(version!==authVersion)return;
     if(e.status===401){forgetIdentity();error='Sign-in was revoked or is no longer valid. Sign in again.';await prepare();}
     else {error='Sign-in service is temporarily unreachable. Your connection is retained.';mount();}
-   }finally{restoring=null;}
+   }finally{if(version===authVersion)restoring=null;}
   })();return restoring;
  }
- window.addEventListener('storage',event=>{if(event.key!=='ecco-user-session')return;authVersion++;token=event.newValue||'';user=null;if(token){sessionStorage.setItem('ecco-user-session',token);restore();}else{sessionStorage.removeItem('ecco-user-session');window.EccoCredits?.disconnect();changed();prepare();}});
+ window.addEventListener('storage',event=>{if(event.key!=='ecco-user-session'||event.newValue!==localStorage.getItem('ecco-user-session'))return;forgetIdentity(false);token=event.newValue||'';if(token){sessionStorage.setItem('ecco-user-session',token);restore();}else prepare();});
  window.addEventListener('online',()=>{if(token)restore();});
  setInterval(()=>{if(token)restore();},60000);
  function open(){
@@ -116,7 +130,7 @@
    let box=parent.querySelector('[data-google-account]');
    if(parent.id!=='workspace-entry'&&parent.id!=='persistent-signin-content'&&!user){box?.remove();continue;}
    if(!box){box=document.createElement('div');box.dataset.googleAccount='';if(parent.id==='workspace-entry')parent.insertBefore(box,parent.querySelector('.entry-copyright'));else parent.prepend(box);}
-   const mode=user?'user:'+user.id:busy?'busy':error?'error:'+error:ready?'ready':'loading';
+   const mode=(user?'user:'+user.id:busy?'busy':error?'error:'+error:ready?'ready':'loading')+logoutNotice;
    if(box.dataset.mode===mode)continue;
    box.dataset.mode=mode;box.replaceChildren();
    if(user){
@@ -131,6 +145,7 @@
     const message=document.createElement('span');message.setAttribute('role','status');message.textContent=error||(busy?'Signing in…':'Loading Google sign-in…');if(error)message.className='signin-error';box.append(message);
     if(error){const retry=document.createElement('button');retry.type='button';retry.className='secondary';retry.textContent='Try again';retry.onclick=prepare;box.append(retry);}
    }
+   if(!user&&logoutNotice){const message=document.createElement('span');message.setAttribute('role','status');message.textContent=logoutNotice;box.append(message);}
   }
  }
  const style=document.createElement('style');style.textContent='#google-signedout-user{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:max-content;height:36px;padding:6px 10px;font-size:12px;line-height:18px;font-weight:500;white-space:nowrap;color:var(--ecco-theme-text,var(--text,#eeebf5))}#google-user-menu{position:relative}#google-user-menu>summary{list-style:none}#google-user-menu>summary::-webkit-details-marker{display:none}#google-user-menu>.workspace-menu-items{left:auto;right:0;min-width:190px}#google-user-name{color:var(--text);font-size:13px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}#workspace-entry #entry-tell-story{box-sizing:border-box;width:190px;min-width:190px;height:40px;min-height:40px;padding:0 12px}#workspace-entry #entry-tell-story:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}#workspace-entry>[data-google-account]{margin-top:16px}#workspace-entry>[data-google-account] iframe{clip-path:inset(2px 10px round 4px)}[data-google-account]{display:flex;flex-direction:column;align-items:center;gap:8px;font-family:Google Sans,Arial,sans-serif;font-size:14px}[data-google-account] .signin-error{color:var(--error,#ff7373)}#workspace-menus>.workspace-menu>summary{box-sizing:border-box;width:max-content;height:36px;padding:6px 10px;font-size:12px;gap:8px;justify-content:flex-start}#google-user-name{max-width:220px}:is(#google-user-name,#google-signedout-user) .user-login-icon{flex:0 0 auto;color:var(--ecco-theme-text,var(--text,#eeebf5))}:is(#google-user-name,#google-signedout-user) .user-person{fill:var(--ecco-theme-accent,var(--accent,#ffdc24))}#google-user-name [data-user-label]{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}#google-user-menu>.workspace-menu-items>button{box-sizing:border-box;width:100%;height:40px;min-height:40px;padding:8px 12px!important;font-size:13px!important}';document.head.append(style);

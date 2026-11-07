@@ -59,7 +59,7 @@ test('session heartbeats retain open work; an actual identity change still clear
   assert.equal(changes,2);assert.equal(w.document.querySelector('#draft').value,'');
  }finally{for(const observer of w.__observers)observer.disconnect();await Promise.resolve();w.close();}
 });
-test('transient outage retains sign-in and independent connections; explicit disconnect needs confirmed revocation',async()=>{
+test('transient outage retains sign-in; explicit sign-out clears identity and preserves independent connections',async()=>{
  const dom=new JSDOM('<body><div id="workspace-entry"></div></body>',{url:'https://ecco-ai-labs.github.io/ecco-studio/',runScripts:'outside-only'});
  const w=dom.window;w.AbortSignal={timeout:()=>undefined};w.localStorage.setItem('ecco-user-session','retained');w.localStorage.setItem('ecco-storage-access','storage');w.localStorage.setItem('ecco-connected-gpus','["gpu"]');
  w.__observers=[];const Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);w.__observers.push(this);}};
@@ -67,8 +67,81 @@ test('transient outage retains sign-in and independent connections; explicit dis
  try{
   w.eval(fs.readFileSync('google-signin.js','utf8'));await new Promise(r=>setTimeout(r,20));
   assert.equal(w.EccoAuth.connected,true);assert.equal(w.localStorage.getItem('ecco-user-session'),'retained');
-  await assert.rejects(w.EccoAuth.signOut(),/Network unavailable/);
-  assert.equal(w.EccoAuth.connected,true);
+  await w.EccoAuth.signOut();await new Promise(r=>setTimeout(r,0));
+  assert.equal(w.EccoAuth.connected,false);
+  assert.equal(w.localStorage.getItem('ecco-user-session'),null);assert.equal(w.sessionStorage.getItem('ecco-user-session'),null);
+  assert.match(w.document.querySelector('#workspace-entry').textContent,/Signed out on this browser/);
   assert.equal(w.localStorage.getItem('ecco-storage-access'),'storage');assert.equal(w.localStorage.getItem('ecco-connected-gpus'),'["gpu"]');
  }finally{for(const observer of w.__observers)observer.disconnect();await Promise.resolve();w.close();}
+});
+
+const settle=()=>new Promise(resolve=>setTimeout(resolve,0));
+function authFixture(){
+ const dom=new JSDOM('<body><div id="connection-indicators"></div><div id="workspace-menus"></div><section id="workspace-entry"><button id="entry-tell-story" disabled>Tell Your Story</button></section></body>',{url:'https://ecco-ai-labs.github.io/ecco-studio/',runScripts:'outside-only'});
+ const w=dom.window,logs=[],callbacks=[],requests=[];let handler;
+ w.AbortSignal={timeout:()=>undefined};
+ w.google={accounts:{id:{initialize:config=>callbacks.push(config.callback),renderButton:host=>{const button=w.document.createElement('button');button.textContent='Sign in with Google';host.append(button);},disableAutoSelect:()=>{}}}};
+ w.EccoConnectivityLog={record:(event,details)=>logs.push({event,details})};
+ const response=(body,status=200,type='application/json')=>({ok:status>=200&&status<300,status,headers:{get:()=>type},json:async()=>body});
+ w.fetch=async(url,options)=>{const path=url.split('/').pop();requests.push({path,options});return handler?.(path,options)??response(path==='me'?{user:{id:'google:123',name:'Test User'}}:path==='config'?{client_id:CLIENT}:path==='challenge'?{challenge:'fixture',nonce:'nonce'}:{ok:true});};
+ const observers=[];const Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(cb){super(cb);observers.push(this);}};
+ return {w,logs,callbacks,requests,response,setHandler(fn){handler=fn;},async start(session='existing-session'){if(session)w.localStorage.setItem('ecco-user-session',session);w.eval(fs.readFileSync('google-signin.js','utf8'));await settle();},async close(){for(const observer of observers)observer.disconnect();await Promise.resolve();w.close();}};
+}
+
+test('sign-out clears the UI immediately during slow, failed and non-JSON logout responses',async()=>{
+ for(const failure of ['pending','network','http','html']){
+  const f=authFixture(),{w,response}=f;
+  try{
+   await f.start();let complete;
+   f.setHandler(path=>{if(path!=='logout')return;if(failure==='pending')return new Promise(resolve=>complete=resolve);if(failure==='network')throw Error('offline');return failure==='html'?response({},503,'text/html'):response({error:'Sign-in service unavailable'},503);});
+   await w.EccoAuth.signOut();await settle();
+   assert.equal(w.EccoAuth.connected,false);assert.equal(w.EccoAuth.user,null);
+   assert.equal(w.localStorage.getItem('ecco-user-session'),null);assert.equal(w.sessionStorage.getItem('ecco-user-session'),null);
+   assert.equal(w.document.querySelector('#google-user-menu'),null);assert.equal(w.document.querySelector('#entry-tell-story').disabled,true);
+   assert.equal(f.requests.find(x=>x.path==='logout').options.headers.Authorization,'Bearer existing-session');
+   if(complete){complete(response({ok:true}));await settle();assert.ok(f.logs.some(x=>x.event==='Sign-in server revocation confirmed'));}
+   else{assert.ok(f.logs.some(x=>x.details?.level==='error'));assert.match(w.document.querySelector('#workspace-entry').textContent,/Server sign-out could not be confirmed/);}
+  }finally{await f.close();}
+ }
+});
+
+test('late identity restore or Google verification cannot sign the user back in after sign-out',async()=>{
+ for(const pending of ['me','google']){
+  const f=authFixture(),{w,response}=f;let complete;
+  try{
+   f.setHandler(path=>path===pending?new Promise(resolve=>complete=resolve):undefined);
+   await f.start(pending==='google'?'':'existing-session');
+   const verification=pending==='google'?f.callbacks[0]({credential:'fixture'}):null;
+   await w.EccoAuth.signOut();
+   complete(response({user:{id:'google:123',name:'Late user'},session_token:'late-session'}));
+   await verification;await settle();
+   assert.equal(w.EccoAuth.connected,false);assert.equal(w.EccoAuth.user,null);assert.equal(w.localStorage.getItem('ecco-user-session'),null);
+   assert.equal(w.document.querySelector('#entry-tell-story').disabled,true);
+  }finally{await f.close();}
+ }
+});
+
+test('cross-tab sign-out clears the tab session and ignores a late heartbeat',async()=>{
+ const f=authFixture(),{w,response}=f;let complete;
+ try{
+  await f.start();f.setHandler(path=>path==='me'?new Promise(resolve=>complete=resolve):undefined);
+  w.dispatchEvent(new w.Event('online'));
+  w.localStorage.removeItem('ecco-user-session');
+  w.dispatchEvent(new w.StorageEvent('storage',{key:'ecco-user-session',oldValue:'existing-session',newValue:null}));
+  complete(response({user:{id:'google:123',name:'Late user'}}));await settle();
+  assert.equal(w.EccoAuth.connected,false);assert.equal(w.EccoAuth.user,null);assert.equal(w.sessionStorage.getItem('ecco-user-session'),null);
+  assert.equal(w.document.querySelector('#google-user-menu'),null);
+ }finally{await f.close();}
+});
+
+test('a late failed revocation does not disturb a new sign-in',async()=>{
+ const f=authFixture(),{w,response}=f;let fail;
+ try{
+  await f.start();f.setHandler(path=>path==='logout'?new Promise((resolve,reject)=>fail=reject):path==='google'?response({user:{id:'google:456',name:'New user'},session_token:'new-session'}):undefined);
+  await w.EccoAuth.signOut();await settle();await f.callbacks.at(-1)({credential:'new-credential'});
+  fail(Error('offline'));await settle();
+  assert.equal(w.EccoAuth.user.id,'google:456');assert.equal(w.localStorage.getItem('ecco-user-session'),'new-session');
+  assert.doesNotMatch(w.document.querySelector('#workspace-entry').textContent,/could not be confirmed/);
+  assert.ok(f.logs.some(x=>x.event==='Sign-in server revocation unconfirmed'));
+ }finally{await f.close();}
 });
