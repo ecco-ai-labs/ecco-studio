@@ -392,7 +392,8 @@ Open Connections action when required. Library and other non-workflow views hide
 the tabs and deactivate workflow routing; resuming minimized workflow popups restores
 the original draft and header.
 
-Clicking the top-level Library heading leaves the story workspace and opens
-Story Library with the three story tabs hidden and the current draft preserved.
-Inside a library, that heading only toggles the sidebar group so the current
-view and filters remain intact. Keyboard activation uses the same behavior.
+Clicking the top-level Library heading shows a compact list of Story, Image,
+Audio, Video and Workflow Libraries on the right. No library opens by default;
+story tabs and the journey guide stay hidden, and the draft is preserved.
+Choosing a library opens its contents and expands, highlights and focuses the
+matching left-navigation entry. Keyboard and pointer activation behave alike.

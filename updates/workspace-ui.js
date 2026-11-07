@@ -281,7 +281,7 @@
  setInterval(acceleratorDisplay,5000);
 
  function librarySelection(){
-  const selectors={'library':'#image-library-nav > details > summary','video-library':'#workspace-video-library > summary','audio-library':'#workspace-audio-library > summary','story-library':'.project > details > summary','story-library-detail':'.project > details > summary','workflow-library':'#workflow-library > summary','workflow-detail':'#workflow-library > summary'};
+  const selectors={'library-home':'#workspace-library-group > summary','library':'#image-library-nav > details > summary','video-library':'#workspace-video-library > summary','audio-library':'#workspace-audio-library > summary','story-library':'.project > details > summary','story-library-detail':'.project > details > summary','workflow-library':'#workflow-library > summary','workflow-detail':'#workflow-library > summary'};
   const selected=selectors[page];
   document.querySelectorAll('#workspace-library-group summary').forEach(el=>{
    const active=!!selected&&el.matches(selected);el.classList.toggle('active',active);
@@ -301,6 +301,21 @@
     status.textContent='Saving story…';await api('stories',{title:form.elements.title.value.trim(),summary});await refresh();q('.project .workspace-library')?.remove();storyTree();d.close();libraryOverview('story');notice('Story uploaded.');
    }catch(error){window.EccoErrors?.show(error);status.textContent='Could not upload story: '+error.message;}finally{button.disabled=false;}
   };d.showModal();
+ }
+ function libraryHome(){
+  window.EccoStoryWorkspace?.leave();welcomePending=false;
+  document.body.classList.remove('workspace-entry-mode','story-choice-mode');q('#workspace-entry')?.remove();
+  notice('');page='library-home';q('#heading').textContent='Library';q('#page').replaceChildren();
+  const list=document.createElement('ul');list.id='library-home-list';list.setAttribute('aria-label','Choose a library');
+  const choices=[['story','Story Library','.project > details > summary'],['image','Image Library','#image-library-nav > details > summary'],['audio','Audio Library','#workspace-audio-library > summary'],['video','Video Library','#workspace-video-library > summary'],['workflow','Workflow Library','#workflow-library > summary']];
+  for(const [kind,title,selector]of choices){
+   const item=document.createElement('li'),button=document.createElement('button');button.type='button';button.textContent=title;button.dataset.libraryDestination=kind;
+   button.onclick=()=>{const summary=q(selector);if(!summary)return;q('#workspace-library-group').open=true;summary.click();summary.closest('details').open=true;librarySelection();summary.focus({preventScroll:true});summary.scrollIntoView({block:'nearest'});};
+   item.append(button);list.append(item);
+  }
+  q('#page').append(list);
+  document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
+  journeyGuide();librarySelection();
  }
  function libraryOverview(kind){
   window.EccoStoryWorkspace?.leave();
@@ -329,11 +344,7 @@
  }
  document.addEventListener('click',event=>{
   const summary=event.target.closest('summary');if(!summary)return;
-  if(summary.matches('#workspace-library-group > summary')){
-   // The Library heading is also an exit from the story workspace. Within a
-   // library, retain the current view and let the disclosure toggle normally.
-   if(!['library','audio-library','video-library','story-library','story-library-detail','workflow-library','workflow-detail'].includes(page))navigate('story-library');
-  }
+  if(summary.matches('#workspace-library-group > summary'))libraryHome();
   else if(summary.matches('#image-library-nav > details > summary'))navigate('library');
   else if(summary.matches('#workspace-video-library > summary'))libraryOverview('video');
   else if(summary.matches('#workspace-audio-library > summary'))navigate('audio-library');
