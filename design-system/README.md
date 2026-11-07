@@ -452,3 +452,7 @@ accompany the prompt in generation; opening or changing options never starts AI.
 ## Shared agent workflows
 
 Agents exposes Create New Agents at the top for Desk administrators and verified members of the configured administrator group. The inline builder saves a named sequence of up to 12 supported checks to dedicated server storage. Signed-in Desk users can run saved agents and review combined findings with separate Bug tickets. Group membership does not grant staff ticket access. Support and Notifications are the shortened navigation labels.
+
+## Recurring campaigns
+
+Notifications → Marketing Campaign offers set-once recurring announcements with a server-computed next occurrence. Cyber Monday, Black Friday and New Year presets follow their calendar dates each year. Daily, weekly, monthly and yearly schedules use the selected local time zone. Admins can edit or pause/resume a schedule. An existing CPU service publishes due notifications automatically, records each occurrence atomically, and skips dates missed while offline. Each dispatch rechecks current administrator authority. No browser, GPU or manual re-issue is required.

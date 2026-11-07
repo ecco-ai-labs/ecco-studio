@@ -1,0 +1,55 @@
+import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
+import {CalendarClock,LoaderCircle,Pause,Play,Plus,RefreshCw} from 'lucide-react';
+type Plan={kind:string;time:string;timezone:string;weekday?:number;day?:number;month?:number};
+type Campaign={id:string;version:number;name:string;title:string;body:string;audience:string;recipientId:string|null;durationDays:number;schedule:Plan;enabled:boolean;nextRunAt:string;lastStatus:string|null;lastError:string|null;lastRunAt:string|null;runCount:number};
+type User={id:string;name:string;email:string};
+const presets=[['cyber_monday','Cyber Monday · every year'],['black_friday','Black Friday · every year'],['new_year','New Year · every year'],['daily','Every day'],['weekly','Every week'],['monthly','Every month'],['yearly','Every year']] as const;
+const zones=[['America/Los_Angeles','Pacific time'],['America/New_York','Eastern time'],['Asia/Kolkata','India time'],['UTC','UTC']] as const;
+const defaults=():Campaign=>({id:crypto.randomUUID(),version:0,name:'',title:'',body:'',audience:'all',recipientId:null,durationDays:1,schedule:{kind:'cyber_monday',time:'09:00',timezone:'America/Los_Angeles'},enabled:true,nextRunAt:'',lastStatus:null,lastError:null,lastRunAt:null,runCount:0});
+const date=(value:string,zone:string)=>new Intl.DateTimeFormat('en-US',{dateStyle:'medium',timeStyle:'short',timeZone:zone}).format(new Date(value));
+export default function Campaigns({api,users,ready}:{api:(payload?:unknown,path?:string)=>Promise<any>;users:User[];ready:boolean}){
+ const [campaigns,setCampaigns]=useState<Campaign[]>([]),[draft,setDraft]=useState<Campaign|null>(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[success,setSuccess]=useState(''),[next,setNext]=useState('');
+ const mounted=useRef(true),submitting=useRef(false),nameRef=useRef<HTMLInputElement>(null),createRef=useRef<HTMLButtonElement>(null),hasEdited=useRef(false);
+ const refresh=useCallback(async()=>{try{const r=await api(undefined,'?campaigns=1');if(!mounted.current)return;if(r.campaignVersion!==1||!Array.isArray(r.campaigns))throw Error('Campaign scheduling is not available on the service yet.');setCampaigns(r.campaigns);}catch(e){if(mounted.current)setError((e as Error).message)}finally{if(mounted.current)setLoading(false)}},[api]);
+ useEffect(()=>{mounted.current=true;if(ready)refresh();else setLoading(false);const timer=setInterval(()=>{if(ready&&!document.hidden)refresh()},10000);return()=>{mounted.current=false;clearInterval(timer)}},[refresh,ready]);
+ useEffect(()=>{if(draft){hasEdited.current=true;nameRef.current?.focus()}else if(hasEdited.current&&!busy)createRef.current?.focus()},[draft?.id,busy]);
+ const plan=JSON.stringify(draft?.schedule);
+ useEffect(()=>{let active=true;setNext('');if(draft&&ready)api({op:'previewCampaign',schedule:draft.schedule}).then(r=>{if(active)setNext(r.nextRunAt||'')}).catch(e=>{if(active)setError((e as Error).message)});return()=>{active=false}},[plan,api,ready]);
+ const patch=(change:Partial<Campaign>)=>setDraft(d=>d?{...d,...change}:d);
+ const schedule=(change:Partial<Plan>)=>setDraft(d=>d?{...d,schedule:{...d.schedule,...change}}:d);
+ async function save(e:FormEvent){e.preventDefault();if(!draft||submitting.current||!next)return;submitting.current=true;setBusy(true);setError('');setSuccess('');
+  try{const {id,version,name,title,body,audience,recipientId,durationDays,schedule}=draft;const r=await api({op:version?'updateCampaign':'createCampaign',id,version,name,title,body,audience,recipientId,durationDays,schedule});if(r.campaignVersion!==1||!r.campaign)throw Error('The service did not confirm this schedule. Your draft is still here.');if(mounted.current){setDraft(null);setSuccess(version?'Campaign updated.':'Campaign scheduled. It will run automatically.');await refresh()}}
+  catch(e){if(mounted.current)setError((e as Error).message)}finally{submitting.current=false;if(mounted.current)setBusy(false)}
+ }
+ async function toggle(c:Campaign){if(submitting.current)return;submitting.current=true;setBusy(true);setError('');setSuccess('');try{const r=await api({op:'setCampaignActive',id:c.id,version:c.version,enabled:!c.enabled});if(r.campaignVersion!==1)throw Error('The service did not confirm this change.');if(mounted.current){setSuccess(c.enabled?'Campaign paused. Existing notifications keep their expiry.':'Campaign resumed for its next scheduled date.');await refresh()}}catch(e){if(mounted.current){setError((e as Error).message);await refresh()}}finally{submitting.current=false;if(mounted.current)setBusy(false)}}
+ return <div className="campaigns">
+  <div className="section-heading"><div><CalendarClock size={18}/><h2>Recurring Campaigns</h2></div>{!draft&&<button ref={createRef} className="primary" disabled={!ready||busy} onClick={()=>{setError('');setSuccess('');setDraft(defaults())}}><Plus size={16}/>Create Campaign</button>}</div>
+  <p className="form-info">Set the message and schedule once. Campaigns publish to the notification bell automatically, even when Ecco Desk is closed.</p>
+  {!ready&&<p role="alert" className="alert error">Campaign scheduling is not available on the service yet.</p>}
+  {error&&<p role="alert" className="alert error">{error}</p>}{success&&<p role="status" className="notification-success">{success}</p>}
+  {draft&&<form onSubmit={save} className="notification-composer" aria-label={draft.version?'Edit Campaign':'Create Campaign'}><fieldset disabled={busy}>
+   <label>Campaign Name<input ref={nameRef} value={draft.name} onChange={e=>patch({name:e.target.value})} required maxLength={80} placeholder="Cyber Monday"/></label>
+   <div className="form-grid"><label>Repeat<select value={draft.schedule.kind} onChange={e=>patch({schedule:{kind:e.target.value,time:draft.schedule.time,timezone:draft.schedule.timezone,...(e.target.value==='weekly'?{weekday:0}:{}),...(['monthly','yearly'].includes(e.target.value)?{day:1}:{}),...(e.target.value==='yearly'?{month:1}:{})}})}>{presets.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+    <label>Time Zone<select value={draft.schedule.timezone} onChange={e=>schedule({timezone:e.target.value})}>{zones.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+    {draft.schedule.kind==='weekly'&&<label>Day of Week<select value={draft.schedule.weekday} onChange={e=>schedule({weekday:Number(e.target.value)})}>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((x,i)=><option key={x} value={i}>{x}</option>)}</select></label>}
+    {draft.schedule.kind==='yearly'&&<label>Month<select value={draft.schedule.month} onChange={e=>schedule({month:Number(e.target.value)})}>{Array.from({length:12},(_,i)=><option key={i} value={i+1}>{new Date(2000,i,1).toLocaleString('en-US',{month:'long'})}</option>)}</select></label>}
+    {['monthly','yearly'].includes(draft.schedule.kind)&&<label>Day of Month<input type="number" min={1} max={31} required value={draft.schedule.day} onChange={e=>schedule({day:Number(e.target.value)})}/></label>}
+    <label>Send Time<input type="time" required value={draft.schedule.time} onChange={e=>schedule({time:e.target.value})}/></label>
+    <label>Notification Duration (days)<input type="number" min={1} max={365} required value={draft.durationDays} onChange={e=>patch({durationDays:Number(e.target.value)})}/></label>
+   </div>
+   <div className="campaign-next" role="status"><CalendarClock size={18}/><div><strong>{draft.enabled?'Next Automatic Run':'Next Run When Resumed'}</strong><span>{next?date(next,draft.schedule.timezone)+' · '+zones.find(x=>x[0]===draft.schedule.timezone)?.[1]:'Calculating next run…'}</span></div></div>
+   <p className="form-info">Times follow the selected time zone. Short months use their last day. Missed dates are skipped if the service is offline; no outdated promotion is sent later.</p>
+   <label>Recipients<select value={draft.audience} onChange={e=>patch({audience:e.target.value,recipientId:null})}><option value="all">All users</option><option value="user">Specific user</option></select></label>
+   {draft.audience==='user'&&<label>User<select required value={draft.recipientId||''} onChange={e=>patch({recipientId:e.target.value})}><option value="">Choose a signed-in Studio user</option>{users.map(u=><option key={u.id} value={u.id}>{u.name} · {u.email}</option>)}</select></label>}
+   <label>Title<input required maxLength={160} value={draft.title} onChange={e=>patch({title:e.target.value})} placeholder="The message users see in their bell"/></label>
+   <label>Message<textarea rows={4} required maxLength={4000} value={draft.body} onChange={e=>patch({body:e.target.value})} placeholder="Write your campaign announcement"/></label>
+   <div className="notification-actions"><button type="button" className="secondary-button" onClick={()=>setDraft(null)}>Cancel</button><button type="submit" className="primary" disabled={!next}>{busy?<LoaderCircle size={16} className="spin"/>:<CalendarClock size={16}/>} {busy?'Saving…':draft.version?'Save Campaign':'Create & Schedule'}</button></div>
+  </fieldset></form>}
+  <div className="section-heading"><div><h3>Campaign Schedule</h3><span className="count">{campaigns.length}</span></div><button className="icon-button" aria-label="Refresh campaigns" onClick={refresh}><RefreshCw size={17}/></button></div>
+  {loading?<p role="status">Loading campaigns…</p>:campaigns.length?<div className="campaign-list">{campaigns.map(c=><article className="campaign-card" key={c.id}><div className="campaign-card-heading"><div><h3>{c.name}</h3><span>{presets.find(p=>p[0]===c.schedule.kind)?.[1]} · {c.schedule.time} · {zones.find(z=>z[0]===c.schedule.timezone)?.[1]}</span></div><span className={'campaign-state '+(c.enabled?'active':'')}>{c.enabled?'Active':'Paused'}</span></div>
+   <p><strong>Next run:</strong> {c.enabled?date(c.nextRunAt,c.schedule.timezone):'Paused'}</p><p><strong>Last result:</strong> {c.lastStatus==='sent'?'Sent':c.lastStatus==='missed'?'Skipped — service was offline':c.lastStatus==='blocked'?'Blocked — administrator access needs attention':'Not run yet'}{c.lastRunAt?' · '+date(c.lastRunAt,c.schedule.timezone):''} · {c.runCount} sent</p>
+   {c.lastError&&<p className="alert error">{c.lastError}</p>}<details><summary>{c.title}</summary><p>{c.body}</p><p>{c.audience==='all'?'All users':users.find(u=>u.id===c.recipientId)?.email||'Specific user'} · Expires {c.durationDays} day{c.durationDays!==1?'s':''} after sending</p></details>
+   <div className="notification-actions"><button className="secondary-button" disabled={busy} onClick={()=>{setError('');setSuccess('');setDraft({...c,schedule:{...c.schedule}})}} aria-label={'Edit '+c.name}>Edit</button><button className="secondary-button" disabled={busy} onClick={()=>toggle(c)} aria-label={(c.enabled?'Pause ':'Resume ')+c.name}>{c.enabled?<Pause size={15}/>:<Play size={15}/>} {c.enabled?'Pause':'Resume'}</button></div>
+  </article>)}</div>:<p className="detail-loading">No campaigns yet. Create one to schedule automatic announcements.</p>}
+ </div>
+}

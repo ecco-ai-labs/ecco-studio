@@ -40,6 +40,11 @@
     "scope": "Desk pool/action controls, 50 findings and 25 separate critical Bug tickets using isolated fake API; real browser runner against video fixtures; customer account sees/runs Agents, submits its own support Bug and keeps view on refresh; pending notification connection control; admin-only shared agent builder, ordered real workflow execution, persistence across refresh, group-admin and non-admin controls, Support/Notifications labels"
   },
   {
+    "area": "Notification presentation and re-issue",
+    "mode": "fixture",
+    "scope": "Unread numbering/spacing/bold, three regular-weight read items, keyboard read and dismissal, empty state, editable re-issue draft and separate preserved history. Real delivery and backend deployment remain separate checks."
+  },
+  {
     "area": "Billing",
     "mode": "blocked",
     "scope": "Live balances and purchases require a sandbox payment service"
@@ -63,5 +68,10 @@
     "area": "AI visual review",
     "mode": "optional",
     "scope": "Runs when UX_QA_OPENAI_API_KEY and UX_QA_VISION_MODEL are configured; otherwise explicitly blocked"
+  },
+  {
+    "area": "Recurring campaigns",
+    "mode": "fixture + isolated SQLite",
+    "scope": "Create annual Cyber Monday schedule; next-run preview; edit, pause/resume, reload persistence, keyboard focus and 768px layout. Backend tests cover annual dates/DST, permissions, revocation, concurrent dispatch, retries and missed dates. No live announcements are sent by QA."
   }
 ]

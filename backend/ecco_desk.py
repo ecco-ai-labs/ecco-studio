@@ -19,6 +19,7 @@ import ecco_desk_mail
 import ecco_desk_chat
 import ecco_desk_replies
 import ecco_desk_groups
+import ecco_campaigns
 
 STATUSES = ('open', 'in_progress', 'waiting', 'resolved', 'closed')
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
@@ -108,8 +109,10 @@ def initialize(path, start_notifications=True):
         ecco_desk_replies.initialize(db)
         import ecco_desk_google_chat
         ecco_desk_google_chat.initialize(db)
+        ecco_campaigns.initialize(db)
     if start_notifications:
         ecco_desk_mail.start(path)
+        ecco_campaigns.start(path)
 
 
 def now():
@@ -214,16 +217,25 @@ def unread(db, me):
 def user_notifications(db, me):
     # Apply the five-newest limit before receipts/expiry so dismissed older
     # notices never reappear to fill a newly vacant slot.
-    rows = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,n.revokedAt,n.offer,r.readAt
+    rows = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,n.revokedAt,n.offer,n.campaignId,r.readAt
         FROM (SELECT rowid AS sequence,* FROM desk_notifications
               WHERE audience='all' OR recipientId=? ORDER BY rowid DESC LIMIT 5) n
         LEFT JOIN desk_notification_reads r ON r.notificationId=n.id AND r.userId=?
         WHERE r.readAt IS NULL AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
         ORDER BY n.sequence DESC''', (me['userId'], me['userId'], now()))
-    return dict(notificationVersion=1, specialOfferVersion=1, notifications=[{**{k:r[k] for k in
+    notifications = [{**{k:r[k] for k in
         ('id','title','body','severity','createdAt','expiresAt')},
-        'kind': 'special_offer' if r['offer'] else 'notification',
-        'offer': json.loads(r['offer']) if r['offer'] else None} for r in rows])
+        'kind': 'marketing_campaign' if r['campaignId'] else 'special_offer' if r['offer'] else 'notification',
+        'offer': json.loads(r['offer']) if r['offer'] else None} for r in rows]
+    # Read history is independent of the newest-five unread window. Keep only
+    # this recipient's three most recently read, still-valid notices.
+    history = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,r.readAt
+        FROM desk_notification_reads r JOIN desk_notifications n ON n.id=r.notificationId
+        WHERE r.userId=? AND (n.audience='all' OR n.recipientId=?)
+          AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
+        ORDER BY r.readAt DESC,r.rowid DESC LIMIT 3''', (me['userId'], me['userId'], now()))
+    return dict(notificationVersion=1, specialOfferVersion=1, notificationHistoryVersion=1,
+                notifications=notifications, readNotifications=[dict(r) for r in history])
 
 
 def require_notification_admin(me):
@@ -241,12 +253,12 @@ def manage_notifications(db, me):
     notices = []
     for r in rows:
         item = dict(r)
-        item['kind'] = 'special_offer' if r['offer'] else 'notification'
+        item['kind'] = 'marketing_campaign' if r['campaignId'] else 'special_offer' if r['offer'] else 'notification'
         item['offer'] = json.loads(r['offer']) if r['offer'] else None
         item['status'] = ('withdrawn' if r['revokedAt'] else 'expired' if r['expiresAt'] and r['expiresAt'] <= current
                           else 'read' if r['audience'] == 'user' and r['readCount'] else 'active')
         notices.append(item)
-    return dict(notificationVersion=1, specialOfferVersion=1, notifications=notices,
+    return dict(notificationVersion=1, specialOfferVersion=1, campaignVersion=1, notifications=notices,
                 users=[dict(r) for r in db.execute('SELECT * FROM desk_users ORDER BY name,email')])
 
 
@@ -355,6 +367,8 @@ def create_agent(db, me, body):
 
 
 def read(db, me, query):
+    if 'campaigns' in query:
+        return ecco_campaigns.listing(db, me)
     if 'manageNotifications' in query:
         return manage_notifications(db, me)
     if 'userNotifications' in query:
@@ -387,6 +401,8 @@ def read(db, me, query):
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op in ('previewCampaign','createCampaign','updateCampaign','setCampaignActive'):
+        return ecco_campaigns.write(db, me, body)
     if op == 'createAgent':
         return create_agent(db, me, body)
     if op in ('createNotification', 'withdrawNotification', 'readNotification'):
@@ -584,7 +600,7 @@ def handle(handler, path, allowed_origin, database, configured_key):
             if personal_support and not (body.get('op') in ('comment','readTicket','readNotification','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage','chatTyping') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
-        grants = {} if personal_support else ecco_desk_groups.access(user, fresh=bool(body and body.get('op') in ('createNotification','withdrawNotification','createAgent')))
+        grants = {} if personal_support else ecco_desk_groups.access(user, fresh=bool(body and body.get('op') in ('createNotification','withdrawNotification','createAgent','previewCampaign','createCampaign','updateCampaign','setCampaignActive')))
         with connect(database) as db:
             # Serializes the permission check + mutation, including first-admin claim.
             db.execute('BEGIN IMMEDIATE')
