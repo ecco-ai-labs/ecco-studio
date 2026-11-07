@@ -402,6 +402,9 @@ story tabs and the journey guide stay hidden, and the draft is preserved.
 Choosing a library opens its contents and expands, highlights and focuses the
 matching left-navigation entry. Keyboard and pointer activation behave alike.
 
+## Tester Agent
+
+Ecco Desk staff navigation includes Agents → Tester Agent. The pool opens a same-screen action, findings and ticket workflow. Browser checks exercise the current Studio; skipped prerequisites and limits are explicit. CI reports can be imported from the automatic workflow. One selected finding becomes one internal Bug ticket, with severity, reproduction steps and evidence. History is browser-local and account-scoped. Receipt ambiguity stops a batch without blindly repeating a ticket. See the `eccoDesk.testerAgent` contract and `qa/README.md`.
 ## Three-pane upload viewer — 7 November 2026
 
 PDF, TXT and Markdown uploads share one full-height workspace: the full document

@@ -18,6 +18,7 @@ import google_signin
 import ecco_desk_mail
 import ecco_desk_chat
 import ecco_desk_replies
+import ecco_desk_groups
 
 STATUSES = ('open', 'in_progress', 'waiting', 'resolved', 'closed')
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
@@ -221,8 +222,13 @@ def user_notifications(db, me):
         'offer': json.loads(r['offer']) if r['offer'] else None} for r in rows])
 
 
+def require_notification_admin(me):
+    if me['role'] != 'admin' and me.get('canManageNotifications') is not True:
+        raise DeskError('Notification administrator access is required.', 403)
+
+
 def manage_notifications(db, me):
-    require_staff(me, admin=True)
+    require_notification_admin(me)
     rows = db.execute('''SELECT n.*,u.name AS recipientName,u.email AS recipientEmail,
         (SELECT COUNT(*) FROM desk_notification_reads r WHERE r.notificationId=n.id) AS readCount
         FROM desk_notifications n LEFT JOIN desk_users u ON u.id=n.recipientId
@@ -250,7 +256,7 @@ def write_notification(db, me, body):
             raise DeskError('Notification not found.', 404)
         db.execute('INSERT OR IGNORE INTO desk_notification_reads VALUES (?,?,?)', (nid, me['userId'], now()))
         return user_notifications(db, me)
-    require_staff(me, admin=True)
+    require_notification_admin(me)
     if op == 'withdrawNotification':
         nid = text(body, 'id', 64)
         row = db.execute('SELECT revokedAt FROM desk_notifications WHERE id=?', (nid,)).fetchone()
@@ -473,7 +479,7 @@ def write(db, me, body, workspace_key, configured_key):
 
 
 def handle(handler, path, allowed_origin, database, configured_key):
-    if path == '/api/desk/inbox/connect':
+    if path in ('/api/desk/inbox/connect', '/api/desk/notification-group/connect'):
         # The existing workspace owner can configure the support mailbox before
         # a team administrator is enrolled. This is the same private owner key
         # used for other backend provider connections, never a customer session.
@@ -488,13 +494,16 @@ def handle(handler, path, allowed_origin, database, configured_key):
             if not 0 < length <= 32 or handler.headers.get('Content-Type','').split(';')[0]!='application/json':
                 raise DeskError('Expected an empty JSON object.')
             if json.loads(handler.rfile.read(length)) != {}:
-                raise DeskError('Inbox settings cannot be supplied in this request.')
+                raise DeskError('Connection settings cannot be supplied in this request.')
             import ecco_desk_inbox
-            handler.send(ecco_desk_inbox.start())
+            handler.send(ecco_desk_groups.start() if path == '/api/desk/notification-group/connect' else ecco_desk_inbox.start())
         except DeskError as exc:
             handler.send({'error':str(exc)},exc.status)
         except Exception:
-            handler.send({'error':'Could not start support inbox authorization. Check the existing Google OAuth configuration.'},503)
+            handler.send({'error':'Could not start authorization. Check the approved group or inbox and Google OAuth configuration.'},503)
+        return True
+    if path == '/api/youtube/callback' and any(s.startswith(ecco_desk_groups.PREFIX) for s in parse_qs(urlsplit(handler.path).query).get('state', [])):
+        ecco_desk_groups.callback(handler)
         return True
     if path == '/api/youtube/callback' and any(s.startswith('desk-inbox-') for s in parse_qs(urlsplit(handler.path).query).get('state', [])):
         import ecco_desk_inbox
@@ -522,10 +531,11 @@ def handle(handler, path, allowed_origin, database, configured_key):
             if personal_support and not (body.get('op') in ('comment','readTicket','readNotification','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage','chatTyping') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
+        grants = {} if personal_support else ecco_desk_groups.access(user, fresh=bool(body and body.get('op') in ('createNotification','withdrawNotification')))
         with connect(database) as db:
             # Serializes the permission check + mutation, including first-admin claim.
             db.execute('BEGIN IMMEDIATE')
-            me = actor(db, user)
+            me = {**actor(db, user), **grants}
             # The Studio customer surface always uses requester permissions,
             # even if this Google identity separately has a staff/admin role.
             if personal_support:
