@@ -77,12 +77,12 @@
   const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='New Label';create.onclick=()=>createLabel(folder=>{selected=folder.id;for(const parent of folders())if(folder.name.startsWith(parent.name+' / '))expanded.add(parent.id);treeSignature='';navigate('audio-library');library.open=true;},list.find(f=>f.id===selected)?.name||'');body.append(create);
   const upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload Audio';upload.onclick=uploadDialog;body.append(upload);
  }
- function render(){
+ function render(resetView=false){
   const folder=folders().find(f=>f.id===selected);if(selected!=='all'&&!folder)selected='all';
   const descendants=new Set(folders().filter(f=>f.id===selected||(folder&&f.name.startsWith(folder.name+' / '))).map(f=>f.id));
   const ids=new Set(links().filter(r=>descendants.has(r.folder_id)).map(r=>r.asset_id)),list=audio().filter(a=>selected==='all'||ids.has(a.id));
-  let mode=localStorage.getItem('ecco-audio-library-view')||'large';if(!['small','large','list'].includes(mode))mode='large';
-  q('#page').innerHTML='<div class="section-head"><div><h2>'+esc(folder?.name||'All audio')+'</h2><p class="help">'+(state.storage_pending?'Connect your saved workspace from Account → Storage.':list.length+' audio files · available across stories and sessions')+'</p></div><div class="row"><label class="library-view-label">View<select id="audio-library-view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button class="secondary" id="audio-library-upload">Upload</button><button class="secondary" id="audio-create-label">+ New Label</button></div></div><div id="audio-library-gallery" class="cards library-view-'+mode+'">'+(list.map(a=>{
+  const mode=resetView?'list':(q('#audio-library-view')?.value||'list');
+  q('#page').innerHTML='<div class="section-head"><div><h2>'+esc(folder?.name||'All audio')+'</h2><p class="help">'+(state.storage_pending?'Connect your saved workspace from Account → Storage.':list.length+' audio files · available across stories and sessions')+'</p></div><div class="row"><label class="library-view-label">View<select id="audio-library-view"><option value="list">List</option><option value="small">Small icons</option><option value="large">Large icons</option></select></label><button class="secondary" id="audio-library-upload">Upload</button><button class="secondary" id="audio-create-label">+ New Label</button></div></div><div id="audio-library-gallery" class="cards library-view-'+mode+'">'+(list.map(a=>{
    const shell=document.createElement('div');shell.innerHTML=card(a);const item=shell.firstElementChild;item.classList.add('audio-card');const actions=item.querySelector('.actions');
    const labels=document.createElement('div');labels.className='workspace-labels';labels.innerHTML=labelsFor(a.id).map(f=>'<span class="workspace-label">'+esc(f.name)+'</span>').join('');actions.before(labels);
    const add=document.createElement('button');add.type='button';add.className='small secondary';add.dataset.audioLabel=a.id;add.textContent='+ Add label';actions.prepend(add);
@@ -93,7 +93,7 @@
   wireCards();document.querySelectorAll('[data-audio-label]').forEach(b=>b.onclick=()=>labelDialog(b.dataset.audioLabel));hydrateMedia();pageSignature=signature();window.EccoPublishingMedia?.mountLibrary('audio');
  }
  function sync(){tree();if(page==='audio-library'&&pageSignature!==signature())render();}
- const oldNavigate=navigate;navigate=function(p){if(p!==page)notice('');if(p!=='audio-library')return oldNavigate.apply(this,arguments);document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page=p;q('#heading').textContent='Audio Library';document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));treeSignature='';tree();render();};
+ const oldNavigate=navigate;navigate=function(p){if(p!==page)notice('');if(p!=='audio-library')return oldNavigate.apply(this,arguments);document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page=p;q('#heading').textContent='Audio Library';document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));treeSignature='';tree();render(true);};
  const oldStoryControls=storyControls;storyControls=function(...args){const result=oldStoryControls.apply(this,args);sync();return result;};
  document.addEventListener('click',event=>{if(event.target.closest('#workspace-audio-library > summary')){selected='all';treeSignature='';}},true);
  window.EccoAudioLibrary={add:labelDialog,items:audio,upload:uploadDialog,remember(asset){if(asset?.kind!=='asset'||asset.media!=='audio')return;state.records=[...state.records.filter(r=>r.id!==asset.id),asset];sync();}};
