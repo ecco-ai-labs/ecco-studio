@@ -401,3 +401,14 @@ Audio, Video and Workflow Libraries on the right. No library opens by default;
 story tabs and the journey guide stay hidden, and the draft is preserved.
 Choosing a library opens its contents and expands, highlights and focuses the
 matching left-navigation entry. Keyboard and pointer activation behave alike.
+
+## Three-pane upload viewer — 7 November 2026
+
+PDF, TXT and Markdown uploads share one full-height workspace: the full document
+on the left, initially empty Selected Text in the middle, and all selection/editing
+controls on the right. Pages fit the preview width with aligned selectable text.
+Highlights and explicit page/chapter choices append to Selected Text; uploading
+a new file clears the selection. Improve with AI sends only the chosen text and
+requires review and Apply. Find and Replace, Clear Selected Text, Save Draft and
+Apply remain in the Controls pane. Editing never changes the uploaded document.
+Nested dialogs retain parent work and focus; narrow screens stack the three panes.

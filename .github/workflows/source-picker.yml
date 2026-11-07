@@ -1,0 +1,25 @@
+name: Source upload checks
+on:
+  pull_request:
+    paths:
+      - 'source-picker*'
+      - 'source-chapters.js'
+      - 'ai-text-refinement.js'
+      - 'updates/workspace-ui.css'
+      - 'audio-journey.js'
+      - 'popup-close.js'
+      - '.github/workflows/source-picker.yml'
+permissions:
+  contents: read
+jobs:
+  source-picker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix /tmp/ecco-source-tests jsdom@26.1.0 --no-audit --no-fund
+      - run: NODE_PATH=/tmp/ecco-source-tests/node_modules node --test source-picker.test.cjs tests/popup-controls.test.cjs
+      - run: NODE_PATH=/tmp/ecco-source-tests/node_modules node --test --test-name-pattern='Nested source preview|Document preview is nested' audio-journey.test.cjs
+      - run: python3 scripts/ui_inventory.py --check
