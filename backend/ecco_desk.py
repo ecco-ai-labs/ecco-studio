@@ -245,7 +245,7 @@ def write(db, me, body, workspace_key, configured_key):
         db.execute('''INSERT INTO desk_ticket_reads VALUES (?,?,?)
             ON CONFLICT(ticketId,userId) DO UPDATE SET lastCommentRow=MAX(lastCommentRow,excluded.lastCommentRow)''',(t['id'],me['userId'],row[0]))
         return unread(db,me)
-    if op in ('chatRequest','chatCancel','chatEnd','chatMessage','chatPresence','chatAccept'):
+    if op in ('chatRequest','chatCancel','chatEnd','chatMessage','chatTyping','chatPresence','chatAccept'):
         return ecco_desk_chat.write(db, me, body)
     if op == 'connectInbox':
         require_staff(me, admin=True)
@@ -405,7 +405,7 @@ def handle(handler, path, allowed_origin, database, configured_key):
             body = json.loads(handler.rfile.read(length))
             if not isinstance(body, dict):
                 raise DeskError('Expected an object.')
-            if personal_support and not (body.get('op') in ('comment','readTicket','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage') or
+            if personal_support and not (body.get('op') in ('comment','readTicket','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage','chatTyping') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
         with connect(database) as db:
