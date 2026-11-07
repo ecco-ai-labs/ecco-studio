@@ -1,0 +1,52 @@
+name: UX QA Agent
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ux-qa-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: qa/package-lock.json
+      - name: Install pinned browser test dependencies
+        working-directory: qa
+        run: npm ci
+      - name: Validate Desk ticket batching and UI
+        run: |
+          npm ci --prefix desk
+          npm run build --prefix desk
+          node tests/tester-agent.test.mjs
+          node tests/ecco-desk-agents.test.mjs
+      - name: Install Chrome with media codecs
+        working-directory: qa
+        run: npx playwright install --with-deps chrome
+      - name: Exercise every registered browser workflow
+        working-directory: qa
+        run: npm test
+      - name: AI screenshot review when configured
+        if: always()
+        working-directory: qa
+        env:
+          UX_QA_OPENAI_API_KEY: ${{ secrets.UX_QA_OPENAI_API_KEY }}
+          UX_QA_VISION_MODEL: ${{ vars.UX_QA_VISION_MODEL }}
+        run: node review-images.mjs
+      - name: Save report, screenshots and failure traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecco-ux-qa-${{ github.run_number }}
+          path: |
+            qa/report/
+            qa/results/
+          retention-days: 14

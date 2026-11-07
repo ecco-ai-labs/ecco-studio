@@ -14,3 +14,15 @@ For every UI change, read `design-system/README.md` and
   affected states, keyboard focus and nested popup dismissal when applicable.
 - Existing numerical styles are evidence, not approved shared defaults. Do not
   claim registry-only edits change the live UI.
+
+# UX QA coverage
+
+- For every new feature or workflow change, add or update the observable browser
+  checks in `qa/tests/workflows.spec.js` and the scope in `qa/coverage.json`.
+- Follow `qa/README.md`. Run the browser suite when infrastructure permits, or
+  inspect the GitHub UX QA Agent run and report its actual outcome.
+- Keep known bugs as failing acceptance checks until the product is repaired.
+  Do not skip a failed check, weaken an expectation, or auto-approve screenshots
+  merely to make the workflow green.
+- Report live-service checks that require test accounts or compute as blocked;
+  passing synthetic frontend fixtures does not establish end-to-end success.
