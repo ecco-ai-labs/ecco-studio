@@ -365,3 +365,13 @@ block duplicate submissions. Publish reuses the existing approved-video destinat
 and scheduling controls within tab three. Audio/image publishing remains unavailable;
 downloads remain available. Recurring prepares a new episode/chapter and never
 enables an automatic schedule. Standalone Studio and its advanced preparation remain.
+
+## Compact library file browser — 7 November 2026
+
+All five main libraries open in List, with Small icons and Large icons next.
+Rows share sortable File Name, Type, Date Created and Date Last Accessed columns.
+There are no item boxes; the icon views replace the name with a 28px or 64px
+preview, retaining its filename tooltip and accessible name. Search, filters
+and existing actions remain available; previews retain the original controls.
+Unknown dates stay blank. Access dates combine supplied workspace timestamps
+with explicit library opens recorded in this browser per user/workspace.

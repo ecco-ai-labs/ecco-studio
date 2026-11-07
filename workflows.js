@@ -11,11 +11,11 @@
  async function removeWorkflow(id){const workflow=rows().find(row=>row.id===id);if(!workflow)return;if(workflow.workflow_type==='audio'&&state.records.some(r=>r.id===id&&r.kind==='workflow')){try{await api('audio/workflows/control',{id,action:'pause'});await refresh();}catch(error){notice('Could not pause this schedule; it has not been removed. '+error.message,true);return;}}window.EccoWorkspaceUI.trashLocalItem('workflow',id,workflow.name||'Untitled workflow',workflow);nav();showLibrary();notice('Workflow moved to this browser’s Trash.');}
  function showLibrary(){
   document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();page='workflow-library';q('#heading').textContent='Workflow Library';
-  q('#page').innerHTML='<div class="section-head"><h2>Workflow Library</h2><div class="row"><label class="library-view-label"><select id="workflow-library-view" aria-label="Workflow library view"><option value="small">Small icons</option><option value="large">Large icons</option><option value="list">List</option></select></label><button type="button" class="secondary" id="workflow-library-new">New Workflow</button></div></div><div id="workflow-library-list" class="cards text-library-gallery"></div>';
+  q('#page').innerHTML='<div class="section-head"><h2>Workflow Library</h2><div class="row"><label class="library-view-label"><select id="workflow-library-view" aria-label="Workflow library view"><option value="list">List</option><option value="small">Small icons</option><option value="large">Large icons</option></select></label><button type="button" class="secondary" id="workflow-library-new">New Workflow</button></div></div><div id="workflow-library-list" class="cards text-library-gallery"></div>';
   const gallery=q('#workflow-library-list'),view=q('#workflow-library-view');
   for(const workflow of rows())gallery.append(window.EccoWorkspaceUI.libraryCard({id:workflow.id,title:workflow.name||'Untitled workflow',kind:'workflow',open:()=>show(workflow.id),remove:()=>removeWorkflow(workflow.id)}));
   if(!rows().length)gallery.innerHTML='<p class="help">No saved workflows.</p>';
-  view.value=localStorage.getItem('ecco-workflow-library-view')||'small';if(!view.value)view.value='small';
+  view.value='list';
   const apply=()=>{gallery.className='cards text-library-gallery library-'+view.value;localStorage.setItem('ecco-workflow-library-view',view.value);};view.onchange=apply;apply();
   q('#workflow-library-new').onclick=()=>show();
  }
