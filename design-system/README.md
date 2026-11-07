@@ -375,3 +375,14 @@ preview, retaining its filename tooltip and accessible name. Search, filters
 and existing actions remain available; previews retain the original controls.
 Unknown dates stay blank. Access dates combine supplied workspace timestamps
 with explicit library opens recorded in this browser per user/workspace.
+
+### Story workspace follow-up fixes
+
+The left navigation remains visible during the three-tab workflow. New Story begins
+with blank details, content and selections, and detaches any prior PDF picker; saved
+stories and explicitly started next episodes remain separate. Generate with AI opens
+the shared instruction dialog immediately, using only this draft’s instructions and
+language. Submission has visible busy/status/error states beside its button and an
+Open Connections action when required. Library and other non-workflow views hide
+the tabs and deactivate workflow routing; resuming minimized workflow popups restores
+the original draft and header.
