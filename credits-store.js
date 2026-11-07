@@ -32,7 +32,11 @@
  function editBilling(){const d=dialog('Billing Information'),form=document.createElement('form');form.className='form credits-billing-form';const fields=[['name','Full name','text'],['email','Email','email'],['company','Company (optional)','text'],['address','Address','text'],['city','City','text'],['region','State / province','text'],['postal','Postal code','text'],['country','Country','text']];for(const [key,label,type] of fields){const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.name=key;input.type=type;input.maxLength=200;input.value=billing[key]||'';input.required=key!=='company'&&key!=='region';l.append(input);form.append(l);}const save=document.createElement('button');save.type='submit';save.textContent='Save billing information';form.append(save);form.onsubmit=e=>{e.preventDefault();billing=Object.fromEntries(new FormData(form));d.close();render();};d.append(form);d.showModal();}
  function closeUsage(refocus=false){
   if(!usageDrawer)return;
-  const trigger=usageTrigger;usageDrawer.remove();usageDrawer=null;usageTrigger=null;trigger?.setAttribute('aria-expanded','false');if(refocus)trigger?.focus();
+  const drawer=usageDrawer,trigger=usageTrigger;
+  // Removing a focused child can synchronously fire focusout and reenter this handler.
+  // Clear ownership first so the same drawer is never removed twice.
+  usageDrawer=null;usageTrigger=null;trigger?.setAttribute('aria-expanded','false');
+  drawer.remove();if(refocus)trigger?.focus();
  }
  function updateUsage(){
   if(!usageDrawer)return;
@@ -45,7 +49,7 @@
   if(usageDrawer&&usageTrigger===trigger)return;
   closeUsage();usageTrigger=trigger;
   usageDrawer=document.createElement('div');usageDrawer.id='workspace-usage-drawer';usageDrawer.className='credits-dialog credits-usage-drawer';usageDrawer.setAttribute('role','region');usageDrawer.setAttribute('aria-label','Credits and Usage');
-  const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='Credits and Usage';const close=button('×',()=>closeUsage(true));close.setAttribute('aria-label','Close Credits and Usage');head.append(title,close);usageDrawer.append(head);
+  const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='Credits and Usage';const close=button('×',event=>{event.stopPropagation();closeUsage(true);});close.setAttribute('aria-label','Close Credits and Usage');head.append(title,close);usageDrawer.append(head);
   const body=document.createElement('div');body.className='form credits-usage-body';line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits','');body.lastChild.querySelector('strong').dataset.creditBalance='';line(body,'Credits used','');body.lastChild.querySelector('strong').dataset.creditUsed='';body.append(button('Purchase Additional Credits',()=>open('shop')));usageDrawer.append(body);menu.append(usageDrawer);trigger.setAttribute('aria-expanded','true');updateUsage();
   if(!menu.dataset.usageDrawerBound){
    menu.dataset.usageDrawerBound='true';
