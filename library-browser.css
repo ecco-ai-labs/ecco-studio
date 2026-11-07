@@ -25,5 +25,10 @@
 #page .library-files button:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
 .library-file-preview{width:min(760px,calc(100vw - 32px));max-height:88vh;overflow:auto;background:var(--ecco-theme-surface,#201d44);color:var(--ecco-theme-text,#eeebf5);border:1px solid var(--ecco-theme-border,#605679);border-radius:9px;padding:18px}
 .library-file-preview h2{font-size:16px;overflow-wrap:anywhere}.library-preview-content{position:relative}.library-file-preview .library-original>img,.library-file-preview .library-original>video{display:block;width:100%;max-height:48vh;object-fit:contain}.library-file-preview audio{width:100%}.library-file-preview .actions{display:flex;flex-wrap:wrap;gap:8px}.library-file-preview .library-card-actions>summary{display:none}.library-file-preview .asset-corner-actions{position:static;justify-content:flex-end;margin-bottom:8px}.library-file-preview .library-metadata{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;font-size:12px}.library-metadata dt{color:var(--ecco-theme-muted,#b1acc9)}.library-metadata dd{margin:0}.library-file-preview .text-library-delete{position:static!important;transform:none!important}.library-file-preview .text-library-preview{display:none}
+/* Library landing uses compact text choices rather than individual cards. */
+#library-home-list{display:flex;flex-direction:column;align-items:flex-start;gap:4px;list-style:none;margin:0;padding:0}
+#page #library-home-list button{background:transparent!important;border:0!important;box-shadow:none!important;color:var(--ecco-theme-text,#fff)!important;text-align:left}
+#page #library-home-list button:is(:hover,:focus-visible){color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
+#page #library-home-list button:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
 @media(pointer:coarse){#page .library-files .library-file-more{opacity:1}}
 @media(max-width:800px){.library-browser-tools{flex:1}.library-browser-tools input{flex:1;width:100px}#page .library-files{max-height:calc(100dvh - 260px)}}

@@ -2,7 +2,7 @@
 (() => {
   // The managed preview is HTTP; localhost CI already provides this API.
   if(!crypto.randomUUID)crypto.randomUUID=()=>"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-  localStorage.clear();sessionStorage.clear();
+  for(const key of Object.keys(localStorage))if(!key.startsWith('ecco-desk-')&&!key.startsWith('ecco-tester-'))localStorage.removeItem(key);sessionStorage.clear();
   localStorage.setItem('ecco-user-session','qa-synthetic-session');
   localStorage.setItem('ecco-theme-preset-v1',new URLSearchParams(location.search).get('theme')||'default');
   const originalFetch=window.fetch.bind(window);

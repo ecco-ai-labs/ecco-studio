@@ -281,7 +281,7 @@
  setInterval(acceleratorDisplay,5000);
 
  function librarySelection(){
-  const selectors={'library':'#image-library-nav > details > summary','video-library':'#workspace-video-library > summary','audio-library':'#workspace-audio-library > summary','story-library':'.project > details > summary','story-library-detail':'.project > details > summary','workflow-library':'#workflow-library > summary','workflow-detail':'#workflow-library > summary'};
+  const selectors={'library-home':'#workspace-library-group > summary','library':'#image-library-nav > details > summary','video-library':'#workspace-video-library > summary','audio-library':'#workspace-audio-library > summary','story-library':'.project > details > summary','story-library-detail':'.project > details > summary','workflow-library':'#workflow-library > summary','workflow-detail':'#workflow-library > summary'};
   const selected=selectors[page];
   document.querySelectorAll('#workspace-library-group summary').forEach(el=>{
    const active=!!selected&&el.matches(selected);el.classList.toggle('active',active);
@@ -302,6 +302,21 @@
    }catch(error){window.EccoErrors?.show(error);status.textContent='Could not upload story: '+error.message;}finally{button.disabled=false;}
   };d.showModal();
  }
+ function libraryHome(){
+  window.EccoStoryWorkspace?.leave();welcomePending=false;
+  document.body.classList.remove('workspace-entry-mode','story-choice-mode');q('#workspace-entry')?.remove();
+  notice('');page='library-home';q('#heading').textContent='Library';q('#page').replaceChildren();
+  const list=document.createElement('ul');list.id='library-home-list';list.setAttribute('aria-label','Choose a library');
+  const choices=[['story','Story Library','.project > details > summary'],['image','Image Library','#image-library-nav > details > summary'],['audio','Audio Library','#workspace-audio-library > summary'],['video','Video Library','#workspace-video-library > summary'],['workflow','Workflow Library','#workflow-library > summary']];
+  for(const [kind,title,selector]of choices){
+   const item=document.createElement('li'),button=document.createElement('button');button.type='button';button.textContent=title;button.dataset.libraryDestination=kind;
+   button.onclick=()=>{const summary=q(selector);if(!summary)return;q('#workspace-library-group').open=true;summary.click();summary.closest('details').open=true;librarySelection();summary.focus({preventScroll:true});summary.scrollIntoView({block:'nearest'});};
+   item.append(button);list.append(item);
+  }
+  q('#page').append(list);
+  document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
+  journeyGuide();librarySelection();
+ }
  function libraryOverview(kind){
   window.EccoStoryWorkspace?.leave();
   document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();
@@ -309,8 +324,8 @@
   document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));
   if(kind==='video'){
    const list=videoLibraryAssets();
-   q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><div class="row"><label class="library-view-label"><select id="video-library-view" aria-label="Video library view"><option value="list">List</option><option value="small">Small icons</option><option value="large">Large icons</option></select></label><button type="button" id="video-library-upload" class="secondary">Upload</button><button type="button" id="video-library-publish" class="secondary">Publish</button></div></div><div id="video-library-gallery" class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
-   window.EccoPublishingMedia?.mountLibrary('video');q('#video-library-upload').onclick=uploadVideoDialog;q('#video-library-publish').onclick=()=>{page='journey-preview';journeyPreview(true);journeyGuide();librarySelection();};wireCards();
+   q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><div class="row"><label class="library-view-label"><select id="video-library-view" aria-label="Video library view"><option value="list">List</option><option value="small">Small icons</option><option value="large">Large icons</option></select></label><button type="button" id="video-library-upload" class="secondary">Upload</button></div></div><div id="video-library-gallery" class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
+   window.EccoPublishingMedia?.mountLibrary('video');q('#video-library-upload').onclick=uploadVideoDialog;wireCards();
   }else{
    q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2><div class="row"><label class="library-view-label"><select id="story-library-view" aria-label="Story library view"><option value="list">List</option><option value="small">Small icons</option><option value="large">Large icons</option></select></label><button type="button" id="story-library-upload" class="secondary">Upload</button></div></div><div id="story-library-list" class="cards text-library-gallery"></div>';
    const list=q('#story-library-list'),collections=readStory('ecco-story-collections-v1'),groups=new Map((collections.collections||[]).map(group=>[group.id,group.name]));
@@ -329,7 +344,8 @@
  }
  document.addEventListener('click',event=>{
   const summary=event.target.closest('summary');if(!summary)return;
-  if(summary.matches('#image-library-nav > details > summary'))navigate('library');
+  if(summary.matches('#workspace-library-group > summary'))libraryHome();
+  else if(summary.matches('#image-library-nav > details > summary'))navigate('library');
   else if(summary.matches('#workspace-video-library > summary'))libraryOverview('video');
   else if(summary.matches('#workspace-audio-library > summary'))navigate('audio-library');
   else if(summary.matches('.project > details > summary'))libraryOverview('story');

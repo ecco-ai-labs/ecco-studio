@@ -38,5 +38,5 @@ form.elements.title.value='Diwali example';form.elements.body.value='Buy 100 cre
 form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();await tick();
 assert.equal(posts.at(-1).kind,'special_offer');assert.equal(posts.at(-1).severity,'informational');assert.deepEqual(posts.at(-1).offer,{credits:100,bonusCredits:50,cents:1000});assert.match(root.querySelector('.notification-history').textContent,/100 credits \+ 50 free/);
 cleanup();
-const staffHost=document.createElement('section');document.body.append(staffHost);data.me={...me,role:'staff'};const cleanStaff=mount(staffHost,{onSignIn(){}});await tick();await tick();assert(!staffHost.shadowRoot.textContent.includes('User Notifications'));cleanStaff();
+const staffHost=document.createElement('section');document.body.append(staffHost);data.me={...me,role:'staff'};const cleanStaff=mount(staffHost,{onSignIn(){}});await tick();await tick();assert(staffHost.shadowRoot.textContent.includes('User Notifications'));assert(!staffHost.shadowRoot.querySelector('.user-notifications'));cleanStaff();
 console.log('PASS: admin tab, recipient/severity/duration, failure retains draft, idempotent retry, reset, history, withdrawal, staff restriction.');

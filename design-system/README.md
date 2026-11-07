@@ -378,6 +378,8 @@ Rows share sortable File Name, Type, Date Created and Date Last Accessed columns
 There are no item boxes; the icon views replace the name with a 28px or 64px
 preview, retaining its filename tooltip and accessible name. Search, filters
 and existing actions remain available; previews retain the original controls.
+The ribbon ends with the filter, item count, then Search. Video Library has
+no Publish button in its ribbon.
 Unknown dates stay blank. Access dates combine supplied workspace timestamps
 with explicit library opens recorded in this browser per user/workspace.
 
@@ -391,3 +393,13 @@ language. Submission has visible busy/status/error states beside its button and 
 Open Connections action when required. Library and other non-workflow views hide
 the tabs and deactivate workflow routing; resuming minimized workflow popups restores
 the original draft and header.
+
+Clicking the top-level Library heading shows a compact list of Story, Image,
+Audio, Video and Workflow Libraries on the right. No library opens by default;
+story tabs and the journey guide stay hidden, and the draft is preserved.
+Choosing a library opens its contents and expands, highlights and focuses the
+matching left-navigation entry. Keyboard and pointer activation behave alike.
+
+## Tester Agent
+
+Ecco Desk staff navigation includes Agents → Tester Agent. The pool opens a same-screen action, findings and ticket workflow. Browser checks exercise the current Studio; skipped prerequisites and limits are explicit. CI reports can be imported from the automatic workflow. One selected finding becomes one internal Bug ticket, with severity, reproduction steps and evidence. History is browser-local and account-scoped. Receipt ambiguity stops a batch without blindly repeating a ticket. See the `eccoDesk.testerAgent` contract and `qa/README.md`.

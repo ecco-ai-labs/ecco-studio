@@ -100,7 +100,7 @@
     "disconnectedIndicator": "white",
     "errorText": "red",
     "popupClose": {
-      "glyph": "×",
+      "glyph": "\u00d7",
       "placement": "upper right",
       "background": "Theme accent, matching Minimize",
       "behavior": "Close only the owning popup; preserve parent popup"
@@ -108,7 +108,7 @@
     "newObjects": "Register component type and properties, reuse existing component rules, regenerate inventory in the same change.",
     "numericValues": "Do not invent sizes or silently normalize existing differences. Record actual declarations and obtain approval for changed standards.",
     "connectionOrder": "Storage is always first in both the Connections dialog and the control-panel icon order, followed by AI, GPU and publishing connections; independent of connection state.",
-    "audioDraftIsolation": "Every newly started unsaved story has a stable local draft ID. Audio Studio uses that ID until the story is saved; never reuse another new story’s script, cast or sounds. Earlier local drafts and legacy standalone audio remain preserved. Restoring a local story restores its own audio.",
+    "audioDraftIsolation": "Every newly started unsaved story has a stable local draft ID. Audio Studio uses that ID until the story is saved; never reuse another new story\u2019s script, cast or sounds. Earlier local drafts and legacy standalone audio remain preserved. Restoring a local story restores its own audio.",
     "aiKeyEntry": "OpenAI key dialog opens with an empty, initially read-only password field and focus on its heading. Pointer or keyboard focus unlocks entry and browser password-manager selection; preserve the selected key until explicit Verify & connect. Never prefill a key, connect automatically, or persist the key in browser storage. Clear on submit and close.",
     "popupMinimize": {
       "approval": "User requested universally minimizing popups to visit previous screens and connect services without losing work.",
@@ -183,7 +183,8 @@
         "stop-generation",
         "clip-frame-review",
         "three-tab-story-workspace",
-        "credit-purchases"
+        "credit-purchases",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -207,7 +208,8 @@
       ],
       "variants": [
         "studio-support",
-        "popup-minimize"
+        "popup-minimize",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -294,7 +296,8 @@
         "text"
       ],
       "variants": [
-        "credit-purchases"
+        "credit-purchases",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -336,7 +339,8 @@
         "tone"
       ],
       "variants": [
-        "credit-purchases"
+        "credit-purchases",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -700,7 +704,8 @@
         "open"
       ],
       "variants": [
-        "resume-popups"
+        "resume-popups",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -722,7 +727,9 @@
         "selected",
         "icon"
       ],
-      "variants": [],
+      "variants": [
+        "desk-account"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -865,7 +872,8 @@
         "ecco-desk",
         "clip-frame-review",
         "three-tab-story-workspace",
-        "credit-purchases"
+        "credit-purchases",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -1627,7 +1635,7 @@
     }
   ],
   "theme": {
-    "editor": "Settings → Theme side-sliding menu",
+    "editor": "Settings \u2192 Theme side-sliding menu",
     "properties": [
       "background",
       "surface",
@@ -1842,7 +1850,7 @@
     "source": "Simple Icons SVG brand marks, bundled inline in publishing-platforms.js; attribution in assets/publishing/README.md.",
     "entry": "Publish journey step opens tabs directly; no intermediate review text or Open publishing action.",
     "submit": "One Publish button above tabs; disabled with visible explanation when no channel, destination choice or approved video is available, or selected platform is unsupported. Existing form validation and explicit upload confirmation remain required.",
-    "youtubeAuthorization": "Connections → YouTube → Connect opens Google synchronously from the user click after workspace and OAuth configuration are ready. Pending requests disable duplicate attempts. Backend-verified status updates the control panel and publishing destination selector without replacing drafts, platform selection or focus. Backend authorization, PKCE and token encryption are unchanged.",
+    "youtubeAuthorization": "Connections \u2192 YouTube \u2192 Connect opens Google synchronously from the user click after workspace and OAuth configuration are ready. Pending requests disable duplicate attempts. Backend-verified status updates the control panel and publishing destination selector without replacing drafts, platform selection or focus. Backend authorization, PKCE and token encryption are unchanged.",
     "youtubeSetup": "Connections control panel owns the YouTube Connect/Connected and Disconnect controls. Connect remains enabled unless a request is in flight, and opens Set up YouTube before storage authentication when needed. The JSON file picker stays accessible; installation requires authenticated CPU setup availability. A separate Connect storage action opens a nested storage dialog and preserves the current page and selected file. Storage and Google secrets are never interchangeable. Closing a child preserves Connections and restores focus. Existing configuration discovered after storage login offers explicit Google authorization instead of replacement. No secrets are rendered or cached; bounded JSON goes only to the existing authenticated CPU endpoint.",
     "selection": "The Publish navigation step remains active on the publishing page, using the existing theme-colored inset left highlight. Selected platform tabs use the same 3px inset left accent, replacing the bottom underline; no full accent border. Default yellow, active theme accent otherwise.",
     "forms": "All six platforms retain editable video/title/description/visibility/audience and confirmation forms. Connection cards, Connect buttons and connection shortcuts are removed from Publishing. YouTube has a required destination dropdown populated only from authorized CPU channel metadata. Other platforms remain unavailable until backend integration exists.",
@@ -1855,7 +1863,7 @@
     "libraryOptions": "Each platform production-video chooser opens the existing Video or Audio Library in selection mode. Checkbox on every available item; Select all, Clear selection, Add selected (N), Cancel. Selections span stories, retain previews and survive library refresh/filter changes. Add selected returns to the originating platform with its draft and selected items; Cancel restores the original selection. Uploaded videos cannot be selected. Items have editable publishing titles and individual Remove buttons; shared description, visibility, audience and optional playlist apply to every selected video. Changing selection or titles clears explicit upload consent. Audio can be selected but YouTube publication explains that it requires video and remains disabled. No automatic conversion or GPU work.",
     "batchPublishing": "Explicitly confirmed YouTube selection queues the existing authenticated single-video API once per approved video, with individual titles. Prevent concurrent submissions and re-submission of accepted or uncertain requests. Stop on a failed request, retain per-item status and direct the owner to Activity. Other platforms keep selections but uploads remain unavailable.",
     "pickerAppearance": "Existing library cards/previews and form/button styles. Checkbox labels use 12px padding; selected-item rows wrap with 8px gap and 12px bottom margin; title labels flex with 180px minimum width. Selection controls remain keyboard accessible; empty state disables Add selected and focuses Cancel.",
-    "publishingFeedback": "User requested visible ongoing publishing and traceable Activity/Debugging/Errors. Publish shows a 16px circular theme-colored spinner, Publishing… and aria-busy during confirmed submission/queued/running work. A persistent status panel shows the last five attempts with real worker progress, timestamp, job/request ID, actual visibility and a YouTube link only after the server reports an uploaded video ID. Failures and uncertain outcomes are explicit; no synthetic progress or automatic upload retries. Completed uploads loaded from workspace records are recovered into history; reserved uploads without a known job remain unknown.",
+    "publishingFeedback": "User requested visible ongoing publishing and traceable Activity/Debugging/Errors. Publish shows a 16px circular theme-colored spinner, Publishing\u2026 and aria-busy during confirmed submission/queued/running work. A persistent status panel shows the last five attempts with real worker progress, timestamp, job/request ID, actual visibility and a YouTube link only after the server reports an uploaded video ID. Failures and uncertain outcomes are explicit; no synthetic progress or automatic upload retries. Completed uploads loaded from workspace records are recovered into history; reserved uploads without a known job remain unknown.",
     "publishingDiagnostics": "Keep up to 50 credential-free attempts in this browser before calling youtube/publish, retaining returned server job IDs across navigation/reload. Activity lists all retained attempts even if submission failed before job creation. Debugging includes video/asset/channel IDs, status, progress, visibility, playlist and returned YouTube video ID; Errors records rejected/failed/unknown outcomes with redaction. Successful uploads do not create errors. Polling updates status without replacing draft fields or focus. Backend upload records remain authoritative; browser history is supplementary."
   },
   "educationDiscord": {
@@ -1886,7 +1894,7 @@
     ],
     "characters": {
       "location": "Characters section after References; Final Script is in the right workspace.",
-      "count": "1–20 active characters, matching the existing 20-segment audio request limit",
+      "count": "1\u201320 active characters, matching the existing 20-segment audio request limit",
       "defaults": "News: 1 newsreader. Podcast, Interview and Casual Conversation: Host + Guest. Other genres: 1 narrator. Genre presets apply only before user cast customization or script content.",
       "identity": "Stable character IDs, independent from voice IDs. Reducing the count keeps inactive names and settings for later reuse.",
       "voices": "Additional Controls contains exactly one accessible tab per active character. Each shows the selected voice with Preview, Delivery Style, Emotion, Pitch, Speed, Pause Before Speaking, optional model Expressiveness, collapsible Language and Accent, and Extra Speaking Instructions. Existing values persist when switching tabs; Left/Right/Home/End support keyboard navigation. Main screen retains compact Characters and Additional Controls sections. Explicit user voice choices remain fixed; new Chatterbox characters default to a same-language reference or Model default rather than an arbitrary cross-language sample.",
@@ -1932,7 +1940,7 @@
       "handoff": "Title, genre, audience, language, tone, narration, cast directions, source and structured script populate the main form. Save preserves manual transcript edits and seeds audio voices and turns.",
       "appearance": "Existing generation-dialog, field groups, theme tokens and upper-right close control. Four text steps with current-step accent, keyboard focus and Escape dismissal.",
       "interfaceLanguage": "English for menus, clarification questions, source reviews, cast explanations and character-property descriptions, independently of the selected script language. Spoken content retains the selected language and native script; preserve source quotations and character proper names. All AI enhancement requests explicitly keep user-facing questions and notes in English.",
-      "progress": "Use the existing generation-spinner (16px, currentColor, existing reduced-motion behavior) in the primary action with Generating Script…, disabled duplicate submission and aria-busy. Preserve the current step and character edits while waiting. AI follow-up questions appear in Script Clarifications on the current Characters step, preserving earlier answers. Only a valid script advances to review; failures stop the spinner and allow retry in place.",
+      "progress": "Use the existing generation-spinner (16px, currentColor, existing reduced-motion behavior) in the primary action with Generating Script\u2026, disabled duplicate submission and aria-busy. Preserve the current step and character edits while waiting. AI follow-up questions appear in Script Clarifications on the current Characters step, preserving earlier answers. Only a valid script advances to review; failures stop the spinner and allow retry in place.",
       "languageStyle": {
         "default": "Everyday / Conversational",
         "choices": [
@@ -1950,9 +1958,9 @@
         "placement": "Audience dropdown on the main Audio setup and Questions step; genre comes first in Questions.",
         "categories": {
           "Story Book Reading": [
-            "Children (3–5)",
-            "Children (6–8)",
-            "Children (9–12)",
+            "Children (3\u20135)",
+            "Children (6\u20138)",
+            "Children (9\u201312)",
             "Teenagers",
             "Adults",
             "Families"
@@ -2027,7 +2035,7 @@
         "placement": "Optional Opening and Closing textareas in Questions, with English example placeholders; replace the separate Opening Title choice in Characters.",
         "behavior": "Blank fields omit the corresponding spoken section. Accept wording or directions such as a welcome or moral; AI adapts them to the selected script language and style. Opening uses the existing opening field; Closing occupies the final script segment, within existing character/turn limits. Review shows editable Opening and Closing labels; added body turns go before Closing. Apply, save, Audio Studio and reopening retain the directions and spoken output. No new backend schema or speech runtime is required."
       },
-      "saveProgress": "All Story setup saves use the existing generation-spinner and Saving Story… inside the submit button, aria-busy and duplicate-submit protection. Preserve the busy label through Audio setup observers. On failure restore the prior idle label and retain the draft. Acknowledge creation before progressing; update the story list from that confirmed response. Do not wait for an unrelated full workspace refresh: normal background polling handles it.",
+      "saveProgress": "All Story setup saves use the existing generation-spinner and Saving Story\u2026 inside the submit button, aria-busy and duplicate-submit protection. Preserve the busy label through Audio setup observers. On failure restore the prior idle label and retain the draft. Acknowledge creation before progressing; update the story list from that confirmed response. Do not wait for an unrelated full workspace refresh: normal background polling handles it.",
       "editorialReview": "Generate Script first drafts then refines for audience, idiomatic spoken language, listening rhythm and character interplay. Storybook defaults allocate multiple narrative beats. The second request receives only selected source plus the draft; it adds bounded English delivery cues outside spoken words. Source facts, plot, selected chapter boundaries, cast identities and bookends remain fixed. Existing drafts change only on Apply. Spinners remain active through both requests and stale results are rejected.",
       "chapterSelection": "Main Upload and Audio Upload share PDF Pages and Chapter selection in the same source-picker. Select Pages extracts only physical PDF page ranges locally. Find Chapter with AI uses a bounded numbered outline, then verifies every candidate chapter page plus neighboring boundary pages; exact page/line/text anchors bound local extraction, excluding the next chapter. Never use contents entries or fall back to page 1/full book. Ambiguity, invalid anchors and oversize sources fail without selecting/truncating. Show chapter title and PDF page range for review; explicit Apply alone commits the selected text. Narrative AI gets only the applied excerpts; locator AI may inspect the book outline, every candidate chapter page and neighboring boundary pages to find it. New uploads are pending until a selection is applied, preventing stale-source reuse.",
       "tone": "Tone uses Natural, Warm, Conversational, Playful, Dramatic, Calm, Professional, Informative, Suspenseful, Inspirational and Custom. Preserve custom saved instructions; no unrelated field or style changes.",
@@ -2122,7 +2130,7 @@
     },
     "appearance": "Preserves the user-approved Desk design: navy sidebar, yellow primary action, light ticket surfaces. Studio retains its selected theme and existing header dimensions. Desk CSS is scoped in a shadow root so it never restyles Studio. Embedded support hides the standalone sidebar, topbar and footer. Its sign-in panel and page heading inherit Studio theme text, surface, border and accent; ticket surfaces retain the approved light Desk style. The headset reuses community-panel theme text, accent hover/focus and focus outline, with transparent button background; SVG strokes stay visible and do not shrink.",
     "layout": "Support uses a headset with microphone beside Discord/GitHub, inside the existing 32px asset-icon button with a 16px glyph. Support renders in the main page with Back to Studio. No team-workspace link appears on the customer surface. Desk retains its metric cards, scrollable table, right detail drawer and centered dialogs.",
-    "content": "Ecco Desk branding; internal tasks, customer support, personal assignments, explicit team access, activity history. Customer support shows only the requester’s support tickets.",
+    "content": "Ecco Desk branding; internal tasks, customer support, personal assignments, explicit team access, activity history. Customer support shows only the requester\u2019s support tickets.",
     "states": "Loading, signed out, empty, error, filtered empty, populated, busy, open dialog/drawer. Errors use role=alert and success uses role=status; network requests time out. Refresh rechecks server permissions.",
     "interaction": "Header Support opens inside Studio without needing storage/GPU access. Existing Google sign-in is reused on welcome with a return intent. Esc dismisses the current Desk dialog/drawer; focus is trapped and returned, including within Shadow DOM. Tab order follows the visible content. No nested Desk dialogs.",
     "accessibility": "Support icon has an accessible name. Forms have labels, constraints and inline errors. Dialog/drawer have named dialog roles and aria-modal. Icon-only actions are named; decorative SVG icons are hidden. Reduced motion supported.",
@@ -2130,7 +2138,7 @@
     "storage": "Existing CPU storage API and SQLite on persistent Ecco volume. Dedicated desk_* tables are excluded from legacy workspace records. No tickets, tokens or access keys are stored in GitHub Pages/source. Separate ChatGPT login is not used.",
     "build": "Run npm ci && npm run build in desk/. Checked-in desk-app.mjs is the generated browser bundle; authored TSX/CSS are included in the inventory.",
     "conversations": {
-      "approval": "User requested email replies in ticket history, switching to queued live support, agent acceptance and 7 AM–11:59 PM Pacific support hours.",
+      "approval": "User requested email replies in ticket history, switching to queued live support, agent acceptance and 7 AM\u201311:59 PM Pacific support hours.",
       "types": [
         "panel",
         "status-indicator",
@@ -2157,7 +2165,7 @@
       "accessibility": "Status changes use role=status, errors use role=alert; checkbox has an accessible label; all chat actions are buttons with disabled states. Existing dialog focus trap and Escape dismissal apply.",
       "authorization": "Server enforces requester ownership on customer endpoints, active staff role and assigned-agent rights on chat actions, FIFO acceptance, presence expiry and America/Los_Angeles 07:00 inclusive through 23:59, closing at midnight. Every transcript is attached to its existing ticket. Only administrators can start support-inbox OAuth.",
       "email": "Reply headers and a random ticket reply address establish thread identity. Authenticated active agents can accept, reply, delegate, resolve, close or reopen from the mailbox; commands are private action events with an agent-only acknowledgement. First agent reply accepts an unowned case. Another agent must receive an explicit delegation before replying. Customer and staff thread references stay separate; subjects alone never authorize a ticket.",
-      "hours": "Live chat only: 7 AM–11:59 PM Pacific daily, including automatic PST/PDT changes. Opening new tickets and sending ticket/email replies remain available 24/7.",
+      "hours": "Live chat only: 7 AM\u201311:59 PM Pacific daily, including automatic PST/PDT changes. Opening new tickets and sending ticket/email replies remain available 24/7.",
       "ownership": "Accept case or Accept chat assigns one responsible agent. Only that agent sends public replies or resolves/closes the issue. The owner or an administrator can explicitly delegate to an active agent. Accepted cases cannot be unassigned. Delegating live chat queues it until the delegate accepts; transcripts stay on the same ticket.",
       "nativeSupport": "Support email includes Accept, Resolve, Close, Delegate and Reopen compose actions. Sending the action email confirms it; authenticated commands never enter the customer transcript or get forwarded. Normal agent replies use the ticket reply address and forward only to its opener. Native Google Chat cards use verified app callbacks and exact Google member identities; activation requires an owner-configured interactive Chat app and approved support space.",
       "staffSignIn": "Standalone team Desk uses a separate persistent staff session and its own Google account chooser. It never reuses, replaces or logs out the Studio customer session. Embedded customer support continues to use Studio identity and requester-only permissions.",
@@ -2174,11 +2182,11 @@
       "approval": "User requested replies only to the ticket opener, exact ticket association for multiple tickets from the same user, and a very small support-response badge over the headset.",
       "type": "badge",
       "variant": "support-unread",
-      "appearance": "12px badge positioned at the headset button’s upper-right, 8px white count on the theme error color with a 2px contrasting ring; 9+ cap, hidden for zero. Unread customer ticket rows have a pale yellow background, a 3px left accent and a compact Support replied badge. The conversation tab shows New reply. Existing header button dimensions and icon stay unchanged.",
+      "appearance": "12px badge positioned at the headset button\u2019s upper-right, 8px white count on the theme error color with a 2px contrasting ring; 9+ cap, hidden for zero. Unread customer ticket rows have a pale yellow background, a 3px left accent and a compact Support replied badge. The conversation tab shows New reply. Existing header button dimensions and icon stay unchanged.",
       "content": "Support has responded on N tickets in the tooltip and accessible button name.",
       "interaction": "Poll the authenticated customer-only notification endpoint every 10 seconds while visible, and after reading. Read receipts are per requester and ticket, acknowledge only when the latest support reply end is visible inside the ticket drawer in the focused browser tab. Opening or polling a ticket does not acknowledge off-screen replies. Reading updates that ticket and the headset badge immediately; never clear another ticket or a newer unseen reply. Hidden/history/background views do not mark replies read.",
       "authorization": "Only own public support responses count; customer messages, private notes and other customers never appear. Logout/account changes discard stale responses.",
-      "email": "Each email is bound by original message headers or its unique ticket reply address. Accepted staff replies are relayed only to that ticket’s opener, without CC/BCC. Native mailbox commands are acknowledged only to the agent; legacy direct-to-customer Sent copies are logged without duplicate delivery."
+      "email": "Each email is bound by original message headers or its unique ticket reply address. Accepted staff replies are relayed only to that ticket\u2019s opener, without CC/BCC. Native mailbox commands are acknowledged only to the agent; legacy direct-to-customer Sent copies are logged without duplicate delivery."
     },
     "ticketTypes": {
       "approval": "User requested a Type dropdown for Bug, Feature Request, Task and related requests.",
@@ -2213,7 +2221,7 @@
         "status-indicator"
       ],
       "appearance": "Reuse existing Desk sidebar, light ticket sections, form-grid, native inputs, primary/secondary actions, history table and error/status styles. New form padding 22px (16px mobile), 20px section gap, 11px labels, 12px controls, 5px control radius, 10px/11px control padding. Severity text uses existing informational blue, warning brown and error red treatments. Bell keeps original dimensions and theme colors.",
-      "content": "User Notifications; All users / Specific user; Informational / Warning / Error; title (160 chars), message (4000 chars); Read or duration ends (3 days default, whole 1–365 days) / Until read; Publish notification, Clear form; history with recipients, severity, status, dates, read count and Withdraw.",
+      "content": "User Notifications; All users / Specific user; Informational / Warning / Error; title (160 chars), message (4000 chars); Read or duration ends (3 days default, whole 1\u2013365 days) / Until read; Publish notification, Clear form; history with recipients, severity, status, dates, read count and Withdraw. The left navigation entry is always visible in standalone Ticketing Studio; accounts without administrator access receive a clear permission explanation.",
       "states": "Loading, unavailable old service, empty history, active, read (targeted recipient), expired, withdrawn, saving, failure retains draft and success resets form. History lists latest 200 notifications.",
       "interaction": "Only administrators can open management. Native recipient selector uses verified Studio identities with name/email; target is stored as stable subject. Publish uses a per-draft idempotency key to avoid duplicate retries. Polling preserves input focus and unsent draft. Withdraw removes future visibility without deleting history. History details disclose full message. Every recipient stops seeing a notice on read or expiry, whichever occurs first.",
       "accessibility": "Label-wrapped native form controls, browser required/min/max validation, aria-busy saving, role=alert errors, role=status success, visible keyboard focus, native details/summary and table headers. Responsive form stacks at 650px; wide history scrolls within its section.",
@@ -2221,9 +2229,51 @@
       "deployment": "Additive schema initialization and backend update must precede Pages. No sample or real notifications are sent during deployment.",
       "specialOffers": {
         "content": "Type: Notification or Special offer. Offers are informational; Purchase credits, Free bonus credits and Price (USD) required. History includes exact terms.",
-        "validation": "Admin-only creation; credit integers 1–1000000, bonus integers 0–1000000, USD cents 1–100000000. Stable targeting, expiry, read receipts and idempotency include offer terms. Additive nullable offer column preserves existing notices.",
+        "validation": "Admin-only creation; credit integers 1\u20131000000, bonus integers 0\u20131000000, USD cents 1\u2013100000000. Stable targeting, expiry, read receipts and idempotency include offer terms. Additive nullable offer column preserves existing notices.",
         "deployment": "specialOfferVersion 1 capability enables the admin option only after the matching backend is installed. No campaign is seeded. Customer routes cannot publish or withdraw offers."
-      }
+      },
+      "layout": "Standalone notification page uses Workspace breadcrumb and Ecco Desk heading for every role. Online-support hours, agent availability and queue instructions appear only on customer support views and never on User Notifications."
+    },
+    "accountAccess": {
+      "approval": "User requested improving sign-in and signing out through the upper-right account icon, and a visible User Notifications entry in Ticketing Studio left navigation.",
+      "identity": {
+        "type": "menu",
+        "variant": "desk-account",
+        "sources": [
+          "desk/src/AccountMenu.tsx",
+          "desk/src/StaffSignIn.tsx",
+          "desk/src/staff-auth.ts"
+        ],
+        "parent": "Standalone Desk topbar and signed-out welcome"
+      },
+      "appearance": "Keep existing 29px avatar, topbar dimensions, Desk navy, light surfaces and focus outline. Dropdown is 280px wide, viewport constrained, with 9px radius and 12px top gap. Signed-out welcome uses a 480px content column and 36px heading (30px narrow); Google provides its standard 280px sign-in button.",
+      "layout": "Account menu anchors below the upper-right avatar. Signed-out page presents Google sign-in directly, without another intermediate dialog. Embedded customer support retains Studio sign-in.",
+      "content": "Account name, email, role and Sign out. Sign in to Ecco Desk, direct Google button, support/admin account guidance, loading/error feedback and Try again. User Notifications is present in standalone left navigation for all signed-in roles.",
+      "states": "Closed/open account menu; signed in/out; Google loading, signing in, failed and retrying. Non-admin User Notifications shows Administrator access required with current account and sign-out guidance; no notification data or publishing controls are requested.",
+      "interaction": "Click avatar to toggle; opening focuses Sign out; Enter/Space activate; arrows focus the menu item; Escape closes only this menu and restores avatar focus; outside pointer or keyboard focus dismisses. Sign out clears only the Desk session immediately, requests server revocation using the captured old token, resets cached workspace data and returns to welcome without opening a popup. Disposed/stale sign-in callbacks cannot replace a newer account; stale server sessions are revoked.",
+      "accessibility": "Named native avatar button with aria-haspopup, aria-expanded and aria-controls; named menu/menuitem, visible keyboard focus; Google accessible button; polite loading status and alert errors.",
+      "usage": "Standalone desk/index.html. Server admin-only publish/withdraw rules are unchanged. No real notification is sent by this change; no account role is granted."
+    },
+    "testerAgent": {
+      "approval": "User requested Agents icon and agent pool, Tester Agent action choices, same-screen findings and one separate ticket for every selected issue.",
+      "identity": {
+        "type": "navigation-item",
+        "variant": "desk-agents",
+        "sources": [
+          "desk/src/Agents.tsx",
+          "desk/src/tester-runner.ts",
+          "desk/src/tester-model.ts"
+        ],
+        "parent": "Staff Desk workspace"
+      },
+      "appearance": "Existing Desk navy, green, white panels, 12px controls, 11px labels, 5px control radius. Bot icon 18px in nav, 28px pool card. Severity uses existing error red, warning brown and informational blue. Native form controls and checkbox.",
+      "layout": "Pool card, compact action form, summary counts, severity and assignment toolbar, compact expandable issue rows on one page. 22px panel inset (16px narrow), flex-wrap toolbars. Desktop run preview 360x225px, narrow 216x135px, fixed bottom right, inert and noninteractive.",
+      "content": "Check UX consistency, Perform a workflow, Run available workflow sweep; six workflow choices; Run checks, Stop, Import CI report, Download report, Select critical, Select visible, Clear selection, assignment, individual/bulk separate tickets, history.",
+      "states": "Pool/selected agent, idle/running/stopped/complete, passed/failed/blocked, no findings/filtered empty, selected/ticketed/receipt pending, network error and local storage full. Blocked checks never become passing claims.",
+      "interaction": "Real same-origin Studio read-only navigation in an iframe. Check five libraries, list/icons/search/sort/media loading and widths. Twenty items per library/view cap explicitly records untested remainder. No new story, generation, delete, purchase or publish. Stop aborts and removes frame. Live history is browser-local per Desk identity; latest ten runs. Automatic CI reports imported using strict JSON shape and size bounds; never execute uploaded content.",
+      "accessibility": "Native labels/selects/checkboxes/details, visible focus, role=status progress and receipt status, role=alert errors; decorative preview inert/aria-hidden. Keep selection and evidence on screen when creating tickets.",
+      "authorization": "Staff-only navigation; actual internal Bug tickets use existing authenticated staff API and existing assignment validation. Severity critical/high/medium/low maps to urgent/high/normal/low. Web Locks serializes batches per identity; explicit finding markers reconcile receipts. An uncertain POST is persisted before sending and never automatically retried until a matching existing ticket is found. Navigation/account change aborts future actions.",
+      "limitations": "Browser checks are deterministic and report observed DOM/rendering facts. CI uses isolated synthetic service data with screenshot evidence; optional AI review requires separate secret/model. No exhaustive coverage claim. Live mutation workflows remain blocked until isolated environments exist."
     }
   },
   "persistentConnections": {
@@ -2252,7 +2302,7 @@
     "availability": "Distinguish model/worker readiness and server-enabled scheduling from UI presence; document unsupported publishing destinations, direct audio publishing and scheduled sound-cue plans without claiming they work."
   },
   "characterStudio": {
-    "approval": "User requested realistic reusable characters inside Image Studio → Generate with AI, with character sets, 3D reconstruction, rigging, performances and export.",
+    "approval": "User requested realistic reusable characters inside Image Studio \u2192 Generate with AI, with character sets, 3D reconstruction, rigging, performances and export.",
     "types": [
       "popup",
       "step-navigation",
@@ -2281,7 +2331,7 @@
     "validation": "Same-story assets, optimistic character revision, explicit approval gates. Repeated requests use the original idempotency key; uncertain submission blocks a new request. No GPU fallback or runtime readiness inferred from UI presence.",
     "threeD": "Bundled model-viewer 4.1.0 displays authenticated self-contained GLB as a rotatable preview. TRELLIS.2 uses the approved front view; remaining views support review. High mode targets 4K textures, not guaranteed detail.",
     "rigging": "UniRig creates body skeleton and skin weights. Facial shape keys are independent and are never claimed automatically. Blender review add-on maps body bones; self-contained skinned GLB imports allow reviewed facial controls. Unmapped actions and absent expressions remain unavailable.",
-    "performance": "Editable procedural previews for stand, sit, run, jump and kick; expression requires an actual corresponding facial shape key. Fixed camera choices, 1–10 seconds, still or clip. No arbitrary text-to-motion or multi-character scene generation is claimed.",
+    "performance": "Editable procedural previews for stand, sit, run, jump and kick; expression requires an actual corresponding facial shape key. Fixed camera choices, 1\u201310 seconds, still or clip. No arbitrary text-to-motion or multi-character scene generation is claimed.",
     "handoff": "Download Blender scene, GLB, still and clip. Use frame in Video Studio approves the selected rendered image and carries reference, motion prompt and duration. It does not start video generation or submit a .blend file to a video model.",
     "availability": "Backend deployment and per-compute model, rig and rendering qualification are distinct from GitHub Pages publication. Missing service/worker disables generation with an inline explanation."
   },
@@ -2307,7 +2357,7 @@
     "placement": "Progress tab below Verify Flow and Cancel. One Preparation row, one compact row per named sound, one Speech row and one Mix & save row; existing single speech bar remains only for legacy runs without task state.",
     "appearance": "Existing theme tokens, 10px row gap/padding, 8px radius, 1px border; 13px heading and 12px/1.5 detail; native 6px-high progress bar with theme accent. Completed uses success color, failed uses error color; text states accompany color.",
     "behavior": "Sequential work remains sequential. Each sound names the active dependency while waiting. Counts come only from authenticated job telemetry; no fake percentages, no elapsed-time inference. Loading/mixing are indeterminate; done means saved asset, not merely sampler step 100. Rows persist per story/run, preserve completed sounds, reject old speech job updates, and recheck known sound IDs read-only after reload. Generate remains the explicit resume action.",
-    "telemetry": "Coordinator reads a bounded 16KiB tail of MOSS sampler logs to report 0–100 actual steps; raw logs are never returned. Other models without measured steps remain indeterminate. Existing auth and routing unchanged; no additional jobs, model switches or concurrency changes.",
+    "telemetry": "Coordinator reads a bounded 16KiB tail of MOSS sampler logs to report 0\u2013100 actual steps; raw logs are never returned. Other models without measured steps remain indeterminate. Existing auth and routing unchanged; no additional jobs, model switches or concurrency changes.",
     "accessibility": "Named native progress bars, labelled row group, keyboard controls unchanged, no polling-driven focus moves."
   },
   "audioEmotionBinding": {
@@ -2318,7 +2368,7 @@
     "turnReview": "Each Final Script turn has collapsed Delivery instructions using existing generation-settings styles: Emotion select and Acting direction textarea. Explicit turn selections survive text edits. Script-selection AI targets spoken fields only. Save through the existing draft; no extra generation."
   },
   "clipFrameReview": {
-    "approval": "User requested an in-Studio clip and frame workflow with 3–4 second segments, stable original frame numbers, individual nonconsecutive selection, removal, replacement, reinsertion and preview.",
+    "approval": "User requested an in-Studio clip and frame workflow with 3\u20134 second segments, stable original frame numbers, individual nonconsecutive selection, removal, replacement, reinsertion and preview.",
     "types": [
       "popup",
       "button",
@@ -2333,7 +2383,7 @@
       "toolbar",
       "panel"
     ],
-    "entry": "Video Studio Review → Open frame editor; Video AI menu → Clips & Frames; video Generate with AI offers Clips & Frames. No new top-level navigation.",
+    "entry": "Video Studio Review \u2192 Open frame editor; Video AI menu \u2192 Clips & Frames; video Generate with AI offers Clips & Frames. No new top-level navigation.",
     "appearance": "Scoped clip-frame-review.css uses existing theme surface/control/text/border/accent tokens. New review popup up to 1400px/96vw; preview 280px, side inspector 290px; frame grid 8/6/4/3 columns at responsive widths. Existing UI dimensions remain unchanged. Preview and thumbnail-group selectors use compact widths; the selection heading and count share a row.",
     "review": "3 or 4 second review segments on a conformed 25 fps timeline, 25/50/100 thumbnails per group. Source IDs are one-based and never renumbered; clip-local position and timestamps are also shown. Existing source footage is not re-generated by splitting review segments.",
     "selection": "Click toggles a frame. Shift-click adds a range; explicit numeric selection supports nonconsecutive ranges. Arrow keys navigate frames. Double-click enlarges the frame. Removed frames stay visible, marked and selectable for reinsertion.",
@@ -2361,7 +2411,7 @@
     "usage": "Settings > Workspace Drive; existing images, videos and audio records only. No new storage access or backend endpoint."
   },
   "workspaceDriveListing": {
-    "approval": "User requested file-system-style rows with Name, Kind, Date Last Opened and Date Created; every column sortable with visible up/down indicators. User requested a larger popup, compact rows and short display names such as Munni coconut escape instead of Munni coconut escape - 30 seconds · frame edit.mp4.",
+    "approval": "User requested file-system-style rows with Name, Kind, Date Last Opened and Date Created; every column sortable with visible up/down indicators. User requested a larger popup, compact rows and short display names such as Munni coconut escape instead of Munni coconut escape - 30 seconds \u00b7 frame edit.mp4.",
     "identity": "Native table #activity-files-table, sortable column header buttons and file-name buttons; nested #activity-file-preview popup in activity-files.js.",
     "appearance": "Compact 12px table with theme text, accent, border, muted and control colors. 4px/8px cell padding and 24px minimum header/name button height; Name 36%, Kind 12%, each date 26%. Single-line file names ellipsize instead of expanding rows; full original name and path in the tooltip. Active sort arrow uses accent; both arrows remain visible. Workspace Drive grows to 1100px within 32px viewport margins, 85vh tall capped at 900px; its table scrolls inside the popup with a 560px minimum width. Preview popup dimensions stay unchanged. Type, Location and Search share one ribbon in that order. All jobs and stories is removed; compact header/count spacing and empty status hidden.",
     "content": [
@@ -2386,7 +2436,8 @@
     "accessibility": "Native labelled inputs and buttons; tablist with roving focus and aria-selected; #page linked to the active tab. Polite local-save status, alert errors, native dialogs with close and focus return. Retain nested PDF dismissal and existing progress/cancel controls.",
     "persistence": "All three-tab fields and cast autosave per story/local draft ID in this browser. Continue saves a new story through the existing authenticated stories API. Existing studio drafts, outputs, compute choices and references are retained. An uncertain creation response blocks duplicate saves. Browser draft metadata is not claimed to sync across devices. Orphaned audio drafts are never imported into New Story. Leaving or switching stories saves to the original workspace story ID, and stale AI responses cannot update a different story.",
     "handoff": "Audio receives the reviewed speaker-assigned script and delivery brief; image receives the visual prompt and chosen character image references; video receives scene directions and retained references. Video exposes Prepare Audio and Prepare Images inside tab three. Unchanged scenes retain images. No automatic multi-stage generation or repair inference is implied.",
-    "publishing": "Publishing stays in tab three with existing destination, timing, confirmation and readiness gates. Only supported approved videos can currently be published. Audio/image remain downloadable with the limitation stated inline. Recurring creates the next episode/chapter with cleared content and retained defaults; it does not automatically enable a schedule."
+    "publishing": "Publishing stays in tab three with existing destination, timing, confirmation and readiness gates. Only supported approved videos can currently be published. Audio/image remain downloadable with the limitation stated inline. Recurring creates the next episode/chapter with cleared content and retained defaults; it does not automatically enable a schedule.",
+    "navigation": "Clicking the top-level Library heading opens a compact, unboxed right-hand list of Story, Image, Audio, Video and Workflow Libraries. No library is selected by default. Hide story tabs and the journey guide, leave the story workspace and preserve its draft. Each native button activates the existing matching left-nav summary, opens the parent and library disclosures, highlights the current library and moves keyboard focus to its summary. The selected library contents open on the right. Reopening a story restores its draft."
   },
   "creditPurchases": {
     "approval": "User requested title dividers, a final Special offer box connected to admin notifications, Select with a tick for one item at a time, only View Cart below the options, and a conventional Your Cart experience.",
@@ -2401,7 +2452,7 @@
     ],
     "identity": "credits-store.js; existing Purchase Additional Credits, Your Cart and Checkout dialogs. Shared offer feed from studio-notifications.js; administration in desk/src/Notifications.tsx.",
     "appearance": "Keep existing modal dimensions and active theme tokens. Four equal package cards with 12px gaps, heading divider, accent selection border and tick. Two columns below 740px and one below 420px. Cart item details and price share one row; order summary is 260px beside the item at desktop, stacked below 740px, with 20px gap. Summary padding 16px; existing 8px card corners. Theme-aware divider and total separator. Select and View Cart are native buttons.",
-    "selection": "Select replaces the cart with one package, quantity one; repeated selection is idempotent. Exactly one pressed button and visible tick. View Cart is the only bottom button and is disabled until selection. Quantity 1–99 and Remove stay in Your Cart. Returning to shop retains selection; account changes clear cart and billing details.",
+    "selection": "Select replaces the cart with one package, quantity one; repeated selection is idempotent. Exactly one pressed button and visible tick. View Cart is the only bottom button and is disabled until selection. Quantity 1\u201399 and Remove stay in Your Cart. Returning to shop retains selection; account changes clear cart and billing details.",
     "cart": "Your Cart title with divider before content; item name, unit price, quantity, Remove and line total; separate Order Summary with item count, total credits, USD total and Proceed to Checkout. Continue Shopping returns to selection. Empty state disables checkout. Nested Billing Information closes without losing checkout.",
     "offers": "Final Special offer card reads the same targeted, unread, unexpired feed as the bell. Newest applicable offer is featured unless an active previously selected offer is retained. Empty/unavailable cards disable Select. Read, expiry, withdrawal or loss of verification removes unavailable offers from the cart and explains the change. No sample campaign is published.",
     "accessibility": "Native buttons with aria-pressed, disabled states and visible tick; labelled quantity select; title focus on screen transitions and after removal; selection and quantity focus retained across re-render. Status messages announced. Existing native modal dismissal and minimize remain.",
@@ -2411,7 +2462,7 @@
     "approval": "2026-11-07: user requested List first and default, Small icons then Large icons; Finder-style File Name, Type, Date Created and Date Last Accessed columns; no individual boxes in any view; conserve space.",
     "identity": "Existing library and library-item types; shared library-files variant in library-browser.js/css, table/row/cell roles, native header and file buttons; library-file-preview popup.",
     "appearance": "Existing theme text/surface/control/accent/border/muted colors, 12px rows, 20px line height, no item borders/radius/shadows or gaps; subtle alternating rows and hover/focus background. List rows 32px; small icons 28px in 36px rows; large icons 64px in 72px rows. Cells have 4px/8px padding.",
-    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Compact Search, filter, count beside existing view/upload actions; no separate sort dropdown.",
+    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Compact filter, count, then Search beside existing view/upload actions; Search is the final ribbon control in visual and keyboard order. Video Library has no Publish button in its ribbon. No separate sort dropdown.",
     "content": [
       "File Name",
       "Type",
@@ -2422,6 +2473,8 @@
     "interaction": "Four clickable column headers toggle ascending/descending with visible up/down arrows; creation descending initially, natural filename/type sorting. File button opens media preview or existing story/workflow editor. Compact ellipsis exposes existing actions in preview. Search/filter/sort do not count as access. Preview retains original controls/media and restores keyboard focus on close. Existing publishing checkboxes stay in the first cell and survive filters/views.",
     "accessDates": "Use server last_accessed/last_accessed_at when supplied and latest explicit library open in this browser. Browser access timestamps persist per signed-in user ID and storage volume; guests are memory-only. Do not infer historical dates from creation or modification. Account changes close preview and switch scope. Header tooltip states scope.",
     "accessibility": "Table, row, columnheader and cell roles; aria-sort, row counts and indices, named native buttons, visible keyboard focus, accessible icon names, polite count. Closing nested original dialogs retains the file preview; closing file preview returns to the originating file/action button.",
-    "usage": "All five existing main library pages, including publishing selection. No storage API changes, generation, downloads or new external access."
+    "usage": "All five existing main library pages, including publishing selection. No storage API changes, generation, downloads or new external access.",
+    "videoThumbnails": "Small and Large video icons show the real first decoded frame at the existing 28px/64px sizes. Lazily decode visible icons from their existing authenticated media source, at most two decoders at once, with a bounded 100-entry session cache of 128px JPEG thumbnails. Do not play audio, start generation, mark the video accessed, alter the original player or its playback position. Source replacement regenerates the thumbnail; account changes clear requests/cache. Unsupported, failed or timed-out media retain the video symbol. List view starts no thumbnail work.",
+    "landing": "Existing list, list-item and button types in #library-home-list: vertical text choices with a 4px gap, no boxes, borders or shadows; reuse existing compact button sizing and theme text/accent. Visible 2px theme-accent keyboard focus. Main header reads Library. Native Enter/Space activation matches pointer clicks."
   }
 }

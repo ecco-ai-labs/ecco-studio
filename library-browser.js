@@ -48,6 +48,60 @@
  }
  const icons={image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 17 6-6 5 5 3-3 4 4"/>',audio:'<path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="16" rx="3" ry="3"/>',video:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 8 6 4-6 4Z"/>',story:'<path d="M5 3h10l4 4v14H5ZM14 3v5h5M8 12h8M8 16h8"/>',workflow:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M6 9v9h9M9 6h9v9"/>'};
  function dateCell(cell,value){if(cell.dataset.value===String(value))return;cell.dataset.value=String(value);cell.replaceChildren();if(value===null){cell.textContent='—';return;}const d=new Date(value),time=document.createElement('time');time.dateTime=d.toISOString();time.textContent=d.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});time.title=d.toLocaleString();cell.append(time);}
+ // Decode the first frame only for visible video icons, with two decoders at a time.
+ // Keep these decoders separate from the user's preview player and playback position.
+ const videoThumbnails=(()=>{
+  const requests=new Map(),sourceKeys=new WeakMap(),cache=new Map(),queue=[],running=new Set();let active=0;
+  const valid=request=>requests.get(request.icon)===request&&request.icon.isConnected&&!request.card.hidden&&request.scope===scope()&&request.icon.closest('.library-files')?.dataset.fileView!=='list';
+  function apply(request,data){
+   if(!data||!valid(request))return;
+   let image=request.icon.querySelector('img');if(!image){image=document.createElement('img');image.alt='';image.loading='lazy';request.icon.append(image);}
+   if(image.getAttribute('src')!==data)image.src=data;request.icon.classList.add('has-thumbnail');
+  }
+  function trim(){for(const [key,entry] of cache){if(cache.size<=100)break;if(entry.done)cache.delete(key);}}
+  function drain(){
+   while(active<2&&queue.length){
+    const entry=queue.shift();if(![...entry.requests].some(valid)){cache.delete(entry.key);continue;}
+    active++;const video=document.createElement('video');video.muted=true;video.playsInline=true;video.preload='auto';let complete=false;
+    const finish=(data,abandoned=false)=>{
+     if(complete)return;complete=true;clearTimeout(timer);video.onloadeddata=video.onerror=null;video.removeAttribute('src');video.load();running.delete(cancel);active--;
+     if(abandoned)cache.delete(entry.key);
+     entry.done=true;entry.data=data;for(const request of entry.requests)apply(request,data);entry.requests.clear();trim();drain();
+    };
+    const cancel=()=>finish(null),timer=setTimeout(cancel,12000);running.add(cancel);
+    video.onerror=cancel;
+    video.onloadeddata=()=>{
+     if(![...entry.requests].some(valid))return finish(null,true);
+     try{
+      if(!video.videoWidth||!video.videoHeight)return cancel();
+      const canvas=document.createElement('canvas'),scale=Math.min(1,128/Math.max(video.videoWidth,video.videoHeight));
+      canvas.width=Math.max(1,Math.round(video.videoWidth*scale));canvas.height=Math.max(1,Math.round(video.videoHeight*scale));
+      const context=canvas.getContext('2d');if(!context)return cancel();context.drawImage(video,0,0,canvas.width,canvas.height);finish(canvas.toDataURL('image/jpeg',0.8));
+     }catch{cancel();}
+    };
+    video.src=entry.source;video.load();
+   }
+  }
+  function enqueue(request){
+   if(!valid(request))return;
+   let entry=cache.get(request.key);
+   if(entry){if(entry.done)apply(request,entry.data);else entry.requests.add(request);return;}
+   entry={key:request.key,source:request.source,requests:new Set([request]),done:false,data:null};cache.set(request.key,entry);queue.push(entry);drain();
+  }
+  const observer=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){const request=requests.get(entry.target);if(request)enqueue(request);observer.unobserve(entry.target);}},{rootMargin:'120px'}):null;
+  function attach(card,icon,source,mode){
+   const key=JSON.stringify([scope(),source]);
+   if(sourceKeys.get(icon)!==key){observer?.unobserve(icon);requests.delete(icon);icon.querySelector('img')?.remove();icon.classList.remove('has-thumbnail');sourceKeys.set(icon,key);}
+   if(mode==='list'||!source||card.hidden){observer?.unobserve(icon);requests.delete(icon);return;}
+   const request=requests.get(icon)||{card,icon,source,key,scope:scope()};requests.set(icon,request);
+   if(cache.get(key)?.done){apply(request,cache.get(key).data);return;}
+   if(observer)observer.observe(icon);else enqueue(request);
+  }
+  function prune(){for(const [icon,request] of requests)if(!valid(request)){observer?.unobserve(icon);requests.delete(icon);}}
+  function reset(){observer?.disconnect();requests.clear();queue.length=0;for(const cancel of [...running])cancel();cache.clear();const gallery=document.getElementById('video-library-gallery');if(gallery)seen.delete(gallery);gallery?.querySelectorAll('.library-file-icon').forEach(icon=>{icon.querySelector('img')?.remove();icon.classList.remove('has-thumbnail');});}
+  window.addEventListener('pagehide',reset);
+  return {attach,prune,reset};
+ })();
  function row(item,kind,mode){
   const card=item.card;let original=sources.get(card);if(!original){
    original=document.createElement('div');original.className='library-original';original.hidden=true;
@@ -78,8 +132,8 @@
   let prefs=preferences.get(kind);if(!prefs){prefs={sort:'created',direction:'descending',filter:'all',query:''};preferences.set(kind,prefs);}
   let tools=header.querySelector('.library-browser-tools');
   if(!tools){
-   tools=document.createElement('div');tools.className='library-browser-tools';tools.innerHTML='<input type="search" placeholder="Search" aria-label="Filter '+kind+' library"><select aria-label="Filter '+kind+' items"><option value="all">All items</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option>'+(['image','audio','video'].includes(kind)?'<option value="dev">Draft</option><option value="prod">Production</option>':'')+'</select><span class="library-filter-count" role="status" aria-live="polite"></span>';
-   (header.querySelector(':scope > .row')||header).append(tools);const [search,filter]=tools.querySelectorAll('input,select');search.value=prefs.query;filter.value=prefs.filter;
+   tools=document.createElement('div');tools.className='library-browser-tools';tools.innerHTML='<select aria-label="Filter '+kind+' items"><option value="all">All items</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option>'+(['image','audio','video'].includes(kind)?'<option value="dev">Draft</option><option value="prod">Production</option>':'')+'</select><span class="library-filter-count" role="status" aria-live="polite"></span><input type="search" placeholder="Search" aria-label="Filter '+kind+' library">';
+   (header.querySelector(':scope > .row')||header).append(tools);const search=tools.querySelector('input[type=search]'),filter=tools.querySelector('select');search.value=prefs.query;filter.value=prefs.filter;
    search.oninput=()=>{prefs.query=search.value;schedule();};filter.onchange=()=>{prefs.filter=filter.value;schedule();};
   }
   let tableHead=gallery.querySelector(':scope > .library-file-heading');if(!tableHead){
@@ -92,7 +146,7 @@
   const cards=[...gallery.children].filter(x=>x.matches('.card'));
   for(const card of cards){const id=card.dataset.libraryId;if(kind==='story'&&!records.has(id))records.set(id,read(id==='pending'?'ecco-new-story-draft':'ecco-story-setup:'+id,{}));}
   const items=cards.map(card=>info(card,kind,records));
-  const signature=JSON.stringify([scope(),mode,prefs,items.map(x=>[x.id,x.title,x.type,x.created,x.accessed,x.size,x.duration,x.model,x.stage,x.search,(sources.get(x.card)||x.card).querySelector('img')?.getAttribute('src')])]);
+  const signature=JSON.stringify([scope(),mode,prefs,items.map(x=>[x.id,x.title,x.type,x.created,x.accessed,x.size,x.duration,x.model,x.stage,x.search,(sources.get(x.card)||x.card).querySelector('img,video')?.getAttribute('src')])]);
   if(seen.get(gallery)===signature){for(const item of items){const choice=item.card.querySelector(':scope > .publishing-library-choice');if(choice)item.card.querySelector('.library-file-cell')?.prepend(choice);}return;}seen.set(gallery,signature);
   for(const item of items)row(item,kind,mode);
   for(const cell of tableHead.children){const active=cell.dataset.sort===prefs.sort;cell.setAttribute('aria-sort',active?prefs.direction:'none');cell.querySelector('button').setAttribute('aria-label','Sort by '+columns.find(c=>c[0]===cell.dataset.sort)[1]+', '+(active&&prefs.direction==='ascending'?'descending':'ascending'));}
@@ -101,13 +155,14 @@
   if(sorted.some((x,i)=>cards[i]!==x.card)){for(const item of sorted)gallery.append(item.card);if(focused!==document.activeElement&&gallery.contains(focused))focused.focus({preventScroll:true});}
   let visible=0;const query=prefs.query.trim().toLowerCase(),after=prefs.filter==='week'?Date.now()-7*86400000:prefs.filter==='month'?Date.now()-30*86400000:null;
   for(const item of sorted){const show=(!query||item.search.includes(query))&&(after!==null?item.created!==null&&item.created>=after:prefs.filter==='all'||item.stage===prefs.filter);if(item.card.hidden===show)item.card.hidden=!show;if(show){visible++;item.card.setAttribute('aria-rowindex',String(visible+1));}}
+  if(kind==='video')for(const item of sorted)videoThumbnails.attach(item.card,item.card.querySelector('.library-file-icon'),sources.get(item.card).querySelector('video')?.getAttribute('src'),mode);
   gallery.setAttribute('aria-rowcount',String(visible+1));
   for(const h of gallery.querySelectorAll(':scope > h3'))h.hidden=true;
   const count=tools.querySelector('.library-filter-count'),text=visible+' / '+items.length;if(count.textContent!==text)count.textContent=text;
   let empty=gallery.querySelector('.library-filter-empty');if(!empty){empty=document.createElement('p');empty.className='help library-filter-empty';empty.textContent='No matching items.';gallery.append(empty);}empty.hidden=!items.length||visible>0;
  }
- let queued=false;function schedule(){if(queued)return;queued=true;queueMicrotask(()=>{queued=false;if(preview&&!preview.card.isConnected)closePreview();for(const [kind,id] of libraries){const gallery=document.getElementById(id);if(gallery)enhance(kind,gallery);}});}
+ let queued=false;function schedule(){if(queued)return;queued=true;queueMicrotask(()=>{queued=false;videoThumbnails.prune();if(preview&&!preview.card.isConnected)closePreview();for(const [kind,id] of libraries){const gallery=document.getElementById(id);if(gallery)enhance(kind,gallery);}});}
  new MutationObserver(schedule).observe(document.getElementById('page')||document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['src']});
  document.addEventListener('loadedmetadata',schedule,true);window.addEventListener('ecco:media-metadata',schedule);
- document.addEventListener('ecco:auth-change',()=>{closePreview();schedule();});window.addEventListener('storage',e=>{if(e.key===scope()||e.key===null){accessByScope.delete(scope());schedule();}});schedule();
+ document.addEventListener('ecco:auth-change',()=>{closePreview();videoThumbnails.reset();schedule();});window.addEventListener('storage',e=>{if(e.key===scope()||e.key===null){accessByScope.delete(scope());schedule();}});schedule();
 })();

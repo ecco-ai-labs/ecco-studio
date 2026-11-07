@@ -22,6 +22,12 @@ jobs:
       - name: Install pinned browser test dependencies
         working-directory: qa
         run: npm ci
+      - name: Validate Desk ticket batching and UI
+        run: |
+          npm ci --prefix desk
+          npm run build --prefix desk
+          node tests/tester-agent.test.mjs
+          node tests/ecco-desk-agents.test.mjs
       - name: Install Chromium
         working-directory: qa
         run: npx playwright install --with-deps chromium
