@@ -405,3 +405,13 @@ matching left-navigation entry. Keyboard and pointer activation behave alike.
 ## Tester Agent
 
 Ecco Desk staff navigation includes Agents → Tester Agent. The pool opens a same-screen action, findings and ticket workflow. Browser checks exercise the current Studio; skipped prerequisites and limits are explicit. CI reports can be imported from the automatic workflow. One selected finding becomes one internal Bug ticket, with severity, reproduction steps and evidence. History is browser-local and account-scoped. Receipt ambiguity stops a batch without blindly repeating a ticket. See the `eccoDesk.testerAgent` contract and `qa/README.md`.
+## Three-pane upload viewer — 7 November 2026
+
+PDF, TXT and Markdown uploads share one full-height workspace: the full document
+on the left, initially empty Selected Text in the middle, and all selection/editing
+controls on the right. Pages fit the preview width with aligned selectable text.
+Highlights and explicit page/chapter choices append to Selected Text; uploading
+a new file clears the selection. Improve with AI sends only the chosen text and
+requires review and Apply. Find and Replace, Clear Selected Text, Save Draft and
+Apply remain in the Controls pane. Editing never changes the uploaded document.
+Nested dialogs retain parent work and focus; narrow screens stack the three panes.
