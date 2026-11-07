@@ -7,7 +7,7 @@ async function boot(page,options={}){
     const url=new URL(route.request().url());
     return url.hostname==='127.0.0.1'?route.continue():route.abort('blockedbyclient');
   });
-  await page.goto('/?__qa=1&theme='+(options.theme||'default'));
+  await page.goto('/?__qa=1&theme='+(options.theme||'default')+'&sourceFit='+(options.sourceFit||''));
   await page.waitForFunction(()=>window.__qaReady);
   await expect(page.locator('#entry-tell-story')).toBeEnabled();
   if(options.enter!==false){
@@ -218,7 +218,7 @@ test('NOTIFY-01 numbered unread notices move to three-item read history',async({
 
 test('NOTIFY-02 history opens an editable re-issue draft and retains the original',async({page})=>{
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
-  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'User Notifications',exact:true}).click();
+  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Notifications',exact:true}).click();
   await page.getByLabel('Title',{exact:true}).fill('Original notice');await page.getByLabel('Message',{exact:true}).fill('Original message');
   await page.getByRole('button',{name:'Publish notification',exact:true}).click();
   await page.getByRole('button',{name:'Edit and re-issue Original notice',exact:true}).click();
@@ -249,29 +249,48 @@ test('NAV-02 Support Back returns to the preceding screen, never the entry page'
   await page.locator('#workspace-back').click();await expect(page.locator('#models-form')).toBeVisible();
   await expect(page.locator('#workspace-entry')).toBeHidden();
 });
-test('NAV-03 popup and menu Back dismiss one layer and retain the originating screen',async({page})=>{
+test('NAV-03 Back belongs only to the page, never menus, hover drawers or popups',async({page})=>{
   await boot(page);await openLibrary(page,'video');
   const preferences=page.locator('#workspace-settings-controls details');await preferences.locator('summary').click();
-  await preferences.locator('.workspace-menu-items > .ecco-back').click();await expect(preferences).not.toHaveAttribute('open');
-  await expect(preferences.locator('summary')).toBeFocused();
+  await expect(preferences.locator('.ecco-back')).toHaveCount(0);
+  await page.locator('#theme-colors-open').hover();await expect(page.locator('#workspace-theme-drawer')).toBeVisible();
+  await expect(page.locator('#workspace-theme-drawer').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.locator('#theme-colors-open').press('Escape');await preferences.locator('summary').press('Escape');
+  await expect(preferences).not.toHaveAttribute('open');await expect(preferences.locator('summary')).toBeFocused();
   await page.locator('#activity-files-menu').click();await expect(page.locator('#activity-files')).toBeVisible();
-  await page.locator('#activity-files > .ecco-back').click();await expect(page.locator('#activity-files')).toBeHidden();
+  await expect(page.locator('#activity-files').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.locator('#activity-files [data-close]').click();await expect(page.locator('#activity-files')).toBeHidden();
   await expect(page.locator('#video-library-gallery')).toBeVisible();await expect(page.locator('#activity-files-menu')).toBeFocused();
   const viewport=page.viewportSize();await page.mouse.move(viewport.width-1,viewport.height/2);
   await page.locator('#activity-edge-arrow').click();await expect(page.locator('#activity-panel')).toBeVisible();
-  await page.locator('#activity-panel > .ecco-back').click();await expect(page.locator('#activity-panel')).toBeHidden();
-  await expect(page.locator('#activity-edge-arrow')).toBeFocused();
+  await expect(page.locator('#activity-panel').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.locator('#close-activity').click();await expect(page.locator('#activity-panel')).toBeHidden();
+  await expect(page.locator('.ecco-back')).toHaveCount(1);await expect(page.locator('#workspace-back')).toBeEnabled();
 });
-test('NAV-04 checkout Back returns to cart, selection and the usage menu without losing the package',async({page})=>{
+test('NAV-04 purchase popups omit Back and retain package selection and close behavior',async({page})=>{
   await boot(page);await page.locator('#google-user-menu > summary').click();
+  await expect(page.locator('#google-user-menu .ecco-back')).toHaveCount(0);
   await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();
+  await expect(page.locator('#workspace-usage-drawer .ecco-back')).toHaveCount(0);
   await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
+  await expect(page.locator('dialog[open]').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Select',exact:true}).first().click();await page.getByRole('button',{name:'View Cart',exact:true}).click();
   await page.getByRole('button',{name:'Proceed to Checkout',exact:true}).click();
-  await page.locator('dialog[open] > .ecco-back').click();await expect(page.getByRole('heading',{name:'Your Cart',exact:true})).toBeVisible();
-  await page.locator('dialog[open] > .ecco-back').click();await expect(page.getByRole('heading',{name:'Purchase Additional Credits',exact:true})).toBeVisible();
+  await expect(page.locator('dialog[open]').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Continue Shopping',exact:true}).click();
   await expect(page.getByRole('button',{name:'✓ Selected',exact:true})).toBeVisible();
-  await page.locator('dialog[open] > .ecco-back').click();await expect(page.locator('#workspace-usage-drawer')).toBeVisible();
+  await page.getByRole('button',{name:'Close popup',exact:true}).click();await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await expect(page.locator('#story-simple-details')).toBeVisible();
+});
+test('NAV-05 Desk keeps page navigation but excludes Back from account menus and ticket forms',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');
+  await expect(page.locator('.topbar .desk-back')).toBeVisible();
+  await page.locator('.account-trigger').click();await expect(page.getByRole('menu').getByRole('menuitem',{name:'Back',exact:true})).toHaveCount(0);
+  await page.getByRole('menu').getByRole('menuitem',{name:'Sign out',exact:true}).press('Escape');
+  await page.getByRole('button',{name:'Create task',exact:true}).click();
+  await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByRole('dialog').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Close dialog',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('AGENT-03 customer account can run agent and create its own Bug tickets',async({page})=>{
@@ -295,30 +314,38 @@ test('AGENT-03 customer account can run agent and create its own Bug tickets',as
   await page.getByRole('button',{name:'Notifications',exact:true}).click();await expect(page.getByRole('button',{name:'Connect Google',exact:true})).toBeVisible();
   await expect(page.locator('.notification-composer')).toHaveCount(0);
  });
-test('UPLOAD-01 inline AI prompt, selection boundary and matching clear text control',async({page})=>{
+test('UPLOAD-01 equal panes, permanent AI workspace and a bottom document ribbon',async({page})=>{
   await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('Upload controls QA');
-  for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English',recurrence:'once'}))
-    await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+  for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
   await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
-  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();
-  await (await chooser).setFiles({name:'upload-qa.txt',mimeType:'text/plain',buffer:Buffer.from('The original document remains untouched.')});
-  const dialog=page.getByRole('dialog',{name:'Select Story Text',exact:true});await expect(dialog).toBeVisible();
-  const selected=dialog.locator('[data-selected]');await expect(selected).toHaveValue('');
-  await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
-  const find=dialog.locator('.pdf-find-replace summary'),improve=dialog.locator('.pdf-improve-selection summary'),clear=dialog.getByRole('button',{name:'Clear Selected Text',exact:true});
-  expect((await find.boundingBox()).y).toBeLessThan((await improve.boundingBox()).y);expect((await improve.boundingBox()).y).toBeLessThan((await clear.boundingBox()).y);
-  const labelStyle=await find.evaluate(el=>({font:getComputedStyle(el).fontSize,weight:getComputedStyle(el).fontWeight}));
-  expect(await clear.evaluate(el=>({font:getComputedStyle(el).fontSize,weight:getComputedStyle(el).fontWeight}))).toEqual(labelStyle);
-  await expect(clear).toHaveCSS('background-color','rgba(0, 0, 0, 0)');await expect(clear).toHaveCSS('border-top-width','0px');
+  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await (await chooser).setFiles({name:'upload-qa.txt',mimeType:'text/plain',buffer:Buffer.from('The original document remains untouched.')});
+  const dialog=page.getByRole('dialog',{name:'Select Story Text',exact:true}),selected=dialog.locator('[data-selected]');await expect(dialog).toBeVisible();await expect(selected).toHaveValue('');
+  await expect(dialog.locator('[data-story-context]')).toContainText('Upload controls QA');
+  for(const width of [1440,1024]){
+    await page.setViewportSize({width,height:1000});
+    const panes=await dialog.locator('.pdf-selection-layout > *').evaluateAll(els=>els.map(el=>({x:el.getBoundingClientRect().x,y:el.getBoundingClientRect().y,width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,bottom:el.getBoundingClientRect().bottom})));
+    expect(panes).toHaveLength(3);for(const pane of panes){expect(Math.abs(pane.width-panes[0].width)).toBeLessThan(2);expect(Math.abs(pane.height-panes[0].height)).toBeLessThan(2);expect(pane.y).toBe(panes[0].y);}
+    expect((await dialog.locator('.pdf-selection-ribbon').boundingBox()).y).toBeGreaterThanOrEqual(panes[0].bottom);
+    for(const label of ['Prompt','AI Output']){await expect(dialog.getByLabel(label,{exact:true})).toBeVisible();expect((await dialog.getByLabel(label,{exact:true}).boundingBox()).height).toBeGreaterThan(120);}
+  }
+  const find=dialog.locator('.pdf-find-replace summary'),clear=dialog.getByRole('button',{name:'Clear Selected Text',exact:true});
   await expect(dialog.locator('.pdf-selected-label')).toHaveCSS('border-top-color','rgb(255, 220, 36)');
-  await improve.focus();await page.keyboard.press('Enter');await expect(dialog.getByLabel('Prompt',{exact:true})).toBeVisible();
-  await page.keyboard.press('Tab');await expect(dialog.getByLabel('Prompt',{exact:true})).toBeFocused();
-  await selected.fill('Only these selected words.');await dialog.getByLabel('Prompt',{exact:true}).fill('Make it simpler.');
-  await dialog.getByRole('button',{name:'Improve',exact:true}).click();
-  await expect(dialog.locator('[data-ai-status]')).toContainText(/Connect AI and workspace storage|QA fixture/);
-  await expect(page.locator('dialog[open]')).toHaveCount(1);await expect(selected).toHaveValue('Only these selected words.');
-  await clear.click();await expect(selected).toHaveValue('');await expect(dialog.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeDisabled();
-  await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
+  await selected.fill('Only these selected words.');await find.press('Enter');await expect(dialog.getByLabel('Find',{exact:true})).toBeFocused();await page.keyboard.press('Escape');await expect(find).toBeFocused();await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Prompt',{exact:true}).fill('Make it simpler.');await dialog.getByRole('button',{name:'Improve',exact:true}).click();await expect(dialog.locator('[data-ai-status]')).toContainText(/Connect AI and workspace storage|QA fixture/);await expect(dialog.getByLabel('AI Output',{exact:true})).toHaveValue('');
+  await dialog.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(dialog.locator('[role=status]')).toContainText('Draft saved');
+  await clear.click();await expect(selected).toHaveValue('');await expect(dialog.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeDisabled();await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
+  await page.setViewportSize({width:390,height:844});await find.click();const panel=await dialog.locator('.pdf-find-replace .pdf-tool-panel').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.x+panel.width).toBeLessThanOrEqual(390);await page.keyboard.press('Escape');await expect(dialog).toBeVisible();
+});
+test('UPLOAD-02 AI output review and fiction versus Sports News confirmation preserve deliberate choice',async({page})=>{
+  await boot(page,{sourceFit:'fiction'});await page.getByLabel('Story Name',{exact:true}).fill('Sports News');
+  for(const [name,value] of Object.entries({output:'audio',type:'news',genre:'Sports',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+  await page.getByRole('button',{name:'Continue to Story',exact:true}).click();const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await (await chooser).setFiles({name:'Alibaba.txt',mimeType:'text/plain',buffer:Buffer.from('Alibaba found a cave. PRIVATE_UNSELECTED_REST')});
+  const source=page.getByRole('dialog',{name:'Select Story Text',exact:true});await source.locator('[data-selected]').fill('Alibaba found a cave.');await source.getByLabel('Prompt',{exact:true}).fill('Make it clearer.');await source.getByRole('button',{name:'Improve',exact:true}).click();await expect(source.getByLabel('AI Output',{exact:true})).toHaveValue('Alibaba discovered a hidden cave.');await expect(source.locator('[data-selected]')).toHaveValue('Alibaba found a cave.');
+  await source.getByRole('button',{name:'Apply Improvement',exact:true}).click();await expect(source.locator('[data-selected]')).toHaveValue('Alibaba discovered a hidden cave.');
+  await source.getByRole('button',{name:'Apply Selected Text',exact:true}).click();const warning=page.getByRole('dialog',{name:'Review source compatibility',exact:true});await expect(warning).toBeVisible();await expect(warning.locator('[data-story]')).toContainText('Sports News');await expect(warning.locator('[data-reason]')).toContainText('fiction');await expect(page.locator('#story-simple-script')).toHaveValue('');
+  await warning.getByRole('button',{name:'Choose Different Text',exact:true}).click();await expect(warning).toHaveCount(0);await expect(source).toBeVisible();await expect(source.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeFocused();await expect(source.locator('[data-selected]')).toHaveValue('Alibaba discovered a hidden cave.');
+  await source.getByRole('button',{name:'Apply Selected Text',exact:true}).click();await warning.getByRole('button',{name:'Use Anyway',exact:true}).click();await expect(source).toBeHidden();await expect(page.locator('#story-simple-script')).toHaveValue('Alibaba discovered a hidden cave.');
+  const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance'));expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED_REST');expect(calls.find(c=>c.body.fields[0].id==='source_compatibility').body.context.genre).toBe('Sports');
 });
 
 

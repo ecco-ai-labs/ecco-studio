@@ -7,7 +7,7 @@
  const originalNavigate=navigate;
  const routes={audio:'audio',image:'images',video:'render'};
  const tabs=['Story Details','Story & Characters','Generate & Publish'];
- const genres=['Business','News','Comedy','Adventure','Drama','Fantasy','Mystery','Horror','Romance','Science','Science Fiction','History','Educational','Documentary','Other'];
+ const genres=['Business','News','Sports','Comedy','Adventure','Drama','Fantasy','Mystery','Horror','Romance','Science','Science Fiction','History','Educational','Documentary','Other'];
  const audiences=['All ages','Children (3–5)','Children (6–8)','Children (9–12)','Teenagers (13–17)','Adults (18+)','Families'];
  const languages=['English','Hindi','Urdu','Tamil','Punjabi','Arabic','Spanish','Portuguese','French','German','Italian','Japanese','Korean','Chinese','Bengali','Telugu','Marathi','Gujarati','Kannada','Malayalam'];
  let data=null,legacy={},enabled=false,rendering=false,epoch=0,picker=null,pickerOwner='',sourcePending=false,saving=null,aiRequest=null,queued=false,workspaceStory='';
@@ -68,7 +68,14 @@
  function sourcePicker(){
   if(pickerOwner===owner()&&picker)return picker;
   picker?.destroy();pickerOwner=owner();const current=pickerOwner;
-  const currentPicker=window.EccoSourcePicker.create({onApply(selection){
+  const currentPicker=window.EccoSourcePicker.create({maxSelection:20000,
+   contextLabel:()=>[data.title,M.types.find(([id])=>id===data.type)?.[1]||data.type,data.genre].filter(Boolean).join(' · '),
+   reviewSelection:async(selection,valid,opener)=>{
+    const target=data,version=epoch;
+    const currentSource=()=>{valid();if(current!==owner()||!enabled||target!==data||version!==epoch)throw Error('Story Details changed. Review this source against your updated story.');};
+    currentSource();if(!window.EccoSourceCompatibility)throw Error('Source checking could not load. Refresh Studio and try again.');
+    return window.EccoSourceCompatibility.review({selection,story:{title:data.title,type:data.type,typeLabel:M.types.find(([id])=>id===data.type)?.[1]||data.type,genre:data.genre,audience:data.audience,location:data.location,brief:data.brief},valid:currentSource,opener});
+   },onApply(selection){
    if(current!==owner()||!enabled)throw Error('Return to the story where you opened this document.');
    if(selection.text.length>20000)throw Error('Select a chapter or passage of at most 20,000 characters.');
    data.source={text:selection.text,name:selection.name,pages:selection.pages||[],selection:selection.selection_label||''};data.script=selection.text;delete data.audioScript;data.scenes=[];data.plan=null;sourcePending=false;epoch++;persist();render();

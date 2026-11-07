@@ -4,6 +4,7 @@ on:
     paths:
       - 'source-picker*'
       - 'source-chapters.js'
+      - 'source-compatibility*'
       - 'ai-text-refinement.js'
       - 'updates/workspace-ui.css'
       - 'audio-journey.js'
@@ -20,6 +21,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --prefix /tmp/ecco-source-tests jsdom@26.1.0 --no-audit --no-fund
-      - run: NODE_PATH=/tmp/ecco-source-tests/node_modules node --test source-picker.test.cjs tests/popup-controls.test.cjs
+      - run: NODE_PATH=/tmp/ecco-source-tests/node_modules node --test source-picker.test.cjs source-compatibility.test.cjs tests/popup-controls.test.cjs
       - run: NODE_PATH=/tmp/ecco-source-tests/node_modules node --test --test-name-pattern='Nested source preview|Document preview is nested' audio-journey.test.cjs
       - run: python3 scripts/ui_inventory.py --check

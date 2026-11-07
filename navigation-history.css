@@ -1,9 +1,6 @@
-.ecco-back{font-size:12px!important;font-weight:500!important;min-height:30px;padding:5px 8px!important;white-space:nowrap;color:var(--ecco-theme-text,#fff)!important;background:transparent!important;border:0!important;box-shadow:none!important}
-.ecco-back:hover,.ecco-back:focus-visible{color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
-.ecco-back:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
+#workspace-back{font-size:12px!important;font-weight:500!important;min-height:30px;padding:5px 8px!important;white-space:nowrap;color:var(--ecco-theme-text,#fff)!important;background:transparent!important;border:0!important;box-shadow:none!important}
+#workspace-back:hover,#workspace-back:focus-visible{color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
+#workspace-back:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
 #workspace-back{display:block;margin:0 0 2px -8px}
 #workspace-back[hidden]{display:none!important}
-.workspace-menu-items>.ecco-back{border-bottom:1px solid var(--ecco-theme-border,#48405c)!important;border-radius:0!important;margin-bottom:4px}
-dialog>.ecco-dialog-back{position:absolute;top:10px;left:12px;z-index:20}
-#workspace-theme-drawer>.ecco-back,#workspace-billing-drawer>.ecco-back,#workspace-usage-drawer>.ecco-back{flex:none;align-self:flex-start}
 .desk-studio-toolbar:has([data-screen-back]){display:none}

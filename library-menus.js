@@ -77,11 +77,10 @@
    event.preventDefault();event.stopPropagation();const wasOpen=opener===button;closeMenu();if(wasOpen)return;
    const current=targetFor(row);if(!current)return;
    opener=button;button.setAttribute('aria-expanded','true');activeMenu=document.createElement('div');activeMenu.className='library-options-menu';activeMenu.setAttribute('role','menu');
-   const back=document.createElement('button');back.type='button';back.setAttribute('role','menuitem');back.textContent='← Back';back.onclick=()=>closeMenu(true);activeMenu.append(back);
    const rename=document.createElement('button');rename.type='button';rename.setAttribute('role','menuitem');rename.textContent='Rename';rename.onclick=()=>{closeMenu();renameDialog(current,button);};activeMenu.append(rename);
    const remove=document.createElement('button');remove.type='button';remove.setAttribute('role','menuitem');remove.textContent='Delete';const deletion=deleteFor(row);remove.disabled=!deletion;if(!deletion)remove.title='This built-in library view cannot be deleted.';
    remove.onclick=async()=>{remove.disabled=true;try{await deletion();closeMenu();}catch(err){remove.disabled=false;let error=activeMenu?.querySelector('[role=alert]');if(!error&&activeMenu){error=document.createElement('p');error.setAttribute('role','alert');activeMenu.append(error);}if(error)error.textContent=err.message||'Could not delete. Try again.';}};activeMenu.append(remove);document.body.append(activeMenu);
-   const rect=button.getBoundingClientRect();activeMenu.style.left=Math.max(8,Math.min(rect.right,innerWidth-168))+'px';activeMenu.style.top=Math.max(8,Math.min(rect.bottom,innerHeight-140))+'px';rename.focus();
+   const rect=button.getBoundingClientRect();activeMenu.style.left=Math.max(8,Math.min(rect.right,innerWidth-168))+'px';activeMenu.style.top=Math.max(8,Math.min(rect.bottom,innerHeight-100))+'px';rename.focus();
   };row.append(button);
  }
  function mount(){

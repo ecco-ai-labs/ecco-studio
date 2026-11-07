@@ -4,7 +4,7 @@ Run `npm ci`, `npx playwright install --with-deps chrome`, then `npm test` from 
 The GitHub **UX QA Agent** workflow runs on every push and pull request and supports **Run workflow**.
 Open the run summary for counts, failures and coverage; download `ecco-ux-qa-*` for `report/index.html`, screenshots, videos, traces and JSON.
 
-The suite registers 59 Chrome browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.
+The suite registers 64 Chrome browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.
 The exact production frontend loads in a local fixture host. Service responses, identity and media are synthetic; external requests are intercepted and blocked. No live tickets, charges, GPU jobs or YouTube uploads occur. `coverage.json` explicitly lists backend workflows that remain blocked.
 
 ## AI screenshot inspection

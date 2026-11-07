@@ -49,7 +49,7 @@ export default function Notifications({api}:{api:Api}){
   {error&&<div className="alert error" role="alert"><AlertCircle size={17}/>{error}<button type="button" className="text-button" onClick={()=>{setError('');refresh()}}>Retry</button></div>}
   {success&&<p className="notification-success" role="status">{success}</p>}
   <section className="ticket-section"><div className="section-heading"><div><Bell size={18}/><h2>{kind==='marketing_campaign'?'Campaigns':reissue?'Re-issue Notification':'New Notification'}</h2></div></div>
-   <div className="notification-type"><label>Type<select name="kind" value={kind} disabled={busy} onChange={e=>setKind(e.target.value)}><option value="notification">Notification</option><option value="special_offer" disabled={!offersReady}>Special offer</option><option value="marketing_campaign">Marketing Campaign</option></select></label></div>
+   <div className="notification-type"><label>Type<select aria-label="Type" name="kind" value={kind} disabled={busy} onChange={e=>setKind(e.target.value)}><option value="notification">Notification</option><option value="special_offer" disabled={!offersReady}>Special offer</option><option value="marketing_campaign">Marketing Campaign</option></select></label></div>
    {kind==='marketing_campaign'?<Campaigns api={api} users={users} ready={campaignsReady}/>:<form ref={formRef} key={reissue?.key||'new'} className="notification-composer" onSubmit={publish} onReset={()=>{setReissue(null);requestId.current=newRequestId();setAudience('all');setLifetime('duration');setKind('notification')}} aria-busy={busy}>
     <fieldset disabled={busy||!ready}>
      {reissue&&<p className="form-info">Edit the details below, then publish a fresh copy with a new lifetime.</p>}
