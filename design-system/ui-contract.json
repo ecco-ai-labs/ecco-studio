@@ -183,7 +183,8 @@
         "stop-generation",
         "clip-frame-review",
         "three-tab-story-workspace",
-        "credit-purchases"
+        "credit-purchases",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -207,7 +208,8 @@
       ],
       "variants": [
         "studio-support",
-        "popup-minimize"
+        "popup-minimize",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -294,7 +296,8 @@
         "text"
       ],
       "variants": [
-        "credit-purchases"
+        "credit-purchases",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -336,7 +339,8 @@
         "tone"
       ],
       "variants": [
-        "credit-purchases"
+        "credit-purchases",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -700,7 +704,8 @@
         "open"
       ],
       "variants": [
-        "resume-popups"
+        "resume-popups",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -722,7 +727,9 @@
         "selected",
         "icon"
       ],
-      "variants": [],
+      "variants": [
+        "desk-account"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -865,7 +872,8 @@
         "ecco-desk",
         "clip-frame-review",
         "three-tab-story-workspace",
-        "credit-purchases"
+        "credit-purchases",
+        "desk-account"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -2213,7 +2221,7 @@
         "status-indicator"
       ],
       "appearance": "Reuse existing Desk sidebar, light ticket sections, form-grid, native inputs, primary/secondary actions, history table and error/status styles. New form padding 22px (16px mobile), 20px section gap, 11px labels, 12px controls, 5px control radius, 10px/11px control padding. Severity text uses existing informational blue, warning brown and error red treatments. Bell keeps original dimensions and theme colors.",
-      "content": "User Notifications; All users / Specific user; Informational / Warning / Error; title (160 chars), message (4000 chars); Read or duration ends (3 days default, whole 1–365 days) / Until read; Publish notification, Clear form; history with recipients, severity, status, dates, read count and Withdraw.",
+      "content": "User Notifications; All users / Specific user; Informational / Warning / Error; title (160 chars), message (4000 chars); Read or duration ends (3 days default, whole 1–365 days) / Until read; Publish notification, Clear form; history with recipients, severity, status, dates, read count and Withdraw. The left navigation entry is always visible in standalone Ticketing Studio; accounts without administrator access receive a clear permission explanation.",
       "states": "Loading, unavailable old service, empty history, active, read (targeted recipient), expired, withdrawn, saving, failure retains draft and success resets form. History lists latest 200 notifications.",
       "interaction": "Only administrators can open management. Native recipient selector uses verified Studio identities with name/email; target is stored as stable subject. Publish uses a per-draft idempotency key to avoid duplicate retries. Polling preserves input focus and unsent draft. Withdraw removes future visibility without deleting history. History details disclose full message. Every recipient stops seeing a notice on read or expiry, whichever occurs first.",
       "accessibility": "Label-wrapped native form controls, browser required/min/max validation, aria-busy saving, role=alert errors, role=status success, visible keyboard focus, native details/summary and table headers. Responsive form stacks at 650px; wide history scrolls within its section.",
@@ -2224,6 +2232,26 @@
         "validation": "Admin-only creation; credit integers 1–1000000, bonus integers 0–1000000, USD cents 1–100000000. Stable targeting, expiry, read receipts and idempotency include offer terms. Additive nullable offer column preserves existing notices.",
         "deployment": "specialOfferVersion 1 capability enables the admin option only after the matching backend is installed. No campaign is seeded. Customer routes cannot publish or withdraw offers."
       }
+    },
+    "accountAccess": {
+      "approval": "User requested improving sign-in and signing out through the upper-right account icon, and a visible User Notifications entry in Ticketing Studio left navigation.",
+      "identity": {
+        "type": "menu",
+        "variant": "desk-account",
+        "sources": [
+          "desk/src/AccountMenu.tsx",
+          "desk/src/StaffSignIn.tsx",
+          "desk/src/staff-auth.ts"
+        ],
+        "parent": "Standalone Desk topbar and signed-out welcome"
+      },
+      "appearance": "Keep existing 29px avatar, topbar dimensions, Desk navy, light surfaces and focus outline. Dropdown is 280px wide, viewport constrained, with 9px radius and 12px top gap. Signed-out welcome uses a 480px content column and 36px heading (30px narrow); Google provides its standard 280px sign-in button.",
+      "layout": "Account menu anchors below the upper-right avatar. Signed-out page presents Google sign-in directly, without another intermediate dialog. Embedded customer support retains Studio sign-in.",
+      "content": "Account name, email, role and Sign out. Sign in to Ecco Desk, direct Google button, support/admin account guidance, loading/error feedback and Try again. User Notifications is present in standalone left navigation for all signed-in roles.",
+      "states": "Closed/open account menu; signed in/out; Google loading, signing in, failed and retrying. Non-admin User Notifications shows Administrator access required with current account and sign-out guidance; no notification data or publishing controls are requested.",
+      "interaction": "Click avatar to toggle; opening focuses Sign out; Enter/Space activate; arrows focus the menu item; Escape closes only this menu and restores avatar focus; outside pointer or keyboard focus dismisses. Sign out clears only the Desk session immediately, requests server revocation using the captured old token, resets cached workspace data and returns to welcome without opening a popup. Disposed/stale sign-in callbacks cannot replace a newer account; stale server sessions are revoked.",
+      "accessibility": "Named native avatar button with aria-haspopup, aria-expanded and aria-controls; named menu/menuitem, visible keyboard focus; Google accessible button; polite loading status and alert errors.",
+      "usage": "Standalone desk/index.html. Server admin-only publish/withdraw rules are unchanged. No real notification is sent by this change; no account role is granted."
     }
   },
   "persistentConnections": {

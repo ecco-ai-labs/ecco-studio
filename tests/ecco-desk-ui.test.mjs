@@ -83,6 +83,6 @@ sessionStorage.setItem('ecco-user-session','still-customer');localStorage.remove
 const guestHost=document.createElement('section');document.body.append(guestHost);cleanup=mount(guestHost,{onSignIn(){signIn++}});await tick();await tick();
 assert.equal(calls.length,before);
 root=guestHost.shadowRoot;
-Array.from(root.querySelectorAll('button')).find(b=>b.textContent.includes('Choose support Google account')).click();
+Array.from(root.querySelectorAll('button')).find(b=>b.textContent.includes('Sign in with Google')).click();
 assert.equal(signIn,1);cleanup();
 console.log('PASS: requester-only API for Studio, private ticket UI, account-switch races, dialogs/focus, separate staff queues and sign-in.');

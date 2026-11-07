@@ -37,3 +37,25 @@ tbody tr.has-support-reply{background:#fff9e4}tbody tr.has-support-reply:hover{b
 
 /* Admin notifications reuse Desk form, table and severity treatments. */
 .user-notifications{display:grid;gap:20px}.notification-composer{padding:0 22px 22px}.notification-composer fieldset{border:0;padding:0;margin:0;min-width:0}.notification-composer label{display:block;font-size:11px;color:#5d707c;font-weight:500;margin-bottom:16px}.notification-composer input,.notification-composer select,.notification-composer textarea{display:block;width:100%;border:1px solid #dde4e8;background:#fff;border-radius:5px;font-size:12px;padding:10px 11px;margin-top:7px;line-height:1.5}.notification-composer textarea{resize:vertical}.notification-full{grid-column:1/-1}.notification-actions{display:flex;justify-content:flex-end;gap:10px}.notification-success{font-size:12px;color:#2d665a}.notification-history details{white-space:normal;min-width:180px}.notification-history summary{cursor:pointer;color:var(--navy);font-weight:600;overflow-wrap:anywhere}.notification-history p{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px;line-height:1.7}.notification-history td small{display:block;margin-top:5px}.notification-severity{font-weight:600}.notification-severity.informational{color:#426b7e}.notification-severity.warning{color:#796000}.notification-severity.error{color:#b13a31}.user-notifications .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}@media(max-width:650px){.notification-composer{padding:0 16px 16px}.notification-composer .form-grid{grid-template-columns:1fr}}
+
+/* Account actions keep the existing header/avatar dimensions. */
+.account-control{position:relative}
+.account-trigger{cursor:pointer;border:1px solid #cdd8ca;padding:0}
+.account-trigger:hover,.account-trigger[aria-expanded="true"]{background:#d7e0cf}
+.account-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:280px;max-width:calc(100vw - 32px);padding:6px;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 32px #17354326;z-index:25}
+.account-identity{padding:12px;border-bottom:1px solid var(--line);margin-bottom:5px;overflow-wrap:anywhere}
+.account-identity strong,.account-identity span,.account-identity small{display:block}
+.account-identity strong{font-size:13px}
+.account-identity span{font-size:12px;color:#63717d;margin-top:5px}
+.account-identity small{font-size:10px;color:#63717d;margin-top:8px}
+.account-dropdown>button{display:flex;align-items:center;gap:9px;width:100%;padding:11px 12px;border-radius:5px;font-size:12px;text-align:left;color:var(--navy)}
+.account-dropdown>button:hover,.account-dropdown>button:focus-visible{background:#f0f4ef}
+.staff-welcome .signin-content{max-width:480px;margin:70px auto}
+.staff-welcome h1{font-size:36px;letter-spacing:-1px}
+.staff-welcome .signin-content>p{color:#63766b}
+.staff-signin{margin:30px 0 24px}
+.google-signin-button{min-height:44px}
+.staff-signin>p{font-size:12px;line-height:1.6;color:#63766b;margin:12px 0}
+.staff-signin>p[role="alert"]{color:#a63437}
+.staff-welcome .signin-content>.signin-account-note{font-size:12px;line-height:1.8}
+@media(max-width:600px){.staff-welcome .signin-content{margin:42px auto;padding:0 20px}.staff-welcome h1{font-size:30px}}
