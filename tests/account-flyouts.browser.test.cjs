@@ -9,13 +9,17 @@ const billing=source.slice(source.indexOf(' function billingAmount('),source.ind
 let browser;
 before(async()=>{browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox']});});
 after(async()=>{await browser?.close();});
-async function fixture(t){
+async function fixture(t,theme="default"){
  const page=await browser.newPage({viewport:{width:1280,height:800}}),errors=[];
  t.after(()=>page.close());page.on('pageerror',error=>errors.push(error.message));
  await page.route('https://studio.test/',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><main><header><div id="connection-indicators"></div><div id="workspace-menus"><details id="education-menu"></details></div></header></main><button id="outside">Outside</button>'}));
  await page.goto('https://studio.test/');
+ await page.evaluate(theme=>localStorage.setItem('ecco-theme-preset-v1',theme),theme);
  await page.addStyleTag({path:resolve(root,'studio.css')});
  await page.addStyleTag({path:resolve(root,'updates/workspace-ui.css')});
+ await page.addStyleTag({path:resolve(root,'theme.css')});
+ await page.addStyleTag({path:resolve(root,'glass-themes.css')});
+ await page.addScriptTag({path:resolve(root,'theme.js')});
  await page.evaluate(()=>{
   localStorage.setItem('ecco-user-session','test-only-session');
   window.fetch=async()=>({ok:true,headers:{get:()=> 'application/json'},json:async()=>({user:{id:'test-user',name:'Test User'}})});
@@ -30,11 +34,13 @@ async function fixture(t){
 }
 async function focusedUsage(page,credits){
  await credits.focus();await credits.press('ArrowLeft');
- assert.equal(await page.locator('[aria-label="Close Credits and Usage"]').evaluate(el=>el===document.activeElement),true);
+ assert.equal(await page.locator('#workspace-usage-drawer button').evaluate(el=>el===document.activeElement),true);
 }
 test('Billing opens after the focused Credits panel closes on hover',async t=>{
  const {page,errors,credits,bill}=await fixture(t);
- await focusedUsage(page,credits);await bill.hover();await bill.click();
+ await focusedUsage(page,credits);await bill.hover();
+ assert.equal(await page.locator('#workspace-usage-drawer').isVisible(),true);
+ await bill.click();
  assert.deepEqual(errors,[]);
  assert.equal(await page.locator('#workspace-usage-drawer').count(),0);
  assert.equal(await page.locator('#workspace-billing-drawer').isVisible(),true);
@@ -43,12 +49,12 @@ test('Billing opens after the focused Credits panel closes on hover',async t=>{
  assert.equal(await credits.getAttribute('aria-expanded'),'false');
  assert.match(await page.locator('#workspace-billing-drawer').innerText(),/Total Cost: \$8.00/);
 });
-test('Credits close, Escape and ArrowRight restore focus without reentrant removal',async t=>{
+test('Credits has no close button; Escape and ArrowRight restore focus',async t=>{
  const {page,errors,credits}=await fixture(t);
- for(const key of ['click','Escape','ArrowRight']){
+ for(const key of ['Escape','ArrowRight']){
   await focusedUsage(page,credits);
-  const close=page.locator('[aria-label="Close Credits and Usage"]');
-  if(key==='click')await close.click();else await close.press(key);
+  assert.equal(await page.locator('[aria-label="Close Credits and Usage"]').count(),0);
+  await page.locator('#workspace-usage-drawer button').press(key);
   assert.equal(await page.locator('#workspace-usage-drawer').count(),0);
   assert.equal(await credits.evaluate(el=>el===document.activeElement),true,key+' focus');
   assert.equal(await page.locator('#google-user-menu').getAttribute('open'),'');
@@ -81,3 +87,41 @@ test('purchase and nested Billing Information close without losing the parent',a
  assert.equal(await page.getByRole('button',{name:'Complete purchase',exact:true}).isDisabled(),true);
  assert.deepEqual(errors,[]);
 });
+
+test('pointer excursions and null focus changes do not collapse either flyout; outside click dismisses',async t=>{
+ const {page,errors,credits,bill}=await fixture(t);
+ for(const trigger of [credits,bill]){
+  await trigger.click();await trigger.press('ArrowLeft');
+  const id=await trigger.getAttribute('aria-controls'),drawer=page.locator('#'+id);
+  await page.mouse.move(5,700);
+  assert.equal(await drawer.isVisible(),true);
+  await page.evaluate(()=>document.activeElement.blur());
+  assert.equal(await drawer.isVisible(),true);
+  const sibling=trigger===credits?bill:credits;await sibling.hover();
+  assert.equal(await drawer.isVisible(),true);
+  await drawer.locator('button').hover();assert.equal(await drawer.isVisible(),true);
+ }
+ await page.locator('#outside').click();
+ await page.waitForFunction(()=>document.querySelector('[data-user-flyout="billing"]').getAttribute('aria-expanded')==='false');
+ assert.equal(await bill.getAttribute('aria-expanded'),'false');
+ assert.equal(await page.locator('#google-user-menu').getAttribute('open'),null);
+ assert.deepEqual(errors,[]);
+});
+test('signed-in account without credit data says Unavailable, never signed out or an invented balance',async t=>{
+ const {page,credits}=await fixture(t);await credits.click();
+ assert.equal(await page.locator('[data-credit-balance]').textContent(),'Unavailable');
+ assert.equal(await page.locator('[data-credit-used]').textContent(),'—');
+ await page.evaluate(()=>window.EccoCredits.connect({heartbeat:async()=>({balance:275,used:225})}));
+ assert.equal(await page.locator('[data-credit-balance]').textContent(),'275');
+ assert.equal(await page.locator('[data-credit-used]').textContent(),'225');
+});
+for(const theme of ['default','dark','forest','desert','ocean','dark-sky']){
+ test('Purchase keeps its resting colors on hover in '+theme,async t=>{
+  const {page,credits,errors}=await fixture(t,theme);await credits.click();
+  const purchase=page.locator('#workspace-usage-drawer button');
+  const colors=()=>purchase.evaluate(el=>{const s=getComputedStyle(el);return {color:s.color,background:s.backgroundColor,filter:s.filter,shadow:s.boxShadow};});
+  const resting=await colors();await purchase.hover();assert.deepEqual(await colors(),resting);
+  await credits.focus();await credits.press('ArrowLeft');assert.notEqual(await purchase.evaluate(el=>getComputedStyle(el).outlineStyle),'none');
+  assert.deepEqual(errors,[]);
+ });
+}

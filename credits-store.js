@@ -12,10 +12,15 @@
  function status(host,text){const p=document.createElement('p');p.setAttribute('role','status');p.textContent=text;host.append(p);return p;}
  function totals(){return PACKS.reduce((a,p)=>({credits:a.credits+p.credits*(cart[p.id]||0),cents:a.cents+p.cents*(cart[p.id]||0),items:a.items+(cart[p.id]||0)}),{credits:0,cents:0,items:0});}
  function noticeLow(){if(balance===null||balance>100||warned)return;warned=true;warning=dialog('Low credits');status(warning,WARNING);warning.append(button('Purchase Additional Credits',()=>{warning.close();open('shop');}));warning.showModal();}
+ function balanceLabel(){
+  if(balance!==null)return String(balance);
+  if(adapter&&pending)return 'Loading…';
+  return window.EccoAuth?.user?'Unavailable':'Sign in to view';
+ }
  function render(){if(!panel)return;panel.querySelector('[data-credits-body]')?.remove();const body=document.createElement('div');body.dataset.creditsBody='';body.className='form';panel.append(body);panel.querySelector('h2').textContent=({usage:'Credits and Usage',shop:'Purchase Additional Credits',cart:'Your cart',checkout:'Checkout'})[view];
   if(view==='usage'){
    body.classList.add('credits-usage-body');
-   line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits',balance===null?'Sign-in not connected':String(balance));line(body,'Credits used',balance===null?'—':String(used));
+   line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits',balanceLabel());line(body,'Credits used',balance===null?'—':String(used));
    body.append(button('Purchase Additional Credits',()=>open('shop')));
   }
   if(view==='shop'){
@@ -40,36 +45,38 @@
  }
  function updateUsage(){
   if(!usageDrawer)return;
-  usageDrawer.querySelector('[data-credit-balance]').textContent=balance===null?'Sign-in not connected':String(balance);
+  usageDrawer.querySelector('[data-credit-balance]').textContent=balanceLabel();
   usageDrawer.querySelector('[data-credit-used]').textContent=balance===null?'—':String(used);
  }
- function openUsage(trigger){
+ function openUsage(trigger,fromHover=false){
+  // Once a panel is open, crossing another row must not replace it. Click to switch.
+  if(fromHover&&(usageDrawer||q('#workspace-billing-drawer:not([hidden])')))return;
   const menu=trigger.closest('.workspace-menu-items');if(!menu)return;
   window.EccoBilling?.close();
   if(usageDrawer&&usageTrigger===trigger)return;
   closeUsage();usageTrigger=trigger;
   usageDrawer=document.createElement('div');usageDrawer.id='workspace-usage-drawer';usageDrawer.className='credits-dialog credits-usage-drawer';usageDrawer.setAttribute('role','region');usageDrawer.setAttribute('aria-label','Credits and Usage');
-  const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='Credits and Usage';const close=button('×',event=>{event.stopPropagation();closeUsage(true);});close.setAttribute('aria-label','Close Credits and Usage');head.append(title,close);usageDrawer.append(head);
+  const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='Credits and Usage';head.append(title);usageDrawer.append(head);
   const body=document.createElement('div');body.className='form credits-usage-body';line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits','');body.lastChild.querySelector('strong').dataset.creditBalance='';line(body,'Credits used','');body.lastChild.querySelector('strong').dataset.creditUsed='';body.append(button('Purchase Additional Credits',()=>open('shop')));usageDrawer.append(body);menu.append(usageDrawer);trigger.setAttribute('aria-expanded','true');updateUsage();
   if(!menu.dataset.usageDrawerBound){
    menu.dataset.usageDrawerBound='true';
-   menu.addEventListener('pointerleave',()=>{if(usageDrawer?.parentElement===menu)closeUsage();});
-   menu.addEventListener('focusout',event=>{if(usageDrawer?.parentElement===menu&&!menu.contains(event.relatedTarget))closeUsage();});
+   menu.addEventListener('focusout',event=>{if(usageDrawer?.parentElement===menu&&event.relatedTarget&&!menu.closest('details')?.contains(event.relatedTarget))closeUsage();});
    menu.addEventListener('keydown',event=>{if(usageDrawer?.parentElement===menu&&(event.key==='Escape'||event.key==='ArrowRight')){event.preventDefault();event.stopPropagation();closeUsage(true);}});
    menu.closest('details')?.addEventListener('toggle',()=>{if(!menu.closest('details').open&&usageDrawer?.parentElement===menu)closeUsage();});
   }
  }
- function open(next='usage',trigger){
-  if(next==='usage'&&trigger)return openUsage(trigger);
+ function open(next='usage',trigger,{hover=false}={}){
+  if(next==='usage'&&trigger)return openUsage(trigger,hover);
   const menu=usageTrigger?.closest('details');closeUsage();if(menu)menu.open=false;
   view=next;if(!panel||!panel.isConnected){panel=dialog('Credits and Usage');panel.addEventListener('close',()=>{panel=null;});render();panel.showModal();}else render();
  }
  async function tick(){
   if(!adapter||pending)return;pending=true;try{const result=await adapter.heartbeat();if(!Number.isFinite(result.balance)||result.balance<0)throw Error('Invalid credit balance');balance=result.balance;used=result.used;if(view==='usage')render();updateUsage();noticeLow();}catch(e){if(panel&&view==='usage'){render();status(panel.querySelector('[data-credits-body]'),'Credit balance could not be refreshed.');}if(usageDrawer){usageDrawer.querySelector('[data-credit-balance]').textContent='Could not refresh';}}finally{pending=false;}
  }
- function mount(){const old=q('#workspace-credits');if(old&&!old.dataset.creditStore){old.dataset.creditStore='true';old.textContent='Credits and Usage';old.dataset.userFlyout='usage';old.setAttribute('aria-controls','workspace-usage-drawer');old.setAttribute('aria-expanded','false');old.onclick=()=>open('usage',old);old.addEventListener('pointerenter',()=>open('usage',old));old.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();open('usage',old);usageDrawer?.querySelector('button')?.focus();}});}q('#purchase-additional-credits')?.remove();}
+ function mount(){const old=q('#workspace-credits');if(old&&!old.dataset.creditStore){old.dataset.creditStore='true';old.textContent='Credits and Usage';old.dataset.userFlyout='usage';old.setAttribute('aria-controls','workspace-usage-drawer');old.setAttribute('aria-expanded','false');old.onclick=()=>open('usage',old);old.addEventListener('pointerenter',()=>open('usage',old,{hover:true}));old.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();open('usage',old);usageDrawer?.querySelector('button')?.focus();}});}q('#purchase-additional-credits')?.remove();}
  const style=document.createElement('style');style.textContent='.credits-dialog{color:var(--text,#eeebf5);background:var(--panel,#242147)}.credits-line{display:flex;justify-content:space-between;gap:16px;margin:5px 0}.credits-pack-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.credits-pack,.credits-cart-row{padding:12px;border:1px solid var(--border,#51496f);border-radius:8px}.credits-pack button{width:100%;margin-top:10px}.credits-cart-row{display:grid;gap:8px}.credits-dialog>.section-head>button{width:26px;height:26px;padding:0;background:#ffdc24;color:#211b33;font-size:20px}.credits-dialog [role=status]{font-size:12px}.credits-dialog input{min-width:0}.credits-dialog>.credits-billing-form{padding-top:1em}.credits-dialog>.credits-usage-body{padding-top:1em;gap:.5em}.credits-usage-body>.credits-line,.credits-usage-body>[role=status]{margin:0}@media(max-width:560px){.credits-pack-grid{grid-template-columns:1fr}}';document.head.append(style);
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});mount();setInterval(tick,1000);
- const flyoutStyle=document.createElement('style');flyoutStyle.textContent='#workspace-usage-drawer{position:absolute;left:auto;right:100%;top:0;box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:12px;border:1px solid var(--ecco-theme-border,#48405c);border-radius:9px;box-shadow:0 12px 32px #0006;color:var(--ecco-theme-text,var(--text,#eeebf5));background:var(--ecco-theme-surface,var(--panel,#252039));z-index:2;animation:credits-slide-left .2s ease}#workspace-usage-drawer .section-head{margin:0;gap:16px}#workspace-usage-drawer h2{font-size:13px;margin:0}#workspace-usage-drawer .credits-line{font-size:13px}#workspace-usage-drawer>.credits-usage-body{display:flex;flex-direction:column;gap:.5em;padding-top:1em}#workspace-usage-drawer .credits-usage-body>button{min-height:30px;padding:6px 10px;font-size:12px}@keyframes credits-slide-left{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}@media(prefers-reduced-motion:reduce){#workspace-usage-drawer{animation:none}}';document.head.append(flyoutStyle);
+ const flyoutStyle=document.createElement('style');flyoutStyle.textContent='#workspace-usage-drawer{position:absolute;left:auto;right:100%;top:0;box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:12px;border:1px solid var(--ecco-theme-border,#48405c);border-radius:9px;box-shadow:0 12px 32px #0006;color:var(--ecco-theme-text,var(--text,#eeebf5));background:var(--ecco-theme-surface,var(--panel,#252039));z-index:2;animation:credits-slide-left .2s ease}#workspace-usage-drawer .section-head{margin:0;gap:16px}#workspace-usage-drawer h2{font-size:13px;margin:0}#workspace-usage-drawer .credits-line{font-size:13px}#workspace-usage-drawer>.credits-usage-body{display:flex;flex-direction:column;gap:.5em;padding-top:1em}#workspace-usage-drawer .credits-usage-body>button{min-height:30px;padding:6px 10px;font-size:12px;background:var(--ecco-theme-accent,var(--accent,#ffdc24))!important;color:var(--ecco-theme-contrast,#211b3c)!important;filter:none!important;box-shadow:none!important}html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]) #workspace-usage-drawer .credits-usage-body>button{background:var(--ecco-theme-control)!important;color:var(--ecco-theme-text)!important;box-shadow:inset 0 0 0 1px var(--ecco-theme-border)!important}@keyframes credits-slide-left{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}@media(prefers-reduced-motion:reduce){#workspace-usage-drawer{animation:none}}';document.head.append(flyoutStyle);
+ document.addEventListener('ecco:auth-change',()=>{updateUsage();if(panel&&view==='usage')render();});
  window.EccoCredits={open,closeUsage,async connect(authenticatedAdapter){if(!authenticatedAdapter||typeof authenticatedAdapter.heartbeat!=='function')throw Error('Authenticated credit service required');adapter=authenticatedAdapter;warned=false;await tick();},disconnect(){closeUsage();adapter=null;balance=null;used=0;warned=false;if(panel)render();}};
 })();
