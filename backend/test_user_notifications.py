@@ -113,6 +113,52 @@ class NotificationTest(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM records').fetchone()[0], 1)
             self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_notifications').fetchone()[0], 6)
 
+    def test_read_history_is_latest_three_per_user_and_survives_restart(self):
+        self.prepare()
+        notices = [self.publish() for _ in range(4)]
+        for nid in notices:
+            result = self.call('alice', dict(op='readNotification', id=nid), path='/api/desk/support')[1]
+        self.assertEqual(result['notificationHistoryVersion'], 1)
+        self.assertEqual([n['id'] for n in result['readNotifications']], notices[:0:-1])
+        self.assertEqual(self.call('bob', path='/api/desk/support?userNotifications=1')[1]['readNotifications'], [])
+        # New unread notices cannot evict read history from its independent window.
+        for _ in range(5):
+            self.publish()
+        desk.initialize(self.database, start_notifications=False)
+        result = self.call('alice', path='/api/desk/support?userNotifications=1')[1]
+        self.assertEqual([n['id'] for n in result['readNotifications']], notices[:0:-1])
+        self.assertNotIn('recipientId', result['readNotifications'][0])
+        self.assertNotIn('offer', result['readNotifications'][0])
+
+    def test_read_history_excludes_expired_withdrawn_and_other_recipients(self):
+        self.prepare()
+        instant = dt.datetime(2030, 1, 1, tzinfo=dt.timezone.utc)
+        with patch.object(desk, 'now', return_value=instant.isoformat(timespec='microseconds')):
+            timed = self.publish(audience='user', recipientId='google:alice')
+            withdrawn = self.publish()
+            forever = self.publish(durationDays=None)
+            for nid in (timed, withdrawn, forever):
+                self.call('alice', dict(op='readNotification', id=nid), path='/api/desk/support')
+            self.call(body=dict(op='withdrawNotification', id=withdrawn))
+        with patch.object(desk, 'now', return_value=(instant+dt.timedelta(days=3)).isoformat(timespec='microseconds')):
+            result = self.call('alice', path='/api/desk/support?userNotifications=1')[1]
+            self.assertEqual([n['id'] for n in result['readNotifications']], [forever])
+        self.assertEqual(self.call('bob', dict(op='readNotification', id=timed), path='/api/desk/support')[0], 404)
+
+    def test_reissue_is_a_new_unread_notice_with_a_fresh_expiry(self):
+        self.prepare()
+        instant = dt.datetime(2030, 1, 1, tzinfo=dt.timezone.utc)
+        with patch.object(desk, 'now', return_value=instant.isoformat(timespec='microseconds')):
+            original = self.publish()
+            self.call('alice', dict(op='readNotification', id=original), path='/api/desk/support')
+        with patch.object(desk, 'now', return_value=(instant+dt.timedelta(days=2)).isoformat(timespec='microseconds')):
+            revised = self.publish(title='Revised notice', durationDays=7)
+        result = self.call('alice', path='/api/desk/support?userNotifications=1')[1]
+        self.assertNotEqual(original, revised)
+        self.assertEqual(result['notifications'][0]['id'], revised)
+        self.assertEqual(result['notifications'][0]['expiresAt'], (instant+dt.timedelta(days=9)).isoformat(timespec='microseconds'))
+        self.assertEqual(result['readNotifications'][0]['id'], original)
+
 
 if __name__ == '__main__':
     unittest.main()
