@@ -131,7 +131,7 @@
         "button"
       ],
       "appearance": "Bell in GitHub/Support control panel, matching 16px icons; compact theme-aware dropdown, exact unread count in small top-right badge; hide zero badge.",
-      "behavior": "Show at most the five newest public product announcements as clickable rows. Feed is authored newest-first; adding a sixth displaces the oldest fifth entry. Badge counts unread entries within these five only; expired read entries are not backfilled with displaced older notices. Unread rows are bold; clicking or Enter/Space marks only that row read, switches it to regular weight, and immediately decrements the badge. Read rows remain visible for seven days from first read, then hide; unread rows never expire. Repeated clicks do not extend retention. Legacy receipts start their seven-day clock on migration. Keep expired receipts to prevent old notices resurfacing as unread. Zero hides the badge. No separate Mark as read button. Simply opening does not discard unread items. Only Escape, outside pointer click and the bell dismiss. Focus changes never dismiss notifications. Notification pointer/click events stay inside the dropdown so header menu handlers cannot swallow reading actions. Per-Google-identity browser-local receipts persist across refresh and synchronize tabs; no cross-device receipt sync. Announcements maintained in notifications.json and refreshed every five minutes while visible. No referral reward or referral backend implied.",
+      "behavior": "Authenticated in-app feed from /api/desk/support?userNotifications=1. Show up to the five newest notices addressed to the signed-in Google subject or all users; older displaced notices are never backfilled after read/expiry. Clicking or Enter/Space acknowledges exactly one notice on the server and removes it on success, reducing the unread badge; opening the bell does not mark anything read. Read receipts persist across devices, separately for each subject. Unread notices expire at the admin-set UTC deadline; Until read has no time expiry. Pending reads disable the row; failed reads retain it with a retryable error. Display severity as text and color. No private feed caching in localStorage or static files. Refresh every 30 seconds while visible and on focus/open/account changes; clear immediately and discard stale results on account change. Preserve Escape/outside/bell dismissal, header event isolation and focus return. notifications.json is no longer the active feed.",
       "accessibility": "Named button, aria-expanded/controls, keyboard-focusable notification rows with Read/Unread accessible names, focus retained after dismissal; textContent for feed content."
     }
   },
@@ -2169,6 +2169,34 @@
       "appearance": "Reuse existing form-grid, labels and native selects; no new colors or dimensions.",
       "interaction": "Persist requestType independently of support/internal permissions and Category. Display in ticket summaries and details; authorized staff can update it with existing Save changes.",
       "accessibility": "Label-associated native select with existing keyboard focus and modal tab order."
+    },
+    "userNotifications": {
+      "approval": "User requested a User Notification tab with all-user or specific-user delivery, informational/warning/error severity and read-or-admin-duration lifetime.",
+      "identity": {
+        "type": "button",
+        "variant": "user-notifications",
+        "source": "desk/src/Notifications.tsx",
+        "parent": "Desk workspace navigation"
+      },
+      "types": [
+        "button",
+        "dropdown",
+        "dropdown-option",
+        "text-input",
+        "number-input",
+        "textarea",
+        "form",
+        "table",
+        "panel",
+        "status-indicator"
+      ],
+      "appearance": "Reuse existing Desk sidebar, light ticket sections, form-grid, native inputs, primary/secondary actions, history table and error/status styles. New form padding 22px (16px mobile), 20px section gap, 11px labels, 12px controls, 5px control radius, 10px/11px control padding. Severity text uses existing informational blue, warning brown and error red treatments. Bell keeps original dimensions and theme colors.",
+      "content": "User Notifications; All users / Specific user; Informational / Warning / Error; title (160 chars), message (4000 chars); Read or duration ends (3 days default, whole 1–365 days) / Until read; Publish notification, Clear form; history with recipients, severity, status, dates, read count and Withdraw.",
+      "states": "Loading, unavailable old service, empty history, active, read (targeted recipient), expired, withdrawn, saving, failure retains draft and success resets form. History lists latest 200 notifications.",
+      "interaction": "Only administrators can open management. Native recipient selector uses verified Studio identities with name/email; target is stored as stable subject. Publish uses a per-draft idempotency key to avoid duplicate retries. Polling preserves input focus and unsent draft. Withdraw removes future visibility without deleting history. History details disclose full message. Every recipient stops seeing a notice on read or expiry, whichever occurs first.",
+      "accessibility": "Label-wrapped native form controls, browser required/min/max validation, aria-busy saving, role=alert errors, role=status success, visible keyboard focus, native details/summary and table headers. Responsive form stacks at 650px; wide history scrolls within its section.",
+      "authorization": "Server enforces active admin role for management and mutations. Customer support route denies management even for admin identities. Feed and receipts use only authenticated subject; no audience IDs or directory leak to customers. Notices and receipts stay in dedicated SQLite tables outside workspace records. Bell polling registers signed-in users for the verified directory.",
+      "deployment": "Additive schema initialization and backend update must precede Pages. No sample or real notifications are sent during deployment."
     }
   },
   "persistentConnections": {
@@ -2306,7 +2334,7 @@
     "usage": "Settings > Workspace Drive; existing images, videos and audio records only. No new storage access or backend endpoint."
   },
   "workspaceDriveListing": {
-    "approval": "User requested file-system-style rows with Name, Kind, Date Last Opened and Date Created; every column sortable with visible up/down indicators. User requested a larger popup, compact rows and short display names such as Munni coconut escape instead of Munni coconut escape - 30 seconds \u00b7 frame edit.mp4.",
+    "approval": "User requested file-system-style rows with Name, Kind, Date Last Opened and Date Created; every column sortable with visible up/down indicators. User requested a larger popup, compact rows and short display names such as Munni coconut escape instead of Munni coconut escape - 30 seconds · frame edit.mp4.",
     "identity": "Native table #activity-files-table, sortable column header buttons and file-name buttons; nested #activity-file-preview popup in activity-files.js.",
     "appearance": "Compact 12px table with theme text, accent, border, muted and control colors. 4px/8px cell padding and 24px minimum header/name button height; Name 36%, Kind 12%, each date 26%. Single-line file names ellipsize instead of expanding rows; full original name and path in the tooltip. Active sort arrow uses accent; both arrows remain visible. Workspace Drive grows to 1100px within 32px viewport margins, 85vh tall capped at 900px; its table scrolls inside the popup with a 560px minimum width. Preview popup dimensions stay unchanged. Type, Location and Search share one ribbon in that order. All jobs and stories is removed; compact header/count spacing and empty status hidden.",
     "content": [

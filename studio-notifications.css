@@ -12,3 +12,8 @@
 #notification-list .notification-body{font-size:12px;line-height:1.5;margin-top:8px}
 #notification-list .notification-item:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24)!important;outline-offset:2px}
 #notification-list[hidden],#notification-bell .notification-count[hidden]{display:none!important}
+#notification-list .notification-meta{display:block;margin-top:8px;font-size:10px;line-height:1.4;font-weight:400}
+#notification-list [data-severity="warning"] .notification-meta{color:var(--ecco-theme-accent,#ffdc24)}
+#notification-list [data-severity="error"] .notification-meta{color:var(--ecco-theme-error,#ff828d)}
+#notification-list [data-notification-status]{font-size:12px;line-height:1.5}
+#notification-list .notification-item:disabled{opacity:.6;cursor:wait}

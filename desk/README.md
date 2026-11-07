@@ -237,3 +237,38 @@ is mapped to exact active Desk membership. Test real callbacks before enabling
 native Chat in production. Native chat has a 15-minute agent inactivity lease.
 Google Group membership synchronization is not configured; no domain-wide grant
 is implied. Future agents require verified individual identities and membership.
+
+## User Notifications
+
+Administrators use **User Notifications** to publish an in-app notice to All users
+or one verified Studio user. Choose Informational, Warning or Error, title and
+message, then a duration (3 days by default, 1–365 days) or Until read. Each user
+stops seeing the notice when they read it or its deadline arrives, whichever is
+first. Read receipts are server-side and independent for each Google subject.
+The history retains recipients, severity, dates, status and read count. Withdraw
+ends delivery without deleting the record. Retrying the same draft is idempotent.
+
+The bell uses `GET /api/desk/support?userNotifications=1` and `readNotification`.
+It polls every 30 seconds while visible, refreshes on focus/open, and removes
+expired rows locally at the deadline. Only the latest five addressed notices are
+eligible; read/expired/withdrawn notices never backfill displaced older entries.
+The previous `notifications.json` public feed is no longer used. Ordinary Studio
+sign-ins register in the verified recipient directory when the bell polls.
+
+Management uses `GET /api/desk?manageNotifications=1` (latest 200) and
+`createNotification` / `withdrawNotification`, all restricted to administrators.
+The customer support endpoint never permits these management operations, even
+for an account that separately has an admin role. Dedicated `desk_notifications`
+and `desk_notification_reads` tables stay outside shared workspace records.
+
+Deploy `backend/ecco_desk.py` and run initialization on the existing CPU service
+before publishing Pages. Preserve the current runtime and other Desk modules;
+back up SQLite and restart only when work is idle. The UI checks notification
+API version 1 and disables publishing against an older service. No messages or
+notifications are seeded by migration. Validate with:
+
+```sh
+PYTHONPATH=backend python3 -m unittest backend.test_user_notifications
+node --test tests/studio-notifications.test.cjs
+node tests/ecco-desk-notifications.test.mjs
+```

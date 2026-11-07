@@ -76,6 +76,19 @@ def initialize(path, start_notifications=True):
             id TEXT PRIMARY KEY, ticketId INTEGER REFERENCES desk_tickets(id), actorId TEXT NOT NULL,
             actorName TEXT NOT NULL, detail TEXT NOT NULL, visibility TEXT NOT NULL, createdAt TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS desk_events_ticket ON desk_events(ticketId, createdAt);
+        CREATE TABLE IF NOT EXISTS desk_notifications (
+            id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL,
+            severity TEXT NOT NULL CHECK(severity IN ('informational','warning','error')),
+            audience TEXT NOT NULL CHECK(audience IN ('all','user')),
+            recipientId TEXT REFERENCES desk_users(id), durationDays INTEGER,
+            createdBy TEXT NOT NULL REFERENCES desk_users(id), createdAt TEXT NOT NULL,
+            expiresAt TEXT, revokedAt TEXT,
+            CHECK((audience='all' AND recipientId IS NULL) OR (audience='user' AND recipientId IS NOT NULL)));
+        CREATE INDEX IF NOT EXISTS desk_notifications_recipient ON desk_notifications(recipientId,createdAt);
+        CREATE TABLE IF NOT EXISTS desk_notification_reads (
+            notificationId TEXT NOT NULL REFERENCES desk_notifications(id),
+            userId TEXT NOT NULL REFERENCES desk_users(id), readAt TEXT NOT NULL,
+            PRIMARY KEY(notificationId,userId));
         ''')
         # Additive migration preserves existing ticket IDs, content and permissions.
         columns = {row['name'] for row in db.execute('PRAGMA table_info(desk_tickets)')}
@@ -190,7 +203,87 @@ def unread(db, me):
     return dict(unreadTickets=len(rows),unreadByTicket={str(r['id']):r['replies'] for r in rows})
 
 
+def user_notifications(db, me):
+    # Apply the five-newest limit before receipts/expiry so dismissed older
+    # notices never reappear to fill a newly vacant slot.
+    rows = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,n.revokedAt,r.readAt
+        FROM (SELECT rowid AS sequence,* FROM desk_notifications
+              WHERE audience='all' OR recipientId=? ORDER BY rowid DESC LIMIT 5) n
+        LEFT JOIN desk_notification_reads r ON r.notificationId=n.id AND r.userId=?
+        WHERE r.readAt IS NULL AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
+        ORDER BY n.sequence DESC''', (me['userId'], me['userId'], now()))
+    return dict(notificationVersion=1, notifications=[{k:r[k] for k in
+        ('id','title','body','severity','createdAt','expiresAt')} for r in rows])
+
+
+def manage_notifications(db, me):
+    require_staff(me, admin=True)
+    rows = db.execute('''SELECT n.*,u.name AS recipientName,u.email AS recipientEmail,
+        (SELECT COUNT(*) FROM desk_notification_reads r WHERE r.notificationId=n.id) AS readCount
+        FROM desk_notifications n LEFT JOIN desk_users u ON u.id=n.recipientId
+        ORDER BY n.rowid DESC LIMIT 200''')
+    current = now()
+    notices = []
+    for r in rows:
+        item = dict(r)
+        item['status'] = ('withdrawn' if r['revokedAt'] else 'expired' if r['expiresAt'] and r['expiresAt'] <= current
+                          else 'read' if r['audience'] == 'user' and r['readCount'] else 'active')
+        notices.append(item)
+    return dict(notificationVersion=1, notifications=notices,
+                users=[dict(r) for r in db.execute('SELECT * FROM desk_users ORDER BY name,email')])
+
+
+def write_notification(db, me, body):
+    op = body['op']
+    if op == 'readNotification':
+        nid = text(body, 'id', 64)
+        row = db.execute("SELECT id FROM desk_notifications WHERE id=? AND (audience='all' OR recipientId=?)",
+                         (nid, me['userId'])).fetchone()
+        if not row:
+            raise DeskError('Notification not found.', 404)
+        db.execute('INSERT OR IGNORE INTO desk_notification_reads VALUES (?,?,?)', (nid, me['userId'], now()))
+        return user_notifications(db, me)
+    require_staff(me, admin=True)
+    if op == 'withdrawNotification':
+        nid = text(body, 'id', 64)
+        row = db.execute('SELECT revokedAt FROM desk_notifications WHERE id=?', (nid,)).fetchone()
+        if not row:
+            raise DeskError('Notification not found.', 404)
+        if not row['revokedAt']:
+            db.execute('UPDATE desk_notifications SET revokedAt=? WHERE id=?', (now(), nid))
+            event(db, me, 'User notification withdrawn: ' + nid)
+        return {'ok': True, 'notificationVersion': 1}
+    nid = uuid.UUID(text(body, 'requestId', 36)).hex
+    title, message = text(body, 'title', 160), text(body, 'body', 4000)
+    severity = choice(body, 'severity', ('informational','warning','error'))
+    audience = choice(body, 'audience', ('all','user'))
+    recipient = text(body, 'recipientId', 256) if audience == 'user' else None
+    if recipient and not db.execute('SELECT 1 FROM desk_users WHERE id=?', (recipient,)).fetchone():
+        raise DeskError('Choose a verified Studio user.')
+    days = body.get('durationDays')
+    if days is not None and (type(days) is not int or not 1 <= days <= 365):
+        raise DeskError('Duration must be a whole number from 1 to 365 days, or Until read.')
+    existing = db.execute('SELECT * FROM desk_notifications WHERE id=?', (nid,)).fetchone()
+    values = dict(title=title, body=message, severity=severity, audience=audience,
+                  recipientId=recipient, durationDays=days, createdBy=me['userId'])
+    if existing:
+        if any(existing[k] != v for k,v in values.items()):
+            raise DeskError('This notification request was already used. Refresh before creating another.', 409)
+        return {'notificationVersion': 1, 'id': nid}
+    created = now()
+    expires = (dt.datetime.fromisoformat(created) + dt.timedelta(days=days)).isoformat(timespec='microseconds') if days else None
+    db.execute('''INSERT INTO desk_notifications
+        (id,title,body,severity,audience,recipientId,durationDays,createdBy,createdAt,expiresAt)
+        VALUES (?,?,?,?,?,?,?,?,?,?)''', (nid,title,message,severity,audience,recipient,days,me['userId'],created,expires))
+    event(db, me, 'User notification published: ' + nid)
+    return {'notificationVersion': 1, 'id': nid}
+
+
 def read(db, me, query):
+    if 'manageNotifications' in query:
+        return manage_notifications(db, me)
+    if 'userNotifications' in query:
+        return user_notifications(db, me)
     if 'notifications' in query:
         return unread(db, me)
     if 'ticket' in query:
@@ -218,6 +311,8 @@ def read(db, me, query):
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op in ('createNotification', 'withdrawNotification', 'readNotification'):
+        return write_notification(db, me, body)
     if op == 'claimTicket':
         t = ticket(db, me, body.get('id'))
         claim_support(db, me, t)
@@ -405,7 +500,7 @@ def handle(handler, path, allowed_origin, database, configured_key):
             body = json.loads(handler.rfile.read(length))
             if not isinstance(body, dict):
                 raise DeskError('Expected an object.')
-            if personal_support and not (body.get('op') in ('comment','readTicket','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage','chatTyping') or
+            if personal_support and not (body.get('op') in ('comment','readTicket','readNotification','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage','chatTyping') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
         with connect(database) as db:
