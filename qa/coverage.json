@@ -22,7 +22,7 @@
   {
     "area": "Source upload",
     "mode": "fixture",
-    "scope": "TXT upload: empty selection, preserved original, yellow boundary, inline AI prompt and connection error, keyboard disclosure, matching clear typography and clear behavior. PDF rendering checked manually; live AI inference requires connected test services."
+    "scope": "Equal desktop panes at 1440px/1024px, always-visible AI prompt/output, bottom ribbon and saved drafts, mobile tool bounds and Escape, selected-only AI output review, fictional source versus Sports News warning with explicit override using synthetic assessments. Real PDF rendering checked manually; live AI assessment accuracy requires connected test services."
   },
   {
     "area": "Themes and layout",

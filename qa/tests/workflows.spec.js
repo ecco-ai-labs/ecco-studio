@@ -7,7 +7,7 @@ async function boot(page,options={}){
     const url=new URL(route.request().url());
     return url.hostname==='127.0.0.1'?route.continue():route.abort('blockedbyclient');
   });
-  await page.goto('/?__qa=1&theme='+(options.theme||'default'));
+  await page.goto('/?__qa=1&theme='+(options.theme||'default')+'&sourceFit='+(options.sourceFit||''));
   await page.waitForFunction(()=>window.__qaReady);
   await expect(page.locator('#entry-tell-story')).toBeEnabled();
   if(options.enter!==false){
@@ -295,28 +295,36 @@ test('AGENT-03 customer account can run agent and create its own Bug tickets',as
   await page.getByRole('button',{name:'User Notifications',exact:true}).click();await expect(page.getByRole('button',{name:'Connect Google',exact:true})).toBeVisible();
   await expect(page.locator('.notification-composer')).toHaveCount(0);
  });
-test('UPLOAD-01 inline AI prompt, selection boundary and matching clear text control',async({page})=>{
+test('UPLOAD-01 equal panes, permanent AI workspace and a bottom document ribbon',async({page})=>{
   await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('Upload controls QA');
-  for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English',recurrence:'once'}))
-    await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+  for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
   await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
-  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();
-  await (await chooser).setFiles({name:'upload-qa.txt',mimeType:'text/plain',buffer:Buffer.from('The original document remains untouched.')});
-  const dialog=page.getByRole('dialog',{name:'Select Story Text',exact:true});await expect(dialog).toBeVisible();
-  const selected=dialog.locator('[data-selected]');await expect(selected).toHaveValue('');
-  await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
-  const find=dialog.locator('.pdf-find-replace summary'),improve=dialog.locator('.pdf-improve-selection summary'),clear=dialog.getByRole('button',{name:'Clear Selected Text',exact:true});
-  expect((await find.boundingBox()).y).toBeLessThan((await improve.boundingBox()).y);expect((await improve.boundingBox()).y).toBeLessThan((await clear.boundingBox()).y);
-  const labelStyle=await find.evaluate(el=>({font:getComputedStyle(el).fontSize,weight:getComputedStyle(el).fontWeight}));
-  expect(await clear.evaluate(el=>({font:getComputedStyle(el).fontSize,weight:getComputedStyle(el).fontWeight}))).toEqual(labelStyle);
-  await expect(clear).toHaveCSS('background-color','rgba(0, 0, 0, 0)');await expect(clear).toHaveCSS('border-top-width','0px');
+  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await (await chooser).setFiles({name:'upload-qa.txt',mimeType:'text/plain',buffer:Buffer.from('The original document remains untouched.')});
+  const dialog=page.getByRole('dialog',{name:'Select Story Text',exact:true}),selected=dialog.locator('[data-selected]');await expect(dialog).toBeVisible();await expect(selected).toHaveValue('');
+  await expect(dialog.locator('[data-story-context]')).toContainText('Upload controls QA');
+  for(const width of [1440,1024]){
+    await page.setViewportSize({width,height:1000});
+    const panes=await dialog.locator('.pdf-selection-layout > *').evaluateAll(els=>els.map(el=>({x:el.getBoundingClientRect().x,y:el.getBoundingClientRect().y,width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,bottom:el.getBoundingClientRect().bottom})));
+    expect(panes).toHaveLength(3);for(const pane of panes){expect(Math.abs(pane.width-panes[0].width)).toBeLessThan(2);expect(Math.abs(pane.height-panes[0].height)).toBeLessThan(2);expect(pane.y).toBe(panes[0].y);}
+    expect((await dialog.locator('.pdf-selection-ribbon').boundingBox()).y).toBeGreaterThanOrEqual(panes[0].bottom);
+    for(const label of ['Prompt','AI Output']){await expect(dialog.getByLabel(label,{exact:true})).toBeVisible();expect((await dialog.getByLabel(label,{exact:true}).boundingBox()).height).toBeGreaterThan(120);}
+  }
+  const find=dialog.locator('.pdf-find-replace summary'),clear=dialog.getByRole('button',{name:'Clear Selected Text',exact:true});
   await expect(dialog.locator('.pdf-selected-label')).toHaveCSS('border-top-color','rgb(255, 220, 36)');
-  await improve.focus();await page.keyboard.press('Enter');await expect(dialog.getByLabel('Prompt',{exact:true})).toBeVisible();
-  await page.keyboard.press('Tab');await expect(dialog.getByLabel('Prompt',{exact:true})).toBeFocused();
-  await selected.fill('Only these selected words.');await dialog.getByLabel('Prompt',{exact:true}).fill('Make it simpler.');
-  await dialog.getByRole('button',{name:'Improve',exact:true}).click();
-  await expect(dialog.locator('[data-ai-status]')).toContainText(/Connect AI and workspace storage|QA fixture/);
-  await expect(page.locator('dialog[open]')).toHaveCount(1);await expect(selected).toHaveValue('Only these selected words.');
-  await clear.click();await expect(selected).toHaveValue('');await expect(dialog.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeDisabled();
-  await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
+  await selected.fill('Only these selected words.');await find.press('Enter');await expect(dialog.getByLabel('Find',{exact:true})).toBeFocused();await page.keyboard.press('Escape');await expect(find).toBeFocused();await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Prompt',{exact:true}).fill('Make it simpler.');await dialog.getByRole('button',{name:'Improve',exact:true}).click();await expect(dialog.locator('[data-ai-status]')).toContainText(/Connect AI and workspace storage|QA fixture/);await expect(dialog.getByLabel('AI Output',{exact:true})).toHaveValue('');
+  await dialog.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(dialog.locator('[role=status]')).toContainText('Draft saved');
+  await clear.click();await expect(selected).toHaveValue('');await expect(dialog.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeDisabled();await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
+  await page.setViewportSize({width:390,height:844});await find.click();const panel=await dialog.locator('.pdf-find-replace .pdf-tool-panel').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.x+panel.width).toBeLessThanOrEqual(390);await page.keyboard.press('Escape');await expect(dialog).toBeVisible();
+});
+test('UPLOAD-02 AI output review and fiction versus Sports News confirmation preserve deliberate choice',async({page})=>{
+  await boot(page,{sourceFit:'fiction'});await page.getByLabel('Story Name',{exact:true}).fill('Sports News');
+  for(const [name,value] of Object.entries({output:'audio',type:'news',genre:'Sports',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+  await page.getByRole('button',{name:'Continue to Story',exact:true}).click();const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await (await chooser).setFiles({name:'Alibaba.txt',mimeType:'text/plain',buffer:Buffer.from('Alibaba found a cave. PRIVATE_UNSELECTED_REST')});
+  const source=page.getByRole('dialog',{name:'Select Story Text',exact:true});await source.locator('[data-selected]').fill('Alibaba found a cave.');await source.getByLabel('Prompt',{exact:true}).fill('Make it clearer.');await source.getByRole('button',{name:'Improve',exact:true}).click();await expect(source.getByLabel('AI Output',{exact:true})).toHaveValue('Alibaba discovered a hidden cave.');await expect(source.locator('[data-selected]')).toHaveValue('Alibaba found a cave.');
+  await source.getByRole('button',{name:'Apply Improvement',exact:true}).click();await expect(source.locator('[data-selected]')).toHaveValue('Alibaba discovered a hidden cave.');
+  await source.getByRole('button',{name:'Apply Selected Text',exact:true}).click();const warning=page.getByRole('dialog',{name:'Review source compatibility',exact:true});await expect(warning).toBeVisible();await expect(warning.locator('[data-story]')).toContainText('Sports News');await expect(warning.locator('[data-reason]')).toContainText('fiction');await expect(page.locator('#story-simple-script')).toHaveValue('');
+  await warning.getByRole('button',{name:'Choose Different Text',exact:true}).click();await expect(warning).toHaveCount(0);await expect(source).toBeVisible();await expect(source.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeFocused();await expect(source.locator('[data-selected]')).toHaveValue('Alibaba discovered a hidden cave.');
+  await source.getByRole('button',{name:'Apply Selected Text',exact:true}).click();await warning.getByRole('button',{name:'Use Anyway',exact:true}).click();await expect(source).toBeHidden();await expect(page.locator('#story-simple-script')).toHaveValue('Alibaba discovered a hidden cave.');
+  const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance'));expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED_REST');expect(calls.find(c=>c.body.fields[0].id==='source_compatibility').body.context.genre).toBe('Sports');
 });

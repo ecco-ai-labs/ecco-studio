@@ -412,14 +412,14 @@ Agents is available to signed-in standalone Desk customers as well as staff. Cus
 
 ## Three-pane upload viewer — 7 November 2026
 
-PDF, TXT and Markdown uploads share one full-height workspace: the full document
-on the left, initially empty Selected Text in the middle, and all selection/editing
-controls on the right. Pages fit the preview width with aligned selectable text.
-Highlights and explicit page/chapter choices append to Selected Text; uploading
-a new file clears the selection. Improve with AI sends only the chosen text and
-requires review and Apply. Find and Replace, Clear Selected Text, Save Draft and
-Apply remain in the Controls pane. Editing never changes the uploaded document.
-Nested dialogs retain parent work and focus; narrow screens stack the three panes.
+PDF, TXT and Markdown uploads use three equal desktop panes: the complete document,
+initially empty Selected Text with a yellow border, and Improve with AI. The AI
+pane always shows a large prompt above a separate output editor. Review and Apply
+Improvement change only the selected passage; the original document is untouched.
+The bottom ribbon contains page selection, verified chapter selection, Find and
+Replace, Clear Selected Text, Save Draft and final Apply. Its tools open upward
+without resizing the panes; Escape, Back and outside clicks dismiss only that tool.
+All panes have independent content scrolling and stack equally on narrow screens.
 
 ## Previous-screen navigation — 7 November 2026
 
@@ -430,15 +430,15 @@ Back and never substitutes the welcome page. Identity changes clear history.
 Menus and drawers return to their parent; popup Back closes just that layer.
 Credit purchase steps and Desk views use their own prior-step history.
 Existing close/minimize controls remain available. No backend action is replayed.
-### Inline upload AI controls
+### Source suitability and drafts
 
-The Selected Text pane has a yellow accent border. In the Controls pane, Find and
-Replace is followed by its own Improve with AI disclosure containing a Prompt box
-and inline suggestion review with Apply Improvement and Discard. Only selected
-text is sent; original document content stays unchanged. Clear Selected Text sits
-below both disclosures as an unboxed text action with matching typography.
-New uploads clear the prompt; pending suggestions cannot overwrite edits, a cleared
-selection or another document. Drafts retain the prompt locally.
+The picker displays the current Story Details. Before accepting a selected source,
+AI compares it with the story title, type, genre and brief. A fiction passage for
+Sports News, for example, prompts an explanation and explicit Use Anyway or Choose
+Different Text. An unavailable assessment is clearly unverified and requires an
+explicit Use Without Checking. Only selected text is sent. Changed stories or
+selections invalidate pending checks and confirmations. Sports is a Genre option.
+Save Draft retains the selected text, prompt and uncommitted AI output locally.
 
 ### Story generation defaults
 
