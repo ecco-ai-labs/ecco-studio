@@ -163,7 +163,7 @@ the team console provides an explicit availability checkbox and Accept chat.
 There is one live conversation per agent; simultaneous accepts are serialized
 by SQLite. Agent presence expires after 75 seconds and customer presence after
 150 seconds. Disconnected agents requeue their customers. Chat hours are
-07:00–19:00 America/Los_Angeles daily (PST/PDT); closed hours and 19:00 cutoffs are
+07:00–23:59 America/Los_Angeles daily (PST/PDT); closed hours and midnight cutoffs are
 server-enforced. Ticket replies remain available outside those hours.
 
 Additional checks:
