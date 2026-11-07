@@ -28,6 +28,7 @@ jobs:
           npm run build --prefix desk
           node tests/tester-agent.test.mjs
           node tests/ecco-desk-agents.test.mjs
+          node tests/ecco-desk-access.test.mjs
       - name: Install Chrome with media codecs
         working-directory: qa
         run: npx playwright install --with-deps chrome

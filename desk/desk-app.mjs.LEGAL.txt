@@ -78,6 +78,7 @@ lucide-react/dist/esm/icons/circle-alert.mjs:
 lucide-react/dist/esm/icons/circle-check.mjs:
 lucide-react/dist/esm/icons/clock-3.mjs:
 lucide-react/dist/esm/icons/download.mjs:
+lucide-react/dist/esm/icons/external-link.mjs:
 lucide-react/dist/esm/icons/flag.mjs:
 lucide-react/dist/esm/icons/headphones.mjs:
 lucide-react/dist/esm/icons/inbox.mjs:

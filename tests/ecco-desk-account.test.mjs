@@ -39,7 +39,7 @@ assert.equal(calls.find(c=>c.url.endsWith('/logout')).options.headers.Authorizat
 assert(root.querySelector('.google-signin-button button'));assert.equal(googleOptions.auto_select,false);
 // A response from a disposed sign-in cannot overwrite a newer account.
 root.querySelector('.google-signin-button button').click();await tick();
-localStorage.setItem('ecco-desk-staff-session','newer-session');window.dispatchEvent(new StorageEvent('storage',{key:'ecco-desk-staff-session'}));await tick();
+localStorage.setItem('ecco-desk-staff-session','newer-session');window.dispatchEvent(new StorageEvent('storage',{key:'ecco-desk-staff-session',storageArea:localStorage}));await tick();
 finishSignIn({session_token:'late-session',user:{id:'google:old'}});await tick();
 assert.equal(localStorage.getItem('ecco-desk-staff-session'),'newer-session');
 assert(calls.some(c=>c.url.endsWith('/logout')&&c.options.headers.Authorization==='Bearer late-session'));
