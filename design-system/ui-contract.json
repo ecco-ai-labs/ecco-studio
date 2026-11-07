@@ -774,7 +774,8 @@
       "variants": [
         "ecco-desk",
         "character-workflow",
-        "clip-frame-review"
+        "clip-frame-review",
+        "workspace-drive"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -1040,7 +1041,8 @@
         "sort"
       ],
       "variants": [
-        "ecco-desk"
+        "ecco-desk",
+        "workspace-drive"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -2263,7 +2265,7 @@
     "export": "Authenticated CPU-only frame-editor service must advertise availability. Source story and asset validated, 25 fps/2 minute/1920px limits, idempotent request IDs, original preserved. Local uploads can be reviewed; Video Library assets support server MP4 export. No GPU starts or AI submissions."
   },
   "workspaceDriveSearch": {
-    "approval": "User requested a file search under Workspace Drive with filtering as they type.",
+    "approval": "User requested live file search, then specified a self-contained box with Search inside, in one ribbon alongside Type and Location, never above or below them.",
     "identity": {
       "type": "search-input",
       "variant": "workspace-drive",
@@ -2271,12 +2273,27 @@
       "parent": "#activity-files",
       "source": "activity-files.js"
     },
-    "appearance": "Inherit existing native input, label, focus and active theme styles; no changes to existing control dimensions or colors. No additional icons.",
-    "layout": "Full-width labelled input after the scope description and before existing Type/Location filters; reuse existing input and label layout.",
-    "content": "Search files; placeholder Search by file name, title or path. Existing count shows matching files out of the current filter total while searching.",
+    "appearance": "Reuse existing native input, focus and active theme styles and 12px filter typography. Search has no visible external label; existing control colors and dimensions stay unchanged.",
+    "layout": "Search input, Type and Location share one non-wrapping flex row with equal flexible widths, min-width:0 and bottom-aligned controls. Preserve the existing 8px row gap; keep the three fields on one row at narrow viewport widths.",
+    "content": "Search placeholder inside the box; accessible name Search files. Existing count shows matching files out of the current filter total while searching.",
     "states": "Empty query shows all files within the current filters; no matches shows No files match your search. Existing storage-disconnected message retains priority. Native hover/focus/clear behavior; no remote loading state.",
     "interaction": "Filter immediately on input using case-insensitive, trimmed substring matching against displayed title (or prompt fallback), file name, path and ID. Combine with existing Type, Location and job scope. Clearing restores all files in that scope. Keep the query in this tab while the dialog is reopened or its results refresh; no remote request or media generation.",
-    "accessibility": "Explicit label, native search input, aria-controls results, polite atomic result count. Focus search on open; list updates keep input node, value and typing focus. Existing popup close/minimize and keyboard dismissal unchanged.",
+    "accessibility": "Search files aria-label, native search input, aria-controls results, polite atomic result count. Focus search on open; list updates keep input node, value and typing focus. Existing popup close/minimize and keyboard dismissal unchanged.",
     "usage": "Settings > Workspace Drive; existing images, videos and audio records only. No new storage access or backend endpoint."
+  },
+  "workspaceDriveListing": {
+    "approval": "User requested file-system-style rows with Name, Kind, Date Last Opened and Date Created; every column sortable with visible up/down indicators.",
+    "identity": "Native table #activity-files-table, sortable column header buttons and file-name buttons; nested #activity-file-preview popup in activity-files.js.",
+    "appearance": "Compact 12px table with theme text, accent, border, muted and control colors. 10px/8px cell padding; Name 36%, Kind 12%, each date 26%. Active sort arrow uses accent; both arrows remain visible. Existing dialog dimensions retained; 560px minimum table width scrolls horizontally within the popup on small screens. Search, Type and Location stay in their single ribbon.",
+    "content": [
+      "Name",
+      "Kind",
+      "Date Last Opened",
+      "Date Created"
+    ],
+    "states": "Newest-created first initially. Unknown dates display an em dash and sort last in both directions; no fabricated historical opening timestamps. Empty, filtered-empty and storage-disconnected messages span the table.",
+    "interaction": "Each header button selects ascending order, then toggles ascending/descending on subsequent activation. Names use natural case-insensitive ordering, Kind uses media category and dates compare timestamps. Sorting combines with search, Type, Location and job scope. File-name activation opens a nested media preview retaining Download, Trash, Restore and permanent-delete actions with their existing API/confirmation behavior.",
+    "lastOpened": "Record explicit Workspace Drive preview opens only. Dates persist in this browser per signed-in user ID and storage volume, storing only asset IDs and timestamps; signed-out dates remain in memory. The header tooltip explains browser scope. Opening the list, sorting and filtering never mark files opened. Unknown prior history remains blank; no cross-device or other-app access history is claimed.",
+    "accessibility": "Native table and column headers with aria-sort; keyboard-operable header buttons name the next sort action. Visible up/down arrows are decorative to assistive technology. File names are native buttons; closing preview restores focus to its file row. Search/header nodes stay stable during updates. Account changes dismiss file dialogs and switch timestamp scope; cross-tab timestamp updates refresh the list."
   }
 }
