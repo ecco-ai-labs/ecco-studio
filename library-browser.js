@@ -132,8 +132,8 @@
   let prefs=preferences.get(kind);if(!prefs){prefs={sort:'created',direction:'descending',filter:'all',query:''};preferences.set(kind,prefs);}
   let tools=header.querySelector('.library-browser-tools');
   if(!tools){
-   tools=document.createElement('div');tools.className='library-browser-tools';tools.innerHTML='<input type="search" placeholder="Search" aria-label="Filter '+kind+' library"><select aria-label="Filter '+kind+' items"><option value="all">All items</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option>'+(['image','audio','video'].includes(kind)?'<option value="dev">Draft</option><option value="prod">Production</option>':'')+'</select><span class="library-filter-count" role="status" aria-live="polite"></span>';
-   (header.querySelector(':scope > .row')||header).append(tools);const [search,filter]=tools.querySelectorAll('input,select');search.value=prefs.query;filter.value=prefs.filter;
+   tools=document.createElement('div');tools.className='library-browser-tools';tools.innerHTML='<select aria-label="Filter '+kind+' items"><option value="all">All items</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option>'+(['image','audio','video'].includes(kind)?'<option value="dev">Draft</option><option value="prod">Production</option>':'')+'</select><span class="library-filter-count" role="status" aria-live="polite"></span><input type="search" placeholder="Search" aria-label="Filter '+kind+' library">';
+   (header.querySelector(':scope > .row')||header).append(tools);const search=tools.querySelector('input[type=search]'),filter=tools.querySelector('select');search.value=prefs.query;filter.value=prefs.filter;
    search.oninput=()=>{prefs.query=search.value;schedule();};filter.onchange=()=>{prefs.filter=filter.value;schedule();};
   }
   let tableHead=gallery.querySelector(':scope > .library-file-heading');if(!tableHead){

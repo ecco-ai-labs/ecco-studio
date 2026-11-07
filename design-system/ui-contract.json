@@ -2441,7 +2441,7 @@
     "approval": "2026-11-07: user requested List first and default, Small icons then Large icons; Finder-style File Name, Type, Date Created and Date Last Accessed columns; no individual boxes in any view; conserve space.",
     "identity": "Existing library and library-item types; shared library-files variant in library-browser.js/css, table/row/cell roles, native header and file buttons; library-file-preview popup.",
     "appearance": "Existing theme text/surface/control/accent/border/muted colors, 12px rows, 20px line height, no item borders/radius/shadows or gaps; subtle alternating rows and hover/focus background. List rows 32px; small icons 28px in 36px rows; large icons 64px in 72px rows. Cells have 4px/8px padding.",
-    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Compact Search, filter, count beside existing view/upload actions; no separate sort dropdown.",
+    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Compact filter, count, then Search beside existing view/upload actions; Search is the final ribbon control in visual and keyboard order. Video Library has no Publish button in its ribbon. No separate sort dropdown.",
     "content": [
       "File Name",
       "Type",

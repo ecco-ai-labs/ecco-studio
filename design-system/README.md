@@ -378,6 +378,8 @@ Rows share sortable File Name, Type, Date Created and Date Last Accessed columns
 There are no item boxes; the icon views replace the name with a 28px or 64px
 preview, retaining its filename tooltip and accessible name. Search, filters
 and existing actions remain available; previews retain the original controls.
+The ribbon ends with the filter, item count, then Search. Video Library has
+no Publish button in its ribbon.
 Unknown dates stay blank. Access dates combine supplied workspace timestamps
 with explicit library opens recorded in this browser per user/workspace.
 
