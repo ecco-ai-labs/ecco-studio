@@ -8,6 +8,7 @@ PACIFIC = ZoneInfo('America/Los_Angeles')
 HOURS = '7 AM–11:59 PM Pacific time, daily'
 AGENT_TTL = 75
 CUSTOMER_TTL = 150
+TYPING_TTL = 8
 
 
 def initialize(db):
@@ -26,6 +27,10 @@ def initialize(db):
         id TEXT PRIMARY KEY,ticketId INTEGER NOT NULL REFERENCES desk_tickets(id),requestedAt REAL NOT NULL,
         attempts INTEGER NOT NULL DEFAULT 0,availableAt REAL NOT NULL DEFAULT 0,
         leaseUntil REAL NOT NULL DEFAULT 0,state TEXT NOT NULL DEFAULT 'pending',lastError TEXT);
+        CREATE TABLE IF NOT EXISTS desk_chat_typing (
+            ticketId INTEGER NOT NULL REFERENCES desk_tickets(id),
+            userId TEXT NOT NULL REFERENCES desk_users(id), expiresAt REAL NOT NULL,
+            PRIMARY KEY(ticketId,userId));
     ''')
 
 
@@ -40,6 +45,7 @@ def _event(db, tid, detail):
 
 
 def _end(db, row, reason, stamp):
+    db.execute('DELETE FROM desk_chat_typing WHERE ticketId=?', (row['ticketId'],))
     db.execute("UPDATE desk_chat_sessions SET state='ended',endedAt=?,reason=? WHERE ticketId=?",
                (stamp, reason, row['ticketId']))
     _event(db, row['ticketId'], reason + ' Continue through ticket replies.')
@@ -54,6 +60,7 @@ def end_for_closed_ticket(db, tid):
 def delegate(db, tid, member_id):
     row = db.execute("SELECT * FROM desk_chat_sessions WHERE ticketId=? AND state IN ('queued','live')", (tid,)).fetchone()
     if row:
+        db.execute('DELETE FROM desk_chat_typing WHERE ticketId=?', (tid,))
         db.execute("UPDATE desk_chat_sessions SET state='queued',agentId=NULL,connectedAt=NULL,reason='Waiting for the delegated support agent to accept' WHERE ticketId=?", (tid,))
         db.execute('INSERT INTO desk_chat_alerts(id,ticketId,requestedAt) VALUES (?,?,?)', (str(uuid.uuid4()), tid, row['requestedAt']))
         _event(db, tid, 'Chat delegated; waiting for the new agent to accept')
@@ -61,6 +68,7 @@ def delegate(db, tid, member_id):
 
 def maintain(db, stamp=None):
     stamp = time.time() if stamp is None else stamp
+    db.execute('DELETE FROM desk_chat_typing WHERE expiresAt<=?', (stamp,))
     for r in db.execute("SELECT * FROM desk_chat_sessions WHERE state IN ('queued','live')").fetchall():
         if not is_open(stamp):
             _end(db, r, 'Live chat closed for the day', stamp)
@@ -72,6 +80,7 @@ def maintain(db, stamp=None):
             if not active:
                 active=db.execute('SELECT 1 FROM desk_native_chat_presence p JOIN desk_members m ON m.userId=p.userId WHERE p.userId=? AND p.expires>? AND m.active=1',(r['agentId'],stamp)).fetchone()
             if not active:
+                db.execute('DELETE FROM desk_chat_typing WHERE ticketId=?', (r['ticketId'],))
                 db.execute("UPDATE desk_chat_sessions SET state='queued',agentId=NULL,connectedAt=NULL,reason=NULL WHERE ticketId=?", (r['ticketId'],))
                 _event(db, r['ticketId'], 'Support agent disconnected; returned to the chat queue')
 
@@ -103,7 +112,7 @@ def detail(db, me, ticket):
     maintain(db, stamp)
     row = db.execute('SELECT * FROM desk_chat_sessions WHERE ticketId=?', (ticket['id'],)).fetchone()
     result = dict(state='idle', open=is_open(stamp), hours=HOURS, position=None, agentName=None,
-                  assignedToMe=False, reason=None)
+                  assignedToMe=False, reason=None, typing=None)
     if row:
         result.update(state=row['state'], reason=row['reason'])
         result['assignedToMe'] = row['agentId'] == me['userId']
@@ -113,6 +122,16 @@ def detail(db, me, ticket):
         if row['agentId']:
             agent = db.execute('SELECT name FROM desk_users WHERE id=?', (row['agentId'],)).fetchone()
             result['agentName'] = agent['name'] if agent else 'Support'
+        # Typing is shared only by the two live participants, never other staff.
+        participant = me['userId'] == ticket['reporterId'] or (
+            me['role'] in ('staff', 'admin') and row['agentId'] == me['userId'])
+        if row['state'] == 'live' and participant:
+            other = row['agentId'] if me['userId'] == ticket['reporterId'] else ticket['reporterId']
+            typing = db.execute('''SELECT u.name,p.expiresAt FROM desk_chat_typing p
+                JOIN desk_users u ON u.id=p.userId WHERE p.ticketId=? AND p.userId=? AND p.expiresAt>?''',
+                (ticket['id'], other, stamp)).fetchone()
+            if typing and other != me['userId']:
+                result['typing'] = dict(name=typing['name'], expiresInMs=int((typing['expiresAt']-stamp)*1000))
     return result
 
 
@@ -174,11 +193,22 @@ def write(db, me, body):
         if r and r['state'] in ('queued', 'live'):
             _end(db, r, 'Live chat ended by ' + me['name'], stamp)
         return {'chat': detail(db, me, t)}
-    if op == 'chatMessage':
+    if op in ('chatMessage', 'chatTyping'):
         if not r or r['state'] != 'live' or not is_open(stamp):
             raise desk.DeskError('Wait for a support agent to connect before sending a chat message.', 409)
         if me['userId'] != t['reporterId'] and not (desk.staff(me) and r['agentId']==me['userId']):
             raise desk.DeskError('Only the assigned support agent can send in this live chat.', 403)
+        if op == 'chatTyping':
+            typing = body.get('typing')
+            if type(typing) is not bool:
+                raise desk.DeskError('Typing must be true or false.')
+            if typing:
+                db.execute('''INSERT INTO desk_chat_typing VALUES (?,?,?)
+                    ON CONFLICT(ticketId,userId) DO UPDATE SET expiresAt=excluded.expiresAt''',
+                    (t['id'], me['userId'], stamp+TYPING_TTL))
+            else:
+                db.execute('DELETE FROM desk_chat_typing WHERE ticketId=? AND userId=?', (t['id'], me['userId']))
+            return {'ok': True}
         content = desk.text(body, 'body', 10000)
         recent = dt.datetime.fromtimestamp(stamp-60, dt.timezone.utc).isoformat()
         if db.execute('SELECT count(*) FROM desk_comments WHERE ticketId=? AND authorId=? AND createdAt>?', (t['id'], me['userId'], recent)).fetchone()[0] >= 60:
@@ -186,6 +216,7 @@ def write(db, me, body):
         cid, created = uuid.uuid4().hex, desk.now()
         db.execute('INSERT INTO desk_comments VALUES (?,?,?,?,?,?,?)', (cid,t['id'],me['userId'],me['name'],content,'public',created))
         db.execute('INSERT INTO desk_comment_sources VALUES (?,?,NULL)', (cid,'chat'))
+        db.execute('DELETE FROM desk_chat_typing WHERE ticketId=? AND userId=?', (t['id'], me['userId']))
         db.execute('UPDATE desk_tickets SET version=version+1,updatedAt=? WHERE id=?', (created,t['id']))
         if me['userId']==t['reporterId']:
             import ecco_desk_google_chat

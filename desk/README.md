@@ -50,6 +50,23 @@ run normal Desk initialization before publishing the new frontend. This adds one
 column and one retry table without deleting existing tickets. Back up the live
 database and inspect live errors before diagnosing a production 503 as a mail issue.
 
+## Chat composer and typing presence
+
+Both customer and staff ticket drawers keep the reply box outside the scrolling
+transcript. Opening a permitted conversation focuses the composer; polling preserves
+the draft and caret. New messages follow only when already at the bottom. Scrolling
+older history does not move the composer or pull the reader to the latest message.
+Send returns focus and preserves text entered while the earlier message was pending.
+
+Live participants see the other person's animated typing dots. Only a boolean is
+sent: no unsent message content or internal notes. Activity pulses at most every
+2 seconds, stops after 4 seconds idle or when leaving the composer, and expires
+server-side after 8 seconds. Send/end/delegation/disconnection clear presence.
+Other customers and unassigned staff cannot publish or view these signals.
+
+Deploy `ecco_desk.py` and `ecco_desk_chat.py` together and initialize Desk before
+publishing the bundle, adding the `desk_chat_typing` table. No new service or GPU.
+
 ## Build and validation
 
 ```sh
