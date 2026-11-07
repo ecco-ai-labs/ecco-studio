@@ -5,7 +5,7 @@ test('Settings panel keeps model navigation, theme persistence and Drive actions
  const x=await setup();try{
   const panel=x.q('#workspace-settings-controls'),preferences=panel.querySelector('details'),menu=preferences.querySelector('.workspace-menu-items');
   assert.deepEqual([...panel.children].map(el=>(el.matches('details')?el.querySelector('summary'):el).getAttribute('aria-label')),['Model Garden','User Preferences','Workspace Drive']);
-  assert.deepEqual([...menu.querySelectorAll(':scope > button')].map(el=>el.textContent),['Themes']);
+  assert.deepEqual([...menu.querySelectorAll(':scope > button')].map(el=>el.textContent),['← Back','Themes']);
   panel.querySelector('[aria-label="Model Garden"]').click();await tick();assert.equal(x.q('#heading').textContent,'Model Garden');assert.ok(x.q('#models-form'));
   preferences.open=true;x.q('#theme-colors-open').click();assert.equal(x.q('#workspace-theme-drawer').hidden,false);
   const ocean=x.q('#workspace-theme-drawer input[value="ocean"]');ocean.checked=true;ocean.dispatchEvent(new x.w.Event('change',{bubbles:true}));

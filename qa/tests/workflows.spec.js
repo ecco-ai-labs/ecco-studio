@@ -172,7 +172,7 @@ for(const width of [1440,1024,768]){
   });
 }
 test('DRIVE-01 search filters immediately and all four columns are sortable',async({page})=>{
-  await boot(page);await page.locator('[data-category=Activity] > summary').click();
+  await boot(page);await expect(page.locator('#workspace-settings-controls')).toBeVisible();
   await page.locator('#activity-files-menu').click();
   await expect(page.locator('#activity-files')).toBeVisible();
   await page.locator('#activity-files-search').fill('Alpha');
@@ -186,6 +186,48 @@ test('AUTH-01 local sign-out returns to the first screen',async({page})=>{
   await page.getByRole('button',{name:'Log Off',exact:true}).click();
   await expect(page.locator('#workspace-entry')).toBeVisible();
   expect(await page.evaluate(()=>localStorage.getItem('ecco-user-session'))).toBeNull();
+  await expect(page.locator('#workspace-back')).toBeHidden();
+});
+
+test('NAV-01 Back restores library search/view and the unfinished story',async({page})=>{
+  await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('Navigation draft');
+  await openLibrary(page,'image');await page.getByRole('searchbox',{name:'Filter image library'}).fill('Alpha');
+  await page.locator('#page .library-view-label select').selectOption('large');
+  await page.getByRole('button',{name:'Model Garden',exact:true}).click();await expect(page.locator('#models-form')).toBeVisible();
+  await page.locator('#workspace-back').click();await expect(page.locator('#page .library-view-label select')).toHaveValue('large');
+  await expect(page.getByRole('searchbox',{name:'Filter image library'})).toHaveValue('Alpha');
+  await page.locator('#workspace-back').click();await expect(page.locator('#library-home-list')).toBeVisible();
+  await page.locator('#workspace-back').click();await expect(page.getByLabel('Story Name',{exact:true})).toHaveValue('Navigation draft');
+});
+test('NAV-02 Support Back returns to the preceding screen, never the entry page',async({page})=>{
+  await boot(page);await page.getByRole('button',{name:'Model Garden',exact:true}).click();
+  await page.locator('#workspace-support').click();await expect(page.locator('#ecco-desk-support')).toBeVisible();
+  await expect(page.getByText('← Back to Studio',{exact:true})).toHaveCount(0);
+  await page.locator('#workspace-back').click();await expect(page.locator('#models-form')).toBeVisible();
+  await expect(page.locator('#workspace-entry')).toBeHidden();
+});
+test('NAV-03 popup and menu Back dismiss one layer and retain the originating screen',async({page})=>{
+  await boot(page);await openLibrary(page,'video');
+  const preferences=page.locator('#workspace-settings-controls details');await preferences.locator('summary').click();
+  await preferences.locator('.workspace-menu-items > .ecco-back').click();await expect(preferences).not.toHaveAttribute('open');
+  await expect(preferences.locator('summary')).toBeFocused();
+  await page.locator('#activity-files-menu').click();await expect(page.locator('#activity-files')).toBeVisible();
+  await page.locator('#activity-files > .ecco-back').click();await expect(page.locator('#activity-files')).toBeHidden();
+  await expect(page.locator('#video-library-gallery')).toBeVisible();await expect(page.locator('#activity-files-menu')).toBeFocused();
+  await page.locator('#activity-edge-arrow').click();await expect(page.locator('#activity-panel')).toBeVisible();
+  await page.locator('#activity-panel > .ecco-back').click();await expect(page.locator('#activity-panel')).toBeHidden();
+  await expect(page.locator('#activity-edge-arrow')).toBeFocused();
+});
+test('NAV-04 checkout Back returns to cart, selection and the usage menu without losing the package',async({page})=>{
+  await boot(page);await page.locator('#google-user-menu > summary').click();
+  await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();
+  await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
+  await page.getByRole('button',{name:'Select',exact:true}).first().click();await page.getByRole('button',{name:'View Cart',exact:true}).click();
+  await page.getByRole('button',{name:'Proceed to Checkout',exact:true}).click();
+  await page.locator('dialog[open] > .ecco-back').click();await expect(page.getByRole('heading',{name:'Your Cart',exact:true})).toBeVisible();
+  await page.locator('dialog[open] > .ecco-back').click();await expect(page.getByRole('heading',{name:'Purchase Additional Credits',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'✓ Selected',exact:true})).toBeVisible();
+  await page.locator('dialog[open] > .ecco-back').click();await expect(page.locator('#workspace-usage-drawer')).toBeVisible();
 });
 
 test('AGENT-03 customer account can run agent and create its own Bug tickets',async({page})=>{

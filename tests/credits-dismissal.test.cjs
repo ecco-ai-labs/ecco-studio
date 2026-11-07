@@ -6,7 +6,7 @@ const {JSDOM}=require('jsdom');
 
 test('focusout during drawer removal cannot reenter Credits dismissal',t=>{
  const dom=new JSDOM('<details open><summary>User</summary><div class="workspace-menu-items"><button id="credits">Credit and Usage</button></div></details>',{runScripts:'outside-only'});
- const w=dom.window;t.after(()=>w.close());w.setInterval=()=>0;
+ const w=dom.window,observers=[],Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(...args){super(...args);observers.push(this);}};t.after(async()=>{observers.forEach(o=>o.disconnect());await new Promise(r=>setTimeout(r,0));w.close();});w.setInterval=()=>0;
  w.eval(readFileSync(resolve(__dirname,'../credits-store.js'),'utf8'));
  const trigger=w.document.getElementById('credits');
  w.EccoCredits.open('usage',trigger);
@@ -32,7 +32,7 @@ test('focusout during drawer removal cannot reenter Credits dismissal',t=>{
 
 test('balance availability follows verified identity separately from credit-service availability',t=>{
  const dom=new JSDOM('<details open><summary>User</summary><div class="workspace-menu-items"><button id="credits">Credit and Usage</button></div></details>',{runScripts:'outside-only'});
- const w=dom.window;t.after(()=>w.close());w.setInterval=()=>0;
+ const w=dom.window,observers=[],Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(...args){super(...args);observers.push(this);}};t.after(async()=>{observers.forEach(o=>o.disconnect());await new Promise(r=>setTimeout(r,0));w.close();});w.setInterval=()=>0;
  w.EccoAuth={user:null};w.eval(readFileSync(resolve(__dirname,'../credits-store.js'),'utf8'));
  w.EccoCredits.open('usage',w.document.getElementById('credits'));
  const balance=()=>w.document.querySelector('[data-credit-balance]').textContent;
