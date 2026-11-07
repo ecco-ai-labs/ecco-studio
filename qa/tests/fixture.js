@@ -7,7 +7,7 @@
       id:`qa-${media}-${n}`,kind:'asset',media,stage:'prod',story_id:'qa-story',
       title:`${n?'Zebra':'Alpha'} ${media} sample`,prompt:`Synthetic ${media} fixture`,
       path:`qa/fixtures/sample.${media==='image'?'svg':media==='audio'?'wav':'mp4'}`,
-      created:1700000000+n*1000+i,size_bytes:2048,duration:1,settings:{model:'qa-fixture'}
+      created:1700000000+n*1000+i,size_bytes:2048,duration:1,settings:{model:'qa-fixture',width:160,height:90,steps:20}
     })))
   ];
   state={records,config:{models_ready:{},storage:{volume:'qa-fixture'}},storage_pending:false};

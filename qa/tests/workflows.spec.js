@@ -51,8 +51,8 @@ test('STORY-03 new story clears previous fields',async({page})=>{
 });
 test('STORY-04 Generate with AI opens an instruction dialog',async({page})=>{
   await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('QA Story');
-  for(const [label,value] of Object.entries({'Output':'audio','Story Type':'podcast','Genre':'Comedy','Audience age group':'All ages','Language':'English','One-time or recurring':'once'}))
-    await page.getByLabel(label,{exact:true}).selectOption(value);
+  for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English',recurrence:'once'}))
+    await page.locator('#story-simple-details [name='+name+']').selectOption(value);
   await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
   await page.locator('#page [data-ai]').click();
   await expect(page.locator('#ai-generation-dialog')).toBeVisible();
