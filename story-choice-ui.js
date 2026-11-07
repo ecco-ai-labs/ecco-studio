@@ -8,7 +8,7 @@
  function sync(){
   const choosing=document.body.classList.contains('story-choice-mode');
   const header=document.querySelector('body>main>header');
-  const available=header?[...header.querySelectorAll('#connection-indicators,#google-user-menu')]:[];
+  const available=header?[...header.querySelectorAll('#connection-indicators,#google-user-menu,#workspace-back')]:[];
   const targets=new Set();
   function collect(parent){
    for(const child of parent.children){

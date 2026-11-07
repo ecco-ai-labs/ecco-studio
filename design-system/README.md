@@ -421,6 +421,15 @@ requires review and Apply. Find and Replace, Clear Selected Text, Save Draft and
 Apply remain in the Controls pane. Editing never changes the uploaded document.
 Nested dialogs retain parent work and focus; narrow screens stack the three panes.
 
+## Previous-screen navigation — 7 November 2026
+
+Every Studio screen has a compact ← Back control above its title. It restores
+the preceding in-tab view, including library search/view, story tab and draft,
+focus and scroll. Up to 30 prior views are retained; an empty history disables
+Back and never substitutes the welcome page. Identity changes clear history.
+Menus and drawers return to their parent; popup Back closes just that layer.
+Credit purchase steps and Desk views use their own prior-step history.
+Existing close/minimize controls remain available. No backend action is replayed.
 ### Inline upload AI controls
 
 The Selected Text pane has a yellow accent border. In the Controls pane, Find and

@@ -24,15 +24,15 @@ sessionStorage.setItem('ecco-user-session','customer-session');localStorage.setI
 let {root,cleanup}=await create();
 let trigger=root.querySelector('.account-trigger');
 assert.equal(trigger.getAttribute('aria-expanded'),'false');trigger.click();await tick();
-assert.equal(root.querySelector('[role="menu"]').textContent,'Example Adminadmin@example.testAdministratorSign out');
-assert.equal(root.activeElement,root.querySelector('[role="menuitem"]'));
+assert.equal(root.querySelector('[role="menu"]').textContent,'BackExample Adminadmin@example.testAdministratorSign out');
+assert.equal(root.activeElement,[...root.querySelectorAll('[role="menuitem"]')].find(b=>b.textContent==='Sign out'));
 root.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,composed:true,cancelable:true}));await tick();
 assert(!root.querySelector('[role="menu"]'));assert.equal(root.activeElement,trigger);
 trigger.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,composed:true,cancelable:true}));await tick();
 assert(root.querySelector('[role="menu"]'));
 root.querySelector('[aria-label="Refresh workspace"]').focus();await tick();assert(!root.querySelector('[role="menu"]'));
 trigger.click();await tick();document.body.dispatchEvent(new Event('pointerdown',{bubbles:true,composed:true}));await tick();assert(!root.querySelector('[role="menu"]'));
-trigger.click();await tick();root.querySelector('[role="menuitem"]').click();await tick();await tick();
+trigger.click();await tick();[...root.querySelectorAll('[role="menuitem"]')].find(b=>b.textContent==='Sign out').click();await tick();await tick();
 assert.equal(localStorage.getItem('ecco-desk-staff-session'),null);assert.equal(sessionStorage.getItem('ecco-user-session'),'customer-session');
 assert(root.textContent.includes('Sign in to Ecco Desk'));assert(!document.querySelector('dialog'));
 assert.equal(calls.find(c=>c.url.endsWith('/logout')).options.headers.Authorization,'Bearer staff-session');

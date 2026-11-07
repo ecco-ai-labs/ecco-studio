@@ -12,6 +12,7 @@ globalThis.fetch=async(_url,options)=>{if(options.method==='POST'){const p=JSON.
 const {mount}=await import('../desk/desk-app.mjs');const host=document.querySelector('#host'),cleanup=mount(host),tick=()=>new Promise(r=>setTimeout(r,40));await tick();await tick();
 const root=host.shadowRoot,button=text=>[...root.querySelectorAll('button')].find(b=>b.textContent.trim()===text);
 button('Agents').click();await tick();assert(root.querySelector('.agent-card'));assert(!button('Create task'));assert(!root.querySelector('.metrics'));
+button('Team members').click();await tick();root.querySelector('.topbar .desk-back').click();await tick();assert(root.querySelector('.agent-card'),'Back restores Agents rather than Overview');
 root.querySelector('.agent-card').click();await tick();assert(root.querySelector('.agent-config'));assert.equal(root.querySelectorAll('.agent-finding').length,50);
 button('Select critical (25)').click();await tick();assert.equal(root.querySelectorAll('.agent-finding input:checked').length,25);
 button('Create 25 separate tickets').click();await tick();await tick();await tick();assert.equal(writes,25);assert.equal(root.querySelectorAll('.agent-ticket-link').length,25);assert.equal(button('Select critical (0)').disabled,true);
