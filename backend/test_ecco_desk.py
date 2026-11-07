@@ -92,6 +92,21 @@ class DeskTest(unittest.TestCase):
         with desk.connect(self.database) as db:
             self.assertEqual(db.execute('SELECT ticketId FROM desk_ack_pending').fetchone()[0], t['id'])
 
+    def test_typing_customer_endpoint_keeps_requester_boundary(self):
+        import ecco_desk_chat as chat
+        self.setup_team()
+        t=self.create()
+        with patch.object(chat,'is_open',return_value=True):
+            for user,body,path in [
+                ('alice',dict(op='chatRequest',id=t['id']),'/api/desk/support'),
+                ('staff',dict(op='chatPresence',available=True),'/api/desk'),
+                ('staff',dict(op='chatAccept',id=t['id']),'/api/desk'),
+                ('alice',dict(op='chatTyping',id=t['id'],typing=True),'/api/desk/support')]:
+                self.assertEqual(self.call(user,body,path)[0],200)
+            self.assertEqual(self.call('staff',path=f'/api/desk?ticket={t["id"]}')[1]['chat']['typing']['name'],'Alice')
+            self.assertEqual(self.call('bob',dict(op='chatTyping',id=t['id'],typing=True),'/api/desk/support')[0],404)
+            self.assertEqual(self.call('staff',dict(op='chatTyping',id=t['id'],typing=True),'/api/desk/support')[0],404)
+
     def test_server_error_has_traceable_reference_without_private_values(self):
         with patch.object(desk, 'write', side_effect=sqlite3.OperationalError('secret-fixture')), self.assertLogs(desk.LOG, level='ERROR') as logs:
             code, result = self.call('alice', dict(op='createTicket', type='support', title='x', description='y'), path='/api/desk/support')

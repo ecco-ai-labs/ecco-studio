@@ -126,6 +126,51 @@ class Conversations(unittest.TestCase):
         self.assertEqual(self.detail(self.alice)['chat']['state'],'ended')
         with self.assertRaises(desk.DeskError): self.action(self.alice,'chatRequest')
 
+    def test_typing_is_only_shared_between_live_participants_and_expires(self):
+        with self.assertRaises(desk.DeskError): self.action(self.alice,'chatTyping',typing=True)
+        self.connect()
+        for me in (self.bob,self.agent2):
+            with self.assertRaises(desk.DeskError): self.action(me,'chatTyping',typing=True)
+        with self.assertRaises(desk.DeskError): self.action(self.alice,'chatTyping',typing='yes')
+        self.action(self.alice,'chatTyping',typing=True)
+        self.assertEqual(self.detail(self.agent)['chat']['typing'],dict(name='Alice',expiresInMs=8000))
+        self.assertIsNone(self.detail(self.alice)['chat']['typing'])
+        self.assertIsNone(self.detail(self.agent2)['chat']['typing'])
+        self.action(self.agent,'chatTyping',typing=True)
+        self.assertEqual(self.detail(self.alice)['chat']['typing']['name'],'Agent')
+        self.assertEqual(self.detail(self.alice)['comments'],[])
+        self.clock.return_value+=chat.TYPING_TTL+1
+        self.assertIsNone(self.detail(self.alice)['chat']['typing'])
+        with desk.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM desk_chat_typing').fetchone()[0],0)
+
+    def test_typing_stops_on_explicit_stop_send_and_end(self):
+        self.connect()
+        self.action(self.agent,'chatTyping',typing=True)
+        self.action(self.agent,'chatTyping',typing=False)
+        self.assertIsNone(self.detail(self.alice)['chat']['typing'])
+        self.action(self.agent,'chatTyping',typing=True)
+        self.action(self.agent,'chatMessage',body='Hello')
+        self.assertIsNone(self.detail(self.alice)['chat']['typing'])
+        self.action(self.alice,'chatTyping',typing=True)
+        self.action(self.agent,'chatTyping',typing=True)
+        self.action(self.alice,'chatEnd')
+        with desk.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM desk_chat_typing').fetchone()[0],0)
+
+    def test_typing_cannot_survive_delegation_or_agent_disconnect(self):
+        self.connect()
+        self.action(self.agent,'chatTyping',typing=True)
+        with desk.connect(self.db) as db: chat.delegate(db,self.t['id'],self.agent2['memberId'])
+        self.assertIsNone(self.detail(self.alice)['chat']['typing'])
+        with desk.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM desk_chat_typing').fetchone()[0],0)
+            db.execute("UPDATE desk_chat_sessions SET state='live',agentId='agent' WHERE ticketId=?",(self.t['id'],))
+            db.execute('UPDATE desk_chat_presence SET seenAt=?',(self.clock.return_value-chat.AGENT_TTL-1,))
+            db.execute('INSERT INTO desk_chat_typing VALUES (?,?,?)',(self.t['id'],'agent',self.clock.return_value+8))
+        self.assertEqual(self.detail(self.alice)['chat']['state'],'queued')
+        self.assertIsNone(self.detail(self.alice)['chat']['typing'])
+
     def message(self,sender='alice@example.test',body='My email reply',tid=None,mid='<reply-1@example.test>',authenticated=True,sent=False,ref=None):
         with desk.connect(self.db) as db: destination=replies.reply_address(db,tid or self.t['id'],self.config)
         m=EmailMessage();m['From']=sender;m['To']=destination;m['Subject']='Re: support';m['Message-ID']=mid

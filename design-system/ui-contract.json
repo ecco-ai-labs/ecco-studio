@@ -2138,7 +2138,15 @@
       "hours": "Live chat only: 7 AM–11:59 PM Pacific daily, including automatic PST/PDT changes. Opening new tickets and sending ticket/email replies remain available 24/7.",
       "ownership": "Accept case or Accept chat assigns one responsible agent. Only that agent sends public replies or resolves/closes the issue. The owner or an administrator can explicitly delegate to an active agent. Accepted cases cannot be unassigned. Delegating live chat queues it until the delegate accepts; transcripts stay on the same ticket.",
       "nativeSupport": "Support email includes Accept, Resolve, Close, Delegate and Reopen compose actions. Sending the action email confirms it; authenticated commands never enter the customer transcript or get forwarded. Normal agent replies use the ticket reply address and forward only to its opener. Native Google Chat cards use verified app callbacks and exact Google member identities; activation requires an owner-configured interactive Chat app and approved support space.",
-      "staffSignIn": "Standalone team Desk uses a separate persistent staff session and its own Google account chooser. It never reuses, replaces or logs out the Studio customer session. Embedded customer support continues to use Studio identity and requester-only permissions."
+      "staffSignIn": "Standalone team Desk uses a separate persistent staff session and its own Google account chooser. It never reuses, replaces or logs out the Studio customer session. Embedded customer support continues to use Studio identity and requester-only permissions.",
+      "composer": {
+        "approval": "User requested a permanently visible typing box for customers and support personnel, with animated dots while the other participant types.",
+        "layout": "Reply form is a non-scrolling sibling of the flexing ticket transcript. Drawer scroll area has min-height:0 and overflow:auto. Composer keeps existing 26px desktop / 21px narrow inset, 3-row textarea bounded to 18dvh, and a reserved 18px typing-status line.",
+        "focus": "Focus the composer after opening a loaded ticket when permitted; preserve caret and drafts across polling, and return focus after send or send failure without stealing it from another control. Preserve newly typed text while an earlier message is sending.",
+        "scroll": "Open at latest messages; follow new messages only when already near the bottom, or after sending. Reading older messages preserves scroll position. History and properties remain available in the scroll area; composer stays visible on Conversation.",
+        "presence": "Live participants only: boolean typing pulses every 2 seconds while actively editing public chat. Stop on 4 seconds idle, blur, hidden tab, send, clear, internal-note mode, ticket close or unmount. Server expires presence after 8 seconds and clears it on send, end, delegation or lost agent presence; no draft text is transmitted.",
+        "feedback": "Named opponent is typing with three animated dots above the textbox. Polite accessible status, stable height, inherited Desk colors, reduced-motion fallback. Receiving chat state refreshes every 1.5 seconds; unrelated staff cannot see typing presence."
+      }
     },
     "responseNotifications": {
       "approval": "User requested replies only to the ticket opener, exact ticket association for multiple tickets from the same user, and a very small support-response badge over the headset.",
@@ -2281,7 +2289,7 @@
     "export": "Authenticated CPU-only frame-editor service must advertise availability. Source story and asset validated, 25 fps/2 minute/1920px limits, idempotent request IDs, original preserved. Local uploads can be reviewed; Video Library assets support server MP4 export. No GPU starts or AI submissions."
   },
   "workspaceDriveSearch": {
-    "approval": "User requested live file search, then specified a self-contained box with Search inside, in one ribbon alongside Type and Location, never above or below them.",
+    "approval": "User requested live file search, then specified a self-contained box with Search inside, in one ribbon alongside Type and Location, never above or below them. User then requested Search last and removal of All jobs and stories.",
     "identity": {
       "type": "search-input",
       "variant": "workspace-drive",
@@ -2290,7 +2298,7 @@
       "source": "activity-files.js"
     },
     "appearance": "Reuse existing native input, focus and active theme styles and 12px filter typography. Search has no visible external label; existing control colors and dimensions stay unchanged.",
-    "layout": "Search input, Type and Location share one non-wrapping flex row with equal flexible widths, min-width:0 and bottom-aligned controls. Preserve the existing 8px row gap; keep the three fields on one row at narrow viewport widths.",
+    "layout": "Type, Location and Search input share one non-wrapping flex row with equal flexible widths, min-width:0 and bottom-aligned controls. Preserve the existing 8px row gap; keep the three fields on one row at narrow viewport widths.",
     "content": "Search placeholder inside the box; accessible name Search files. Existing count shows matching files out of the current filter total while searching.",
     "states": "Empty query shows all files within the current filters; no matches shows No files match your search. Existing storage-disconnected message retains priority. Native hover/focus/clear behavior; no remote loading state.",
     "interaction": "Filter immediately on input using case-insensitive, trimmed substring matching against displayed title (or prompt fallback), file name, path and ID. Combine with existing Type, Location and job scope. Clearing restores all files in that scope. Keep the query in this tab while the dialog is reopened or its results refresh; no remote request or media generation.",
@@ -2298,9 +2306,9 @@
     "usage": "Settings > Workspace Drive; existing images, videos and audio records only. No new storage access or backend endpoint."
   },
   "workspaceDriveListing": {
-    "approval": "User requested file-system-style rows with Name, Kind, Date Last Opened and Date Created; every column sortable with visible up/down indicators.",
+    "approval": "User requested file-system-style rows with Name, Kind, Date Last Opened and Date Created; every column sortable with visible up/down indicators. User requested a larger popup, compact rows and short display names such as Munni coconut escape instead of Munni coconut escape - 30 seconds \u00b7 frame edit.mp4.",
     "identity": "Native table #activity-files-table, sortable column header buttons and file-name buttons; nested #activity-file-preview popup in activity-files.js.",
-    "appearance": "Compact 12px table with theme text, accent, border, muted and control colors. 10px/8px cell padding; Name 36%, Kind 12%, each date 26%. Active sort arrow uses accent; both arrows remain visible. Existing dialog dimensions retained; 560px minimum table width scrolls horizontally within the popup on small screens. Search, Type and Location stay in their single ribbon.",
+    "appearance": "Compact 12px table with theme text, accent, border, muted and control colors. 4px/8px cell padding and 24px minimum header/name button height; Name 36%, Kind 12%, each date 26%. Single-line file names ellipsize instead of expanding rows; full original name and path in the tooltip. Active sort arrow uses accent; both arrows remain visible. Workspace Drive grows to 1100px within 32px viewport margins, 85vh tall capped at 900px; its table scrolls inside the popup with a 560px minimum width. Preview popup dimensions stay unchanged. Type, Location and Search share one ribbon in that order. All jobs and stories is removed; compact header/count spacing and empty status hidden.",
     "content": [
       "Name",
       "Kind",
@@ -2310,7 +2318,8 @@
     "states": "Newest-created first initially. Unknown dates display an em dash and sort last in both directions; no fabricated historical opening timestamps. Empty, filtered-empty and storage-disconnected messages span the table.",
     "interaction": "Each header button selects ascending order, then toggles ascending/descending on subsequent activation. Names use natural case-insensitive ordering, Kind uses media category and dates compare timestamps. Sorting combines with search, Type, Location and job scope. File-name activation opens a nested media preview retaining Download, Trash, Restore and permanent-delete actions with their existing API/confirmation behavior.",
     "lastOpened": "Record explicit Workspace Drive preview opens only. Dates persist in this browser per signed-in user ID and storage volume, storing only asset IDs and timestamps; signed-out dates remain in memory. The header tooltip explains browser scope. Opening the list, sorting and filtering never mark files opened. Unknown prior history remains blank; no cross-device or other-app access history is claimed.",
-    "accessibility": "Native table and column headers with aria-sort; keyboard-operable header buttons name the next sort action. Visible up/down arrows are decorative to assistive technology. File names are native buttons; closing preview restores focus to its file row. Search/header nodes stay stable during updates. Account changes dismiss file dialogs and switch timestamp scope; cross-tab timestamp updates refresh the list."
+    "accessibility": "Native table and column headers with aria-sort; keyboard-operable header buttons name the next sort action. Visible up/down arrows are decorative to assistive technology. File names are native buttons; closing preview restores focus to its file row. Search/header nodes stay stable during updates. Account changes dismiss file dialogs and switch timestamp scope; cross-tab timestamp updates refresh the list.",
+    "displayNames": "Remove recognized media file extensions and trailing generated frame edit/duration suffixes from displayed names only, repeatedly from the end. Preserve meaningful title text, original records, paths and download filenames. Sort by the short displayed name; search still matches both short and full original names. Full names remain available in tooltips and the preview path."
   },
   "storyWorkspace": {
     "approval": "2026-11-07: User approved implementing one workspace with Story Details, Story & Characters, and Generate & Publish browser-style tabs.",
