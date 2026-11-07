@@ -259,7 +259,7 @@ test('NAV-03 Back belongs only to the page, never menus, hover drawers or popups
   await expect(preferences).not.toHaveAttribute('open');await expect(preferences.locator('summary')).toBeFocused();
   await page.locator('#activity-files-menu').click();await expect(page.locator('#activity-files')).toBeVisible();
   await expect(page.locator('#activity-files').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
-  await page.locator('#activity-files [data-close]').click();await expect(page.locator('#activity-files')).toBeHidden();
+  await page.locator('#activity-files').getByRole('button',{name:'Close popup',exact:true}).click();await expect(page.locator('#activity-files')).toBeHidden();
   await expect(page.locator('#video-library-gallery')).toBeVisible();await expect(page.locator('#activity-files-menu')).toBeFocused();
   const viewport=page.viewportSize();await page.mouse.move(viewport.width-1,viewport.height/2);
   await page.locator('#activity-edge-arrow').click();await expect(page.locator('#activity-panel')).toBeVisible();
