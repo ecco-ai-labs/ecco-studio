@@ -346,3 +346,22 @@ Local file review does not upload the source or modify the original file.
 See `video/FRAME_REVIEW.md` for workflow and validation details.
 
 Frame review keeps its preview/group selectors compact and names the active local video. Thumbnail decoding is serialized across navigation; definitive rejected exports can be retried with updated edits.
+
+## Three-tab story workspace — 7 November 2026
+
+Tell Your Story → New Story now opens one workspace with three browser-style tabs:
+Story Details, Story & Characters, and Generate & Publish. Details collects output,
+type, genre, age group, language, optional location and recurrence. The second tab
+uses the existing PDF selection experience or an editable script, with explicit AI
+suggestions and editable library characters. Model and character properties are
+collapsed until needed. The third tab embeds the selected existing studio and its
+real generation/progress/review controls; video can prepare audio and images here.
+
+Draft fields save in this browser. Continue saves new stories to connected storage;
+this does not claim cross-device synchronization of all setup fields. Existing
+studio edits and completed assets are retained; jobs only start on Generate. AI
+suggestions cannot overwrite intervening edits. Unknown story-create outcomes
+block duplicate submissions. Publish reuses the existing approved-video destination
+and scheduling controls within tab three. Audio/image publishing remains unavailable;
+downloads remain available. Recurring prepares a new episode/chapter and never
+enables an automatic schedule. Standalone Studio and its advanced preparation remain.

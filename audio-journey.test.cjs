@@ -1,5 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const {setup,input,tick}=require('./audio-ui-test-helpers.cjs');
+const {setup:setupStudio,input,tick}=require('./audio-ui-test-helpers.cjs');
+const setup=storage=>setupStudio(storage,{legacyStorySetup:true});
 const dlg='#audio-guided-dialog';
 const directedReply=body=>{const plan=JSON.parse(body.context.summary).draft,part=p=>({...p,performance:{emotion:'neutral',direction:'Natural audience-appropriate narration.',pause_before:.35}});return{questions:[],revisions:[{id:'audio_directed_script',text:JSON.stringify({opening:plan.opening?part(plan.opening):null,segments:plan.segments.map(part),expressiveness:null})}]};};
 

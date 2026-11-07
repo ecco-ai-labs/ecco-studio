@@ -3,9 +3,11 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM,VirtualConsole}=require('jsdom');
 const tick=()=>new Promise(resolve=>setTimeout(resolve,35));
-async function setup(storage={}){
+async function setup(storage={}, {legacyStorySetup=false}={}){
  const html=fs.readFileSync(__dirname+'/index.html','utf8');
- const scripts=[...html.matchAll(/<script(?:\s+src="([^"]+)")?[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]?fs.readFileSync(__dirname+'/'+m[1].split('?')[0],'utf8'):m[2]);
+ // Legacy preparation remains available inside the standalone Audio Studio.
+ // Its setup fixture excludes the new entry router; story-workspace.test.cjs runs the full bundle.
+ const scripts=[...html.matchAll(/<script(?:\s+src="([^"]+)")?[^>]*>([\s\S]*?)<\/script>/g)].filter(m=>!legacyStorySetup||!m[1]?.startsWith('story-workspace')).map(m=>m[1]?fs.readFileSync(__dirname+'/'+m[1].split('?')[0],'utf8'):m[2]);
  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
  const dom=new JSDOM(html.replace(/<script[\s\S]*?<\/script>/g,''),{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/',pretendToBeVisual:true,virtualConsole:vc}),w=dom.window;
  Object.defineProperty(w.document,'currentScript',{value:{src:'https://ecco-ai-labs.github.io/ecco-studio/ecco-desk.js'}});

@@ -1,0 +1,25 @@
+name: Story workspace checks
+on:
+  pull_request:
+    paths:
+      - 'story-workspace*'
+      - 'story-journeys.js'
+      - 'updates/workspace-ui.js'
+      - 'index.html'
+      - 'audio-studio.js'
+      - 'generation-studio.js'
+      - 'video-flow.js'
+      - '.github/workflows/story-workspace.yml'
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix /tmp/ecco-story-tests jsdom@26.1.0 --no-audit --no-fund
+      - run: NODE_PATH=/tmp/ecco-story-tests/node_modules node --test story-workspace.test.cjs story-journeys.test.cjs journey-runtime.test.cjs tests/studio-workspace-tabs.test.cjs tests/publishing-library.test.cjs
+      - run: python3 scripts/ui_inventory.py --check
