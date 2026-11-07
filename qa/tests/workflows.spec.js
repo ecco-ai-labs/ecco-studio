@@ -214,6 +214,7 @@ test('NAV-03 popup and menu Back dismiss one layer and retain the originating sc
   await page.locator('#activity-files-menu').click();await expect(page.locator('#activity-files')).toBeVisible();
   await page.locator('#activity-files > .ecco-back').click();await expect(page.locator('#activity-files')).toBeHidden();
   await expect(page.locator('#video-library-gallery')).toBeVisible();await expect(page.locator('#activity-files-menu')).toBeFocused();
+  const viewport=page.viewportSize();await page.mouse.move(viewport.width-1,viewport.height/2);
   await page.locator('#activity-edge-arrow').click();await expect(page.locator('#activity-panel')).toBeVisible();
   await page.locator('#activity-panel > .ecco-back').click();await expect(page.locator('#activity-panel')).toBeHidden();
   await expect(page.locator('#activity-edge-arrow')).toBeFocused();
