@@ -228,6 +228,7 @@ body:not(.workspace-entry-mode) #page .section-head>.row>button:is(:active,:focu
 #workspace-library-group>.workspace-library-content>#image-library-nav{order:2}
 #workspace-library-group>.workspace-library-content>#workspace-audio-library{order:3}
 #workspace-library-group>.workspace-library-content>#workspace-video-library{order:4}
+#workspace-library-group>.workspace-library-content>#workflow-library{order:5}
 aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 /* Shared library overview modes. */
 #video-library-gallery.library-list{display:flex;flex-direction:column}

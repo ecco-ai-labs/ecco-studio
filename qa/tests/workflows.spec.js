@@ -58,6 +58,40 @@ test('STORY-04 Generate with AI opens an instruction dialog',async({page})=>{
   await expect(page.locator('#ai-generation-dialog')).toBeVisible();
   await expect(page.locator('#ai-generation-dialog [name=instructions]')).toBeVisible();
 });
+test('LIB-home-01 chooser shows aligned icons and opens each matching sidebar destination',async({page})=>{
+  await boot(page);
+  const kinds=['story','image','audio','video','workflow'];
+  await page.locator('#workspace-library-group > summary').click();
+  await expect(page.getByRole('heading',{name:'Choose a library',exact:true})).toBeVisible();
+  await expect(page.locator('body > aside')).toBeVisible();
+  await expect(page.locator('#story-workspace-header')).toBeHidden();
+  const choices=page.locator('#library-home-list button');
+  await expect(choices).toHaveCount(5);
+  expect(await choices.evaluateAll(rows=>rows.map(row=>row.dataset.libraryDestination))).toEqual(kinds);
+  const bounds=await choices.evaluateAll(rows=>rows.map(row=>({left:row.getBoundingClientRect().left,width:row.getBoundingClientRect().width,iconLeft:row.querySelector('svg').getBoundingClientRect().left})));
+  for(const row of bounds){expect(row.left).toBe(bounds[0].left);expect(row.width).toBe(bounds[0].width);expect(row.iconLeft).toBe(bounds[0].iconLeft);}
+  await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();
+  expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
+  for(const kind of kinds){
+    const choice=page.locator('[data-library-destination="'+kind+'"]');
+    await expect(choice.locator('.library-home-icon')).toBeVisible();
+    await expect(choice.locator('.library-home-detail')).toBeVisible();
+    if(kind==='story')await choice.click();else await choice.press('Enter');
+    await expect(page.locator('#page .library-files')).toBeVisible();
+    await expect(page.locator(librarySelectors[kind])).toHaveAttribute('aria-current','page');
+    await expect(page.locator(librarySelectors[kind])).toBeFocused();
+    await page.locator('#workspace-library-group > summary').click();
+  }
+});
+test('LAYOUT-library-home narrow light-theme chooser keeps all choices and descriptions visible',async({page})=>{
+  await page.setViewportSize({width:390,height:900});await boot(page,{theme:'desert'});
+  await page.locator('#workspace-library-group > summary').click();
+  const choices=page.locator('#library-home-list button');await expect(choices).toHaveCount(5);
+  for(const choice of await choices.all()){
+    await expect(choice).toBeVisible();await expect(choice.locator('.library-home-detail')).toBeVisible();
+    expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
+  }
+});
 for(const kind of Object.keys(librarySelectors)){
   test(`LIB-${kind}-01 opening hides Story tabs and defaults to List`,async({page})=>{
     await boot(page);const gallery=await openLibrary(page,kind);

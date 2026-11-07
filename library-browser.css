@@ -9,7 +9,7 @@
 #page .library-control-panel .library-browser-tools input,#page .library-control-panel .library-browser-tools select{flex:0 0 auto;min-height:32px;height:32px;margin:0;box-sizing:border-box}
 #page .library-control-panel .library-browser-tools input{width:150px}
 #page .library-files{display:block!important;gap:0!important;overflow:auto;max-height:calc(100dvh - 220px);min-height:80px}
-#page .library-files [hidden],.library-file-preview [hidden]{display:none!important}
+#page .library-files [hidden],#page .library-files>.card[hidden],.library-file-preview [hidden]{display:none!important}
 #page .library-files>.card,#page .library-files>.library-file-heading{display:grid!important;grid-template-columns:minmax(180px,1fr) 90px 185px 185px;align-items:center;gap:0;min-width:640px;width:100%;box-sizing:border-box;border:0!important;border-radius:0!important;box-shadow:none!important;margin:0!important;padding:0!important;background:transparent;min-height:32px;font-size:12px;line-height:20px;overflow:visible}
 #page .library-files>.card{content-visibility:auto;contain-intrinsic-size:auto 32px}
 #page .library-files>.card:nth-of-type(even){background:color-mix(in srgb,var(--ecco-theme-text,#fff) 3%,transparent)}
@@ -30,10 +30,21 @@
 #page .library-files button:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
 .library-file-preview{width:min(760px,calc(100vw - 32px));max-height:88vh;overflow:auto;background:var(--ecco-theme-surface,#201d44);color:var(--ecco-theme-text,#eeebf5);border:1px solid var(--ecco-theme-border,#605679);border-radius:9px;padding:18px}
 .library-file-preview h2{font-size:16px;overflow-wrap:anywhere}.library-preview-content{position:relative}.library-file-preview .library-original>img,.library-file-preview .library-original>video{display:block;width:100%;max-height:48vh;object-fit:contain}.library-file-preview audio{width:100%}.library-file-preview .actions{display:flex;flex-wrap:wrap;gap:8px}.library-file-preview .library-card-actions>summary{display:none}.library-file-preview .asset-corner-actions{position:static;justify-content:flex-end;margin-bottom:8px}.library-file-preview .library-metadata{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;font-size:12px}.library-metadata dt{color:var(--ecco-theme-muted,#b1acc9)}.library-metadata dd{margin:0}.library-file-preview .text-library-delete{position:static!important;transform:none!important}.library-file-preview .text-library-preview{display:none}
-/* Library landing uses compact text choices rather than individual cards. */
-#library-home-list{display:flex;flex-direction:column;align-items:flex-start;gap:4px;list-style:none;margin:0;padding:0}
-#page #library-home-list button{background:transparent!important;border:0!important;box-shadow:none!important;color:var(--ecco-theme-text,#fff)!important;text-align:left}
-#page #library-home-list button:is(:hover,:focus-visible){color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
-#page #library-home-list button:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
+/* One compact directory, with aligned rows and the same icons as the file browser. */
+#page .library-home{width:100%;max-width:760px;margin:0}
+#library-home-heading{margin:0 0 16px;font-family:inherit;font-size:16px;line-height:24px;font-weight:600;color:var(--ecco-theme-text,#eeebf5)}
+#library-home-list{list-style:none;margin:0;padding:0;border-block:1px solid var(--ecco-theme-border,var(--border,#454065))}
+#library-home-list>li{margin:0;padding:0}
+#library-home-list>li+li{border-top:1px solid color-mix(in srgb,var(--ecco-theme-border,var(--border,#454065)) 45%,transparent)}
+#page #library-home-list button{display:grid;grid-template-columns:20px 160px minmax(0,1fr) 16px;align-items:center;column-gap:16px;width:100%;min-height:52px!important;margin:0;padding:10px 12px!important;background:transparent!important;border:0!important;border-radius:0;box-shadow:none!important;color:var(--ecco-theme-text,#eeebf5)!important;text-align:left;font-family:inherit;font-size:14px!important;line-height:20px!important;font-weight:500!important;filter:none}
+#library-home-list .library-home-icon{width:20px;height:20px;color:var(--ecco-theme-accent,var(--accent,#ffdc24))}
+#library-home-list .library-home-detail{font-size:12px;line-height:18px;font-weight:400;color:var(--ecco-theme-muted,var(--muted,#b1acc9))}
+#library-home-list .library-home-arrow{width:16px;height:16px;color:var(--ecco-theme-muted,var(--muted,#b1acc9))}
+#page #library-home-list button:is(:hover,:focus-visible){background:var(--ecco-theme-control,#302a54)!important}
+#page #library-home-list button:is(:hover,:focus-visible) :is(.library-home-name,.library-home-arrow){color:var(--ecco-theme-accent,var(--accent,#ffdc24))}
+#page #library-home-list button:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:-2px}
+#page #library-home-list button:active{background:var(--ecco-theme-surface,#201d44)!important}
+@media(max-width:600px){#page #library-home-list button{grid-template-columns:20px minmax(0,1fr) 16px;column-gap:12px;row-gap:2px;padding:10px!important}#library-home-list .library-home-icon{grid-column:1;grid-row:1/3}#library-home-list .library-home-name{grid-column:2;grid-row:1}#library-home-list .library-home-detail{grid-column:2;grid-row:2}#library-home-list .library-home-arrow{grid-column:3;grid-row:1/3}}
+@media(max-width:1200px){main:has(#page>.library-home,#page>.library-files)>.workspace-ribbon{flex-wrap:wrap;gap:8px;align-items:flex-start}main:has(#page>.library-home,#page>.library-files)>.workspace-ribbon .header-right{flex:1 1 560px;min-width:0;max-width:100%;flex-wrap:wrap;gap:8px}main:has(#page>.library-home,#page>.library-files) #workspace-menus{min-width:0;max-width:100%;flex-wrap:wrap}}
 @media(pointer:coarse){#page .library-files .library-file-more{opacity:1}}
 @media(max-width:800px){.library-browser-tools{flex:1}.library-browser-tools input{flex:1;width:100px}#page .library-files{max-height:calc(100dvh - 260px)}}
