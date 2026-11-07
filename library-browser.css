@@ -9,7 +9,7 @@
 #page .library-control-panel .library-browser-tools input,#page .library-control-panel .library-browser-tools select{flex:0 0 auto;min-height:32px;height:32px;margin:0;box-sizing:border-box}
 #page .library-control-panel .library-browser-tools input{width:150px}
 #page .library-files{display:block!important;gap:0!important;overflow:auto;max-height:calc(100dvh - 220px);min-height:80px}
-#page .library-files [hidden],.library-file-preview [hidden]{display:none!important}
+#page .library-files [hidden],#page .library-files>.card[hidden],.library-file-preview [hidden]{display:none!important}
 #page .library-files>.card,#page .library-files>.library-file-heading{display:grid!important;grid-template-columns:minmax(180px,1fr) 90px 185px 185px;align-items:center;gap:0;min-width:640px;width:100%;box-sizing:border-box;border:0!important;border-radius:0!important;box-shadow:none!important;margin:0!important;padding:0!important;background:transparent;min-height:32px;font-size:12px;line-height:20px;overflow:visible}
 #page .library-files>.card{content-visibility:auto;contain-intrinsic-size:auto 32px}
 #page .library-files>.card:nth-of-type(even){background:color-mix(in srgb,var(--ecco-theme-text,#fff) 3%,transparent)}
@@ -45,5 +45,6 @@
 #page #library-home-list button:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:-2px}
 #page #library-home-list button:active{background:var(--ecco-theme-surface,#201d44)!important}
 @media(max-width:600px){#page #library-home-list button{grid-template-columns:20px minmax(0,1fr) 16px;column-gap:12px;row-gap:2px;padding:10px!important}#library-home-list .library-home-icon{grid-column:1;grid-row:1/3}#library-home-list .library-home-name{grid-column:2;grid-row:1}#library-home-list .library-home-detail{grid-column:2;grid-row:2}#library-home-list .library-home-arrow{grid-column:3;grid-row:1/3}}
+@media(max-width:1200px){main:has(#page>.library-home,#page>.library-files)>.workspace-ribbon{flex-wrap:wrap;gap:8px;align-items:flex-start}main:has(#page>.library-home,#page>.library-files)>.workspace-ribbon .header-right{flex:1 1 560px;min-width:0;max-width:100%;flex-wrap:wrap;gap:8px}main:has(#page>.library-home,#page>.library-files) #workspace-menus{min-width:0;max-width:100%;flex-wrap:wrap}}
 @media(pointer:coarse){#page .library-files .library-file-more{opacity:1}}
 @media(max-width:800px){.library-browser-tools{flex:1}.library-browser-tools input{flex:1;width:100px}#page .library-files{max-height:calc(100dvh - 260px)}}
