@@ -27,7 +27,7 @@
   {
     "area": "Tester Agent",
     "mode": "fixture",
-    "scope": "Desk pool/action controls, 50 findings and 25 separate critical Bug tickets using isolated fake API; real browser runner against video fixtures"
+    "scope": "Desk pool/action controls, 50 findings and 25 separate critical Bug tickets using isolated fake API; real browser runner against video fixtures; customer account sees/runs Agents, submits its own support Bug and keeps view on refresh; pending notification connection control"
   },
   {
     "area": "Billing",

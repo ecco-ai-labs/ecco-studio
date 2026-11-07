@@ -153,3 +153,18 @@ test('AUTH-01 local sign-out returns to the first screen',async({page})=>{
   await expect(page.locator('#workspace-entry')).toBeVisible();
   expect(await page.evaluate(()=>localStorage.getItem('ecco-user-session'))).toBeNull();
 });
+
+test('AGENT-03 customer account can run agent and create its own Bug tickets',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1&role=customer');
+  await page.getByRole('button',{name:'Agents',exact:true}).click();await page.locator('.agent-card').click();
+  await expect(page.getByRole('heading',{name:'Agents',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled();
+  await expect(page.locator('.support-hours')).toHaveCount(0);await expect(page.getByLabel('Assign findings to',{exact:true})).toHaveCount(0);
+  const report={generated_at:'2026-11-07T12:00:00Z',commit:'customer-fixture',tests:[{id:'LIB-video-preview',status:'failed',error:'Missing thumbnail'}]};
+  await page.getByLabel('Import CI report',{exact:true}).setInputFiles({name:'qa-summary.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(report))});
+  await page.getByRole('button',{name:'Create ticket',exact:true}).click();await expect(page.locator('.agent-ticket-link')).toHaveText('SUP-0001 ↗');
+  expect(await page.evaluate(()=>window.__deskPosts[0].type)).toBe('support');
+  await page.getByRole('button',{name:'Refresh workspace',exact:true}).click();await expect(page.locator('.tester-agent')).toBeVisible();
+  await page.getByRole('button',{name:'User Notifications',exact:true}).click();await expect(page.getByRole('button',{name:'Connect Google',exact:true})).toBeVisible();
+  await expect(page.locator('.notification-composer')).toHaveCount(0);
+ });

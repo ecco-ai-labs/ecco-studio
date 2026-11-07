@@ -404,7 +404,12 @@ matching left-navigation entry. Keyboard and pointer activation behave alike.
 
 ## Tester Agent
 
-Ecco Desk staff navigation includes Agents → Tester Agent. The pool opens a same-screen action, findings and ticket workflow. Browser checks exercise the current Studio; skipped prerequisites and limits are explicit. CI reports can be imported from the automatic workflow. One selected finding becomes one internal Bug ticket, with severity, reproduction steps and evidence. History is browser-local and account-scoped. Receipt ambiguity stops a batch without blindly repeating a ticket. See the `eccoDesk.testerAgent` contract and `qa/README.md`.
+Signed-in Ecco Desk navigation includes Agents → Tester Agent. The pool opens a same-screen action, findings and ticket workflow. Browser checks exercise the current Studio; skipped prerequisites and limits are explicit. CI reports can be imported from the automatic workflow. One selected finding becomes one Bug ticket (internal for staff, support for customers), with severity, reproduction steps and evidence. History is browser-local and account-scoped. Receipt ambiguity stops a batch without blindly repeating a ticket. See the `eccoDesk.testerAgent` contract and `qa/README.md`.
+
+### Desk access recovery
+
+Agents is available to signed-in standalone Desk customers as well as staff. Customer findings become their own support Bug tickets; staff retains internal Bug tickets and assignment. No staff role is inferred from notification group membership. Pending notification group setup offers Connect Google and Refresh access through the existing owner-protected endpoint; publishing remains blocked until Google consent and membership verification succeed.
+
 ## Three-pane upload viewer — 7 November 2026
 
 PDF, TXT and Markdown uploads share one full-height workspace: the full document
