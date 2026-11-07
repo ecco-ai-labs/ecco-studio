@@ -1,0 +1,28 @@
+# Ecco UX QA Agent
+
+Run `npm ci`, `npx playwright install --with-deps chromium`, then `npm test` from `qa/`.
+The GitHub **UX QA Agent** workflow runs on every push and pull request and supports **Run workflow**.
+Open the run summary for counts, failures and coverage; download `ecco-ux-qa-*` for `report/index.html`, screenshots, videos, traces and JSON.
+
+The first release registers 47 Chromium browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out.
+The exact production frontend loads in a local fixture host. Service responses, identity and media are synthetic; external requests are intercepted and blocked. No live tickets, charges, GPU jobs or YouTube uploads occur. `coverage.json` explicitly lists backend workflows that remain blocked.
+
+## AI screenshot inspection
+
+Add repository secret `UX_QA_OPENAI_API_KEY` and variable `UX_QA_VISION_MODEL` with a vision-capable model available to that API project. The optional reviewer sends only synthetic test screenshots to the OpenAI Responses API, in batches of four. See `AI-VISUAL-REVIEW.json` for candidate issues; they require confirmation. Missing configuration is reported as BLOCKED, never a pass. Browser checks work without this key.
+
+## Adding coverage and accepting changes
+
+Add a user action and observable assertion to `tests/workflows.spec.js` for each new feature. Update `coverage.json` whenever coverage or blockers change. Use actual user clicks, media decode checks and visible computed styles. Never replace a failing expectation to make a regression pass, skip failures, or auto-approve screenshot baselines. There are no approved screenshot baselines yet: captures are evidence for review, not a claimed pixel-diff regression suite.
+
+Every confirmed issue should become a permanent test. A failed browser assertion makes the workflow fail, but **branch protection must separately require `browser-workflows`** before it can block merges. This change does not claim to enforce repository protection or production deployment gates.
+
+## Scope and prerequisites
+
+Chromium only in v1. This is registered workflow coverage, not proof of every possible path. Real OAuth, authenticated persistence, ticket delivery, payments, GPU generation/cancellation and external publishing require dedicated sandbox accounts/services before they can be tested end to end. Synthetic signed-in identity checks only frontend account behavior.
+
+The fixture server is for local/CI use. Do not deploy it as a production server. Its `__qa=1` injection exists only in the local server; production HTML has no fixture entry point. Fixtures contain no customer records, credentials or production media. Regenerate sample media with FFmpeg if needed; the video is one second of green with a red left stripe.
+
+## Today's known acceptance requirement
+
+`THUMB-video-small` and `THUMB-video-large` require a visible decoded first-frame preview, not a generic film icon. On a revision without video thumbnails, both must fail. Once the product is fixed, the same checks must pass without weakening their assertions.
