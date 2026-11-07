@@ -306,14 +306,20 @@
   window.EccoStoryWorkspace?.leave();welcomePending=false;
   document.body.classList.remove('workspace-entry-mode','story-choice-mode');q('#workspace-entry')?.remove();
   notice('');page='library-home';q('#heading').textContent='Library';q('#page').replaceChildren();
-  const list=document.createElement('ul');list.id='library-home-list';list.setAttribute('aria-label','Choose a library');
-  const choices=[['story','Story Library','.project > details > summary'],['image','Image Library','#image-library-nav > details > summary'],['audio','Audio Library','#workspace-audio-library > summary'],['video','Video Library','#workspace-video-library > summary'],['workflow','Workflow Library','#workflow-library > summary']];
-  for(const [kind,title,selector]of choices){
-   const item=document.createElement('li'),button=document.createElement('button');button.type='button';button.textContent=title;button.dataset.libraryDestination=kind;
+  const chooser=document.createElement('section');chooser.className='library-home';chooser.setAttribute('aria-labelledby','library-home-heading');
+  const heading=document.createElement('h2');heading.id='library-home-heading';heading.textContent='Choose a library';chooser.append(heading);
+  const list=document.createElement('ul');list.id='library-home-list';list.setAttribute('aria-labelledby',heading.id);
+  const icons={story:'<path d="M5 3h10l4 4v14H5ZM14 3v5h5M8 12h8M8 16h8"/>',image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 17 6-6 5 5 3-3 4 4"/>',audio:'<path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="16" rx="3" ry="3"/>',video:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 8 6 4-6 4Z"/>',workflow:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M6 9v9h9M9 6h9v9"/>'};
+  const choices=[['story','Story Library','Stories, scripts and drafts','.project > details > summary'],['image','Image Library','Images and visual references','#image-library-nav > details > summary'],['audio','Audio Library','Voices, music and sound effects','#workspace-audio-library > summary'],['video','Video Library','Clips and finished videos','#workspace-video-library > summary'],['workflow','Workflow Library','Saved production workflows','#workflow-library > summary']];
+  for(const [kind,title,description,selector]of choices){
+   const item=document.createElement('li'),button=document.createElement('button');button.type='button';button.dataset.libraryDestination=kind;
+   button.setAttribute('aria-label','Open '+title);button.setAttribute('aria-describedby','library-home-detail-'+kind);
+   button.innerHTML='<svg class="library-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+icons[kind]+'</svg><span class="library-home-name"></span><span class="library-home-detail" id="library-home-detail-'+kind+'"></span><svg class="library-home-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg>';
+   button.querySelector('.library-home-name').textContent=title;button.querySelector('.library-home-detail').textContent=description;
    button.onclick=()=>{const summary=q(selector);if(!summary)return;q('#workspace-library-group').open=true;summary.click();summary.closest('details').open=true;librarySelection();summary.focus({preventScroll:true});summary.scrollIntoView({block:'nearest'});};
    item.append(button);list.append(item);
   }
-  q('#page').append(list);
+  chooser.append(list);q('#page').append(chooser);
   document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
   journeyGuide();librarySelection();
  }
