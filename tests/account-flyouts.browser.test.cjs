@@ -77,9 +77,9 @@ test('Billing keyboard dismissal and focus exit preserve the parent menu',async 
 test('purchase and nested Billing Information close without losing the parent',async t=>{
  const {page,errors,credits}=await fixture(t);
  await focusedUsage(page,credits);await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
- await page.getByRole('button',{name:'Add to cart',exact:true}).first().click();
- await page.getByRole('button',{name:'View cart',exact:true}).click();
- await page.getByRole('button',{name:'Check out',exact:true}).click();
+ await page.getByRole('button',{name:'Select',exact:true}).first().click();
+ await page.getByRole('button',{name:'View Cart',exact:true}).click();
+ await page.getByRole('button',{name:'Proceed to Checkout',exact:true}).click();
  await page.getByRole('button',{name:'Billing Information',exact:true}).click();
  assert.equal(await page.locator('dialog[open]').count(),2);
  await page.locator('dialog').last().getByRole('button',{name:'Close popup',exact:true}).click();

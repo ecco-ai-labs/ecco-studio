@@ -67,6 +67,7 @@ lucide-react/dist/esm/createLucideIcon.mjs:
 lucide-react/dist/esm/icons/activity.mjs:
 lucide-react/dist/esm/icons/arrow-right.mjs:
 lucide-react/dist/esm/icons/arrow-up-right.mjs:
+lucide-react/dist/esm/icons/bell.mjs:
 lucide-react/dist/esm/icons/calendar-days.mjs:
 lucide-react/dist/esm/icons/check-check.mjs:
 lucide-react/dist/esm/icons/check.mjs:

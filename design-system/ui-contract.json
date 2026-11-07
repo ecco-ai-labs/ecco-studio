@@ -131,7 +131,7 @@
         "button"
       ],
       "appearance": "Bell in GitHub/Support control panel, matching 16px icons; compact theme-aware dropdown, exact unread count in small top-right badge; hide zero badge.",
-      "behavior": "Show at most the five newest public product announcements as clickable rows. Feed is authored newest-first; adding a sixth displaces the oldest fifth entry. Badge counts unread entries within these five only; expired read entries are not backfilled with displaced older notices. Unread rows are bold; clicking or Enter/Space marks only that row read, switches it to regular weight, and immediately decrements the badge. Read rows remain visible for seven days from first read, then hide; unread rows never expire. Repeated clicks do not extend retention. Legacy receipts start their seven-day clock on migration. Keep expired receipts to prevent old notices resurfacing as unread. Zero hides the badge. No separate Mark as read button. Simply opening does not discard unread items. Only Escape, outside pointer click and the bell dismiss. Focus changes never dismiss notifications. Notification pointer/click events stay inside the dropdown so header menu handlers cannot swallow reading actions. Per-Google-identity browser-local receipts persist across refresh and synchronize tabs; no cross-device receipt sync. Announcements maintained in notifications.json and refreshed every five minutes while visible. No referral reward or referral backend implied.",
+      "behavior": "Authenticated in-app feed from /api/desk/support?userNotifications=1. Show up to the five newest notices addressed to the signed-in Google subject or all users; older displaced notices are never backfilled after read/expiry. Clicking or Enter/Space acknowledges exactly one notice on the server and removes it on success, reducing the unread badge; opening the bell does not mark anything read. Read receipts persist across devices, separately for each subject. Unread notices expire at the admin-set UTC deadline; Until read has no time expiry. Pending reads disable the row; failed reads retain it with a retryable error. Display severity as text and color. No private feed caching in localStorage or static files. Refresh every 30 seconds while visible and on focus/open/account changes; clear immediately and discard stale results on account change. Preserve Escape/outside/bell dismissal, header event isolation and focus return. notifications.json is no longer the active feed.",
       "accessibility": "Named button, aria-expanded/controls, keyboard-focusable notification rows with Read/Unread accessible names, focus retained after dismissal; textContent for feed content."
     },
     "settingsGitHubSync": "2026-11-07 user requested removal of Sync to GitHub from Settings. Remove its header markup, Settings mounting and unused button handler; retain the separate GitHub repository link and existing backend sync capabilities.",
@@ -182,7 +182,8 @@
         "resume-preparation-draft",
         "stop-generation",
         "clip-frame-review",
-        "three-tab-story-workspace"
+        "three-tab-story-workspace",
+        "credit-purchases"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -292,7 +293,9 @@
         "level",
         "text"
       ],
-      "variants": [],
+      "variants": [
+        "credit-purchases"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -332,7 +335,9 @@
         "text",
         "tone"
       ],
-      "variants": [],
+      "variants": [
+        "credit-purchases"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -626,7 +631,8 @@
       "variants": [
         "audio-character-model",
         "clip-frame-review",
-        "three-tab-story-workspace"
+        "three-tab-story-workspace",
+        "credit-purchases"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -858,7 +864,8 @@
       "variants": [
         "ecco-desk",
         "clip-frame-review",
-        "three-tab-story-workspace"
+        "three-tab-story-workspace",
+        "credit-purchases"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -996,7 +1003,8 @@
       ],
       "variants": [
         "ecco-desk",
-        "clip-frame-review"
+        "clip-frame-review",
+        "credit-purchases"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -1373,7 +1381,9 @@
         "thickness",
         "spacing"
       ],
-      "variants": [],
+      "variants": [
+        "credit-purchases"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -2175,6 +2185,39 @@
       "appearance": "Reuse existing form-grid, labels and native selects; no new colors or dimensions.",
       "interaction": "Persist requestType independently of support/internal permissions and Category. Display in ticket summaries and details; authorized staff can update it with existing Save changes.",
       "accessibility": "Label-associated native select with existing keyboard focus and modal tab order."
+    },
+    "userNotifications": {
+      "approval": "User requested a User Notification tab with all-user or specific-user delivery, informational/warning/error severity and read-or-admin-duration lifetime.",
+      "identity": {
+        "type": "navigation-item",
+        "variant": "user-notifications",
+        "source": "desk/src/Notifications.tsx",
+        "parent": "Desk workspace navigation"
+      },
+      "types": [
+        "button",
+        "dropdown",
+        "dropdown-option",
+        "text-input",
+        "number-input",
+        "textarea",
+        "form",
+        "table",
+        "panel",
+        "status-indicator"
+      ],
+      "appearance": "Reuse existing Desk sidebar, light ticket sections, form-grid, native inputs, primary/secondary actions, history table and error/status styles. New form padding 22px (16px mobile), 20px section gap, 11px labels, 12px controls, 5px control radius, 10px/11px control padding. Severity text uses existing informational blue, warning brown and error red treatments. Bell keeps original dimensions and theme colors.",
+      "content": "User Notifications; All users / Specific user; Informational / Warning / Error; title (160 chars), message (4000 chars); Read or duration ends (3 days default, whole 1–365 days) / Until read; Publish notification, Clear form; history with recipients, severity, status, dates, read count and Withdraw.",
+      "states": "Loading, unavailable old service, empty history, active, read (targeted recipient), expired, withdrawn, saving, failure retains draft and success resets form. History lists latest 200 notifications.",
+      "interaction": "Only administrators can open management. Native recipient selector uses verified Studio identities with name/email; target is stored as stable subject. Publish uses a per-draft idempotency key to avoid duplicate retries. Polling preserves input focus and unsent draft. Withdraw removes future visibility without deleting history. History details disclose full message. Every recipient stops seeing a notice on read or expiry, whichever occurs first.",
+      "accessibility": "Label-wrapped native form controls, browser required/min/max validation, aria-busy saving, role=alert errors, role=status success, visible keyboard focus, native details/summary and table headers. Responsive form stacks at 650px; wide history scrolls within its section.",
+      "authorization": "Server enforces active admin role for management and mutations. Customer support route denies management even for admin identities. Feed and receipts use only authenticated subject; no audience IDs or directory leak to customers. Notices and receipts stay in dedicated SQLite tables outside workspace records. Bell polling registers signed-in users for the verified directory.",
+      "deployment": "Additive schema initialization and backend update must precede Pages. No sample or real notifications are sent during deployment.",
+      "specialOffers": {
+        "content": "Type: Notification or Special offer. Offers are informational; Purchase credits, Free bonus credits and Price (USD) required. History includes exact terms.",
+        "validation": "Admin-only creation; credit integers 1–1000000, bonus integers 0–1000000, USD cents 1–100000000. Stable targeting, expiry, read receipts and idempotency include offer terms. Additive nullable offer column preserves existing notices.",
+        "deployment": "specialOfferVersion 1 capability enables the admin option only after the matching backend is installed. No campaign is seeded. Customer routes cannot publish or withdraw offers."
+      }
     }
   },
   "persistentConnections": {
@@ -2338,6 +2381,25 @@
     "persistence": "All three-tab fields and cast autosave per story/local draft ID in this browser. Continue saves a new story through the existing authenticated stories API. Existing studio drafts, outputs, compute choices and references are retained. An uncertain creation response blocks duplicate saves. Browser draft metadata is not claimed to sync across devices.",
     "handoff": "Audio receives the reviewed speaker-assigned script and delivery brief; image receives the visual prompt and chosen character image references; video receives scene directions and retained references. Video exposes Prepare Audio and Prepare Images inside tab three. Unchanged scenes retain images. No automatic multi-stage generation or repair inference is implied.",
     "publishing": "Publishing stays in tab three with existing destination, timing, confirmation and readiness gates. Only supported approved videos can currently be published. Audio/image remain downloadable with the limitation stated inline. Recurring creates the next episode/chapter with cleared content and retained defaults; it does not automatically enable a schedule."
+  },
+  "creditPurchases": {
+    "approval": "User requested title dividers, a final Special offer box connected to admin notifications, Select with a tick for one item at a time, only View Cart below the options, and a conventional Your Cart experience.",
+    "types": [
+      "heading",
+      "divider",
+      "card",
+      "button",
+      "dropdown",
+      "panel",
+      "help-text"
+    ],
+    "identity": "credits-store.js; existing Purchase Additional Credits, Your Cart and Checkout dialogs. Shared offer feed from studio-notifications.js; administration in desk/src/Notifications.tsx.",
+    "appearance": "Keep existing modal dimensions and active theme tokens. Four equal package cards with 12px gaps, heading divider, accent selection border and tick. Two columns below 740px and one below 420px. Cart item details and price share one row; order summary is 260px beside the item at desktop, stacked below 740px, with 20px gap. Summary padding 16px; existing 8px card corners. Theme-aware divider and total separator. Select and View Cart are native buttons.",
+    "selection": "Select replaces the cart with one package, quantity one; repeated selection is idempotent. Exactly one pressed button and visible tick. View Cart is the only bottom button and is disabled until selection. Quantity 1–99 and Remove stay in Your Cart. Returning to shop retains selection; account changes clear cart and billing details.",
+    "cart": "Your Cart title with divider before content; item name, unit price, quantity, Remove and line total; separate Order Summary with item count, total credits, USD total and Proceed to Checkout. Continue Shopping returns to selection. Empty state disables checkout. Nested Billing Information closes without losing checkout.",
+    "offers": "Final Special offer card reads the same targeted, unread, unexpired feed as the bell. Newest applicable offer is featured unless an active previously selected offer is retained. Empty/unavailable cards disable Select. Read, expiry, withdrawal or loss of verification removes unavailable offers from the cart and explains the change. No sample campaign is published.",
+    "accessibility": "Native buttons with aria-pressed, disabled states and visible tick; labelled quantity select; title focus on screen transitions and after removal; selection and quantity focus retained across re-render. Status messages announced. Existing native modal dismissal and minimize remain.",
+    "payments": "Only cart UI and offer terms are provided. Existing payments stay disabled; no credit deductions, purchases, free grants or charges are performed."
   },
   "libraryFileBrowser": {
     "approval": "2026-11-07: user requested List first and default, Small icons then Large icons; Finder-style File Name, Type, Date Created and Date Last Accessed columns; no individual boxes in any view; conserve space.",
