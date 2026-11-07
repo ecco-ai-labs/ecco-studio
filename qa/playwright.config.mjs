@@ -4,7 +4,7 @@ export default defineConfig({
   forbidOnly:!!process.env.CI,retries:0,workers:process.env.CI?2:2,
   reporter:[['list'],['html',{outputFolder:'report',open:'never'}],['./reporter.mjs']],
   outputDir:'results',
-  use:{baseURL:'http://127.0.0.1:4173',viewport:{width:1440,height:1000},locale:'en-US',timezoneId:'America/Los_Angeles',
+  use:{channel:'chrome',baseURL:'http://127.0.0.1:4173',viewport:{width:1440,height:1000},locale:'en-US',timezoneId:'America/Los_Angeles',
     screenshot:'on',trace:'retain-on-failure',video:'retain-on-failure',serviceWorkers:'block'},
   webServer:{command:'node server.mjs',url:'http://127.0.0.1:4173',reuseExistingServer:!process.env.CI,timeout:20000}
 });

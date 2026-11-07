@@ -24,6 +24,7 @@ export async function createFindingTickets(run:Run,ids:string[],assignee:string,
   f.uncertain=true;f.ticketError=undefined;save();
   try{const result=await api(ticketPayload(run,f,assignee));if(!result.ticket?.id)throw Error('No ticket receipt received.');f.ticketId=result.ticket.id;f.uncertain=false;save();}
   catch(e){
+   if(signal.aborted){f.ticketError='Account or page changed while creating this ticket. Refresh ticket status to confirm its receipt.';save();break;}
    const status=(e as {status?:number}).status;
    if(status&&status>=400&&status<500){f.uncertain=false;f.ticketError=(e as Error).message;save();break;}
    try{const latest=await api();const saved=(latest.tickets||[]).find((t:Ticket)=>t.description?.includes(marker(run,f)));if(saved){f.ticketId=saved.id;f.uncertain=false;f.ticketError=undefined;save();continue;}}catch{}

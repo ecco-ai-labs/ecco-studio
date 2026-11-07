@@ -1,10 +1,10 @@
 # Ecco UX QA Agent
 
-Run `npm ci`, `npx playwright install --with-deps chromium`, then `npm test` from `qa/`.
+Run `npm ci`, `npx playwright install --with-deps chrome`, then `npm test` from `qa/`.
 The GitHub **UX QA Agent** workflow runs on every push and pull request and supports **Run workflow**.
 Open the run summary for counts, failures and coverage; download `ecco-ux-qa-*` for `report/index.html`, screenshots, videos, traces and JSON.
 
-The first release registers 49 Chromium browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.
+The first release registers 49 Chrome browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.
 The exact production frontend loads in a local fixture host. Service responses, identity and media are synthetic; external requests are intercepted and blocked. No live tickets, charges, GPU jobs or YouTube uploads occur. `coverage.json` explicitly lists backend workflows that remain blocked.
 
 ## AI screenshot inspection
@@ -19,7 +19,7 @@ Every confirmed issue should become a permanent test. A failed browser assertion
 
 ## Scope and prerequisites
 
-Chromium only in v1. This is registered workflow coverage, not proof of every possible path. Real OAuth, authenticated persistence, ticket delivery, payments, GPU generation/cancellation and external publishing require dedicated sandbox accounts/services before they can be tested end to end. Synthetic signed-in identity checks only frontend account behavior.
+Chrome stable only in v1. The official Chrome channel supplies the H.264 media codecs used by production MP4 files; bundled Chromium is not equivalent for these media assertions. This is registered workflow coverage, not proof of every possible path. Real OAuth, authenticated persistence, ticket delivery, payments, GPU generation/cancellation and external publishing require dedicated sandbox accounts/services before they can be tested end to end. Synthetic signed-in identity checks only frontend account behavior.
 
 The fixture server is for local/CI use. Do not deploy it as a production server. Its `__qa=1` injection exists only in the local server; production HTML has no fixture entry point. Fixtures contain no customer records, credentials or production media. Regenerate sample media with FFmpeg if needed; the video is one second of green with a red left stripe.
 

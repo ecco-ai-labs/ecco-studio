@@ -23,4 +23,7 @@ await createFindingTickets(recovered,[recovered.findings[0].id],'',async p=>{if(
 const rejected=importReport({...report,generated_at:'2026-11-07T15:00:00Z'});
 await createFindingTickets(rejected,[rejected.findings[0].id],'',async p=>{if(!p)return {tickets:[]};throw Object.assign(Error('Rate limited'),{status:429})},()=>{},signal);assert(!rejected.findings[0].uncertain);assert.match(rejected.findings[0].ticketError,/Rate limited/);
 const stopped=new AbortController();stopped.abort();await assert.rejects(()=>createFindingTickets(run,[], '',api,()=>{},stopped.signal),{name:'AbortError'});
+const changed=new AbortController(),changing=importReport({...report,generated_at:'2026-11-07T16:00:00Z'});
+await createFindingTickets(changing,[changing.findings[0].id],'',async p=>{if(!p)return {tickets:[]};changed.abort();throw Object.assign(Error('Identity changed'),{status:401})},()=>{},changed.signal);assert(changing.findings[0].uncertain,'An identity change cannot prove a write was rejected');
+let storagePosts=0;await assert.rejects(()=>createFindingTickets(importReport(report),[critical[0].id],'',async p=>{if(!p)return {tickets:[]};storagePosts++;return {}},()=>{throw Error('Storage full')},signal),/Storage full/);assert.equal(storagePosts,0);
 console.log('Tester model: 25 separate tickets, retry reconciliation, ambiguous receipts, rate limit and cancellation passed.');

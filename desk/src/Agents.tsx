@@ -13,8 +13,8 @@ export default function Agents({me,members,api,openTicket,refresh}:Props){
  const [selected,setSelected]=useState<string[]>([]),[severity,setSeverity]=useState('all'),[assignee,setAssignee]=useState('');
  const frame=useRef<HTMLIFrameElement>(null),controller=useRef<AbortController|null>(null),alive=useRef(true),runningRef=useRef(false),busyRef=useRef(false);
  useEffect(()=>()=>{alive.current=false;controller.current?.abort();},[]);
- const persist=(next:Run)=>{const saved=[next,...read().filter(r=>r.id!==next.id)].slice(0,10);try{localStorage.setItem(key,JSON.stringify(saved));if(alive.current)setHistory(saved);}catch{if(alive.current)setError('Browser history is full. Download this report before leaving.');}};
- const update=(next:Run)=>{if(alive.current)setRun({...next,findings:next.findings.map(f=>({...f}))});persist(next);};
+ const persist=(next:Run)=>{const saved=[next,...read().filter(r=>r.id!==next.id)].slice(0,10);try{localStorage.setItem(key,JSON.stringify(saved));if(alive.current)setHistory(saved);return true;}catch{if(alive.current)setError('Browser history is full. Download this report before leaving.');return false;}};
+ const update=(next:Run)=>{if(alive.current)setRun({...next,findings:next.findings.map(f=>({...f}))});return persist(next);};
  async function start(){
   if(!frame.current||runningRef.current||busyRef.current)return;
   runningRef.current=true;setRunning(true);setError('');setNotice('');setSelected([]);setSeverity('all');const abort=new AbortController();controller.current=abort;
@@ -29,7 +29,7 @@ export default function Agents({me,members,api,openTicket,refresh}:Props){
    await navigator.locks.request('ecco-tester-tickets:'+me.userId,{signal:abort.signal},async()=>{
     abort.signal.throwIfAborted();const working=structuredClone(run),saved=read().find(r=>r.id===working.id);
     for(const f of working.findings){const old=saved?.findings.find(x=>x.id===f.id);if(old){f.ticketId=old.ticketId;f.uncertain=old.uncertain;}}
-    await createFindingTickets(working,ids,assignee,api,()=>update(working),abort.signal);
+    await createFindingTickets(working,ids,assignee,api,()=>{if(!update(working))throw Error('Could not save ticket progress. Free browser storage before creating tickets.');},abort.signal);
     const n=working.findings.filter(f=>ids.includes(f.id)&&f.ticketId).length;
     if(alive.current){setSelected(current=>current.filter(id=>!working.findings.find(f=>f.id===id)?.ticketId));setNotice(`${n} of ${ids.length} selected findings have separate tickets.${working.findings.some(f=>f.uncertain)?' A ticket receipt is pending; refresh its status.':''}`);}
    });
