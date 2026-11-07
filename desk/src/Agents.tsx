@@ -1,4 +1,4 @@
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Bot,Plus} from 'lucide-react';
 import type {Actor,Member,Ticket} from './types';
 import type {AgentDefinition} from './agent-workflows';
@@ -8,12 +8,14 @@ type Props={me:Actor;members:Member[];api:(payload?:any,path?:string)=>Promise<a
 export default function Agents(props:Props){
  const {me,agents=[],agentWorkflowVersion=0}=props;
  const [chosen,setChosen]=useState<string|null>(null),[creating,setCreating]=useState(false),[saved,setSaved]=useState<AgentDefinition[]>([]),[notice,setNotice]=useState('');
- const createButton=useRef<HTMLButtonElement>(null),pool=useRef<HTMLElement>(null);
+ const createButton=useRef<HTMLButtonElement>(null),pool=useRef<HTMLElement>(null),restoreCreate=useRef(false),restorePool=useRef(false);
+ useEffect(()=>{if(!creating&&restoreCreate.current){restoreCreate.current=false;createButton.current?.focus();}},[creating]);
+ useEffect(()=>{if(!chosen&&restorePool.current){restorePool.current=false;pool.current?.querySelector<HTMLButtonElement>('.agent-card')?.focus();}},[chosen]);
  const admin=me.role==='admin'||me.canManageAgents===true;
  const custom=[...agents,...saved.filter(a=>!agents.some(x=>x.id===a.id))];
- const close=()=>{setCreating(false);setTimeout(()=>createButton.current?.focus(),0);};
+ const close=()=>{restoreCreate.current=true;setCreating(false);};
  const definition=custom.find(a=>a.id===chosen);
- if(chosen)return <TesterAgent key={chosen} {...props} definition={definition} onBack={()=>{setChosen(null);setTimeout(()=>pool.current?.querySelector<HTMLButtonElement>('.agent-card')?.focus(),0);}}/>;
+ if(chosen)return <TesterAgent key={chosen} {...props} definition={definition} onBack={()=>{restorePool.current=true;setChosen(null);}}/>;
  return <section className="agent-pool" aria-label="Agent pool" ref={pool}>
   <div className="agent-pool-toolbar"><p className="subtle">{1+custom.length} agent{custom.length?'s':''} in your pool</p>{admin&&<button ref={createButton} className="primary" disabled={creating} onClick={()=>{setNotice('');setCreating(true);}}><Plus size={17}/>Create New Agents</button>}</div>
   {notice&&<p className="notification-success" role="status">{notice}</p>}
