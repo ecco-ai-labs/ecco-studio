@@ -5,7 +5,7 @@ for(const key of ['window','document','HTMLElement','Element','Node','Event','Mo
 Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
 const tick=()=>new Promise(r=>setTimeout(r,35));
 const me={userId:'google:admin',name:'Example Admin',email:'admin@example.test',role:'admin',memberId:'m1'};
-const data={me,tickets:[],members:[],users:[],activity:[],needsSetup:false};
+const data={me,tickets:[],members:[],users:[],activity:[],needsSetup:false,chatSupport:{open:true,hours:"7 AM–11:59 PM Pacific time, daily",availableAgents:0}};
 const response=x=>new Response(JSON.stringify(x));
 let calls=[],googleOptions,finishSignIn;
 const google={accounts:{id:{initialize(options){googleOptions=options},renderButton(host){const b=document.createElement('button');b.textContent='Sign in with Google';b.onclick=()=>googleOptions.callback({credential:'test-credential'});host.append(b)}}}};
@@ -47,8 +47,12 @@ cleanup();
 // Navigation stays visible for staff and customers, without fetching admin data.
 for(const role of ['staff','customer']){
  data.me={...me,role};({root,cleanup}=await create());const before=calls.length;
+ if(role==='customer')assert(root.querySelector('.support-hours'),'Support hours must remain on customer ticket page');
  Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='User Notifications').click();await tick();
  assert.equal(root.querySelector('h1').textContent,'User Notifications');assert(root.textContent.includes('Administrator access required'));
+ assert(!root.querySelector('.support-hours'),'Notifications must not inherit online-support hours');
+ assert(!root.querySelector('.breadcrumb').textContent.includes('Support'));
+ assert.equal(root.querySelector('.page-heading .eyebrow').textContent,'ECCO DESK');
  assert(!calls.slice(before).some(c=>c.url.includes('manageNotifications')));assert(!root.querySelector('.user-notifications'));cleanup();
 }
 // Administrators reach the publishing form from the same navigation item.
