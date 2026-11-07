@@ -49,14 +49,23 @@ test('STORY-03 new story clears previous fields',async({page})=>{
   await openLibrary(page,'story');await page.getByRole('button',{name:'New Story',exact:true}).click();
   await expect(page.getByLabel('Story Name',{exact:true})).toHaveValue('');
 });
-test('STORY-04 Generate with AI opens an instruction dialog',async({page})=>{
+test('STORY-04 Generate With AI carries options and synchronizes Story Details',async({page})=>{
   await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('QA Story');
   for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English',recurrence:'once'}))
     await page.locator('#story-simple-details [name='+name+']').selectOption(value);
   await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
   await page.locator('#page [data-ai]').click();
   await expect(page.locator('#ai-generation-dialog')).toBeVisible();
-  await expect(page.locator('#ai-generation-dialog [name=instructions]')).toBeVisible();
+  await expect(page.getByRole('dialog',{name:'Generate With AI',exact:true})).toBeVisible();
+  const ai=page.locator('#ai-generation-dialog');await expect(ai.locator('[name=instructions]')).toBeFocused();
+  const uploadBox=await page.locator('#page [data-upload]').boundingBox(),generateBox=await page.locator('#page [data-ai]').boundingBox();
+  expect(generateBox.width).toBe(uploadBox.width);expect(generateBox.height).toBe(uploadBox.height);
+  expect((await ai.boundingBox()).width).toBeGreaterThan(page.viewportSize().width*.9);
+  for(const [name,value] of Object.entries({story_type:'podcast',genre:'Comedy',age_group:'All ages',language:'English'}))await expect(ai.locator('[name='+name+']')).toHaveValue(value);
+  for(const [name,value] of Object.entries({story_type:'storybook',genre:'Fantasy',age_group:'Children (9–12)',language:'Hindi'}))await ai.locator('[name='+name+']').selectOption(value);
+  await ai.getByRole('button',{name:'Close popup',exact:true}).click();
+  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();
+  for(const [name,value] of Object.entries({type:'storybook',genre:'Fantasy',audience:'Children (9–12)',language:'Hindi'}))await expect(page.locator('#story-simple-details [name='+name+']')).toHaveValue(value);
 });
 test('LIB-home-01 chooser shows aligned icons and opens each matching sidebar destination',async({page})=>{
   await boot(page);
@@ -209,3 +218,28 @@ test('AGENT-03 customer account can run agent and create its own Bug tickets',as
   await page.getByRole('button',{name:'User Notifications',exact:true}).click();await expect(page.getByRole('button',{name:'Connect Google',exact:true})).toBeVisible();
   await expect(page.locator('.notification-composer')).toHaveCount(0);
  });
+test('UPLOAD-01 inline AI prompt, selection boundary and matching clear text control',async({page})=>{
+  await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('Upload controls QA');
+  for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English',recurrence:'once'}))
+    await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+  await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
+  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();
+  await (await chooser).setFiles({name:'upload-qa.txt',mimeType:'text/plain',buffer:Buffer.from('The original document remains untouched.')});
+  const dialog=page.getByRole('dialog',{name:'Select Story Text',exact:true});await expect(dialog).toBeVisible();
+  const selected=dialog.locator('[data-selected]');await expect(selected).toHaveValue('');
+  await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
+  const find=dialog.locator('.pdf-find-replace summary'),improve=dialog.locator('.pdf-improve-selection summary'),clear=dialog.getByRole('button',{name:'Clear Selected Text',exact:true});
+  expect((await find.boundingBox()).y).toBeLessThan((await improve.boundingBox()).y);expect((await improve.boundingBox()).y).toBeLessThan((await clear.boundingBox()).y);
+  const labelStyle=await find.evaluate(el=>({font:getComputedStyle(el).fontSize,weight:getComputedStyle(el).fontWeight}));
+  expect(await clear.evaluate(el=>({font:getComputedStyle(el).fontSize,weight:getComputedStyle(el).fontWeight}))).toEqual(labelStyle);
+  await expect(clear).toHaveCSS('background-color','rgba(0, 0, 0, 0)');await expect(clear).toHaveCSS('border-top-width','0px');
+  await expect(dialog.locator('.pdf-selected-label')).toHaveCSS('border-top-color','rgb(255, 220, 36)');
+  await improve.focus();await page.keyboard.press('Enter');await expect(dialog.getByLabel('Prompt',{exact:true})).toBeVisible();
+  await page.keyboard.press('Tab');await expect(dialog.getByLabel('Prompt',{exact:true})).toBeFocused();
+  await selected.fill('Only these selected words.');await dialog.getByLabel('Prompt',{exact:true}).fill('Make it simpler.');
+  await dialog.getByRole('button',{name:'Improve',exact:true}).click();
+  await expect(dialog.locator('[data-ai-status]')).toContainText(/Connect AI and workspace storage|QA fixture/);
+  await expect(page.locator('dialog[open]')).toHaveCount(1);await expect(selected).toHaveValue('Only these selected words.');
+  await clear.click();await expect(selected).toHaveValue('');await expect(dialog.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeDisabled();
+  await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
+});

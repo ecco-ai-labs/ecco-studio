@@ -420,3 +420,22 @@ a new file clears the selection. Improve with AI sends only the chosen text and
 requires review and Apply. Find and Replace, Clear Selected Text, Save Draft and
 Apply remain in the Controls pane. Editing never changes the uploaded document.
 Nested dialogs retain parent work and focus; narrow screens stack the three panes.
+
+### Inline upload AI controls
+
+The Selected Text pane has a yellow accent border. In the Controls pane, Find and
+Replace is followed by its own Improve with AI disclosure containing a Prompt box
+and inline suggestion review with Apply Improvement and Discard. Only selected
+text is sent; original document content stays unchanged. Clear Selected Text sits
+below both disclosures as an unboxed text action with matching typography.
+New uploads clear the prompt; pending suggestions cannot overwrite edits, a cleared
+selection or another document. Drafts retain the prompt locally.
+
+### Story generation defaults
+
+Generate With AI matches Upload PDF in action size and workspace dimensions.
+Its prompt is beside Story Type, Genre, Age Group, Output language and Audience
+Location controls initialized from Story Details. Changing a choice immediately
+updates and saves Story Details, including when the generation dialog is closed
+without generating. Details changes carry into the next AI opening. These values
+accompany the prompt in generation; opening or changing options never starts AI.

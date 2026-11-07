@@ -8,6 +8,7 @@
  const routes={audio:'audio',image:'images',video:'render'};
  const tabs=['Story Details','Story & Characters','Generate & Publish'];
  const genres=['Business','News','Comedy','Adventure','Drama','Fantasy','Mystery','Horror','Romance','Science','Science Fiction','History','Educational','Documentary','Other'];
+ const audiences=['All ages','Children (3–5)','Children (6–8)','Children (9–12)','Teenagers (13–17)','Adults (18+)','Families'];
  const languages=['English','Hindi','Urdu','Tamil','Punjabi','Arabic','Spanish','Portuguese','French','German','Italian','Japanese','Korean','Chinese','Bengali','Telugu','Marathi','Gujarati','Kannada','Malayalam'];
  let data=null,legacy={},enabled=false,rendering=false,epoch=0,picker=null,pickerOwner='',sourcePending=false,saving=null,aiRequest=null,queued=false,workspaceStory='';
  const owner=()=>activeStory||legacy.localDraftId;
@@ -52,7 +53,7 @@
   const output=field(grid,'Output','output',[['audio','Audio'],['image','Image'],['video','Video']]);output.required=true;
   const type=field(grid,'Story Type','type',M.types);type.required=true;
   field(grid,'Genre','genre',genres).required=true;
-  field(grid,'Audience age group','audience',['All ages','Children (3–5)','Children (6–8)','Children (9–12)','Teenagers (13–17)','Adults (18+)','Families']).required=true;
+  field(grid,'Audience age group','audience',audiences).required=true;
   field(grid,'Language','language',languages).required=true;
   field(grid,'Audience location (optional)','location').placeholder='For example, India or worldwide';
   field(grid,'One-time or recurring','recurrence',[['once','One-time'],['recurring','Recurring — episodes or chapters']]).required=true;
@@ -100,7 +101,7 @@
  }
  function story(){
   page='story-properties';if(!data.cast.length)data.cast=defaultCast();
-  q('#page').innerHTML='<div class="form"><section class="panel form"><div class="row"><button type="button" class="secondary" data-upload>Upload PDF</button><button type="button" class="secondary" data-ai>Generate with AI</button><button type="button" class="secondary" data-write>Write</button><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-source></p><div class="row"><button type="button" class="secondary" data-preview hidden>Preview & Select</button><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button><button type="button" class="secondary" data-keep hidden>Keep previous selection</button></div><label>What should your story be about? (optional)<textarea data-brief maxlength="4000" rows="2" placeholder="For example, two hosts discussing business news for Indian adults"></textarea></label><label>Story / Script<textarea id="story-simple-script" rows="12" maxlength="20000" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help></p><div id="story-simple-candidate" class="panel form" hidden></div><div data-sources></div></section><section class="panel form"><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><div class="row"><label>Number of characters<input type="number" min="1" max="20" step="1" data-count></label><button type="button" class="secondary" data-library>Choose from Library</button><button type="button" class="secondary" data-create>Create Character</button></div><p class="help" data-cast-reason></p><div class="form" data-characters></div></section><div class="story-simple-actions"><button type="button" data-next>Continue to Generate</button></div></div>';
+  q('#page').innerHTML='<div class="form"><section class="panel form"><div class="row story-source-actions"><button type="button" class="secondary" data-upload>Upload PDF</button><button type="button" class="secondary" data-ai>Generate With AI</button><button type="button" class="secondary" data-write>Write</button><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-source></p><div class="row"><button type="button" class="secondary" data-preview hidden>Preview & Select</button><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button><button type="button" class="secondary" data-keep hidden>Keep previous selection</button></div><label>What should your story be about? (optional)<textarea data-brief maxlength="4000" rows="2" placeholder="For example, two hosts discussing business news for Indian adults"></textarea></label><label>Story / Script<textarea id="story-simple-script" rows="12" maxlength="20000" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help></p><div id="story-simple-candidate" class="panel form" hidden></div><div data-sources></div></section><section class="panel form"><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><div class="row"><label>Number of characters<input type="number" min="1" max="20" step="1" data-count></label><button type="button" class="secondary" data-library>Choose from Library</button><button type="button" class="secondary" data-create>Create Character</button></div><p class="help" data-cast-reason></p><div class="form" data-characters></div></section><div class="story-simple-actions"><button type="button" data-next>Continue to Generate</button></div></div>';
   const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
   const brief=inPage('[data-brief]');brief.value=data.brief||'';brief.oninput=()=>{data.brief=brief.value;epoch++;persist();};
   inPage('[data-source]').textContent=sourcePending?'A new document is open. Apply its selection or keep the previous selection.':data.source?.name?'Source: '+data.source.name+' · '+data.source.text.length+' selected characters':'';
@@ -123,10 +124,21 @@
  function generateStory(){
   const current=data,identity=owner();
   if(!window.EccoAI?.requestGeneration){aiStatus('AI controls could not load. Refresh Studio and try again.',true);return;}
-  window.EccoAI.requestGeneration({label:'Create the story for '+data.title,key:'story-workspace',scopeKey:identity,initialOptions:{instructions:data.brief,language:data.language},isValid:()=>enabled&&current===data&&identity===owner()&&data.tab===1,onGenerate:options=>{
-   if(!enabled||current!==data||identity!==owner())return;
-   data.brief=options.instructions;if(options.language)data.language=options.language;epoch++;persist();const brief=inPage('[data-brief]');if(brief)brief.value=data.brief;return recommend(false);
-  }});
+  const syncOptions=options=>{
+   if(!enabled||current!==data||identity!==owner()||data.tab!==1)return;
+   const oldType=data.type;
+   for(const [key,field] of [['story_type','type'],['genre','genre'],['age_group','audience'],['language','language'],['location','location']])if(typeof options[key]==='string'&&(options[key]||key==='location'))data[field]=options[key];
+   if(data.type!==oldType&&!data.castCustomized){data.cast=defaultCast();characters(inPage('[data-characters]'));inPage('[data-count]').value=data.cast.length;}
+   epoch++;persist();
+  };
+  window.EccoAI.requestGeneration({label:'Create the story for '+data.title,key:'story-workspace',scopeKey:identity,
+   contextFields:[{name:'story_type',label:'Story Type',options:M.types},{name:'genre',label:'Genre',options:genres},{name:'age_group',label:'Age Group',options:audiences},{name:'location',label:'Audience Location',placeholder:'For example, India or worldwide'}],
+   initialOptions:{instructions:data.brief,language:data.language,story_type:data.type,genre:data.genre,age_group:data.audience,location:data.location},
+   isValid:()=>enabled&&current===data&&identity===owner()&&data.tab===1,onOptionsChange:syncOptions,onGenerate:options=>{
+    if(!enabled||current!==data||identity!==owner())return;
+    syncOptions(options);data.brief=options.instructions;epoch++;persist();const brief=inPage('[data-brief]');if(brief)brief.value=data.brief;return recommend(false);
+   }
+  });
  }
  async function recommend(castOnly){
   if(aiRequest?.current===data){aiStatus('AI is still working on this story…');return;}

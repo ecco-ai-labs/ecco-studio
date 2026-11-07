@@ -191,7 +191,7 @@ body.workspace-entry-mode :is(#workspace-entry,#story-choice-screen) .entry-logo
 #page .section-head .row>button,#page .library-view-label,#page .library-view-label select{font-size:12px!important;font-weight:400!important;min-height:30px;padding:6px 10px!important;width:auto}
 
 /* Shared compact button sizing across Studios menus and action toolbars. */
-body:not(.workspace-entry-mode) :is(#workspace-menus button,#workspace-menus .workspace-menu>summary,#workspace-library-group button,#workspace-production-group button,main button,dialog button){
+body:not(.workspace-entry-mode) :is(#workspace-menus button,#workspace-menus .workspace-menu>summary,#workspace-library-group button,#workspace-production-group button,main button,dialog button:not(.pdf-text-control)){
  font-size:12px!important;line-height:18px!important;font-weight:500!important;min-height:32px!important;padding:6px 10px!important;box-sizing:border-box;
 }
 body:not(.workspace-entry-mode) :is(.asset-icon,.workspace-delete,.storage-key-toggle,.tree-branch-toggle){width:32px!important;min-width:32px!important;height:32px!important;padding:6px!important}
@@ -337,13 +337,13 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .workspace-ribbon .workspace-menu[open]>summary,
 .workspace-ribbon .workspace-menu>summary:is(:active,:focus-visible){background:#38305e!important;color:var(--accent,#ffdc24)!important;box-shadow:inset 3px 0 var(--accent,#ffdc24)!important;border-radius:7px}
 
-/* Keep selection controls left and two equally sized, resizable reading boxes right. */
 /* Shared upload workspace: document, selected text, then controls. */
 .pdf-story-dialog{width:min(1600px,96vw);resize:both;overflow:hidden;min-width:min(360px,94vw);min-height:400px;max-width:96vw;max-height:94vh;box-sizing:border-box}
 .pdf-story-dialog[open]{display:flex;flex-direction:column;height:min(1000px,94vh)}
 .pdf-story-dialog [hidden]{display:none!important}
 .pdf-selection-layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(230px,.65fr);gap:16px;flex:1 1 auto;min-height:0;overflow:hidden;align-items:stretch}
 .pdf-review-box{display:flex;flex-direction:column;gap:8px;box-sizing:border-box;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;padding:12px;border:1px solid #45405e;border-radius:6px;background:#201d44;margin:0}
+.pdf-review-box.pdf-selected-label{border:2px solid var(--accent,#ffdc24)}
 .pdf-review-heading{font-size:16px;font-weight:600;flex:none}
 .pdf-story-dialog .pdf-page-scroll{flex:1 1 auto;min-height:0;height:auto;min-width:0}
 .pdf-story-dialog [data-document-info]{overflow-wrap:anywhere;margin:0}
@@ -352,7 +352,7 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .pdf-review-box.pdf-selected-label textarea{flex:1 1 auto;min-height:0;height:auto;width:100%;box-sizing:border-box;resize:none;font-size:16px;line-height:1.6;padding:12px}
 .pdf-selection-tools{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0;overflow:hidden;padding:12px;border:1px solid #45405e;border-radius:6px;box-sizing:border-box}
 .pdf-tools-scroll{display:flex;flex-direction:column;gap:12px;flex:1 1 auto;min-height:0;overflow:auto}
-.pdf-selection-tools .generation-filter-row,.pdf-selection-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.pdf-selection-tools .generation-filter-row{display:flex;flex-direction:column;align-items:stretch;gap:8px}
 .pdf-selection-tools label{width:100%;min-width:0}
 .pdf-selection-tools input,.pdf-selection-tools select{width:100%;box-sizing:border-box}
 .pdf-selection-tools .help{margin:0}
@@ -360,8 +360,13 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .pdf-story-dialog>.pdf-dialog-head{flex-shrink:0}
 .pdf-selection-footer{display:flex;flex-direction:column;gap:10px;flex:none;padding-top:12px;border-top:1px solid #45405e}
 .pdf-selection-footer [role=status]{font-size:12px;overflow-wrap:anywhere}
-.pdf-find-replace{width:100%;box-sizing:border-box}
-.pdf-find-replace summary{cursor:pointer}
+.pdf-find-replace,.pdf-improve-selection{width:100%;box-sizing:border-box}
+.pdf-find-replace summary,.pdf-improve-selection summary{cursor:pointer;font-size:16px;font-weight:400;line-height:1.5}
+.pdf-story-dialog button.pdf-text-control{display:block;align-self:stretch;text-align:left;font-family:inherit;font-size:16px!important;font-weight:400!important;line-height:1.5!important;padding:0!important;min-height:24px!important;background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit}
+.pdf-story-dialog button.pdf-text-control:hover:not(:disabled){color:var(--accent,#ffdc24)}
+.pdf-selection-tools summary:focus-visible,.pdf-story-dialog button.pdf-text-control:focus-visible{outline:2px solid var(--accent,#ffdc24);outline-offset:3px}
+.pdf-selection-tools textarea{width:100%;min-height:90px;box-sizing:border-box;resize:vertical;font-size:14px}
+.pdf-selection-tools [data-ai-status]:empty{display:none}
 .pdf-replace-fields{display:flex;flex-direction:column;gap:10px;margin:10px 0}
 .pdf-replace-fields label{display:flex;flex-direction:column;gap:4px;min-width:0}
 @media(max-width:900px){.pdf-story-dialog{overflow:auto}.pdf-selection-layout{grid-template-columns:minmax(0,1fr);overflow:visible;flex:none}.pdf-review-box{height:55vh;min-height:300px}.pdf-selection-tools,.pdf-tools-scroll{overflow:visible}.pdf-tools-scroll{flex:none}.pdf-selection-tools [data-document-selection]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pdf-selection-tools [data-document-selection][hidden]{display:none}}
@@ -539,3 +544,17 @@ body>aside #workspace-library-group .workspace-library[open]>summary::before{con
 
 #workspace-github{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;text-decoration:none;border-radius:6px}
 body.workspace-entry-mode #workspace-community-controls{display:none!important}
+
+/* Story generation mirrors the upload workspace size and carries Story Details. */
+#ai-generation-dialog.story-generation-dialog{width:min(1600px,96vw);height:min(1000px,94vh);max-width:96vw;max-height:94vh;min-width:min(360px,94vw);min-height:400px;resize:both;overflow:hidden;box-sizing:border-box}
+#ai-generation-dialog.story-generation-dialog>form{height:100%;min-height:0}
+#ai-generation-dialog.story-generation-dialog .section-head{margin-bottom:0;flex:none}
+.story-generation-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(250px,1fr);gap:16px;flex:1;min-height:0}
+.story-generation-prompt{min-height:0;font-size:16px;font-weight:600}
+.story-generation-prompt textarea{flex:1;width:100%;min-height:130px;resize:none;font-size:16px;font-weight:400}
+.story-generation-options{border:1px solid #45405e;border-radius:6px;padding:16px;overflow:auto;min-height:0}
+.story-generation-options strong{font-size:16px}
+#page .story-source-actions>[data-upload],#page .story-source-actions>[data-ai]{flex:0 0 160px;width:160px!important;min-height:32px!important}
+#page .story-source-actions{flex-wrap:wrap}
+#page .story-source-actions>[data-write]{flex:0 0 auto}
+@media(max-width:700px){#ai-generation-dialog.story-generation-dialog{overflow:auto}.story-generation-layout{grid-template-columns:minmax(0,1fr);flex:none}.story-generation-prompt textarea{height:35vh}.story-generation-options{overflow:visible}}
