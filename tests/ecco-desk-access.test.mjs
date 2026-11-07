@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {JSDOM} from '../desk/node_modules/jsdom/lib/api.js';
 const dom=new JSDOM('<!doctype html><body><section id="host"></section></body>',{url:'https://ecco-ai-labs.github.io/ecco-studio/desk/'});
-for(const key of ['window','document','HTMLElement','Element','Node','Event','MouseEvent','KeyboardEvent','location','localStorage','sessionStorage','FormData'])globalThis[key]=dom.window[key];
+for(const key of ['window','document','HTMLElement','Element','Node','Event','MouseEvent','KeyboardEvent','StorageEvent','location','localStorage','sessionStorage','FormData'])globalThis[key]=dom.window[key];
 Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});Object.defineProperty(navigator,'locks',{value:{request:async(_name,_options,callback)=>callback()}});
 const me={userId:'google:customer',name:'QA Customer',email:'qa@example.invalid',role:'customer',memberId:null,notificationAdminGroup:'admins@example.invalid',notificationGroupStatus:'not_connected',canManageNotifications:false};
 const finding={id:'issue-1',title:'Missing preview',severity:'high',status:'failed',expected:'Preview',actual:'Generic icon',steps:['Open Video Library','Select small icons']};
@@ -19,6 +19,7 @@ const {mount}=await import('../desk/desk-app.mjs'),host=document.querySelector('
 const root=host.shadowRoot,button=text=>[...root.querySelectorAll('button')].find(b=>b.textContent.trim()===text);
 assert(button('Agents'),'Customer must see Agents');button('Agents').click();await tick();root.querySelector('.agent-card').click();await tick();
 assert.equal(root.querySelector('h1').textContent,'Agents');assert(!root.querySelector('.support-hours'));assert(!root.querySelector('[aria-label="Assign findings to"]'));assert.equal(button('Run checks').disabled,false);
+window.dispatchEvent(new StorageEvent('storage',{key:null,storageArea:sessionStorage}));await tick();assert(root.querySelector('.tester-agent'),'Studio session storage events must not reset Desk');
 button('Create ticket').click();await tick();await tick();assert.equal(posts.length,1);assert.equal(posts[0].requestType,'Bug');assert.match(root.querySelector('.agent-ticket-link').textContent,/SUP-0001/);
 root.querySelector('[aria-label="Refresh workspace"]').click();await tick();assert(root.querySelector('.tester-agent'),'Customer Agents view must survive refresh');
 button('User Notifications').click();await tick();assert(button('Connect Google'));assert.equal(managementReads,0);

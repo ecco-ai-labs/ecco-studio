@@ -49,4 +49,4 @@ export function signOutStaff(){
  localStorage.removeItem(key);document.dispatchEvent(new Event('ecco:desk-auth-change'));
  if(token)void api('logout',{},token).catch(()=>{});
 }
-window.addEventListener('storage',e=>{if(e.key===key||e.key===null){revision++;document.dispatchEvent(new Event('ecco:desk-auth-change'))}});
+window.addEventListener('storage',e=>{if(e.storageArea===localStorage&&(e.key===key||e.key===null)){revision++;document.dispatchEvent(new Event('ecco:desk-auth-change'))}});

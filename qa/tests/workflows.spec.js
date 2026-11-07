@@ -194,6 +194,13 @@ test('AGENT-03 customer account can run agent and create its own Bug tickets',as
   await page.getByRole('button',{name:'Agents',exact:true}).click();await page.locator('.agent-card').click();
   await expect(page.getByRole('heading',{name:'Agents',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled();
   await expect(page.locator('.support-hours')).toHaveCount(0);await expect(page.getByLabel('Assign findings to',{exact:true})).toHaveCount(0);
+  await page.evaluate(()=>sessionStorage.setItem('qa-studio-session','synthetic-only'));
+  await page.getByLabel('Action',{exact:true}).selectOption('workflow');await page.getByLabel('Workflow',{exact:true}).selectOption('story');
+  await page.getByRole('button',{name:'Run checks',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled({timeout:30000});
+  await expect(page.locator('.tester-agent')).toBeVisible();
+  const run=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user')||'[]')[0]);
+  expect(run.checks.some(c=>c.id==='story-choices'&&c.status==='passed')).toBe(true);
   const report={generated_at:'2026-11-07T12:00:00Z',commit:'customer-fixture',tests:[{id:'LIB-video-preview',status:'failed',error:'Missing thumbnail'}]};
   await page.getByLabel('Import CI report',{exact:true}).setInputFiles({name:'qa-summary.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(report))});
   await page.getByRole('button',{name:'Create ticket',exact:true}).click();await expect(page.locator('.agent-ticket-link')).toHaveText('SUP-0001 ↗');
