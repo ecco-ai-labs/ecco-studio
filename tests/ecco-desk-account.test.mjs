@@ -48,25 +48,25 @@ cleanup();
 for(const role of ['staff','customer']){
  data.me={...me,role};({root,cleanup}=await create());const before=calls.length;
  if(role==='customer')assert(root.querySelector('.support-hours'),'Support hours must remain on customer ticket page');
- Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='User Notifications').click();await tick();
- assert.equal(root.querySelector('h1').textContent,'User Notifications');assert(root.textContent.includes('Administrator access required'));
+ Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='Notifications').click();await tick();
+ assert.equal(root.querySelector('h1').textContent,'Notifications');assert(root.textContent.includes('Administrator access required'));
  assert(!root.querySelector('.support-hours'),'Notifications must not inherit online-support hours');
  assert(!root.querySelector('.breadcrumb').textContent.includes('Support'));
  assert.equal(root.querySelector('.page-heading .eyebrow').textContent,'ECCO DESK');
  assert(!calls.slice(before).some(c=>c.url.includes('manageNotifications')));assert(!root.querySelector('.user-notifications'));cleanup();
 }
 // Administrators reach the publishing form from the same navigation item.
-data.me=me;({root,cleanup}=await create());Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='User Notifications').click();await tick();
+data.me=me;({root,cleanup}=await create());Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='Notifications').click();await tick();
 assert(root.textContent.includes('Publish notification'));cleanup();
 // Group-only administrators see publishing without staff navigation or support hours.
 data.me={...me,role:'customer',memberId:null,canManageNotifications:true,notificationAdminGroup:'group@example.test',notificationGroupStatus:'connected'};
-({root,cleanup}=await create());Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='User Notifications').click();await tick();
+({root,cleanup}=await create());Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='Notifications').click();await tick();
 assert(root.textContent.includes('Publish notification'));assert(!root.querySelector('.support-hours'));
 assert(!root.querySelector('nav').textContent.includes('Team members'));assert(!root.querySelector('nav').textContent.includes('Internal tasks'));
 root.querySelector('.account-trigger').click();await tick();assert(root.querySelector('[role="menu"]').textContent.includes('Notification administrator'));cleanup();
 data.me={...data.me,canManageNotifications:false,notificationGroupStatus:'unavailable'};
 ({root,cleanup}=await create());const beforeGroupFailure=calls.length;
-Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='User Notifications').click();await tick();
+Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='Notifications').click();await tick();
 assert(root.textContent.includes('group@example.test'));assert(root.textContent.toLowerCase().includes('refresh'));
 assert(!calls.slice(beforeGroupFailure).some(c=>c.url.includes('manageNotifications')));cleanup();data.me=me;
 // Failure to load Google has an in-place retry, and successful sign-in enters Desk.

@@ -448,3 +448,7 @@ Location controls initialized from Story Details. Changing a choice immediately
 updates and saves Story Details, including when the generation dialog is closed
 without generating. Details changes carry into the next AI opening. These values
 accompany the prompt in generation; opening or changing options never starts AI.
+
+## Shared agent workflows
+
+Agents exposes Create New Agents at the top for Desk administrators and verified members of the configured administrator group. The inline builder saves a named sequence of up to 12 supported checks to dedicated server storage. Signed-in Desk users can run saved agents and review combined findings with separate Bug tickets. Group membership does not grant staff ticket access. Support and Notifications are the shortened navigation labels.

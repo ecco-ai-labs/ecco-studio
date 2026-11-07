@@ -2225,7 +2225,7 @@
         "status-indicator"
       ],
       "appearance": "Reuse existing Desk sidebar, light ticket sections, form-grid, native inputs, primary/secondary actions, history table and error/status styles. New form padding 22px (16px mobile), 20px section gap, 11px labels, 12px controls, 5px control radius, 10px/11px control padding. Severity text uses existing informational blue, warning brown and error red treatments. Bell keeps original dimensions and theme colors.",
-      "content": "User Notifications; All users / Specific user; Informational / Warning / Error; title (160 chars), message (4000 chars); Read or duration ends (3 days default, whole 1\u2013365 days) / Until read; Publish notification, Clear form; history with recipients, severity, status, dates, read count and Withdraw. The left navigation entry is always visible in standalone Ticketing Studio; accounts without administrator access receive a clear permission explanation.",
+      "content": "Notifications; All users / Specific user; Informational / Warning / Error; title (160 chars), message (4000 chars); Read or duration ends (3 days default, whole 1\u2013365 days) / Until read; Publish notification, Clear form; history with recipients, severity, status, dates, read count and Withdraw. The left navigation entry is always visible in standalone Ticketing Studio; accounts without administrator access receive a clear permission explanation.",
       "states": "Loading, unavailable old service, empty history, active, read (targeted recipient), expired, withdrawn, saving, failure retains draft and success resets form. History lists latest 200 notifications.",
       "interaction": "Only administrators can open management. Native recipient selector uses verified Studio identities with name/email; target is stored as stable subject. Publish uses a per-draft idempotency key to avoid duplicate retries. Polling preserves input focus and unsent draft. Withdraw removes future visibility without deleting history. History details disclose full message. Every recipient stops seeing a notice on read or expiry, whichever occurs first.",
       "accessibility": "Label-wrapped native form controls, browser required/min/max validation, aria-busy saving, role=alert errors, role=status success, visible keyboard focus, native details/summary and table headers. Responsive form stacks at 650px; wide history scrolls within its section.",
@@ -2260,7 +2260,7 @@
       },
       "appearance": "Keep existing 29px avatar, topbar dimensions, Desk navy, light surfaces and focus outline. Dropdown is 280px wide, viewport constrained, with 9px radius and 12px top gap. Signed-out welcome uses a 480px content column and 36px heading (30px narrow); Google provides its standard 280px sign-in button.",
       "layout": "Account menu anchors below the upper-right avatar. Signed-out page presents Google sign-in directly, without another intermediate dialog. Embedded customer support retains Studio sign-in.",
-      "content": "Account name, email, role and Sign out. Sign in to Ecco Desk, direct Google button, support/admin account guidance, loading/error feedback and Try again. User Notifications is present in standalone left navigation for all signed-in roles.",
+      "content": "Account name, email, role and Sign out. Sign in to Ecco Desk, direct Google button, support/admin account guidance, loading/error feedback and Try again. Notifications is present in standalone left navigation for all signed-in roles.",
       "states": "Closed/open account menu; signed in/out; Google loading, signing in, failed and retrying. Accounts without notification permission see Administrator access required, current account and the configured administrator group; connection and verification failures explain how to recover. No management data is requested for these accounts. Verified group-only members are labeled Notification administrator and receive the publishing form.",
       "interaction": "Click avatar to toggle; opening focuses Sign out; Enter/Space activate; arrows focus the menu item; Escape closes only this menu and restores avatar focus; outside pointer or keyboard focus dismisses. Sign out clears only the Desk session immediately, requests server revocation using the captured old token, resets cached workspace data and returns to welcome without opening a popup. Disposed/stale sign-in callbacks cannot replace a newer account; stale server sessions are revoked.",
       "accessibility": "Named native avatar button with aria-haspopup, aria-expanded and aria-controls; named menu/menuitem, visible keyboard focus; Google accessible button; polite loading status and alert errors.",
@@ -2286,6 +2286,27 @@
       "accessibility": "Native labels/selects/checkboxes/details, visible focus, role=status progress and receipt status, role=alert errors; decorative preview inert/aria-hidden. Keep selection and evidence on screen when creating tickets.",
       "authorization": "Agents is visible and runnable to every signed-in standalone Desk account, including Customer and notification-only group members. Staff creates internal Bug tickets with assignment; other accounts create only their own support Bug tickets under unchanged server permissions and cannot see members or other users\u2019 tickets. Embedded Studio customer support does not expose Agents. Ticket links retain their internal/support type. Severity critical/high/medium/low maps to urgent/high/normal/low. Web Locks serializes batches per identity; explicit finding markers reconcile receipts. An uncertain POST is persisted before sending and never automatically retried until a matching existing ticket is found. Navigation/account change aborts future actions.",
       "limitations": "Browser checks are deterministic and report observed DOM/rendering facts. CI uses isolated synthetic service data with screenshot evidence; optional AI review requires separate secret/model. No exhaustive coverage claim. Live mutation workflows remain blocked until isolated environments exist."
+    },
+    "agentBuilder": {
+      "approval": "User requested Create New Agents at the top for administrators to create additional agentic workflows; rename My support tickets to Support and User Notifications to Notifications.",
+      "identity": {
+        "type": "form",
+        "variant": "agent-workflow-builder",
+        "sources": [
+          "desk/src/AgentBuilder.tsx",
+          "desk/src/Agents.tsx",
+          "desk/src/TesterAgent.tsx",
+          "desk/src/agent-workflows.ts"
+        ],
+        "parent": "Standalone Desk Agents pool"
+      },
+      "appearance": "Existing Desk primary button with Plus icon at the top right of the pool. Existing navy, white panels, 22px padding, 12px controls, 11px labels and 5px field radius; stacked fields on narrow screens.",
+      "content": "Agent Name, Purpose, ordered Workflow Steps, Add Step, move up/down, remove step, Create Agent and Cancel. At most 12 steps using the currently implemented UX/workflow actions. Saved agents are shared in the pool alongside Tester Agent.",
+      "interaction": "Native inline form; focus name on open and return focus to Create New Agents on close. Errors preserve the draft and stable request ID. Persist definitions server-side before showing success. Execute configured steps in sequence with one combined report, uniquely prefixed checks, Stop, per-agent/account local history and existing individual/bulk ticket actions. No arbitrary instructions or code are executed.",
+      "authorization": "Only active Desk administrators or server-verified members of the approved studio administrator group can create agents; group membership is rechecked fresh on each create. This scope grants no staff tickets or team-management access. Other standalone signed-in users can run shared agents. Embedded support excludes definitions and rejects creation.",
+      "storage": "Dedicated additive SQLite desk_agents table, outside shared records; bounded validated enum steps, unique case-folded names, reserved Tester Agent, stable UUID receipts, idempotent identical retries and conflicting retry rejection. No browser-only persistence claim.",
+      "states": "Pool, create form, saving, error retaining draft, saved, running, stopped, completed and unavailable backend capability. Server permissions remain authoritative.",
+      "accessibility": "Native labeled inputs/selects/buttons; named reorder/remove controls; inline alert/status; keyboard focus on entry/exit; responsive controls."
     }
   },
   "persistentConnections": {
@@ -2490,7 +2511,7 @@
     "landing": "2026-11-07: approved compact library chooser using the existing list, list-item, button, text and decorative icon types. One left-aligned directory up to 760px wide, a 16px Choose a library heading and five full-width 52px rows: 20px existing file-type SVG, library name, short contents description, 16px chevron. Consistent 16px column gaps, 10px/12px row padding, continuous subtle dividers, no individual cards, shadows or rounded boxes. Theme text/muted/accent/control/surface/border tokens in every theme. Hover highlights the whole row and accents the name/arrow; keyboard focus has a 2px inset accent outline. Below 600px descriptions wrap below names with no horizontal overflow. Native Enter/Space activation and pointer click open the corresponding left-nav library, expand and highlight it and focus its summary. Buttons have Open [Library] names and associated descriptions; SVGs are decorative. Main Library title, sidebar, current header control panels, story draft preservation and workflow-tab dismissal are retained. Both chooser and sidebar use Story, Image, Audio, Video, Workflow order."
   },
   "previousScreenNavigation": {
-    "approval": "2026-11-07: Every menu needs a Back control that returns to the previous screen. Replace Back to Studio and similar home redirects with ← Back.",
+    "approval": "2026-11-07: Every menu needs a Back control that returns to the previous screen. Replace Back to Studio and similar home redirects with \u2190 Back.",
     "identity": "navigation-history.js/css, #workspace-back, .ecco-back and Desk .desk-back; existing native buttons, menu, drawer, popup and header types.",
     "appearance": "Compact 12px Back text and left arrow, theme text/accent, transparent background, visible 2px focus outline; header above current title, menu first row, popup top-left beside existing close/minimize.",
     "behavior": "In-tab history keeps up to 30 visited views and restores existing DOM, draft state, story tab, library controls, focus and window scroll. Repeated refreshes of the same view do not add entries. No-history Back is disabled; welcome is never a fallback. Login identity changes clear history.",

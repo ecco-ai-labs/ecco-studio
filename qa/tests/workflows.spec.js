@@ -258,7 +258,7 @@ test('AGENT-03 customer account can run agent and create its own Bug tickets',as
   await page.getByRole('button',{name:'Create ticket',exact:true}).click();await expect(page.locator('.agent-ticket-link')).toHaveText('SUP-0001 ↗');
   expect(await page.evaluate(()=>window.__deskPosts[0].type)).toBe('support');
   await page.getByRole('button',{name:'Refresh workspace',exact:true}).click();await expect(page.locator('.tester-agent')).toBeVisible();
-  await page.getByRole('button',{name:'User Notifications',exact:true}).click();await expect(page.getByRole('button',{name:'Connect Google',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Notifications',exact:true}).click();await expect(page.getByRole('button',{name:'Connect Google',exact:true})).toBeVisible();
   await expect(page.locator('.notification-composer')).toHaveCount(0);
  });
 test('UPLOAD-01 inline AI prompt, selection boundary and matching clear text control',async({page})=>{
@@ -285,4 +285,46 @@ test('UPLOAD-01 inline AI prompt, selection boundary and matching clear text con
   await expect(page.locator('dialog[open]')).toHaveCount(1);await expect(selected).toHaveValue('Only these selected words.');
   await clear.click();await expect(selected).toHaveValue('');await expect(dialog.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeDisabled();
   await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
+});
+
+
+test('AGENT-04 administrator creates, saves and runs a shared ordered workflow',async({page})=>{
+  test.setTimeout(90000);
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');
+  await page.getByRole('button',{name:'Agents',exact:true}).click();
+  await page.getByRole('button',{name:'Create New Agents',exact:true}).click();
+  await expect(page.getByLabel('Agent Name',{exact:true})).toBeFocused();
+  await page.getByLabel('Agent Name',{exact:true}).fill('Release Review');
+  await page.getByLabel('Purpose',{exact:true}).fill('Review story navigation and video previews');
+  await page.getByRole('button',{name:'Add Step',exact:true}).click();
+  await page.getByLabel('Step 2 workflow',{exact:true}).selectOption('story');
+  await page.getByRole('button',{name:'Move step 2 up',exact:true}).click();
+  await expect(page.getByLabel('Step 1 workflow',{exact:true})).toHaveValue('story');
+  await page.getByRole('button',{name:'Create Agent',exact:true}).click();
+  await expect(page.locator('.agent-card')).toHaveCount(2);
+  await expect(page.getByRole('button',{name:'Create New Agents',exact:true})).toBeFocused();
+  await page.reload();await page.getByRole('button',{name:'Agents',exact:true}).click();
+  await page.locator('.agent-card').filter({hasText:'Release Review'}).click();
+  await expect(page.getByRole('heading',{name:'Release Review',exact:true})).toBeVisible();
+  await expect(page.locator('.agent-step-summary li')).toHaveCount(2);
+  await page.getByRole('button',{name:'Run checks',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled({timeout:75000});
+  const run=await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('ecco-desk-qa-agents'))[0].id;return JSON.parse(localStorage.getItem('ecco-agent-runs:v1:qa-desk-user:'+id))[0];});
+  expect(run.scope).toBe('Release Review');expect(run.status).toBe('completed');
+  expect(run.checks.some(c=>c.id==='step-1/story-choices'&&c.status==='passed')).toBe(true);
+  expect(run.checks.some(c=>c.id==='step-2/video-small-thumb-0'&&c.status==='passed')).toBe(true);
+  expect(new Set(run.checks.map(c=>c.id)).size).toBe(run.checks.length);
+  await expect(page.locator('.agent-finding')).toHaveCount(1);
+  await page.getByRole('button',{name:'Create ticket',exact:true}).click();await expect(page.locator('.agent-ticket-link')).toHaveCount(1);
+});
+test('AGENT-05 only administrators see creation; shortened navigation remains available',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  for(const role of ['customer','staff','group']){
+    await page.goto('/desk/index.html?__qa=1&role='+role);
+    await expect(page.getByRole('button',{name:'Notifications',exact:true})).toBeVisible();
+    if(role!=='staff')await expect(page.getByRole('button',{name:/^Support 0$/})).toBeVisible();
+    await page.getByRole('button',{name:'Agents',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Create New Agents',exact:true})).toHaveCount(role==='group'?1:0);
+  }
 });
