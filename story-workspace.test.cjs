@@ -86,6 +86,20 @@ test('left navigation stays visible and direct Library entry removes the story t
  const nav=x.q('#workspace-production-group');assert.ok(nav);assert.notEqual(x.w.getComputedStyle(nav).display,'none');
  x.w.EccoWorkspaceUI.openLibrary('video');await tick();assert.equal(x.w.testState.page(),'video-library');assert.equal(x.q('#story-workspace-header').hidden,true);assert.equal(x.w.EccoStoryWorkspace.active,false);assert.ok(x.q('#video-library-gallery'));assert.match(x.saved().simple_workspace.script,/Keep my draft/);
 });
+test('the parent Library heading leaves every story tab and preserves the draft',async()=>{
+ const x=await fixture();await x.start();x.script('Host: Keep this story.\n\nGuest: Keep my answer.');
+ for(const tab of [0,1,2]){
+  if(!x.w.EccoStoryWorkspace.active)x.w.EccoStoryWorkspace.open();
+  await x.w.EccoStoryWorkspace.select(tab);await tick();
+  const library=x.q('#workspace-library-group'),summary=library.querySelector(':scope > summary');
+  library.open=false;summary.focus();summary.click();await tick();
+  assert.equal(library.open,true);assert.equal(x.w.document.activeElement,summary);
+  assert.equal(x.w.testState.page(),'story-library');assert.equal(x.q('#story-workspace-header').hidden,true);assert.equal(x.w.EccoStoryWorkspace.active,false);
+  assert.ok(x.q('#story-library-list'));assert.match(x.saved().simple_workspace.script,/Keep this story/);
+  summary.click();await tick();assert.equal(library.open,false);assert.equal(x.q('#story-workspace-header').hidden,true);
+ }
+ x.w.EccoStoryWorkspace.open();await x.w.EccoStoryWorkspace.select(1);await tick();assert.match(x.q('#story-simple-script').value,/Keep my answer/);assert.deepEqual(x.errors,[]);
+});
 test('New Story ignores orphaned audio content and starts with no selected story details',async()=>{
  const orphan=JSON.stringify({speakers:[{id:'old',name:'Previous speaker'}],lines:[{speaker_id:'old',text:'Previous story content'}]});
  const x=await fixture({'ecco-audio-draft:':orphan});x.w.EccoWorkspaceUI.startNewStory({id:'',format:''});await tick();

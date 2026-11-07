@@ -329,7 +329,8 @@
  }
  document.addEventListener('click',event=>{
   const summary=event.target.closest('summary');if(!summary)return;
-  if(summary.matches('#image-library-nav > details > summary'))navigate('library');
+  if(summary.matches('#workspace-library-group > summary'))libraryOverview('story');
+  else if(summary.matches('#image-library-nav > details > summary'))navigate('library');
   else if(summary.matches('#workspace-video-library > summary'))libraryOverview('video');
   else if(summary.matches('#workspace-audio-library > summary'))navigate('audio-library');
   else if(summary.matches('.project > details > summary'))libraryOverview('story');

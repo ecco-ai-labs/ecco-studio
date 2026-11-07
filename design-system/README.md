@@ -390,4 +390,6 @@ the shared instruction dialog immediately, using only this draft’s instruction
 language. Submission has visible busy/status/error states beside its button and an
 Open Connections action when required. Library and other non-workflow views hide
 the tabs and deactivate workflow routing; resuming minimized workflow popups restores
-the original draft and header.
+the original draft and header. Activating the parent Library heading also leaves
+the story workflow and opens Story Library while retaining its native expand/collapse
+behavior, keyboard focus and saved story draft.
