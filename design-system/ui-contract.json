@@ -1635,7 +1635,7 @@
     }
   ],
   "theme": {
-    "editor": "Settings → Theme side-sliding menu",
+    "editor": "User Preferences → Themes side-sliding menu",
     "properties": [
       "background",
       "surface",
@@ -1737,8 +1737,12 @@
   },
   "settingsMenu": {
     "label": "Settings",
-    "internalCategory": "Activity",
-    "fileBrowserLabel": "Workspace Drive"
+    "internalCategory": "Activity retained on User Preferences disclosure",
+    "fileBrowserLabel": "Workspace Drive",
+    "presentation": "Three-icon control panel beside Connections and Community, ordered Model Garden (sprout), User Preferences (sliders), Workspace Drive (drive). Reuses existing model navigation and file dialog actions.",
+    "preferences": "Themes only; opens existing six-preset selector, retaining saved theme selection.",
+    "appearance": "Match adjacent panels: 8px gaps, 4px/10px padding, 1px theme border, 10px radius, theme surface/control gradient and glass variants; 32px icon targets with 16px SVGs.",
+    "accessibility": "Named Settings group, native button/disclosure keyboard behavior, immediate hover/focus tooltips, visible theme-accent focus, outside click/Escape dismissal. Themes retracts on pointer exit; Escape returns to Themes then User Preferences."
   },
   "generationCompute": {
     "type": "dropdown",
@@ -2441,7 +2445,7 @@
     "approval": "2026-11-07: user requested List first and default, Small icons then Large icons; Finder-style File Name, Type, Date Created and Date Last Accessed columns; no individual boxes in any view; conserve space.",
     "identity": "Existing library and library-item types; shared library-files variant in library-browser.js/css, table/row/cell roles, native header and file buttons; library-file-preview popup.",
     "appearance": "Existing theme text/surface/control/accent/border/muted colors, 12px rows, 20px line height, no item borders/radius/shadows or gaps; subtle alternating rows and hover/focus background. List rows 32px; small icons 28px in 36px rows; large icons 64px in 72px rows. Cells have 4px/8px padding.",
-    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Compact filter, count, then Search beside existing view/upload actions; Search is the final ribbon control in visual and keyboard order. Video Library has no Publish button in its ribbon. No separate sort dropdown.",
+    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Existing view/upload actions, filter and Search share a right-aligned library-control-panel variant with equal 8px gaps, 6px/8px padding, a 1px theme border, 10px radius and theme control/surface gradient. Controls keep their natural widths and wrap inside the panel on narrow screens, with no visible item counter; Search is the final ribbon control in visual and keyboard order. Video Library has no Publish button in its ribbon. No separate sort dropdown.",
     "content": [
       "File Name",
       "Type",
@@ -2451,7 +2455,7 @@
     "states": "List selected on explicit open, existing icon selection preserved during background Image/Audio refresh. Icons replace visible names in the first cell, retaining filename tooltip and accessible name. Unknown dates use an em dash and sort last in either direction. Empty, disconnected and no-match states remain.",
     "interaction": "Four clickable column headers toggle ascending/descending with visible up/down arrows; creation descending initially, natural filename/type sorting. File button opens media preview or existing story/workflow editor. Compact ellipsis exposes existing actions in preview. Search/filter/sort do not count as access. Preview retains original controls/media and restores keyboard focus on close. Existing publishing checkboxes stay in the first cell and survive filters/views.",
     "accessDates": "Use server last_accessed/last_accessed_at when supplied and latest explicit library open in this browser. Browser access timestamps persist per signed-in user ID and storage volume; guests are memory-only. Do not infer historical dates from creation or modification. Account changes close preview and switch scope. Header tooltip states scope.",
-    "accessibility": "Table, row, columnheader and cell roles; aria-sort, row counts and indices, named native buttons, visible keyboard focus, accessible icon names, polite count. Closing nested original dialogs retains the file preview; closing file preview returns to the originating file/action button.",
+    "accessibility": "Table, row, columnheader and cell roles; aria-sort, row counts and indices, named native buttons, visible keyboard focus, accessible icon names. Ribbon is a named Library controls group. Closing nested original dialogs retains the file preview; closing file preview returns to the originating file/action button.",
     "usage": "All five existing main library pages, including publishing selection. No storage API changes, generation, downloads or new external access.",
     "videoThumbnails": "Small and Large video icons show the real first decoded frame at the existing 28px/64px sizes. Lazily decode visible icons from their existing authenticated media source, at most two decoders at once, with a bounded 100-entry session cache of 128px JPEG thumbnails. Do not play audio, start generation, mark the video accessed, alter the original player or its playback position. Source replacement regenerates the thumbnail; account changes clear requests/cache. Unsupported, failed or timed-out media retain the video symbol. List view starts no thumbnail work.",
     "landing": "Existing list, list-item and button types in #library-home-list: vertical text choices with a 4px gap, no boxes, borders or shadows; reuse existing compact button sizing and theme text/accent. Visible 2px theme-accent keyboard focus. Main header reads Library. Native Enter/Space activation matches pointer clicks."

@@ -130,10 +130,11 @@
   gallery.classList.add('library-files');gallery.dataset.fileView=mode;gallery.setAttribute('role','table');gallery.setAttribute('aria-label',kind+' library files');
   if(view&&!view.dataset.fileViewBound){view.dataset.fileViewBound='1';view.setAttribute('aria-label',kind+' library view');view.addEventListener('change',schedule);}
   let prefs=preferences.get(kind);if(!prefs){prefs={sort:'created',direction:'descending',filter:'all',query:''};preferences.set(kind,prefs);}
+  const panel=header.querySelector(':scope > .row');if(panel){panel.classList.add('library-control-panel');panel.setAttribute('role','group');panel.setAttribute('aria-label','Library controls');}
   let tools=header.querySelector('.library-browser-tools');
   if(!tools){
-   tools=document.createElement('div');tools.className='library-browser-tools';tools.innerHTML='<select aria-label="Filter '+kind+' items"><option value="all">All items</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option>'+(['image','audio','video'].includes(kind)?'<option value="dev">Draft</option><option value="prod">Production</option>':'')+'</select><span class="library-filter-count" role="status" aria-live="polite"></span><input type="search" placeholder="Search" aria-label="Filter '+kind+' library">';
-   (header.querySelector(':scope > .row')||header).append(tools);const search=tools.querySelector('input[type=search]'),filter=tools.querySelector('select');search.value=prefs.query;filter.value=prefs.filter;
+   tools=document.createElement('div');tools.className='library-browser-tools';tools.innerHTML='<select aria-label="Filter '+kind+' items"><option value="all">All items</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option>'+(['image','audio','video'].includes(kind)?'<option value="dev">Draft</option><option value="prod">Production</option>':'')+'</select><input type="search" placeholder="Search" aria-label="Filter '+kind+' library">';
+   (panel||header).append(tools);const search=tools.querySelector('input[type=search]'),filter=tools.querySelector('select');search.value=prefs.query;filter.value=prefs.filter;
    search.oninput=()=>{prefs.query=search.value;schedule();};filter.onchange=()=>{prefs.filter=filter.value;schedule();};
   }
   let tableHead=gallery.querySelector(':scope > .library-file-heading');if(!tableHead){
@@ -158,7 +159,6 @@
   if(kind==='video')for(const item of sorted)videoThumbnails.attach(item.card,item.card.querySelector('.library-file-icon'),sources.get(item.card).querySelector('video')?.getAttribute('src'),mode);
   gallery.setAttribute('aria-rowcount',String(visible+1));
   for(const h of gallery.querySelectorAll(':scope > h3'))h.hidden=true;
-  const count=tools.querySelector('.library-filter-count'),text=visible+' / '+items.length;if(count.textContent!==text)count.textContent=text;
   let empty=gallery.querySelector('.library-filter-empty');if(!empty){empty=document.createElement('p');empty.className='help library-filter-empty';empty.textContent='No matching items.';gallery.append(empty);}empty.hidden=!items.length||visible>0;
  }
  let queued=false;function schedule(){if(queued)return;queued=true;queueMicrotask(()=>{queued=false;videoThumbnails.prune();if(preview&&!preview.card.isConnected)closePreview();for(const [kind,id] of libraries){const gallery=document.getElementById(id);if(gallery)enhance(kind,gallery);}});}
