@@ -25,10 +25,19 @@
   });return library;
  }
  function changed(){if(user)q('#persistent-signin-dialog')?.close();mount();document.dispatchEvent(new CustomEvent('ecco:auth-change',{detail:{user}}));}
+ function returnToEntry(){
+  // Close overlays before navigation so the welcome screen owns keyboard focus.
+  for(const dialog of [...document.querySelectorAll('dialog[open]')].reverse())dialog.close();
+  document.querySelectorAll('.workspace-menu[open]').forEach(menu=>{menu.open=false;});
+  document.body.classList.remove('story-choice-mode');
+  if(typeof navigate==='function')navigate('welcome');
+  const entry=q('#workspace-entry');
+  if(entry){document.body.classList.add('workspace-entry-mode');entry.tabIndex=-1;entry.focus({preventScroll:true});}
+ }
  function forgetIdentity(clearStored=true){
   authVersion++;user=null;token='';if(clearStored)localStorage.removeItem('ecco-user-session');sessionStorage.removeItem('ecco-user-session');
   clearTimeout(renewTimer);preparing=null;restoring=null;busy=false;ready=false;error='';logoutNotice='';
-  window.EccoCredits?.disconnect();window.google?.accounts?.id?.disableAutoSelect?.();changed();
+  window.EccoCredits?.disconnect();window.google?.accounts?.id?.disableAutoSelect?.();returnToEntry();changed();
  }
  async function signOut(){
   // Explicit local sign-out must not depend on the network or Google loading.

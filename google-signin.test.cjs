@@ -30,6 +30,9 @@ test('generic direct Google button, verified name menu and logout',async()=>{
   await w.EccoAuth.signOut();
   assert.equal(w.sessionStorage.getItem('ecco-user-session'),null);assert.equal(w.EccoAuth.user,null);assert.equal(w.sessionStorage.getItem('ecco-storage-access'),'fixture-key');
   assert.ok(requests.some(x=>x.url.endsWith('/logout')&&x.options.headers.Authorization==='Bearer test-session'));
+  await new Promise(r=>setTimeout(r,0));
+  assert.equal(w.document.body.classList.contains('workspace-entry-mode'),true);
+  assert.equal(w.document.activeElement.id,'workspace-entry');
  }finally{for(const observer of w.__observers||[])observer.disconnect();await Promise.resolve();w.close();}
 });
 test('reload restores identity only from server-verified session',async()=>{
