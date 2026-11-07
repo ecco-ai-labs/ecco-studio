@@ -7,7 +7,8 @@ const cleanups=new Set();
 afterEach(()=>{for(const close of cleanups)close();});
 async function setup(storage={}, {autoConnect=false,records=null}={}){
  const html=fs.readFileSync(__dirname+'/index.html','utf8');
- const scripts=[...html.matchAll(/<script(?:\s+src="([^"]+)")?[^>]*>([\s\S]*?)<\/script>/g)].map(m=>{
+ // Retain migration/legacy editor coverage; the replacement entry is tested with the full bundle separately.
+ const scripts=[...html.matchAll(/<script(?:\s+src="([^"]+)")?[^>]*>([\s\S]*?)<\/script>/g)].filter(m=>!m[1]?.startsWith('story-workspace')).map(m=>{
   // eval does not populate currentScript; preserve each browser script's URL.
   const current=m[1]?{src:new URL(m[1],'https://ecco-ai-labs.github.io/ecco-studio/').href}:null;
   return 'Object.defineProperty(document,"currentScript",{configurable:true,value:'+JSON.stringify(current)+'});\n'+(m[1]?fs.readFileSync(__dirname+'/'+m[1].split('?')[0],'utf8'):m[2]);
@@ -16,7 +17,7 @@ async function setup(storage={}, {autoConnect=false,records=null}={}){
  const dom=new JSDOM(html.replace(/<script[\s\S]*?<\/script>/g,''),{runScripts:'outside-only',url:'https://ecco-ai-labs.github.io/ecco-studio/',pretendToBeVisual:true,virtualConsole:vc}),w=dom.window;
  const observers=[],Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);observers.push(this);}};
  const close=()=>{observers.forEach(observer=>observer.disconnect());w.close();cleanups.delete(close);};cleanups.add(close);
- w.testAutoconnect=autoConnect;
+ w.CSSStyleDeclaration.prototype[Symbol.iterator]=function*(){for(let i=0;i<this.length;i++)yield this.item(i);};w.testAutoconnect=autoConnect;
  w.fixtureState={records:records||[{id:'audio-story',kind:'story',title:'Audio Story'},{id:'video-story',kind:'story',title:'Video Story'}],config:{models_ready:{}},storage_pending:false};
  w.structuredClone=structuredClone;w.setInterval=()=>0;w.fetch=async url=>{if(autoConnect&&url.endsWith('/api/state'))return {ok:true,json:async()=>structuredClone(w.fixtureState)};throw Error('No network in UI test');};w.matchMedia=()=>({matches:false,addEventListener(){}});w.HTMLElement.prototype.scrollIntoView=function(){};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};w.confirm=()=>true;
