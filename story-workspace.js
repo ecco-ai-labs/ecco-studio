@@ -68,7 +68,7 @@
  function sourcePicker(){
   if(pickerOwner===owner()&&picker)return picker;
   picker?.destroy();pickerOwner=owner();const current=pickerOwner;
-  const currentPicker=window.EccoSourcePicker.create({
+  const currentPicker=window.EccoSourcePicker.create({maxSelection:20000,
    contextLabel:()=>[data.title,M.types.find(([id])=>id===data.type)?.[1]||data.type,data.genre].filter(Boolean).join(' · '),
    reviewSelection:async(selection,valid,opener)=>{
     const target=data,version=epoch;
