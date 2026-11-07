@@ -68,6 +68,57 @@ class DeskTest(unittest.TestCase):
         self.assertEqual(code, 201, data)
         return data['ticket']
 
+    def test_after_hours_create_persists_type_reply_works_and_chat_stays_closed(self):
+        import ecco_desk_chat as chat
+        with patch.object(chat, 'is_open', return_value=False):
+            for request_type in desk.REQUEST_TYPES:
+                code, result = self.call('alice', dict(op='createTicket', type='support',
+                    requestType=request_type, title='After-hours issue', description='Please help'), path='/api/desk/support')
+                self.assertEqual(code, 201, result)
+                t = result['ticket']
+                self.assertEqual(t['requestType'], request_type)
+                self.assertEqual(t['type'], 'support')
+                self.assertEqual(self.call('alice', dict(op='comment', id=t['id'], body='More details'), path='/api/desk/support')[0], 200)
+                self.assertEqual(self.call('alice', dict(op='chatRequest', id=t['id']), path='/api/desk/support')[0], 409)
+                self.assertEqual(self.call('bob', path=f'/api/desk/support?ticket={t["id"]}')[0], 404)
+            desk.initialize(self.database, start_notifications=False)
+            saved = self.call('alice', path='/api/desk/support')[1]
+            self.assertFalse(saved['chatSupport']['open'])
+            self.assertEqual({t['requestType'] for t in saved['tickets']}, set(desk.REQUEST_TYPES))
+
+    def test_unreadable_mail_configuration_does_not_reject_ticket(self):
+        with patch.object(desk.ecco_desk_mail, 'settings', side_effect=PermissionError('private-fixture')):
+            t = self.create(requestType='Bug')
+        with desk.connect(self.database) as db:
+            self.assertEqual(db.execute('SELECT ticketId FROM desk_ack_pending').fetchone()[0], t['id'])
+
+    def test_server_error_has_traceable_reference_without_private_values(self):
+        with patch.object(desk, 'write', side_effect=sqlite3.OperationalError('secret-fixture')), self.assertLogs(desk.LOG, level='ERROR') as logs:
+            code, result = self.call('alice', dict(op='createTicket', type='support', title='x', description='y'), path='/api/desk/support')
+        self.assertEqual(code, 503)
+        self.assertRegex(result['reference'], r'^[a-f0-9]{12}$')
+        self.assertIn(result['reference'], ' '.join(logs.output))
+        self.assertNotIn('secret-fixture', json.dumps(result) + ' '.join(logs.output))
+
+    def test_type_migration_and_staff_edit_preserve_ticket_permissions(self):
+        self.setup_team()
+        support = self.create()
+        internal = self.create('staff', type='internal')
+        with desk.connect(self.database) as db:
+            db.execute('ALTER TABLE desk_tickets DROP COLUMN requestType')
+        desk.initialize(self.database, start_notifications=False)
+        with desk.connect(self.database) as db:
+            self.assertEqual(dict(db.execute('SELECT id,requestType FROM desk_tickets')), {support['id']:'Other', internal['id']:'Task'})
+        self.assertEqual(self.call('alice', dict(op='updateTicket', id=support['id'], version=1, requestType='Task'), path='/api/desk/support')[0], 403)
+        self.assertEqual(self.call('staff', dict(op='claimTicket', id=support['id']))[0], 200)
+        current = self.call('staff', path=f'/api/desk?ticket={support["id"]}')[1]['ticket']
+        code, result = self.call('staff', dict(op='updateTicket', id=support['id'], version=current['version'], requestType='Feature Request'))
+        self.assertEqual(code, 200)
+        self.assertEqual(result['ticket']['requestType'], 'Feature Request')
+        self.assertEqual(result['ticket']['type'], 'support')
+        history = self.call('alice', path=f'/api/desk/support?ticket={support["id"]}')[1]['events']
+        self.assertTrue(any(e['detail']=='Type changed to Feature Request' for e in history))
+
     def test_live_chat_routes_preserve_customer_isolation_and_require_staff_acceptance(self):
         import ecco_desk_chat as chat
         self.setup_team()
@@ -207,7 +258,7 @@ class DeskTest(unittest.TestCase):
 
     def test_validation_and_persistence_preserve_legacy_records(self):
         self.setup_team()
-        for change in ({'title':''},{'title':'x'*161},{'description':'x'*12001},{'priority':'invalid'},{'category':'unknown'},{'type':'wrong'}):
+        for change in ({'title':''},{'title':'x'*161},{'description':'x'*12001},{'priority':'invalid'},{'category':'unknown'},{'type':'wrong'},{'requestType':'internal'}):
             self.assertEqual(self.call('alice',{'op':'createTicket','type':'support','title':'x','description':'y',**change})[0],400)
         self.assertEqual(self.call(body={'op':'addMember','userId':'google:unverified','role':'admin'})[0],400)
         self.assertEqual(self.call('staff',{'op':'createTicket','type':'internal','title':'x','description':'y','dueDate':'2026-02-30'})[0],400)

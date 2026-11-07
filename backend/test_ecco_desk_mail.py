@@ -72,6 +72,21 @@ class DeskMailTest(unittest.TestCase):
         self.assertIsNone(self.row(ticket['id'])['sentAt'])
         self.assertEqual(self.row(ticket['id'])['attempts'], 0)
 
+    def test_acknowledgement_retries_after_config_recovers_without_duplicates(self):
+        import ecco_desk_replies as replies
+        for failure in (PermissionError('private-fixture'), ValueError('private-fixture')):
+            with patch.object(mail, 'settings', side_effect=failure), self.assertLogs(mail.LOG, level='WARNING') as logs:
+                ticket = self.create(requestType='Feature Request')
+            self.assertNotIn('private-fixture', ' '.join(logs.output))
+            desk.initialize(self.database, start_notifications=False)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                outcomes = list(pool.map(lambda _: replies.prepare_acknowledgement(self.database, self.config), range(2)))
+            self.assertEqual(sorted(outcomes), [False, True])
+            with desk.connect(self.database) as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM desk_ack_pending').fetchone()[0], 0)
+                rows = db.execute('SELECT recipient FROM desk_reply_outbox WHERE ticketId=?', (ticket['id'],)).fetchall()
+                self.assertEqual([r['recipient'] for r in rows], ['alice@example.test'])
+
     def test_current_and_legacy_service_startup_drain_pending_notifications(self):
         import storage_api as api
         from contextlib import ExitStack
@@ -92,7 +107,7 @@ class DeskMailTest(unittest.TestCase):
                     stack.enter_context(patch.object(api.Handler, 'access_key', ''))
                     stack.enter_context(patch.object(api, 'ThreadingHTTPServer'))
                     for module in (api.longcat_jobs, api.audio_video_sequence,
-                                   api.audio_jobs, api.audio_workflows):
+                                   api.audio_jobs, api.audio_workflows, api.character_studio):
                         stack.enter_context(patch.object(module, 'start'))
                 try:
                     if startup == 'current':
@@ -105,8 +120,9 @@ class DeskMailTest(unittest.TestCase):
                     row = self.row(ticket['id'])
                     self.assertIsNotNone(row['sentAt'])
                     self.assertEqual(row['attempts'], 1)
-                    send.assert_called_once()
-                    self.assertIn(f'#{ticket["id"]}', str(send.call_args.args[0]['Subject']))
+                    notifications = [c.args[0] for c in send.call_args_list
+                                     if f'#{ticket["id"]}] New ' in str(c.args[0]['Subject'])]
+                    self.assertEqual(len(notifications), 1)
                 finally:
                     worker = mail._workers.pop(str(self.database.resolve()), None)
                     if worker:
