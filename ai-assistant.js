@@ -153,9 +153,9 @@
  function generationInstructions(options={}){
   return [options.instructions?.trim(),options.language?'Write the generated text in '+options.language+'. Use its native script unless the user asks for transliteration. Keep JSON keys, IDs and technical setting names unchanged.':''].filter(Boolean).join('\n');
  }
- function requestGeneration({label,key,onGenerate,isValid=()=>true,characterForm=null}){
-  if(busy)return;
-  const story=activeStory,draftKey='ecco-ai-generation:'+story+':'+key,languageKey='ecco-ai-language:'+story;
+ function requestGeneration({label,key,onGenerate,isValid=()=>true,characterForm=null,scopeKey=null,initialOptions=null}){
+  if(busy){showError('Another AI request is still running. Wait for it to finish, then try again.');return;}
+  const story=activeStory,scope=scopeKey??story,draftKey='ecco-ai-generation:'+scope+':'+key,languageKey='ecco-ai-language:'+scope;
   let saved={};try{saved=JSON.parse(localStorage.getItem(draftKey)||'{}');}catch{}
   q('#ai-generation-dialog')?.remove();
   const dialog=document.createElement('dialog');dialog.id='ai-generation-dialog';dialog.className='generation-dialog';dialog.setAttribute('aria-label','Generate with AI');
@@ -165,8 +165,8 @@
   if(key.startsWith('video')&&window.EccoFrameReview){const frames=document.createElement('button');frames.type='button';frames.className='secondary';frames.textContent='Clips & Frames';frames.onclick=()=>window.EccoFrameReview.open();dialog.querySelector('form > .help').after(frames);}
   if(characterForm&&window.EccoCharacterStudio){dialog.querySelector('form > .help').insertAdjacentHTML('afterend','<label>Generate<select name="generation_target"><option value="prompt">Image prompt</option><option value="character">Character</option></select></label>');}
   const form=dialog.querySelector('form'),select=form.elements.language,custom=form.elements.other_language,instructions=form.elements.instructions;
-  const language=localStorage.getItem(languageKey)||saved.language||'';
-  select.value=!language||languages.includes(language)?language:'other';custom.value=select.value==='other'?language:'';instructions.value=saved.instructions||'';
+  const language=initialOptions?.language??(localStorage.getItem(languageKey)||saved.language||'');
+  select.value=!language||languages.includes(language)?language:'other';custom.value=select.value==='other'?language:'';instructions.value=initialOptions?.instructions??saved.instructions??'';
   const syncLanguage=()=>{form.querySelector('[data-other-language]').hidden=select.value!=='other';custom.required=select.value==='other';};syncLanguage();select.onchange=syncLanguage;
   if(form.elements.generation_target)form.elements.generation_target.onchange=()=>{const character=form.elements.generation_target.value==='character';select.closest('label').hidden=character;form.querySelector('[data-other-language]').hidden=character||select.value!=='other';custom.required=!character&&select.value==='other';form.querySelector('[type=submit]').textContent=character?'Continue':'Generate';};
   form.querySelector('[data-cancel]').onclick=()=>dialog.close();

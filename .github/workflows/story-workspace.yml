@@ -7,6 +7,7 @@ on:
       - 'updates/workspace-ui.js'
       - 'index.html'
       - 'audio-studio.js'
+      - 'ai-assistant.js'
       - 'generation-studio.js'
       - 'video-flow.js'
       - '.github/workflows/story-workspace.yml'

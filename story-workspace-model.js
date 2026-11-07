@@ -3,6 +3,7 @@
 (function(root){
  const copy=value=>JSON.parse(JSON.stringify(value));
  const types=[['storybook','Storybook'],['audiobook','Audiobook'],['podcast','Podcast'],['news','News'],['audio-drama','Audio Drama'],['documentary','Documentary'],['animation','Animation'],['book-adaptation','Book Adaptation'],['teaching','Teaching Series'],['training','Training Series'],['marketing','Marketing'],['social','Social Story'],['presentation','Presentation'],['ambient','Music / Ambient'],['dubbing','Localization / Dubbing'],['repurpose','Repurpose Content'],['custom','Other']];
+ function fresh({type='',output=''}={}){return {version:1,title:'',output,type,genre:'',audience:'',language:'',location:'',recurrence:'',script:'',brief:'',cast:[],castCustomized:false,scenes:[],source:{text:'',name:'',pages:[]},tab:0,view:'',applied:{},plan:null};}
  function migrate(saved={},board={},audio={}){
   if(saved.simple_workspace)return copy(saved.simple_workspace);
   let p={};try{p=typeof saved.audio_preparation==='string'?JSON.parse(saved.audio_preparation):saved.audio_preparation||{};}catch{}
@@ -52,6 +53,6 @@
  }
  // Keep references, timing and camera edits when the same scene survives a script edit.
  function reconcileScenes(next,previous){return next.map((s,i)=>{const old=previous.find(p=>p.narration===s.narration&&p.motion===s.motion);return old?{...s,...old,title:s.title,image_id:old.image_id||s.image_id||''}:{...s,image_id:s.image_id||''};});}
- const api={types,migrate,transcript,validateCast,parseScript,validateProposal,signature,reconcileScenes};
+ const api={types,fresh,migrate,transcript,validateCast,parseScript,validateProposal,signature,reconcileScenes};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EccoStoryWorkspaceModel=api;
 })(typeof window==='undefined'?globalThis:window);

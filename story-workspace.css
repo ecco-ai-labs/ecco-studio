@@ -11,7 +11,7 @@
 .story-simple-character{border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px;padding:16px}
 .story-character-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .story-simple-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px}
-.story-simple-mode #journey-guide,.story-simple-mode #workspace-production-group{display:none!important}
+.story-simple-mode #journey-guide{display:none!important}
 .story-simple-mode #page .studio-workspace-tabs{display:none!important}
 .story-simple-mode #page :is(#audio-final-script-panel,#image-final-script-panel,#video-final-script-panel){display:none!important}
 .story-simple-mode #page .story-simple-script-review :is(#audio-final-script-panel,#image-final-script-panel,#video-final-script-panel){display:block!important}
@@ -24,6 +24,7 @@
 .story-simple-mode #page :is(#audio-progress-panel,#image-progress-panel,#video-progress-panel){margin-bottom:16px}
 #story-simple-save{margin:8px 0;color:var(--ecco-theme-muted,#b1acc9)}
 #story-simple-error{color:var(--ecco-theme-error,#ff7272)}
+#story-simple-ai-status[data-error=true]{color:var(--ecco-theme-error,#ff7272)}
 #story-simple-candidate{margin-top:16px}
 #story-simple-candidate textarea{width:100%;min-height:180px}
 #story-simple-review{margin-top:16px}
