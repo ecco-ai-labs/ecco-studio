@@ -2231,7 +2231,8 @@
         "content": "Type: Notification or Special offer. Offers are informational; Purchase credits, Free bonus credits and Price (USD) required. History includes exact terms.",
         "validation": "Admin-only creation; credit integers 1–1000000, bonus integers 0–1000000, USD cents 1–100000000. Stable targeting, expiry, read receipts and idempotency include offer terms. Additive nullable offer column preserves existing notices.",
         "deployment": "specialOfferVersion 1 capability enables the admin option only after the matching backend is installed. No campaign is seeded. Customer routes cannot publish or withdraw offers."
-      }
+      },
+      "layout": "Standalone notification page uses Workspace breadcrumb and Ecco Desk heading for every role. Online-support hours, agent availability and queue instructions appear only on customer support views and never on User Notifications."
     },
     "accountAccess": {
       "approval": "User requested improving sign-in and signing out through the upper-right account icon, and a visible User Notifications entry in Ticketing Studio left navigation.",
