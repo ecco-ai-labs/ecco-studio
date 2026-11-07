@@ -79,7 +79,7 @@ unapproved dimensions remain unset instead of being silently chosen.
 
 ## Color theme
 
-Settings → Theme offers six packages: Default, Dark Mode,
+User Preferences → Themes offers six packages: Default, Dark Mode,
 Forest, Desert, Ocean and Dark Sky in a side-sliding menu matching Billing. Selecting a preset
 saves immediately. Choosing Default restores the original palette. The selected
 preset persists in this browser. Moving the pointer away retracts the panel. No individual color inputs are exposed. Older custom
@@ -121,7 +121,7 @@ connected, including others of the same class. Choices do not connect automatica
 Saved connections require a fresh authenticated health response before displaying
 Connected. Availability refreshes every 20 seconds.
 
-The top ribbon Settings menu retains the internal Activity category identifier. Its file browser is labeled Workspace Drive, including its dialog title and accessible name. Type, Location and a self-contained Search box share one ribbon, with Search last. It filters immediately by file name, title or path as the user types, combined with Type, Location and job scope. Matching is case-insensitive; clearing the search restores the current scope. The result count and empty state update without moving typing focus. Files appear in a sortable table with Name, Kind, Date Last Opened and Date Created. Header arrows show both sort directions and highlight the current one. File names open a preview with existing download/trash actions. The enlarged popup uses compact single-line rows and short display names without generated duration/frame-edit suffixes or extensions; original names remain in tooltips and search. The All jobs and stories button is removed. Last-opened dates track explicit Drive previews in this browser, scoped to the signed-in user and workspace; unknown dates display an em dash and sort last.
+The top ribbon Settings control panel has three icons: Model Garden (sprout), User Preferences (sliders), and Workspace Drive (drive). It matches the adjacent panels with 32px icon targets, 16px SVGs, equal 8px gaps, immediate hover/focus labels and theme-aware surfaces. User Preferences contains only Themes and retains the internal Activity category identifier. Existing model navigation, theme persistence and file browsing are reused. Its file browser is labeled Workspace Drive, including its dialog title and accessible name. Type, Location and a self-contained Search box share one ribbon, with Search last. It filters immediately by file name, title or path as the user types, combined with Type, Location and job scope. Matching is case-insensitive; clearing the search restores the current scope. The result count and empty state update without moving typing focus. Files appear in a sortable table with Name, Kind, Date Last Opened and Date Created. Header arrows show both sort directions and highlight the current one. File names open a preview with existing download/trash actions. The enlarged popup uses compact single-line rows and short display names without generated duration/frame-edit suffixes or extensions; original names remain in tooltips and search. The All jobs and stories button is removed. Last-opened dates track explicit Drive previews in this browser, scoped to the signed-in user and workspace; unknown dates display an em dash and sort last.
 
 ## Audio characters and AI scripts
 
@@ -378,7 +378,9 @@ Rows share sortable File Name, Type, Date Created and Date Last Accessed columns
 There are no item boxes; the icon views replace the name with a 28px or 64px
 preview, retaining its filename tooltip and accessible name. Search, filters
 and existing actions remain available; previews retain the original controls.
-The ribbon ends with the filter, item count, then Search. Video Library has
+Library controls form a compact, theme-aware panel aligned to the right,
+with equal 8px gaps and natural-width controls. The filter is followed by Search,
+with no item counter. Controls wrap within the panel on narrow screens. Video Library has
 no Publish button in its ribbon.
 Unknown dates stay blank. Access dates combine supplied workspace timestamps
 with explicit library opens recorded in this browser per user/workspace.

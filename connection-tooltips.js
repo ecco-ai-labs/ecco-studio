@@ -1,8 +1,8 @@
 'use strict';
-/* Shared immediate hover labels for the two ribbon control panels. */
+/* Shared immediate hover labels for the ribbon control panels. */
 (()=>{
  const style=document.createElement('style');
- const tooltipTargets=':is(#connection-indicators>[data-icon-tooltip],#workspace-community-controls [data-icon-tooltip])';
+ const tooltipTargets=':is(#connection-indicators>[data-icon-tooltip],#workspace-community-controls [data-icon-tooltip],#workspace-settings-controls [data-icon-tooltip])';
  const observed=new WeakSet();
  style.textContent='#connection-indicators::after{display:none!important}'+tooltipTargets+'{position:relative}'+tooltipTargets+':hover::after,'+tooltipTargets+':focus-visible::after,#connection-indicators>#studio-publishing-control:focus-within::after{content:attr(data-icon-tooltip);position:absolute;top:calc(100% + 9px);left:0;z-index:10000;white-space:nowrap;pointer-events:none;padding:6px 8px;border:0;border-radius:5px;background:var(--connection-tooltip-bg,#fff);color:#000;font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:11px;line-height:1.4;font-weight:500;box-shadow:0 3px 12px #0004;transition:none;animation:none}#connection-indicators>[data-icon-tooltip][data-tooltip-connected="true"]{--connection-tooltip-bg:#ffdc24}#connection-indicators>[data-icon-tooltip][data-tooltip-connected="false"]{--connection-tooltip-bg:#fff}';
  document.head.append(style);
