@@ -91,7 +91,7 @@ test('the top-level Library heading lists all libraries from every story tab and
   const x=await fixture();await x.start();x.script('Host: Keep my draft.\n\nGuest: Keep mine.');await x.w.EccoStoryWorkspace.select(tab);await tick();
   const draftId=x.saved().localDraftId;
   x.q('#workspace-library-group > summary span:last-child').click();await tick();
-  assert.equal(x.w.testState.page(),'library-home');assert.deepEqual([...x.q('#library-home-list').querySelectorAll('button')].map(b=>b.textContent),['Story Library','Image Library','Audio Library','Video Library','Workflow Library']);assert.equal(x.q('#heading').textContent,'Library');assert.equal(x.q('#journey-guide').hidden,true);
+  assert.equal(x.w.testState.page(),'library-home');assert.deepEqual([...x.q('#library-home-list').querySelectorAll('.library-home-name')].map(b=>b.textContent),['Story Library','Image Library','Audio Library','Video Library','Workflow Library']);assert.equal(x.q('#heading').textContent,'Library');assert.equal(x.q('#journey-guide').hidden,true);
   assert.equal(x.q('#story-workspace-header').hidden,true);assert.equal(x.w.EccoStoryWorkspace.active,false);
   assert.equal(x.w.document.body.classList.contains('story-simple-mode'),false);
   assert.equal(x.q('#page').hasAttribute('role'),false);assert.equal(x.q('#page').hasAttribute('aria-labelledby'),false);

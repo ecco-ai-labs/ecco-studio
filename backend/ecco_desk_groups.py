@@ -151,6 +151,26 @@ def _owner(credentials, settings):
             and claims.get('email_verified') is True)
 
 
+def _denied_message(exc):
+    # Use only known reason identifiers; provider messages/URLs can contain secrets.
+    reasons = set()
+    try:
+        error = json.loads(exc.content).get('error', {})
+        for item in error.get('errors', []) + error.get('details', []):
+            reason = item.get('reason')
+            if isinstance(reason, str): reasons.add(reason)
+    except (AttributeError, ValueError, TypeError):
+        pass
+    if reasons & {'accessNotConfigured', 'SERVICE_DISABLED'}:
+        return ('Admin SDK API is disabled for the Studio Google Cloud project. '
+                'Enable Admin SDK API in that project, then reconnect the administrator group.')
+    if reasons & {'insufficientPermissions', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT'}:
+        return ('Google did not grant the required group-membership scope. '
+                'Reconnect and allow read-only group membership access.')
+    return ('Google denied the approved account access to group membership. '
+            'A Google Workspace administrator must check Directory API privileges and app-access policy.')
+
+
 def finish(query):
     states = query.get('state', [])
     with _lock:
@@ -182,7 +202,7 @@ def finish(query):
     except Exception as exc:
         code = getattr(getattr(exc, 'resp', None), 'status', None)
         if code == 403:
-            raise AuthorizationError('Google denied group membership access. Enable Admin SDK API and authorize a Workspace administrator with read-only group access.') from None
+            raise AuthorizationError(_denied_message(exc)) from None
         raise AuthorizationError('Could not verify the Google group connection. No permissions changed.') from None
 
 

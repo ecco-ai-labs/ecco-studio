@@ -7,7 +7,7 @@
   {
     "area": "Libraries",
     "mode": "fixture",
-    "scope": "All 5 library types, 3 views, metadata, sorting, search, real decoded sample image/video frames, preview focus"
+    "scope": "All 5 library types, 3 views, metadata, sorting, search, real decoded sample image/video frames, preview focus; Library chooser icons, alignment, keyboard focus and all five sidebar destinations"
   },
   {
     "area": "Story workflow",
@@ -17,7 +17,7 @@
   {
     "area": "Themes and layout",
     "mode": "fixture",
-    "scope": "6 themes, 3 viewport widths; screenshots and overflow checks"
+    "scope": "6 themes, 3 viewport widths; screenshots and overflow checks; Library chooser at 390px in Desert theme"
   },
   {
     "area": "Workspace Drive",
