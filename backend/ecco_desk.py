@@ -8,7 +8,9 @@ import datetime as dt
 from contextlib import contextmanager
 import hmac
 import json
+import logging
 import sqlite3
+import traceback
 import uuid
 from urllib.parse import parse_qs, urlsplit
 
@@ -20,6 +22,8 @@ import ecco_desk_replies
 STATUSES = ('open', 'in_progress', 'waiting', 'resolved', 'closed')
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
 CATEGORIES = ('General', 'Ecco Studio', 'Account & access', 'Billing', 'Infrastructure', 'Engineering', 'Operations')
+REQUEST_TYPES = ('Bug', 'Feature Request', 'Task', 'Question', 'Other')
+LOG = logging.getLogger('ecco.desk')
 
 
 class DeskError(Exception):
@@ -73,6 +77,11 @@ def initialize(path, start_notifications=True):
             actorName TEXT NOT NULL, detail TEXT NOT NULL, visibility TEXT NOT NULL, createdAt TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS desk_events_ticket ON desk_events(ticketId, createdAt);
         ''')
+        # Additive migration preserves existing ticket IDs, content and permissions.
+        columns = {row['name'] for row in db.execute('PRAGMA table_info(desk_tickets)')}
+        if 'requestType' not in columns:
+            db.execute("ALTER TABLE desk_tickets ADD COLUMN requestType TEXT NOT NULL DEFAULT 'Other'")
+            db.execute("UPDATE desk_tickets SET requestType='Task' WHERE type='internal'")
         ecco_desk_mail.initialize(db)
         ecco_desk_chat.initialize(db)
         ecco_desk_replies.initialize(db)
@@ -257,14 +266,15 @@ def write(db, me, body, workspace_key, configured_key):
             require_staff(me)
         title, description = text(body, 'title', 160), text(body, 'description', 12000)
         priority, category = choice(body, 'priority', PRIORITIES, 'normal'), choice(body, 'category', CATEGORIES, 'General')
+        request_type = choice(body, 'requestType', REQUEST_TYPES, 'Task' if kind == 'internal' else 'Other')
         assignee, due = properties(db, body) if staff(me) else (None, None)
         # Bound accidental/repeated submissions without a separate service.
         recent = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).isoformat()
         if db.execute('SELECT count(*) FROM desk_tickets WHERE reporterId=? AND createdAt>?', (me['userId'], recent)).fetchone()[0] >= 60:
             raise DeskError('Too many new requests. Please try again later.', 429)
         stamp = now()
-        tid = db.execute('INSERT INTO desk_tickets(type,title,description,priority,category,reporterId,reporterName,reporterEmail,assigneeId,dueDate,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-                         (kind, title, description, priority, category, me['userId'], me['name'], me['email'], assignee, due, stamp, stamp)).lastrowid
+        tid = db.execute('INSERT INTO desk_tickets(type,title,description,priority,category,reporterId,reporterName,reporterEmail,assigneeId,dueDate,createdAt,updatedAt,requestType) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                         (kind, title, description, priority, category, me['userId'], me['name'], me['email'], assignee, due, stamp, stamp, request_type)).lastrowid
         event(db, me, 'Ticket opened' if kind == 'support' else 'Task created', tid, 'public' if kind == 'support' else 'internal')
         ecco_desk_mail.enqueue(db, tid)
         created = ticket(db, me, tid)
@@ -278,13 +288,16 @@ def write(db, me, body, workspace_key, configured_key):
             raise DeskError('This ticket changed. Refresh it before saving again.', 409)
         status = choice(body, 'status', STATUSES, t['status'])
         priority = choice(body, 'priority', PRIORITIES, t['priority'])
+        request_type = choice(body, 'requestType', REQUEST_TYPES, t['requestType'])
         assignee, due = properties(db, {**t, **body})
         if t['type'] == 'support' and t['assigneeId'] and assignee is None:
             raise DeskError('Choose an active delegate instead of leaving an accepted case unassigned.')
-        db.execute('UPDATE desk_tickets SET status=?,priority=?,assigneeId=?,dueDate=?,version=version+1,updatedAt=? WHERE id=?', (status, priority, assignee, due, now(), t['id']))
+        db.execute('UPDATE desk_tickets SET status=?,priority=?,requestType=?,assigneeId=?,dueDate=?,version=version+1,updatedAt=? WHERE id=?', (status, priority, request_type, assignee, due, now(), t['id']))
         if t['type'] == 'support' and status in ('resolved', 'closed'):
             ecco_desk_chat.end_for_closed_ticket(db, t['id'])
         visibility = 'public' if t['type'] == 'support' else 'internal'
+        if request_type != t['requestType']:
+            event(db, me, 'Type changed to ' + request_type, t['id'], visibility)
         for key, value in (('status', status), ('priority', priority)):
             if value != t[key]:
                 event(db, me, f'{key.title()} changed to {value.replace("_", " ")}', t['id'], visibility)
@@ -413,6 +426,12 @@ def handle(handler, path, allowed_origin, database, configured_key):
         handler.send({'error': 'Invalid Desk request.'}, 400)
     except (BrokenPipeError, ConnectionResetError):
         pass
-    except Exception:
-        handler.send({'error': 'Ecco Desk is temporarily unavailable. Please try again.'}, 503)
+    except Exception as exc:
+        reference = uuid.uuid4().hex[:12]
+        # Never log request bodies, headers, credentials or exception values.
+        frames = ' > '.join(f'{frame.name}:{frame.lineno}' for frame in traceback.extract_tb(exc.__traceback__))
+        LOG.error('Desk failure ref=%s kind=%s sqlite=%s frames=%s', reference,
+                  type(exc).__name__, getattr(exc, 'sqlite_errorname', 'none'), frames)
+        handler.send({'error': 'Ecco Desk is temporarily unavailable. Please try again. Reference: ' + reference,
+                      'reference': reference}, 503)
     return True

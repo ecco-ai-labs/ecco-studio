@@ -1,11 +1,13 @@
 export type Role = 'admin'|'staff'|'customer';
 export type Actor = {userId:string; name:string; email:string; role:Role; memberId:string|null};
 export type Member = {id:string; userId:string|null; name:string; email:string; role:string; active:number};
-export type Ticket = {id:number; type:'internal'|'support'; title:string; description:string; status:string; priority:string; category:string; reporterId:string; reporterName:string; reporterEmail:string; assigneeId:string|null; dueDate:string|null; version:number; createdAt:string; updatedAt:string};
+export type Ticket = {id:number; type:'internal'|'support'; requestType?:string; title:string; description:string; status:string; priority:string; category:string; reporterId:string; reporterName:string; reporterEmail:string; assigneeId:string|null; dueDate:string|null; version:number; createdAt:string; updatedAt:string};
 export type Comment = {channel?:'web'|'email'|'chat';id:string; authorName:string; body:string; visibility:string; createdAt:string};
 export type DeskEvent = {id:string; ticketId:number|null; actorName:string; detail:string; visibility:string; createdAt:string};
 export const statuses = ['open','in_progress','waiting','resolved','closed'] as const;
 export const priorities = ['low','normal','high','urgent'] as const;
+export const requestTypes = ['Bug','Feature Request','Task','Question','Other'] as const;
+export const requestType = (t:Pick<Ticket,'type'|'requestType'>) => t.requestType || (t.type==='internal'?'Task':'Other');
 export const categories = ['General','Ecco Studio','Account & access','Billing','Infrastructure','Engineering','Operations'] as const;
 export const label = (s:string) => ({open:'Open',in_progress:'In progress',waiting:'Waiting',resolved:'Resolved',closed:'Closed',low:'Low',normal:'Normal',high:'High',urgent:'Urgent'}[s]||s);
 export const ticketKey = (t:Pick<Ticket,'type'|'id'>) => `${t.type==='internal'?'TASK':'SUP'}-${String(t.id).padStart(4,'0')}`;

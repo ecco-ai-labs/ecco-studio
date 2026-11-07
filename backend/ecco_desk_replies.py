@@ -29,6 +29,7 @@ def initialize(db):
         outcome TEXT NOT NULL, processedAt REAL NOT NULL);
     CREATE UNIQUE INDEX IF NOT EXISTS desk_inbound_message_id ON desk_inbound_mail(messageId) WHERE messageId IS NOT NULL;
     CREATE TABLE IF NOT EXISTS desk_inbox_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS desk_ack_pending(ticketId INTEGER PRIMARY KEY REFERENCES desk_tickets(id));
     ''')
 
 
@@ -39,8 +40,8 @@ def reply_address(db, tid, config):
     return f'{local}+desk-{token}@{domain}'
 
 
-def queue(db, t, recipient, subject, content, comment_id=None, parent=None):
-    config = mail.settings()
+def queue(db, t, recipient, subject, content, comment_id=None, parent=None, config=None):
+    config = mail.settings() if config is None else config
     if not config or not recipient:
         return
     mail.address(recipient)
@@ -53,9 +54,34 @@ def queue(db, t, recipient, subject, content, comment_id=None, parent=None):
 
 def acknowledge(db, t):
     # A requester receives a replyable thread as soon as the support ticket exists.
-    if t['type'] == 'support':
-        queue(db, t, t['reporterEmail'], f'[Ecco Desk #{t["id"]}] {t["title"]}',
-              f'Your support ticket #{t["id"]} is open.\n\n{t["description"]}\n\nReply to this email or continue in Ecco Studio.\nhttps://ecco-ai-labs.github.io/ecco-studio/?desk=support')
+    if t['type'] != 'support' or not t['reporterEmail']:
+        return
+    db.execute('INSERT OR IGNORE INTO desk_ack_pending VALUES (?)', (t['id'],))
+    try:
+        config = mail.settings()
+    except (OSError, ValueError) as exc:
+        # Mail configuration is optional infrastructure, never a ticket admission gate.
+        mail.LOG.warning('Ticket %s acknowledgement deferred: %s', t['id'], type(exc).__name__)
+        return
+    if config:
+        _acknowledge(db, t, config)
+
+
+def _acknowledge(db, t, config):
+    queue(db, t, t['reporterEmail'], f'[Ecco Desk #{t["id"]}] {t["title"]}',
+          f'Your support ticket #{t["id"]} is open.\n\n{t["description"]}\n\nReply to this email or continue in Ecco Studio.\nhttps://ecco-ai-labs.github.io/ecco-studio/?desk=support', config=config)
+    db.execute('DELETE FROM desk_ack_pending WHERE ticketId=?', (t['id'],))
+
+
+def prepare_acknowledgement(path, config):
+    # Queue and remove the retry marker atomically; concurrent workers cannot duplicate it.
+    with mail.connect(path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('SELECT t.* FROM desk_ack_pending a JOIN desk_tickets t ON t.id=a.ticketId ORDER BY a.ticketId LIMIT 1').fetchone()
+        if not row:
+            return False
+        _acknowledge(db, dict(row), config)
+    return True
 
 
 def notify_comment(db, t, me, cid, content, already_delivered=()):

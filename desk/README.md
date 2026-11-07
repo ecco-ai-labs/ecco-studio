@@ -26,6 +26,30 @@ link to the team dashboard. Account changes clear previously loaded tickets;
 responses from the old sign-in are ignored. Authorized support agents use the
 separate team dashboard and `/api/desk` to manage the support queue.
 
+## Ticket availability and Type
+
+New tickets and ticket replies are available 24/7. Only live chat is restricted
+to 7 AM–11:59 PM Pacific daily, with automatic daylight-saving changes. The
+closed-hours banner explicitly distinguishes ticket submission from live chat.
+
+Type offers Bug, Feature Request, Task, Question and Other. It is stored as
+`requestType`, independently of Category and the internal/support access boundary.
+Existing support tickets become Other; existing internal tasks become Task.
+The existing authorized staff Save changes action can update Type and records
+the change in ticket history. Customer permissions stay requester-only.
+
+An unreadable or invalid mail configuration no longer rolls back ticket creation.
+Acknowledgement emails remain in `desk_ack_pending` until the mail worker can
+queue them, transactionally and without duplicates. Actual database write failures
+still reject the request; unexpected errors now carry a reference matched to a
+server log containing exception class, SQLite error code and function locations,
+without ticket content, headers, credentials or exception values.
+
+Deploy `ecco_desk.py`, `ecco_desk_mail.py` and `ecco_desk_replies.py` together and
+run normal Desk initialization before publishing the new frontend. This adds one
+column and one retry table without deleting existing tickets. Back up the live
+database and inspect live errors before diagnosing a production 503 as a mail issue.
+
 ## Build and validation
 
 ```sh
@@ -139,7 +163,7 @@ the team console provides an explicit availability checkbox and Accept chat.
 There is one live conversation per agent; simultaneous accepts are serialized
 by SQLite. Agent presence expires after 75 seconds and customer presence after
 150 seconds. Disconnected agents requeue their customers. Chat hours are
-07:00–19:00 America/Los_Angeles daily (PST/PDT); closed hours and 19:00 cutoffs are
+07:00–23:59 America/Los_Angeles daily (PST/PDT); closed hours and midnight cutoffs are
 server-enforced. Ticket replies remain available outside those hours.
 
 Additional checks:

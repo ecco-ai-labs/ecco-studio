@@ -111,7 +111,7 @@ def message(ticket, pending, config):
         f'{label} #{ticket["id"]} was created.\n\n'
         f'Title: {ticket["title"]}\n'
         f'Opened by: {ticket["reporterName"]} <{ticket["reporterEmail"]}>\n'
-        f'Priority: {ticket["priority"]}\nCategory: {ticket["category"]}\n'
+        f'Type: {ticket.get("requestType", "Other")}\nPriority: {ticket["priority"]}\nCategory: {ticket["category"]}\n'
         f'Created: {ticket["createdAt"]}\n\n'
         f'{ticket["description"]}\n\n'
         f'Open Ecco Desk: {TEAM_URL}\n'
@@ -224,6 +224,8 @@ def _run(path, stop):
             if status != prior_status:
                 LOG.warning('Ecco Desk mail: %s', status)
                 prior_status = status
+            if config:
+                ecco_desk_replies.prepare_acknowledgement(path, config)
             if config and deliver_one(path, config):
                 continue
             if config and ecco_desk_replies.deliver_one(path, config):
