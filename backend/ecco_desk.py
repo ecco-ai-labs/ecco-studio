@@ -216,10 +216,19 @@ def user_notifications(db, me):
         LEFT JOIN desk_notification_reads r ON r.notificationId=n.id AND r.userId=?
         WHERE r.readAt IS NULL AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
         ORDER BY n.sequence DESC''', (me['userId'], me['userId'], now()))
-    return dict(notificationVersion=1, specialOfferVersion=1, notifications=[{**{k:r[k] for k in
+    notifications = [{**{k:r[k] for k in
         ('id','title','body','severity','createdAt','expiresAt')},
         'kind': 'special_offer' if r['offer'] else 'notification',
-        'offer': json.loads(r['offer']) if r['offer'] else None} for r in rows])
+        'offer': json.loads(r['offer']) if r['offer'] else None} for r in rows]
+    # Read history is independent of the newest-five unread window. Keep only
+    # this recipient's three most recently read, still-valid notices.
+    history = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,r.readAt
+        FROM desk_notification_reads r JOIN desk_notifications n ON n.id=r.notificationId
+        WHERE r.userId=? AND (n.audience='all' OR n.recipientId=?)
+          AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
+        ORDER BY r.readAt DESC,r.rowid DESC LIMIT 3''', (me['userId'], me['userId'], now()))
+    return dict(notificationVersion=1, specialOfferVersion=1, notificationHistoryVersion=1,
+                notifications=notifications, readNotifications=[dict(r) for r in history])
 
 
 def require_notification_admin(me):

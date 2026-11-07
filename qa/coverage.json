@@ -40,6 +40,11 @@
     "scope": "Desk pool/action controls, 50 findings and 25 separate critical Bug tickets using isolated fake API; real browser runner against video fixtures; customer account sees/runs Agents, submits its own support Bug and keeps view on refresh; pending notification connection control"
   },
   {
+    "area": "Notification presentation and re-issue",
+    "mode": "fixture",
+    "scope": "Unread numbering/spacing/bold, three regular-weight read items, keyboard read and dismissal, empty state, editable re-issue draft and separate preserved history. Real delivery and backend deployment remain separate checks."
+  },
+  {
     "area": "Billing",
     "mode": "blocked",
     "scope": "Live balances and purchases require a sandbox payment service"

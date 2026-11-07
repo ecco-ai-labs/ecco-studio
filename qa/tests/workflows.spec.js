@@ -198,6 +198,40 @@ test('AUTH-01 local sign-out returns to the first screen',async({page})=>{
   await expect(page.locator('#workspace-back')).toBeHidden();
 });
 
+test('NOTIFY-01 numbered unread notices move to three-item read history',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/?__qa=1&notices=1');await page.waitForFunction(()=>window.__qaReady);
+  await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:'New Story',exact:true}).click();await page.locator('#notification-bell').click();
+  const unread=page.locator('#notification-list [data-read="false"]'),old=page.locator('#notification-list [data-read="true"]');
+  await expect(unread).toHaveCount(2);await expect(old).toHaveCount(3);
+  await expect(unread.first().locator('.notification-title')).toHaveText('1. New notice 1');
+  await expect(unread.first().locator('.notification-body')).toHaveCSS('font-weight','700');
+  await expect(old.first().locator('.notification-body')).toHaveCSS('font-weight','400');
+  await expect(unread.first()).toHaveCSS('margin-top','16px');
+  await unread.first().press('Enter');await expect(unread).toHaveCount(1);await expect(old).toHaveCount(3);
+  await expect(old.first()).toContainText('New notice 1');await expect(unread.first()).toBeFocused();
+  await unread.first().press('Enter');await expect(unread).toHaveCount(0);
+  await expect(page.locator('[data-notification-status]')).toHaveText('No New notifications');
+  await expect(page.getByRole('heading',{name:'Old Notfication',exact:true})).toBeVisible();
+  await page.locator('#notification-bell').press('Escape');await expect(page.locator('#notification-list')).toBeHidden();
+});
+
+test('NOTIFY-02 history opens an editable re-issue draft and retains the original',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'User Notifications',exact:true}).click();
+  await page.getByLabel('Title',{exact:true}).fill('Original notice');await page.getByLabel('Message',{exact:true}).fill('Original message');
+  await page.getByRole('button',{name:'Publish notification',exact:true}).click();
+  await page.getByRole('button',{name:'Edit and re-issue Original notice',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Re-issue Notification',exact:true})).toBeVisible();
+  await expect(page.getByLabel('Title',{exact:true})).toBeFocused();await expect(page.getByLabel('Message',{exact:true})).toHaveValue('Original message');
+  await page.getByLabel('Title',{exact:true}).fill('Updated notice');await page.getByLabel('Duration (days)',{exact:true}).fill('7');
+  await page.getByRole('button',{name:'Re-issue notification',exact:true}).click();
+  await expect(page.getByRole('status')).toHaveText('Notification re-issued.');
+  await expect(page.locator('.notification-history tbody tr')).toHaveCount(2);
+  await expect(page.locator('.notification-history')).toContainText('Original notice');await expect(page.locator('.notification-history')).toContainText('Updated notice');
+  const posts=await page.evaluate(()=>window.__deskPosts);expect(posts[1].requestId).not.toBe(posts[0].requestId);expect(posts[1].durationDays).toBe(7);
+});
+
 test('NAV-01 Back restores library search/view and the unfinished story',async({page})=>{
   await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('Navigation draft');
   await openLibrary(page,'image');await page.getByRole('searchbox',{name:'Filter image library'}).fill('Alpha');
