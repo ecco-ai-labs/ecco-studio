@@ -249,29 +249,48 @@ test('NAV-02 Support Back returns to the preceding screen, never the entry page'
   await page.locator('#workspace-back').click();await expect(page.locator('#models-form')).toBeVisible();
   await expect(page.locator('#workspace-entry')).toBeHidden();
 });
-test('NAV-03 popup and menu Back dismiss one layer and retain the originating screen',async({page})=>{
+test('NAV-03 Back belongs only to the page, never menus, hover drawers or popups',async({page})=>{
   await boot(page);await openLibrary(page,'video');
   const preferences=page.locator('#workspace-settings-controls details');await preferences.locator('summary').click();
-  await preferences.locator('.workspace-menu-items > .ecco-back').click();await expect(preferences).not.toHaveAttribute('open');
-  await expect(preferences.locator('summary')).toBeFocused();
+  await expect(preferences.locator('.ecco-back')).toHaveCount(0);
+  await page.locator('#theme-colors-open').hover();await expect(page.locator('#workspace-theme-drawer')).toBeVisible();
+  await expect(page.locator('#workspace-theme-drawer').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.locator('#theme-colors-open').press('Escape');await preferences.locator('summary').press('Escape');
+  await expect(preferences).not.toHaveAttribute('open');await expect(preferences.locator('summary')).toBeFocused();
   await page.locator('#activity-files-menu').click();await expect(page.locator('#activity-files')).toBeVisible();
-  await page.locator('#activity-files > .ecco-back').click();await expect(page.locator('#activity-files')).toBeHidden();
+  await expect(page.locator('#activity-files').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.locator('#activity-files [data-close]').click();await expect(page.locator('#activity-files')).toBeHidden();
   await expect(page.locator('#video-library-gallery')).toBeVisible();await expect(page.locator('#activity-files-menu')).toBeFocused();
   const viewport=page.viewportSize();await page.mouse.move(viewport.width-1,viewport.height/2);
   await page.locator('#activity-edge-arrow').click();await expect(page.locator('#activity-panel')).toBeVisible();
-  await page.locator('#activity-panel > .ecco-back').click();await expect(page.locator('#activity-panel')).toBeHidden();
-  await expect(page.locator('#activity-edge-arrow')).toBeFocused();
+  await expect(page.locator('#activity-panel').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.locator('#close-activity').click();await expect(page.locator('#activity-panel')).toBeHidden();
+  await expect(page.locator('.ecco-back')).toHaveCount(1);await expect(page.locator('#workspace-back')).toBeEnabled();
 });
-test('NAV-04 checkout Back returns to cart, selection and the usage menu without losing the package',async({page})=>{
+test('NAV-04 purchase popups omit Back and retain package selection and close behavior',async({page})=>{
   await boot(page);await page.locator('#google-user-menu > summary').click();
+  await expect(page.locator('#google-user-menu .ecco-back')).toHaveCount(0);
   await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();
+  await expect(page.locator('#workspace-usage-drawer .ecco-back')).toHaveCount(0);
   await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
+  await expect(page.locator('dialog[open]').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Select',exact:true}).first().click();await page.getByRole('button',{name:'View Cart',exact:true}).click();
   await page.getByRole('button',{name:'Proceed to Checkout',exact:true}).click();
-  await page.locator('dialog[open] > .ecco-back').click();await expect(page.getByRole('heading',{name:'Your Cart',exact:true})).toBeVisible();
-  await page.locator('dialog[open] > .ecco-back').click();await expect(page.getByRole('heading',{name:'Purchase Additional Credits',exact:true})).toBeVisible();
+  await expect(page.locator('dialog[open]').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Continue Shopping',exact:true}).click();
   await expect(page.getByRole('button',{name:'✓ Selected',exact:true})).toBeVisible();
-  await page.locator('dialog[open] > .ecco-back').click();await expect(page.locator('#workspace-usage-drawer')).toBeVisible();
+  await page.getByRole('button',{name:'Close popup',exact:true}).click();await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await expect(page.locator('#story-simple-details')).toBeVisible();
+});
+test('NAV-05 Desk keeps page navigation but excludes Back from account menus and ticket forms',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');
+  await expect(page.locator('.topbar .desk-back')).toBeVisible();
+  await page.locator('.account-trigger').click();await expect(page.getByRole('menu').getByRole('menuitem',{name:'Back',exact:true})).toHaveCount(0);
+  await page.getByRole('menu').getByRole('menuitem',{name:'Sign out',exact:true}).press('Escape');
+  await page.getByRole('button',{name:'Create task',exact:true}).click();
+  await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByRole('dialog').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Close dialog',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('AGENT-03 customer account can run agent and create its own Bug tickets',async({page})=>{

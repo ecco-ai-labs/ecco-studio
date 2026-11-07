@@ -24,7 +24,7 @@ sessionStorage.setItem('ecco-user-session','customer-session');localStorage.setI
 let {root,cleanup}=await create();
 let trigger=root.querySelector('.account-trigger');
 assert.equal(trigger.getAttribute('aria-expanded'),'false');trigger.click();await tick();
-assert.equal(root.querySelector('[role="menu"]').textContent,'BackExample Adminadmin@example.testAdministratorSign out');
+assert.equal(root.querySelector('[role="menu"]').textContent,'Example Adminadmin@example.testAdministratorSign out');
 assert.equal(root.activeElement,[...root.querySelectorAll('[role="menuitem"]')].find(b=>b.textContent==='Sign out'));
 root.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,composed:true,cancelable:true}));await tick();
 assert(!root.querySelector('[role="menu"]'));assert.equal(root.activeElement,trigger);

@@ -427,9 +427,11 @@ Every Studio screen has a compact ← Back control above its title. It restores
 the preceding in-tab view, including library search/view, story tab and draft,
 focus and scroll. Up to 30 prior views are retained; an empty history disables
 Back and never substitutes the welcome page. Identity changes clear history.
-Menus and drawers return to their parent; popup Back closes just that layer.
-Credit purchase steps and Desk views use their own prior-step history.
-Existing close/minimize controls remain available. No backend action is replayed.
+Back is restricted to pages in the right-hand content pane, including Desk page
+views. Popups, hover panels, menus and drawers never receive page Back controls.
+Their existing close/minimize, Escape and outside-dismissal behavior remains.
+Audio preparation retains its specific Edit Source / Questions / Characters actions.
+No backend action is replayed.
 ### Source suitability and drafts
 
 The picker displays the current Story Details. Before accepting a selected source,

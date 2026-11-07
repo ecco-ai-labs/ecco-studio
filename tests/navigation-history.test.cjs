@@ -22,10 +22,10 @@ test('Support Back returns to its origin and exhausted history never opens welco
   x.w.document.dispatchEvent(new x.w.Event('ecco:auth-change'));assert.equal(x.w.EccoNavigation.depth,0);await tick();
  }finally{x.close();}
 });
-test('Menu and popup Back close one layer without changing screen history',async()=>{
+test('Only the page has Back; menus and popups retain their own dismissal',async()=>{
  const x=await setup();try{
   await x.go('models');const depth=x.w.EccoNavigation.depth,menu=x.q('#workspace-settings-controls details');menu.open=true;
-  menu.querySelector('.workspace-menu-items > .ecco-back').click();assert.equal(menu.open,false);assert.equal(x.w.document.activeElement,menu.querySelector('summary'));
-  x.q('#activity-files-menu').click();await tick();x.q('#activity-files > .ecco-back').click();await tick();assert.equal(x.q('#activity-files').open,false);assert.equal(x.w.EccoNavigation.depth,depth);assert.ok(x.q('#models-form'));
+ assert.equal(menu.querySelector('.ecco-back'),null);menu.querySelector('summary').dispatchEvent(new x.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(menu.open,false);assert.equal(x.w.document.activeElement,menu.querySelector('summary'));
+  x.q('#activity-files-menu').click();await tick();assert.equal(x.q('#activity-files .ecco-back'),null);x.q('#activity-files [data-close]').click();await tick();assert.equal(x.q('#activity-files').open,false);assert.equal(x.w.EccoNavigation.depth,depth);assert.ok(x.q('#models-form'));assert.equal(x.w.document.querySelectorAll('.ecco-back').length,1);assert.ok(x.q('#workspace-back'));
  }finally{x.close();}
 });

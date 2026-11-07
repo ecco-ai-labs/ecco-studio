@@ -7,7 +7,7 @@
   {
     "area": "Previous-screen navigation",
     "mode": "fixture",
-    "scope": "Back preserves library view/search and story draft, support returns to the originating screen, menu/popup Back closes one layer, checkout returns through cart and selection to the usage menu, sign-out clears navigation history; real ticket and billing service writes remain blocked"
+    "scope": "Back preserves library view/search and story draft, support returns to the originating screen, Back is absent from menus, hover panels, drawers and popups; native dismissal and checkout selection remain intact, sign-out clears navigation history; real ticket and billing service writes remain blocked"
   },
   {
     "area": "Libraries",

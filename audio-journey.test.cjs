@@ -249,3 +249,11 @@ test('Storybook review iterates only selected words, retains named sounds, saves
  assert.ok(x.q('#audio-form'));assert.equal(x.q('[data-audio-tab=script]').getAttribute('aria-selected'),'true');assert.equal(x.q('#audio-progress-panel').hidden,true);x.q('[data-audio-tab=progress]').click();assert.equal(x.q('#audio-progress-panel').hidden,false);x.q('[data-audio-tab=review]').click();assert.equal(x.q('#audio-review-panel').hidden,false);
  const draft=saved(x,'ecco-audio-draft:created-story');assert.equal(draft.sound_design.cues[0].name,'Jinn Arrival');assert.equal(draft.speakers.length,3);assert.match(draft.lines[0].text,/improved improved/);assert.deepEqual(x.errors,[]);
 });
+
+
+test('Audio preparation uses specific edit actions, with no generic popup Back',async t=>{
+ const x=await ready(t);mock(x);await open(x);field(x,'instructions','Keep my preparation brief.');await submit(x);
+ const edit=x.q(dlg+' [data-back]');assert.equal(edit.textContent,'Edit Source');assert.equal(edit.hidden,false);
+ assert.ok(![...x.q(dlg).querySelectorAll('button')].some(b=>/^(← )?Back$/.test(b.textContent.trim())));
+ edit.click();await tick();assert.equal(x.q(dlg+' [data-value=instructions]').value,'Keep my preparation brief.');assert.deepEqual(x.errors,[]);
+});

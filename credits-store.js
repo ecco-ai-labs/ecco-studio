@@ -4,7 +4,6 @@
  const PACKS=[{id:'p500',credits:500,cents:2500},{id:'p750',credits:750,cents:5000},{id:'p1500',credits:1500,cents:10000}];
  const WARNING='You are going to run out of the credits soon, please purchase by selecting Purchase Additional Credits from the Account And Billing Menu.';
  const q=s=>document.querySelector(s),money=n=>'$'+(n/100).toFixed(2);
- let backViews=[],backUsage=null;
  let adapter=null,balance=null,used=0,pending=false,warned=false,billing={},cart={},cartMessage='';
  let panel=null,view='usage',warning=null,usageDrawer=null,usageTrigger=null;
  const button=(label,fn,secondary=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;if(secondary)b.className='secondary';b.onclick=fn;return b;};
@@ -105,9 +104,8 @@
  }
  function open(next='usage',trigger,{hover=false}={}){
   if(next==='usage'&&trigger)return openUsage(trigger,hover);
-  const menu=usageTrigger?.closest('details');if(!panel?.isConnected)backUsage=usageTrigger;closeUsage();if(menu)menu.open=false;
-  if(panel?.isConnected&&next!==view)backViews.push(view);else if(!panel?.isConnected)backViews=[];
-  view=next;if(!panel||!panel.isConnected){panel=dialog('Credits and Usage');panel.eccoBack=()=>{if(backViews.length){view=backViews.pop();render();panel.querySelector('h2').focus();}else{const trigger=backUsage;backUsage=null;panel.close('cancel');if(trigger?.isConnected){trigger.closest('details').open=true;openUsage(trigger);trigger.focus();}}};panel.addEventListener('close',()=>{panel=null;});render();panel.showModal();}else{render();panel.querySelector('h2').focus();}if(next==='shop')window.EccoNotifications?.refresh();
+  const menu=usageTrigger?.closest('details');closeUsage();if(menu)menu.open=false;
+  view=next;if(!panel||!panel.isConnected){panel=dialog('Credits and Usage');panel.addEventListener('close',()=>{panel=null;});render();panel.showModal();}else{render();panel.querySelector('h2').focus();}if(next==='shop')window.EccoNotifications?.refresh();
  }
  async function tick(){
   if(!adapter||pending)return;pending=true;try{const result=await adapter.heartbeat();if(!Number.isFinite(result.balance)||result.balance<0)throw Error('Invalid credit balance');balance=result.balance;used=result.used;if(view==='usage')render();updateUsage();noticeLow();}catch(e){if(panel&&view==='usage'){render();status(panel.querySelector('[data-credits-body]'),'Credit balance could not be refreshed.');}if(usageDrawer){usageDrawer.querySelector('[data-credit-balance]').textContent='Could not refresh';}}finally{pending=false;}
