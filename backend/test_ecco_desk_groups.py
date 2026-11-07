@@ -56,6 +56,20 @@ class GroupSecurity(unittest.TestCase):
             with self.assertRaises(ValueError) as caught: self.authorize()
             self.assertNotIn('private-',str(caught.exception))
 
+    def test_denial_distinguishes_disabled_api_scope_and_admin_privileges_without_secrets(self):
+        for reason, expected in [('SERVICE_DISABLED', 'Admin SDK API is disabled'),
+                                 ('accessNotConfigured', 'Admin SDK API is disabled'),
+                                 ('ACCESS_TOKEN_SCOPE_INSUFFICIENT', 'required group-membership scope'),
+                                 ('forbidden', 'Directory API privileges')]:
+            error=RuntimeError('private-refresh private-code')
+            error.resp=Mock(status=403)
+            error.content=json.dumps({'error':{'message':'private-code',
+                'details':[{'reason':reason,'metadata':{'secret':'private-refresh'}}]}}).encode()
+            self.flow.fetch_token.side_effect=error
+            with self.assertRaisesRegex(ValueError,expected) as caught: self.authorize()
+            self.assertNotIn('private-',str(caught.exception))
+        self.assertIn('Directory API privileges',groups._denied_message(ValueError('private-code')))
+
     def test_membership_is_bound_to_subject_and_active_direct_user(self):
         client=Mock(); get=client.members.return_value.get
         record=dict(id='123',type='USER',status='ACTIVE',role='OWNER')
