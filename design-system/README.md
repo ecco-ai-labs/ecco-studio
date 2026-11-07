@@ -116,7 +116,7 @@ connected, including others of the same class. Choices do not connect automatica
 Saved connections require a fresh authenticated health response before displaying
 Connected. Availability refreshes every 20 seconds.
 
-The top ribbon Settings menu retains the internal Activity category identifier. Its file browser is labeled Workspace Drive, including its dialog title and accessible name.
+The top ribbon Settings menu retains the internal Activity category identifier. Its file browser is labeled Workspace Drive, including its dialog title and accessible name. Search files filters immediately by file name, title or path as the user types, combined with Type, Location and job scope. Matching is case-insensitive; clearing the search restores the current scope. The result count and empty state update without moving typing focus.
 
 ## Audio characters and AI scripts
 

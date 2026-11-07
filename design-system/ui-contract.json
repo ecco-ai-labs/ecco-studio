@@ -436,7 +436,9 @@
         "clear",
         "results"
       ],
-      "variants": [],
+      "variants": [
+        "workspace-drive"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -2247,5 +2249,22 @@
     "persistence": "Browser IndexedDB, scoped by account, story and immutable source asset/file digest. Explicit Save edit and downloadable JSON plan. Local file sessions require reopening the source file to resume. No credentials stored. Server export creates a new Video Library asset.",
     "accessibility": "Native dialog, focus return, named selection buttons with aria-pressed, visible focus, labelled inputs, polite progress, keyboard range selection. Nested frame inspector closes without dismissing the editor.",
     "export": "Authenticated CPU-only frame-editor service must advertise availability. Source story and asset validated, 25 fps/2 minute/1920px limits, idempotent request IDs, original preserved. Local uploads can be reviewed; Video Library assets support server MP4 export. No GPU starts or AI submissions."
+  },
+  "workspaceDriveSearch": {
+    "approval": "User requested a file search under Workspace Drive with filtering as they type.",
+    "identity": {
+      "type": "search-input",
+      "variant": "workspace-drive",
+      "selector": "#activity-files-search",
+      "parent": "#activity-files",
+      "source": "activity-files.js"
+    },
+    "appearance": "Inherit existing native input, label, focus and active theme styles; no changes to existing control dimensions or colors. No additional icons.",
+    "layout": "Full-width labelled input after the scope description and before existing Type/Location filters; reuse existing input and label layout.",
+    "content": "Search files; placeholder Search by file name, title or path. Existing count shows matching files out of the current filter total while searching.",
+    "states": "Empty query shows all files within the current filters; no matches shows No files match your search. Existing storage-disconnected message retains priority. Native hover/focus/clear behavior; no remote loading state.",
+    "interaction": "Filter immediately on input using case-insensitive, trimmed substring matching against displayed title (or prompt fallback), file name, path and ID. Combine with existing Type, Location and job scope. Clearing restores all files in that scope. Keep the query in this tab while the dialog is reopened or its results refresh; no remote request or media generation.",
+    "accessibility": "Explicit label, native search input, aria-controls results, polite atomic result count. Focus search on open; list updates keep input node, value and typing focus. Existing popup close/minimize and keyboard dismissal unchanged.",
+    "usage": "Settings > Workspace Drive; existing images, videos and audio records only. No new storage access or backend endpoint."
   }
 }
