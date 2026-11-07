@@ -86,6 +86,26 @@ test('left navigation stays visible and direct Library entry removes the story t
  const nav=x.q('#workspace-production-group');assert.ok(nav);assert.notEqual(x.w.getComputedStyle(nav).display,'none');
  x.w.EccoWorkspaceUI.openLibrary('video');await tick();assert.equal(x.w.testState.page(),'video-library');assert.equal(x.q('#story-workspace-header').hidden,true);assert.equal(x.w.EccoStoryWorkspace.active,false);assert.ok(x.q('#video-library-gallery'));assert.match(x.saved().simple_workspace.script,/Keep my draft/);
 });
+test('the top-level Library heading exits every story tab and preserves its draft',async()=>{
+ for(const tab of [0,1,2]){
+  const x=await fixture();await x.start();x.script('Host: Keep my draft.\n\nGuest: Keep mine.');await x.w.EccoStoryWorkspace.select(tab);await tick();
+  const draftId=x.saved().localDraftId;
+  x.q('#workspace-library-group > summary span:last-child').click();await tick();
+  assert.equal(x.w.testState.page(),'story-library');assert.ok(x.q('#story-library-list'));
+  assert.equal(x.q('#story-workspace-header').hidden,true);assert.equal(x.w.EccoStoryWorkspace.active,false);
+  assert.equal(x.w.document.body.classList.contains('story-simple-mode'),false);
+  assert.equal(x.q('#page').hasAttribute('role'),false);assert.equal(x.q('#page').hasAttribute('aria-labelledby'),false);
+  assert.match(JSON.parse(x.w.localStorage.getItem('ecco-story-setup:'+draftId)).simple_workspace.script,/Keep my draft/);
+  x.w.EccoStoryWorkspace.openSetup(draftId);await tick();assert.equal(x.q('#story-workspace-header').hidden,false);assert.equal(x.w.EccoStoryWorkspace.active,true);
+  assert.match(x.saved().simple_workspace.script,/Keep my draft/);assert.deepEqual(x.errors,[]);x.close();
+ }
+});
+test('toggling the Library heading inside a library retains the current view',async()=>{
+ const x=await fixture();await x.start();x.w.EccoWorkspaceUI.openLibrary('video');await tick();
+ const gallery=x.q('#video-library-gallery'),view=x.q('#video-library-view');view.value='large';view.dispatchEvent(new x.w.Event('change',{bubbles:true}));
+ for(let i=0;i<2;i++){x.q('#workspace-library-group > summary').click();await tick();assert.equal(x.w.testState.page(),'video-library');assert.equal(x.q('#video-library-gallery'),gallery);assert.equal(view.value,'large');assert.equal(x.q('#story-workspace-header').hidden,true);}
+ assert.deepEqual(x.errors,[]);
+});
 test('New Story ignores orphaned audio content and starts with no selected story details',async()=>{
  const orphan=JSON.stringify({speakers:[{id:'old',name:'Previous speaker'}],lines:[{speaker_id:'old',text:'Previous story content'}]});
  const x=await fixture({'ecco-audio-draft:':orphan});x.w.EccoWorkspaceUI.startNewStory({id:'',format:''});await tick();

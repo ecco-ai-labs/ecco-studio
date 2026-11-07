@@ -391,3 +391,8 @@ language. Submission has visible busy/status/error states beside its button and 
 Open Connections action when required. Library and other non-workflow views hide
 the tabs and deactivate workflow routing; resuming minimized workflow popups restores
 the original draft and header.
+
+Clicking the top-level Library heading leaves the story workspace and opens
+Story Library with the three story tabs hidden and the current draft preserved.
+Inside a library, that heading only toggles the sidebar group so the current
+view and filters remain intact. Keyboard activation uses the same behavior.
