@@ -57,7 +57,7 @@ export default function Notifications({api}:{api:Api}){
       {audience==='user'&&<label className="notification-full">User<select name="recipientId" required defaultValue={reissue?.notice.recipientId||''}><option value="">Choose a signed-in Studio user</option>{users.map(u=><option key={u.id} value={u.id}>{u.name} · {u.email} · {u.id.slice(-6)}</option>)}</select></label>}
      </div>
      <label>Title<input name="title" defaultValue={reissue?.notice.title||''} required maxLength={160} placeholder="A short notification title"/></label>
-     <label>Message<textarea name="body" defaultValue={reissue?.notice.body||''} required maxLength={4000} rows={3} placeholder="What should the user know?"/></label>
+     <label>Message<textarea name="body" aria-label="Message" defaultValue={reissue?.notice.body||''} required maxLength={4000} rows={3} placeholder="What should the user know?"/></label>
      {kind==='special_offer'&&<><div className="form-grid">
       <label>Purchase credits<input name="credits" defaultValue={reissue?.notice.offer?.credits} type="number" min={1} max={1000000} step={1} required/></label>
       <label>Free bonus credits<input name="bonusCredits" type="number" min={0} max={1000000} step={1} defaultValue={reissue?.notice.offer?.bonusCredits??0} required/></label>
