@@ -17,7 +17,12 @@
   {
     "area": "Story workflow",
     "mode": "fixture",
-    "scope": "3 tabs, required name, fresh story, AI dialog, navigation away; AI generation blocked"
+    "scope": "3 tabs, required name, fresh story, AI dialog with carried Story Details and immediate reverse synchronization, equal upload/generation action sizes, navigation away; live AI generation blocked"
+  },
+  {
+    "area": "Source upload",
+    "mode": "fixture",
+    "scope": "TXT upload: empty selection, preserved original, yellow boundary, inline AI prompt and connection error, keyboard disclosure, matching clear typography and clear behavior. PDF rendering checked manually; live AI inference requires connected test services."
   },
   {
     "area": "Themes and layout",

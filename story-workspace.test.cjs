@@ -122,7 +122,7 @@ test('new story detaches the previous document picker without deleting its saved
  const file=x.q('[data-file]');Object.defineProperty(file,'files',{value:[{name:'old.pdf'}]});await file.onchange({target:file});const previous=x.saved().localDraftId;
  await x.start('image','storybook');assert.equal(x.q('[data-preview]').hidden,true);assert.equal(x.q('#story-simple-script').value,'');assert.equal(destroyed,1);assert.match(JSON.parse(x.w.localStorage.getItem('ecco-story-setup:'+previous)).simple_workspace.script,/Old selected passage/);
 });
-test('Generate with AI opens an instruction dialog immediately, even without a brief',async()=>{
+test('Generate With AI opens an instruction dialog immediately, even without a brief',async()=>{
  const x=await fixture();await x.start();x.q('#page [data-ai]').click();await tick();const dialog=x.q('#ai-generation-dialog');assert.ok(dialog?.open);assert.equal(dialog.querySelector('[name=instructions]').value,'');assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);
 });
 
@@ -133,7 +133,7 @@ test('AI shows connection failures inline and does not submit until storage is r
 test('AI scopes controls to this story and shows pending, error and retry states',async()=>{
  const x=await fixture();await x.start();const unrelated=x.w.document.createElement('input');unrelated.setAttribute('data-ai','0');x.w.document.body.prepend(unrelated);await x.w.EccoStoryWorkspace.select(1);
  let reject;x.w.testAPI=()=>new Promise((_,r)=>reject=r);await requestStoryAI(x,'Explain business news.');assert.equal(x.q('#page [data-ai]').disabled,true);assert.equal(x.q('#page [data-ai]').textContent,'Generating…');assert.match(x.q('#story-simple-ai-status').textContent,/Writing/);assert.equal(unrelated.disabled,false);
- reject(Error('AI service is unavailable.'));await tick();assert.match(x.q('#story-simple-ai-status').textContent,/AI service is unavailable/);assert.equal(x.q('#page [data-ai]').disabled,false);assert.equal(x.q('#page [data-ai]').textContent,'Generate with AI');assert.deepEqual(x.errors,[]);
+ reject(Error('AI service is unavailable.'));await tick();assert.match(x.q('#story-simple-ai-status').textContent,/AI service is unavailable/);assert.equal(x.q('#page [data-ai]').disabled,false);assert.equal(x.q('#page [data-ai]').textContent,'Generate With AI');assert.deepEqual(x.errors,[]);
 });
 test('a new story has fresh AI instructions and cannot receive the previous response',async()=>{
  const x=await fixture();await x.start();let resolve;x.w.testAPI=()=>new Promise(r=>resolve=r);await requestStoryAI(x,'Old story instructions');
@@ -143,4 +143,15 @@ test('a new story has fresh AI instructions and cannot receive the previous resp
 test('library navigation and minimized popup restoration preserve the exact workspace draft',async()=>{
  const x=await fixture();await x.start();x.script('Host: My draft.\n\nGuest: My answer.');const context=x.w.EccoWorkspaceUI.capturePopupContext();context.suspend();x.w.EccoWorkspaceUI.openLibrary('video');await tick();assert.equal(x.q('#story-workspace-header').hidden,true);
  context.restore();await tick();assert.equal(x.q('#story-workspace-header').hidden,false);assert.equal(x.w.EccoStoryWorkspace.active,true);assert.equal(x.q('#story-simple-script').value,'Host: My draft.\n\nGuest: My answer.');assert.deepEqual(x.errors,[]);
+});
+
+test('Generate With AI carries Story Details, synchronizes edits immediately and includes them beside the prompt',async()=>{
+ const x=await fixture();await x.start();x.q('#page [data-ai]').click();await tick();
+ const dialog=x.q('#ai-generation-dialog');assert.ok(dialog.classList.contains('story-generation-dialog'));
+ assert.equal(dialog.querySelector('[name=story_type]').value,'podcast');assert.equal(dialog.querySelector('[name=genre]').value,'Business');assert.equal(dialog.querySelector('[name=age_group]').value,'Adults (18+)');assert.equal(dialog.querySelector('[name=language]').value,'English');assert.equal(dialog.querySelector('[name=location]').value,'India');
+ for(const [key,value] of Object.entries({story_type:'storybook',genre:'Adventure',age_group:'Children (9–12)',language:'Hindi',location:'Worldwide'}))x.fill(key,value);
+ assert.equal(x.w.testCalls.filter(c=>c.path==='ai/enhance').length,0);let saved=x.saved().simple_workspace;assert.equal(saved.type,'storybook');assert.equal(saved.genre,'Adventure');assert.equal(saved.audience,'Children (9–12)');assert.equal(saved.language,'Hindi');assert.equal(saved.location,'Worldwide');
+ dialog.close();await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=type]').value,'storybook');assert.equal(x.q('[name=audience]').value,'Children (9–12)');assert.equal(x.q('[name=language]').value,'Hindi');x.fill('genre','Fantasy');await x.w.EccoStoryWorkspace.select(1);
+ x.q('#page [data-ai]').click();await tick();assert.equal(x.q('#ai-generation-dialog [name=genre]').value,'Fantasy');x.q('#ai-generation-dialog [name=instructions]').value='A funny adventure about a lost lantern.';x.q('#ai-generation-dialog form').requestSubmit();await tick();
+ const request=x.w.testCalls.find(c=>c.path==='ai/enhance');assert.ok(request);assert.equal(request.body.context.genre,'Fantasy');assert.equal(request.body.context.language,'Hindi');assert.match(request.body.context.instructions,/lost lantern/);const context=JSON.parse(request.body.context.summary);assert.equal(context.story_type,'storybook');assert.equal(context.audience,'Children (9–12)');assert.equal(context.location,'Worldwide');
 });

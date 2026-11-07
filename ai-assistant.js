@@ -153,28 +153,52 @@
  function generationInstructions(options={}){
   return [options.instructions?.trim(),options.language?'Write the generated text in '+options.language+'. Use its native script unless the user asks for transliteration. Keep JSON keys, IDs and technical setting names unchanged.':''].filter(Boolean).join('\n');
  }
- function requestGeneration({label,key,onGenerate,isValid=()=>true,characterForm=null,scopeKey=null,initialOptions=null}){
+ function requestGeneration({label,key,onGenerate,isValid=()=>true,characterForm=null,scopeKey=null,initialOptions=null,contextFields=[],onOptionsChange=()=>{}}){
   if(busy){showError('Another AI request is still running. Wait for it to finish, then try again.');return;}
   const story=activeStory,scope=scopeKey??story,draftKey='ecco-ai-generation:'+scope+':'+key,languageKey='ecco-ai-language:'+scope;
   let saved={};try{saved=JSON.parse(localStorage.getItem(draftKey)||'{}');}catch{}
   q('#ai-generation-dialog')?.remove();
-  const dialog=document.createElement('dialog');dialog.id='ai-generation-dialog';dialog.className='generation-dialog';dialog.setAttribute('aria-label','Generate with AI');
-  const languages=['English','Hindi','Urdu','Tamil','Punjabi','Telugu','Bengali','Marathi','Gujarati','Kannada','Malayalam','Arabic','Spanish','Portuguese','French','German','Chinese','Japanese','Korean'];
-  dialog.innerHTML='<form class="form"><div class="section-head"><h2>Generate with AI</h2><button type="button" class="secondary ai-dialog-close" data-cancel aria-label="Close" title="Close">×</button></div><p class="help">'+esc(label)+'</p><label>Output language<select name="language"><option value="">Use existing language</option>'+languages.map(language=>'<option>'+language+'</option>').join('')+'<option value="other">Other language</option></select></label><label data-other-language hidden>Language<input name="other_language" maxlength="80" placeholder="e.g. Assamese or Hindi and Urdu"></label><label>What should AI generate?<textarea name="instructions" maxlength="4000" rows="5" placeholder="e.g. Write 10 scenes in Hindi with natural dialogue and a dramatic tone."></textarea></label><p role="status" data-generation-status></p><div class="row"><button type="submit">Generate</button></div></form>';
+  const dialog=document.createElement('dialog');dialog.id='ai-generation-dialog';dialog.className='generation-dialog';dialog.setAttribute('aria-label','Generate With AI');
+  const languages=['English','Hindi','Urdu','Tamil','Punjabi','Telugu','Bengali','Marathi','Gujarati','Kannada','Malayalam','Arabic','Spanish','Portuguese','French','German','Italian','Chinese','Japanese','Korean'];
+  dialog.innerHTML='<form class="form"><div class="section-head"><h2>Generate With AI</h2><button type="button" class="secondary ai-dialog-close" data-cancel aria-label="Close" title="Close">×</button></div><p class="help">'+esc(label)+'</p><label>Output language<select name="language"><option value="">Use existing language</option>'+languages.map(language=>'<option>'+language+'</option>').join('')+'<option value="other">Other language</option></select></label><label data-other-language hidden>Language<input name="other_language" maxlength="80" placeholder="e.g. Assamese or Hindi and Urdu"></label><label>What should AI generate?<textarea name="instructions" maxlength="4000" rows="5" placeholder="e.g. Write 10 scenes in Hindi with natural dialogue and a dramatic tone."></textarea></label><p role="status" data-generation-status></p><div class="row"><button type="submit">Generate</button></div></form>';
   document.body.append(dialog);
   if(key.startsWith('video')&&window.EccoFrameReview){const frames=document.createElement('button');frames.type='button';frames.className='secondary';frames.textContent='Clips & Frames';frames.onclick=()=>window.EccoFrameReview.open();dialog.querySelector('form > .help').after(frames);}
   if(characterForm&&window.EccoCharacterStudio){dialog.querySelector('form > .help').insertAdjacentHTML('afterend','<label>Generate<select name="generation_target"><option value="prompt">Image prompt</option><option value="character">Character</option></select></label>');}
   const form=dialog.querySelector('form'),select=form.elements.language,custom=form.elements.other_language,instructions=form.elements.instructions;
   const language=initialOptions?.language??(localStorage.getItem(languageKey)||saved.language||'');
   select.value=!language||languages.includes(language)?language:'other';custom.value=select.value==='other'?language:'';instructions.value=initialOptions?.instructions??saved.instructions??'';
+  if(contextFields.length){
+   dialog.classList.add('story-generation-dialog');
+   const layout=document.createElement('div');layout.className='story-generation-layout';
+   const prompt=instructions.closest('label');prompt.classList.add('story-generation-prompt');
+   const controls=document.createElement('section');controls.className='story-generation-options form';controls.setAttribute('aria-label','Story options');
+   const heading=document.createElement('strong');heading.textContent='Story Options';controls.append(heading);
+   const help=document.createElement('p');help.className='help';help.textContent='These choices also update Story Details and guide AI alongside your prompt.';controls.append(help);
+   for(const field of contextFields){
+    const wrap=document.createElement('label');wrap.textContent=field.label;
+    const input=document.createElement(field.options?'select':'input');input.name=field.name;
+    if(field.options){for(const entry of field.options){const [value,label]=Array.isArray(entry)?entry:[entry,entry];input.append(new Option(label,value));}const current=initialOptions?.[field.name]??saved[field.name]??'';if(current&&![...input.options].some(o=>o.value===current))input.append(new Option(current,current));input.value=current;input.required=true;}
+    else{input.maxLength=200;input.placeholder=field.placeholder||'';input.value=initialOptions?.[field.name]??saved[field.name]??'';}
+    wrap.append(input);controls.append(wrap);
+   }
+   const location=controls.querySelector('[name=location]')?.closest('label');
+   controls.insertBefore(select.closest('label'),location||null);controls.insertBefore(form.querySelector('[data-other-language]'),location||null);
+   layout.append(prompt,controls);form.querySelector('[data-generation-status]').before(layout);
+   form.addEventListener('change',event=>{
+    if(!isValid()||activeStory!==story)return;
+    const target=event.target;if(!contextFields.some(field=>field.name===target.name)&&!['language','other_language'].includes(target.name))return;
+    onOptionsChange(readOptions());
+   });
+  }
+  function readOptions(){return {language:select.value==='other'?custom.value.trim():select.value,instructions:instructions.value.trim(),...Object.fromEntries(contextFields.map(field=>[field.name,form.elements[field.name].value]))};}
   const syncLanguage=()=>{form.querySelector('[data-other-language]').hidden=select.value!=='other';custom.required=select.value==='other';};syncLanguage();select.onchange=syncLanguage;
   if(form.elements.generation_target)form.elements.generation_target.onchange=()=>{const character=form.elements.generation_target.value==='character';select.closest('label').hidden=character;form.querySelector('[data-other-language]').hidden=character||select.value!=='other';custom.required=!character&&select.value==='other';form.querySelector('[type=submit]').textContent=character?'Continue':'Generate';};
   form.querySelector('[data-cancel]').onclick=()=>dialog.close();
   form.onsubmit=event=>{
    event.preventDefault();if(!form.reportValidity())return;
-   if(activeStory!==story||!isValid()){form.querySelector('[data-generation-status]').textContent='Your draft or selection changed. Reopen Generate with AI for the current field.';return;}
+   if(activeStory!==story||!isValid()){form.querySelector('[data-generation-status]').textContent='Your draft or selection changed. Reopen Generate With AI for the current field.';return;}
    if(form.elements.generation_target?.value==='character'){dialog.close();window.EccoCharacterStudio.open(characterForm,instructions.value.trim()||characterForm.elements.prompt?.value||'').catch(showError);return;}
-   const options={language:select.value==='other'?custom.value.trim():select.value,instructions:instructions.value.trim()};
+   const options=readOptions();
    if(select.value==='other'&&!options.language){custom.focus();return;}
    localStorage.setItem(draftKey,JSON.stringify(options));localStorage.setItem(languageKey,options.language);
    dialog.close();Promise.resolve().then(()=>onGenerate(options)).catch(showError);
@@ -229,7 +253,7 @@
   if(busy)return;
   if(!window.EccoStorage?.ready||!connection.enabled){connections();return;}
   const {element,scope,stage}=binding;
-  if(binding.generateField&&scope.dataset.generationStudio&&!connection.generation_modes?.includes('generate')){showError('Generate with AI needs the prepared AI service update. Improve with AI is available now.');return;}
+  if(binding.generateField&&scope.dataset.generationStudio&&!connection.generation_modes?.includes('generate')){showError('Generate With AI needs the prepared AI service update. Improve with AI is available now.');return;}
   if(!element.value.trim()&&!binding.generateField){element.focus();notice('Enter an idea or prompt first, then choose Improve with AI.',true);return;}
   if(!binding.generateField)return improveText(binding);
   const details=snapshotFor(binding),review={...binding,original:element.value,version:connectionVersion,story:activeStory,snapshot:JSON.stringify(details),maxLength:element.maxLength>0?element.maxLength:100000,applied:false};
@@ -250,7 +274,7 @@
   if(!lastReview)return;
   let dialog=q('#ai-review-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='ai-review-dialog';document.body.append(dialog);}
   const review=lastReview,questions=review.result.questions||[],notes=review.result.notes||[];
-  dialog.innerHTML='<div class="form"><div class="section-head"><h2>'+(review.generateField?'Generate with AI':review.generateStory?'Generate using AI':'Improve with AI')+'</h2><button type="button" class="secondary ai-dialog-close" data-cancel aria-label="Close" title="Close">×</button></div><p class="help">'+esc(review.label)+'</p>'+(questions.length?'<p class="ai-questions">'+esc(questions.join('\n'))+'</p>':'')+'<p class="help ai-review-notes">'+esc(notes.join('\n'))+'</p><details><summary>Original</summary><label>Original text<textarea readonly>'+esc(review.original)+'</textarea></label></details><label>AI suggestion<textarea data-suggestion maxlength="'+review.maxLength+'">'+esc(review.suggestion)+'</textarea></label><p role="status" data-apply-status></p><div class="row"><button type="button" data-apply>Apply</button></div></div>';
+  dialog.innerHTML='<div class="form"><div class="section-head"><h2>'+(review.generateField?'Generate With AI':review.generateStory?'Generate using AI':'Improve with AI')+'</h2><button type="button" class="secondary ai-dialog-close" data-cancel aria-label="Close" title="Close">×</button></div><p class="help">'+esc(review.label)+'</p>'+(questions.length?'<p class="ai-questions">'+esc(questions.join('\n'))+'</p>':'')+'<p class="help ai-review-notes">'+esc(notes.join('\n'))+'</p><details><summary>Original</summary><label>Original text<textarea readonly>'+esc(review.original)+'</textarea></label></details><label>AI suggestion<textarea data-suggestion maxlength="'+review.maxLength+'">'+esc(review.suggestion)+'</textarea></label><p role="status" data-apply-status></p><div class="row"><button type="button" data-apply>Apply</button></div></div>';
   const input=dialog.querySelector('[data-suggestion]'),apply=dialog.querySelector('[data-apply]'),status=dialog.querySelector('[data-apply-status]');
   input.oninput=()=>{review.suggestion=input.value;};
   apply.disabled=review.applied;
@@ -301,7 +325,7 @@
  function mountStoryAI(){
   const form=q('#story-setup-form');if(!form||q('#story-description-ai'))return;
   const menu=document.createElement('details');menu.id='story-description-ai';menu.className='storyboard-ai-floating';
-  menu.innerHTML='<summary aria-label="AI assistance">AI</summary><div class="storyboard-ai-actions"><button type="button" class="secondary" data-generate>Generate with AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div>';
+  menu.innerHTML='<summary aria-label="AI assistance">AI</summary><div class="storyboard-ai-actions"><button type="button" class="secondary" data-generate>Generate With AI</button><button type="button" class="secondary" data-improve>Improve with AI</button></div>';
   q('#page').append(menu);
   let selected=form.elements.summary;
   const choose=element=>{form.querySelectorAll('.ai-selected-field').forEach(el=>el.classList.remove('ai-selected-field'));selected=element;selected.classList.add('ai-selected-field');};
