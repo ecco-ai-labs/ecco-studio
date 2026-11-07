@@ -46,11 +46,13 @@ test('STORY-02 name validation blocks an empty story',async({page})=>{
 });
 test('STORY-03 new story clears previous fields',async({page})=>{
   await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('Prior story must not leak');
-  await openLibrary(page,'image');await page.locator('#workspace-new-story').click();
+  await openLibrary(page,'story');await page.getByRole('button',{name:'New Story',exact:true}).click();
   await expect(page.getByLabel('Story Name',{exact:true})).toHaveValue('');
 });
 test('STORY-04 Generate with AI opens an instruction dialog',async({page})=>{
   await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('QA Story');
+  for(const [label,value] of Object.entries({'Output':'audio','Story Type':'podcast','Genre':'Comedy','Audience age group':'All ages','Language':'English','One-time or recurring':'once'}))
+    await page.getByLabel(label,{exact:true}).selectOption(value);
   await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
   await page.locator('#page [data-ai]').click();
   await expect(page.locator('#ai-generation-dialog')).toBeVisible();
@@ -117,7 +119,7 @@ for(const kind of ['image','video'])for(const mode of ['small','large']){
 test('LIB-preview close restores keyboard focus to its file',async({page})=>{
   await boot(page);const gallery=await openLibrary(page,'image');const file=gallery.locator('.library-file-open').first();
   await file.click();await expect(page.locator('.library-file-preview')).toBeVisible();
-  await page.getByRole('button',{name:'Close file preview',exact:true}).click();
+  await page.locator('.library-file-preview').getByRole('button',{name:'Close popup',exact:true}).click();
   await expect(page.locator('.library-file-preview')).toHaveCount(0);await expect(file).toBeFocused();
 });
 for(const theme of ['default','dark','forest','desert','ocean','dark-sky']){
@@ -147,7 +149,7 @@ test('DRIVE-01 search filters immediately and all four columns are sortable',asy
 });
 test('AUTH-01 local sign-out returns to the first screen',async({page})=>{
   await boot(page);await page.locator('#google-user-menu > summary').click();
-  await page.getByRole('button',{name:/sign out|sign off|log out/i}).click();
+  await page.getByRole('button',{name:'Log Off',exact:true}).click();
   await expect(page.locator('#workspace-entry')).toBeVisible();
   expect(await page.evaluate(()=>localStorage.getItem('ecco-user-session'))).toBeNull();
 });
