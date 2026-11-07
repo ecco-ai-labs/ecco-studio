@@ -1,0 +1,11 @@
+{
+  "name": "ecco-ux-qa-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "serve": "node server.mjs",
+    "review": "node review-images.mjs"
+  },
+  "devDependencies": { "@playwright/test": "1.56.1" }
+}

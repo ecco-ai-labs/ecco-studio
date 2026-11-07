@@ -1,0 +1,57 @@
+[
+  {
+    "area": "Entry and account",
+    "mode": "fixture",
+    "scope": "Welcome, synthetic signed-in identity, local sign-out; real Google OAuth blocked"
+  },
+  {
+    "area": "Libraries",
+    "mode": "fixture",
+    "scope": "All 5 library types, 3 views, metadata, sorting, search, real decoded sample image/video frames, preview focus"
+  },
+  {
+    "area": "Story workflow",
+    "mode": "fixture",
+    "scope": "3 tabs, required name, fresh story, AI dialog, navigation away; AI generation blocked"
+  },
+  {
+    "area": "Themes and layout",
+    "mode": "fixture",
+    "scope": "6 themes, 3 viewport widths; screenshots and overflow checks"
+  },
+  {
+    "area": "Workspace Drive",
+    "mode": "fixture",
+    "scope": "Search and sortable file columns"
+  },
+  {
+    "area": "Tester Agent",
+    "mode": "fixture",
+    "scope": "Desk pool/action controls, 50 findings and 25 separate critical Bug tickets using isolated fake API; real browser runner against video fixtures"
+  },
+  {
+    "area": "Billing",
+    "mode": "blocked",
+    "scope": "Live balances and purchases require a sandbox payment service"
+  },
+  {
+    "area": "Support and notifications",
+    "mode": "blocked",
+    "scope": "Ticket submission, agent replies, admin delivery require isolated test accounts and backend"
+  },
+  {
+    "area": "Generation and cancellation",
+    "mode": "blocked",
+    "scope": "Image/audio/video jobs require test workers and an explicit compute budget"
+  },
+  {
+    "area": "Publishing",
+    "mode": "blocked",
+    "scope": "YouTube upload requires a dedicated test channel"
+  },
+  {
+    "area": "AI visual review",
+    "mode": "optional",
+    "scope": "Runs when UX_QA_OPENAI_API_KEY and UX_QA_VISION_MODEL are configured; otherwise explicitly blocked"
+  }
+]
