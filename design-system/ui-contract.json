@@ -120,7 +120,7 @@
     "studioEntry": "Tell Your Story is disabled by default, including during Google session restoration and sign-in failures. Signed-out opacity is 0.5 with a not-allowed cursor. Enable only after backend-verified Google identity is available. Entry handlers also require the current identity. Preserve button dimensions, wording, themes and explicit click to enter. Successful checks of the same signed-in identity must retain open ticket dialogs and unsent work; only an actual account change or revoked session emits the authentication-change event.",
     "publishingStatus": "Publishing control-panel icon shows only YouTube: Connected or YouTube: Not Connected (or the connected platform name). Hover, keyboard focus and click reveal compact theme-aware status; never open Connections from the indicator or its channel list. Connection management stays in the Connections menu.",
     "popupControlAppearance": "All Studio modal close/minimize controls, Activity drawer close, and Desk dialog/ticket close controls use popup-controls.css. Fixed 26x26 border-box with no padding, margin or shadow; 14x14 SVG strokes at 2px; theme accent background and contrast foreground for default/hover/focus; focus outline uses theme text. Behaviors and popup positioning remain unchanged. Explicit flex centering, zero SVG margins and higher specificity than dialog-wide button sizing ensure icons stay centered, including Connections.",
-    "libraryBrowsing": "Image, Audio, Video, Story and Workflow Library headers provide right-aligned compact search, date/status filter and sort controls. Preferences survive library navigation in the current tab. Sort by creation time or name; media also by byte size, unknown values last. Audio/Video List uses compact media rows with Created, Size, Duration, Model and Status metadata. Existing players, selections and actions remain available; no generation or new remote downloads. Size uses known records or already-loaded media bytes; unavailable metadata is shown as an em dash. Global sorting hides collection headings; row collection captions remain. Responsive wrapping and native labelled search/select controls.",
+    "libraryBrowsing": "Image, Audio, Video, Story and Workflow libraries use the shared compact file browser specified by libraryFileBrowser. Each opens with List selected, followed by Small icons and Large icons. Search and date/status filtering remain available. Existing actions, media players and publishing selections are preserved; metadata details appear in the file preview.",
     "studioWorkspaceTabs": "Audio, Image and Video use a joined Final Script / Progress / Review tab strip in the right workspace: transparent tab surfaces, square corners, theme-accent underline on active tab; native tablist/tab/tabpanel semantics, roving tabindex and Arrow/Home/End navigation. Image edits the existing prompt and previews the composed generation prompt. Video shows source speech plus selected shot directions and opens existing script/shot editors. Progress mirrors current form status without moving form-owned state; sequence controls live in Progress. Review retains existing media nodes and actions. Polling never changes the selected tab; submit opens Progress. No new generation backend or speech re-recording is implied.",
     "notifications": {
       "types": [
@@ -133,7 +133,9 @@
       "appearance": "Bell in GitHub/Support control panel, matching 16px icons; compact theme-aware dropdown, exact unread count in small top-right badge; hide zero badge.",
       "behavior": "Authenticated in-app feed from /api/desk/support?userNotifications=1. Show up to the five newest notices addressed to the signed-in Google subject or all users; older displaced notices are never backfilled after read/expiry. Clicking or Enter/Space acknowledges exactly one notice on the server and removes it on success, reducing the unread badge; opening the bell does not mark anything read. Read receipts persist across devices, separately for each subject. Unread notices expire at the admin-set UTC deadline; Until read has no time expiry. Pending reads disable the row; failed reads retain it with a retryable error. Display severity as text and color. No private feed caching in localStorage or static files. Refresh every 30 seconds while visible and on focus/open/account changes; clear immediately and discard stale results on account change. Preserve Escape/outside/bell dismissal, header event isolation and focus return. notifications.json is no longer the active feed.",
       "accessibility": "Named button, aria-expanded/controls, keyboard-focusable notification rows with Read/Unread accessible names, focus retained after dismissal; textContent for feed content."
-    }
+    },
+    "settingsGitHubSync": "2026-11-07 user requested removal of Sync to GitHub from Settings. Remove its header markup, Settings mounting and unused button handler; retain the separate GitHub repository link and existing backend sync capabilities.",
+    "toolbarTooltipTiming": "Connection and community control panels share immediate CSS hover tooltips with no animation or delay, including Discord, GitHub, Technical support and Notifications. Remove duplicate browser-native title tooltips while preserving accessible labels, unread counts, click actions and connection-status colors. Show the same tooltip on keyboard focus. Observe dynamic support/notification labels so unread descriptions stay current."
   },
   "components": [
     {
@@ -922,7 +924,9 @@
         "selectedItems",
         "view"
       ],
-      "variants": [],
+      "variants": [
+        "compact-file-browser"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -966,7 +970,9 @@
         "selected",
         "actions"
       ],
-      "variants": [],
+      "variants": [
+        "compact-file-browser"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -2360,5 +2366,22 @@
     "persistence": "All three-tab fields and cast autosave per story/local draft ID in this browser. Continue saves a new story through the existing authenticated stories API. Existing studio drafts, outputs, compute choices and references are retained. An uncertain creation response blocks duplicate saves. Browser draft metadata is not claimed to sync across devices.",
     "handoff": "Audio receives the reviewed speaker-assigned script and delivery brief; image receives the visual prompt and chosen character image references; video receives scene directions and retained references. Video exposes Prepare Audio and Prepare Images inside tab three. Unchanged scenes retain images. No automatic multi-stage generation or repair inference is implied.",
     "publishing": "Publishing stays in tab three with existing destination, timing, confirmation and readiness gates. Only supported approved videos can currently be published. Audio/image remain downloadable with the limitation stated inline. Recurring creates the next episode/chapter with cleared content and retained defaults; it does not automatically enable a schedule."
+  },
+  "libraryFileBrowser": {
+    "approval": "2026-11-07: user requested List first and default, Small icons then Large icons; Finder-style File Name, Type, Date Created and Date Last Accessed columns; no individual boxes in any view; conserve space.",
+    "identity": "Existing library and library-item types; shared library-files variant in library-browser.js/css, table/row/cell roles, native header and file buttons; library-file-preview popup.",
+    "appearance": "Existing theme text/surface/control/accent/border/muted colors, 12px rows, 20px line height, no item borders/radius/shadows or gaps; subtle alternating rows and hover/focus background. List rows 32px; small icons 28px in 36px rows; large icons 64px in 72px rows. Cells have 4px/8px padding.",
+    "layout": "Four aligned columns with flexible name/preview, 90px Type, 185px dates; 640px minimum with internal horizontal scrolling. Sticky header, viewport-bounded vertical scroll and deferred rendering for offscreen rows. Compact Search, filter, count beside existing view/upload actions; no separate sort dropdown.",
+    "content": [
+      "File Name",
+      "Type",
+      "Date Created",
+      "Date Last Accessed"
+    ],
+    "states": "List selected on explicit open, existing icon selection preserved during background Image/Audio refresh. Icons replace visible names in the first cell, retaining filename tooltip and accessible name. Unknown dates use an em dash and sort last in either direction. Empty, disconnected and no-match states remain.",
+    "interaction": "Four clickable column headers toggle ascending/descending with visible up/down arrows; creation descending initially, natural filename/type sorting. File button opens media preview or existing story/workflow editor. Compact ellipsis exposes existing actions in preview. Search/filter/sort do not count as access. Preview retains original controls/media and restores keyboard focus on close. Existing publishing checkboxes stay in the first cell and survive filters/views.",
+    "accessDates": "Use server last_accessed/last_accessed_at when supplied and latest explicit library open in this browser. Browser access timestamps persist per signed-in user ID and storage volume; guests are memory-only. Do not infer historical dates from creation or modification. Account changes close preview and switch scope. Header tooltip states scope.",
+    "accessibility": "Table, row, columnheader and cell roles; aria-sort, row counts and indices, named native buttons, visible keyboard focus, accessible icon names, polite count. Closing nested original dialogs retains the file preview; closing file preview returns to the originating file/action button.",
+    "usage": "All five existing main library pages, including publishing selection. No storage API changes, generation, downloads or new external access."
   }
 }
