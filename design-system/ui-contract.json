@@ -2362,7 +2362,8 @@
         "Title",
         "Message",
         "Show in",
-        "Icon"
+        "Icon",
+        "Show Upcoming (days before)"
       ],
       "presets": [
         "Cyber Monday",
@@ -2391,6 +2392,12 @@
         "appearance": "Existing form-grid and native date input styling; two date controls beside each other, stacked on mobile. No Year/Month/Day dropdowns or past-date minimum.",
         "accessibility": "Start, End and Recurrence labels, calendar keyboard operation, native focus order, live next-run status, validation alerts only for invalid dates/ranges.",
         "validation": "campaignCalendarVersion 1 gates preview/save; a successful preview with null nextRunAt still enables Save. Stored ISO dates are interpreted in selected timezone, empty DB nextRunAt represents completion without a schema migration. Worker excludes completed rows; no runs beyond End."
+      },
+      "upcoming": {
+        "approval": "2026-11-08: Show campaigns days or weeks before their start in Billing. Default seven days; admin can change lead time.",
+        "control": "Existing labelled native number input, 0–90 whole days, default 7 including legacy campaigns; 0 disables. Visible when Billing selected. Saved through create/edit and history. Accessible helper explains 7/14-day examples. upcomingCampaignVersion 1 required before form is enabled.",
+        "display": "Separate recipient-scoped previews, earliest five, in Billing drawer, Credit and Usage and Purchase Additional Credits above regular options. Reuse promotional card, badge, body and expiry styles. Upcoming and configured badges, Starts and Offer lasts till in campaign timezone. No Select or Mark as Read, no Bell unread count or receipts. Existing schedule and dispatch time unchanged.",
+        "lifecycle": "Only enabled Billing campaigns in the advance window. Hide blocked, paused, completed, non-targeted and missed dates. Keep today’s due preview as Starting soon until worker dispatch. Refresh at start, every 30 seconds, focus and auth change; replace preview with actual notice after dispatch."
       }
     }
   },
