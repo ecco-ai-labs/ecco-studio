@@ -84,7 +84,8 @@
 /* Approved Story Details reference: two bounded cards and a persistent next action. */
 #story-workspace-header{max-width:1304px;position:relative;display:flex;flex-direction:column;margin-bottom:22px}
 #story-workspace-header[hidden]{display:none}
-#story-simple-save{position:absolute;right:0;bottom:calc(100% + 20px);font-size:calc(12px - 2pt);line-height:16px;margin:0;text-align:right}
+#story-simple-save{display:none;font-size:calc(12px - 2pt);line-height:16px;margin:0;text-align:right}
+.story-simple-mode #story-simple-save{display:block;grid-column:1;grid-row:2;justify-self:end}
 #story-simple-media[hidden]{display:none}
 .story-simple-mode .workspace-ribbon{padding-top:0;padding-bottom:0;margin-bottom:6px}
 .story-simple-mode .workspace-ribbon h1{font-size:calc(34px - 2pt);line-height:1.2;margin:8px 0}
@@ -124,7 +125,7 @@
 .story-publishing-settings{max-width:640px;margin-bottom:20px}
 .story-publishing-settings h2{margin-bottom:16px}
 @media(max-width:1050px){.story-details-cards{grid-template-columns:minmax(0,640px)}#story-simple-details{max-width:640px}}
-@media(max-width:700px){#page .story-details-card{padding:18px}.story-details-cards{gap:18px}.story-details-footer{flex-wrap:wrap;gap:8px}#page .story-details-footer>.help{font-size:calc(12px - 2pt)}#story-workspace-header [role=tab]{font-size:calc(13px - 2pt);padding:8px}#story-simple-save{position:static;order:-1;align-self:flex-end;margin:12px 0}.story-simple-mode .workspace-ribbon h1{font-size:calc(28px - 2pt)}.story-output-options{gap:6px}}
+@media(max-width:700px){#page .story-details-card{padding:18px}.story-details-cards{gap:18px}.story-details-footer{flex-wrap:wrap;gap:8px}#page .story-details-footer>.help{font-size:calc(12px - 2pt)}#story-workspace-header [role=tab]{font-size:calc(13px - 2pt);padding:8px}.story-simple-mode .workspace-ribbon h1{font-size:calc(28px - 2pt)}.story-output-options{gap:6px}}
 
 /* Grouped, single-choice menus used only by Story Details. */
 .story-detail-field[hidden],.story-choice-panel[hidden],.story-choice-field>select[hidden]{display:none!important}
@@ -143,3 +144,16 @@
 #page .story-choice-option:hover{background:var(--ecco-theme-control,#383160);filter:none}
 #page :is(.story-choice-trigger,.story-choice-option):focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:2px}
 @media(max-width:700px){.story-choice-panel{padding:10px}.story-choice-options{gap:4px 8px}#page .story-choice-option{font-size:calc(14px - 2pt)}.story-choice-description{font-size:calc(13px - 2pt)}}
+
+/* Approved title row: controls above, story title left-aligned above the tabs. */
+body.story-simple-mode .workspace-ribbon{display:grid;grid-template-columns:minmax(0,1fr);gap:0;max-width:1304px}
+body.story-simple-mode .workspace-ribbon>div:first-child:not(.header-right){display:contents}
+body.story-simple-mode .workspace-ribbon>#story-simple-save{position:static;align-self:auto;margin:0}
+body.story-simple-mode .workspace-ribbon #workspace-back{grid-column:1;grid-row:1;justify-self:start;align-self:start}
+body.story-simple-mode .workspace-ribbon>.header-right{grid-column:1;grid-row:1;justify-self:end;align-self:start;min-width:0;max-width:calc(100% - 60px);padding-top:20px;flex-direction:row;flex-wrap:wrap;justify-content:flex-end}
+body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-width:0;max-width:100%;overflow-wrap:anywhere;text-align:left}
+@media(max-width:700px){
+ body.story-simple-mode .workspace-ribbon>.header-right{grid-row:2;justify-self:stretch;max-width:100%;padding-top:0;justify-content:flex-start}
+ body.story-simple-mode .workspace-ribbon>#story-simple-save{grid-row:3;margin-top:8px}
+ body.story-simple-mode .workspace-ribbon #heading{grid-row:4}
+}

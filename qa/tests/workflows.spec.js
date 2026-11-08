@@ -1025,6 +1025,27 @@ test('STORY-14 Other descriptions are required and Default badges stay removed a
  await fillStoryDetail(page,'type','podcast');await expect(type).toBeHidden();await fillStoryDetail(page,'type','custom');await expect(type).toHaveValue('A guided tour');await form.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await expect(type).toHaveValue('A guided tour');await expect(genre).toHaveValue('Architecture');await expect(form.locator('[data-default]:visible')).toHaveCount(0);await expect(form.locator('[name=type]')).toHaveValue('custom');await expect(form.locator('[name=genre]')).toHaveValue('Other');
 });
 
+for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`STORY-15 title stays below controls and above tabs at ${viewport.width}px`,async({page},info)=>{
+ await page.setViewportSize(viewport);await boot(page);
+ const title='Ali Baba and Forty Theives',heading=page.locator('#heading');
+ await page.getByLabel('Story name (required)',{exact:true}).fill(title);
+ for(const [name,value]of Object.entries({output:'audio',type:'audio-drama',genre:'Comedy'}))await fillStoryDetail(page,name,value);
+ const layout=async()=>{
+  const boxes=await page.evaluate(()=>{const box=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height};};return {heading:box('#heading'),controls:box('.workspace-ribbon>.header-right'),status:box('#story-simple-save'),tabs:box('#story-workspace-header [role=tablist]'),overflow:document.documentElement.scrollWidth>innerWidth};});
+  expect(boxes.heading.top).toBeGreaterThanOrEqual(boxes.controls.bottom);expect(boxes.heading.top).toBeGreaterThanOrEqual(boxes.status.bottom);expect(boxes.tabs.top).toBeGreaterThanOrEqual(boxes.heading.bottom);
+  expect(boxes.heading.left).toBe(boxes.tabs.left);expect(boxes.heading.right).toBeLessThanOrEqual(viewport.width);expect(boxes.controls.left).toBeGreaterThanOrEqual(0);expect(boxes.controls.right).toBeLessThanOrEqual(viewport.width);expect(boxes.overflow).toBe(false);
+  return boxes.heading.height;
+ };
+ await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await expect(heading).toHaveText(title);await layout();
+ await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();const shortHeight=await layout();
+ expect(await heading.evaluate(e=>e.getBoundingClientRect().left)).toBe(await page.locator('.story-details-card').first().evaluate(e=>e.getBoundingClientRect().left));
+ await page.screenshot({path:info.outputPath('story-title-'+viewport.width+'.png')});
+ const longTitle=title+' '+('A very long adventure title '.repeat(8))+'x'.repeat(90);
+ await page.getByLabel('Story name (required)',{exact:true}).fill(longTitle);await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await expect(heading).toHaveText(longTitle);expect(await layout()).toBeGreaterThan(shortHeight);
+ await openLibrary(page,'image');await expect(page.locator('#story-simple-save')).toBeHidden();await expect(page.locator('.workspace-ribbon')).toHaveCSS('display','flex');
+ await page.locator('#workspace-back').click();await expect(heading).toHaveText(longTitle);await expect(page.locator('#story-simple-save')).toBeVisible();await layout();
+});
+
 for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TYPE-01 compact typography and controls at ${viewport.width}px`,async({page},info)=>{
  await page.setViewportSize(viewport);await boot(page);
  const font=async(selector,original)=>expect(await page.locator(selector).first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeCloseTo(original-8/3,3);

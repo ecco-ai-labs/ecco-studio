@@ -28,6 +28,7 @@
    root.innerHTML='<div role="tablist" aria-label="Create your story"></div><p id="story-simple-save" role="status" aria-live="polite"></p><p id="story-simple-error" role="alert"></p><div id="story-simple-media" class="story-simple-actions" hidden></div>';
    tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.className='story-workspace-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%3:e.key==='ArrowLeft'?(i+2)%3:e.key==='Home'?0:e.key==='End'?2:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
   }
+  const ribbon=q('main > header'),save=q('#story-simple-save');if(save.parentElement!==ribbon)ribbon.append(save);
   root.hidden=false;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const selected=i===data.tab;b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
   const pageRoot=q('#page');pageRoot.setAttribute('role','tabpanel');pageRoot.setAttribute('aria-labelledby','story-simple-tab-'+data.tab);
   q('#heading').textContent=data.title||'Tell Your Story';
