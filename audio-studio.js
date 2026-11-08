@@ -297,13 +297,13 @@
   const readSamples=()=>{try{return JSON.parse(localStorage.getItem(cacheStorage)||'{}');}catch{return {};}};
   const remember=(key,value)=>{const entries=readSamples();entries[key]={...value,updated:Date.now()};const keys=Object.keys(entries).sort((a,b)=>entries[b].updated-entries[a].updated);for(const key of keys.slice(60))if(entries[key].asset_id)delete entries[key];localStorage.setItem(cacheStorage,JSON.stringify(entries));};
   const forget=key=>{const entries=readSamples();delete entries[key];localStorage.setItem(cacheStorage,JSON.stringify(entries));};
-  const showSample=async id=>{const url=await service.mediaURL(id);if(!valid())return;const parsed=new URL(url);if(parsed.protocol!=='https:'&&!(parsed.protocol==='blob:'&&parsed.origin===location.origin))throw Error('Could not play the returned audio URL.');player.src=url;player.hidden=false;status.textContent='Sample ready. Press Play to listen.';button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate preview';};
+  const showSample=async id=>{const url=await service.mediaURL(id);if(!valid())return;const parsed=new URL(url);if(parsed.protocol!=='https:'&&!(parsed.protocol==='blob:'&&parsed.origin===location.origin))throw Error('Could not play the returned audio URL.');player.src=url;player.hidden=false;status.textContent='Sample ready. Press Play to listen.';button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate preview';update();};
   button.onclick=async()=>{
    if(button.disabled)return;
    const text=d.querySelector('textarea').value.trim();if(!text){status.textContent='Enter some preview text first.';return;}
    if(!serviceReady()){window.EccoStorage?.open();return;}
    const current=service,started=Date.now(),stopToken=window.EccoGenerationStop?.begin('audio',activeStory);button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Generating Preview…';player.hidden=true;player.removeAttribute('src');status.textContent='Generating voice preview…';
-   const fail=error=>{if(valid()){status.textContent=error.message||'Could not create the voice preview.';button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate preview';}};
+   const fail=error=>{if(valid()){status.textContent=error.message||'Could not create the voice preview.';button.disabled=false;button.setAttribute('aria-busy','false');button.textContent='Generate preview';update();}};
    const sampleKey=JSON.stringify([settings.performance_brief,settings.model,voice,settings.speed,settings.pitch,settings.exaggeration,character.delivery_style,character.delivery,character.style,character.emotion,character.role,character.age_group,character.gender,character.dialect,character.custom_dialect,character.mixed_language,text]);
    const cached=readSamples()[sampleKey];
    try{

@@ -43,6 +43,17 @@ test('Audio and previews honor explicit A100 or B200 choices and never fall back
  adapter.status=async()=>({ready:true});x.q('#audio-form').requestSubmit();await tick();assert.equal(calls.length,3);assert.match(x.q('#notice').textContent,/needs an update/);
  await x.close();
 });
+test('A preview completing after polling restores Generate while an active recording still blocks it',async()=>{
+ const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const {adapter}=await connect(x);let ready=false;
+ adapter.job=async id=>({id,status:id==='test-job-2'?'running':ready?'done':'running',...(ready&&id!=='test-job-2'?{asset_id:'preview-file'}:{})});
+ const polls=[],setTimeout=x.w.setTimeout.bind(x.w);x.w.setTimeout=(fn,delay,...args)=>delay===1500?(polls.push(fn),9999):setTimeout(fn,delay,...args);
+ const preview=async text=>{x.q('[data-preview-voice]').click();await tick();if(!x.q('#audio-voice-preview-generate').disabled){input(x,'#audio-voice-preview-dialog textarea',text);x.q('#audio-voice-preview-generate').click();await tick();}};
+ await preview('First audition.');assert.equal(x.q('#generate-audio').disabled,true);assert.equal(polls.length,1);
+ ready=true;await polls.shift()();await tick();assert.equal(x.q('#generate-audio').disabled,false,'A delayed preview completion restores Generate immediately');x.q('#audio-voice-preview-dialog [data-close]').click();
+ input(x,'[data-single-script]','A recording is in progress.');x.q('#generate-audio').click();await tick();assert.equal(x.q('#generate-audio').disabled,true);
+ ready=false;await preview('Another audition.');assert.equal(polls.length,1);ready=true;await polls.shift()();await tick();assert.equal(x.q('#generate-audio').disabled,true,'A completed audition must not enable a second active recording');
+ await x.close();
+});
 const audioDraft=x=>JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:audio-story'));
 test('CPU readiness is live and model-specific, and CPU generation needs no GPU connection',async()=>{
  const x=await setup({'ecco-active-story':'audio-story'});await x.go('audio');const {calls,adapter}=await connect(x);x.w.testUI.setGPU(false);

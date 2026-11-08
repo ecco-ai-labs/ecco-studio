@@ -13,11 +13,16 @@
   state={records,config:{models_ready:{},storage:{volume:'qa-fixture'}},storage_pending:false};
   for(const item of records.filter(r=>r.kind==='asset'))mediaCache.set(item.id,'/'+item.path);
   const sourceFit=new URLSearchParams(location.search).get('sourceFit');
-  if(['fiction','clarification','cast'].includes(sourceFit))Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
+  if(['fiction','clarification','cast','audioPreview'].includes(sourceFit))Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
   window.__qaCalls=[];
   api=async(path,body)=>{
     window.__qaCalls.push({path,body});
     if(path==='state')return state;
+    if(sourceFit==='audioPreview'&&path==='ai/enhance'&&body.fields?.[0]?.id==='audio_directed_script'){
+      const draft=JSON.parse(body.context.summary).draft,part=p=>({...p,performance:{emotion:'neutral',direction:'Clear speech.',pause_before:0}});
+      return {revisions:[{id:'audio_directed_script',text:JSON.stringify({...draft,opening:draft.opening?part(draft.opening):null,segments:draft.segments.map(part),expressiveness:null})}]};
+    }
+
     if(sourceFit==='cast'&&path==='ai/enhance'){
       const id=body.fields?.[0]?.id,story={characters:[
         {id:'n',name:'Narrator',role:'Narration',gender:'Female',age_group:'Adult',language:'English',dialect:'Indian English',style:'Warm',emotion:'neutral',delivery:'Clear and measured.'},
@@ -37,6 +42,15 @@
   };
   refresh=async()=>true;
   Object.defineProperty(window.EccoStorage,'ready',{get:()=>true});
+  if(sourceFit==='audioPreview'){
+    const jobs=new Map();let sampleURL;
+    window.EccoAudioStudio.connect({storageIndependentOfGPU:true,
+      status:async()=>({routing_version:1,compute:{cpu:{ready:true,models:['indic-mio'],character_controls_version:1,mixed_models_version:1}}}),list:async()=>[],
+      generate:async body=>{window.__qaCalls.push({path:'audio/generate',body});const id='qa-audio-job-'+(jobs.size+1);jobs.set(id,{body,polls:0});return{id,status:'queued',media:'audio',kind:'audio_job',story_id:body.story_id};},
+      job:async id=>{const job=jobs.get(id);job.polls++;return{id,status:job.body.title.startsWith('Voice preview')&&job.polls>1?'done':'running',asset_id:'qa-preview'};},
+      mediaURL:async()=>sampleURL||(sampleURL=URL.createObjectURL(await(await fetch('/qa/fixtures/sample.wav')).blob())),download:async()=>{}
+    });
+  }
   storyControls();
   window.__qaReady=true;
 })();

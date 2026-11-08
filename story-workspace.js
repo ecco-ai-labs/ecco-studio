@@ -65,6 +65,14 @@
   if(data.tab===0)return q('#story-simple-details')?.reportValidity();
   if(!data.title.trim()||!routes[data.output]||!data.type||!data.genre||!data.language||!data.audience||!data.recurrence){data.tab=0;render();q('#story-simple-details').reportValidity();return false;}return true;
  }
+ async function syncSourceResume(origin=owner()){
+  const resume=inPage('[data-resume]');if(!resume||!window.EccoPopupDrafts)return;
+  const saved=await window.EccoPopupDrafts.get('simple-source:'+origin);if(origin!==owner()||!resume.isConnected)return;
+  resume.hidden=!saved;resume.onclick=async()=>{
+   if(origin!==owner()||!enabled)return;
+   try{const latest=await window.EccoPopupDrafts.get('simple-source:'+origin);if(origin!==owner()||!enabled)return;if(!latest)throw Error('No saved selection remains for this story.');await sourcePicker().restore(latest);if(origin!==owner()||!enabled)return;sourcePending=true;sourcePicker().open(resume);}catch(error){if(origin===owner())message(error.message,true);}
+  };
+ }
  function sourcePicker(){
   if(pickerOwner===owner()&&picker)return picker;
   picker?.destroy();pickerOwner=owner();const current=pickerOwner;
@@ -83,7 +91,7 @@
    if(current!==owner()||!enabled)throw Error('Return to the story where you opened this document.');
    if(selection.text.length>100000)throw Error('Select a chapter or passage of at most 100,000 characters.');
    data.source={text:selection.text,name:selection.name,pages:selection.pages||[],selection:selection.selection_label||''};data.script=selection.text;delete data.audioScript;data.scenes=[];data.plan=null;sourcePending=false;epoch++;aiRequest=null;persist();render();void recommend(true,{autoApply:true});
-  },onSave:async()=>{await window.EccoPopupDrafts.put('simple-source:'+current,await currentPicker.snapshot());if(current===owner())message('Document selection saved in this browser');}});picker=currentPicker;
+  },onSave:async()=>{await window.EccoPopupDrafts.put('simple-source:'+current,await currentPicker.snapshot());if(current===owner()){await syncSourceResume(current);message('Document selection saved in this browser');}}});picker=currentPicker;
   return picker;
  }
  function characters(root){
@@ -126,7 +134,7 @@
   inPage('[data-ai]').onclick=generateStory;inPage('[data-cast-ai]').onclick=()=>recommend(true);inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();inPage('[data-write]').onclick=()=>text.focus();
   inPage('[data-upload]').onclick=()=>inPage('[data-file]').click();inPage('[data-file]').onchange=async e=>{const file=e.target.files[0];if(!file)return;const origin=owner();sourcePending=true;try{await sourcePicker().load(file,inPage('[data-upload]'));if(origin===owner()&&data.tab===1)render();}catch(error){message(error.message,true);}};
   inPage('[data-preview]').hidden=!picker?.ready;inPage('[data-preview]').onclick=()=>sourcePicker().open(inPage('[data-preview]'));
-  const origin=owner(),resume=inPage('[data-resume]');window.EccoPopupDrafts?.get('simple-source:'+origin).then(saved=>{if(!saved||!resume.isConnected)return;resume.hidden=false;resume.onclick=async()=>{try{await sourcePicker().restore(saved);if(origin!==owner())return;sourcePending=true;sourcePicker().open(resume);}catch(error){message(error.message,true);}};}).catch(error=>message(error.message,true));
+  void syncSourceResume().catch(error=>message(error.message,true));
   inPage('[data-library]').onclick=characterLibrary;
   const count=inPage('[data-count]');count.value=data.cast.length;count.onchange=()=>{if(!count.reportValidity()||!Number.isInteger(Number(count.value)))return;const n=Number(count.value);data.castArchive=[...data.cast,...(data.castArchive||[]).slice(data.cast.length)];data.cast=Array.from({length:n},(_,i)=>data.cast[i]||data.castArchive[i]||{id:crypto.randomUUID(),name:'Character '+(i+1)});data.castCustomized=true;epoch++;persist();characters(inPage('[data-characters]'));};
   inPage('[data-create]').onclick=()=>{if(data.cast.length>=20)return;count.value=data.cast.length+1;count.dispatchEvent(new Event('change'));q('[data-character="'+(data.cast.length-1)+'"][data-property=name]')?.focus();};

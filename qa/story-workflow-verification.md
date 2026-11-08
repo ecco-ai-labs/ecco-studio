@@ -13,7 +13,7 @@ are real. Passing these checks does not certify model quality or connected servi
 | PDF bookmarks and chapter lookup | UPLOAD-07; source-picker, source-chapters | Complete 30,000+ character chapter; next chapter excluded, including shared boundary pages; ambiguous matches are not guessed |
 | Native PDF highlighting | UPLOAD-08; source-picker | Dragging beyond an author line captures only that line; positioned newline spans preserve line breaks |
 | Manual editing; Find and Replace; Clear Text | UPLOAD-08; source-picker | Middle text is editable; replacements affect only it; PDF remains intact |
-| Save Draft and resume | UPLOAD-08; source-picker | Edited text and source resume intact; Apply submits the final edited text |
+| Save Draft and resume | UPLOAD-08; source-picker | Save Draft reveals Resume immediately; latest edited text and source resume intact; Apply submits the final edited text |
 | AI prompt plus current story choices | STORY-04; UPLOAD-03; ai-generation-instructions, source-picker | Type, genre, age and language accompany instructions; changes persist back into Story Details |
 | Improve only selected words or selected source | UPLOAD-03–05,07; source-picker, ai-text-refinement | No unselected source sent; output remains separate until Use AI Text |
 | Mismatch and clarification handling | UPLOAD-02,04–05; source-compatibility, source-picker | Recommendations, selectable resolutions and Continue Anyway; no warning prose in AI output |
@@ -21,7 +21,7 @@ are real. Passing these checks does not certify model quality or connected servi
 | Output-specific character properties | UPLOAD-06; story-workspace, audio-emotion-binding | Audio voice properties; image/video appearance; explicit user choices preserved |
 | Tab 2 changes update Tab 1, including Back | UPLOAD-03,06; story-workspace | Latest saved type, genre, audience and language rehydrate on return |
 | Audio handoff, speaker mapping and emotions | audio-journey, audio-controls, audio-service, audio-mixed-voices | Exact applied text; identified voices; explicit emotion overrides AI defaults; manual turn overrides retained |
-| Audition, compute selection and generation state | audio-controls, audio-worker-availability | Cached identical previews reused; Generate restored immediately after preview; unavailable workers never silently substituted |
+| Audition, compute selection and generation state | AUDIO-01; audio-controls, audio-worker-availability | Cached identical previews reused; Generate restored immediately after preview; unavailable workers never silently substituted |
 | Image/video handoff, references, shots and timing | journey-handoff, generation-studio, video-flow, video-references | Correct studio; references retained by media type; chosen scenes and durations submitted |
 | Job progress, cancellation and review | audio-flow-verification, generation-stop, activity-reading | Real service states required; duplicate submission guarded; errors and cancellation remain visible |
 | Publishing selection and status | publishing-library, publishing-status | Correct reviewed output; receipt/state reconciliation; no false upload success |

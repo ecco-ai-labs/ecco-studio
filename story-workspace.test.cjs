@@ -192,3 +192,12 @@ test('cast detection reads the final edited selection and keeps a valid cast eve
  x.w.testAPI=async(path,body)=>{sent=JSON.parse(body.context.summary);return {revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,segments:[{character_id:'n',text:'An unwanted rewritten story.'}]})}]};};
  source.onApply({text:finalText,name:'edited.pdf'});await tick();assert.equal(sent.script,finalText);assert.equal(sent.source.text,undefined);assert.equal(x.q('#story-simple-script').value,finalText);assert.equal(x.q('[data-count]').value,'3');assert.match(x.q('#story-simple-ai-status').textContent,/Speaker assignment needs another attempt/);assert.equal(x.saved().simple_workspace.plan,null);
 });
+
+test('Save Draft exposes Resume immediately and restores the latest saved selection only for its story',async()=>{
+ const x=await fixture(),saved=new Map();x.w.EccoPopupDrafts={get:async key=>saved.get(key),put:async(key,value)=>saved.set(key,value)};await x.start('audio','storybook');
+ let options,snapshot={text:'First saved edit.'},restored=[],opened=0;x.w.EccoSourcePicker.create=value=>{options=value;return{ready:true,load:async()=>{},snapshot:async()=>({...snapshot}),restore:async value=>restored.push(value.text),open:()=>opened++,destroy(){}};};
+ const file=x.q('[data-file]');Object.defineProperty(file,'files',{value:[{name:'test.pdf'}]});await file.onchange({target:file});assert.equal(x.q('[data-resume]').hidden,true);
+ await options.onSave();assert.equal(x.q('[data-resume]').hidden,false);await x.q('[data-resume]').onclick();assert.deepEqual(restored,['First saved edit.']);
+ snapshot={text:'Second saved edit.'};await options.onSave();const resume=x.q('[data-resume]');await resume.onclick();assert.deepEqual(restored,['First saved edit.','Second saved edit.']);assert.equal(opened,2);
+ await x.start('audio','storybook');await resume.onclick();assert.equal(opened,2);assert.equal(x.q('[data-resume]').hidden,true);assert.deepEqual(x.errors,[]);
+});
