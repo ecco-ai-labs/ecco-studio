@@ -12,7 +12,7 @@
   {
     "area": "Libraries",
     "mode": "fixture",
-    "scope": "All 5 library types, 3 views, metadata, sorting, search, real decoded sample image/video frames, preview focus; Library chooser icons, alignment, keyboard focus and all five sidebar destinations"
+    "scope": "All 5 library types, 3 views, metadata, sorting, search, real decoded sample image/video frames, preview focus; Library chooser icons, alignment, keyboard focus and all five sidebar destinations; selecting a parent image label also lists images in its nested labels (fixture labels injected by the test)"
   },
   {
     "area": "Story workflow",

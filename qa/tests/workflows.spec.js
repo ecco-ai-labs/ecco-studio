@@ -1046,4 +1046,25 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TY
  await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('button',{name:'New Notification',exact:true}).click();
  const title=page.getByLabel('Title',{exact:true});await expect(title).toHaveCSS('font-size','9.33333px');expect(await title.evaluate(e=>Boolean(e.getRootNode().host))).toBe(true);await title.fill('Compact typography check');await title.press('Tab');await expect(page.getByLabel('Message',{exact:true})).toBeFocused();
  expect(await page.locator('.notification-composer').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-desk-'+viewport.width+'.png'),fullPage:true});
+
+});
+
+test('LIB-image-label-scope a parent label also lists images in its nested labels',async({page})=>{
+  await boot(page);
+  await page.evaluate(async()=>{
+    state.records.push(
+      {id:'qa-f-people',kind:'image_folder',name:'People',created:1700005000},
+      {id:'qa-f-kids',kind:'image_folder',name:'People / Kids',created:1700005001},
+      {id:'qa-l-0',kind:'library_item',asset_id:'qa-image-0',folder_id:'qa-f-people',created:1700005000},
+      {id:'qa-l-1',kind:'library_item',asset_id:'qa-image-1',folder_id:'qa-f-kids',created:1700005001});
+    await refresh();storyControls();
+  });
+  const gallery=await openLibrary(page,'image');
+  await page.locator('#image-library-nav .tree-folder',{hasText:/^People$/}).click();
+  await expect(gallery.locator('.card')).toHaveCount(2);
+  await page.getByRole('button',{name:'Expand People'}).click();
+  await page.locator('#image-library-nav .tree-folder',{hasText:/^Kids$/}).click();
+  await expect(gallery.locator('.card')).toHaveCount(1);
+  await expect(gallery.locator('.card .library-file-open').first()).toHaveAttribute('aria-label','Open Zebra image sample');
+  expect(page.qaErrors).toEqual([]);
 });
