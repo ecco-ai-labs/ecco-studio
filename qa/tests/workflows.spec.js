@@ -1108,6 +1108,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`ST
  const longTitle=title+' A very long adventure title '+'x'.repeat(90);
  await page.getByLabel('Story name (required)',{exact:true}).fill(longTitle);await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await expect(heading).toHaveText(longTitle);expect(await layout()).toBeGreaterThan(shortHeight);
  await openLibrary(page,'image');await expect(page.locator('#story-simple-save')).toBeHidden();await expect(page.locator('.workspace-ribbon')).toHaveCSS('display','flex');
+ await page.locator('#workspace-back').click();await expect(page.locator('#library-home-list')).toBeVisible();
  await page.locator('#workspace-back').click();await expect(heading).toHaveText(longTitle);await expect(page.locator('#story-simple-save')).toBeVisible();await layout();
 });
 
