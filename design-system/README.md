@@ -422,8 +422,15 @@ prompt in each request. Changing settings invalidates pending or unapplied AI
 output while preserving the selected passage and prompt. The prompt and AI output textareas
 share equal height. Use AI Text copies output to Selected Text; Clear AI Output
 removes only that output. AI clarification questions and errors appear in nested
-popups and never occupy the output area. Dismissing a clarification focuses the
-prompt. Remove the redundant For: story caption. The original document is untouched.
+popups and never occupy the output area. Clarifications show a recommendation and
+2–4 concrete answer buttons from AI notes, with one marked Recommended. Clicking
+an answer resumes the selected-only improvement immediately; approved answers
+never enter a repeated blocking-question loop. Continue Anyway opens the already
+validated draft for review without another AI call. Edit Prompt returns focus to
+the prompt. If structured choices are unavailable, offer preserving the source
+details. Genuine request failures show recovery advice, Try Again, Edit Prompt
+and Continue Without AI; the latter focuses Apply Text without committing it.
+Every action rejects stale source, settings or prompt state. Remove the redundant For: story caption. The original document is untouched.
 The bottom ribbon contains page selection, verified chapter selection, Find and
 Replace, Save Draft, Clear Text and Apply Text. Clear Text is a secondary button
 immediately left of Apply Text. Its tools open upward
