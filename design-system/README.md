@@ -357,8 +357,15 @@ Frame review keeps its preview/group selectors compact and names the active loca
 Tell Your Story → New Story now opens one workspace with three browser-style tabs:
 Story Details, Story & Characters, and Generate & Publish. Details collects output,
 type, genre, age group, language, optional location and recurrence. The second tab
-uses the existing PDF selection experience or an editable script, with explicit AI
-suggestions and editable library characters. Model and character properties are
+uses the existing PDF selection experience or an editable script, with editable library characters. Apply Text automatically identifies characters and
+fills their count and properties from the applied source; Use AI Text only updates the
+selection for review. Audio retains distinct speaking roles plus narration when needed,
+with language, accent, delivery, emotion and available model voices. Image shows
+appearance; video shows both. The count remains editable. Analysis never starts a
+media job, never sends unselected source content, and rejects stale replies. Audio
+speaker assignments preserve source words and order. Missing connections or invalid
+results keep the text and show an actionable error. Back refreshes Story Details
+from the current draft, including changes made in the second tab. Model and character properties are
 collapsed until needed. The third tab embeds the selected existing studio and its
 real generation/progress/review controls; video can prepare audio and images here.
 
@@ -386,6 +393,10 @@ Unknown dates stay blank. Access dates combine supplied workspace timestamps
 with explicit library opens recorded in this browser per user/workspace.
 
 ### Story workspace follow-up fixes
+
+Upload PDF, Generate With AI and Write share 160px × 32px buttons aligned to
+the right of the Story & Characters source row. On narrow screens, the buttons
+wrap without changing size and each row stays right-aligned.
 
 The left navigation remains visible during the three-tab workflow. New Story begins
 with blank details, content and selections, and detaches any prior PDF picker; saved
@@ -491,3 +502,20 @@ Notifications, OutReach and Campaign are browser-style tabs that open on their r
 Show in selects Bell Icon, Billing, or both for notifications, OutReach and recurring campaigns. OutReach/Campaign creation offers NEW, Dhamaka, Limited Time or custom text icons. Saved icons and locations survive edits/re-issue and scheduled dispatch. Billing, Credit and Usage and Purchase Additional Credits display active promotional cards above regular options, with Offer lasts till dates. Three regular credit packages remain below; campaigns without purchase terms are announcements. Shared per-user reads and expiry remove cards. Backend presentation version 1 must precede Pages deployment.
 
 Campaign creation and editing use native Start and End calendars followed by Recurrence. Past dates and fully elapsed ranges save normally; only invalid dates or End before Start are rejected. Recurrence is anchored to Start and stops after the inclusive End date. A completed range remains editable in history with no remaining runs. Existing legacy schedules retain their behavior until explicitly edited. Backend calendar capability 1 must precede the UI deployment.
+
+### Applied PDF content — 8 November 2026
+
+The story workspace accepts selections up to 100,000 characters so ordinary complete
+chapters can populate the middle pane without the former 20,000-character rejection.
+Select Chapter lists actual PDF bookmarks with physical page numbers. Listed chapters
+extract locally, including headings spanning multiple lines, and stop at the next
+same-level chapter heading even mid-page. A missing or ambiguous bookmark is never
+guessed. An optional title search retains verified AI chapter lookup. Listed chapters
+and page ranges require no AI connection. The original source remains unchanged;
+Selected Text stays editable. Explicit translation/tone instructions override AI defaults.
+Apply Text analyzes the final edited middle-box content and auto-fills characters and
+output-appropriate properties. It does not analyze the unselected original document.
+A valid cast survives a failed speaker-assignment attempt; the text and failure remain
+visible. Audio generation retains its separate 4,000-character/80-turn service limits.
+PDF selection is verified with real PDF.js rendering; AI quality and live service delivery
+remain separate checks requiring connected services.

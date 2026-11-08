@@ -40,3 +40,5 @@ Validation: npm ci --prefix desk && npm run build --prefix desk; node tests/test
 ## Creating agents
 
 Administrators and verified members of the configured administrator group can use Create New Agents at the top of the pool. Name the agent, add/reorder up to 12 supported check steps, then Create Agent. Definitions are shared in the server-backed pool and run sequentially; reports and tickets retain the existing review flow. This builder composes implemented browser checks; it does not execute arbitrary code, prompts, paid generation or publishing. Backend API version 1 is required. Validate authorization/persistence with `cd backend && python3 -m unittest test_ecco_desk_agents`.
+
+PDF workflow checks load the real pinned PDF.js package from local npm assets through intercepted requests. The PDF fixture has two bookmarked chapters and a first chapter over 30,000 characters. Page/chapter extraction is real; AI improvement, compatibility and character responses remain synthetic. No external request is allowed through the fixture route.
