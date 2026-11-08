@@ -296,7 +296,7 @@ test('retired and unknown saved categories survive details, AI options, source o
 
 test('Story Details starts with only audience defaults and reports every missing field with focus links',async()=>{
  const x=await fixture();x.w.EccoWorkspaceUI.startNewStory(null);await tick();const form=x.q('#story-simple-details');
- assert.deepEqual([...form.querySelectorAll('.story-details-card h2')].map(e=>e.textContent),['Your story','Your audience']);
+ assert.deepEqual([...form.querySelectorAll('.story-details-card h2')].map(e=>e.textContent),['Your Story','Your Audience']);
  assert.deepEqual([...form.querySelector('[data-story-fields]').querySelectorAll(':scope > :not([hidden])')].map(e=>e.querySelector('[name]')?.name),['title','output','type','genre']);
  assert.equal(form.querySelectorAll('[name=output]').length,3);assert.equal(x.q('[name=output]:checked'),null);
  for(const name of ['title','type','genre','location'])assert.equal(x.q('[name='+name+']').value,'');

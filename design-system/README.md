@@ -619,9 +619,9 @@ Interview starts with Host/Guest and retains Interview delivery in Audio Studio.
 
 ## Story Details reference — 8 November 2026
 
-The owner-approved reference replaces the flat Details grid with two top-aligned
-cards, each at most 640px wide: Your story (name, three single-choice output tiles,
-type, genre/topic) and Your audience (age, language, optional location). Story choices
+The owner-approved reference replaces the flat Details grid with two equally sized
+cards, each at most 640px wide: Your Story (name, three single-choice output tiles,
+type, genre/topic) and Your Audience (age, language, optional location). Story choices
 start empty; only All ages and English are preselected, with Default badges.
 Type and genre/topic remain independent. Cards stack on smaller screens.
 
@@ -650,3 +650,7 @@ draft once the user edits age or language. Output filters and renumbers the side
 and journey list: Audio and Image each retain four applicable steps including
 Publish; Video and an empty output retain all six. No other editor gains these
 custom dropdowns, and choosing output does not start generation or publishing.
+
+The follow-up uses title case for Your Story and Your Audience and equal card
+heights on desktop and mobile. Grid rows size both cards to the larger content
+height, including validation and Other fields; no fixed-height clipping.
