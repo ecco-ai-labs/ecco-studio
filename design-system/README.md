@@ -462,10 +462,19 @@ updates and saves Story Details, including when the generation dialog is closed
 without generating. Details changes carry into the next AI opening. These values
 accompany the prompt in generation; opening or changing options never starts AI.
 
+### Ecco Desk shared branding
+
+Desk uses the existing Ecco logo, Inter/system typography and Studio default purple/yellow palette across sign-in, navigation, panels and controls. Embedded Desk inherits selected Studio theme tokens. This replaces the previous light Desk surface exception. The bell uses Number / Notification / Date it expires tables, 14px titles and 13px bodies, bold unread and regular read rows; the latest-three read history and expiry lifecycle remain.
+
 ## Shared agent workflows
 
 Agents exposes Create New Agents at the top for Desk administrators and verified members of the configured administrator group. The inline builder saves a named sequence of up to 12 supported checks to dedicated server storage. Signed-in Desk users can run saved agents and review combined findings with separate Bug tickets. Group membership does not grant staff ticket access. Support and Notifications are the shortened navigation labels.
 
 ## Recurring campaigns
 
-Notifications → Marketing Campaign offers set-once recurring announcements with a server-computed next occurrence. Cyber Monday, Black Friday and New Year presets follow their calendar dates each year. Daily, weekly, monthly and yearly schedules use the selected local time zone. Admins can edit or pause/resume a schedule. An existing CPU service publishes due notifications automatically, records each occurrence atomically, and skips dates missed while offline. Each dispatch rechecks current administrator authority. No browser, GPU or manual re-issue is required.
+Notifications → Campaign offers set-once recurring announcements with a server-computed next occurrence. Cyber Monday, Black Friday and New Year presets follow their calendar dates each year. Daily, weekly, monthly and yearly schedules use the selected local time zone. Admins can edit or pause/resume a schedule. An existing CPU service publishes due notifications automatically, records each occurrence atomically, and skips dates missed while offline. Each dispatch rechecks current administrator authority. No browser, GPU or manual re-issue is required.
+
+
+### Notification category tabs
+
+Notifications, OutReach and Campaign are browser-style tabs that open on their respective histories. The circled plus at the right opens the inline creation form; Cancel or successful publish/save returns to history. OutReach retains special-offer credit terms; Campaign retains automatic recurring schedules. Keyboard arrow/Home/End navigation and focus return are supported.

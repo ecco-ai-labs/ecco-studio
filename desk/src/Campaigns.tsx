@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
-import {CalendarClock,LoaderCircle,Pause,Play,Plus,RefreshCw} from 'lucide-react';
+import {CalendarClock,LoaderCircle,Pause,Play,Plus} from 'lucide-react';
 type Plan={kind:string;time:string;timezone:string;weekday?:number;day?:number;month?:number};
 type Campaign={id:string;version:number;name:string;title:string;body:string;audience:string;recipientId:string|null;durationDays:number;schedule:Plan;enabled:boolean;nextRunAt:string;lastStatus:string|null;lastError:string|null;lastRunAt:string|null;runCount:number};
 type User={id:string;name:string;email:string};
@@ -23,7 +23,7 @@ export default function Campaigns({api,users,ready}:{api:(payload?:unknown,path?
  }
  async function toggle(c:Campaign){if(submitting.current)return;submitting.current=true;setBusy(true);setError('');setSuccess('');try{const r=await api({op:'setCampaignActive',id:c.id,version:c.version,enabled:!c.enabled});if(r.campaignVersion!==1)throw Error('The service did not confirm this change.');if(mounted.current){setSuccess(c.enabled?'Campaign paused. Existing notifications keep their expiry.':'Campaign resumed for its next scheduled date.');await refresh()}}catch(e){if(mounted.current){setError((e as Error).message);await refresh()}}finally{submitting.current=false;if(mounted.current)setBusy(false)}}
  return <div className="campaigns">
-  <div className="section-heading"><div><CalendarClock size={18}/><h2>Recurring Campaigns</h2></div>{!draft&&<button ref={createRef} className="primary" disabled={!ready||busy} onClick={()=>{setError('');setSuccess('');setDraft(defaults())}}><Plus size={16}/>Create Campaign</button>}</div>
+  <div className="section-heading"><div><CalendarClock size={18}/><h2>{draft?(draft.version?'Edit Campaign':'New Campaign'):'Campaign History'}</h2>{!draft&&<span className="count">{campaigns.length}</span>}</div>{!draft&&<button ref={createRef} className="notification-create" aria-label="New Campaign" title="New Campaign" disabled={!ready||busy} onClick={()=>{setError('');setSuccess('');setDraft(defaults())}}><Plus size={20}/></button>}</div>
   <p className="form-info">Set the message and schedule once. Campaigns publish to the notification bell automatically, even when Ecco Desk is closed.</p>
   {!ready&&<p role="alert" className="alert error">Campaign scheduling is not available on the service yet.</p>}
   {error&&<p role="alert" className="alert error">{error}</p>}{success&&<p role="status" className="notification-success">{success}</p>}
@@ -45,11 +45,12 @@ export default function Campaigns({api,users,ready}:{api:(payload?:unknown,path?
    <label>Message<textarea aria-label="Message" rows={4} required maxLength={4000} value={draft.body} onChange={e=>patch({body:e.target.value})} placeholder="Write your campaign announcement"/></label>
    <div className="notification-actions"><button type="button" className="secondary-button" onClick={()=>setDraft(null)}>Cancel</button><button type="submit" className="primary" disabled={!next}>{busy?<LoaderCircle size={16} className="spin"/>:<CalendarClock size={16}/>} {busy?'Saving…':draft.version?'Save Campaign':'Create & Schedule'}</button></div>
   </fieldset></form>}
-  <div className="section-heading"><div><h3>Campaign Schedule</h3><span className="count">{campaigns.length}</span></div><button className="icon-button" aria-label="Refresh campaigns" onClick={refresh}><RefreshCw size={17}/></button></div>
+  {!draft&&<>
   {loading?<p role="status">Loading campaigns…</p>:campaigns.length?<div className="campaign-list">{campaigns.map(c=><article className="campaign-card" key={c.id}><div className="campaign-card-heading"><div><h3>{c.name}</h3><span>{presets.find(p=>p[0]===c.schedule.kind)?.[1]} · {c.schedule.time} · {zones.find(z=>z[0]===c.schedule.timezone)?.[1]}</span></div><span className={'campaign-state '+(c.enabled?'active':'')}>{c.enabled?'Active':'Paused'}</span></div>
    <p><strong>Next run:</strong> {c.enabled?date(c.nextRunAt,c.schedule.timezone):'Paused'}</p><p><strong>Last result:</strong> {c.lastStatus==='sent'?'Sent':c.lastStatus==='missed'?'Skipped — service was offline':c.lastStatus==='blocked'?'Blocked — administrator access needs attention':'Not run yet'}{c.lastRunAt?' · '+date(c.lastRunAt,c.schedule.timezone):''} · {c.runCount} sent</p>
    {c.lastError&&<p className="alert error">{c.lastError}</p>}<details><summary>{c.title}</summary><p>{c.body}</p><p>{c.audience==='all'?'All users':users.find(u=>u.id===c.recipientId)?.email||'Specific user'} · Expires {c.durationDays} day{c.durationDays!==1?'s':''} after sending</p></details>
    <div className="notification-actions"><button className="secondary-button" disabled={busy} onClick={()=>{setError('');setSuccess('');setDraft({...c,schedule:{...c.schedule}})}} aria-label={'Edit '+c.name}>Edit</button><button className="secondary-button" disabled={busy} onClick={()=>toggle(c)} aria-label={(c.enabled?'Pause ':'Resume ')+c.name}>{c.enabled?<Pause size={15}/>:<Play size={15}/>} {c.enabled?'Pause':'Resume'}</button></div>
   </article>)}</div>:<p className="detail-loading">No campaigns yet. Create one to schedule automatic announcements.</p>}
+ </>}
  </div>
 }

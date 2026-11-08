@@ -57,12 +57,15 @@ test('special offer snapshot follows the same read and expiry lifecycle as the b
 
  test('read history has three regular-weight non-actionable entries, numbering and expiry',async()=>{
  const {w,q,state,history,poll,calls}=setup();await tick();
- assert.equal(q('[data-read="false"] .notification-title').textContent,'1. Notice one');
+ assert.equal(q('[data-read="false"] .notification-title').textContent,'Notice one');
+ assert.equal(q('.notification-number').textContent,'1');
+ assert.deepEqual(Array.from(w.document.querySelectorAll('.notification-table:first-of-type th'),n=>n.textContent).slice(0,3),['Number','Notification','Date it expires']);
+ assert.equal(q('.notification-expiry').textContent,'Until read');
  history.alice=Array.from({length:4},(_,i)=>notice('old'+i));poll();await tick();
  assert.equal(w.document.querySelectorAll('[data-read="true"]').length,3);
- assert.equal(q('[data-read="true"]').tagName,'ARTICLE');const before=calls.length;q('[data-read="true"]').click();assert.equal(calls.length,before);
+ assert.equal(q('[data-read="true"]').tagName,'DIV');const before=calls.length;q('[data-read="true"]').click();assert.equal(calls.length,before);
  state.alice=[];history.alice=[notice('old-expiry',{expiresAt:new Date(Date.now()+70).toISOString()})];poll();await tick();
- assert.equal(q('[role="status"]').textContent,'No New notifications');assert(q('[data-notification-id="old-expiry"]'));
+ assert.equal(q('[role="status"]').textContent,'No New notifications');assert(q('[data-notification-id="old-expiry"]'));assert(q('[data-read-notification-items] time').dateTime);
  await new Promise(r=>setTimeout(r,85));assert.equal(q('[data-read="true"]'),null);assert.equal(q('[data-notification-history]').hidden,true);
  w.close();
  });
