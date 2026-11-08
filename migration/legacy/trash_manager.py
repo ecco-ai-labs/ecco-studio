@@ -1,6 +1,8 @@
 """Recoverable storyboard deletion and explicit bulk emptying of Studio Trash."""
 import copy, time
 
+FOLDER_KINDS=('image_folder','audio_folder','video_folder','story_folder','workflow_folder')
+
 def board(body,e):
     with e['LOCK']:
         r=e['get'](body.get('id',''),'board')
@@ -9,7 +11,7 @@ def board(body,e):
 def folder(body,e):
     with e['LOCK']:
         r=e['get'](body.get('id',''))
-        if r['kind'] not in ('image_folder','audio_folder'):raise e['Problem']('Choose a library label')
+        if r['kind'] not in FOLDER_KINDS:raise e['Problem']('Choose a library label')
         r['deleted']=not bool(body.get('restore'));return e['save'](r)
 
 def draft(body,e):
@@ -30,9 +32,9 @@ def empty(body,e):
     with e['LOCK']:
         all_records=e['records']();by_id={r['id']:r for r in all_records}
         selected=[by_id.get(i) for i in set(ids)]
-        if any(not r or not r.get('deleted') or r.get('purged') or r['kind'] not in ('story','board','board_draft','asset','image_folder','audio_folder') for r in selected):raise e['Problem']('Trash changed. Refresh and try again.',409)
+        if any(not r or not r.get('deleted') or r.get('purged') or r['kind'] not in ('story','board','board_draft','asset')+FOLDER_KINDS for r in selected):raise e['Problem']('Trash changed. Refresh and try again.',409)
         if any(r['kind']=='job' and r.get('status') in ('queued','running') for r in all_records):raise e['Problem']('Wait for active jobs to finish before emptying Trash',409)
-        folders={r['id'] for r in selected if r['kind'] in ('image_folder','audio_folder')}
+        folders={r['id'] for r in selected if r['kind'] in FOLDER_KINDS}
         assets={r['id'] for r in selected if r['kind']=='asset'}
         # Preflight every path before changing records. asset_path checks confinement.
         for r in selected:

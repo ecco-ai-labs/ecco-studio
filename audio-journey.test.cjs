@@ -1,5 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {setup:setupStudio,input,tick}=require('./audio-ui-test-helpers.cjs');
+const {openCard}=require('./library-hub-test-helpers.cjs');
 const setup=storage=>setupStudio(storage,{legacyStorySetup:true});
 const dlg='#audio-guided-dialog';
 const directedReply=body=>{const plan=JSON.parse(body.context.summary).draft,part=p=>({...p,performance:{emotion:'neutral',direction:'Natural audience-appropriate narration.',pause_before:.35}});return{questions:[],revisions:[{id:'audio_directed_script',text:JSON.stringify({opening:plan.opening?part(plan.opening):null,segments:plan.segments.map(part),expressiveness:null})}]};};
@@ -36,7 +37,7 @@ test('A source request finishing while minimized retains its result for resume',
 test('Save Draft restores step, cast, script edits and sounds after closing and a new page session',async t=>{
  const drafts=new Map(),db={get:async key=>structuredClone(drafts.get(key)),put:async(key,value)=>{drafts.set(key,structuredClone(value));}};
  const x=await ready(t,'audiobook');x.w.EccoPopupDrafts=db;mock(x);input(x,'[name=title]','Saved audiobook');await open(x);field(x,'instructions','Adapt this selected chapter.');await submit(x);field(x,'audience','Children (9–12)');field(x,'language','Hindi');await submit(x);await submit(x);input(x,'[data-review-text]','नमस्ते दोस्त!');x.q(dlg+' [data-save-draft]').click();await tick();assert.match(x.q('[data-draft-status]').textContent,/Draft saved/);assert.equal(drafts.size,1);const storage=x.snapshot();
- const y=await setup(storage);t.after(y.close);y.w.EccoPopupDrafts=db;y.w.EccoAI={...y.w.EccoAI,enabled:true};y.w.EccoStorage={ready:true};await y.go('story-library');y.q('[data-local-story-id]').click();await tick();await open(y);y.q('[data-resume-draft]').click();await tick();assert.equal(y.q('[data-review-text]').value,'नमस्ते दोस्त!');assert.ok(y.q('[data-turn-list]'));assert.equal(y.q(dlg+' [data-next]').textContent,'Apply');await submit(y);assert.match(y.q('[name=summary]').value,/नमस्ते दोस्त!/);const p=JSON.parse(y.q('[name=audio_preparation]').value);assert.equal(p.audience,'Children (9–12)');assert.equal(p.sound_design.cues[0].name,'Jinn Arrival');assert.deepEqual(y.errors,[]);
+ const y=await setup(storage);t.after(y.close);y.w.EccoPopupDrafts=db;y.w.EccoAI={...y.w.EccoAI,enabled:true};y.w.EccoStorage={ready:true};await y.go('story-library');await openCard(y,'[data-local-story-id]');await open(y);y.q('[data-resume-draft]').click();await tick();assert.equal(y.q('[data-review-text]').value,'नमस्ते दोस्त!');assert.ok(y.q('[data-turn-list]'));assert.equal(y.q(dlg+' [data-next]').textContent,'Apply');await submit(y);assert.match(y.q('[name=summary]').value,/नमस्ते दोस्त!/);const p=JSON.parse(y.q('[name=audio_preparation]').value);assert.equal(p.audience,'Children (9–12)');assert.equal(p.sound_design.cues[0].name,'Jinn Arrival');assert.deepEqual(y.errors,[]);
 });
 
 test('Save Draft reports a storage failure without claiming success or changing the open script',async t=>{
@@ -54,7 +55,7 @@ test('new audiobooks isolate unsaved audio scripts while earlier drafts remain r
  await x.go('audio');assert.equal(x.q('[data-final-turn]').value,'');
  assert.equal(saved(x,'ecco-audio-draft:local:'+first).single_text,'Keep this first audiobook.');
  assert.equal(saved(x,'ecco-audio-draft:').lines[0].text,'Earlier unsaved audio');
- await x.go('story-library');x.q('[data-local-story-id="'+first+'"]').click();await tick();await x.go('audio');
+ await x.go('story-library');await openCard(x,'[data-local-story-id="'+first+'"]');await x.go('audio');
  assert.equal(x.q('[data-final-turn]').value,'Keep this first audiobook.');assert.deepEqual(x.errors,[]);
 });
 function mock(x,{names=['Host','Guest'],questions=['Should the discussion include practical examples?'],texts,invalid=false,turnDifference=0,brokenRefinement=false,suggestedTurns=null}={}){

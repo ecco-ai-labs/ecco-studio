@@ -15,6 +15,7 @@ import studio as legacy
 import audio_library
 import audio_stories
 import library_rename
+import library_labels
 import audio_jobs
 import audio_preflight
 import audio_workflows
@@ -48,6 +49,7 @@ WRITE_ROUTES = frozenset({
     '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
     '/api/images/upload', '/api/stories', '/api/stories/archive', '/api/boards',
     '/api/library/folders', '/api/library/save', '/api/trash', '/api/trash/board',
+    '/api/library/labels/create', '/api/library/labels/assign', '/api/library/labels/remove',
     '/api/trash/folder', '/api/trash/draft', '/api/trash/restore-draft',
     '/api/trash/empty', '/api/purge', '/api/characters', '/api/object-edits',
     '/api/training-requests', '/api/approve', '/api/director/update',
@@ -58,7 +60,7 @@ def storage_state():
         'character_studio': character_studio.status(),
         'frame_editor': frame_editor.status(),
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
-                    'rename_available': True, 'gpu_independent': True, 'service': 'ecco-storage-api'},
+                    'rename_available': True, 'library_labels': 1, 'gpu_independent': True, 'service': 'ecco-storage-api'},
         'longcat': {**longcat_jobs.status(), 'sequence_available': True, 'sequence_controls': True}, 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
         'ai_story_planner': {'ready': scene_planner.ready()}, 'audio_workflows': audio_workflows.status(),
         'hourly_rate': 0.081, 'github_connected': False,
@@ -210,6 +212,11 @@ class Handler(legacy.Handler):
                 return self.send(audio_stories.save(body, vars(legacy)))
             if path == '/api/stories/plan':
                 return self.send(scene_planner.plan(body, legacy.Problem))
+            label_routes = {'/api/library/labels/create': library_labels.create_folder,
+                            '/api/library/labels/assign': library_labels.assign,
+                            '/api/library/labels/remove': library_labels.remove}
+            if path in label_routes:
+                return self.send(label_routes[path](body, vars(legacy)))
             audio_routes = {'/api/audio/upload': audio_library.upload,
                             '/api/audio/folders': audio_library.create_folder,
                             '/api/audio/labels': audio_library.save_labels}

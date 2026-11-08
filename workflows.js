@@ -157,7 +157,7 @@
  let pending=false;
  function mount(){nav();genres();audioTransfer();}
  new MutationObserver(()=>{if(pending)return;pending=true;queueMicrotask(()=>{pending=false;mount();});}).observe(document.body,{childList:true,subtree:true});
- mount();window.EccoWorkflows={show,showLibrary};
+ mount();window.EccoWorkflows={show,showLibrary,rows,remove:removeWorkflow};
  const previousNavigate=navigate;navigate=function(target,...args){if(target==='workflow-library')return showLibrary();return previousNavigate(target,...args);};
 })();
 

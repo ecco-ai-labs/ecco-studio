@@ -15,9 +15,9 @@ def rename(body, env):
         if not item or item.get('deleted'):
             raise env['Problem']('This library item is no longer available.', 404)
         kind = item['kind']
-        if kind not in ('image_folder', 'audio_folder', 'story', 'workflow', 'asset'):
+        if kind not in ('image_folder', 'audio_folder', 'video_folder', 'story_folder', 'workflow_folder', 'story', 'workflow', 'asset'):
             raise env['Problem']('This item cannot be renamed.')
-        folder = kind in ('image_folder', 'audio_folder')
+        folder = kind.endswith('_folder')
         field = 'name' if folder or kind == 'workflow' else 'title'
         if len(name) > (80 if folder else 160) or (folder and '/' in name):
             raise env['Problem']('Use a label name of at most 80 characters without slashes.' if folder else 'Use at most 160 characters.')

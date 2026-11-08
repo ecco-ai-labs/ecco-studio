@@ -30,9 +30,10 @@ async function fillStoryDetail(page,name,value){
 async function openLibrary(page,kind){
   const group=page.locator('#workspace-library-group');
   if(await group.getAttribute('open')===null)await group.locator(':scope > summary').click();
-  await page.locator(librarySelectors[kind]).click();
-  await expect(page.locator('#page .library-files')).toBeVisible();
-  return page.locator('#page .library-files');
+  await page.locator('#library-hub-nav [data-lib="'+kind+'"]').click();
+  const hub=page.locator('#page .lh[data-kind="'+kind+'"]');
+  await expect(hub).toBeVisible();
+  return hub;
 }
 async function popupControls(popup){
  const close=popup.locator('.ecco-popup-close'),minimize=popup.getByRole('button',{name:'Minimize popup',exact:true});
@@ -108,10 +109,6 @@ for(const theme of ['default','dark','forest','desert','ocean','dark-sky'])test(
   for(const choice of await choices.all())expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
   const landingStyle=async()=>page.locator('#page .workspace-home').evaluate(el=>({padding:getComputedStyle(el).paddingTop,font:getComputedStyle(el.querySelector('button')).fontSize,borders:[...el.querySelectorAll('ul,li,button')].every(row=>{const s=getComputedStyle(row);return ['borderTopWidth','borderBottomWidth','borderLeftWidth','borderRightWidth'].every(p=>s[p]==='0px');})}));
   expect(await landingStyle()).toEqual({padding:'22px',font:'11.3333px',borders:true});
-  const storyStyle=await choices.first().evaluate(el=>{const s=getComputedStyle(el);return [s.minHeight,s.padding,s.color,s.backgroundColor,s.gridTemplateColumns];});
-  await page.locator('#workspace-library-group > summary').click();
-  expect(await page.locator('#library-home-list button').first().evaluate(el=>{const s=getComputedStyle(el);return [s.minHeight,s.padding,s.color,s.backgroundColor,s.gridTemplateColumns];})).toEqual(storyStyle);
-  expect(await landingStyle()).toEqual({padding:'22px',font:'11.3333px',borders:true});
 });
 test('STORY-01 three tabs and left navigation stay visible',async({page})=>{
   await boot(page);await expect(page.locator('#story-workspace-header [role=tab]')).toHaveCount(3);
@@ -154,113 +151,172 @@ test('STORY-04 Generate With AI carries options and synchronizes Story Details',
   await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();
   for(const [name,value] of Object.entries({type:'storybook',genre:'Fantasy',audience:'Children (9–12)',language:'Hindi'}))await expect(page.locator('#story-simple-details [name='+name+']')).toHaveValue(value);
 });
-test('LIB-home-01 chooser shows aligned icons and opens each matching sidebar destination',async({page})=>{
+test('LIB-hub-01 Library is a collapsible "+" row, closed by default, with a switcher for all five libraries',async({page})=>{
   await boot(page);
-  const kinds=['story','image','audio','video','workflow'];
-  await page.locator('#workspace-library-group > summary').click();
-  await expect(page.locator('#heading')).toHaveText('Library');
-  await expect(page.locator('#page h2,#page .library-home-detail,#page .library-home-arrow')).toHaveCount(0);
+  const group=page.locator('#workspace-library-group'),summary=group.locator(':scope > summary');
+  await expect(group).not.toHaveAttribute('open');
+  await expect(page.locator('#library-hub-nav')).toBeHidden();
+  expect(await summary.locator('.library-symbol').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('"+"');
+  await summary.click();
+  expect(await summary.locator('.library-symbol').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('"−"');
+  const buttons=page.locator('#library-hub-nav .lh-libs button');
+  expect(await buttons.evaluateAll(b=>b.map(x=>x.dataset.lib))).toEqual(['story','image','audio','video','workflow']);
+  await expect(page.locator('#library-hub-nav')).toBeVisible();
   await expect(page.locator('body > aside')).toBeVisible();
-  await expect(page.locator('#story-workspace-header')).toBeHidden();
-  const choices=page.locator('#library-home-list button');
-  await expect(choices).toHaveCount(5);
-  await expect(choices.first()).toHaveCSS('font-size','11.3333px');
-  for(const selector of Object.values(librarySelectors))await expect(page.locator(selector)).toHaveCSS('font-size','11.3333px');
-  expect(await choices.evaluateAll(rows=>rows.map(row=>row.dataset.libraryDestination))).toEqual(kinds);
-  const bounds=await choices.evaluateAll(rows=>rows.map(row=>({left:row.getBoundingClientRect().left,width:row.getBoundingClientRect().width,iconLeft:row.querySelector('svg').getBoundingClientRect().left})));
-  for(const row of bounds){expect(row.left).toBe(bounds[0].left);expect(row.width).toBe(bounds[0].width);expect(row.iconLeft).toBe(bounds[0].iconLeft);}
-  await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();
-  expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
-  for(const kind of kinds){
-    const choice=page.locator('[data-library-destination="'+kind+'"]');
-    await expect(choice.locator('.workspace-home-icon')).toBeVisible();
-    await expect(choice).toHaveText(new RegExp(kind[0].toUpperCase()+kind.slice(1)+' Library'));
-    if(kind==='story')await choice.click();else await choice.press('Enter');
-    await expect(page.locator('#page .library-files')).toBeVisible();
-    await expect(page.locator(librarySelectors[kind])).toHaveAttribute('aria-current','page');
-    await expect(page.locator(librarySelectors[kind])).toBeFocused();
-    await page.locator('#workspace-library-group > summary').click();
-  }
+  await summary.click();await expect(page.locator('#library-hub-nav')).toBeHidden();
 });
-test('LAYOUT-library-home narrow light-theme chooser shows only the five library names',async({page})=>{
-  await page.setViewportSize({width:390,height:900});await boot(page,{theme:'desert'});
-  await page.locator('#workspace-library-group > summary').click();
-  const choices=page.locator('#library-home-list button');await expect(choices).toHaveCount(5);
-  for(const choice of await choices.all()){
-    await expect(choice).toBeVisible();await expect(choice.locator('span')).toHaveCount(1);
-    expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
-  }
-});
-for(const kind of Object.keys(librarySelectors)){
-  test(`LIB-${kind}-01 opening hides Story tabs and defaults to List`,async({page})=>{
-    await boot(page);const gallery=await openLibrary(page,kind);
+for(const kind of ['story','image','audio','video','workflow']){
+  test(`LIB-${kind}-01 opens the new screen with Grid default, tools, count and details panel`,async({page})=>{
+    await boot(page);await page.evaluate(()=>{state.config.storage.library_labels=1;storyControls();});const hub=await openLibrary(page,kind);
     await expect(page.locator('#story-workspace-header')).toBeHidden();
-    await expect(page.locator('#page .library-view-label select')).toHaveValue('list');
-    expect(await page.locator('#page .library-view-label option').allTextContents()).toEqual(['List','Small icons','Large icons']);
-    await expect(gallery.locator('[role=columnheader]')).toHaveCount(4);
-    await expect(gallery.locator('.card').first()).toBeVisible();
+    await expect(hub.locator('.lh-title')).toHaveText('All '+({story:'stories',image:'images',audio:'audio clips',video:'videos',workflow:'workflows'}[kind]));
+    await expect(hub.locator('[data-act=view][data-view=grid]')).toHaveAttribute('aria-pressed','true');
+    await expect(hub.getByRole('searchbox')).toBeVisible();
+    await expect(hub.locator('#lh-type')).toBeVisible();await expect(hub.locator('#lh-sort')).toBeVisible();
+    await expect(hub.locator('.lh-count')).toHaveText(/^\d+ /);
+    const card=hub.locator('.lh-card').first();await expect(card).toBeVisible();
+    await expect(hub.locator('.lh-details')).toBeHidden();
+    await card.click();
+    const details=hub.locator('.lh-details');await expect(details).toBeVisible();
+    await expect(details.locator('#lh-name')).toBeVisible();
+    await expect(details.getByRole('button',{name:'+ Add label'})).toBeVisible();
+    await expect(details.locator('.lh-danger')).toBeVisible();
+    await details.getByRole('button',{name:'Close details'}).click();await expect(details).toBeHidden();
+    await expect(page.locator('#library-hub-nav [data-lib="'+kind+'"]')).toHaveAttribute('aria-current','page');
   });
-  for(const mode of ['list','small','large']){
-    test(`LIB-${kind}-${mode} compact rows show metadata and accessible file names`,async({page})=>{
-      await boot(page);const gallery=await openLibrary(page,kind);
-      await page.locator('#page .library-view-label select').selectOption(mode);
-      await expect(gallery).toHaveAttribute('data-file-view',mode);
-      const row=gallery.locator('.card').first();await expect(row).toBeVisible();
-      await expect(row.locator('.library-file-open')).toHaveAttribute('aria-label',/^Open .+/);
-      await expect(row.locator('.library-file-type')).not.toBeEmpty();
-      await expect(row.locator('.library-file-created')).not.toBeEmpty();
-      expect(await row.evaluate(el=>getComputedStyle(el).boxShadow)).toBe('none');
-      if(mode!=='list')await expect(row.locator('.library-file-icon')).toBeVisible();
-    });
-  }
+  test(`LIB-${kind}-list list view shows Name, Labels, Type and Created`,async({page})=>{
+    await boot(page);const hub=await openLibrary(page,kind);
+    await hub.locator('[data-act=view][data-view=list]').click();
+    await expect(hub.locator('.lh-headrow [role=columnheader]')).toHaveText(['Name','Labels','Type','Created']);
+    const row=hub.locator('.lh-row[data-pick]').first();await expect(row).toBeVisible();
+    await expect(row.locator('.lh-name')).not.toBeEmpty();
+    await expect(row).toContainText('No labels');
+  });
 }
 for(const kind of ['image','audio','video']){
-  test(`LIB-${kind}-search filtering and clearing preserve file rows`,async({page})=>{
-    await boot(page);const gallery=await openLibrary(page,kind);
-    const search=page.getByRole('searchbox',{name:`Filter ${kind} library`});
-    await search.fill('Alpha');await expect(gallery.locator('.card:visible')).toHaveCount(1);
-    await search.fill('no-such-file');await expect(gallery.locator('.card:visible')).toHaveCount(0);
-    await expect(gallery.locator('.library-filter-empty')).toBeVisible();
-    await search.fill('');await expect(gallery.locator('.card:visible')).toHaveCount(2);
-  });
-  test(`LIB-${kind}-sort file names sort both ways`,async({page})=>{
-    await boot(page);const gallery=await openLibrary(page,kind);
-    const sort=gallery.locator('[data-sort=title] button');await sort.click();
-    await expect(gallery.locator('.card:visible .library-file-open').first()).toHaveAttribute('aria-label',/^Open Alpha/);
-    await sort.click();await expect(gallery.locator('.card:visible .library-file-open').first()).toHaveAttribute('aria-label',/^Open Zebra/);
+  test(`LIB-${kind}-search search and sort work and an empty search can be reset`,async({page})=>{
+    await boot(page);const hub=await openLibrary(page,kind);
+    const search=hub.getByRole('searchbox');
+    await search.fill('Alpha');await expect(hub.locator('.lh-card')).toHaveCount(1);
+    await search.fill('no-such-file');await expect(hub.locator('.lh-card')).toHaveCount(0);
+    await hub.getByRole('button',{name:'Reset search and filters'}).click();
+    await expect(hub.locator('.lh-card')).toHaveCount(2);
+    await hub.locator('#lh-sort').selectOption('name');
+    await expect(hub.locator('.lh-card .lh-name').first()).toHaveText(/^Alpha/);
+    await hub.locator('#lh-sort').selectOption('old');
+    await expect(hub.locator('.lh-card .lh-name').first()).toHaveText(/^Alpha/);
+    await hub.locator('#lh-sort').selectOption('new');
+    await expect(hub.locator('.lh-card .lh-name').first()).toHaveText(/^Zebra/);
   });
 }
 // Check actual pixels of a known media fixture. A generic SVG or blank tile fails.
-for(const kind of ['image','video'])for(const mode of ['small','large']){
-  test(`THUMB-${kind}-${mode} icon displays the real sample frame`,async({page})=>{
-    await boot(page);const gallery=await openLibrary(page,kind);
-    await page.locator('#page .library-view-label select').selectOption(mode);
-    const icon=gallery.locator('.card').first().locator('.library-file-icon');
-    await expect(icon).toBeVisible();
-    const decoded=icon.locator('img,video,canvas');
+for(const kind of ['image','video'])for(const view of ['grid','list']){
+  test(`THUMB-${kind}-${view} thumbnail displays the real sample frame`,async({page})=>{
+    await boot(page);const hub=await openLibrary(page,kind);
+    await hub.locator('[data-act=view][data-view='+view+']').click();
+    const tile=hub.locator(view==='grid'?'.lh-card .lh-thumb':'.lh-row[data-pick] .lh-mini').first();
+    await expect(tile).toBeVisible();
+    const decoded=tile.locator('img,video');
     await expect(decoded,'Expected a decoded media thumbnail; a generic icon is not a preview').toHaveCount(1);
     await expect(decoded).toBeVisible();
-    await expect.poll(()=>decoded.evaluate(el=>el instanceof HTMLImageElement?el.complete&&el.naturalWidth>0:el instanceof HTMLVideoElement?el.readyState>=2:el.width>0)).toBe(true);
+    await expect.poll(()=>decoded.evaluate(el=>el instanceof HTMLImageElement?el.complete&&el.naturalWidth>0:el.readyState>=2)).toBe(true);
     const samplePixels=()=>decoded.evaluate(el=>{
       const c=document.createElement('canvas');c.width=160;c.height=90;const ctx=c.getContext('2d');ctx.drawImage(el,0,0,160,90);
       return [Array.from(ctx.getImageData(10,45,1,1).data),Array.from(ctx.getImageData(100,45,1,1).data)];
     });
-    // HAVE_CURRENT_DATA may precede a drawable video frame. Keep the real-pixel
-    // requirement while allowing the media decoder to finish presenting it.
-    await expect.poll(async()=>{
-      const pixels=await samplePixels();
-      return Math.min(pixels[0][0]-pixels[0][1],pixels[1][1]-pixels[1][0]);
-    },{message:'The decoded thumbnail must display both the red stripe and green field'}).toBeGreaterThan(100);
-    const pixels=await samplePixels();
-    expect(pixels[0][0]-pixels[0][1],'Left red stripe should come from the actual media').toBeGreaterThan(100);
-    expect(pixels[1][1]-pixels[1][0],'Right green field should come from the actual media').toBeGreaterThan(100);
+    await expect.poll(async()=>{const px=await samplePixels();return Math.min(px[0][0]-px[0][1],px[1][1]-px[1][0]);},{message:'The decoded thumbnail must display both the red stripe and green field'}).toBeGreaterThan(100);
   });
 }
-test('LIB-preview close restores keyboard focus to its file',async({page})=>{
-  await boot(page);const gallery=await openLibrary(page,'image');const file=gallery.locator('.library-file-open').first();
-  await file.click();await expect(page.locator('.library-file-preview')).toBeVisible();
-  await page.locator('.library-file-preview').getByRole('button',{name:'Close popup',exact:true}).click();
-  await expect(page.locator('.library-file-preview')).toHaveCount(0);await expect(file).toBeFocused();
+test('LIB-image-preview opens full size and closing restores focus to the picked file',async({page})=>{
+  await boot(page);const hub=await openLibrary(page,'image');
+  const card=hub.locator('.lh-card').first();await card.click();
+  await hub.getByRole('button',{name:'Open full size'}).click();
+  const viewer=page.locator('#library-hub-viewer');await expect(viewer).toBeVisible();
+  await viewer.getByRole('button',{name:'Close popup',exact:true}).click();
+  await expect(viewer).toBeHidden();await expect(card).toBeFocused();
+});
+async function seedLabels(page){
+  await page.evaluate(async()=>{
+    state.config.storage.library_labels=1;state.config.storage.rename_available=true;
+    state.records.push(
+      {id:'qa-f-people',kind:'image_folder',name:'People',created:1700005000},
+      {id:'qa-f-kids',kind:'image_folder',name:'People / Kids',created:1700005001},
+      {id:'qa-f-pets',kind:'image_folder',name:'Pets',created:1700005002},
+      {id:'qa-l-0',kind:'library_item',asset_id:'qa-image-0',folder_id:'qa-f-people',created:1700005000},
+      {id:'qa-l-1',kind:'library_item',asset_id:'qa-image-1',folder_id:'qa-f-kids',created:1700005001},
+      {id:'qa-l-2',kind:'library_item',asset_id:'qa-image-1',folder_id:'qa-f-pets',created:1700005002});
+    await refresh();storyControls();
+  });
+}
+test('LIB-tree boxed +/− toggles expand nested labels and counts include nested items',async({page})=>{
+  await boot(page);await seedLabels(page);const hub=await openLibrary(page,'image');
+  const tree=page.locator('#library-hub-nav .lh-tree');
+  await expect(tree.locator('.lh-node',{hasText:'Kids'})).toHaveCount(0);
+  const toggle=tree.getByRole('button',{name:'Expand People'});
+  await expect(toggle).toHaveText('+');
+  expect(await toggle.evaluate(el=>parseFloat(getComputedStyle(el).borderTopWidth))).toBeGreaterThan(0);
+  expect(await tree.locator('.lh-node').first().evaluate(el=>el.getBoundingClientRect().height)).toBeLessThanOrEqual(30);
+  await expect(tree.locator('.lh-node',{hasText:'People'}).locator('small')).toHaveText('2');
+  await toggle.click();
+  await expect(tree.getByRole('button',{name:'Collapse People'})).toHaveText('−');
+  await expect(tree.locator('.lh-node',{hasText:'Kids'}).locator('small')).toHaveText('1');
+  await tree.locator('.lh-node',{hasText:'People'}).click();
+  await expect(hub.locator('.lh-card')).toHaveCount(2);
+  await expect(hub.locator('.lh-crumb')).toContainText('People');
+});
+test('LIB-filter multiple labels use AND, show chips, and clearing restores everything',async({page})=>{
+  await boot(page);await seedLabels(page);const hub=await openLibrary(page,'image');
+  const tree=page.locator('#library-hub-nav .lh-tree');
+  await tree.locator('.lh-node',{hasText:'People'}).click();await expect(hub.locator('.lh-card')).toHaveCount(2);
+  await tree.locator('.lh-node',{hasText:'Pets'}).click();
+  await expect(hub.locator('.lh-card')).toHaveCount(1);
+  await expect(hub.locator('.lh-card .lh-name')).toHaveText('Zebra image sample');
+  await expect(hub.locator('.lh-chips')).toContainText('Items with all of:');
+  await expect(hub.locator('.lh-chips .lh-chip')).toHaveCount(2);
+  await hub.getByRole('button',{name:'Remove filter Pets'}).click();await expect(hub.locator('.lh-card')).toHaveCount(2);
+  await hub.getByRole('button',{name:'Clear all'}).click();await expect(hub.locator('.lh-chips')).toBeHidden();
+  await expect(hub.locator('.lh-title')).toHaveText('All images');
+});
+test('LIB-label-edit details panel adds, removes and renames; each item can carry several labels',async({page})=>{
+  await boot(page);await seedLabels(page);const hub=await openLibrary(page,'image');
+  await page.evaluate(()=>{
+    window.__calls=[];const original=api;
+    api=async(path,body)=>{window.__qaCalls.push({path,body});
+      if(path==='library/save'){state.records.push({id:'qa-new-'+body.folder_id,kind:'library_item',asset_id:body.asset_id,folder_id:body.folder_id,created:1});return {};}
+      if(path==='library/labels/remove'){const r=state.records.find(x=>x.kind==='library_item'&&x.asset_id===body.item_id&&x.folder_id===body.folder_id);if(r)r.deleted=true;return {removed:1};}
+      if(path==='library/rename'){const r=state.records.find(x=>x.id===body.id);r.title=body.name;r.name=r.kind==='asset'?r.name:body.name;return {};}
+      return original(path,body);};
+  });
+  await hub.locator('.lh-card',{hasText:'Alpha'}).click();
+  const details=hub.locator('.lh-details');
+  await details.getByRole('button',{name:'+ Add label'}).click();
+  await details.getByRole('button',{name:'Pets'}).click();
+  await expect(details.locator('.lh-chip',{hasText:'Pets'})).toBeVisible();
+  await expect(details.locator('.lh-chip')).toHaveCount(2);
+  expect((await page.evaluate(()=>window.__qaCalls)).some(c=>c.path==='library/save'&&c.body.asset_id==='qa-image-0'&&c.body.folder_id==='qa-f-pets')).toBe(true);
+  await details.getByRole('button',{name:'Remove label Pets'}).click();
+  await expect(details.locator('.lh-chip',{hasText:'Pets'})).toHaveCount(0);
+  await details.locator('#lh-name').fill('Alpha renamed');await details.locator('#lh-name').press('Tab');
+  await expect.poll(()=>page.evaluate(()=>window.__qaCalls.some(c=>c.path==='library/rename'&&c.body.name==='Alpha renamed'))).toBe(true);
+});
+test('LIB-label-new sidebar creates a nested label through the inline form',async({page})=>{
+  await boot(page);await seedLabels(page);await openLibrary(page,'image');
+  await page.evaluate(()=>{const original=api;api=async(path,body)=>{window.__qaCalls.push({path,body});
+    if(path==='library/folders'){const f={id:'qa-new-folder',kind:'image_folder',name:body.name,created:1700006000};state.records.push(f);return f;}return original(path,body);};});
+  const nav=page.locator('#library-hub-nav');
+  await nav.getByRole('button',{name:'+ New label'}).click();
+  await nav.getByLabel('Label name').fill('Villains');await nav.getByLabel('Inside').selectOption('People');
+  await nav.getByLabel('Label name').press('Enter');
+  await expect(nav.locator('.lh-node',{hasText:'Villains'})).toBeVisible();
+  expect((await page.evaluate(()=>window.__qaCalls)).some(c=>c.path==='library/folders'&&c.body.name==='People / Villains')).toBe(true);
+});
+test('LIB-label-gate labels for video, story and workflow need the storage update',async({page})=>{
+  await boot(page);const hub=await openLibrary(page,'video');
+  await expect(page.locator('#library-hub-nav')).toContainText('need the storage service update');
+  await expect(page.locator('#library-hub-nav').getByRole('button',{name:'+ New label'})).toHaveCount(0);
+  await hub.locator('.lh-card').first().click();
+  await expect(hub.locator('.lh-details').getByRole('button',{name:'+ Add label'})).toHaveCount(0);
+  await expect(hub.locator('.lh-details')).toContainText('Labels need the storage service update');
 });
 for(const theme of ['default','dark','forest','desert','ocean','dark-sky']){
   test(`THEME-${theme} library controls remain visible and sidebar stays flat`,async({page})=>{
@@ -268,7 +324,7 @@ for(const theme of ['default','dark','forest','desert','ocean','dark-sky']){
     await expect(page.locator('html')).toHaveAttribute('data-ecco-theme',theme);
     const summary=page.locator('#workspace-library-group > summary');await expect(summary).toBeVisible();
     expect(await summary.evaluate(el=>getComputedStyle(el).boxShadow)).toBe('none');
-    await expect(page.getByRole('searchbox',{name:'Filter image library'})).toBeVisible();
+    await expect(page.getByRole('searchbox',{name:'Search images'})).toBeVisible();
     const accents={default:'rgb(255, 220, 36)',dark:'rgb(199, 199, 206)',forest:'rgb(255, 255, 255)',desert:'rgb(107, 66, 38)',ocean:'rgb(0, 100, 200)','dark-sky':'rgb(105, 201, 255)'};
     const back=page.locator('#workspace-back');await expect(back).toBeEnabled();
     await page.mouse.move(0,0);await expect(back).toHaveCSS('color',accents[theme]);
@@ -349,12 +405,13 @@ test('NOTIFY-02 history opens an editable re-issue draft and retains the origina
 
 test('NAV-01 Back restores library search/view and the unfinished story',async({page})=>{
   await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Navigation draft');
-  await openLibrary(page,'image');await page.getByRole('searchbox',{name:'Filter image library'}).fill('Alpha');
-  await page.locator('#page .library-view-label select').selectOption('large');
+  const hub=await openLibrary(page,'image');await hub.getByRole('searchbox').fill('Alpha');
+  await hub.locator('[data-act=view][data-view=list]').click();
   await page.getByRole('button',{name:'Model Garden',exact:true}).click();await expect(page.locator('#models-form')).toBeVisible();
-  await page.locator('#workspace-back').click();await expect(page.locator('#page .library-view-label select')).toHaveValue('large');
-  await expect(page.getByRole('searchbox',{name:'Filter image library'})).toHaveValue('Alpha');
-  await page.locator('#workspace-back').click();await expect(page.locator('#library-home-list')).toBeVisible();
+  await page.locator('#workspace-back').click();
+  const again=page.locator('#page .lh[data-kind=image]');await expect(again).toBeVisible();
+  await expect(again.locator('[data-act=view][data-view=list]')).toHaveAttribute('aria-pressed','true');
+  await expect(again.getByRole('searchbox')).toHaveValue('Alpha');
   await page.locator('#workspace-back').click();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('Navigation draft');
 });
 test('NAV-02 Support Back returns to the preceding screen, never the entry page',async({page})=>{
@@ -375,7 +432,7 @@ test('NAV-03 Back belongs only to the page, never menus, hover drawers or popups
   await page.locator('#activity-files-menu').click();await expect(page.locator('#activity-files')).toBeVisible();
   await expect(page.locator('#activity-files').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
   await page.locator('#activity-files').getByRole('button',{name:'Close popup',exact:true}).click();await expect(page.locator('#activity-files')).toBeHidden();
-  await expect(page.locator('#video-library-gallery')).toBeVisible();await expect(page.locator('#activity-files-menu')).toBeFocused();
+  await expect(page.locator('#page .lh[data-kind=video]')).toBeVisible();await expect(page.locator('#activity-files-menu')).toBeFocused();
   const viewport=page.viewportSize();await page.mouse.move(viewport.width-1,viewport.height/2);
   await page.locator('#activity-edge-arrow').click();await expect(page.locator('#activity-panel')).toBeVisible();
   await expect(page.locator('#activity-panel').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
@@ -787,9 +844,9 @@ test('AGENT-06 choose individual tests and never execute unchecked actions',asyn
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  await page.addInitScript(()=>{
   if(window===top){window.__agentActions=[];return;}
-  document.addEventListener('input',e=>{if(e.target.matches('input[aria-label^="Filter "]'))top.__agentActions.push('search');},true);
-  document.addEventListener('click',e=>{if(e.target.closest('[data-sort] button'))top.__agentActions.push('sort');},true);
-  document.addEventListener('change',e=>{if(e.target.matches('.library-view-label select'))top.__agentActions.push('view:'+e.target.value);},true);
+  document.addEventListener('input',e=>{if(e.target.matches('#lh-search'))top.__agentActions.push('search');},true);
+  document.addEventListener('change',e=>{if(e.target.matches('#lh-sort'))top.__agentActions.push('sort');},true);
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-act=view]');if(b)top.__agentActions.push('view:'+b.dataset.view);},true);
  });
  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Agents',exact:true}).click();await page.locator('.agent-card').click();
  await expect(page.getByRole('button',{name:'Run selected tests (0)',exact:true})).toBeDisabled();
@@ -797,13 +854,13 @@ test('AGENT-06 choose individual tests and never execute unchecked actions',asyn
  await page.getByLabel('Action',{exact:true}).selectOption('workflow');await page.getByLabel('Workflow',{exact:true}).selectOption('video');
  await page.getByRole('button',{name:'Select all tests',exact:true}).click();await expect(page.locator('.agent-test-grid input:checked')).toHaveCount(9);
  await page.getByRole('button',{name:'Clear all tests',exact:true}).click();await expect(page.getByRole('button',{name:'Run selected tests (0)',exact:true})).toBeDisabled();
- const small=page.getByRole('checkbox',{name:'Video Library: Small thumbnails',exact:true});await small.focus();await page.keyboard.press('Space');await expect(small).toBeChecked();
+ const small=page.getByRole('checkbox',{name:'Video Library: List thumbnails',exact:true});await small.focus();await page.keyboard.press('Space');await expect(small).toBeChecked();
  await page.getByRole('button',{name:'Run selected tests (1)',exact:true}).click();await expect(small).toBeDisabled();
  await expect(page.getByRole('button',{name:'Run selected tests (1)',exact:true})).toBeEnabled({timeout:60000});
  let report=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user'))[0]);
  expect(report.selection.ids).toEqual(['video-small']);expect(report.checks).toHaveLength(2);
  expect(report.checks.every(c=>c.id.startsWith('video-small-thumb-')&&c.status==='passed')).toBe(true);
- expect(report.findings).toHaveLength(0);expect(await page.evaluate(()=>window.__agentActions)).toEqual(['view:small','view:list']);
+ expect(report.findings).toHaveLength(0);expect(await page.evaluate(()=>window.__agentActions)).toEqual(['view:list','view:grid']);
  await expect(page.locator('.agent-run-selection')).toContainText('Selected 1 of 9 tests');
  await page.getByRole('button',{name:'Clear all tests',exact:true}).click();await page.getByRole('checkbox',{name:'Video Library: Sort names Z–A',exact:true}).check();
  await page.getByRole('button',{name:'Run selected tests (1)',exact:true}).click();await expect(page.getByRole('button',{name:'Run selected tests (1)',exact:true})).toBeEnabled({timeout:30000});
@@ -1051,24 +1108,4 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TY
  const title=page.getByLabel('Title',{exact:true});await expect(title).toHaveCSS('font-size','9.33333px');expect(await title.evaluate(e=>Boolean(e.getRootNode().host))).toBe(true);await title.fill('Compact typography check');await title.press('Tab');await expect(page.getByLabel('Message',{exact:true})).toBeFocused();
  expect(await page.locator('.notification-composer').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-desk-'+viewport.width+'.png'),fullPage:true});
 
-});
-
-test('LIB-image-label-scope a parent label also lists images in its nested labels',async({page})=>{
-  await boot(page);
-  await page.evaluate(async()=>{
-    state.records.push(
-      {id:'qa-f-people',kind:'image_folder',name:'People',created:1700005000},
-      {id:'qa-f-kids',kind:'image_folder',name:'People / Kids',created:1700005001},
-      {id:'qa-l-0',kind:'library_item',asset_id:'qa-image-0',folder_id:'qa-f-people',created:1700005000},
-      {id:'qa-l-1',kind:'library_item',asset_id:'qa-image-1',folder_id:'qa-f-kids',created:1700005001});
-    await refresh();storyControls();
-  });
-  const gallery=await openLibrary(page,'image');
-  await page.locator('#image-library-nav .tree-folder',{hasText:/^People$/}).click();
-  await expect(gallery.locator('.card')).toHaveCount(2);
-  await page.getByRole('button',{name:'Expand People'}).click();
-  await page.locator('#image-library-nav .tree-folder',{hasText:/^Kids$/}).click();
-  await expect(gallery.locator('.card')).toHaveCount(1);
-  await expect(gallery.locator('.card .library-file-open').first()).toHaveAttribute('aria-label','Open Zebra image sample');
-  expect(page.qaErrors).toEqual([]);
 });
