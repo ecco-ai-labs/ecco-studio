@@ -107,7 +107,7 @@
   {
     "area": "Upcoming campaigns in Billing",
     "mode": "fixture + isolated SQLite",
-    "scope": "Seven-day legacy/new default; editable 0\u201390-day lead time, retained across edit; target/placement/pause/blocked/completed filtering, earliest five, start/expiry and scheduled dispatch transition. Browser checks Billing drawer, Credit and Usage and purchase popup, configured badge, no early Select/Mark as Read, unchanged Bell count and active replacement. Existing user campaign is inspected live without altering its schedule or publishing test notices."
+    "scope": "All eligible previews, 0\u201390-day lead time, audience/placement/pause/blocked/completed filtering, expiry and scheduled dispatch. Browser checks all three Billing surfaces, Mark as Read retention, regular-weight read styling, keyboard focus, reload, mobile fit and upcoming-to-active continuity. Isolated SQLite checks per-user/occurrence persistence, retry idempotence, dispatch race, recipient authorization, expiry, withdrawal, old read campaigns and independence from newer notification limits. Live checks read existing campaign status without creating test promotions."
   },
   {
     "area": "Delayed audio voice preview readiness",
