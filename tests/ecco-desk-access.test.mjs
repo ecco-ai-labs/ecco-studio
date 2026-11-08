@@ -18,7 +18,7 @@ globalThis.fetch=async(url,options)=>{
 const {mount}=await import('../desk/desk-app.mjs'),host=document.querySelector('#host'),cleanup=mount(host),tick=()=>new Promise(r=>setTimeout(r,45));await tick();await tick();
 const root=host.shadowRoot,button=text=>[...root.querySelectorAll('button')].find(b=>b.textContent.trim()===text);
 assert(button('Agents'),'Customer must see Agents');button('Agents').click();await tick();root.querySelector('.agent-card').click();await tick();
-assert.equal(root.querySelector('h1').textContent,'Agents');assert(!root.querySelector('.support-hours'));assert(!root.querySelector('[aria-label="Assign findings to"]'));assert.equal(button('Run checks').disabled,false);
+assert.equal(root.querySelector('h1').textContent,'Agents');assert(!root.querySelector('.support-hours'));assert(!root.querySelector('[aria-label="Assign findings to"]'));assert.equal(button('Run selected tests (0)').disabled,true);
 window.dispatchEvent(new StorageEvent('storage',{key:null,storageArea:sessionStorage}));await tick();assert(root.querySelector('.tester-agent'),'Studio session storage events must not reset Desk');
 button('Create ticket').click();await tick();await tick();assert.equal(posts.length,1);assert.equal(posts[0].requestType,'Bug');assert.match(root.querySelector('.agent-ticket-link').textContent,/SUP-0001/);
 root.querySelector('[aria-label="Refresh workspace"]').click();await tick();assert(root.querySelector('.tester-agent'),'Customer Agents view must survive refresh');

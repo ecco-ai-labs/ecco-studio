@@ -2,7 +2,7 @@ import type {Ticket} from './types';
 export type Severity='critical'|'high'|'medium'|'low';
 export type Check={id:string;title:string;status:'passed'|'failed'|'blocked';severity:Severity;expected:string;actual:string;steps:string[];selector?:string};
 export type Finding=Check&{ticketId?:number;ticketType?:'internal'|'support';uncertain?:boolean;ticketError?:string};
-export type Run={version:1;id:string;startedAt:string;finishedAt?:string;status:'running'|'completed'|'cancelled';source:string;scope:string;checks:Check[];findings:Finding[]};
+export type Run={version:1;id:string;startedAt:string;finishedAt?:string;status:'running'|'completed'|'cancelled';source:string;scope:string;selection?:{ids:string[];available:number};checks:Check[];findings:Finding[]};
 export const severities:Severity[]=['critical','high','medium','low'];
 export const counts=(run:Run)=>({passed:run.checks.filter(c=>c.status==='passed').length,failed:run.findings.length,blocked:run.checks.filter(c=>c.status==='blocked').length});
 export const marker=(run:Run,f:Finding)=>`[Tester Agent: ${run.id} / ${f.id}]`;

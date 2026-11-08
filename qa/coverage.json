@@ -108,5 +108,10 @@
     "area": "Upcoming campaigns in Billing",
     "mode": "fixture + isolated SQLite",
     "scope": "Seven-day legacy/new default; editable 0\u201390-day lead time, retained across edit; target/placement/pause/blocked/completed filtering, earliest five, start/expiry and scheduled dispatch transition. Browser checks Billing drawer, Credit and Usage and purchase popup, configured badge, no early Select/Mark as Read, unchanged Bell count and active replacement. Existing user campaign is inspected live without altering its schedule or publishing test notices."
+  },
+  {
+    "area": "Selective agent checks",
+    "mode": "fixture",
+    "scope": "No selected tests by default; explicit select-all/clear, keyboard selection, thumbnail-only execution with no search/sort actions, descending-only sort, scope reset, 768px layout, and saved-agent step skipping. Real library/account prerequisites remain separately required."
   }
 ]

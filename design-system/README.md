@@ -495,3 +495,7 @@ Campaign creation and editing use native Start and End calendars followed by Rec
 Saving or resuming a campaign includes today’s unsent occurrence in the selected time zone, even after its send time. The preview shows Starts now; prior dates remain skipped. Receipt checks prevent resaving or resuming today’s sent campaign from duplicating it. Notification Duration continues to control each notice’s expiry.
 
 Campaigns also have Show Upcoming (days before), default 7; 14 means two weeks and 0 turns it off (maximum 90). Enabled Billing campaigns appear in the recipient’s Billing drawer, Credit and Usage and purchase popup before their start, with Upcoming plus their configured badge and start/expiry dates. These previews have no purchase/read actions or Bell unread count. Pause, targeting, placement and lead time apply; the scheduled notification replaces the preview after dispatch. Backend upcomingCampaignVersion 1 precedes frontend deployment.
+
+## Selective agent checks
+
+Tester Agent and saved agents open with no tests selected. Choose an action/workflow, expand the relevant group and tick individual checks, or explicitly Select all tests. Run selected tests stays disabled until a test is chosen. Scope changes clear the selection. Execution skips unchecked tests and empty workflow steps, and reports retain the selected IDs and available count. Required navigation can still report blocked prerequisites. Ticket selection remains separate.

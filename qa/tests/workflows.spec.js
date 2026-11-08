@@ -323,12 +323,13 @@ test('AGENT-03 customer account can run agent and create its own Bug tickets',as
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.goto('/desk/index.html?__qa=1&role=customer');
   await page.getByRole('button',{name:'Agents',exact:true}).click();await page.locator('.agent-card').click();
-  await expect(page.getByRole('heading',{name:'Agents',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled();
+  await expect(page.getByRole('heading',{name:'Agents',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/^Run selected tests/})).toBeDisabled();
   await expect(page.locator('.support-hours')).toHaveCount(0);await expect(page.getByLabel('Assign findings to',{exact:true})).toHaveCount(0);
   await page.evaluate(()=>sessionStorage.setItem('qa-studio-session','synthetic-only'));
   await page.getByLabel('Action',{exact:true}).selectOption('workflow');await page.getByLabel('Workflow',{exact:true}).selectOption('story');
-  await page.getByRole('button',{name:'Run checks',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled({timeout:30000});
+  await page.getByRole('button',{name:'Select all tests',exact:true}).click();
+  await page.getByRole('button',{name:/^Run selected tests/}).click();
+  await expect(page.getByRole('button',{name:/^Run selected tests/})).toBeEnabled({timeout:30000});
   await expect(page.locator('.tester-agent')).toBeVisible();
   const run=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user')||'[]')[0]);
   expect(run.checks.some(c=>c.id==='story-choices'&&c.status==='passed')).toBe(true);
@@ -431,8 +432,9 @@ test('AGENT-04 administrator creates, saves and runs a shared ordered workflow',
   await page.locator('.agent-card').filter({hasText:'Release Review'}).click();
   await expect(page.getByRole('heading',{name:'Release Review',exact:true})).toBeVisible();
   await expect(page.locator('.agent-step-summary li')).toHaveCount(2);
-  await page.getByRole('button',{name:'Run checks',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled({timeout:75000});
+  await page.getByRole('button',{name:'Select all tests',exact:true}).click();
+  await page.getByRole('button',{name:/^Run selected tests/}).click();
+  await expect(page.getByRole('button',{name:/^Run selected tests/})).toBeEnabled({timeout:75000});
   const run=await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('ecco-desk-qa-agents'))[0].id;return JSON.parse(localStorage.getItem('ecco-agent-runs:v1:qa-desk-user:'+id))[0];});
   expect(run.scope).toBe('Release Review');expect(run.status).toBe('completed');
   expect(run.checks.some(c=>c.id==='step-1/story-choices'&&c.status==='passed')).toBe(true);
@@ -650,4 +652,48 @@ test('CAMPAIGN-04 Upcoming appears across Billing surfaces without unread or pur
  await shop.getByRole('button',{name:'Close popup',exact:true}).click();await page.locator('#google-user-menu > summary').click();await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();await expect(page.locator('#workspace-usage-drawer [data-state=upcoming]')).toBeVisible();
  await page.evaluate(async()=>{window.__qaUpcoming.length=0;window.__qaBillingNotices.push({id:'active-campaign',kind:'marketing_campaign',title:'Festival preview',body:'Our offer is now active.',severity:'informational',badge:'Dhamaka',expiresAt:'2099-12-07T05:00:00Z'});await window.EccoNotifications.refresh()});
  await expect(page.locator('#workspace-usage-drawer [data-state=upcoming]')).toHaveCount(0);await expect(page.locator('#workspace-usage-drawer [data-notice-id=active-campaign]')).toContainText('Our offer is now active.');await expect(page.locator('#notification-bell')).toHaveAttribute('aria-label','Notifications');
+});
+
+test('AGENT-06 choose individual tests and never execute unchecked actions',async({page})=>{
+ test.setTimeout(90000);
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ await page.addInitScript(()=>{
+  if(window===top){window.__agentActions=[];return;}
+  document.addEventListener('input',e=>{if(e.target.matches('input[aria-label^="Filter "]'))top.__agentActions.push('search');},true);
+  document.addEventListener('click',e=>{if(e.target.closest('[data-sort] button'))top.__agentActions.push('sort');},true);
+  document.addEventListener('change',e=>{if(e.target.matches('.library-view-label select'))top.__agentActions.push('view:'+e.target.value);},true);
+ });
+ await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Agents',exact:true}).click();await page.locator('.agent-card').click();
+ await expect(page.getByRole('button',{name:'Run selected tests (0)',exact:true})).toBeDisabled();
+ expect(await page.locator('.agent-browser iframe').getAttribute('src')).toBe('about:blank');
+ await page.getByLabel('Action',{exact:true}).selectOption('workflow');await page.getByLabel('Workflow',{exact:true}).selectOption('video');
+ await page.getByRole('button',{name:'Select all tests',exact:true}).click();await expect(page.locator('.agent-test-grid input:checked')).toHaveCount(9);
+ await page.getByRole('button',{name:'Clear all tests',exact:true}).click();await expect(page.getByRole('button',{name:'Run selected tests (0)',exact:true})).toBeDisabled();
+ const small=page.getByRole('checkbox',{name:'Video Library: Small thumbnails',exact:true});await small.focus();await page.keyboard.press('Space');await expect(small).toBeChecked();
+ await page.getByRole('button',{name:'Run selected tests (1)',exact:true}).click();await expect(small).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Run selected tests (1)',exact:true})).toBeEnabled({timeout:60000});
+ let report=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user'))[0]);
+ expect(report.selection.ids).toEqual(['video-small']);expect(report.checks).toHaveLength(2);
+ expect(report.checks.every(c=>c.id.startsWith('video-small-thumb-')&&c.status==='passed')).toBe(true);
+ expect(report.findings).toHaveLength(0);expect(await page.evaluate(()=>window.__agentActions)).toEqual(['view:small','view:list']);
+ await expect(page.locator('.agent-run-selection')).toContainText('Selected 1 of 9 tests');
+ await page.getByRole('button',{name:'Clear all tests',exact:true}).click();await page.getByRole('checkbox',{name:'Video Library: Sort names Z–A',exact:true}).check();
+ await page.getByRole('button',{name:'Run selected tests (1)',exact:true}).click();await expect(page.getByRole('button',{name:'Run selected tests (1)',exact:true})).toBeEnabled({timeout:30000});
+ report=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user'))[0]);expect(report.checks.map(c=>[c.id,c.status])).toEqual([['video-sort-descending','passed']]);
+ await page.getByLabel('Workflow',{exact:true}).selectOption('image');await expect(page.getByRole('button',{name:'Run selected tests (0)',exact:true})).toBeDisabled();
+ await page.setViewportSize({width:768,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
+ expect(await page.evaluate(()=>window.__deskPosts.length)).toBe(0);
+});
+
+test('AGENT-07 saved agents run only selected steps and tests',async({page})=>{
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ await page.addInitScript(()=>{if(window===top)localStorage.setItem('ecco-desk-qa-agents',JSON.stringify([{id:'qa-selective-agent',name:'Selective review',description:'Isolated fixture',steps:[{mode:'workflow',workflow:'video'},{mode:'workflow',workflow:'story'}]}]));});
+ await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Agents',exact:true}).click();await page.locator('.agent-card').filter({hasText:'Selective review'}).click();
+ await expect(page.getByRole('button',{name:'Run selected tests (0)',exact:true})).toBeDisabled();
+ await page.locator('.agent-test-group summary').filter({hasText:'Step 2 · Story entry'}).click();
+ await page.getByRole('checkbox',{name:'Step 2 · Story entry: Story entry choices',exact:true}).check();
+ await page.getByRole('button',{name:'Run selected tests (1)',exact:true}).click();await expect(page.getByRole('button',{name:'Run selected tests (1)',exact:true})).toBeEnabled({timeout:20000});
+ const run=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-agent-runs:v1:qa-desk-user:qa-selective-agent'))[0]);
+ expect(run.selection.ids).toEqual(['step-2/story-choices']);expect(run.checks.map(c=>[c.id,c.status])).toEqual([['step-2/story-choices','passed']]);
+ expect(await page.evaluate(()=>window.__deskPosts.length)).toBe(0);
 });
