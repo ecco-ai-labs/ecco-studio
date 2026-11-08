@@ -30,6 +30,7 @@ import openai_assistant
 import scene_planner
 import google_signin
 import ecco_desk
+import web_origins
 import youtube_connection
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
@@ -67,15 +68,19 @@ def storage_state():
 
 class Handler(legacy.Handler):
     access_key = ''
+    @property
+    def allowed_origin(self):
+        return web_origins.request_origin(self.headers)
+
     def end_headers(self):
-        if self.headers.get('Origin') == ALLOWED_ORIGIN:
-            self.send_header('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
+        if self.headers.get('Origin') in web_origins.allowed_origins():
+            self.send_header('Access-Control-Allow-Origin', self.allowed_origin)
             self.send_header('Vary', 'Origin')
             self.send_header('Access-Control-Expose-Headers', 'Content-Range,Accept-Ranges')
         super().end_headers()
 
     def authorized(self):
-        if self.headers.get('Origin') not in (None, ALLOWED_ORIGIN):
+        if self.headers.get('Origin') is not None and self.headers.get('Origin') not in web_origins.allowed_origins():
             self.send({'error': 'Origin denied'}, 403)
             return False
         supplied = self.headers.get('Authorization', '')
@@ -85,7 +90,7 @@ class Handler(legacy.Handler):
         return True
 
     def do_OPTIONS(self):
-        if self.headers.get('Origin') != ALLOWED_ORIGIN:
+        if self.headers.get('Origin') not in web_origins.allowed_origins():
             return self.send({'error': 'Origin denied'}, 403)
         self.send(b'', 204, headers={
             'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
@@ -95,8 +100,8 @@ class Handler(legacy.Handler):
 
     def do_GET(self):
         path = urlsplit(self.path).path
-        if google_signin.handle(self, path, ALLOWED_ORIGIN): return
-        if ecco_desk.handle(self, path, ALLOWED_ORIGIN, legacy.DATA / 'studio.sqlite', self.access_key): return
+        if google_signin.handle(self, path, self.allowed_origin): return
+        if ecco_desk.handle(self, path, self.allowed_origin, legacy.DATA / 'studio.sqlite', self.access_key): return
         if path == '/api/youtube/callback':
             return youtube_connection.callback(self)
         if path == '/healthz':
@@ -156,8 +161,8 @@ class Handler(legacy.Handler):
 
     def do_POST(self):
         path = urlsplit(self.path).path
-        if google_signin.handle(self, path, ALLOWED_ORIGIN): return
-        if ecco_desk.handle(self, path, ALLOWED_ORIGIN, legacy.DATA / 'studio.sqlite', self.access_key): return
+        if google_signin.handle(self, path, self.allowed_origin): return
+        if ecco_desk.handle(self, path, self.allowed_origin, legacy.DATA / 'studio.sqlite', self.access_key): return
         if not self.authorized(): return
         if path not in WRITE_ROUTES:
             return self.send({'error': 'This workspace action is not available on the storage service.'}, 409)
