@@ -1,9 +1,9 @@
 import type {Check,Run,Severity} from './tester-model';
 import {workflows,testPlan,selectedTests,type Mode} from './tester-catalog';
 export {workflows,type Mode} from './tester-catalog';
-const libraries:Record<string,string>={story:'.project > details > summary',image:'#image-library-nav > details > summary',audio:'#workspace-audio-library > summary',video:'#workspace-video-library > summary',workflow:'#workflow-library > summary'};
+const libraries:Record<string,string>=Object.fromEntries(['story','image','audio','video','workflow'].map(kind=>[kind,`#library-hub-nav [data-lib="${kind}"]`]));
 export function visible(el:Element|null):boolean{if(!el)return false;const s=el.ownerDocument.defaultView!.getComputedStyle(el);const r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0;}
-export function decoded(icon:Element){const el=icon.querySelector('img') as HTMLImageElement|null;return !!el&&visible(el)&&el.complete&&el.naturalWidth>0;}
+export function decoded(icon:Element){const img=icon.querySelector('img') as HTMLImageElement|null;if(img)return visible(img)&&img.complete&&img.naturalWidth>0;const video=icon.querySelector('video') as HTMLVideoElement|null;return !!video&&visible(video)&&video.readyState>=2&&video.videoWidth>0;}
 export async function runTester(frame:HTMLIFrameElement,mode:Mode,workflow:string,signal:AbortSignal,update:(run:Run,step:string)=>void,selection?:string[]):Promise<Run>{
  const run:Run={version:1,id:crypto.randomUUID(),startedAt:new Date().toISOString(),status:'running',source:'Current Studio · live browser checks',scope:mode==='workflow'?(workflows.find(w=>w[0]===workflow)?.[1]||workflow):mode==='ux'?'Library UX consistency':'Available workflow sweep',checks:[],findings:[]};
  const pause=(ms:number)=>new Promise<void>((resolve,reject)=>{signal.throwIfAborted();const done=()=>{signal.removeEventListener('abort',cancel);resolve()},t=setTimeout(done,ms),cancel=()=>{clearTimeout(t);reject(new DOMException('Stopped','AbortError'))};signal.addEventListener('abort',cancel,{once:true});});
@@ -59,51 +59,53 @@ export async function runTester(frame:HTMLIFrameElement,mode:Mode,workflow:strin
    if(!opened){if(!wants(`${kind}-nav`))blocked(`${kind}-navigation`,`${kind} selected tests`,'The library could not be opened, so selected checks could not run.');continue;}
    const remaining=[...chosen].filter(id=>id.startsWith(kind+'-')&&id!==`${kind}-nav`);
    if(!remaining.length)continue;
-   if(!await wait(()=>!!q('#page .library-files'),8000)){blocked(`${kind}-data`,`${kind} selected tests`,'No file table is available. Connect Storage and load sample items, then retry.');continue;}
-   const table=q('#page .library-files')!,view=q('#page .library-view-label select') as HTMLSelectElement|null;
+   if(!await wait(()=>!!q(`#page .lh[data-kind="${kind}"]`),8000)){blocked(`${kind}-data`,`${kind} selected tests`,'The library screen did not open. Connect Storage and load sample items, then retry.');continue;}
+   const root=q(`#page .lh[data-kind="${kind}"]`)!;
+   const viewButton=(name:string)=>root.querySelector(`[data-act=view][data-view=${name}]`) as HTMLElement|null;
+   const setView=async(name:string)=>{const b=viewButton(name);if(b&&b.getAttribute('aria-pressed')!=='true'){b.click();await pause(250);}return b;};
+   const cards=()=>[...root.querySelectorAll('.lh-results .lh-card')];
+   const listRows=()=>[...root.querySelectorAll('.lh-results .lh-row[data-pick]')];
    if(wants(`${kind}-tabs`))assert(`${kind}-tabs`,`${kind} Library hides story tabs`,!visible(q('#story-workspace-header')),'Story tabs are hidden.','Story tabs '+(visible(q('#story-workspace-header'))?'remain visible.':'are hidden.'),steps,'#story-workspace-header','high');
-   if(wants(`${kind}-views`))assert(`${kind}-views`,`${kind} Library view consistency`,!!view&&view.value==='list'&&[...view.options].map(o=>o.textContent).join('|')==='List|Small icons|Large icons','List is default, followed by Small icons and Large icons.',view?[...view.options].map(o=>o.textContent).join(', ')+`; selected: ${view.value}`:'View selector missing.',steps,'#page .library-view-label select');
-   if(wants(`${kind}-columns`))assert(`${kind}-columns`,`${kind} Library columns`,table.querySelectorAll('[role=columnheader]').length===4,'Four columns: File Name, Type, Date Created, Date Last Accessed.',[...table.querySelectorAll('[role=columnheader]')].map(x=>x.textContent).join(' | '),steps,'#page [role=columnheader]');
-   const rows=()=>[...table.querySelectorAll(':scope > .card')];
+   if(wants(`${kind}-views`)){const grid=viewButton('grid'),list=viewButton('list');assert(`${kind}-views`,`${kind} Library view consistency`,!!grid&&!!list&&grid.getAttribute('aria-pressed')==='true'&&list.getAttribute('aria-pressed')==='false','Grid is the default view, with List beside it.',grid&&list?`Grid pressed: ${grid.getAttribute('aria-pressed')}; List pressed: ${list.getAttribute('aria-pressed')}.`:'View buttons missing.',steps,'#page .lh [data-act=view]');}
+   if(wants(`${kind}-columns`)){await setView('list');const heads=[...root.querySelectorAll('.lh-headrow [role=columnheader]')].map(x=>x.textContent?.trim()||'');assert(`${kind}-columns`,`${kind} Library columns`,heads.join('|')==='Name|Labels|Type|Created','Four columns: Name, Labels, Type, Created.',heads.join(' | ')||'No list columns.',[...steps,'Choose List view'],'#page .lh [role=columnheader]');await setView('grid');}
    if(wants(`${kind}-search`)){
-    const search=q(`#page input[aria-label="Filter ${kind} library"]`) as HTMLInputElement|null;
-    if(!rows().length)blocked(`${kind}-search`,`${kind} Library search`,'No sample files are loaded to verify filtering.');
+    const search=q('#lh-search') as HTMLInputElement|null;
+    if(!cards().length)blocked(`${kind}-search`,`${kind} Library search`,'No sample files are loaded to verify filtering.');
     else if(search){
      const original=search.value;set(search,'ecco-no-match-'+crypto.randomUUID());await pause(250);
-     const shown=rows().filter(visible).length;
-     assert(`${kind}-search`,`${kind} Library search hides nonmatching files`,shown===0,'Zero rows are visible for a query that matches no file.',`${shown} rows remain visibly displayed.`,[...steps,'Search for a unique nonexistent file name'],'#page .library-files > .card','high');
+     const shown=cards().filter(visible).length;
+     assert(`${kind}-search`,`${kind} Library search hides nonmatching files`,shown===0,'Zero cards are visible for a query that matches no file.',`${shown} cards remain visibly displayed.`,[...steps,'Search for a unique nonexistent file name'],'#page .lh .lh-card','high');
      set(search,original);await pause(200);
     }else assert(`${kind}-search-control`,`${kind} Library search`,false,'A search input is available.','Search control missing.',steps);
    }
    for(const direction of ['ascending','descending'])if(wants(`${kind}-sort-${direction}`)){
-    const sort=table.querySelector('[data-sort=title] button') as HTMLElement|null;
-    if(!rows().length){blocked(`${kind}-sort-${direction}`,`${kind} Library sorts ${direction}`,'No sample files are loaded to verify sorting.');continue;}
-    if(!sort){assert(`${kind}-sort-${direction}`,`${kind} Library sorts ${direction}`,false,'File Name is sortable.','Sort control missing.',steps);continue;}
-    // Each direction works on its own; descending does not depend on selecting ascending.
-    for(let attempt=0;attempt<2;attempt++){
-     if(sort.closest('[aria-sort]')?.getAttribute('aria-sort')===direction)break;
-     sort.click();await pause(150);
-    }
-    const names=rows().filter(visible).map(r=>r.querySelector('.library-file-open')?.getAttribute('aria-label')?.replace(/^Open /,'')||'');
+    const sort=q('#lh-sort') as HTMLSelectElement|null;
+    if(!cards().length){blocked(`${kind}-sort-${direction}`,`${kind} Library sorts ${direction}`,'No sample files are loaded to verify sorting.');continue;}
+    if(!sort){assert(`${kind}-sort-${direction}`,`${kind} Library sorts ${direction}`,false,'Name is sortable.','Sort control missing.',steps);continue;}
+    set(sort,direction==='ascending'?'name':'namedesc');await pause(250);
+    const names=cards().filter(visible).map(r=>r.querySelector('.lh-name')?.textContent||'');
     const expected=[...names].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})*(direction==='ascending'?1:-1));
-    assert(`${kind}-sort-${direction}`,`${kind} Library sorts ${direction}`,names.every((n,i)=>n===expected[i]),`File names sort ${direction}.`,names.slice(0,8).join(', '),[...steps,'Sort by File Name '+direction],'#page [data-sort=title]');
+    assert(`${kind}-sort-${direction}`,`${kind} Library sorts ${direction}`,names.every((n,i)=>n===expected[i]),`Names sort ${direction}.`,names.slice(0,8).join(', '),[...steps,'Sort by name '+direction],'#lh-sort');
+    set(sort,'new');await pause(150);
    }
+   // "small" checks the compact List thumbnails; "large" checks the Grid card thumbnails.
    for(const size of ['small','large'])if(wants(`${kind}-${size}`)){
-    if(!view){assert(`${kind}-${size}-view`,`${kind} ${size} previews`,false,'The icon view can be selected.','View selector missing.',steps);continue;}
-    if(!rows().length){blocked(`${kind}-${size}-items`,`${kind} ${size} previews`,'No sample files are loaded to inspect previews.');continue;}
-    set(view,size);await pause(300);
+    const viewName=size==='small'?'list':'grid';
+    if(!await setView(viewName)){assert(`${kind}-${size}-view`,`${kind} ${viewName} previews`,false,'The view can be selected.','View button missing.',steps);continue;}
+    const rows=size==='small'?listRows:cards;
+    if(!rows().length){blocked(`${kind}-${size}-items`,`${kind} ${viewName} previews`,'No sample files are loaded to inspect previews.');continue;}
     const samples=rows().slice(0,20);
     for(let i=0;i<samples.length;i++){
-     const row=samples[i],icon=row.querySelector('.library-file-icon'),name=row.querySelector('.library-file-open')?.getAttribute('aria-label')||`Item ${i+1}`;
+     const row=samples[i],icon=row.querySelector(size==='small'?'.lh-mini':'.lh-thumb'),name=row.querySelector('.lh-name')?.textContent||`Item ${i+1}`;
      row.scrollIntoView({block:'center'});await pause(100);
      if(['image','video'].includes(kind)){
       const ok=!!icon&&await wait(()=>decoded(icon),13000);
-      assert(`${kind}-${size}-thumb-${i}`,`${kind} ${size} thumbnail: ${name.replace(/^Open /,'')}`,ok,'A decoded media preview is visible, rather than only a generic symbol.',ok?'Decoded preview is visible.':'No decoded media preview after 13 seconds; inspect asset loading or thumbnail rendering.',[...steps,`Select ${size} icons`,`Scroll to ${name}`],'.library-file-icon img');
-     }else assert(`${kind}-${size}-icon-${i}`,`${kind} ${size} icon: ${name.replace(/^Open /,'')}`,visible(icon),'An icon is visible.',visible(icon)?'Visible.':'Missing or hidden.',[...steps,`Select ${size} icons`],'.library-file-icon');
+      assert(`${kind}-${size}-thumb-${i}`,`${kind} ${viewName} thumbnail: ${name}`,ok,'A decoded media preview is visible, rather than only a generic symbol.',ok?'Decoded preview is visible.':'No decoded media preview after 13 seconds; inspect asset loading or thumbnail rendering.',[...steps,`Select ${viewName} view`,`Scroll to ${name}`],'.lh-thumb img, .lh-thumb video');
+     }else assert(`${kind}-${size}-icon-${i}`,`${kind} ${viewName} icon: ${name}`,visible(icon||null),'An icon is visible.',visible(icon||null)?'Visible.':'Missing or hidden.',[...steps,`Select ${viewName} view`],size==='small'?'.lh-mini':'.lh-thumb');
     }
-    if(rows().length>20)blocked(`${kind}-${size}-remaining`,`${kind} additional ${size} icons`,`${rows().length-20} additional items were not inspected. Live runs inspect up to 20 items per library per view.`);
+    if(rows().length>20)blocked(`${kind}-${size}-remaining`,`${kind} additional ${viewName} previews`,`${rows().length-20} additional items were not inspected. Live runs inspect up to 20 items per library per view.`);
    }
-   if(view&&(wants(`${kind}-small`)||wants(`${kind}-large`)))set(view,'list');
+   if(wants(`${kind}-small`)||wants(`${kind}-large`))await setView('grid');
    for(const width of [1440,1024,768])if(wants(`${kind}-width-${width}`)){
     frame.style.width=width+'px';await pause(150);
     assert(`${kind}-width-${width}`,`${kind} Library fits ${width}px`,d.documentElement.scrollWidth<=width+1,'Page fits the viewport; file tables may scroll internally.',`Page width ${d.documentElement.scrollWidth}px; viewport ${width}px.`,[...steps,`Set viewport to ${width}px`],'html','high');

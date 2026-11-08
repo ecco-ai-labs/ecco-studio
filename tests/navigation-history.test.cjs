@@ -5,10 +5,10 @@ test('Back restores the actual library view and search, then the unfinished stor
  const x=await setup();try{
   x.w.scrollTo=()=>{};x.w.EccoWorkspaceUI.startNewStory({id:'',format:''});await tick();
   input(x,'[name=title]','Keep this story');
-  await x.go('library');const search=x.q('.library-browser-tools input');search.value='Zebra';search.dispatchEvent(new x.w.Event('input'));await tick();
-  const view=x.q('.library-view-label select');view.value='large';view.dispatchEvent(new x.w.Event('change'));await tick();
+  await x.go('library');const search=x.q('#lh-search');search.value='Zebra';search.dispatchEvent(new x.w.Event('input',{bubbles:true}));await tick();
+  x.q('[data-act=view][data-view=list]').click();await tick();
   x.q('[aria-label="Model Garden"]').click();await tick();assert.equal(x.q('#heading').textContent,'Model Garden');
-  x.q('#workspace-back').click();await tick();assert.equal(x.q('.library-view-label select').value,'large');assert.equal(x.q('.library-browser-tools input').value,'Zebra');
+  x.q('#workspace-back').click();await tick();assert.equal(x.q('[data-act=view][data-view=list]').getAttribute('aria-pressed'),'true');assert.equal(x.q('#lh-search').value,'Zebra');
   x.q('#workspace-back').click();await tick();assert.equal(x.q('[name=title]').value,'Keep this story');assert.equal(x.q('#story-simple-tab-0').getAttribute('aria-selected'),'true');
   assert.deepEqual(x.errors,[]);
  }finally{x.close();}

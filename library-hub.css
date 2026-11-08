@@ -1,0 +1,123 @@
+/* Library hub: switcher, label tree, grid/list and details panel. */
+#workspace-library-group>.workspace-library-content>:not(#library-hub-nav){display:none!important}
+#library-hub-nav{display:flex;flex-direction:column;gap:8px;padding:2px 0 6px}
+#library-hub-nav button{font-family:inherit}
+.lh-libs{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.lh-libs button{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--ecco-theme-border,#3a3568);border-radius:7px;background:transparent;color:var(--ecco-theme-text,#f2f0ff);font-size:12px;cursor:pointer;text-align:left}
+.lh-libs button small{color:var(--ecco-theme-muted,#c9c5ea);font-size:10px}
+.lh-libs button[aria-current=page]{border-color:var(--accent,#ffdc24);color:var(--accent,#ffdc24);background:rgba(255,220,36,.08)}
+.lh-tree{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--ecco-theme-border,#3a3568);padding-top:6px}
+.lh-treehead{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ecco-theme-muted,#c9c5ea);padding:2px 4px 4px}
+.lh-trow{display:flex;align-items:center;gap:3px;min-height:28px}
+.lh-spacer{width:16px;flex:none}
+.lh-toggle{width:16px;height:16px;flex:none;padding:0;border:1px solid var(--ecco-theme-border,#4a4580);border-radius:3px;background:transparent;color:var(--accent,#ffdc24);font-size:12px;line-height:1;cursor:pointer;display:grid;place-items:center}
+.lh-node{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:6px;height:28px;padding:0 6px;border:0;border-radius:5px;background:transparent;color:var(--ecco-theme-text,#f2f0ff);font-size:12px;cursor:pointer;text-align:left}
+.lh-tree>.lh-node{padding-left:22px}
+.lh-node-text{display:flex;align-items:center;gap:6px;min-width:0}
+.lh-node-text span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lh-node svg{flex:none;color:var(--ecco-theme-muted,#c9c5ea)}
+.lh-node small{color:var(--ecco-theme-muted,#c9c5ea);font-size:10px}
+.lh-node:hover{background:rgba(255,255,255,.07)}
+.lh-node[aria-pressed=true]{background:rgba(255,220,36,.12);color:var(--accent,#ffdc24);box-shadow:inset 3px 0 var(--accent,#ffdc24)}
+.lh-newbtn{align-self:flex-start;margin:6px 0 0 4px;padding:3px 6px;border:0;background:transparent;color:var(--accent,#ffdc24);font-size:12px;cursor:pointer}
+.lh-new{display:flex;flex-direction:column;gap:3px;margin-top:6px;padding:8px;border:1px solid var(--ecco-theme-border,#3a3568);border-radius:7px}
+.lh-new label{font-size:10px;color:var(--ecco-theme-muted,#c9c5ea)}
+.lh-new input,.lh-new select{width:100%;padding:5px 7px;font-size:12px;box-sizing:border-box}
+.lh-pad{padding:6px 4px;font-size:11px}
+.lh button.link,#library-hub-nav button.link{background:transparent;border:0;padding:2px 4px;color:var(--accent,#ffdc24);font-size:12px;cursor:pointer;text-decoration:underline}
+.lh-muted{color:var(--ecco-theme-muted,#c9c5ea);font-size:12px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.lh{display:flex;flex-direction:column;gap:12px;min-width:0}
+.lh-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lh-crumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ecco-theme-muted,#c9c5ea);min-width:0}
+.lh-crumb .now{color:var(--ecco-theme-text,#f2f0ff);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lh-primary{background:var(--accent,#ffdc24)!important;color:#1a1633!important;border:0;border-radius:7px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer;text-decoration:none}
+.lh-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.lh-title{font-family:Georgia,serif;font-size:28px;font-weight:400;margin:0}
+.lh-meta{display:flex;gap:12px;align-items:center;color:var(--ecco-theme-muted,#c9c5ea);font-size:13px}
+.lh-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lh-tools input[type=search]{flex:1 1 220px;min-width:0;padding:8px 10px;font-size:13px}
+.lh-tools select{padding:8px 10px;font-size:13px;width:auto}
+.lh-seg{display:flex;border:1px solid var(--ecco-theme-border,#4a4580);border-radius:7px;overflow:hidden}
+.lh-seg button{border:0;border-radius:0;background:transparent;color:var(--ecco-theme-text,#f2f0ff);padding:8px 12px;font-size:13px;cursor:pointer}
+.lh-seg button[aria-pressed=true]{background:var(--accent,#ffdc24);color:#1a1633;font-weight:600}
+.lh-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.lh-chips[hidden],.lh-details[hidden]{display:none}
+.lh-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border:1px solid var(--ecco-theme-border,#4a4580);border-radius:999px;font-size:12px;background:rgba(255,255,255,.05)}
+.lh-chip.on{border-color:var(--accent,#ffdc24);color:var(--accent,#ffdc24)}
+.lh-chip button{border:0;background:transparent;color:inherit;cursor:pointer;padding:0 0 0 2px;font-size:14px;line-height:1}
+.lh-body{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.lh-body:has(.lh-details:not([hidden])){grid-template-columns:minmax(0,1fr) 300px}
+.lh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.lh-card{position:relative;display:flex;flex-direction:column;padding:0;border:1px solid var(--ecco-theme-border,#3a3568);border-radius:10px;background:var(--panel,#232048);color:inherit;cursor:pointer;text-align:left;overflow:hidden}
+.lh-card[aria-pressed=true],.lh-row[aria-pressed=true]{border-color:var(--accent,#ffdc24);box-shadow:0 0 0 1px var(--accent,#ffdc24)}
+.lh-thumb{display:grid;place-items:center;aspect-ratio:4/3;color:#fff;overflow:hidden}
+.lh-thumb img,.lh-thumb video{width:100%;height:100%;object-fit:cover}
+.lh-tick{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--accent,#ffdc24);color:#1a1633;display:grid;place-items:center;font-size:13px;font-weight:700}
+.lh-card-text{display:flex;flex-direction:column;gap:2px;padding:9px 10px}
+.lh-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lh-sub,.lh-lab{font-size:11px;color:var(--ecco-theme-muted,#c9c5ea);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lh-add{display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;min-height:150px;border:1px dashed var(--ecco-theme-border,#4a4580);border-radius:10px;background:transparent;color:var(--accent,#ffdc24);cursor:pointer;font-size:13px}
+.lh-add small{color:var(--ecco-theme-muted,#c9c5ea)}
+.lh-list{display:flex;flex-direction:column;border:1px solid var(--ecco-theme-border,#3a3568);border-radius:10px;overflow:hidden}
+.lh-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,2fr) 90px 160px;gap:12px;align-items:center;padding:8px 12px;border:0;border-bottom:1px solid var(--ecco-theme-border,#3a3568);background:transparent;color:inherit;font-size:12px;text-align:left;cursor:pointer;border-radius:0}
+.lh-row:last-child{border-bottom:0}
+.lh-headrow{cursor:default;color:var(--ecco-theme-muted,#c9c5ea);font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:rgba(255,255,255,.04)}
+.lh-row:not(.lh-headrow):hover{background:rgba(255,255,255,.05)}
+.lh-rowname{display:flex;align-items:center;gap:8px;min-width:0}
+.lh-mini{width:24px;height:24px;border-radius:4px;display:grid;place-items:center;overflow:hidden;flex:none;color:#fff}
+.lh-mini img,.lh-mini video{width:100%;height:100%;object-fit:cover}
+.lh-empty{padding:40px 12px;text-align:center;color:var(--ecco-theme-muted,#c9c5ea)}
+.lh-details{position:sticky;top:12px;display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid var(--ecco-theme-border,#3a3568);border-radius:12px;background:var(--panel,#232048)}
+.lh-dhead{display:flex;justify-content:space-between;align-items:center}
+.lh-dhead h3{margin:0;font-size:14px}
+.lh-dhead button{border:0;background:transparent;color:inherit;font-size:18px;cursor:pointer}
+.lh-preview{display:grid;place-items:center;gap:8px;min-height:140px;border-radius:8px;overflow:hidden;color:#fff;padding:0}
+.lh-preview img,.lh-preview video{width:100%;max-height:220px;object-fit:contain}
+.lh-preview audio{width:92%;margin:0 0 10px}
+.lh-field{display:flex;flex-direction:column;gap:4px}
+.lh-field label,.lh-flabel{font-size:11px;color:var(--ecco-theme-muted,#c9c5ea)}
+.lh-field input{padding:7px 9px;font-size:13px}
+.lh-field small{color:var(--ecco-theme-muted,#c9c5ea);font-size:11px}
+.lh-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+.lh-facts dt{font-size:11px;color:var(--ecco-theme-muted,#c9c5ea)}
+.lh-facts dd{margin:0;font-size:12px}
+.lh-chips-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.lh-addlabel{padding:3px 9px;border:1px dashed var(--accent,#ffdc24);border-radius:999px;background:transparent;color:var(--accent,#ffdc24);font-size:12px;cursor:pointer}
+.lh-menu{display:flex;flex-direction:column;max-height:200px;overflow:auto;margin-top:6px;border:1px solid var(--ecco-theme-border,#4a4580);border-radius:8px;padding:4px}
+.lh-menu button{display:flex;align-items:center;gap:8px;padding:5px 8px;border:0;border-radius:5px;background:transparent;color:inherit;font-size:12px;cursor:pointer;text-align:left}
+.lh-menu button:hover:not(:disabled){background:rgba(255,255,255,.08)}
+.lh-box{width:14px;height:14px;border:1px solid var(--ecco-theme-border,#4a4580);border-radius:3px;display:grid;place-items:center;font-size:10px;color:var(--accent,#ffdc24)}
+.lh-actions{display:flex;flex-direction:column;gap:8px}
+.lh-actions .lh-primary,.lh-btn,.lh-danger{display:block;text-align:center;box-sizing:border-box;width:100%}
+.lh-btn{padding:8px 14px;border:1px solid var(--ecco-theme-border,#4a4580);border-radius:7px;color:inherit;text-decoration:none;font-size:13px}
+.lh-danger{padding:8px 14px;border:1px solid var(--ecco-theme-error,#ffb4b4);border-radius:7px;background:transparent;color:var(--ecco-theme-error,#ffb4b4);font-size:13px;cursor:pointer}
+.lh-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1000;padding:10px 16px;border-radius:8px;background:#f2f0ff;color:#1a1633;font-size:13px;box-shadow:0 8px 24px #0006}
+.lh-viewer{max-width:92vw;max-height:92vh;padding:12px}
+.lh-viewer-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.lh-viewer-body img{max-width:86vw;max-height:78vh;display:block}
+@media(max-width:900px){.lh-body:has(.lh-details:not([hidden])){grid-template-columns:minmax(0,1fr)}.lh-details{position:static}.lh-row{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}.lh-row>:nth-child(n+3){display:none}.lh-title{font-size:22px}}
+/* The sidebar theme flattens every button; the +/− toggles and the library switcher are the approved boxed exceptions. */
+html body>aside #library-hub-nav .lh-toggle{border:1px solid var(--ecco-theme-border,#4a4580)!important;border-radius:3px!important;color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
+html body>aside #library-hub-nav .lh-libs button{border:1px solid var(--ecco-theme-border,#3a3568)!important;border-radius:7px!important}
+html body>aside #library-hub-nav .lh-libs button[aria-current=page]{border-color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important;background:rgba(255,220,36,.08)!important}
+html body>aside #library-hub-nav .lh-node[aria-pressed=true]{background:rgba(255,220,36,.12)!important;box-shadow:inset 3px 0 var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
+html body>aside #library-hub-nav .lh-node:hover{background:rgba(255,255,255,.07)!important}
+html body>aside #library-hub-nav .lh-node{height:28px!important;min-height:0!important;padding-top:0!important;padding-bottom:0!important;line-height:1.2!important}
+html body>aside #library-hub-nav .lh-toggle{width:16px!important;height:16px!important;min-height:0!important;padding:0!important}
+/* Beat the shared compact-button rule in workspace-ui.css, which would otherwise pad every button to 32px. */
+body:not(.workspace-entry-mode) #workspace-library-group #library-hub-nav button.lh-node{height:28px!important;min-height:0!important;padding:0 6px!important;line-height:1.2!important;font-weight:400!important}
+body:not(.workspace-entry-mode) #workspace-library-group #library-hub-nav button.lh-toggle{width:16px!important;height:16px!important;min-height:0!important;padding:0!important;line-height:1!important}
+body:not(.workspace-entry-mode) #workspace-library-group #library-hub-nav .lh-libs button{min-height:0!important;padding:6px 9px!important;font-weight:400!important}
+body:not(.workspace-entry-mode) #workspace-library-group #library-hub-nav :is(button.link,button.lh-newbtn){min-height:0!important;padding:3px 6px!important;font-weight:400!important}
+body:not(.workspace-entry-mode) #page#page .lh :is(button.lh-card,button.lh-row){min-height:0!important;padding:0!important;font-weight:400!important;line-height:1.3!important}
+body:not(.workspace-entry-mode) #page#page .lh button.lh-row{padding:8px 12px!important}
+body:not(.workspace-entry-mode) #page#page .lh button.lh-add{min-height:150px!important;font-weight:400!important}
+body:not(.workspace-entry-mode) #page#page .lh :is(button.link,.lh-chip button,.lh-dhead button,.lh-addlabel){min-height:0!important;padding:2px 6px!important;font-weight:400!important}
+body:not(.workspace-entry-mode) #page#page .lh .lh-chip button{padding:0 0 0 2px!important}
+body:not(.workspace-entry-mode) #page#page .lh .lh-addlabel{padding:3px 9px!important}
+body:not(.workspace-entry-mode) #page#page .lh .lh-menu button{min-height:0!important;padding:5px 8px;font-weight:400!important}
+body:not(.workspace-entry-mode) #page#page .lh .lh-seg button{min-height:0!important;padding:8px 12px!important}
+/* At tablet widths the top ribbon would push past the viewport on Library pages; let it wrap instead. */
+@media(max-width:1100px){body:has(#page .lh) .workspace-ribbon{flex-wrap:wrap!important}body:has(#page .lh) .workspace-ribbon .header-right{flex-wrap:wrap!important;max-width:100%}body:has(#page .lh) #workspace-menus{flex-wrap:wrap}}

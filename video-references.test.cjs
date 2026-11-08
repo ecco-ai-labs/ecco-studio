@@ -50,7 +50,7 @@ test('Audio Genre and Recording title belong to a collapsed References dropdown'
  const x=await setup();await x.go('audio');const refs=x.q('[data-section="references"]');assert.equal(refs.querySelector('details').open,false);assert.ok(refs.querySelector('[name=genre]'));assert.ok(refs.querySelector('[name=title]'));assert.equal(x.q('[data-settings] [name=genre]'),null);assert.equal(x.q('[data-settings] [name=title]'),null);assert.ok(x.q('[data-settings] [name=speed]'));assert.deepEqual(x.errors,[]);await x.close();
 });
 
-test('Video Library overview, sidebar and reference picker show the same saved videos',async()=>{
+test('Video Library, switcher count and reference picker show the same saved videos',async()=>{
  const x=await setup({'ecco-active-story':'video-story'});
  const video=(id,extra={})=>({id,kind:'asset',media:'video',title:id,path:id+'.mp4',story_id:'video-story',stage:'prod',...extra});
  x.w.testUI.addRecords([
@@ -59,9 +59,9 @@ test('Video Library overview, sidebar and reference picker show the same saved v
   video('archived-video',{story_id:'archived-story'}),video('missing-story-video',{story_id:'missing-story'})
  ]);
  x.w.testUI.refreshStories();await x.go('render');await tick();
- x.q('#workspace-video-library > summary').click();
- assert.deepEqual([...x.w.document.querySelectorAll('#video-library-gallery video')].map(v=>v.dataset.asset),['saved-video']);
- assert.deepEqual([...x.w.document.querySelectorAll('#workspace-video-library [name=youtube-library-video]')].map(v=>v.value),['saved-video']);
+ x.q('#workspace-library-group > summary').click();x.q('#library-hub-nav [data-lib="video"]').click();await tick();
+ assert.deepEqual([...x.w.document.querySelectorAll('#page .lh-card video')].map(v=>v.dataset.asset),['saved-video']);
+ assert.equal(x.q('#library-hub-nav [data-lib="video"] small').textContent,'1');
  await x.go('render');
  const source=x.q('[data-reference-library]');source.value='video';source.dispatchEvent(new x.w.Event('change',{bubbles:true}));
  x.q('[data-open-library]').click();

@@ -2,6 +2,7 @@ const {test,afterEach}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM,VirtualConsole}=require('jsdom');
+const {openCard,deleteCard}=require('./library-hub-test-helpers.cjs');
 const tick=()=>new Promise(resolve=>setTimeout(resolve,35));
 const cleanups=new Set();
 afterEach(()=>{for(const close of cleanups)close();});
@@ -128,7 +129,7 @@ test('a remembered unsaved Audio draft does not choose the new session format or
  const x=await setup(stored,{autoConnect:true});assert.equal(x.nav().length,6);
  for(const [key,value] of Object.entries(stored))assert.equal(x.w.localStorage.getItem(key),value);
  await x.go('story-setup');assert.equal(x.q('[name=story_format]').value,'');assert.equal(x.q('[name=title]').value,'');assert.equal(x.nav().length,6);
- await x.go('story-library');x.q('[data-local-story-id]').click();await tick();
+ await x.go('story-library');await openCard(x,'[data-local-story-id]');
  assert.equal(x.q('[name=title]').value,'Unfinished draft');assert.equal(x.q('[name=story_format]').value,'audio');assert.equal(x.nav().length,3);
  assert.equal(x.w.testUI.getDraft().scenes[0].narration,'Keep this unsaved scene');
  await x.choose('audio');assert.equal(x.nav().length,3);
@@ -140,11 +141,11 @@ test('entry links to a story-only icon library without selecting a story',async(
  const records=[{id:'arabian',kind:'story',title:'Arabian Nights',summary:'A tale of a merchant and a genie.'},{id:'news',kind:'story',title:'Finance News',summary:'Today’s finance headlines.'}];
  const x=await setup({}, {autoConnect:true,records});
  x.q('#entry-tell-story').click();await tick();assert.equal(x.q('#heading').textContent,'');assert.equal(x.q('#open-story-library'),null);assert.equal(x.q('#page').textContent.trim(),'');assert.equal(x.w.testUI.activeStory(),'');
- await x.go('story-setup');x.q('[data-story-library]').click();await tick();assert.equal(x.q('#heading').textContent,'Story Library');assert.equal(x.q('#story-library-list .text-library-card').querySelector('svg')!==null,true);
- assert.equal(x.q('#story-library-list').querySelectorAll('.text-library-card').length,2);assert.equal(x.q('#image-form'),null);assert.equal(x.w.testUI.activeStory(),'');
- x.q('[data-story-id="arabian"]').click();await tick();assert.equal(x.q('#heading').textContent,'Storyboard');assert.equal(x.q('#story-text').value,'A tale of a merchant and a genie.');assert.equal(x.q('#image-form'),null);
- await x.go('story-library');x.q('[data-story-id="news"]').click();await tick();assert.equal(x.q('#story-text').value,'Today’s finance headlines.');
- await x.go('story-library');x.q('[data-story-id="arabian"]').click();await tick();assert.equal(x.q('#story-text').value,'A tale of a merchant and a genie.');assert.deepEqual(x.errors,[]);x.close();
+ await x.go('story-setup');x.q('[data-story-library]').click();await tick();assert.equal(x.q('#heading').textContent,'Story Library');assert.equal(x.q('.lh-card .lh-thumb svg')!==null,true);
+ assert.equal(x.q('.lh-results').querySelectorAll('.lh-card[data-story-id]').length,2);assert.equal(x.q('#image-form'),null);assert.equal(x.w.testUI.activeStory(),'');
+ await openCard(x,'[data-story-id="arabian"]');assert.equal(x.q('#heading').textContent,'Storyboard');assert.equal(x.q('#story-text').value,'A tale of a merchant and a genie.');assert.equal(x.q('#image-form'),null);
+ await x.go('story-library');await openCard(x,'[data-story-id="news"]');assert.equal(x.q('#story-text').value,'Today’s finance headlines.');
+ await x.go('story-library');await openCard(x,'[data-story-id="arabian"]');assert.equal(x.q('#story-text').value,'A tale of a merchant and a genie.');assert.deepEqual(x.errors,[]);x.close();
 });
 
 test('foreign-owned description and scene caches cannot appear under Arabian Nights',async()=>{
@@ -157,7 +158,7 @@ test('foreign-owned description and scene caches cannot appear under Arabian Nig
 test('new stories are blank and saved drafts remain separately selectable',async()=>{
  const x=await setup({'ecco-new-story-draft':JSON.stringify({title:'News draft',genre:'News',news_topic:'Finance',summary:'Finance script',story_format:'audio'}),'ecco-board-new-draft':JSON.stringify({title:'News draft',story:'Finance script',scenes:[{narration:'A news scene'}]})});
  await x.go('story-setup');assert.equal(x.q('[name=title]').value,'');assert.equal(x.q('[name=genre]').value,'');assert.equal(x.q('[name=summary]').value,'');assert.equal(x.q('[name=story_format]').value,'');
- await x.go('story-library');x.q('[data-local-story-id]').click();await tick();assert.equal(x.q('[name=title]').value,'News draft');assert.equal(x.q('[name=summary]').value,'Finance script');assert.equal(x.w.testUI.getDraft().scenes[0].narration,'A news scene');
+ await x.go('story-library');await openCard(x,'[data-local-story-id]');assert.equal(x.q('[name=title]').value,'News draft');assert.equal(x.q('[name=summary]').value,'Finance script');assert.equal(x.w.testUI.getDraft().scenes[0].narration,'A news scene');
  assert.deepEqual(x.errors,[]);x.close();
 });
 
@@ -170,17 +171,17 @@ test('a delayed story save does not take over a different selected story',async(
 
 test('story delete buttons archive the clicked story without opening its editor',async()=>{
  const x=await setup();x.w.testUI.setAPI(async(path,body)=>{x.w.testCalls.push({path,body});if(path==='stories/archive')x.w.fixtureState.records.find(row=>row.id===body.story_id).deleted=!body.restore;return {};});await x.go('story-library');
- x.q('#story-library-list [aria-label="Delete Video Story"]').click();await tick();await tick();
+ await deleteCard(x,'[data-story-id="video-story"]');
  assert.deepEqual(JSON.parse(JSON.stringify(x.w.testCalls[0])),{path:'stories/archive',body:{story_id:'video-story'}});assert.equal(x.q('[data-story-id="video-story"]'),null);assert.equal(x.w.testUI.activeStory(),'');assert.equal(x.q('#image-form'),null);
  await x.go('trash');assert.match(x.q('#trash-items').textContent,/Video Story/);assert.deepEqual(x.errors,[]);x.close();
 });
 
 test('workflow library shows icons and reversible delete controls without opening a default workflow',async()=>{
  const x=await setup({'ecco-workflow-drafts':JSON.stringify([{id:'workflow-a',name:'Evening headlines',prompt:'Review today’s headlines',count:5,duration:60}])});
- await x.go('workflow-library');assert.equal(x.q('#workflow-form'),null);assert.ok(x.q('#workflow-library-list svg'));assert.equal(x.w.testUI.activeStory(),'');
- x.q('#workflow-library-list [aria-label="Delete Evening headlines"]').click();await tick();assert.equal(x.q('#workflow-library-list .text-library-card'),null);
- await x.go('trash');x.q('[aria-label="Restore Evening headlines"]').click();await tick();await x.go('workflow-library');assert.ok(x.q('#workflow-library-list .text-library-card'));
- x.q('#workflow-library-new').click();await tick();x.q('[name=workflow-type][value=video]').click();x.q('#workflow-start [data-continue]').click();await tick();assert.equal(x.q('#workflow-form [name=name]').value,'');assert.equal(x.q('#workflow-form [name=prompt]').value,'');assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);x.close();
+ await x.go('workflow-library');assert.equal(x.q('#workflow-form'),null);assert.ok(x.q('.lh-card .lh-thumb svg'));assert.equal(x.w.testUI.activeStory(),'');
+ await deleteCard(x,'[data-workflow-id="workflow-a"]');assert.equal(x.q('[data-workflow-id="workflow-a"]'),null);
+ await x.go('trash');x.q('[aria-label="Restore Evening headlines"]').click();await tick();await x.go('workflow-library');assert.ok(x.q('[data-workflow-id="workflow-a"]'));
+ x.q('.lh-top [data-act=upload]').click();await tick();x.q('[name=workflow-type][value=video]').click();x.q('#workflow-start [data-continue]').click();await tick();assert.equal(x.q('#workflow-form [name=name]').value,'');assert.equal(x.q('#workflow-form [name=prompt]').value,'');assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);x.close();
 });
 
 test('Research Prompt starts with the selected story script without making an AI request',async()=>{
@@ -191,9 +192,9 @@ test('Research Prompt starts with the selected story script without making an AI
 
 test('selecting a saved story does not empty a separate unfinished draft; deleting that draft is reversible',async()=>{
  const x=await setup({'ecco-new-story-draft':JSON.stringify({title:'Unfinished narration',summary:'Keep these words',story_format:'audio'}),'ecco-board-new-draft':JSON.stringify({title:'Unfinished narration',story:'Keep these words',scenes:[{narration:'Keep this scene'}]})});
- x.w.EccoWorkspaceUI.openStory('video-story');await tick();await x.go('story-library');x.q('[data-local-story-id]').click();await tick();assert.equal(x.w.testUI.getDraft().scenes[0].narration,'Keep this scene');
- await x.go('story-library');x.q('#story-library-list [aria-label="Delete Unfinished narration"]').click();await tick();assert.equal(x.q('[data-local-story-id]'),null);
- await x.go('trash');x.q('[aria-label="Restore Unfinished narration"]').click();await tick();await x.go('story-library');x.q('[data-local-story-id]').click();await tick();assert.equal(x.w.testUI.getDraft().scenes[0].narration,'Keep this scene');assert.deepEqual(x.errors,[]);x.close();
+ x.w.EccoWorkspaceUI.openStory('video-story');await tick();await x.go('story-library');await openCard(x,'[data-local-story-id]');assert.equal(x.w.testUI.getDraft().scenes[0].narration,'Keep this scene');
+ await x.go('story-library');await deleteCard(x,'[data-local-story-id]');assert.equal(x.q('[data-local-story-id]'),null);
+ await x.go('trash');x.q('[aria-label="Restore Unfinished narration"]').click();await tick();await x.go('story-library');await openCard(x,'[data-local-story-id]');assert.equal(x.w.testUI.getDraft().scenes[0].narration,'Keep this scene');assert.deepEqual(x.errors,[]);x.close();
 });
 
 test('Story Format is a separate Audio/Video toggle immediately before Upload with no default',async()=>{
