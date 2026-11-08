@@ -1,6 +1,8 @@
-#workspace-back{font-size:12px!important;font-weight:500!important;min-height:30px;padding:5px 8px!important;white-space:nowrap;color:var(--ecco-theme-text,#fff)!important;background:transparent!important;border:0!important;box-shadow:none!important}
-#workspace-back:hover,#workspace-back:focus-visible{color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
+#workspace-back{font-size:12px!important;font-weight:500!important;min-height:30px;padding:5px 8px!important;white-space:nowrap;background:transparent!important;border:0!important;box-shadow:none!important}
+#workspace-back,#page [data-screen-back],#journey-guide [data-back],#story-workspace-header .ecco-page-back{color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
 #workspace-back:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
 #workspace-back{display:block;margin:0 0 2px -8px}
 #workspace-back[hidden]{display:none!important}
 .desk-studio-toolbar:has([data-screen-back]){display:none}
+
+#page [data-screen-back]{background:transparent!important}
