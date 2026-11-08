@@ -322,10 +322,10 @@
   document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
  }
  function libraryHome(){
-  if(window.EccoLibraryHub)return;
   homePage('library-home','Library');
   const choices=[['story','Story Library','.project > details > summary'],['image','Image Library','#image-library-nav > details > summary'],['audio','Audio Library','#workspace-audio-library > summary'],['video','Video Library','#workspace-video-library > summary'],['workflow','Workflow Library','#workflow-library > summary']];
   homeList('library-home',choices.map(([kind,title,selector])=>({key:kind,title,icon:kind,destination:'libraryDestination',run:()=>{
+   if(window.EccoLibraryHub){q('#workspace-library-group').open=true;window.EccoLibraryHub.open(kind);return;}
    const summary=q(selector);if(!summary)return;q('#workspace-library-group').open=true;summary.click();summary.closest('details').open=true;librarySelection();summary.focus({preventScroll:true});summary.scrollIntoView({block:'nearest'});
   }})));
   journeyGuide();librarySelection();

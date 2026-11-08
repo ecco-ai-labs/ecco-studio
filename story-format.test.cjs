@@ -141,8 +141,8 @@ test('entry links to a story-only icon library without selecting a story',async(
  const records=[{id:'arabian',kind:'story',title:'Arabian Nights',summary:'A tale of a merchant and a genie.'},{id:'news',kind:'story',title:'Finance News',summary:'Today’s finance headlines.'}];
  const x=await setup({}, {autoConnect:true,records});
  x.q('#entry-tell-story').click();await tick();assert.equal(x.q('#heading').textContent,'');assert.equal(x.q('#open-story-library'),null);assert.equal(x.q('#page').textContent.trim(),'');assert.equal(x.w.testUI.activeStory(),'');
- await x.go('story-setup');x.q('[data-story-library]').click();await tick();assert.equal(x.q('#heading').textContent,'Story Library');assert.equal(x.q('.lh-card .lh-thumb svg')!==null,true);
- assert.equal(x.q('.lh-results').querySelectorAll('.lh-card[data-story-id]').length,2);assert.equal(x.q('#image-form'),null);assert.equal(x.w.testUI.activeStory(),'');
+ await x.go('story-setup');x.q('[data-story-library]').click();await tick();assert.equal(x.q('#heading').textContent,'Story Library');assert.equal(x.q('.lh-results svg')!==null,true);
+ assert.equal(x.q('.lh-results').querySelectorAll('[data-story-id]').length,2);assert.equal(x.q('#image-form'),null);assert.equal(x.w.testUI.activeStory(),'');
  await openCard(x,'[data-story-id="arabian"]');assert.equal(x.q('#heading').textContent,'Storyboard');assert.equal(x.q('#story-text').value,'A tale of a merchant and a genie.');assert.equal(x.q('#image-form'),null);
  await x.go('story-library');await openCard(x,'[data-story-id="news"]');assert.equal(x.q('#story-text').value,'Today’s finance headlines.');
  await x.go('story-library');await openCard(x,'[data-story-id="arabian"]');assert.equal(x.q('#story-text').value,'A tale of a merchant and a genie.');assert.deepEqual(x.errors,[]);x.close();
@@ -178,7 +178,7 @@ test('story delete buttons archive the clicked story without opening its editor'
 
 test('workflow library shows icons and reversible delete controls without opening a default workflow',async()=>{
  const x=await setup({'ecco-workflow-drafts':JSON.stringify([{id:'workflow-a',name:'Evening headlines',prompt:'Review today’s headlines',count:5,duration:60}])});
- await x.go('workflow-library');assert.equal(x.q('#workflow-form'),null);assert.ok(x.q('.lh-card .lh-thumb svg'));assert.equal(x.w.testUI.activeStory(),'');
+ await x.go('workflow-library');assert.equal(x.q('#workflow-form'),null);assert.ok(x.q('.lh-results svg'));assert.equal(x.w.testUI.activeStory(),'');
  await deleteCard(x,'[data-workflow-id="workflow-a"]');assert.equal(x.q('[data-workflow-id="workflow-a"]'),null);
  await x.go('trash');x.q('[aria-label="Restore Evening headlines"]').click();await tick();await x.go('workflow-library');assert.ok(x.q('[data-workflow-id="workflow-a"]'));
  x.q('.lh-top [data-act=upload]').click();await tick();x.q('[name=workflow-type][value=video]').click();x.q('#workflow-start [data-continue]').click();await tick();assert.equal(x.q('#workflow-form [name=name]').value,'');assert.equal(x.q('#workflow-form [name=prompt]').value,'');assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);x.close();

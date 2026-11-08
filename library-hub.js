@@ -31,7 +31,7 @@
  const HUES=['#2b3f6e','#5a3a5e','#2f5a58','#6a4a2a','#3c3a7a','#5a2f3f','#35604a'];
  const hue=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return HUES[h%HUES.length];};
  const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback;}catch{return fallback;}};
- const ui=Object.fromEntries(ORDER.map(k=>[k,{filters:[],q:'',type:'all',sort:'new',view:localStorage.getItem('ecco-library-view-'+k)==='list'?'list':'grid',sel:''}]));
+ const ui=Object.fromEntries(ORDER.map(k=>[k,{filters:[],q:'',type:'all',sort:'new',view:localStorage.getItem('ecco-library-view-'+k)==='grid'?'grid':'list',sel:''}]));
  const expanded=new Set(read('ecco-library-hub-open',[]));
  let current='image',menu=false,newOpen=false,newParent='',toastTimer=null,renaming=null;
 
