@@ -64,7 +64,7 @@
   document.body.append(dialog);
   const scroll=dialog.querySelector('.pdf-page-scroll'),selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]');
   const feedback=dialog.querySelector('[data-selection-feedback]');
-  let task=null,doc=null,pdfjs=null,file=null,metadataTitle='',ready=false,busy=false,disposed=false,epoch=0,opener=null,observer=null,sizeObserver=null,shells=[],renderQueue=[],rendering=0,selectionMeta={},pageText=null,chapterEntries=[],selectionEpoch=0,lastCaptured=null,linePosition=0;
+  let task=null,doc=null,pdfjs=null,file=null,metadataTitle='',ready=false,busy=false,disposed=false,epoch=0,opener=null,observer=null,sizeObserver=null,shells=[],renderQueue=[],rendering=0,selectionMeta={},pageText=null,chapterEntries=[],selectionEpoch=0,lastCaptured=null,linePosition=0,previewErrorShown=false;
   const aiPrompt=dialog.querySelector('[data-ai-prompt]'),improve=dialog.querySelector('[data-improve-selection]'),aiStatus=dialog.querySelector('[data-ai-status]'),aiSuggestion=dialog.querySelector('[data-ai-suggestion]'),applyImprovement=dialog.querySelector('[data-apply-improvement]');
   let aiBusy=false,aiRequest=0,aiContext=null,hasSuggestion=false,aiNotice=null;
   const outputId='source-ai-output-'+crypto.randomUUID();aiSuggestion.id=outputId;dialog.querySelector('.pdf-ai-output-label').htmlFor=outputId;
@@ -75,7 +75,7 @@
   for(const field of aiSettings?.fields||[]){
    const label=document.createElement('label');label.textContent=field.label;const select=document.createElement('select');select.dataset.aiSetting=field.name;select.setAttribute('aria-label',field.label);select.add(new Option('Choose…',''));
    for(const entry of field.options){const [value,text]=Array.isArray(entry)?entry:[entry,entry];select.add(new Option(text,value));}
-   select.onchange=()=>{try{aiSettings.onChange({[field.name]:select.value});resetAI('Story settings changed. Improve again to use your current choices.');syncAISettings();}catch(error){syncAISettings();aiStatus.textContent=error.message;}};
+   select.onchange=()=>{try{aiSettings.onChange({[field.name]:select.value});resetAI('Story settings changed. Improve again to use your current choices.');syncAISettings();}catch(error){syncAISettings();aiStatus.textContent=error.message;window.EccoErrors?.show(error,{title:'Unable to change story settings'});}};
    label.append(select);settingsRoot.append(label);
   }
   settingsRoot.hidden=!settingsRoot.children.length;
@@ -196,7 +196,7 @@
    if(event.type==='keyup'&&event.shiftKey)return;const selection=window.getSelection();
    if(selection?.rangeCount&&scroll.contains(selection.anchorNode)&&scroll.contains(selection.focusNode)){
     const text=selection.toString().trim(),range=selection.getRangeAt(0),current={start:range.startContainer,startOffset:range.startOffset,end:range.endContainer,endOffset:range.endOffset,text};
-    if(text&&(!lastCaptured||Object.keys(current).some(key=>lastCaptured[key]!==current[key]))){try{appendSelection(text);lastCaptured=current;feedback.textContent='Excerpt added. Earlier selections are preserved.';}catch(error){feedback.textContent=error.message;}}
+    if(text&&(!lastCaptured||Object.keys(current).some(key=>lastCaptured[key]!==current[key]))){try{appendSelection(text);lastCaptured=current;feedback.textContent='Excerpt added. Earlier selections are preserved.';}catch(error){feedback.textContent=error.message;window.EccoErrors?.show(error,{title:'Unable to select story text'});}}
    }
    reportSelection();
   };
@@ -230,7 +230,7 @@
     }
 
     shell.dataset.rendered='true';shell.removeAttribute('aria-busy');
-   }catch(error){if(generation===epoch){shell.removeAttribute('aria-busy');note.textContent='Could not preview page '+shell.dataset.page+': '+error.message;}}
+   }catch(error){if(generation===epoch){shell.removeAttribute('aria-busy');note.textContent='Could not preview page '+shell.dataset.page+': '+error.message;if(!previewErrorShown){previewErrorShown=true;window.EccoErrors?.show(error,{title:'Unable to preview PDF'});}}}
   }
   function pump(){while(rendering<2&&renderQueue.length){const {shell,generation}=renderQueue.shift();rendering++;renderPage(shell,generation).finally(()=>{rendering--;pump();});}}
   function enqueue(shell){if(!shell||shell.dataset.queued||shell.dataset.rendered)return;shell.dataset.queued='true';renderQueue.push({shell,generation:epoch});pump();}
@@ -247,7 +247,7 @@
    if(window.ResizeObserver){sizeObserver=new ResizeObserver(()=>shells.forEach(fitPage));sizeObserver.observe(scroll);}
   }
   function open(from){if(disposed)return;refreshAISettings();opener=from||document.activeElement;if(!dialog.open)dialog.showModal();shells.forEach(fitPage);scroll.focus();}
-  function clear(){epoch++;selectionEpoch++;selectionMeta={};lastCaptured=null;linePosition=0;pageText=null;chapterEntries=[];dialog.querySelector('[data-chapter-list]').replaceChildren(new Option('Choose a chapter',''));dialog.querySelector('[data-chapter-list-label]').hidden=true;feedback.textContent='';dialog.querySelector('[data-document-selection]').hidden=true;observer?.disconnect();observer=null;sizeObserver?.disconnect();sizeObserver=null;resetAI();renderQueue=[];shells=[];file=null;doc=null;ready=false;busy=false;metadataTitle='';selected.value='';note.textContent='';dialog.querySelector('[data-document-info]').textContent='';dialog.querySelectorAll('[data-pages],[data-chapter],[data-find-text],[data-replace-text],[data-ai-prompt]').forEach(el=>el.value='');closeMenus();scope.value='line';replaceFeedback.textContent='Click a line in Selected Text to target it. Matches use exact text.';scroll.replaceChildren();controls();updateReplace();const previous=task;task=null;if(previous)void previous.destroy().catch(()=>{});if(dialog.open)dialog.close();}
+  function clear(){previewErrorShown=false;epoch++;selectionEpoch++;selectionMeta={};lastCaptured=null;linePosition=0;pageText=null;chapterEntries=[];dialog.querySelector('[data-chapter-list]').replaceChildren(new Option('Choose a chapter',''));dialog.querySelector('[data-chapter-list-label]').hidden=true;feedback.textContent='';dialog.querySelector('[data-document-selection]').hidden=true;observer?.disconnect();observer=null;sizeObserver?.disconnect();sizeObserver=null;resetAI();renderQueue=[];shells=[];file=null;doc=null;ready=false;busy=false;metadataTitle='';selected.value='';note.textContent='';dialog.querySelector('[data-document-info]').textContent='';dialog.querySelectorAll('[data-pages],[data-chapter],[data-find-text],[data-replace-text],[data-ai-prompt]').forEach(el=>el.value='');closeMenus();scope.value='line';replaceFeedback.textContent='Click a line in Selected Text to target it. Matches use exact text.';scroll.replaceChildren();controls();updateReplace();const previous=task;task=null;if(previous)void previous.destroy().catch(()=>{});if(dialog.open)dialog.close();}
   async function load(chosen,from,{show=true}={}){
    if(disposed)throw Error('Reopen the source picker.');
    if(!chosen||chosen.size>20*1024*1024)throw Error('Choose a PDF or text document smaller than 20 MB.');
@@ -301,7 +301,7 @@
     }
     assertCurrent();if(!selection.text)throw Error('No readable text was found in that selection.');if(selection.text.length>maxSelection)throw Error('The selection exceeds '+maxSelection.toLocaleString()+' characters. Choose a smaller passage; nothing was truncated.');
     appendSelection(selection.text,{pages:selection.pages,selection_label:selection.selection_label});feedback.textContent=selection.selection_label+' added · '+selection.text.length.toLocaleString()+' characters. Earlier selections are preserved.';closeMenus();selected.focus();selected.setSelectionRange(selected.value.length,selected.value.length);
-   }catch(error){if(generation===epoch&&token===selectionEpoch&&!disposed)feedback.textContent=note.textContent=error.message;}
+   }catch(error){if(generation===epoch&&token===selectionEpoch&&!disposed){feedback.textContent=note.textContent=error.message;window.EccoErrors?.show(error,{title:'Unable to select story text'});}}
    finally{if(generation===epoch&&!disposed){busy=false;button.textContent=idle;button.setAttribute('aria-busy','false');controls();updateReplace();}}
   }
   dialog.querySelector('[data-chapter]').oninput=()=>{dialog.querySelector('[data-chapter-list]').value='';};
@@ -316,7 +316,7 @@
     const selection={text:selected.value.trim(),name:file.name,title:metadataTitle&&metadataTitle!=='Untitled'?metadataTitle:file.name.replace(/\.[^.]+$/,'').replace(/[_-]/g,' '),scope:'selected',...selectionMeta};
     if(reviewSelection){busy=true;controls();updateReplace();extract.setAttribute('aria-busy','true');extract.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Checking Story Fit…';note.textContent='Checking selected text against Story Details…';const accepted=await reviewSelection(selection,valid,extract);valid();if(!accepted){note.textContent='Source was not applied. Choose different text or update Story Details.';return;}}
     valid();onApply(selection);dialog.close();
-   }catch(error){if(generation===epoch&&!disposed)note.textContent=error.message;}
+   }catch(error){if(generation===epoch&&!disposed){note.textContent=error.message;window.EccoErrors?.show(error,{title:'Unable to use story text'});}}
    finally{if(generation===epoch&&!disposed){busy=false;extract.textContent=applyLabel;extract.setAttribute('aria-busy','false');controls();updateReplace();if(reviewSelection&&dialog.open)(extract.disabled?selected:extract).focus();}}
   };
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
@@ -339,7 +339,7 @@
    }
    reportSelection();updateReplace();
   }
-  if(onSave){const save=document.createElement('button');save.type='button';save.className='secondary';save.textContent='Save Draft';save.dataset.saveSourceDraft='';dialog.querySelector('[data-clear-selection]').before(save);save.onclick=async()=>{save.disabled=true;save.setAttribute('aria-busy','true');save.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Saving Draft…';try{await onSave();note.textContent='Draft saved in this browser. You can return to it later.';}catch(error){note.textContent=error.message;}finally{save.disabled=false;save.setAttribute('aria-busy','false');save.textContent='Save Draft';}};}
+  if(onSave){const save=document.createElement('button');save.type='button';save.className='secondary';save.textContent='Save Draft';save.dataset.saveSourceDraft='';dialog.querySelector('[data-clear-selection]').before(save);save.onclick=async()=>{save.disabled=true;save.setAttribute('aria-busy','true');save.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Saving Draft…';try{await onSave();note.textContent='Draft saved in this browser. You can return to it later.';}catch(error){note.textContent=error.message;window.EccoErrors?.show(error,{title:'Unable to save selection'});}finally{save.disabled=false;save.setAttribute('aria-busy','false');save.textContent='Save Draft';}};}
   return {load,open,clear,snapshot,restore,get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
  }
  window.EccoSourcePicker={create};

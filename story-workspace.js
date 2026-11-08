@@ -13,7 +13,7 @@
  let data=null,legacy={},enabled=false,rendering=false,epoch=0,picker=null,pickerOwner='',sourcePending=false,saving=null,aiRequest=null,queued=false,workspaceStory='';
  const owner=()=>activeStory||legacy.localDraftId;
  function defaultCast(){return ['podcast','interview'].includes(data.type)?[{id:crypto.randomUUID(),name:'Host',role:'Host'},{id:crypto.randomUUID(),name:'Guest',role:'Guest'}]:[{id:crypto.randomUUID(),name:'Narrator',role:'Narrator'}];}
- function message(text,error=false){const el=q(error?'#story-simple-error':'#story-simple-save');if(el&&el.textContent!==text)el.textContent=text;}
+ function message(text,error=false){if(error&&text)window.EccoErrors?.show(text,{title:'Story could not continue'});const el=q(error?'#story-simple-error':'#story-simple-save');if(el&&el.textContent!==text)el.textContent=text;}
  function persist(){
   if(!data)return false;
   const saved={...legacy,title:data.title,summary:data.script,story_format:data.output,workflow_id:data.type||'custom',genre:data.genre,audio_audience:data.audience,audio_language:data.language,sourceText:data.source?.text||'',simple_workspace:clone(data),...(workspaceStory?{cloudId:workspaceStory}:{})};
@@ -95,8 +95,9 @@
   return picker;
  }
  function openScriptReview(saved){
-  const current=data,identity=owner(),version=epoch,model=audioModel();
-  const valid=()=>current===data&&identity===owner()&&version===epoch&&enabled;
+  const current=data,identity=owner(),model=audioModel();
+  const signature=()=>JSON.stringify([data.title,data.output,data.type,data.genre,data.audience,data.language,data.location,data.brief,data.script,data.cast,data.source]);
+  const version=signature(),valid=()=>current===data&&identity===owner()&&version===signature()&&enabled;
   data.scriptReviewDraft=clone(saved);persist();
   const resume=inPage('[data-script-resume]');if(resume)resume.hidden=false;
   window.EccoStoryScriptReview.open({draft:{...clone(saved),title:data.title,output:data.output},isCurrent:valid,opener:resume||inPage('[data-upload]'),
@@ -110,7 +111,7 @@
     assertCurrent();return castDefaults(proposal,model);
    },
    onApply:review=>{
-    const selection=review.selection;
+    const selection=review.selection;if(selection.research)data.research=selection.research;
     data.source={text:selection.text,name:selection.name,pages:selection.pages||[],selection:selection.selection_label||''};
     data.cast=review.cast;data.castCustomized=true;data.plan=review.plan;data.script=M.transcript(review.plan,review.cast);data.audioScript=data.script;data.scenes=[];
     data.castReason=review.cast.length+' '+(data.output==='audio'?'audio ':'')+'characters identified from selected text.';data.sourceAssignmentPending=false;data.castPending=false;sourcePending=false;
@@ -118,12 +119,12 @@
    }
   });
  }
- function characters(root,{value=data,changed=()=>{data.castCustomized=true;epoch++;persist();},selectedIndex=null,expanded=false}={}){
+ function characters(root,{value=data,changed=()=>{data.castCustomized=true;epoch++;persist();},selectedIndex=null,expanded=false,showHeading=true}={}){
   root.replaceChildren();const audio=value.output!=='image',visual=value.output!=='audio';
   value.cast.forEach((character,index)=>{
    if(selectedIndex!==null&&index!==selectedIndex)return;
    const item=document.createElement('section');item.className='story-simple-character form';
-   const heading=document.createElement('h3');heading.textContent='Character '+(index+1);item.append(heading);
+   const heading=document.createElement('h3');heading.textContent='Character '+(index+1);if(showHeading)item.append(heading);
    const grid=document.createElement('div');grid.className='story-character-fields';item.append(grid);
    const add=(label,key,options)=>{const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement(options?'select':'input');input.dataset.character=index;input.dataset.property=key;input.setAttribute('aria-label','Character '+(index+1)+' '+label);if(options){input.append(new Option('Choose',''));options.forEach(v=>input.append(new Option(v,v)));if(character[key]&&!options.includes(character[key]))input.append(new Option(character[key],character[key]));}else input.maxLength=key==='name'?60:500;input.value=character[key]||'';input.oninput=()=>{character[key]=input.value;changed();};wrap.append(input);grid.append(wrap);return wrap;};
    add('Name','name');add('Role','role');add('Gender','gender',['Female','Male','Non-binary','Unspecified']);add('Age group','age_group',['Child','Teenager','Adult','Older adult']);add('Nationality','nationality');
@@ -137,23 +138,27 @@
  function paintCastStatus(){
   const root=inPage('[data-cast-panel]');if(!root)return;root.setAttribute('aria-busy',String(!!data.castPending));
   inPage('[data-cast-reason]').textContent=data.castPending?'Identifying characters and recommending their properties…':data.castReason||'Apply source text to identify its characters, or create your own cast.';
-  root.querySelectorAll('input,select,button').forEach(control=>control.disabled=!!data.castPending);
+  root.querySelectorAll('input,select,button').forEach(control=>control.disabled=!!data.castPending||(control.matches('.story-character-add')&&data.cast.length>=20));
  }
- function characterLibrary(){
-  const origin=owner(),d=document.createElement('dialog');d.className='generation-dialog';d.setAttribute('aria-label','Choose characters from library');
-  d.innerHTML='<div class="form"><div class="section-head"><h2>Character Library</h2><button type="button" data-close>Close</button></div><div data-list class="form"></div><p role="status"></p></div>';
-  const entries=read('ecco-audio-character-sets-v1',[]).filter(s=>data.output==='video'||(data.output==='audio'?s.output!=='image':['image','video'].includes(s.output))).map(s=>({name:s.name||s.title||'Saved cast',cast:s.cast||s.characters||[]}));
-  for(const c of state.records.filter(r=>data.output!=='audio'&&r.kind==='character'&&!r.deleted))entries.push({name:c.name||c.title,cast:[{id:c.id,name:c.name||c.title,appearance:c.description||'',reference_id:c.asset_id||c.image_id||c.image_ids?.[0]||''}]});
-  for(const entry of entries.filter(e=>e.cast.length))q('[data-list]',d).append(button(entry.name,()=>{if(origin!==owner())return;data.cast=clone(entry.cast).map(c=>({...c,id:crypto.randomUUID()}));data.castCustomized=true;epoch++;persist();d.close();render();},'secondary'));
-  if(!q('[data-list]',d).children.length)q('[role=status]',d).textContent='No saved characters yet. Create characters below and save them for reuse.';
-  const opener=document.activeElement;q('[data-close]',d).onclick=()=>d.close();d.onclose=()=>{d.remove();opener?.isConnected&&opener.focus();};document.body.append(d);d.showModal();
+ function characterTabs(){
+  const list=inPage('[data-character-tabs]'),root=inPage('[data-characters]');if(!list||!root)return;
+  const selected=Math.max(0,data.cast.findIndex(c=>c.id===data.activeCharacter));data.activeCharacter=data.cast[selected]?.id;
+  list.replaceChildren();
+  data.cast.forEach((character,index)=>{
+   const tab=button('Character '+(index+1),()=>{data.activeCharacter=character.id;persist();characterTabs();inPage('[data-character-tabs] [aria-selected=true]')?.focus();},'story-character-tab');
+   tab.id='story-character-tab-'+index;tab.setAttribute('role','tab');tab.setAttribute('aria-controls','story-character-properties');tab.setAttribute('aria-selected',String(index===selected));tab.tabIndex=index===selected?0:-1;
+   tab.onkeydown=event=>{const next=event.key==='ArrowRight'?(index+1)%data.cast.length:event.key==='ArrowLeft'?(index+data.cast.length-1)%data.cast.length:event.key==='Home'?0:event.key==='End'?data.cast.length-1:null;if(next!==null){event.preventDefault();list.querySelectorAll('[role=tab]')[next].focus();}};
+   list.append(tab);
+  });
+  const add=button('+',()=>{if(data.cast.length>=20)return;const character={id:crypto.randomUUID(),name:'Character '+(data.cast.length+1)};data.cast.push(character);data.activeCharacter=character.id;data.castCustomized=true;epoch++;persist();characterTabs();q('[data-property=name]',root)?.focus();},'story-character-add');
+  add.setAttribute('aria-label','Add character');add.title='Add character';add.disabled=data.cast.length>=20;list.append(add);
+  root.setAttribute('aria-labelledby','story-character-tab-'+selected);characters(root,{selectedIndex:selected,showHeading:false});paintCastStatus();
  }
  function story(){
   page='story-properties';if(!data.cast.length)data.cast=defaultCast();
-  q('#page').innerHTML='<div class="form"><section class="panel form"><div class="row story-source-actions"><button type="button" class="secondary" data-upload>Upload PDF</button><button type="button" class="secondary" data-ai>Generate With AI</button><button type="button" class="secondary" data-write>Write</button><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-source></p><div class="row"><button type="button" class="secondary" data-preview hidden>Preview & Select</button><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button><button type="button" class="secondary" data-script-resume hidden>Resume Script</button><button type="button" class="secondary" data-keep hidden>Keep previous selection</button></div><label>What should your story be about? (optional)<textarea data-brief maxlength="4000" rows="2" placeholder="For example, two hosts discussing business news for Indian adults"></textarea></label><label>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help></p><div id="story-simple-candidate" class="panel form" hidden></div><div data-sources></div></section><section class="panel form" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><div class="row"><label>Number of characters<input type="number" min="1" max="20" step="1" data-count></label><button type="button" class="secondary" data-library>Choose from Library</button><button type="button" class="secondary" data-create>Create Character</button></div><p class="help" data-cast-reason></p><div class="form" data-characters></div></section><div class="story-simple-actions"><button type="button" data-next>Generate</button></div></div>';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel"><div class="row story-source-actions" role="group" aria-label="Story controls"><div class="story-source-control"><button type="button" class="secondary" data-upload>Upload PDF</button></div><div class="story-source-control"><button type="button" class="secondary" data-ai>Generate With AI</button></div><div class="story-source-control"><button type="button" class="secondary" data-write>Write</button></div><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="row story-source-resume"><button type="button" class="secondary" data-preview hidden>Preview & Select</button><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button><button type="button" class="secondary" data-script-resume hidden>Resume Script</button><button type="button" class="secondary" data-keep hidden>Keep previous selection</button></div><label>What should your story be about? (optional)<textarea data-brief maxlength="4000" rows="2" placeholder="For example, two hosts discussing business news for Indian adults"></textarea></label><label>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help></p><div id="story-simple-candidate" class="panel form" hidden></div><div data-sources></div></section><section class="panel form" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><p class="help" data-cast-reason></p><div class="form" data-characters id="story-character-properties" role="tabpanel"></div></section><div class="story-simple-actions"><button type="button" data-next>Generate</button></div></div>';
   const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
   const brief=inPage('[data-brief]');brief.value=data.brief||'';brief.oninput=()=>{data.brief=brief.value;epoch++;persist();};
-  inPage('[data-source]').textContent=sourcePending?'A new document is open. Apply its selection or keep the previous selection.':data.source?.name?'Source: '+data.source.name+' · '+data.source.text.length+' selected characters':'';
   inPage('[data-keep]').hidden=!sourcePending;inPage('[data-keep]').onclick=()=>{sourcePending=false;render();};
   inPage('[data-script-help]').textContent='For multiple speakers, write “Name: spoken words” for each turn, with a blank line between turns. Directions belong in character properties.';
   inPage('[data-ai]').onclick=generateStory;inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();inPage('[data-write]').onclick=()=>text.focus();
@@ -161,20 +166,17 @@
   inPage('[data-preview]').hidden=!picker?.ready;inPage('[data-preview]').onclick=()=>sourcePicker().open(inPage('[data-preview]'));
   void syncSourceResume().catch(error=>message(error.message,true));
   inPage('[data-script-resume]').hidden=!data.scriptReviewDraft;inPage('[data-script-resume]').onclick=()=>openScriptReview(data.scriptReviewDraft);
-  inPage('[data-library]').onclick=characterLibrary;
-  const count=inPage('[data-count]');count.value=data.cast.length;count.onchange=()=>{if(!count.reportValidity()||!Number.isInteger(Number(count.value)))return;const n=Number(count.value);data.castArchive=[...data.cast,...(data.castArchive||[]).slice(data.cast.length)];data.cast=Array.from({length:n},(_,i)=>data.cast[i]||data.castArchive[i]||{id:crypto.randomUUID(),name:'Character '+(i+1)});data.castCustomized=true;epoch++;persist();characters(inPage('[data-characters]'));};
-  inPage('[data-create]').onclick=()=>{if(data.cast.length>=20)return;count.value=data.cast.length+1;count.dispatchEvent(new Event('change'));q('[data-character="'+(data.cast.length-1)+'"][data-property=name]')?.focus();};
   inPage('[data-cast-reason]').textContent=data.castReason||'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.';
-  characters(inPage('[data-characters]'));paintCastStatus();inPage('[data-next]').onclick=()=>select(2);showSources();
+  characterTabs();inPage('[data-next]').onclick=()=>select(2);showSources();
  }
  function showSources(){const root=inPage('[data-sources]');if(!root||!data.research?.items)return;root.replaceChildren();const h=document.createElement('h3');h.textContent='News sources';root.append(h);for(const item of data.research.items)for(const source of item.sources||[]){try{const url=new URL(source.url);if(url.protocol!=='https:')continue;const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title||url.hostname;root.append(a,document.createElement('br'));}catch{}}}
  function aiStatus(text,error=false){
-  message(text,error);const status=q('#story-simple-ai-status');if(status){status.textContent=text;status.dataset.error=String(error);status.setAttribute('role',error?'alert':'status');if(error)status.scrollIntoView({block:'nearest'});}
+  message(text,error);const status=q('#story-simple-ai-status');if(status){status.textContent=text;status.dataset.error=String(error);status.setAttribute('role',error?'alert':'status');}
  }
  function syncStoryOptions(options){
    const oldType=data.type;
    for(const [key,field] of [['story_type','type'],['genre','genre'],['age_group','audience'],['language','language'],['location','location']])if(typeof options[key]==='string'&&(options[key]||key==='location'))data[field]=options[key];
-   if(data.type!==oldType&&!data.castCustomized&&!data.script.trim()){data.cast=defaultCast();const root=inPage('[data-characters]');if(root){characters(root);inPage('[data-count]').value=data.cast.length;}}
+   if(data.type!==oldType&&!data.castCustomized&&!data.script.trim()){data.cast=defaultCast();const root=inPage('[data-characters]');if(root)characterTabs();}
    epoch++;persist();
  }
  function generateStory(){
@@ -187,9 +189,18 @@
   window.EccoAI.requestGeneration({label:'Create the story for '+data.title,key:'story-workspace',scopeKey:identity,
    contextFields:[{name:'story_type',label:'Story Type',options:M.types},{name:'genre',label:'Genre',options:genres},{name:'age_group',label:'Age Group',options:audiences},{name:'location',label:'Audience Location',placeholder:'For example, India or worldwide'}],
    initialOptions:{instructions:data.brief,language:data.language,story_type:data.type,genre:data.genre,age_group:data.audience,location:data.location},
-   isValid:()=>enabled&&current===data&&identity===owner()&&data.tab===1,onOptionsChange:syncOptions,onGenerate:options=>{
+   isValid:()=>enabled&&current===data&&identity===owner()&&data.tab===1,onOptionsChange:syncOptions,review:{
+    text:data.aiStoryDraft?.text||'',nextLabel:data.output==='image'?'Apply Text':'Generate Script',
+    onChange:text=>{if(current===data&&identity===owner()){data.aiStoryDraft={...data.aiStoryDraft,text};persist();}},
+    onNext:text=>{
+     if(!enabled||current!==data||identity!==owner())throw Error('Return to the story where you generated this text.');
+     if(data.output==='image'){data.script=text;data.research=data.aiStoryDraft?.research||null;const proposal=data.aiStoryDraft?.proposal;if(proposal){data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.reason;}epoch++;persist();render();return;}
+     openScriptReview({selection:{text,name:'AI generated story',pages:[],research:data.aiStoryDraft?.research||null},cast:[],plan:null});
+    }
+   },onGenerate:async options=>{
     if(!enabled||current!==data||identity!==owner())return;
-    syncOptions(options);data.brief=options.instructions;epoch++;persist();const brief=inPage('[data-brief]');if(brief)brief.value=data.brief;return recommend(false);
+    syncOptions(options);data.brief=options.instructions;epoch++;persist();const brief=inPage('[data-brief]');if(brief)brief.value=data.brief;const result=await recommend(false,{returnProposal:true});
+    data.aiStoryDraft={text:result.proposal.script,research:result.research,proposal:result.proposal};persist();return result.proposal.script;
    }
   });
  }
@@ -205,9 +216,9 @@
  function applyDetectedCast(proposal,model,valid){
     castDefaults(proposal,model);valid();data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.cast.length+' '+(data.output==='audio'?'audio ':'')+'characters identified from applied text.'+(proposal.reason?' '+proposal.reason:'');data.plan=proposal.plan||null;if(proposal.plan){data.audioScript=M.transcript(proposal.plan,data.cast);if(data.output==='audio')data.script=data.audioScript;data.sourceAssignmentPending=false;}data.castPending=false;epoch++;persist();if(data.tab===1){render();aiStatus('Text applied. Characters and properties are ready.');}
  }
- async function recommend(castOnly,{autoApply=false}={}){
-  if(aiRequest?.current===data){aiStatus('AI is still working on this story…');return;}
-  if(sourcePending){aiStatus('Apply the document selection first, or choose Keep previous selection.',true);return;}
+ async function recommend(castOnly,{autoApply=false,returnProposal=false}={}){
+  if(aiRequest?.current===data){if(returnProposal)throw Error('AI is still working on this story.');aiStatus('AI is still working on this story…');return;}
+  if(sourcePending){if(returnProposal)throw Error('Apply the document selection first, or choose Keep previous selection.');aiStatus('Apply the document selection first, or choose Keep previous selection.',true);return;}
   const token=epoch,current=data,identity=owner(),request={current,identity};aiRequest=request;if(autoApply){data.castPending=true;paintCastStatus();}
   const buttons=[inPage('[data-ai]'),inPage('[data-cast-ai]')],labels=buttons.map(b=>b?.textContent);buttons.forEach(b=>{if(b){b.disabled=true;b.setAttribute('aria-busy','true');}});if(buttons[castOnly?1:0])buttons[castOnly?1:0].textContent=castOnly?'Recommending…':'Generating…';if(inPage('[data-ai-connections]'))inPage('[data-ai-connections]').hidden=true;message('',true);aiStatus('Checking AI connection…');
   const valid=()=>{if(current!==data||token!==epoch||identity!==owner()||!enabled)throw Error('The story changed while AI was working. Your edits are preserved; request a new suggestion.');};
@@ -228,12 +239,13 @@
    let parsed;try{parsed=JSON.parse(value.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));}catch{throw Error('AI returned an unreadable suggestion. Your current story is unchanged.');}
    const proposal=M.validateProposal(parsed,data,castOnly);if(preserveCast&&(proposal.cast.length!==data.cast.length||proposal.cast.some((c,i)=>c.id!==data.cast[i].id||c.name!==data.cast[i].name)))throw Error('AI changed your chosen cast. Your characters are preserved; try again.');
    if(autoApply){applyDetectedCast(proposal,model,valid);return;}
+   if(returnProposal){aiStatus('');return {proposal,research};}
    if(data.tab!==1){message('Return to Story & Characters and request the suggestion again.');return;}
    const box=q('#story-simple-candidate');box.hidden=false;box.replaceChildren();const heading=document.createElement('h3');heading.textContent=castOnly?'Suggested characters':'Review AI story';box.append(heading);const info=document.createElement('p');info.textContent=proposal.cast.map(c=>c.name+' — '+(c.role||'Character')).join('; ')+(proposal.reason?'\n'+proposal.reason:'');box.append(info);
    let edit;if(!castOnly){edit=document.createElement('textarea');edit.rows=10;edit.value=proposal.script;edit.setAttribute('aria-label','Suggested story');box.append(edit);}
    box.append(button(castOnly?'Apply characters':'Apply story',()=>{try{valid();data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.reason;if(!castOnly){data.script=edit.value;delete data.audioScript;data.plan=data.output==='audio'?M.parseScript(edit.value,proposal.cast,proposal.plan):proposal.plan;data.scenes=edit.value===proposal.script?M.reconcileScenes(proposal.scenes,data.scenes):[];data.research=research;}epoch++;persist();render();}catch(error){message(error.message,true);}}),button('Discard',()=>{box.hidden=true;box.replaceChildren();},'secondary'));
    aiStatus('Suggestion ready. Review it before applying.');box.scrollIntoView({block:'nearest'});
-  }catch(error){if(aiRequest===request&&current===data&&identity===owner()&&enabled){if(autoApply&&token===epoch){data.sourceAssignmentPending=true;if(error.cast){data.cast=error.cast;data.castCustomized=false;}}if(autoApply)data.castReason='Text applied; character detection could not finish. '+error.message;aiStatus(autoApply?data.castReason:error.message,true);}window.EccoErrorLog?.record(error,{source:'story workspace',stage:'AI preparation'});}finally{if(aiRequest===request){aiRequest=null;current.castPending=false;if(current===data){persist();if(autoApply&&data.sourceAssignmentPending&&data.tab===1){render();aiStatus(data.castReason,true);}paintCastStatus();}}buttons.forEach((b,i)=>{if(b?.isConnected){b.disabled=false;b.setAttribute('aria-busy','false');b.textContent=labels[i];}});}
+  }catch(error){if(aiRequest===request&&current===data&&identity===owner()&&enabled){if(autoApply&&token===epoch){data.sourceAssignmentPending=true;if(error.cast){data.cast=error.cast;data.castCustomized=false;}}if(autoApply)data.castReason='Text applied; character detection could not finish. '+error.message;aiStatus(autoApply?data.castReason:error.message,true);}window.EccoErrorLog?.record(error,{source:'story workspace',stage:'AI preparation'});if(returnProposal)throw error;}finally{if(aiRequest===request){aiRequest=null;current.castPending=false;if(current===data){persist();if(autoApply&&data.sourceAssignmentPending&&data.tab===1){render();aiStatus(data.castReason,true);}paintCastStatus();}}buttons.forEach((b,i)=>{if(b?.isConnected){b.disabled=false;b.setAttribute('aria-busy','false');b.textContent=labels[i];}});}
  }
  function audioModel(){return window.EccoAudioModels?.find(m=>m.id===(read('ecco-audio-draft:'+activeStory).model||modelProfiles.selected.voice))||window.EccoAudioModels?.[0];}
  function prepareAudio(){
@@ -330,7 +342,7 @@
   if(q('[data-result-note]',review).textContent!==note)q('[data-result-note]',review).textContent=note;
   q('[data-next-episode]',review).hidden=data.recurrence!=='recurring';
  }
- function nextEpisode(){const seed={...clone(data),title:'',script:'',audioScript:'',brief:'',source:{text:'',name:'',pages:[]},scenes:[],plan:null,tab:0,view:'',applied:{},research:null};window.EccoWorkspaceUI.startNewStory({id:data.type,format:data.output,seed:{simple_workspace:seed}});}
+ function nextEpisode(){const seed={...clone(data),title:'',script:'',audioScript:'',brief:'',aiStoryDraft:null,scriptReviewDraft:null,source:{text:'',name:'',pages:[]},scenes:[],plan:null,tab:0,view:'',applied:{},research:null};window.EccoWorkspaceUI.startNewStory({id:data.type,format:data.output,seed:{simple_workspace:seed}});}
  function open(){
   captureStudio();epoch++;sourcePending=false;message('',true);
   legacy=activeStory?storyDescription():read('ecco-new-story-draft');legacy={...legacy,localDraftId:legacy.localDraftId||crypto.randomUUID()};
@@ -343,7 +355,7 @@
   if(savedId){captureStudio();window.EccoWorkspaceUI.preserveNewStoryDraft();const saved=read(savedId==='pending'?'ecco-new-story-draft':'ecco-story-setup:'+savedId);activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);if(!activeStory){localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));localStorage.setItem('ecco-board-new-draft',JSON.stringify(saved.boardDraft||defaultDraft));}draft=loadDraft();}
   open();if(!savedId){data.tab=0;render();}
  }
- function leave(){if(!enabled)return;captureStudio();persist();enabled=false;epoch++;document.body.classList.remove('story-simple-mode');q('#story-workspace-header')?.setAttribute('hidden','');q('#page')?.removeAttribute('role');q('#page')?.removeAttribute('aria-labelledby');}
+ function leave(){if(!enabled)return;window.EccoPopups?.suspendContexts?.();captureStudio();persist();enabled=false;epoch++;document.body.classList.remove('story-simple-mode');q('#story-workspace-header')?.setAttribute('hidden','');q('#page')?.removeAttribute('role');q('#page')?.removeAttribute('aria-labelledby');}
  function captureContext(){
   if(!enabled)return null;captureStudio();persist();const snapshot={data,legacy,workspaceStory,tab:data.tab,view:data.view};
   return ()=>{
@@ -353,7 +365,7 @@
    for(const input of q('#story-simple-details',q('#page'))?.querySelectorAll('[name]')||[])if(input.name in data)input.value=data[input.name]||'';
    const script=inPage('#story-simple-script');if(script)script.value=data.script;
    const brief=inPage('[data-brief]');if(brief)brief.value=data.brief||'';
-   const cast=inPage('[data-characters]');if(cast){characters(cast);inPage('[data-count]').value=data.cast.length;paintCastStatus();}
+   const cast=inPage('[data-characters]');if(cast)characterTabs();
    persist();
   };
  }

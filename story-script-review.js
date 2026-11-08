@@ -35,7 +35,7 @@
    try{
     const result=await generate(draft.selection,valid,text=>{valid();q('[data-status]').textContent=text;});valid();
     draft={...draft,cast:result.cast,plan:result.plan,reason:result.reason};save();render();q('h2').focus();
-   }catch(error){if(!closed&&d.isConnected){q('[data-status]').textContent='Your selected text is saved.';q('[data-error]').textContent=error.message;q('[data-retry]').hidden=false;}}
+   }catch(error){if(!closed&&d.isConnected){q('[data-status]').textContent='Your selected text is saved.';q('[data-error]').textContent=error.message;q('[data-retry]').hidden=false;window.EccoErrors?.show(error,{title:'Unable to generate script',retry:run,retryLabel:'Retry Generate Script'});}}
    finally{busy=false;d.setAttribute('aria-busy','false');}
   }
   choice.onchange=properties;q('[data-retry]').onclick=run;
@@ -44,7 +44,7 @@
     current();M.validateCast(draft.cast);const ids=new Set(draft.cast.map(c=>c.id));
     if(!draft.plan?.segments?.length||draft.plan.segments.some(s=>!ids.has(s.character_id)||!s.text.trim()))throw Error('Choose a speaker and enter text for every turn.');
     returnFocus=onApply(clone(draft))||returnFocus;d.close('apply');
-   }catch(error){q('[data-error]').textContent=error.message;}
+   }catch(error){q('[data-error]').textContent=error.message;window.EccoErrors?.show(error,{title:'Unable to apply script'});}
   };
   d.onclose=()=>{closed=true;revision++;d.remove();if(returnFocus?.isConnected)returnFocus.focus();};
   document.body.append(d);d.showModal();q('h2').focus();

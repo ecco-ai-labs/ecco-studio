@@ -94,7 +94,7 @@
   navigate=function(...args){for(const group of groups)group.context?.suspend();navigating=true;try{return previousNavigate.apply(this,args);}finally{navigating=false;}};
  }
  const belongsTo=(panel,host)=>host.contains(panel.element)||host.shadowRoot?.contains(panel.element);
- window.EccoPopups={minimize,resume,registerPanel,isMinimized:dialog=>!!records.get(dialog)?.group,
+ window.EccoPopups={minimize,resume,registerPanel,suspendContexts(){for(const group of groups)group.context?.suspend();},isMinimized:dialog=>!!records.get(dialog)?.group,
   hasMinimizedWithin:host=>[...panels].some(panel=>panel.group&&belongsTo(panel,host)),
   resumeWithin(host){for(const panel of panels)if(panel.group&&belongsTo(panel,host))resume(panel.group);}
  };

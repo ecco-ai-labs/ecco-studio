@@ -128,5 +128,10 @@
     "area": "Generated Script review",
     "mode": "fixture",
     "scope": "UPLOAD-11 covers audio/video Generate Script, all turn speaker dropdowns, character renaming, voice and appearance edits, close/resume, minimize, desktop columns and 390px fit, Apply focus and full handoff to generation. AI and workers are synthetic; this does not establish live inference quality."
+  },
+  {
+    "area": "Compact character tabs and AI story-to-screenplay review",
+    "mode": "fixture",
+    "scope": "STORY-05 checks removed count/library/create/source controls, trailing plus, last-tab selection, property persistence, keyboard tabs, 62px two-line prompt, compact action gap, error popup controls and mobile bounds. STORY-06 checks audio/video prompt and editable output in the same popup, close/reopen persistence, desktop/mobile footer visibility, Generate Script with four assigned turns, nested validation error dismissal, minimize/navigation/resume, Apply and correct generation studio. Live backend separately verified five speaking roles across 12,421 source characters and 576 ordered units; synthetic browser fixtures do not establish model quality."
   }
 ]
