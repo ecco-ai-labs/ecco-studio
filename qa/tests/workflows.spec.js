@@ -1040,7 +1040,8 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`ST
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();const shortHeight=await layout();
  expect(await heading.evaluate(e=>e.getBoundingClientRect().left)).toBe(await page.locator('.story-details-card').first().evaluate(e=>e.getBoundingClientRect().left));
  await page.screenshot({path:info.outputPath('story-title-'+viewport.width+'.png')});
- const longTitle=title+' '+('A very long adventure title '.repeat(8))+'x'.repeat(90);
+ // Keep the fixture within the field's existing 160-character title limit.
+ const longTitle=title+' A very long adventure title '+'x'.repeat(90);
  await page.getByLabel('Story name (required)',{exact:true}).fill(longTitle);await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await expect(heading).toHaveText(longTitle);expect(await layout()).toBeGreaterThan(shortHeight);
  await openLibrary(page,'image');await expect(page.locator('#story-simple-save')).toBeHidden();await expect(page.locator('.workspace-ribbon')).toHaveCSS('display','flex');
  await page.locator('#workspace-back').click();await expect(heading).toHaveText(longTitle);await expect(page.locator('#story-simple-save')).toBeVisible();await layout();
