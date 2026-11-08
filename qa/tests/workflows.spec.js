@@ -844,9 +844,9 @@ test('AGENT-06 choose individual tests and never execute unchecked actions',asyn
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  await page.addInitScript(()=>{
   if(window===top){window.__agentActions=[];return;}
-  document.addEventListener('input',e=>{if(e.target.matches('input[aria-label^="Filter "]'))top.__agentActions.push('search');},true);
-  document.addEventListener('click',e=>{if(e.target.closest('[data-sort] button'))top.__agentActions.push('sort');},true);
-  document.addEventListener('change',e=>{if(e.target.matches('.library-view-label select'))top.__agentActions.push('view:'+e.target.value);},true);
+  document.addEventListener('input',e=>{if(e.target.matches('#lh-search'))top.__agentActions.push('search');},true);
+  document.addEventListener('change',e=>{if(e.target.matches('#lh-sort'))top.__agentActions.push('sort');},true);
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-act=view]');if(b)top.__agentActions.push('view:'+b.dataset.view);},true);
  });
  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Agents',exact:true}).click();await page.locator('.agent-card').click();
  await expect(page.getByRole('button',{name:'Run selected tests (0)',exact:true})).toBeDisabled();
@@ -860,7 +860,7 @@ test('AGENT-06 choose individual tests and never execute unchecked actions',asyn
  let report=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user'))[0]);
  expect(report.selection.ids).toEqual(['video-small']);expect(report.checks).toHaveLength(2);
  expect(report.checks.every(c=>c.id.startsWith('video-small-thumb-')&&c.status==='passed')).toBe(true);
- expect(report.findings).toHaveLength(0);expect(await page.evaluate(()=>window.__agentActions)).toEqual(['view:small','view:list']);
+ expect(report.findings).toHaveLength(0);expect(await page.evaluate(()=>window.__agentActions)).toEqual(['view:list','view:grid']);
  await expect(page.locator('.agent-run-selection')).toContainText('Selected 1 of 9 tests');
  await page.getByRole('button',{name:'Clear all tests',exact:true}).click();await page.getByRole('checkbox',{name:'Video Library: Sort names Z–A',exact:true}).check();
  await page.getByRole('button',{name:'Run selected tests (1)',exact:true}).click();await expect(page.getByRole('button',{name:'Run selected tests (1)',exact:true})).toBeEnabled({timeout:30000});
