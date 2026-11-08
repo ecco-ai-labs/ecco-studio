@@ -665,3 +665,27 @@ dropdown triggers also shrink. Story Details uses 40px fields, 52px output
 tiles and a 44px Next action. Equal card sizes and bounded popup panels remain.
 Media, PDF document fonts and Google-hosted sign-in remain outside application
 typography; icon-only close/minimize and toolbar targets keep their dimensions.
+
+## Story source tabs, settings labels and drafts — 8 November 2026
+
+The owner reviewed a mock-up and approved replacing the three Story and Characters
+source buttons with browser-style tabs: Upload PDF, Generate With AI and Write
+Yourself (renamed from Write). Each tab keeps its own menus inside the tab and uses
+the Select Story Text three-pane layout inline rather than a popup. Upload PDF shows
+its Upload PDF button and, after a file is chosen, Document Preview, Selected Text
+and Improve with AI. Generate With AI shows What should your story be about? with
+Write Story, then Story Text and Improve with AI. Write Yourself shows Your Story and
+Improve with AI.
+
+Story Type, Genre / Topic, Audience and Language move out of Improve with AI into
+editable labels above the tabs. Each lists every Story Details choice, starts on the
+Story Details value (shown in its normal list position) and writes back to Story
+Details immediately.
+
+In all three tabs, Draft 1, Draft 2 and Draft 3 replace AI Output. Each Write Story
+or Improve with AI result fills the next free draft; the user picks a draft and
+selects Use AI Text. Other drafts stay available as alternatives until Selected Text
+is edited. Clear AI Output clears only the chosen draft. Inline workspaces are
+non-modal dialogs marked data-inline-panel, so popup close/minimize controls and
+popup minimizing skip them. Story Import and the Audio journey keep their single AI
+Output. The Story / Script box and Characters below the tabs are unchanged.

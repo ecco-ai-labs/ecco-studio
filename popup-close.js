@@ -39,7 +39,7 @@
  }
  HTMLDialogElement.prototype.showModal=function(){const record=register(this);if(record.group){resume(record.group);return;}record.order=++order;return nativeModal.call(this);};
  HTMLDialogElement.prototype.close=function(...args){if(navigating&&records.get(this)?.group)return;return nativeClose.apply(this,args);};
- function visibleDialogs(){return [...document.querySelectorAll('dialog[open]')].filter(d=>!d.hasAttribute('data-ecco-minimized')).sort((a,b)=>register(a).order-register(b).order);}
+ function visibleDialogs(){return [...document.querySelectorAll('dialog[open]')].filter(d=>!d.hasAttribute('data-ecco-minimized')&&!d.hasAttribute('data-inline-panel')).sort((a,b)=>register(a).order-register(b).order);}
  function minimize(){
   const dialogs=visibleDialogs();if(!dialogs.length)return null;
   const group={dialogs,context:window.EccoWorkspaceUI?.capturePopupContext?.(),title:dialogs.map(label).join(' → ')};groups.push(group);
@@ -101,6 +101,8 @@
  function mount(){
   if(!document.body)return;
   for(const dialog of document.querySelectorAll('dialog')){
+   // Inline workspaces (story source tabs) are page panels, not popups.
+   if(dialog.hasAttribute('data-inline-panel'))continue;
    register(dialog);
    dialog.classList.add('ecco-popup-close-ready');
    for(const button of dialog.querySelectorAll('button')){

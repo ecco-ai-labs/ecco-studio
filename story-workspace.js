@@ -10,7 +10,7 @@
  const genres=M.genres;
  const audiences=['All ages','Children (3–5)','Children (6–8)','Children (9–12)','Teenagers (13–17)','Adults (18+)','Families'];
  const languages=['English','Hindi','Urdu','Tamil','Punjabi','Arabic','Spanish','Portuguese','French','German','Italian','Japanese','Korean','Chinese','Bengali','Telugu','Marathi','Gujarati','Kannada','Malayalam'];
- let data=null,legacy={},enabled=false,rendering=false,epoch=0,picker=null,pickerOwner='',sourcePending=false,saving=null,aiRequest=null,queued=false,workspaceStory='';
+ let data=null,legacy={},enabled=false,rendering=false,epoch=0,picker=null,textPickers={},pickerOwner='',sourcePending=false,saving=null,aiRequest=null,queued=false,workspaceStory='';
  const owner=()=>activeStory||legacy.localDraftId;
  function defaultCast(){return ['podcast','interview'].includes(data.type)?[{id:crypto.randomUUID(),name:'Host',role:'Host'},{id:crypto.randomUUID(),name:'Guest',role:'Guest'}]:[{id:crypto.randomUUID(),name:'Narrator',role:'Narrator'}];}
  function message(text,error=false){if(error&&text)window.EccoErrors?.show(text,{title:'Story could not continue'});const el=q(error?'#story-simple-error':'#story-simple-save');if(el&&el.textContent!==text)el.textContent=text;}
@@ -123,15 +123,70 @@
   const saved=await window.EccoPopupDrafts.get('simple-source:'+origin);if(origin!==owner()||!resume.isConnected)return;
   resume.hidden=!saved;resume.onclick=async()=>{
    if(origin!==owner()||!enabled)return;
-   try{const latest=await window.EccoPopupDrafts.get('simple-source:'+origin);if(origin!==owner()||!enabled)return;if(!latest)throw Error('No saved selection remains for this story.');await sourcePicker().restore(latest);if(origin!==owner()||!enabled)return;sourcePending=true;sourcePicker().open(resume);}catch(error){if(origin===owner())message(error.message,true);}
+   try{const latest=await window.EccoPopupDrafts.get('simple-source:'+origin);if(origin!==owner()||!enabled)return;if(!latest)throw Error('No saved selection remains for this story.');await sourcePicker().restore(latest);if(origin!==owner()||!enabled)return;sourcePending=true;showSourceTab('pdf');sourcePicker().mount?.(inPage('[data-source-host=pdf]'));sourcePicker().open(resume);}catch(error){if(origin===owner())message(error.message,true);}
   };
  }
+
+ function destroyPickers(){picker?.destroy();picker=null;Object.values(textPickers).forEach(p=>p.destroy());textPickers={};pickerOwner='';}
+ function ensurePickerOwner(){if(pickerOwner!==owner()){destroyPickers();pickerOwner=owner();}}
+ function settingValues(){return {title:data.title,output:data.output,story_type:data.type,story_type_label:M.typeLabel(data.type),genre:data.genre,age_group:data.audience,language:data.language,location:data.location};}
+ function refreshPickerSettings(){picker?.refreshSettings?.();Object.values(textPickers).forEach(p=>p.refreshSettings?.());}
+ function settingsBar(){
+  const root=inPage('[data-story-settings]');if(!root)return;root.replaceChildren();const values=settingValues();
+  for(const field of [{name:'story_type',label:'Story Type',options:M.typeOptions(data.type)},{name:'genre',label:'Genre / Topic',options:genres},{name:'age_group',label:'Audience',options:audiences},{name:'language',label:'Language',options:languages}]){
+   const label=document.createElement('label');label.className='story-setting';label.textContent=field.label;
+   const select=document.createElement('select');select.name=field.name;select.dataset.storySetting=field.name;select.setAttribute('aria-label',field.label);select.add(new Option('Choose…',''));
+   for(const entry of field.options){const [value,text]=Array.isArray(entry)?entry:[entry,entry];select.add(new Option(text,value));}
+   const value=values[field.name]||'';if(value&&![...select.options].some(o=>o.value===value))select.add(new Option(value,value));select.value=value;
+   select.onchange=()=>{if(!enabled||data.tab!==1)return;syncStoryOptions({[field.name]:select.value});refreshPickerSettings();if(field.name==='story_type')settingsBar();};
+   label.append(select);root.append(label);
+  }
+  const help=document.createElement('p');help.className='help';help.textContent='Changes here also update Story Details.';root.append(help);
+ }
+ function showSourceTab(name,focus=false){
+  if(!['pdf','ai','write'].includes(name))name='pdf';data.sourceTab=name;
+  for(const tab of q('#page').querySelectorAll('[data-source-tab]')){const on=tab.dataset.sourceTab===name;tab.setAttribute('aria-selected',String(on));tab.tabIndex=on?0:-1;if(on&&focus)tab.focus();}
+  for(const panel of q('#page').querySelectorAll('[data-source-panel]'))panel.hidden=panel.dataset.sourcePanel!==name;
+ }
+ function sourceTabs(){
+  const list=inPage('.story-source-tabs');if(!list)return;const tabs=[...list.querySelectorAll('[data-source-tab]')];
+  for(const tab of tabs)tab.onclick=()=>{showSourceTab(tab.dataset.sourceTab);persist();};
+  list.onkeydown=event=>{const index=tabs.findIndex(tab=>tab.getAttribute('aria-selected')==='true'),step={ArrowRight:1,ArrowLeft:-1}[event.key];if(!step&&event.key!=='Home'&&event.key!=='End')return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+step+tabs.length)%tabs.length;showSourceTab(tabs[next].dataset.sourceTab,true);persist();};
+  showSourceTab(data.sourceTab||'pdf');
+  if(!window.EccoSourcePicker)return;
+  if(picker&&pickerOwner===owner())picker.mount?.(inPage('[data-source-host=pdf]'));textPicker('ai').mount(inPage('[data-source-host=ai]'));textPicker('write').mount(inPage('[data-source-host=write]'));
+ }
+ function textPicker(kind){
+  ensurePickerOwner();if(textPickers[kind])return textPickers[kind];
+  const current=pickerOwner,ai=kind==='ai',name=ai?'AI generated story':'Written story';
+  const created=window.EccoSourcePicker.create({inline:true,drafts:3,mode:'text',title:ai?'Generate With AI':'Write Yourself',selectedLabel:ai?'Story Text':'Your Story',
+   selectedPlaceholder:ai?'Choose a draft and select Use AI Text to place it here.':'Write or paste your story here.',sourceName:name,applyLabel:data.output==='image'?'Apply Text':'Generate Script',
+   aiSettings:{fields:[],getValues:settingValues,onChange:options=>{if(current!==owner()||!enabled)throw Error('Return to the story where you started.');syncStoryOptions(options);}},
+   onTextChange:text=>{if(current!==owner()||!data)return;if(ai)data.aiStoryDraft={...(data.aiStoryDraft||{}),text};else data.writtenStory=text;persist();},
+   idea:ai?{label:'What should your story be about?',placeholder:'For example, two hosts discussing business news for Indian adults',value:data.brief||'',
+    onInput:value=>{if(current!==owner()||!enabled)return;data.brief=value;epoch++;persist();},
+    generateLabel:'Write Story',
+    generate:async()=>{
+     if(current!==owner()||!enabled)throw Error('Return to the story where you started.');
+     const target=data,result=await recommend(false,{returnProposal:true,ignoreSource:true});
+     if(current!==owner()||target!==data)throw Error('The story changed while AI was working. Your edits are preserved; generate again.');
+     data.aiStoryDraft={...(data.aiStoryDraft||{}),research:result.research,proposal:result.proposal};persist();return result.proposal.script;
+    }}:null,
+   onApply(selection){
+    if(current!==owner()||!enabled)throw Error('Return to the story where you wrote this text.');
+    const text=selection.text,research=ai?data.aiStoryDraft?.research||null:null;
+    if(data.output==='image'){data.script=text;if(ai){data.research=research;const proposal=data.aiStoryDraft?.proposal;if(proposal){data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.reason;}}delete data.audioScript;data.scenes=[];epoch++;persist();render();return;}
+    openScriptReview({selection:{text,name,pages:[],research},cast:[],plan:null});
+   }
+  });
+  created.setText(ai?data.aiStoryDraft?.text||'':data.writtenStory||'');
+  textPickers[kind]=created;return created;
+ }
  function sourcePicker(){
-  if(pickerOwner===owner()&&picker)return picker;
-  picker?.destroy();pickerOwner=owner();const current=pickerOwner;
-  const currentPicker=window.EccoSourcePicker.create({applyLabel:data.output==='image'?'Apply Text':'Generate Script',
+  ensurePickerOwner();if(picker)return picker;const current=pickerOwner;
+  const currentPicker=window.EccoSourcePicker.create({inline:true,drafts:3,applyLabel:data.output==='image'?'Apply Text':'Generate Script',
    aiSettings:{
-    fields:[{name:'story_type',label:'Story Type',options:M.typeOptions(data.type)},{name:'genre',label:'Genre / Topic',options:genres},{name:'age_group',label:'Audience',options:audiences},{name:'language',label:'Language',options:languages}],
+    fields:[],
     getValues:()=>({title:data.title,output:data.output,story_type:data.type,story_type_label:M.typeLabel(data.type),genre:data.genre,age_group:data.audience,language:data.language,location:data.location}),
     onChange:options=>{if(current!==owner()||!enabled)throw Error('Return to the story where you opened this document.');syncStoryOptions(options);}
    },
@@ -209,14 +264,13 @@
  }
  function story(){
   page='story-properties';if(!data.cast.length)data.cast=defaultCast();
-  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel"><div class="row story-source-actions" role="group" aria-label="Story controls"><div class="story-source-control"><button type="button" class="secondary" data-upload>Upload PDF</button></div><div class="story-source-control"><button type="button" class="secondary" data-ai>Generate With AI</button></div><div class="story-source-control"><button type="button" class="secondary" data-write>Write</button></div><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="row story-source-resume"><button type="button" class="secondary" data-preview hidden>Preview & Select</button><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button><button type="button" class="secondary" data-script-resume hidden>Resume Script</button><button type="button" class="secondary" data-keep hidden>Keep previous selection</button></div><label>What should your story be about? (optional)<textarea data-brief maxlength="4000" rows="2" placeholder="For example, two hosts discussing business news for Indian adults"></textarea></label><label>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help></p><div id="story-simple-candidate" class="panel form" hidden></div><div data-sources></div></section><section class="panel form" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><p class="help" data-cast-reason></p><div class="form" data-characters id="story-character-properties" role="tabpanel"></div></section><div class="story-simple-actions"><button type="button" data-next>Generate</button></div></div>';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel"><div class="story-settings-bar" role="group" aria-label="Story settings" data-story-settings></div><div class="story-source-tabs" role="tablist" aria-label="Story source"><button type="button" role="tab" id="story-source-tab-pdf" aria-controls="story-source-panel-pdf" data-source-tab="pdf">Upload PDF</button><button type="button" role="tab" id="story-source-tab-ai" aria-controls="story-source-panel-ai" data-source-tab="ai">Generate With AI</button><button type="button" role="tab" id="story-source-tab-write" aria-controls="story-source-panel-write" data-source-tab="write">Write Yourself</button></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-pdf" aria-labelledby="story-source-tab-pdf" data-source-panel="pdf"><div class="row story-source-upload"><button type="button" class="secondary" data-upload>Upload PDF</button><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden></div><div class="story-source-host" data-source-host="pdf"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-ai" aria-labelledby="story-source-tab-ai" data-source-panel="ai"><div class="story-source-host" data-source-host="ai"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-write" aria-labelledby="story-source-tab-write" data-source-panel="write"><div class="story-source-host" data-source-host="write"></div></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="row story-source-resume"><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button><button type="button" class="secondary" data-script-resume hidden>Resume Script</button><button type="button" class="secondary" data-keep hidden>Keep previous selection</button></div><label>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help></p><div id="story-simple-candidate" class="panel form" hidden></div><div data-sources></div></section><section class="panel form" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><p class="help" data-cast-reason></p><div class="form" data-characters id="story-character-properties" role="tabpanel"></div></section><div class="story-simple-actions"><button type="button" data-next>Generate</button></div></div>';
   const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
-  const brief=inPage('[data-brief]');brief.value=data.brief||'';brief.oninput=()=>{data.brief=brief.value;epoch++;persist();};
   inPage('[data-keep]').hidden=!sourcePending;inPage('[data-keep]').onclick=()=>{sourcePending=false;render();};
   inPage('[data-script-help]').textContent='For multiple speakers, write “Name: spoken words” for each turn, with a blank line between turns. Directions belong in character properties.';
-  inPage('[data-ai]').onclick=generateStory;inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();inPage('[data-write]').onclick=()=>text.focus();
-  inPage('[data-upload]').onclick=()=>inPage('[data-file]').click();inPage('[data-file]').onchange=async e=>{const file=e.target.files[0];if(!file)return;const origin=owner();sourcePending=true;try{await sourcePicker().load(file,inPage('[data-upload]'));if(origin===owner()&&data.tab===1)render();}catch(error){message(error.message,true);}};
-  inPage('[data-preview]').hidden=!picker?.ready;inPage('[data-preview]').onclick=()=>sourcePicker().open(inPage('[data-preview]'));
+  inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
+  inPage('[data-upload]').onclick=()=>inPage('[data-file]').click();inPage('[data-file]').onchange=async e=>{const file=e.target.files[0];if(!file)return;const origin=owner();sourcePending=true;try{const chosen=sourcePicker();chosen.mount?.(inPage('[data-source-host=pdf]'));await chosen.load(file,inPage('[data-upload]'));if(origin===owner()&&data.tab===1)render();}catch(error){message(error.message,true);}};
+  settingsBar();sourceTabs();
   void syncSourceResume().catch(error=>message(error.message,true));
   inPage('[data-script-resume]').hidden=!data.scriptReviewDraft;inPage('[data-script-resume]').onclick=()=>openScriptReview(data.scriptReviewDraft);
   inPage('[data-cast-reason]').textContent=data.castReason||'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.';
@@ -232,31 +286,6 @@
    if(data.type!==oldType&&!data.castCustomized&&!data.script.trim()){data.cast=defaultCast();const root=inPage('[data-characters]');if(root)characterTabs();}
    epoch++;persist();
  }
- function generateStory(){
-  const current=data,identity=owner();
-  if(!window.EccoAI?.requestGeneration){aiStatus('AI controls could not load. Refresh Studio and try again.',true);return;}
-  const syncOptions=options=>{
-   if(!enabled||current!==data||identity!==owner()||data.tab!==1)return;
-   syncStoryOptions(options);
-  };
-  window.EccoAI.requestGeneration({label:'Create the story for '+data.title,key:'story-workspace',scopeKey:identity,
-   contextFields:[{name:'story_type',label:'Story Type',options:M.typeOptions(data.type)},{name:'genre',label:'Genre / Topic',options:genres},{name:'age_group',label:'Age Group',options:audiences},{name:'location',label:'Audience Location',placeholder:'For example, India or worldwide'}],
-   initialOptions:{instructions:data.brief,language:data.language,story_type:data.type,genre:data.genre,age_group:data.audience,location:data.location},
-   isValid:()=>enabled&&current===data&&identity===owner()&&data.tab===1,onOptionsChange:syncOptions,review:{
-    text:data.aiStoryDraft?.text||'',nextLabel:data.output==='image'?'Apply Text':'Generate Script',
-    onChange:text=>{if(current===data&&identity===owner()){data.aiStoryDraft={...data.aiStoryDraft,text};persist();}},
-    onNext:text=>{
-     if(!enabled||current!==data||identity!==owner())throw Error('Return to the story where you generated this text.');
-     if(data.output==='image'){data.script=text;data.research=data.aiStoryDraft?.research||null;const proposal=data.aiStoryDraft?.proposal;if(proposal){data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.reason;}epoch++;persist();render();return;}
-     openScriptReview({selection:{text,name:'AI generated story',pages:[],research:data.aiStoryDraft?.research||null},cast:[],plan:null});
-    }
-   },onGenerate:async options=>{
-    if(!enabled||current!==data||identity!==owner())return;
-    syncOptions(options);data.brief=options.instructions;epoch++;persist();const brief=inPage('[data-brief]');if(brief)brief.value=data.brief;const result=await recommend(false,{returnProposal:true});
-    data.aiStoryDraft={text:result.proposal.script,research:result.research,proposal:result.proposal};persist();return result.proposal.script;
-   }
-  });
- }
  function castDefaults(proposal,model){
     const previous=data.cast;proposal.cast=proposal.cast.map((c,i)=>{
      const matched=data.castCustomized&&previous.find(old=>old.name.trim().toLowerCase()===c.name.trim().toLowerCase());
@@ -269,9 +298,9 @@
  function applyDetectedCast(proposal,model,valid){
     castDefaults(proposal,model);valid();data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.cast.length+' '+(data.output==='audio'?'audio ':'')+'characters identified from applied text.'+(proposal.reason?' '+proposal.reason:'');data.plan=proposal.plan||null;if(proposal.plan){data.audioScript=M.transcript(proposal.plan,data.cast);if(data.output==='audio')data.script=data.audioScript;data.sourceAssignmentPending=false;}data.castPending=false;epoch++;persist();if(data.tab===1){render();aiStatus('Text applied. Characters and properties are ready.');}
  }
- async function recommend(castOnly,{autoApply=false,returnProposal=false}={}){
+ async function recommend(castOnly,{autoApply=false,returnProposal=false,ignoreSource=false}={}){
   if(aiRequest?.current===data){if(returnProposal)throw Error('AI is still working on this story.');aiStatus('AI is still working on this story…');return;}
-  if(sourcePending){if(returnProposal)throw Error('Apply the document selection first, or choose Keep previous selection.');aiStatus('Apply the document selection first, or choose Keep previous selection.',true);return;}
+  if(sourcePending&&!ignoreSource){if(returnProposal)throw Error('Apply the document selection first, or choose Keep previous selection.');aiStatus('Apply the document selection first, or choose Keep previous selection.',true);return;}
   const token=epoch,current=data,identity=owner(),request={current,identity};aiRequest=request;if(autoApply){data.castPending=true;paintCastStatus();}
   const buttons=[inPage('[data-ai]'),inPage('[data-cast-ai]')],labels=buttons.map(b=>b?.textContent);buttons.forEach(b=>{if(b){b.disabled=true;b.setAttribute('aria-busy','true');}});if(buttons[castOnly?1:0])buttons[castOnly?1:0].textContent=castOnly?'Recommending…':'Generating…';if(inPage('[data-ai-connections]'))inPage('[data-ai-connections]').hidden=true;message('',true);aiStatus('Checking AI connection…');
   const valid=()=>{if(current!==data||token!==epoch||identity!==owner()||!enabled)throw Error('The story changed while AI was working. Your edits are preserved; request a new suggestion.');};
@@ -404,7 +433,7 @@
   legacy=activeStory?storyDescription():read('ecco-new-story-draft');legacy={...legacy,localDraftId:legacy.localDraftId||crypto.randomUUID()};
   const record=state.records.find(r=>r.id===activeStory)||{};if(!legacy.audio_preparation&&record.audio_preparation)legacy.audio_preparation=record.audio_preparation;
   data=M.migrate({...legacy,title:legacy.title||record.title,summary:legacy.summary||record.summary},activeStory?loadDraft():read('ecco-board-new-draft'),activeStory?read('ecco-audio-draft:'+activeStory):read('ecco-audio-draft:local:'+legacy.localDraftId));
-  if(pickerOwner!==owner()){picker?.destroy();picker=null;pickerOwner='';}
+  if(pickerOwner!==owner())destroyPickers();
   workspaceStory=activeStory;data.castPending=false;data.applied=data.applied||{};if(!routes[data.output])data.tab=0;if(data.tab===2&&!activeStory)data.tab=1;render();
  }
  function openSetup(savedId){
@@ -421,7 +450,7 @@
    for(const input of q('#story-simple-details',q('#page'))?.querySelectorAll('[name]')||[])if(input.name in data){if(input.type==='radio')input.checked=input.value===data[input.name];else input.value=data[input.name]||'';}
    updateDetailDefaults();updateDetailChoices();if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();
    const script=inPage('#story-simple-script');if(script)script.value=data.script;
-   const brief=inPage('[data-brief]');if(brief)brief.value=data.brief||'';
+   textPickers.ai?.setIdea(data.brief||'');
    const cast=inPage('[data-characters]');if(cast)characterTabs();
    persist();
   };
@@ -436,7 +465,7 @@
   if(enabled&&!rendering&&['audio','images','render','publish','board'].includes(target))return activeStory?generateView(target):select(2,target);
   if(enabled&&!rendering)leave();return originalNavigate.call(this,target,...args);
  };
- document.addEventListener('ecco:auth-change',()=>{if(enabled){leave();data=null;picker?.destroy();picker=null;}});
- new MutationObserver(()=>{if(queued||!enabled)return;queued=true;queueMicrotask(()=>{queued=false;if(!enabled||rendering)return;const expected=data?.tab===0?'story-details':data?.tab===1?'story-properties':data?.view;if(page!==expected){leave();return;}adaptStudio();});}).observe(q('#page'),{childList:true,subtree:true});
+ document.addEventListener('ecco:auth-change',()=>{if(enabled){leave();data=null;destroyPickers();}});
+ new MutationObserver(records=>{if(queued||!enabled)return;if(records.every(r=>r.target.closest?.('[data-inline-panel]')))return;queued=true;queueMicrotask(()=>{queued=false;if(!enabled||rendering)return;const expected=data?.tab===0?'story-details':data?.tab===1?'story-properties':data?.view;if(page!==expected){leave();return;}adaptStudio();});}).observe(q('#page'),{childList:true,subtree:true});
  window.EccoStoryWorkspace={open,openSetup,mountEntry,select,leave,captureContext,get active(){return enabled;}};
 })();

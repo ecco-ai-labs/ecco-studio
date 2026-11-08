@@ -22,7 +22,7 @@
   {
     "area": "Source upload",
     "mode": "fixture",
-    "scope": "Equal desktop panes at 1440px/1024px, compact AI icon and four-setting ribbon above the unlabeled prompt, immediate Story Details synchronization, current settings in selected-only AI requests, stale output invalidation, always-visible AI output, bottom ribbon and saved drafts, mobile tool bounds and Escape, selected-only AI output review, fictional source versus Sports News warning with explicit override using synthetic assessments. Real PDF rendering checked manually; live AI assessment accuracy requires connected test services. Prompt/output textareas have equal height; AI clarification/error popups preserve source and return focus; Clear Text is a button adjacent to Apply Text. Clarification choices offer a recommendation and resume generation on click or Enter; both jar-count resolutions are covered. Continue Anyway reviews a draft without retrying, Continue Without AI preserves source, and stale decisions and repeated-question loops are rejected. Real PDF.js page ranges and native PDF bookmarks populate original text, including a >30,000-character chapter; extraction excludes the next chapter and manual author removal survives into AI review. Apply Text uses the final revised text for three audio characters. The pinned PDF.js assets are fulfilled locally from npm; external services stay blocked. Original 255-page Arabian Nights PDF checked manually: pages 175\u2013187 = 28,516 characters; Aladdin bookmark chapter = 29,647 characters, excluding the next heading. Live AI translation/cast accuracy remains blocked without connected test services. Native mouse highlighting selects only the PDF author line; Find and Replace changes only extracted page text, manual edits survive saved-selection resume and final Apply Text."
+    "scope": "Equal desktop panes at 1440px/1024px, compact AI icon and four-setting ribbon above the unlabeled prompt, immediate Story Details synchronization, current settings in selected-only AI requests, stale output invalidation, always-visible AI output, bottom ribbon and saved drafts, mobile tool bounds and Escape, selected-only AI output review, fictional source versus Sports News warning with explicit override using synthetic assessments. Real PDF rendering checked manually; live AI assessment accuracy requires connected test services. Prompt/output textareas have equal height; AI clarification/error popups preserve source and return focus; Clear Text is a button adjacent to Apply Text. Clarification choices offer a recommendation and resume generation on click or Enter; both jar-count resolutions are covered. Continue Anyway reviews a draft without retrying, Continue Without AI preserves source, and stale decisions and repeated-question loops are rejected. Real PDF.js page ranges and native PDF bookmarks populate original text, including a >30,000-character chapter; extraction excludes the next chapter and manual author removal survives into AI review. Apply Text uses the final revised text for three audio characters. The pinned PDF.js assets are fulfilled locally from npm; external services stay blocked. Original 255-page Arabian Nights PDF checked manually: pages 175–187 = 28,516 characters; Aladdin bookmark chapter = 29,647 characters, excluding the next heading. Live AI translation/cast accuracy remains blocked without connected test services. Native mouse highlighting selects only the PDF author line; Find and Replace changes only extracted page text, manual edits survive saved-selection resume and final Apply Text."
   },
   {
     "area": "Themes and layout",
@@ -107,7 +107,7 @@
   {
     "area": "Upcoming campaigns in Billing",
     "mode": "fixture + isolated SQLite",
-    "scope": "All eligible previews, 0\u201390-day lead time, audience/placement/pause/blocked/completed filtering, expiry and scheduled dispatch. Browser checks all three Billing surfaces, Mark as Read retention, regular-weight read styling, keyboard focus, reload, mobile fit and upcoming-to-active continuity. Isolated SQLite checks per-user/occurrence persistence, retry idempotence, dispatch race, recipient authorization, expiry, withdrawal, old read campaigns and independence from newer notification limits. Live checks read existing campaign status without creating test promotions."
+    "scope": "All eligible previews, 0–90-day lead time, audience/placement/pause/blocked/completed filtering, expiry and scheduled dispatch. Browser checks all three Billing surfaces, Mark as Read retention, regular-weight read styling, keyboard focus, reload, mobile fit and upcoming-to-active continuity. Isolated SQLite checks per-user/occurrence persistence, retry idempotence, dispatch race, recipient authorization, expiry, withdrawal, old read campaigns and independence from newer notification limits. Live checks read existing campaign status without creating test promotions."
   },
   {
     "area": "Delayed audio voice preview readiness",
@@ -132,7 +132,7 @@
   {
     "area": "Compact character tabs and AI story-to-screenplay review",
     "mode": "fixture",
-    "scope": "STORY-05 checks removed count/library/create/source controls, trailing plus, last-tab selection, property persistence, keyboard tabs, 62px two-line prompt, compact action gap, error popup controls and mobile bounds. STORY-06 checks audio/video prompt and editable output in the same popup, close/reopen persistence, desktop/mobile footer visibility, Generate Script with four assigned turns, nested validation error dismissal, minimize/navigation/resume, Apply and correct generation studio. Live backend separately verified five speaking roles across 12,421 source characters and 576 ordered units; synthetic browser fixtures do not establish model quality."
+    "scope": "STORY-05 checks removed count/library/create/source controls, trailing plus, last-tab selection, property persistence, keyboard tabs, three story source tabs, error popup controls and mobile bounds. STORY-06 checks the Generate With AI tab: idea, Write Story into Draft 1, Use AI Text into Story Text, edits kept across tab switches, no popup controls on the inline workspace, mobile bounds, Generate Script with four assigned turns, nested validation error dismissal, minimize/navigation/resume, Apply and correct generation studio. Live backend separately verified five speaking roles across 12,421 source characters and 576 ordered units; synthetic browser fixtures do not establish model quality."
   },
   {
     "area": "Library and Tell Your Story landing pages",
@@ -142,17 +142,17 @@
   {
     "area": "Story Type and Genre / Topic",
     "mode": "fixture",
-    "scope": "STORY-07 checks all 12 types and 17 genres/topics on Story Details, Generate With AI and Select Story Text, keyboard focus, current-value synchronization, no implicit service calls and 390px bounds. STORY-08 reopens retired/unknown choices without changing their stored values. Unit checks cover Interview Host/Guest and audio handoff. Real AI quality and media inference remain separate."
+    "scope": "STORY-07 checks all 12 types and 17 genres/topics on Story Details and the Story settings labels above the source tabs, keyboard focus, current-value synchronization, no implicit service calls and 390px bounds. STORY-08 reopens retired/unknown choices without changing their stored values. Unit checks cover Interview Host/Guest and audio handoff. Real AI quality and media inference remain separate."
   },
   {
     "area": "Story Details approved two-card layout",
     "mode": "fixture",
-    "scope": "STORY-09\u201311 cover desktop and 390px layouts in default/light themes, 640px card bounds, empty single-choice output, audience defaults, visible right-aligned 48px Next, one complete linked error summary and field errors, keyboard selection/focus, independent type/topic lists, Back radio restoration, and recurrence saved in Generate & Publish. Unit tests additionally cover whitespace, all six missing fields, and draft reload. No live media inference or publishing. Both headings use title case, and card width/height equality is checked in desktop and stacked mobile layouts."
+    "scope": "STORY-09–11 cover desktop and 390px layouts in default/light themes, 640px card bounds, empty single-choice output, audience defaults, visible right-aligned 48px Next, one complete linked error summary and field errors, keyboard selection/focus, independent type/topic lists, Back radio restoration, and recurrence saved in Generate & Publish. Unit tests additionally cover whitespace, all six missing fields, and draft reload. No live media inference or publishing. Both headings use title case, and card width/height equality is checked in desktop and stacked mobile layouts."
   },
   {
     "area": "Grouped Story Details choices and output journeys",
     "mode": "fixture",
-    "scope": "STORY-12\u201314 verify both grouped menus at 1440x1000 and 390x844, two-column groups, descriptions, full Tab traversal, arrow selection, Escape focus return, outside dismissal, selected check marks, maximum 470px height and viewport bounds without horizontal overflow. Other descriptions join linked validation. Default tags remain removed after edits. Every output filters and renumbers sidebar and journey list with Publish retained. Earlier checks retain full empty-submit and step-3 recurrence coverage. Unit tests cover persisted descriptions, canonical values and reopening retired choices. AI/source dropdowns and prompt values are unchanged."
+    "scope": "STORY-12–14 verify both grouped menus at 1440x1000 and 390x844, two-column groups, descriptions, full Tab traversal, arrow selection, Escape focus return, outside dismissal, selected check marks, maximum 470px height and viewport bounds without horizontal overflow. Other descriptions join linked validation. Default tags remain removed after edits. Every output filters and renumbers sidebar and journey list with Publish retained. Earlier checks retain full empty-submit and step-3 recurrence coverage. Unit tests cover persisted descriptions, canonical values and reopening retired choices. AI/source dropdowns and prompt values are unchanged."
   },
   {
     "area": "Compact typography",
@@ -163,5 +163,10 @@
     "area": "Story title placement",
     "mode": "fixture",
     "scope": "Story title is below all control panels and the draft status, left-aligned with the tabs/cards at 1440x1000 and 390x844. Long titles wrap without horizontal overflow or overlap. Back remains usable, tabs preserve the layout, and leaving for Library hides draft status and restores the normal header."
+  },
+  {
+    "area": "Story source tabs and drafts",
+    "mode": "fixture",
+    "scope": "STORY-04 checks the Story settings labels (Story Type, Genre / Topic, Audience, Language) show Story Details values, all choices, two-way synchronization with Story Details, browser-style Upload PDF / Generate With AI / Write Yourself tabs with arrow/End keys, the PDF workspace appearing only after upload, and 1440/390 bounds. UPLOAD-03 sends the label values with Improve with AI and clears drafts when a setting changes. STORY-15 checks Draft 1–3 in all three tabs: each improvement fills the next draft, Improve is disabled when all three are used, arrow keys switch drafts, Clear AI Output clears only the chosen draft, Use AI Text applies the chosen draft and another draft can replace it, and editing Selected Text clears the drafts. Real AI quality remains separate."
   }
 ]
