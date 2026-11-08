@@ -58,7 +58,7 @@ def verify(body, env):
         if request is None: add('models','Models','blocked','Fix the script/settings check first.')
         elif missing or missing_sounds: add('models','Models','failed','Not installed and qualified on this worker: '+', '.join(sorted(missing|missing_sounds)))
         else: add('models','Models','passed','Qualified runtime advertised for '+', '.join(MODELS[m]['name'] for m in sorted(needed))+(('; sound models: '+', '.join(sorted({s['model'] for s in clean_sounds}))) if clean_sounds else '')+'. No new inference was run.')
-        for field, label in [('mixed_models_version','Mixed character models'),('character_controls_version','Character controls'),('sound_design_version','Sound mixing')]:
+        for field, label in [('long_form_version','Complete recordings'),('mixed_models_version','Mixed character models'),('character_controls_version','Character controls'),('sound_design_version','Sound mixing')]:
             if request and request.get(field) and worker.get(field)!=1: add(field,label,'failed','Update the selected worker to apply these settings.')
         resources = worker.get('resources') or {}
         if resources.get('version')!=1 or not isinstance(resources.get('checked_at'),(int,float)) or not 0<=time.time()-resources['checked_at']<30:

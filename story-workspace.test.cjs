@@ -28,7 +28,7 @@ test('speaker labels never become spoken words and edited directions survive unc
  const cast=[{id:'a',name:'Motu'},{id:'b',name:'Patlu'}],previous={segments:[{character_id:'a',text:'Hello!',performance:{emotion:'happy'}}]};
  assert.deepEqual(M.parseScript('Motu: Hello!\n\nPatlu: Hi!',cast,previous).segments,[{character_id:'a',text:'Hello!',performance:{emotion:'happy'}},{character_id:'b',text:'Hi!'}]);
  assert.throws(()=>M.parseScript('Unknown: Hello!',cast),/character name/);
- assert.throws(()=>M.parseScript('Motu: '+ 'x'.repeat(4001),cast),/4,000/);
+ assert.equal(M.parseScript('Motu: '+ 'x'.repeat(4001),cast).segments[0].text.length,4001);
 });
 test('unchanged scenes preserve existing images and camera edits',()=>{
  const scene={title:'Market',narration:'Hello',motion:'Walk',image_id:'saved-image',camera_move:'Orbit',seconds:4};
@@ -59,9 +59,9 @@ test('a late AI response cannot replace an edited story or cast',async()=>{
  x.w.testAPI=()=>new Promise(r=>resolve=r);await requestStoryAI(x);x.script('Host: My new edit.\n\nGuest: Keep me.');resolve({revisions:[{id:'story_workspace',text:'{}'}]});await tick();assert.match(x.q('#story-simple-script').value,/My new edit/);assert.match(x.q('#story-simple-error').textContent,/changed/);assert.equal(x.q('#story-simple-candidate').hidden,true);
 });
 test('AI suggestions require review and Apply, and receive only the selected source',async()=>{
- const x=await fixture();await x.start('audio','storybook');let sourceOptions;x.w.EccoSourcePicker.create=options=>{sourceOptions=options;return {ready:true,load:async()=>options.onApply({text:'Selected source passage.',name:'sample.pdf',pages:[2],selection_label:'Page 2'}),destroy(){}};};const upload=x.q('[data-file]');Object.defineProperty(upload,'files',{value:[{name:'sample.pdf',wholeDocument:'Unselected private passage.'}]});await upload.onchange({target:upload});const cast=x.saved().simple_workspace.cast;
+ const x=await fixture();await x.start('audio','storybook');x.w.testAPI=async()=>({revisions:[{id:'story_workspace',text:JSON.stringify({characters:[{id:'n',name:'Narrator'}],assignments:[{unit_id:0,character_id:'n'}]})}]});let sourceOptions;x.w.EccoSourcePicker.create=options=>{sourceOptions=options;return {ready:true,load:async()=>options.onApply({text:'Selected source passage.',name:'sample.pdf',pages:[2],selection_label:'Page 2'}),destroy(){}};};const upload=x.q('[data-file]');Object.defineProperty(upload,'files',{value:[{name:'sample.pdf',wholeDocument:'Unselected private passage.'}]});await upload.onchange({target:upload});await applyReview(x);const cast=x.saved().simple_workspace.cast;
  x.w.testAPI=async(path,body)=>{x.w.testCalls.push({path,body});return {revisions:[{id:'story_workspace',text:JSON.stringify({characters:cast,reason:'One narrator fits this story.',segments:[{character_id:cast[0].id,text:'A funny story.'}],scenes:[]})}]};};
- await requestStoryAI(x);assert.equal(x.q('#story-simple-script').value,'Selected source passage.');assert.equal(x.q('#story-simple-candidate').hidden,false);const sent=JSON.stringify(x.w.testCalls[0].body);assert.match(sent,/Selected source passage/);assert.doesNotMatch(sent,/Unselected private passage/);x.q('#story-simple-candidate button').click();await tick();assert.match(x.q('#story-simple-script').value,/A funny story/);assert.deepEqual(x.errors,[]);
+ await requestStoryAI(x);assert.equal(x.q('#story-simple-script').value,'Narrator: Selected source passage.');assert.equal(x.q('#story-simple-candidate').hidden,false);const sent=JSON.stringify(x.w.testCalls[0].body);assert.match(sent,/Selected source passage/);assert.doesNotMatch(sent,/Unselected private passage/);x.q('#story-simple-candidate button').click();await tick();assert.match(x.q('#story-simple-script').value,/A funny story/);assert.deepEqual(x.errors,[]);
 });
 test('unconfirmed story save blocks duplicate submission and retains all input',async()=>{
  const x=await fixture();await x.start('image','storybook');x.script('A garden.');let saves=0;x.w.testAPI=async()=>{saves++;throw Error('Response lost');};await x.w.EccoStoryWorkspace.select(2);await x.w.EccoStoryWorkspace.select(2);assert.equal(saves,1);assert.equal(x.q('#story-simple-script').value,'A garden.');assert.match(x.q('#story-simple-error').textContent,/not confirmed/);
@@ -165,10 +165,11 @@ const ensembleText='Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I w
 const ensembleCast=[{id:'n',name:'Narrator',role:'Narration',gender:'Female',language:'English',voice:'en_female',dialect:'Indian English',style:'Warm',emotion:'neutral',delivery:'Clear and measured.'},{id:'a',name:'Ali',role:'Woodcutter',gender:'Male',age_group:'Adult',language:'English',voice:'en_male',dialect:'Indian English',style:'Curious',emotion:'surprise',delivery:'Bright and expressive.'},{id:'m',name:'Morgiana',role:'Resourceful helper',gender:'Female',age_group:'Adult',language:'English',voice:'en_female',dialect:'Indian English',style:'Confident',emotion:'neutral',delivery:'Calm and decisive.'}];
 const ensembleSegments=[{character_id:'n',text:'At the cave.'},{character_id:'a',text:'Open sesame!'},{character_id:'m',text:'I will help.'}];
 async function sourceHandle(x){let options;x.w.EccoSourcePicker.create=value=>{options=value;return {ready:true,load:async()=>{},destroy(){}};};const input=x.q('[data-file]');Object.defineProperty(input,'files',{value:[{name:'cast.txt',private:'UNSELECTED_PRIVATE'}]});await input.onchange({target:input});return options;}
+async function applyReview(x){await tick();const apply=x.q('.story-script-dialog [data-apply]');assert.ok(apply);assert.equal(apply.disabled,false,x.q('.story-script-dialog [data-error]')?.textContent);apply.click();await tick();}
 test('Apply Text automatically identifies the audio cast and passes voices and exact speaker text into Audio Studio',async()=>{
  const x=await fixture();await x.start('audio','news');const source=await sourceHandle(x);source.aiSettings.onChange({story_type:'storybook',genre:'Adventure'});
  const received=[];x.w.testAPI=async(path,body)=>{received.push({path,body});return path==='stories'?{id:'cast-story',kind:'story'}:{revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,segments:ensembleSegments,reason:'Narration and two distinct speaking roles.'})}]};};
- assert.equal(received.length,0);source.onApply({text:ensembleText,name:'cast.txt',pages:[2]});await tick();assert.equal(received.length,1);const request=received[0].body,context=JSON.parse(request.context.summary);assert.equal(context.output,'audio');assert.equal(context.story_type,'storybook');assert.equal(context.script,ensembleText);assert.equal(context.source.text,undefined);assert.equal(request.context.lines.length,0);assert.doesNotMatch(JSON.stringify(request),/UNSELECTED_PRIVATE/);assert.match(request.context.instructions,/never replace a multi-character story with a lone narrator/);
+ assert.equal(received.length,0);source.onApply({text:ensembleText,name:'cast.txt',pages:[2]});await applyReview(x);assert.equal(received.length,1);const request=received[0].body,context=JSON.parse(request.context.summary);assert.equal(context.output,'audio');assert.equal(context.story_type,'storybook');assert.equal(context.script,ensembleText);assert.equal(context.source.text,undefined);assert.equal(request.context.lines.length,0);assert.doesNotMatch(JSON.stringify(request),/UNSELECTED_PRIVATE/);assert.match(request.context.instructions,/never replace a multi-character story with a lone narrator/);
  assert.equal(x.q('[data-count]').value,'3');assert.equal(x.q('#story-simple-script').value,ensembleText);assert.equal(x.q('[data-property=appearance]'),null);assert.equal(x.q('[data-character="1"][data-property=voice]').value,'en_male');assert.equal(x.q('[data-character="1"][data-property=dialect]').value,'Indian English');assert.equal(x.q('[data-cast-panel]').getAttribute('aria-busy'),'false');assert.match(x.q('[data-cast-reason]').textContent,/3 audio characters/);assert.equal(x.q('#story-simple-candidate').hidden,true);
  await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=type]').value,'storybook');assert.equal(x.q('[name=output]').value,'audio');x.fill('type','audio-drama');x.q('[name=type]').dispatchEvent(new x.w.Event('change'));assert.equal(x.saved().simple_workspace.cast.length,3);await x.w.EccoStoryWorkspace.select(2);await tick();const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:cast-story'));assert.equal(audio.speakers.length,3);assert.equal(audio.speakers[1].voice,'en_male');assert.equal(audio.speakers[1].dialect,'Indian English');assert.equal(audio.lines[1].speaker_id,'a');assert.equal(audio.lines[1].text,'Open sesame!');assert.equal(audio.lines[2].speaker_id,'m');assert.deepEqual(x.errors,[]);
 });
@@ -178,7 +179,7 @@ test('image characters expose visual properties and exclude audio voices and aud
  x.w.localStorage.setItem('ecco-audio-character-sets-v1',JSON.stringify([{name:'Audio-only speaker',output:'audio',cast:ensembleCast},{name:'Visual cast',output:'image',cast:[{id:'v',name:'Visual'}]}]));x.q('[data-library]').click();await tick();const library=x.q('[aria-label="Choose characters from library"]');assert.doesNotMatch(library.textContent,/Audio-only speaker/);assert.match(library.textContent,/Visual cast/);assert.deepEqual(x.errors,[]);
 });
 test('a late automatic cast result preserves new script edits and does not change a new story',async()=>{
- const x=await fixture();await x.start('audio','storybook');const source=await sourceHandle(x);let finish;x.w.testAPI=()=>new Promise(r=>finish=r);source.onApply({text:ensembleText,name:'cast.txt'});await tick();assert.equal(x.q('[data-count]').disabled,true);assert.equal(x.q('[data-cast-panel]').getAttribute('aria-busy'),'true');x.script('My newer edit.');finish({revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,segments:ensembleSegments})}]});await tick();assert.equal(x.q('#story-simple-script').value,'My newer edit.');assert.equal(x.q('[data-count]').value,'1');assert.equal(x.q('[data-count]').disabled,false);assert.match(x.q('[data-cast-reason]').textContent,/could not finish/);
+ const x=await fixture();await x.start('audio','storybook');const source=await sourceHandle(x);let finish;x.w.testAPI=()=>new Promise(r=>finish=r);source.onApply({text:ensembleText,name:'cast.txt'});await tick();assert.equal(x.q('.story-script-dialog [data-apply]').disabled,true);x.script('My newer edit.');finish({revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,segments:ensembleSegments})}]});await tick();assert.equal(x.q('#story-simple-script').value,'My newer edit.');assert.equal(x.q('[data-count]').value,'1');assert.equal(x.q('[data-count]').disabled,false);assert.match(x.q('.story-script-dialog [data-error]').textContent,/story changed/);x.q('.story-script-dialog').close();
  source.onApply({text:ensembleText,name:'cast.txt'});await tick();x.w.EccoWorkspaceUI.startNewStory({id:'custom',format:''});await tick();finish({revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,segments:ensembleSegments})}]});await tick();assert.equal(x.saved().simple_workspace.cast.length,0);assert.equal(x.saved().simple_workspace.script,'');assert.deepEqual(x.errors,[]);
 });
 test('source voice assignment rejects rewritten text, reordered dialogue and invented speaker IDs',()=>{
@@ -190,7 +191,7 @@ test('source voice assignment rejects rewritten text, reordered dialogue and inv
 test('cast detection reads the final edited selection and keeps a valid cast even if speaker assignment needs retry',async()=>{
  const x=await fixture();await x.start('audio','storybook');const source=await sourceHandle(x),finalText='Ali and Morgiana enter the cave. The author credit has been removed.';let sent;
  x.w.testAPI=async(path,body)=>{sent=JSON.parse(body.context.summary);return {revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,segments:[{character_id:'n',text:'An unwanted rewritten story.'}]})}]};};
- source.onApply({text:finalText,name:'edited.pdf'});await tick();assert.equal(sent.script,finalText);assert.equal(sent.source.text,undefined);assert.equal(x.q('#story-simple-script').value,finalText);assert.equal(x.q('[data-count]').value,'3');assert.match(x.q('#story-simple-ai-status').textContent,/Speaker assignment needs another attempt/);assert.equal(x.saved().simple_workspace.plan,null);
+ source.onApply({text:finalText,name:'edited.pdf'});await tick();assert.equal(sent.script,finalText);assert.equal(sent.source.text,undefined);assert.equal(x.q('#story-simple-script').value,'');assert.equal(x.saved().simple_workspace.scriptReviewDraft.selection.text,finalText);assert.match(x.q('.story-script-dialog [data-error]').textContent,/Speaker assignment needs another attempt/);assert.equal(x.saved().simple_workspace.plan,null);
 });
 
 test('Save Draft exposes Resume immediately and restores the latest saved selection only for its story',async()=>{
@@ -200,4 +201,50 @@ test('Save Draft exposes Resume immediately and restores the latest saved select
  await options.onSave();assert.equal(x.q('[data-resume]').hidden,false);await x.q('[data-resume]').onclick();assert.deepEqual(restored,['First saved edit.']);
  snapshot={text:'Second saved edit.'};await options.onSave();const resume=x.q('[data-resume]');await resume.onclick();assert.deepEqual(restored,['First saved edit.','Second saved edit.']);assert.equal(opened,2);
  await x.start('audio','storybook');await resume.onclick();assert.equal(opened,2);assert.equal(x.q('[data-resume]').hidden,true);assert.deepEqual(x.errors,[]);
+});
+
+test('complete chapters over 100,000 characters and 80 turns reach Audio Studio unchanged',async()=>{
+ const x=await fixture();await x.start('audio','storybook');
+ const text=Array.from({length:210},(_,i)=>'Passage '+i+'. '+('The woodcutter walked through the forest. '.repeat(16)).trim()).join('\n\n');
+ x.script(text);await x.w.EccoStoryWorkspace.select(2);await tick();
+ assert.ok(x.q('#audio-form'),x.q('#story-simple-error')?.textContent);
+ const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:'+x.w.testState.story()));
+ assert.equal(audio.lines.map(p=>p.text).join('\n\n'),text);
+ assert.equal(x.q('[data-single-script]').maxLength,-1);assert.deepEqual(x.errors,[]);
+});
+
+
+test('Apply Text converts unlabelled prose to a complete visible speaker script before Generate',async()=>{
+ const x=await fixture();await x.start('audio','storybook');const source=await sourceHandle(x);
+ const prose='Ali reached the cave. “Open sesame!” said Ali. Morgiana replied, “I will help.”';
+ x.w.testAPI=async(path,body)=>{if(path==='stories')return{id:'prose-story',kind:'story'};const units=JSON.parse(body.context.summary).source_units;return{revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,assignments:units.map(u=>({unit_id:u.id,character_id:u.dialogue?(u.text.includes('sesame')?'a':'m'):'n'}))})}]};};
+ source.onApply({text:prose,name:'chapter.pdf'});await applyReview(x);
+ const saved=x.saved().simple_workspace;assert.equal(saved.source.text,prose);assert.equal(saved.sourceAssignmentPending,false);
+ assert.match(x.q('#story-simple-script').value,/Ali: “Open sesame!”/);assert.match(x.q('#story-simple-script').value,/Morgiana: “I will help.”/);
+ assert.equal(saved.plan.segments.map(p=>p.text).join(''),prose);
+ await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(x.w.testState.page(),'audio');assert.equal(x.q('#story-simple-error').textContent,'');assert.deepEqual(x.errors,[]);
+});
+
+test('an older applied prose draft repairs its missing assignments when Generate is selected',async()=>{
+ const prose='Ali said, “Open sesame!” Morgiana replied, “I will help.”',old=M.fresh({output:'audio',type:'storybook'});
+ Object.assign(old,{title:'Legacy',genre:'Adventure',audience:'All ages',language:'English',recurrence:'once',script:prose,source:{text:prose,name:'chapter.pdf'},cast:ensembleCast,sourceAssignmentPending:true,tab:1});
+ const x=await fixture({'ecco-story-setup:legacy':JSON.stringify({localDraftId:'legacy',simple_workspace:old})});x.w.EccoStoryWorkspace.openSetup('legacy');await tick();
+ x.w.testAPI=async(path,body)=>{if(path==='stories')return{id:'legacy-prose',kind:'story'};const units=JSON.parse(body.context.summary).source_units;return{revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,assignments:units.map(u=>({unit_id:u.id,character_id:u.dialogue?(u.text.includes('sesame')?'a':'m'):'n'}))})}]};};
+ await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(x.w.testState.page(),'audio');assert.equal(x.saved().simple_workspace.sourceAssignmentPending,false);assert.equal(x.q('#story-simple-error').textContent,'');assert.deepEqual(x.errors,[]);
+});
+
+for(const output of ['audio','video'])test('Generate Script reviews and preserves edited turns and character properties for '+output,async()=>{
+ const x=await fixture();await x.start(output,'storybook');const source=await sourceHandle(x);assert.equal(source.applyLabel,'Generate Script');
+ x.w.testAPI=async(path,body)=>{if(path==='stories')return{id:'review-'+output,kind:'story'};return{revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,segments:ensembleSegments})}]};};
+ source.onApply({text:ensembleText,name:'review.txt'});await tick();assert.equal(x.q('#story-simple-script').value,'');assert.equal(x.q('.story-script-dialog [data-turn-speaker]').options.length,3);
+ const choice=x.q('[data-cast-choice]');choice.value='a';choice.dispatchEvent(new x.w.Event('change'));
+ const name=x.q('.story-script-dialog [data-property=name]');name.value='Ali Baba';name.dispatchEvent(new x.w.Event('input'));
+ const dialect=x.q('.story-script-dialog [data-property=dialect]');dialect.value='British English';dialect.dispatchEvent(new x.w.Event('input'));
+ const turn=x.q('[data-turn-text="1"]');turn.value='Open the cave, please!';turn.dispatchEvent(new x.w.Event('input'));
+ assert.equal(!!x.q('.story-script-dialog [data-property=appearance]'),output==='video');
+ x.q('.story-script-dialog').close();await tick();assert.equal(x.q('#story-simple-script').value,'');x.q('[data-script-resume]').click();await tick();assert.equal(x.q('[data-turn-text="1"]').value,'Open the cave, please!');await applyReview(x);
+ assert.match(x.q('#story-simple-script').value,/Ali Baba: Open the cave, please!/);assert.equal(x.saved().simple_workspace.cast[1].dialect,'British English');assert.equal(x.saved().simple_workspace.source.text,ensembleText);assert.equal(x.saved().simple_workspace.scriptReviewDraft,undefined);assert.equal(x.q('[data-next]').textContent,'Generate');
+ x.q('[data-next]').click();await tick();assert.equal(x.w.testState.page(),output==='audio'?'audio':'render');
+ if(output==='video'){[...x.q('#story-simple-media').querySelectorAll('button')].find(b=>b.textContent==='Prepare Audio').click();await tick();}
+ const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:review-'+output));assert.equal(audio.lines[1].text,'Open the cave, please!');assert.equal(audio.speakers[1].name,'Ali Baba');assert.equal(audio.speakers[1].dialect,'British English');assert.deepEqual(x.errors,[]);
 });

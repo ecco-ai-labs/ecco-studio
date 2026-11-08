@@ -143,7 +143,7 @@ test('Closing the guided popup restores focus to its visible AI menu control',as
 test('Invalid casts, unsupported character assignments and invalid edited transcripts are rejected',async t=>{
  const x=await ready(t);mock(x,{invalid:true});await open(x);await questions(x);await submit(x);input(x,'[data-cast-row="1"] [data-character-property=name]','Host');await submit(x);assert.match(x.q(dlg+' [data-status]').textContent,/different name/);input(x,'[data-cast-row="1"] [data-character-property=name]','Guest');await submit(x);assert.match(x.q(dlg+' [data-status]').textContent,/invalid character/);assert.equal(x.q('[name=summary]').value,'');x.q(dlg).close();
  mock(x);await open(x);await review(x);await submit(x);input(x,'[name=summary]','Unknown: edited words');x.q('#story-setup-form').requestSubmit();await tick();assert.match(x.q('[data-story-status]').textContent,/Character name/);assert.equal(saved(x,'ecco-audio-draft:created-story'),null);
- const cast=JSON.parse(x.q('[name=audio_preparation]').value).cast;assert.throws(()=>x.w.EccoAudioScript.validatePlan({opening:null,segments:[{character_id:cast[0].id,text:'a'.repeat(4001)}]},cast,1),/4,000/);
+ const cast=JSON.parse(x.q('[name=audio_preparation]').value).cast;assert.equal(x.w.EccoAudioScript.validatePlan({opening:null,segments:cast.map(c=>({character_id:c.id,text:'a'.repeat(4001)}))},cast,cast.length).segments.length,cast.length);
 });
 
 test('Audio Studio uses the same journey, preserves voice choices and resolves latest emotion and pitch on Generate',async t=>{

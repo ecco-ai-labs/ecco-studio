@@ -168,7 +168,7 @@ class Handler(legacy.Handler):
             return self.send({'error': 'This workspace action is not available on the storage service.'}, 409)
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            maximum = 17*1024*1024 if path in ('/api/images/upload', '/api/audio/upload') else 1024*1024
+            maximum = 17*1024*1024 if path in ('/api/images/upload', '/api/audio/upload', '/api/audio/generate', '/api/audio/verify', '/api/stories') else 1024*1024
             if path == '/api/youtube/configure': maximum = 32*1024
             if path == '/api/character-studio/upload': maximum = 71*1024*1024
             if path == '/api/frame-editor/export': maximum = 12*1024*1024

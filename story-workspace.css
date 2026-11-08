@@ -31,4 +31,23 @@
 #story-simple-review{margin-top:16px}
 #story-simple-review .cards:empty{display:none}
 #story-simple-media button[aria-pressed=true]{color:var(--ecco-theme-accent,#ffdc24);border-color:currentColor}
+.story-script-dialog{width:min(1400px,96vw);max-width:96vw;max-height:94vh;box-sizing:border-box;overflow:auto}
+.story-script-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:20px;align-items:start}
+.story-script-layout>section{min-width:0}
+.story-script-layout [data-turns]{max-height:60vh;overflow:auto;padding:2px 8px 2px 2px}
+.story-script-layout [data-properties]{max-height:60vh;overflow:auto;padding:2px}
+.story-script-turn{border-bottom:1px solid var(--ecco-theme-border,#51496f);padding-bottom:16px}
+.story-script-turn :is(select,textarea),.story-script-layout [data-cast-choice]{width:100%;box-sizing:border-box}
+.story-script-dialog [data-error]{color:var(--ecco-theme-error,#ff7272)}
+@media(max-width:700px){.story-script-layout{grid-template-columns:1fr}.story-script-layout [data-turns],.story-script-layout [data-properties]{max-height:none}}
 @media(max-width:700px){.story-simple-fields,.story-character-fields{grid-template-columns:1fr}#story-workspace-header [role=tab]{font-size:13px;padding:10px}.story-simple-wide{grid-column:auto}}
+
+.story-script-dialog>.form{display:flex;flex-direction:column;gap:12px;max-height:calc(94vh - 88px);min-height:0}
+.story-script-dialog :is(h2,h3,p){margin:0}
+.story-script-dialog p:empty{display:none}
+.story-script-layout{flex:1;min-height:0;overflow:hidden}
+.story-script-layout>section{display:flex;flex-direction:column;min-height:0;max-height:100%;gap:12px}
+.story-script-layout [data-turns],.story-script-layout [data-properties]{min-height:0;max-height:none;overflow:auto}
+.story-script-turn textarea{min-height:84px}
+.story-script-dialog .story-simple-actions{flex:none;margin-top:0}
+@media(max-width:700px){.story-script-layout{overflow:auto}.story-script-layout>section{max-height:none}.story-script-layout [data-turns],.story-script-layout [data-properties]{overflow:visible}}

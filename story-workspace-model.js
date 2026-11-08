@@ -13,7 +13,7 @@
   const script=plan?.segments?.length?transcript(plan,cast):board.story||saved.sourceText||saved.summary||'';
   return {version:1,title:saved.title||board.title||'',output:saved.story_format||board.story_format||'',type:saved.workflow_id||'',genre:saved.genre||'',audience:saved.audio_audience||p.audience||'All ages',language:saved.audio_language||p.language||'English',location:'',recurrence:'once',script,brief:'',cast:copy(cast),castCustomized:!!cast.length,scenes:copy(board.scenes||[]),source:{text:saved.sourceText||p.source_text||'',name:p.source_name||'',pages:p.source_pages||[]},tab:0,view:'',applied:{},plan:plan||null};
  }
- function transcript(plan,cast){return [...(plan.opening?[plan.opening]:[]),...(plan.segments||[])].map(p=>(cast.find(c=>c.id===p.character_id)?.name||'Narrator')+': '+p.text).join('\n\n');}
+ function transcript(plan,cast){return [...(plan.opening?[plan.opening]:[]),...(plan.segments||[])].map(p=>(cast.find(c=>c.id===p.character_id)?.name||'Narrator')+': '+p.text.trim()).join('\n\n');}
  function validateCast(cast){
   if(!Array.isArray(cast)||cast.length<1||cast.length>20)throw Error('Choose between 1 and 20 characters.');
   if(cast.some(c=>!c.id||!c.name?.trim()||c.name.length>60))throw Error('Give every character a name, up to 60 characters.');
@@ -30,7 +30,6 @@
    if(old?.performance)part.performance=copy(old.performance);return part;
   });
   if(!parts.length)throw Error('Write a story or generate one with AI first.');
-  if(parts.length>80||parts.reduce((n,p)=>n+p.text.length,0)>4000)throw Error('Keep each audio script within 4,000 spoken characters and 80 turns. Use another chapter for longer stories.');
   const keepOpening=previous?.opening&&parts[0].character_id===previous.opening.character_id&&parts[0].text===previous.opening.text;
   return {opening:keepOpening?parts.shift():null,segments:parts};
  }
@@ -40,9 +39,9 @@
   const cleanCast=cast.map(c=>Object.fromEntries(allowed.filter(k=>typeof c[k]==='string').map(k=>[k,c[k].slice(0,k==='appearance'||k==='delivery'?1000:160)])));
   if(castOnly)return {cast:cleanCast,reason:String(value.reason||'').slice(0,1000)};
   const ids=new Set(cleanCast.map(c=>c.id)),segments=value.segments;
-  if(!Array.isArray(segments)||!segments.length||segments.length>80||segments.some(s=>!ids.has(s.character_id)||typeof s.text!=='string'||!s.text.trim()))throw Error('AI returned an incomplete story. Your current story is unchanged.');
+  if(!Array.isArray(segments)||!segments.length||segments.some(s=>!ids.has(s.character_id)||typeof s.text!=='string'||!s.text.trim()))throw Error('AI returned an incomplete story. Your current story is unchanged.');
   const plan={opening:null,segments:segments.map(s=>({character_id:s.character_id,text:s.text.trim()}))};
-  const script=transcript(plan,cleanCast);if(script.length>20000)throw Error('The AI story is too long. Request a shorter chapter.');
+  const script=transcript(plan,cleanCast);
   if(existing.output==='audio')parseScript(script,cleanCast);
   const scenes=Array.isArray(value.scenes)?value.scenes.slice(0,60).map((s,i)=>({title:String(s.title||'Scene '+(i+1)).slice(0,160),narration:String(s.narration||'').slice(0,4000),motion:String(s.motion||'').slice(0,1800),seconds:Math.min(10,Math.max(1,Number(s.seconds)||3)),image_id:''})):[];
   return {cast:cleanCast,plan,script,scenes,reason:String(value.reason||'').slice(0,1000)};
@@ -52,7 +51,7 @@
   validateCast(cast);
   if(!segments)return parseScript(source,cast);
   const ids=new Set(cast.map(c=>c.id)),names=new Set(cast.map(c=>c.name.trim().toLowerCase()));
-  if(!Array.isArray(segments)||!segments.length||segments.length>160||segments.some(s=>!ids.has(s.character_id)||typeof s.text!=='string'||!s.text.trim()))throw Error('AI could not assign the source to valid speakers. Your text is unchanged; retry character detection.');
+  if(!Array.isArray(segments)||!segments.length||segments.some(s=>!ids.has(s.character_id)||typeof s.text!=='string'||!s.text.trim()))throw Error('AI could not assign the source to valid speakers. Your text is unchanged; retry character detection.');
   const words=String(source).split(/\n\s*\n/).map(p=>{const i=p.indexOf(':');return i>=0&&names.has(p.slice(0,i).trim().toLowerCase())?p.slice(i+1):p;}).join(' ');
   const normalize=text=>text.replace(/\s+/g,' ').trim();
   if(normalize(segments.map(s=>s.text).join(' '))!==normalize(words))throw Error('AI changed source words while assigning speakers. Your text is unchanged; retry character detection.');
