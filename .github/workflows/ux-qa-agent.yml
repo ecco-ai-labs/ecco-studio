@@ -1,7 +1,5 @@
 name: UX QA Agent
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read

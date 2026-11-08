@@ -1,7 +1,7 @@
 # Ecco UX QA Agent
 
 Run `npm ci`, `npx playwright install --with-deps chrome`, then `npm test` from `qa/`.
-The GitHub **UX QA Agent** workflow runs on every push and pull request and supports **Run workflow**.
+The GitHub **UX QA Agent** workflow is manual-only: use **Run workflow** when requested. It does not run automatically on pushes or pull requests. Ecco Desk's selected-test runs remain available.
 Open the run summary for counts, failures and coverage; download `ecco-ux-qa-*` for `report/index.html`, screenshots, videos, traces and JSON.
 
 The suite registers 85 Chrome browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.

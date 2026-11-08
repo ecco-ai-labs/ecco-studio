@@ -17,6 +17,8 @@ For every UI change, read `design-system/README.md` and
 
 # UX QA coverage
 
+- The user stopped automatic UX QA Agent runs. Keep `ux-qa-agent.yml` manual-only;
+  do not restore push, pull-request or scheduled triggers without their request.
 - For every new feature or workflow change, add or update the observable browser
   checks in `qa/tests/workflows.spec.js` and the scope in `qa/coverage.json`.
 - Follow `qa/README.md`. Run the browser suite when infrastructure permits, or
