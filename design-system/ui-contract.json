@@ -619,7 +619,9 @@
         "timezone",
         "format"
       ],
-      "variants": [],
+      "variants": [
+        "campaign-calendar-range"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -2350,8 +2352,9 @@
       "creation": "Create Campaign opens an inline form; Create & Schedule saves and enables a recurring server schedule. No notification is sent immediately.",
       "fields": [
         "Campaign Name",
-        "Repeat",
-        "Year",
+        "Start",
+        "End",
+        "Recurrence",
         "Time Zone",
         "Send Time",
         "Notification Duration (days)",
@@ -2382,11 +2385,12 @@
       ],
       "access": "Desk administrators and verified notification administrator group only",
       "validation": "backend schedule/concurrency/permission tests plus browser creation/edit/pause/resume/persistence/focus checks",
-      "yearSelection": {
-        "approval": "2026-11-07: User requests choosing campaign year after a yearly campaign silently advanced to 2027.",
-        "interaction": "Year dropdown on new/edit campaign defaults to current year in the selected time zone. Edit reflects the next scheduled occurrence year. Year controls the first upcoming run; recurrence continues normally afterward. Server preview/create/update reject a selected date/time that has already passed instead of silently scheduling a later year. A valid corrected schedule clears the error and refreshes the full date preview. Existing saved campaigns retain their schedules until explicitly edited.",
-        "appearance": "Existing form-grid, label, native select, focus and disabled states; no restyling. Current year and ten subsequent years plus a saved outlying year are offered.",
-        "validation": "Optional persisted schedule.year supports legacy definitions; integer 2000–2100. Time-zone-aware first-year validation, long-range future scheduling, recurrence rollover and idempotent retries. campaignYearVersion 1 gates creation and preview; pending, stale or rejected preview disables save."
+      "calendarRange": {
+        "approval": "2026-11-07: User replaces Year/Month/Day dropdowns with Start and End calendars followed by Recurrence. Past dates must be accepted.",
+        "interaction": "Native date inputs for Start and End, followed by Does not repeat, Every day/week/month/year and retained holiday presets. Required dates may be past, present or future; End must be on or after Start. Preview reports next remaining run, or no remaining runs without blocking save. Monthly/yearly recurrence anchors to Start, clamps short months and ends inclusively on End. Past runs are not replayed. History shows saved range and Completed when no runs remain. Existing unbounded schedules remain intact until edited; legacy edit supplies its next date and asks for End.",
+        "appearance": "Existing form-grid and native date input styling; two date controls beside each other, stacked on mobile. No Year/Month/Day dropdowns or past-date minimum.",
+        "accessibility": "Start, End and Recurrence labels, calendar keyboard operation, native focus order, live next-run status, validation alerts only for invalid dates/ranges.",
+        "validation": "campaignCalendarVersion 1 gates preview/save; a successful preview with null nextRunAt still enables Save. Stored ISO dates are interpreted in selected timezone, empty DB nextRunAt represents completion without a schema migration. Worker excludes completed rows; no runs beyond End."
       }
     }
   },

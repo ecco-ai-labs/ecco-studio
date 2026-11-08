@@ -453,6 +453,7 @@ test('AGENT-05 only administrators see creation; shortened navigation remains av
 });
 
 test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign',async({page})=>{
+  await page.clock.setFixedTime(new Date('2026-11-08T00:00:00Z'));
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.goto('/desk/index.html?__qa=1');
   await page.getByRole('button',{name:'Notifications',exact:true}).click();
@@ -461,7 +462,7 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();
   await page.getByLabel('Campaign Name',{exact:true}).fill('Cyber Monday');
   await page.getByLabel('Bell Icon',{exact:true}).uncheck();await page.getByLabel('Icon',{exact:true}).selectOption('Dhamaka');
-  await expect(page.getByLabel('Repeat',{exact:true})).toHaveValue('cyber_monday');
+  await page.getByLabel('Start',{exact:true}).fill('2026-11-01');await page.getByLabel('End',{exact:true}).fill('2028-12-31');await page.getByLabel('Recurrence',{exact:true}).selectOption('cyber_monday');
   await expect(page.locator('.campaign-next')).toContainText('Nov 30, 2026');
   await page.getByLabel('Title',{exact:true}).fill('Cyber Monday is here');
   await page.getByLabel('Message',{exact:true}).fill('Our annual announcement.');
@@ -607,14 +608,19 @@ test('BILLING-01 configured promotion icons and expiry appear above regular pack
 });
 
 
-test('CAMPAIGN-02 choose year, reject a past date and retain the saved year on edit',async({page})=>{
+test('CAMPAIGN-02 calendar range accepts past dates and persists recurrence',async({page})=>{
  await page.clock.setFixedTime(new Date('2026-11-08T00:00:00Z'));
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('tab',{name:'Campaign',exact:true}).click();await page.getByRole('button',{name:'New Campaign',exact:true}).click();
- await expect(page.getByLabel('Year',{exact:true})).toHaveValue('2026');await page.getByLabel('Repeat',{exact:true}).selectOption('yearly');await page.getByLabel('Month',{exact:true}).selectOption('11');await page.getByLabel('Day of Month',{exact:true}).fill('1');
- await expect(page.getByRole('alert')).toContainText('2026 has already passed');await expect(page.getByRole('button',{name:'Create & Schedule',exact:true})).toBeDisabled();await expect(page.locator('.campaign-next')).not.toContainText('2027');
- await page.getByLabel('Day of Month',{exact:true}).fill('27');await expect(page.locator('.campaign-next')).toContainText('Nov 27, 2026');await expect(page.getByRole('alert')).toHaveCount(0);
- await page.getByLabel('Year',{exact:true}).selectOption('2028');await expect(page.locator('.campaign-next')).toContainText('Nov 27, 2028');
- await page.getByLabel('Campaign Name',{exact:true}).fill('Year-selected campaign');await page.getByLabel('Title',{exact:true}).fill('November offer');await page.getByLabel('Message',{exact:true}).fill('Scheduled for the chosen year.');await page.getByRole('button',{name:'Create & Schedule',exact:true}).click();await expect(page.locator('.campaign-card')).toContainText('Nov 27, 2028');
- await page.getByRole('button',{name:'Edit Year-selected campaign',exact:true}).click();await expect(page.getByLabel('Year',{exact:true})).toHaveValue('2028');await page.getByLabel('Year',{exact:true}).selectOption('2026');await expect(page.locator('.campaign-next')).toContainText('Nov 27, 2026');await page.getByRole('button',{name:'Save Campaign',exact:true}).click();await page.reload();await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('tab',{name:'Campaign',exact:true}).click();await expect(page.locator('.campaign-card')).toContainText('Nov 27, 2026');
+ await expect(page.getByLabel('Start',{exact:true})).toHaveAttribute('type','date');await expect(page.getByLabel('End',{exact:true})).toHaveAttribute('type','date');await expect(page.getByLabel('Start',{exact:true})).not.toHaveAttribute('min',/.+/);await expect(page.getByLabel('Year',{exact:true})).toHaveCount(0);await expect(page.getByLabel('Month',{exact:true})).toHaveCount(0);await expect(page.getByLabel('Day of Month',{exact:true})).toHaveCount(0);
+ await page.getByLabel('Recurrence',{exact:true}).focus();await page.keyboard.press('Shift+Tab');await expect(page.getByLabel('End',{exact:true})).toBeFocused();
+ await page.getByLabel('Start',{exact:true}).fill('2020-11-01');await page.getByLabel('End',{exact:true}).fill('2020-11-30');await page.getByLabel('Recurrence',{exact:true}).selectOption('monthly');
+ await expect(page.locator('.campaign-next')).toContainText('No remaining runs');await expect(page.getByRole('alert')).toHaveCount(0);await expect(page.getByRole('button',{name:'Create & Schedule',exact:true})).toBeEnabled();
+ await page.getByLabel('Campaign Name',{exact:true}).fill('Calendar campaign');await page.getByLabel('Title',{exact:true}).fill('November offer');await page.getByLabel('Message',{exact:true}).fill('Saved historical range.');await page.getByRole('button',{name:'Create & Schedule',exact:true}).click();await expect(page.locator('.campaign-state')).toHaveText('Completed');
+ await page.reload();await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('tab',{name:'Campaign',exact:true}).click();await page.getByRole('button',{name:'Edit Calendar campaign',exact:true}).click();await expect(page.getByLabel('Start',{exact:true})).toHaveValue('2020-11-01');await expect(page.getByLabel('End',{exact:true})).toHaveValue('2020-11-30');await expect(page.getByLabel('Recurrence',{exact:true})).toHaveValue('monthly');
+ await page.getByLabel('Start',{exact:true}).fill('2026-11-01');await page.getByLabel('End',{exact:true}).fill('2026-11-30');await page.getByLabel('Recurrence',{exact:true}).selectOption('daily');await expect(page.locator('.campaign-next')).toContainText('Nov 8, 2026');await page.getByRole('button',{name:'Save Campaign',exact:true}).click();await expect(page.locator('.campaign-state')).toHaveText('Active');
+ await page.getByRole('button',{name:'Edit Calendar campaign',exact:true}).click();await page.getByLabel('End',{exact:true}).fill('2026-10-31');await expect(page.getByRole('alert')).toHaveText('End must be on or after Start.');await expect(page.getByRole('button',{name:'Save Campaign',exact:true})).toBeDisabled();await page.getByLabel('End',{exact:true}).fill('2028-11-30');await page.getByLabel('Recurrence',{exact:true}).selectOption('yearly');await expect(page.locator('.campaign-next')).toContainText('Nov 1, 2027');await expect(page.getByRole('alert')).toHaveCount(0);
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);await expect(page.getByLabel('Start',{exact:true})).toBeVisible();await expect(page.getByLabel('End',{exact:true})).toBeVisible();await page.screenshot({path:'test-results/campaign-calendar-mobile.png',fullPage:true});
+ await page.getByRole('button',{name:'Save Campaign',exact:true}).click();await page.reload();await page.getByRole('button',{name:'Open navigation',exact:true}).click();await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('tab',{name:'Campaign',exact:true}).click();await page.getByRole('button',{name:'Edit Calendar campaign',exact:true}).click();await expect(page.getByLabel('Start',{exact:true})).toHaveValue('2026-11-01');await expect(page.getByLabel('End',{exact:true})).toHaveValue('2028-11-30');await expect(page.getByLabel('Recurrence',{exact:true})).toHaveValue('yearly');
+ expect(await page.evaluate(()=>window.__deskPosts.filter(p=>p.op==='createNotification').length)).toBe(0);
 });

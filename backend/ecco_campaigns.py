@@ -10,20 +10,36 @@ from zoneinfo import ZoneInfo
 
 UTC=dt.timezone.utc
 ZONES=('America/Los_Angeles','America/New_York','Asia/Kolkata','UTC')
-KINDS=('cyber_monday','black_friday','new_year','daily','weekly','monthly','yearly')
+KINDS=('once','cyber_monday','black_friday','new_year','daily','weekly','monthly','yearly')
 _workers=set()
 _lock=threading.Lock()
 
-def stamp(value):return value.astimezone(UTC).isoformat(timespec='microseconds')
+def stamp(value):return value.astimezone(UTC).isoformat(timespec='microseconds') if value else ''
 
 def schedule(raw):
     from ecco_desk import DeskError
-    if not isinstance(raw,dict) or set(raw)-{'kind','time','timezone','weekday','day','month','year'}:
+    if not isinstance(raw,dict) or set(raw)-{'kind','time','timezone','weekday','day','month','year','startDate','endDate'}:
         raise DeskError('Choose a valid campaign schedule.')
     kind=raw.get('kind');zone=raw.get('timezone');time=raw.get('time')
     if kind not in KINDS or zone not in ZONES or not isinstance(time,str) or not re.fullmatch(r'(?:[01][0-9]|2[0-3]):[0-5][0-9]',time):
         raise DeskError('Choose a valid schedule, time and time zone.')
     result=dict(kind=kind,time=time,timezone=zone)
+    if 'startDate' in raw or 'endDate' in raw:
+        dates={}
+        for key,label in [('startDate','Start'),('endDate','End')]:
+            value=raw.get(key)
+            try:
+                if not isinstance(value,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',value):raise ValueError()
+                dates[key]=dt.date.fromisoformat(value)
+            except (ValueError,TypeError):raise DeskError('Choose a valid '+label+' date.')
+        if dates['endDate']<dates['startDate']:raise DeskError('End must be on or after Start.')
+        result.update({key:value.isoformat() for key,value in dates.items()})
+        start=dates['startDate']
+        if kind=='weekly':result['weekday']=start.weekday()
+        if kind in ('monthly','yearly'):result['day']=start.day
+        if kind=='yearly':result['month']=start.month
+        return result
+    if kind=='once':raise DeskError('Choose Start and End dates.')
     for key,minimum,maximum,needed in [('weekday',0,6,kind=='weekly'),('day',1,31,kind in ('monthly','yearly')),('month',1,12,kind=='yearly')]:
         if needed:
             value=raw.get(key)
@@ -39,12 +55,16 @@ def next_run(plan,after):
     """One occurrence per local date. DST gaps shift forward; folds run only once."""
     plan=schedule(plan);zone=ZoneInfo(plan['timezone']);local=after.astimezone(zone)
     hour,minute=map(int,plan['time'].split(':'));kind=plan['kind']
-    first_day=max(local.date(),dt.date(plan.get('year',local.year),1,1))
+    start=dt.date.fromisoformat(plan['startDate']) if 'startDate' in plan else dt.date(plan.get('year',local.year),1,1)
+    end=dt.date.fromisoformat(plan['endDate']) if 'endDate' in plan else dt.date.max
+    first_day=max(local.date(),start)
+    if first_day>end:return None
     for offset in range(740):
+        if offset>(end-first_day).days:break
         day=first_day+dt.timedelta(days=offset)
         thanksgiving=dt.date(day.year,11,1)
         thanksgiving+=dt.timedelta(days=(3-thanksgiving.weekday())%7+21)
-        match=(kind=='daily' or kind=='weekly' and day.weekday()==plan['weekday'] or
+        match=(kind=='once' and day==start or kind=='daily' or kind=='weekly' and day.weekday()==plan['weekday'] or
                kind=='monthly' and day.day==min(plan['day'],calendar.monthrange(day.year,day.month)[1]) or
                kind=='yearly' and day.month==plan['month'] and day.day==min(plan['day'],calendar.monthrange(day.year,day.month)[1]) or
                kind=='cyber_monday' and day==thanksgiving+dt.timedelta(days=4) or
@@ -53,15 +73,11 @@ def next_run(plan,after):
         if match:
             candidate=dt.datetime.combine(day,dt.time(hour,minute),zone).astimezone(UTC)
             if candidate>after.astimezone(UTC):return candidate
-    raise ValueError('No future occurrence found.')
+    return None
 
 def planned_run(raw,current):
-    """Validate the user-selected first year without silently rolling it forward."""
-    from ecco_desk import DeskError
-    plan=schedule(raw);upcoming=next_run(plan,current);zone=ZoneInfo(plan['timezone'])
-    if 'year' in plan and upcoming.astimezone(zone).year!=plan['year']:
-        raise DeskError(f"The selected date or time in {plan['year']} has already passed. Choose a later date/time or select {upcoming.astimezone(zone).year}.")
-    return upcoming
+    """Past ranges are valid; only remaining occurrences can be dispatched."""
+    return next_run(raw,current)
 
 def initialize(db):
     db.executescript('''
@@ -81,12 +97,12 @@ def initialize(db):
 
 def public(row):
     result=dict(row);result.update(json.loads(result.pop('config')));result.pop('createdBy',None)
-    result['enabled']=bool(result['enabled']);result.setdefault('placements',['bell','billing']);result.setdefault('badge','NEW');return result
+    result['nextRunAt']=result['nextRunAt'] or None;result['enabled']=bool(result['enabled']);result.setdefault('placements',['bell','billing']);result.setdefault('badge','NEW');return result
 
 def listing(db,me):
     from ecco_desk import require_notification_admin
     require_notification_admin(me)
-    return {'campaignVersion':1,'campaignYearVersion':1,'notificationPresentationVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
+    return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'notificationPresentationVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
 
 def validated(db,body):
     from ecco_desk import text,choice,DeskError,notification_presentation
@@ -105,7 +121,7 @@ def validated(db,body):
 def write(db,me,body,current=None):
     from ecco_desk import require_notification_admin,text,DeskError,event
     require_notification_admin(me);current=current or dt.datetime.now(UTC);op=body.get('op')
-    if op=='previewCampaign':return {'campaignVersion':1,'campaignYearVersion':1,'notificationPresentationVersion':1,'nextRunAt':stamp(planned_run(body.get('schedule'),current))}
+    if op=='previewCampaign':return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'notificationPresentationVersion':1,'nextRunAt':stamp(planned_run(body.get('schedule'),current)) or None}
     cid=str(uuid.UUID(text(body,'id',36)));old=db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone()
     if op in ('updateCampaign','setCampaignActive'):
         if not old:raise DeskError('Campaign not found.',404)
@@ -131,13 +147,13 @@ def write(db,me,body,current=None):
                        (encoded,me['userId'],stamp(current),stamp(planned_run(config['schedule'],current)),cid))
             event(db,me,'Campaign updated: '+cid)
     else:raise DeskError('Unknown campaign action.')
-    return {'campaignVersion':1,'campaignYearVersion':1,'notificationPresentationVersion':1,'campaign':public(db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone())}
+    return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'notificationPresentationVersion':1,'campaign':public(db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone())}
 
 def process_due(database,current=None):
     import ecco_desk as desk
     current=current or dt.datetime.now(UTC);instant=stamp(current)
     with desk.connect(database) as db:
-        due=[dict(r) for r in db.execute('SELECT * FROM desk_campaigns WHERE enabled=1 AND nextRunAt<=? ORDER BY nextRunAt LIMIT 25',(instant,))]
+        due=[dict(r) for r in db.execute("SELECT * FROM desk_campaigns WHERE enabled=1 AND nextRunAt!='' AND nextRunAt<=? ORDER BY nextRunAt LIMIT 25",(instant,))]
     for pending in due:
         config=json.loads(pending['config']);scheduled=dt.datetime.fromisoformat(pending['nextRunAt']);zone=ZoneInfo(config['schedule']['timezone'])
         missed=scheduled.astimezone(zone).date()!=current.astimezone(zone).date()
