@@ -60,7 +60,7 @@ test('Video Library, switcher count and reference picker show the same saved vid
  ]);
  x.w.testUI.refreshStories();await x.go('render');await tick();
  x.q('#workspace-library-group > summary').click();x.q('#library-hub-nav [data-lib="video"]').click();await tick();
- assert.deepEqual([...x.w.document.querySelectorAll('#page .lh-card video')].map(v=>v.dataset.asset),['saved-video']);
+ assert.deepEqual([...x.w.document.querySelectorAll('#page .lh-results video')].map(v=>v.dataset.asset),['saved-video']);
  assert.equal(x.q('#library-hub-nav [data-lib="video"] small').textContent,'1');
  await x.go('render');
  const source=x.q('[data-reference-library]');source.value='video';source.dispatchEvent(new x.w.Event('change',{bubbles:true}));

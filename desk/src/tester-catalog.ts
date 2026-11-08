@@ -5,7 +5,7 @@ export type TestGroup={id:string;label:string;tests:TestOption[]};
 export function testPlan(mode:Mode,workflow:string):TestGroup[]{
  const kinds=mode==='workflow'?(workflow==='libraries'?['story','image','audio','video','workflow']:['image','audio','video'].includes(workflow)?[workflow]:[]):['story','image','audio','video','workflow'];
  const groups:TestGroup[]=kinds.map(kind=>({id:kind,label:kind[0].toUpperCase()+kind.slice(1)+' Library',tests:[
-  ['nav','Open library'],['tabs','Story tabs stay hidden'],['views','Grid default and List view'],['columns','List columns'],['search','Search filtering'],['sort-ascending','Sort names A–Z'],['sort-descending','Sort names Z–A'],
+  ['nav','Open library'],['tabs','Story tabs stay hidden'],['views','List default and Grid view'],['columns','List columns'],['search','Search filtering'],['sort-ascending','Sort names A–Z'],['sort-descending','Sort names Z–A'],
   ['small',['image','video'].includes(kind)?'List thumbnails':'List icons'],['large',['image','video'].includes(kind)?'Grid thumbnails':'Grid icons'],
   ...(['ux','sweep'].includes(mode)?[['width-1440','Layout at 1440px'],['width-1024','Layout at 1024px'],['width-768','Layout at 768px']]:[])
  ].map(([id,label])=>({id:kind+'-'+id,label}))}));

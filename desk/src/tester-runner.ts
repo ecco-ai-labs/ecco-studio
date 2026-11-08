@@ -63,11 +63,11 @@ export async function runTester(frame:HTMLIFrameElement,mode:Mode,workflow:strin
    const root=q(`#page .lh[data-kind="${kind}"]`)!;
    const viewButton=(name:string)=>root.querySelector(`[data-act=view][data-view=${name}]`) as HTMLElement|null;
    const setView=async(name:string)=>{const b=viewButton(name);if(b&&b.getAttribute('aria-pressed')!=='true'){b.click();await pause(250);}return b;};
-   const cards=()=>[...root.querySelectorAll('.lh-results .lh-card')];
+   const cards=()=>[...root.querySelectorAll('.lh-results .lh-card,.lh-results .lh-row[data-pick]')];
    const listRows=()=>[...root.querySelectorAll('.lh-results .lh-row[data-pick]')];
    if(wants(`${kind}-tabs`))assert(`${kind}-tabs`,`${kind} Library hides story tabs`,!visible(q('#story-workspace-header')),'Story tabs are hidden.','Story tabs '+(visible(q('#story-workspace-header'))?'remain visible.':'are hidden.'),steps,'#story-workspace-header','high');
-   if(wants(`${kind}-views`)){const grid=viewButton('grid'),list=viewButton('list');assert(`${kind}-views`,`${kind} Library view consistency`,!!grid&&!!list&&grid.getAttribute('aria-pressed')==='true'&&list.getAttribute('aria-pressed')==='false','Grid is the default view, with List beside it.',grid&&list?`Grid pressed: ${grid.getAttribute('aria-pressed')}; List pressed: ${list.getAttribute('aria-pressed')}.`:'View buttons missing.',steps,'#page .lh [data-act=view]');}
-   if(wants(`${kind}-columns`)){await setView('list');const heads=[...root.querySelectorAll('.lh-headrow [role=columnheader]')].map(x=>x.textContent?.trim()||'');assert(`${kind}-columns`,`${kind} Library columns`,heads.join('|')==='Name|Labels|Type|Created','Four columns: Name, Labels, Type, Created.',heads.join(' | ')||'No list columns.',[...steps,'Choose List view'],'#page .lh [role=columnheader]');await setView('grid');}
+   if(wants(`${kind}-views`)){const grid=viewButton('grid'),list=viewButton('list');assert(`${kind}-views`,`${kind} Library view consistency`,!!grid&&!!list&&list.getAttribute('aria-pressed')==='true'&&grid.getAttribute('aria-pressed')==='false','List is the default view, with Grid beside it.',grid&&list?`List pressed: ${list.getAttribute('aria-pressed')}; Grid pressed: ${grid.getAttribute('aria-pressed')}.`:'View buttons missing.',steps,'#page .lh [data-act=view]');}
+   if(wants(`${kind}-columns`)){await setView('list');const heads=[...root.querySelectorAll('.lh-headrow [role=columnheader]')].map(x=>x.textContent?.trim()||'');assert(`${kind}-columns`,`${kind} Library columns`,heads.join('|')==='Name|Labels|Type|Created','Four columns: Name, Labels, Type, Created.',heads.join(' | ')||'No list columns.',[...steps,'Choose List view'],'#page .lh [role=columnheader]');await setView('list');}
    if(wants(`${kind}-search`)){
     const search=q('#lh-search') as HTMLInputElement|null;
     if(!cards().length)blocked(`${kind}-search`,`${kind} Library search`,'No sample files are loaded to verify filtering.');
@@ -105,7 +105,7 @@ export async function runTester(frame:HTMLIFrameElement,mode:Mode,workflow:strin
     }
     if(rows().length>20)blocked(`${kind}-${size}-remaining`,`${kind} additional ${viewName} previews`,`${rows().length-20} additional items were not inspected. Live runs inspect up to 20 items per library per view.`);
    }
-   if(wants(`${kind}-small`)||wants(`${kind}-large`))await setView('grid');
+   if(wants(`${kind}-small`)||wants(`${kind}-large`))await setView('list');
    for(const width of [1440,1024,768])if(wants(`${kind}-width-${width}`)){
     frame.style.width=width+'px';await pause(150);
     assert(`${kind}-width-${width}`,`${kind} Library fits ${width}px`,d.documentElement.scrollWidth<=width+1,'Page fits the viewport; file tables may scroll internally.',`Page width ${d.documentElement.scrollWidth}px; viewport ${width}px.`,[...steps,`Set viewport to ${width}px`],'html','high');

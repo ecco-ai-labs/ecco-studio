@@ -27,12 +27,13 @@ async function fillStoryDetail(page,name,value){
  else if(['type','genre'].includes(name)){await page.locator('#story-detail-'+name+'-button').click();await page.locator('#story-detail-'+name+'-panel [data-choice-value='+JSON.stringify(value)+']').click();}
  else await page.locator('#story-simple-details [name='+name+']').selectOption(value);
 }
-async function openLibrary(page,kind){
+async function openLibrary(page,kind,{keepView=false}={}){
   const group=page.locator('#workspace-library-group');
   if(await group.getAttribute('open')===null)await group.locator(':scope > summary').click();
   await page.locator('#library-hub-nav [data-lib="'+kind+'"]').click();
   const hub=page.locator('#page .lh[data-kind="'+kind+'"]');
   await expect(hub).toBeVisible();
+  if(!keepView)await hub.locator('[data-act=view][data-view=grid]').click();
   return hub;
 }
 async function popupControls(popup){
@@ -159,6 +160,11 @@ test('LIB-hub-01 Library is a collapsible "+" row, closed by default, with a swi
   expect(await summary.locator('.library-symbol').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('"+"');
   await summary.click();
   expect(await summary.locator('.library-symbol').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('"−"');
+  await expect(page.locator('#heading')).toHaveText('Library');
+  const choices=page.locator('#library-home-list button');await expect(choices).toHaveCount(5);
+  expect(await choices.evaluateAll(rows=>rows.map(row=>row.dataset.libraryDestination))).toEqual(['story','image','audio','video','workflow']);
+  await choices.nth(1).click();await expect(page.locator('#page .lh[data-kind="image"]')).toBeVisible();
+  await expect(page.locator('#library-hub-nav [data-lib="image"]')).toHaveAttribute('aria-current','page');
   const buttons=page.locator('#library-hub-nav .lh-libs button');
   expect(await buttons.evaluateAll(b=>b.map(x=>x.dataset.lib))).toEqual(['story','image','audio','video','workflow']);
   await expect(page.locator('#library-hub-nav')).toBeVisible();
@@ -166,15 +172,15 @@ test('LIB-hub-01 Library is a collapsible "+" row, closed by default, with a swi
   await summary.click();await expect(page.locator('#library-hub-nav')).toBeHidden();
 });
 for(const kind of ['story','image','audio','video','workflow']){
-  test(`LIB-${kind}-01 opens the new screen with Grid default, tools, count and details panel`,async({page})=>{
-    await boot(page);await page.evaluate(()=>{state.config.storage.library_labels=1;storyControls();});const hub=await openLibrary(page,kind);
+  test(`LIB-${kind}-01 opens the new screen with List default, tools, count and details panel`,async({page})=>{
+    await boot(page);await page.evaluate(()=>{state.config.storage.library_labels=1;storyControls();});const hub=await openLibrary(page,kind,{keepView:true});
     await expect(page.locator('#story-workspace-header')).toBeHidden();
     await expect(hub.locator('.lh-title')).toHaveText('All '+({story:'stories',image:'images',audio:'audio clips',video:'videos',workflow:'workflows'}[kind]));
-    await expect(hub.locator('[data-act=view][data-view=grid]')).toHaveAttribute('aria-pressed','true');
+    await expect(hub.locator('[data-act=view][data-view=list]')).toHaveAttribute('aria-pressed','true');await expect(hub.locator('.lh-headrow')).toBeVisible();
     await expect(hub.getByRole('searchbox')).toBeVisible();
     await expect(hub.locator('#lh-type')).toBeVisible();await expect(hub.locator('#lh-sort')).toBeVisible();
     await expect(hub.locator('.lh-count')).toHaveText(/^\d+ /);
-    const card=hub.locator('.lh-card').first();await expect(card).toBeVisible();
+    const card=hub.locator('.lh-row[data-pick]').first();await expect(card).toBeVisible();
     await expect(hub.locator('.lh-details')).toBeHidden();
     await card.click();
     const details=hub.locator('.lh-details');await expect(details).toBeVisible();
@@ -412,6 +418,7 @@ test('NAV-01 Back restores library search/view and the unfinished story',async({
   const again=page.locator('#page .lh[data-kind=image]');await expect(again).toBeVisible();
   await expect(again.locator('[data-act=view][data-view=list]')).toHaveAttribute('aria-pressed','true');
   await expect(again.getByRole('searchbox')).toHaveValue('Alpha');
+  await page.locator('#workspace-back').click();await expect(page.locator('#library-home-list')).toBeVisible();
   await page.locator('#workspace-back').click();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('Navigation draft');
 });
 test('NAV-02 Support Back returns to the preceding screen, never the entry page',async({page})=>{
@@ -860,7 +867,7 @@ test('AGENT-06 choose individual tests and never execute unchecked actions',asyn
  let report=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user'))[0]);
  expect(report.selection.ids).toEqual(['video-small']);expect(report.checks).toHaveLength(2);
  expect(report.checks.every(c=>c.id.startsWith('video-small-thumb-')&&c.status==='passed')).toBe(true);
- expect(report.findings).toHaveLength(0);expect(await page.evaluate(()=>window.__agentActions)).toEqual(['view:list','view:grid']);
+ expect(report.findings).toHaveLength(0);expect(await page.evaluate(()=>window.__agentActions)).toEqual([]);
  await expect(page.locator('.agent-run-selection')).toContainText('Selected 1 of 9 tests');
  await page.getByRole('button',{name:'Clear all tests',exact:true}).click();await page.getByRole('checkbox',{name:'Video Library: Sort names Z–A',exact:true}).check();
  await page.getByRole('button',{name:'Run selected tests (1)',exact:true}).click();await expect(page.getByRole('button',{name:'Run selected tests (1)',exact:true})).toBeEnabled({timeout:30000});
@@ -1101,6 +1108,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`ST
  const longTitle=title+' A very long adventure title '+'x'.repeat(90);
  await page.getByLabel('Story name (required)',{exact:true}).fill(longTitle);await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await expect(heading).toHaveText(longTitle);expect(await layout()).toBeGreaterThan(shortHeight);
  await openLibrary(page,'image');await expect(page.locator('#story-simple-save')).toBeHidden();await expect(page.locator('.workspace-ribbon')).toHaveCSS('display','flex');
+ await page.locator('#workspace-back').click();await expect(page.locator('#library-home-list')).toBeVisible();
  await page.locator('#workspace-back').click();await expect(heading).toHaveText(longTitle);await expect(page.locator('#story-simple-save')).toBeVisible();await layout();
 });
 

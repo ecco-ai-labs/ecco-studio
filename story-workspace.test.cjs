@@ -87,23 +87,27 @@ test('left navigation stays visible and direct Library entry removes the story t
  const nav=x.q('#workspace-production-group');assert.ok(nav);assert.notEqual(x.w.getComputedStyle(nav).display,'none');
  x.w.EccoWorkspaceUI.openLibrary('video');await tick();assert.equal(x.w.testState.page(),'video-library');assert.equal(x.q('#story-workspace-header').hidden,true);assert.equal(x.w.EccoStoryWorkspace.active,false);assert.ok(x.q('.lh[data-kind=video]'));assert.match(x.saved().simple_workspace.script,/Keep my draft/);
 });
-test('the top-level Library row only expands the left navigation and preserves the draft from every story tab',async()=>{
+test('the top-level Library heading lists all libraries from every story tab and preserves its draft',async()=>{
  for(const tab of [0,1,2]){
   const x=await fixture();await x.start();x.script('Host: Keep my draft.\n\nGuest: Keep mine.');await x.w.EccoStoryWorkspace.select(tab);await tick();
-  const draftId=x.saved().localDraftId,before=x.w.testState.page();
-  const group=x.q('#workspace-library-group');assert.equal(group.open,false);
-  x.q('#workspace-library-group > summary').click();await tick();
-  assert.equal(group.open,true);assert.equal(x.w.testState.page(),before);assert.deepEqual([...x.q('#library-hub-nav .lh-libs').querySelectorAll('[data-lib]')].map(b=>b.dataset.lib),['story','image','audio','video','workflow']);
+  const draftId=x.saved().localDraftId;
+  x.q('#workspace-library-group > summary span:last-child').click();await tick();
+  assert.equal(x.w.testState.page(),'library-home');assert.deepEqual([...x.q('#library-home-list').querySelectorAll('.workspace-home-name')].map(b=>b.textContent),['Story Library','Image Library','Audio Library','Video Library','Workflow Library']);assert.equal(x.q('#heading').textContent,'Library');assert.equal(x.q('#journey-guide').hidden,true);
+  assert.equal(x.q('#story-workspace-header').hidden,true);assert.equal(x.w.EccoStoryWorkspace.active,false);
+  assert.equal(x.w.document.body.classList.contains('story-simple-mode'),false);
+  assert.equal(x.q('#page').hasAttribute('role'),false);assert.equal(x.q('#page').hasAttribute('aria-labelledby'),false);
   assert.match(JSON.parse(x.w.localStorage.getItem('ecco-story-setup:'+draftId)).simple_workspace.script,/Keep my draft/);
-  assert.equal(x.w.EccoStoryWorkspace.active,true);assert.deepEqual(x.errors,[]);x.close();
+  x.w.EccoStoryWorkspace.openSetup(draftId);await tick();assert.equal(x.q('#story-workspace-header').hidden,false);assert.equal(x.w.EccoStoryWorkspace.active,true);
+  assert.match(x.saved().simple_workspace.script,/Keep my draft/);assert.deepEqual(x.errors,[]);x.close();
  }
 });
 test('each Library choice opens and highlights the matching library in the switcher',async()=>{
  const x=await fixture();await x.start();
  for(const [kind,route]of [['image','library'],['audio','audio-library'],['video','video-library'],['story','story-library'],['workflow','workflow-library']]){
-  x.q('#workspace-library-group').open=true;
-  x.q('#library-hub-nav [data-lib="'+kind+'"]').click();await tick();assert.equal(x.w.testState.page(),route);assert.ok(x.q('#page .lh[data-kind="'+kind+'"]'));assert.equal(x.q('#story-workspace-header').hidden,true);
-  assert.equal(x.q('#library-hub-nav [data-lib="'+kind+'"]').getAttribute('aria-current'),'page');
+  x.q('#workspace-library-group > summary').click();await tick();assert.equal(x.w.testState.page(),'library-home');assert.equal(x.q('#story-workspace-header').hidden,true);assert.equal(x.q('#journey-guide').hidden,true);
+  x.q('#workspace-library-group').open=false;
+  x.q('[data-library-destination="'+kind+'"]').click();await tick();assert.equal(x.w.testState.page(),route);assert.ok(x.q('#page .lh[data-kind="'+kind+'"]'));assert.equal(x.q('#library-home-list'),null);
+  assert.equal(x.q('#workspace-library-group').open,true);assert.equal(x.q('#library-hub-nav [data-lib="'+kind+'"]').getAttribute('aria-current'),'page');assert.equal(x.q('#story-workspace-header').hidden,true);
  }
  assert.deepEqual(x.errors,[]);
 });
