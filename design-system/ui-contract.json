@@ -2349,7 +2349,7 @@
     },
     "campaigns": {
       "location": "Notifications > Campaign tab",
-      "creation": "Create Campaign opens an inline form; Create & Schedule saves and enables a recurring server schedule. No notification is sent immediately.",
+      "creation": "Create Campaign opens an inline form; Create & Schedule saves and enables the schedule. Today's due occurrence is queued immediately; future dates wait for their scheduled time.",
       "fields": [
         "Campaign Name",
         "Start",
@@ -2387,7 +2387,7 @@
       "validation": "backend schedule/concurrency/permission tests plus browser creation/edit/pause/resume/persistence/focus checks",
       "calendarRange": {
         "approval": "2026-11-07: User replaces Year/Month/Day dropdowns with Start and End calendars followed by Recurrence. Past dates must be accepted.",
-        "interaction": "Native date inputs for Start and End, followed by Does not repeat, Every day/week/month/year and retained holiday presets. Required dates may be past, present or future; End must be on or after Start. Preview reports next remaining run, or no remaining runs without blocking save. Monthly/yearly recurrence anchors to Start, clamps short months and ends inclusively on End. Past runs are not replayed. History shows saved range and Completed when no runs remain. Existing unbounded schedules remain intact until edited; legacy edit supplies its next date and asks for End.",
+        "interaction": "Native date inputs for Start and End, followed by Does not repeat, Every day/week/month/year and retained holiday presets. Required dates may be past, present or future; End must be on or after Start. Preview reports next remaining run, or no remaining runs without blocking save. Monthly/yearly recurrence anchors to Start, clamps short months and ends inclusively on End. Today's unsent occurrence is queued even if its send time has passed, and preview/history show Starts now. Earlier local dates are not replayed. An occurrence receipt prevents resaving or resuming a sent date from publishing it again, including changes to send time. History shows saved range and Completed when no runs remain. Existing unbounded schedules remain intact until edited; legacy edit supplies its next date and asks for End.",
         "appearance": "Existing form-grid and native date input styling; two date controls beside each other, stacked on mobile. No Year/Month/Day dropdowns or past-date minimum.",
         "accessibility": "Start, End and Recurrence labels, calendar keyboard operation, native focus order, live next-run status, validation alerts only for invalid dates/ranges.",
         "validation": "campaignCalendarVersion 1 gates preview/save; a successful preview with null nextRunAt still enables Save. Stored ISO dates are interpreted in selected timezone, empty DB nextRunAt represents completion without a schema migration. Worker excludes completed rows; no runs beyond End."

@@ -98,5 +98,10 @@
     "area": "Campaign calendar range",
     "mode": "fixture + isolated SQLite",
     "scope": "Native Start/End calendars before recurrence; past date ranges save as Completed, stored dates and recurrence survive edit/reload, inverted ranges rejected, next occurrence preview, keyboard order and 390px fit. Isolated backend checks include inclusive End, no dispatch after End, old range save/retry/resume, daily/weekly/monthly/yearly/one-time, leap days, short months, DST and legacy compatibility. No live campaigns or notifications are created by QA."
+  },
+  {
+    "area": "Campaign activation on the current local date",
+    "mode": "fixture + isolated SQLite",
+    "scope": "Preview/save includes the current local date after send time; 30-day Billing-only dispatch, correct next annual occurrence, retry/edit/resume duplicate prevention including changing time, existing skipped-today repair, UTC/Pacific boundary and future-time preservation. Browser asserts Starts now and retained duration/placement. Live verification checks the existing user-created campaign in Billing after saving; no test promotion is sent to live users."
   }
 ]
