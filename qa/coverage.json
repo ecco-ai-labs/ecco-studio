@@ -17,12 +17,12 @@
   {
     "area": "Story workflow",
     "mode": "fixture",
-    "scope": "3 tabs, required name, fresh story, AI dialog with carried Story Details and immediate reverse synchronization, equal upload/generation action sizes, navigation away; live AI generation blocked"
+    "scope": "3 tabs, required name, fresh story, AI dialog with carried Story Details and immediate reverse synchronization, equal Upload PDF/Generate With AI/Write sizes and right alignment at desktop and mobile widths, Write keyboard focus, navigation away; live AI generation blocked; Apply Text automatically identifies a three-character audio cast, voice properties exclude visual controls, Use AI Text alone does not start detection, applied words are preserved, and Back refreshes News to Storybook rather than restoring stale form values. Live character-extraction quality remains unverified."
   },
   {
     "area": "Source upload",
     "mode": "fixture",
-    "scope": "Equal desktop panes at 1440px/1024px, compact AI icon and four-setting ribbon above the unlabeled prompt, immediate Story Details synchronization, current settings in selected-only AI requests, stale output invalidation, always-visible AI output, bottom ribbon and saved drafts, mobile tool bounds and Escape, selected-only AI output review, fictional source versus Sports News warning with explicit override using synthetic assessments. Real PDF rendering checked manually; live AI assessment accuracy requires connected test services. Prompt/output textareas have equal height; AI clarification/error popups preserve source and return focus; Clear Text is a button adjacent to Apply Text. Clarification choices offer a recommendation and resume generation on click or Enter; both jar-count resolutions are covered. Continue Anyway reviews a draft without retrying, Continue Without AI preserves source, and stale decisions and repeated-question loops are rejected."
+    "scope": "Equal desktop panes at 1440px/1024px, compact AI icon and four-setting ribbon above the unlabeled prompt, immediate Story Details synchronization, current settings in selected-only AI requests, stale output invalidation, always-visible AI output, bottom ribbon and saved drafts, mobile tool bounds and Escape, selected-only AI output review, fictional source versus Sports News warning with explicit override using synthetic assessments. Real PDF rendering checked manually; live AI assessment accuracy requires connected test services. Prompt/output textareas have equal height; AI clarification/error popups preserve source and return focus; Clear Text is a button adjacent to Apply Text. Clarification choices offer a recommendation and resume generation on click or Enter; both jar-count resolutions are covered. Continue Anyway reviews a draft without retrying, Continue Without AI preserves source, and stale decisions and repeated-question loops are rejected. Real PDF.js page ranges and native PDF bookmarks populate original text, including a >30,000-character chapter; extraction excludes the next chapter and manual author removal survives into AI review. Apply Text uses the final revised text for three audio characters. The pinned PDF.js assets are fulfilled locally from npm; external services stay blocked. Original 255-page Arabian Nights PDF checked manually: pages 175–187 = 28,516 characters; Aladdin bookmark chapter = 29,647 characters, excluding the next heading. Live AI translation/cast accuracy remains blocked without connected test services. Native mouse highlighting selects only the PDF author line; Find and Replace changes only extracted page text, manual edits survive saved-selection resume and final Apply Text."
   },
   {
     "area": "Themes and layout",
@@ -107,6 +107,11 @@
   {
     "area": "Upcoming campaigns in Billing",
     "mode": "fixture + isolated SQLite",
-    "scope": "Seven-day legacy/new default; editable 0\u201390-day lead time, retained across edit; target/placement/pause/blocked/completed filtering, earliest five, start/expiry and scheduled dispatch transition. Browser checks Billing drawer, Credit and Usage and purchase popup, configured badge, no early Select/Mark as Read, unchanged Bell count and active replacement. Existing user campaign is inspected live without altering its schedule or publishing test notices."
+    "scope": "Seven-day legacy/new default; editable 0–90-day lead time, retained across edit; target/placement/pause/blocked/completed filtering, earliest five, start/expiry and scheduled dispatch transition. Browser checks Billing drawer, Credit and Usage and purchase popup, configured badge, no early Select/Mark as Read, unchanged Bell count and active replacement. Existing user campaign is inspected live without altering its schedule or publishing test notices."
+  },
+  {
+    "area": "Delayed audio voice preview readiness",
+    "mode": "fixture",
+    "scope": "Real Audio Studio controls and a synthetic delayed worker response: preview completion immediately restores Generate; an active recording keeps Generate disabled; the identical audition is cached. No live synthesis occurs."
   }
 ]

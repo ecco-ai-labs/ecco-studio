@@ -24,7 +24,9 @@ const server = http.createServer(async (req, res) => {
       // Inject a known rendering defect only into the runner's isolated fixture.
       // This verifies detection even after production search is repaired.
       if(url.searchParams.get('tester')==='1')body=Buffer.from(body.toString().replace('</head>','<style>#page .library-files > .card[hidden]{display:grid!important}</style></head>'));
-      res.setHeader('Content-Security-Policy', "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; img-src 'self' data: blob:; font-src 'self' data:; frame-src 'none'; object-src 'none'");
+      // PDF tests fulfill these three pinned reader assets from npm locally; the browser route still blocks external traffic.
+      const reader=url.searchParams.get('pdf')==='1'?' https://cdn.jsdelivr.net':'';
+      res.setHeader('Content-Security-Policy', "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'"+reader+"; style-src 'self' 'unsafe-inline'"+reader+"; worker-src 'self' blob:; connect-src 'self'; media-src 'self' blob:; img-src 'self' data: blob:; font-src 'self' data:; frame-src 'none'; object-src 'none'");
     }
     if(relative==='desk/index.html'&&url.searchParams.get('__qa')==='1'){
       body=Buffer.from(body.toString().replace('<head>','<head><script src="/qa/tests/desk-bootstrap.js"></script>'));

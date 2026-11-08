@@ -47,12 +47,23 @@
   const scenes=Array.isArray(value.scenes)?value.scenes.slice(0,60).map((s,i)=>({title:String(s.title||'Scene '+(i+1)).slice(0,160),narration:String(s.narration||'').slice(0,4000),motion:String(s.motion||'').slice(0,1800),seconds:Math.min(10,Math.max(1,Number(s.seconds)||3)),image_id:''})):[];
   return {cast:cleanCast,plan,script,scenes,reason:String(value.reason||'').slice(0,1000)};
  }
+ // Assign voices without rewriting any applied source words or their order.
+ function sourcePlan(source,cast,segments){
+  validateCast(cast);
+  if(!segments)return parseScript(source,cast);
+  const ids=new Set(cast.map(c=>c.id)),names=new Set(cast.map(c=>c.name.trim().toLowerCase()));
+  if(!Array.isArray(segments)||!segments.length||segments.length>160||segments.some(s=>!ids.has(s.character_id)||typeof s.text!=='string'||!s.text.trim()))throw Error('AI could not assign the source to valid speakers. Your text is unchanged; retry character detection.');
+  const words=String(source).split(/\n\s*\n/).map(p=>{const i=p.indexOf(':');return i>=0&&names.has(p.slice(0,i).trim().toLowerCase())?p.slice(i+1):p;}).join(' ');
+  const normalize=text=>text.replace(/\s+/g,' ').trim();
+  if(normalize(segments.map(s=>s.text).join(' '))!==normalize(words))throw Error('AI changed source words while assigning speakers. Your text is unchanged; retry character detection.');
+  return {opening:null,segments:segments.map(s=>({character_id:s.character_id,text:s.text.trim()}))};
+ }
  function signature(data,kind){
   const common={script:data.script,cast:data.cast,language:data.language};
   return JSON.stringify(kind==='audio'?{...common,script:data.audioScript||data.script,genre:data.genre,audience:data.audience,location:data.location}:kind==='image'?{script:data.script,cast:data.cast.map(c=>({name:c.name,appearance:c.appearance,nationality:c.nationality,reference_id:c.reference_id}))}:{script:data.script,scenes:data.scenes,cast:data.cast.map(c=>({name:c.name,appearance:c.appearance,reference_id:c.reference_id}))});
  }
  // Keep references, timing and camera edits when the same scene survives a script edit.
  function reconcileScenes(next,previous){return next.map((s,i)=>{const old=previous.find(p=>p.narration===s.narration&&p.motion===s.motion);return old?{...s,...old,title:s.title,image_id:old.image_id||s.image_id||''}:{...s,image_id:s.image_id||''};});}
- const api={types,fresh,migrate,transcript,validateCast,parseScript,validateProposal,signature,reconcileScenes};
+ const api={types,fresh,migrate,transcript,validateCast,parseScript,sourcePlan,validateProposal,signature,reconcileScenes};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EccoStoryWorkspaceModel=api;
 })(typeof window==='undefined'?globalThis:window);

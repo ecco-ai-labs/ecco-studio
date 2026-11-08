@@ -178,7 +178,7 @@
  ]
 };
  const emotions=Object.keys(profiles);
- function support(model){return (model.voice_direction?"Emotion and acting instructions are sent to this model.":model.expressiveness?"Chatterbox approximates emotion through intensity; named emotions are not native acting commands.":model.emotions?"Emotion maps to the closest supported language-specific tag.":"This model has no emotion control. Choose a direction-capable model for emotional acting.")+" Turn-specific cues take precedence over character defaults. Audition before generating the story.";}
+ function support(model){return (model.voice_direction?"Emotion and acting instructions are sent to this model.":model.expressiveness?"Chatterbox approximates emotion through intensity; named emotions are not native acting commands.":model.emotions?"Emotion maps to the closest supported language-specific tag.":"This model has no emotion control. Choose a direction-capable model for emotional acting.")+" Manual turn cues take precedence over character defaults. Changing a character emotion replaces AI-suggested emotion for its turns. Audition before generating the story.";}
  const parts=plan=>[...(plan.opening?[plan.opening]:[]),...plan.segments];
  function clean(value){
   if(value==null)return undefined;
@@ -230,9 +230,9 @@
   return plan;
  }
  function lineControls(turn,speaker,model){
-  const cue=clean(turn.performance),chosen=cue?.emotion||speaker.emotion||'neutral',profile=profiles[chosen]||profiles.neutral;
+  const cue=clean(turn.performance),chosen=(turn.performance?.manual?cue?.emotion:speaker.emotion_override?speaker.emotion:cue?.emotion)||speaker.emotion||'neutral',profile=profiles[chosen]||profiles.neutral;
   const emotion=model.emotions?profile[speaker.language==='English'?2:3]:'neutral';
-  const direction=model.voice_direction?[chosen+' emotion: '+profile[0],speaker.delivery_style&&speaker.delivery_style!=='Voice Default'?speaker.delivery_style:'',speaker.delivery||speaker.style||'',cue?.direction||''].filter(Boolean).join('. ').slice(0,1200):'';
+  const direction=model.voice_direction?[chosen+' emotion: '+profile[0],speaker.delivery_style&&speaker.delivery_style!=='Voice Default'?speaker.delivery_style:'',speaker.delivery||speaker.style||'',(turn.performance?.manual||!speaker.emotion_override?cue?.direction:'')||''].filter(Boolean).join('. ').slice(0,1200):'';
   const expressiveness=model.expressiveness&&(cue||chosen!=='neutral')?{exaggeration:profile[1]}:{};
   return {emotion,...expressiveness,...(direction?{direction}:{}),...(cue?{pause_before:cue.pause_before}:{})};
  }

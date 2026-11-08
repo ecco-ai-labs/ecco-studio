@@ -357,8 +357,15 @@ Frame review keeps its preview/group selectors compact and names the active loca
 Tell Your Story → New Story now opens one workspace with three browser-style tabs:
 Story Details, Story & Characters, and Generate & Publish. Details collects output,
 type, genre, age group, language, optional location and recurrence. The second tab
-uses the existing PDF selection experience or an editable script, with explicit AI
-suggestions and editable library characters. Model and character properties are
+uses the existing PDF selection experience or an editable script, with editable library characters. Apply Text automatically identifies characters and
+fills their count and properties from the applied source; Use AI Text only updates the
+selection for review. Audio retains distinct speaking roles plus narration when needed,
+with language, accent, delivery, emotion and available model voices. Image shows
+appearance; video shows both. The count remains editable. Analysis never starts a
+media job, never sends unselected source content, and rejects stale replies. Audio
+speaker assignments preserve source words and order. Missing connections or invalid
+results keep the text and show an actionable error. Back refreshes Story Details
+from the current draft, including changes made in the second tab. Model and character properties are
 collapsed until needed. The third tab embeds the selected existing studio and its
 real generation/progress/review controls; video can prepare audio and images here.
 
@@ -386,6 +393,10 @@ Unknown dates stay blank. Access dates combine supplied workspace timestamps
 with explicit library opens recorded in this browser per user/workspace.
 
 ### Story workspace follow-up fixes
+
+Upload PDF, Generate With AI and Write share 160px × 32px buttons aligned to
+the right of the Story & Characters source row. On narrow screens, the buttons
+wrap without changing size and each row stays right-aligned.
 
 The left navigation remains visible during the three-tab workflow. New Story begins
 with blank details, content and selections, and detaches any prior PDF picker; saved
@@ -492,6 +503,39 @@ Show in selects Bell Icon, Billing, or both for notifications, OutReach and recu
 
 Campaign creation and editing use native Start and End calendars followed by Recurrence. Past dates and fully elapsed ranges save normally; only invalid dates or End before Start are rejected. Recurrence is anchored to Start and stops after the inclusive End date. A completed range remains editable in history with no remaining runs. Existing legacy schedules retain their behavior until explicitly edited. Backend calendar capability 1 must precede the UI deployment.
 
+### Applied PDF content — 8 November 2026
+
+The story workspace accepts selections up to 100,000 characters so ordinary complete
+chapters can populate the middle pane without the former 20,000-character rejection.
+Select Chapter lists actual PDF bookmarks with physical page numbers. Listed chapters
+extract locally, including headings spanning multiple lines, and stop at the next
+same-level chapter heading even mid-page. A missing or ambiguous bookmark is never
+guessed. An optional title search retains verified AI chapter lookup. Listed chapters
+and page ranges require no AI connection. The original source remains unchanged;
+Selected Text stays editable. Explicit translation/tone instructions override AI defaults.
+Apply Text analyzes the final edited middle-box content and auto-fills characters and
+output-appropriate properties. It does not analyze the unselected original document.
+A valid cast survives a failed speaker-assignment attempt; the text and failure remain
+visible. Audio generation retains its separate 4,000-character/80-turn service limits.
+PDF selection is verified with real PDF.js rendering; AI quality and live service delivery
+remain separate checks requiring connected services.
+
+Story review respects the hidden candidate state after automatic Apply Text character
+detection; no empty review panel remains. An explicitly changed character emotion
+overrides AI-generated turn defaults, while a manually edited turn retains its own
+emotion. Native PDF text highlighting, actual Find and Replace, saved-selection resume,
+and final manual text application are part of browser acceptance coverage.
+
+Completing a voice audition, including a later polling response, refreshes the Audio Studio Generate control immediately;
+active recording jobs continue to keep it disabled.
+
+PDF text-layer line endings use positioned newline spans so a mouse drag beyond a
+line selects that line only. Native BR hit boxes must not pull following rows
+into Selected Text. The original document and copied line breaks remain intact.
+
 Saving or resuming a campaign includes today’s unsent occurrence in the selected time zone, even after its send time. The preview shows Starts now; prior dates remain skipped. Receipt checks prevent resaving or resuming today’s sent campaign from duplicating it. Notification Duration continues to control each notice’s expiry.
 
 Campaigns also have Show Upcoming (days before), default 7; 14 means two weeks and 0 turns it off (maximum 90). Enabled Billing campaigns appear in the recipient’s Billing drawer, Credit and Usage and purchase popup before their start, with Upcoming plus their configured badge and start/expiry dates. These previews have no purchase/read actions or Bell unread count. Pause, targeting, placement and lead time apply; the scheduled notification replaces the preview after dispatch. Backend upcomingCampaignVersion 1 precedes frontend deployment.
+
+Save Draft makes Resume Saved Selection available immediately. Resume reads the latest
+saved selection and cannot restore a previous story’s source after navigation.
