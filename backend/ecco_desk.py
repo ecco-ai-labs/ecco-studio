@@ -246,15 +246,24 @@ def user_notifications(db, me):
     # Each location has its own newest-five window before receipts and expiry.
     # A billing-only notice must never displace a bell notice (or vice versa).
     def feed(bit):
+        # Campaigns remain in Billing until expiry/withdrawal, independently of
+        # read receipts and the five-item window for ordinary notifications.
+        campaigns = list(db.execute('''SELECT n.rowid AS sequence,n.*,r.readAt FROM desk_notifications n
+            LEFT JOIN desk_notification_reads r ON r.notificationId=n.id AND r.userId=?
+            WHERE n.campaignId IS NOT NULL AND (n.audience='all' OR n.recipientId=?)
+              AND (COALESCE(n.placements,3) & 2)!=0 AND n.revokedAt IS NULL
+              AND (n.expiresAt IS NULL OR n.expiresAt>?)''',
+            (me['userId'],me['userId'],now()))) if bit==2 else []
         rows = db.execute('''SELECT n.*,r.readAt FROM
             (SELECT rowid AS sequence,* FROM desk_notifications
              WHERE (audience='all' OR recipientId=?) AND
                (COALESCE(placements,CASE WHEN offer IS NOT NULL OR campaignId IS NOT NULL THEN 3 ELSE 1 END) & ?) != 0
+               AND (? != 2 OR campaignId IS NULL)
              ORDER BY rowid DESC LIMIT 5) n
             LEFT JOIN desk_notification_reads r ON r.notificationId=n.id AND r.userId=?
             WHERE r.readAt IS NULL AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
-            ORDER BY n.sequence DESC''', (me['userId'],bit,me['userId'],now()))
-        return [notification_public(r) for r in rows]
+            ORDER BY n.sequence DESC''', (me['userId'],bit,bit,me['userId'],now()))
+        return [notification_public(r) for r in sorted([*rows,*campaigns],key=lambda r:r['sequence'],reverse=True)]
     history = db.execute('''SELECT n.*,r.readAt
         FROM desk_notification_reads r JOIN desk_notifications n ON n.id=r.notificationId
         WHERE r.userId=? AND (n.audience='all' OR n.recipientId=?)
@@ -262,7 +271,7 @@ def user_notifications(db, me):
           AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
         ORDER BY r.readAt DESC,r.rowid DESC LIMIT 3''', (me['userId'],me['userId'],now()))
     return dict(notificationVersion=1, specialOfferVersion=1, notificationHistoryVersion=1, notificationPresentationVersion=1,
-                notifications=feed(1), billingNotifications=feed(2), upcomingCampaignVersion=1,
+                notifications=feed(1), billingNotifications=feed(2), upcomingCampaignVersion=1,campaignReadVersion=1,
                 upcomingCampaigns=ecco_campaigns.upcoming(db,me,dt.datetime.fromisoformat(now())), readNotifications=[{k:v for k,v in notification_public(r).items() if k not in ('offer','kind')} for r in history])
 
 
@@ -435,6 +444,8 @@ def read(db, me, query):
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op == 'readCampaign':
+        return ecco_campaigns.mark_read(db, me, body)
     if op in ('prepareRelease', 'prepareRollback', 'publishRelease'):
         return ecco_releases.write(db, me, body)
     if op in ('previewCampaign','createCampaign','updateCampaign','setCampaignActive'):
@@ -633,7 +644,7 @@ def handle(handler, path, allowed_origin, database, configured_key):
             body = json.loads(handler.rfile.read(length))
             if not isinstance(body, dict):
                 raise DeskError('Expected an object.')
-            if personal_support and not (body.get('op') in ('comment','readTicket','readNotification','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage','chatTyping') or
+            if personal_support and not (body.get('op') in ('comment','readTicket','readNotification','readCampaign','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage','chatTyping') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
         grants = {} if personal_support else ecco_desk_groups.access(user, fresh=bool(body and body.get('op') in ('createNotification','withdrawNotification','createAgent','previewCampaign','createCampaign','updateCampaign','setCampaignActive')))

@@ -9,7 +9,7 @@ test('promotions precede regular packs with configured badge, expiry and safe te
  assert.equal(w.document.querySelectorAll('.credits-promotion').length,2);assert.equal(q('.credits-promotion-badge').textContent,'Dhamaka');assert.match(q('.credits-promotion-expiry').textContent,/Offer lasts till/);assert.equal(q('.credits-promotion time').dateTime,'2099-11-30T17:00:00Z');assert.equal(q('.credits-promotion b'),null);assert.equal(q('[data-notice-id=campaign] button'),null);assert(q('.credits-notices').compareDocumentPosition(q('.credits-pack-grid'))&w.Node.DOCUMENT_POSITION_FOLLOWING);assert.equal(w.document.querySelectorAll('.credits-pack').length,3);
 });
 
-test('upcoming cards precede regular options with dates and badge and cannot be bought or marked read',t=>{
+test('older service upcoming cards show dates and badge without unsupported actions',t=>{
  const {w,q}=fixture(t);let upcoming=[{id:'future',campaignId:'campaign',status:'upcoming',title:'Future campaign',body:'<b>Safe text</b>',badge:'Dhamaka',startsAt:'2099-11-07T05:00:00Z',expiresAt:'2099-12-07T05:00:00Z',timezone:'America/Los_Angeles'}];
  w.EccoNotifications.snapshot=()=>({notifications:[],upcomingCampaigns:upcoming});w.document.dispatchEvent(new w.Event('ecco:notifications-change'));
  const card=q('[data-state=upcoming]');assert(card);assert.equal(card.querySelector('button'),null);assert.equal(card.querySelector('b'),null);assert.match(card.textContent,/UpcomingDhamaka/);assert.match(card.textContent,/Starts/);assert.match(card.textContent,/Offer lasts till/);assert.equal(card.querySelectorAll('time').length,2);assert.equal(q('.credits-shop-footer button').disabled,true);
