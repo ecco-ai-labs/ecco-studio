@@ -181,7 +181,7 @@ for(const theme of ['default','dark','forest','desert','ocean','dark-sky']){
     await expect(back).toBeFocused();await expect(back).toHaveCSS('color',accents[theme]);
     await expect(back).toHaveCSS('outline-color',accents[theme]);
     await page.locator('#workspace-trash').click();
-    await expect(page.locator('#trash-items')).toBeVisible();
+    await expect(page.locator('#page .section-head h2')).toHaveText('Trash · all stories');
     await expect(back).toHaveCSS('color',accents[theme]);
     await expect(back).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
   });
