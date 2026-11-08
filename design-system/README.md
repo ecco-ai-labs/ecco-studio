@@ -427,6 +427,8 @@ Every Studio screen has a compact ← Back control above its title. It restores
 the preceding in-tab view, including library search/view, story tab and draft,
 focus and scroll. Up to 30 prior views are retained; an empty history disables
 Back and never substitutes the welcome page. Identity changes clear history.
+Page Back text and arrows always use the selected theme accent, including idle,
+hover and keyboard focus: yellow in Default. Existing disabled cues remain.
 Back is restricted to pages in the right-hand content pane, including Desk page
 views. Popups, hover panels, menus and drawers never receive page Back controls.
 Their existing close/minimize, Escape and outside-dismissal behavior remains.
@@ -461,5 +463,9 @@ Agents exposes Create New Agents at the top for Desk administrators and verified
 
 ## Recurring campaigns
 
-Notifications → Marketing Campaign offers set-once recurring announcements with a server-computed next occurrence. Cyber Monday, Black Friday and New Year presets follow their calendar dates each year. Daily, weekly, monthly and yearly schedules use the selected local time zone. Admins can edit or pause/resume a schedule. An existing CPU service publishes due notifications automatically, records each occurrence atomically, and skips dates missed while offline. Each dispatch rechecks current administrator authority. No browser, GPU or manual re-issue is required.
+Notifications → Campaign offers set-once recurring announcements with a server-computed next occurrence. Cyber Monday, Black Friday and New Year presets follow their calendar dates each year. Daily, weekly, monthly and yearly schedules use the selected local time zone. Admins can edit or pause/resume a schedule. An existing CPU service publishes due notifications automatically, records each occurrence atomically, and skips dates missed while offline. Each dispatch rechecks current administrator authority. No browser, GPU or manual re-issue is required.
 
+
+### Notification category tabs
+
+Notifications, OutReach and Campaign are browser-style tabs that open on their respective histories. The circled plus at the right opens the inline creation form; Cancel or successful publish/save returns to history. OutReach retains special-offer credit terms; Campaign retains automatic recurring schedules. Keyboard arrow/Home/End navigation and focus return are supported.

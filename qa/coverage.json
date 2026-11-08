@@ -7,7 +7,7 @@
   {
     "area": "Previous-screen navigation",
     "mode": "fixture",
-    "scope": "Back preserves library view/search and story draft, support returns to the originating screen, Back is absent from menus, hover panels, drawers and popups; native dismissal and checkout selection remain intact, sign-out clears navigation history; real ticket and billing service writes remain blocked"
+    "scope": "Page Back stays theme-accent at rest, hover, mouseout and keyboard focus in all six themes; Desk page Back uses the same accent. Back preserves library view/search and story draft, support returns to the originating screen, Back is absent from menus, hover panels, drawers and popups; native dismissal and checkout selection remain intact, sign-out clears navigation history; real ticket and billing service writes remain blocked"
   },
   {
     "area": "Libraries",
@@ -78,6 +78,10 @@
     "area": "Recurring campaigns",
     "mode": "fixture + isolated SQLite",
     "scope": "Create annual Cyber Monday schedule; next-run preview; edit, pause/resume, reload persistence, keyboard focus and 768px layout. Backend tests cover annual dates/DST, permissions, revocation, concurrent dispatch, retries and missed dates. No live announcements are sent by QA."
-
+  },
+  {
+    "area": "Notification category navigation",
+    "mode": "fixture",
+    "scope": "Three browser-style tabs; history first; circled plus opens focused fields; no type dropdown; OutReach credit offer posting and separate history; Campaign create/cancel and keyboard tabs; 390px tab fit. Real notifications are never sent by these checks."
   }
 ]

@@ -2258,7 +2258,14 @@
       "reissue": {
         "approval": "2026-11-07: User requested editing and re-issuing from Notification History.",
         "interaction": "Edit & re-issue appears on every history row. Load title, body, type, severity, audience, stable recipient, lifetime and any special-offer terms into the existing composer. Focus Title, show Re-issue Notification, and use a fresh per-draft idempotency key. Re-issue notification explicitly publishes a new record and expiry; original notice and receipts remain intact. Clear form cancels the draft. Polling and failed publish preserve edits; retries retain the same new key.",
-        "appearance": "Reuse the native text-button, existing composer and table styles. New composer heading is New Notification. No new dialog, permission or automatic publishing."
+        "appearance": "Existing inline composer opens from Edit & re-issue within its category. Heading is Re-issue Notification or Re-issue OutReach. No dialog or automatic publishing."
+      },
+      "categoryTabs": {
+        "approval": "2026-11-08 user replaces the type dropdown and create labels with browser-style Notifications, OutReach and Campaign tabs; history is the default and a circled plus on the right opens creation.",
+        "appearance": "Joined tabs with 10px upper corners, 14px labels and selected theme-accent text; existing theme surface/control/border palette. One 34px circular plus with a 20px glyph at the right of each history heading. On 390px screens tabs share width without overflow.",
+        "content": "Notifications contains ordinary notice history; OutReach contains special-offer history and credit/bonus/price fields; Campaign contains recurring schedules and previous outcomes. The API special_offer kind and billing offer behavior stay compatible. No Type dropdown.",
+        "interaction": "Default history; plus opens an inline form and focuses Title or Campaign Name. Cancel returns focus to plus; successful publish/save returns to the same history. Edit/re-issue opens the corresponding form. Failed writes preserve the form and idempotency key. ArrowLeft/ArrowRight/Home/End select tabs; selected tab is the single tab stop. Busy notice forms prevent tab switching.",
+        "accessibility": "Named tablist, tab buttons with aria-selected and aria-controls, labeled tabpanel; circled plus has explicit New Notification / New OutReach / New Campaign accessible names; forms keep labeled fields and error/status announcements."
       }
     },
     "accountAccess": {
@@ -2563,7 +2570,7 @@
   "previousScreenNavigation": {
     "approval": "2026-11-07: Back returns to the previous screen. User correction: ONLY pages in the right-hand pane may have Back; remove it from popups and hover menus.",
     "identity": "navigation-history.js/css, #workspace-back and Desk page .desk-back; existing page and header button types only.",
-    "appearance": "Compact 12px Back text and left arrow above the current page title, theme text/accent, transparent background and visible 2px focus outline. No Back control in popups, menus, hover panels or drawers.",
+    "appearance": "Compact 12px Back text and left arrow above the current page title, transparent background and visible 2px focus outline. User-approved 2026-11-08: every page Back text/arrow uses the selected theme accent at rest, on hover and on keyboard focus; Default is yellow #ffdc24. Existing disabled cues remain. No Back control in popups, menus, hover panels or drawers.",
     "behavior": "In-tab history keeps up to 30 visited views and restores existing DOM, draft state, story tab, library controls, focus and window scroll. Repeated refreshes of the same view do not add entries. No-history Back is disabled; welcome is never a fallback. Login identity changes clear history.",
     "layers": "Only content pages use Back. Popups, menus, hover panels and drawers retain their existing Close, Minimize, Escape and outside-dismissal behavior without added navigation controls. Desk page Back restores the prior page and filters.",
     "data": "No generation, payment, deletion, replayed form submission, external navigation or backend write from Back. Local history is never persisted across sign-out or reload."

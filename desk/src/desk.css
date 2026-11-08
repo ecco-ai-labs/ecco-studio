@@ -719,3 +719,20 @@ td{font-size:14px;color:var(--ink)}
 
 .notification-type select{padding:10px;border:1px solid var(--line);border-radius:5px;background:var(--control);font-size:14px}.notification-type label{font-size:13px;color:var(--ink)}.campaign-card>p{margin-top:10px}.campaign-card details{margin-top:14px}.campaigns h3{font-weight:600}
 
+
+/* Browser-style notification categories with history-first creation. */
+.notification-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);padding:0 8px;min-width:0}
+.notification-tabs [role=tab]{min-width:0;padding:12px 20px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:var(--control);color:var(--muted);font-size:14px;font-weight:600;position:relative;top:1px}
+.notification-tabs [role=tab][aria-selected=true]{background:var(--surface);color:var(--accent);border-bottom:1px solid var(--surface)}
+.notification-tabs [role=tab]:hover{color:var(--accent)}
+.user-notifications{gap:0}.user-notifications>[role=tabpanel]{min-width:0}.user-notifications>[role=tabpanel]>.ticket-section{border-top:0;border-top-left-radius:0;border-top-right-radius:0}
+.notification-create{display:inline-flex;align-items:center;justify-content:center;flex:none;width:34px;height:34px;padding:0;border:1px solid var(--accent);border-radius:50%;background:var(--accent);color:var(--contrast)}
+.notification-create:hover{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.notification-create:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.notification-history tr[data-status=read] summary{font-weight:400}.notification-history summary{font-size:14px}.notification-history details p{font-size:13px}
+@media(max-width:650px){.notification-tabs{padding:0 4px}.notification-tabs [role=tab]{flex:1;padding:12px 8px}.notification-actions{flex-wrap:wrap}}
+
+/* Page navigation follows the Studio accent even before hover or focus. */
+.desk-back,.agent-back,[data-page-back]{color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
+.desk-back:focus-visible,.agent-back:focus-visible,[data-page-back]:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
+
