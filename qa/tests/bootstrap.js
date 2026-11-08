@@ -2,7 +2,7 @@
 (() => {
   // The managed preview is HTTP; localhost CI already provides this API.
   if(!crypto.randomUUID)crypto.randomUUID=()=>"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-  for(const key of Object.keys(localStorage))if(!key.startsWith('ecco-desk-')&&!key.startsWith('ecco-tester-')&&!key.startsWith('ecco-agent-')&&!key.startsWith('ecco-qa-campaign-reads'))localStorage.removeItem(key);sessionStorage.clear();
+  for(const key of Object.keys(localStorage))if(!key.startsWith('ecco-desk-')&&!key.startsWith('ecco-tester-')&&!key.startsWith('ecco-agent-')&&!key.startsWith('ecco-qa-campaign-reads')&&!key.startsWith('ecco-qa-look'))localStorage.removeItem(key);sessionStorage.clear();
   localStorage.setItem('ecco-user-session','qa-synthetic-session');
   localStorage.setItem('ecco-theme-preset-v1',new URLSearchParams(location.search).get('theme')||'default');
   const originalFetch=window.fetch.bind(window);
@@ -21,6 +21,19 @@
     if(url.origin===location.origin)return originalFetch(input,options);
     window.__qaNetwork.push({path:url.pathname,method:options.method||'GET',mocked:true});
     const json=(value,status=200)=>Promise.resolve(new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json'}}));
+    if(url.pathname==='/api/look-and-feel'){
+      // Shared published roster, kept across reloads like the real service. ?lookAndFeelAdmin grants publishing.
+      const store=JSON.parse(localStorage.getItem('ecco-qa-look')||'{"version":0,"roster":null,"history":[]}');
+      const admin=new URLSearchParams(location.search).has('lookAndFeelAdmin'),signedIn=Boolean(options.headers?.Authorization);
+      const view=()=>({lookAndFeelVersion:1,version:store.version,roster:store.roster,updatedAt:store.updatedAt||null,updatedBy:store.updatedBy||null,...(signedIn?{canPublish:admin}:{}),...(signedIn&&admin?{history:store.history}:{})});
+      if(options.method==='POST'){
+        if(!admin)return json({error:'Only administrators can apply Look and Feel changes.'},403);
+        const p=JSON.parse(options.body);if(p.baseVersion!==store.version)return json({error:'Someone else applied a newer Look and Feel. Reload to see it before applying yours.'},409);
+        store.version++;store.roster=p.op==='reset'?null:p.roster;store.updatedAt=new Date().toISOString();store.updatedBy='QA Test User';store.history.unshift({version:store.version,updatedAt:store.updatedAt,updatedBy:store.updatedBy,default:!store.roster});
+        localStorage.setItem('ecco-qa-look',JSON.stringify(store));
+      }
+      return json(view());
+    }
     if(url.pathname.endsWith('/auth/me'))return json({user:{id:'qa-user',name:'QA Test User',email:'qa@example.invalid'}});
     if(url.pathname.endsWith('/auth/logout'))return json({ok:true});
     if(url.pathname==='/api/desk/support'&&(url.searchParams.has('userNotifications')||options.method==='POST')){

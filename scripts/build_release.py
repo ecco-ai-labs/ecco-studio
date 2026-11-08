@@ -23,6 +23,8 @@ def build(destination, sha, run_id):
     for directory in ('assets', 'vendor'):
         files.extend(p for p in (ROOT / directory).rglob('*') if p.is_file() and p.suffix in EXTENSIONS)
     files += [ROOT / 'desk' / name for name in ('index.html', 'desk-app.mjs', 'desk-app.mjs.LEGAL.txt')]
+    # The master size roster and its runtime/stylesheet are loaded by Studio and Desk.
+    files += [ROOT / 'design-system' / name for name in ('sizes.js', 'sizes.css', 'size-roster.json')]
     for source in files:
         if source.is_symlink():
             raise ValueError('Symbolic links cannot enter a release.')

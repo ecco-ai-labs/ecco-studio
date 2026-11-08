@@ -41,13 +41,41 @@ components. It does not change the running UI or claim existing styles are unifi
 | Feedback | Progress, spinner, badge, error, notification, tooltip, empty state |
 | Workflow | Forms, field groups, workflow nodes, costs, code/log displays, dividers |
 
+## Master size roster
+
+Font size, height and width of every element type are defined once in
+[size-roster.json](size-roster.json). Each entry names an element type, the
+selectors that belong to it and its sizes; variants refine a type for specific
+places. Every instance of a type takes the type's size, on every screen, the way
+a CSS rule applies to every matching element.
+
+| File | Purpose |
+|---|---|
+| [size-roster.json](size-roster.json) | The master roster: the repository default |
+| [sizes.js](sizes.js) | Compiles the roster into one stylesheet on every Studio and Desk page, including Desk shadow roots, and loads the published roster |
+| [sizes.css](sizes.css) | Generated first-paint stylesheet. Run `node scripts/size_roster.mjs`; never edit it by hand |
+
+**Editing.** Administrators open **Studio > User Preferences > Look and Feel**
+to change sizes, add elements and **Apply to everyone**. Each Apply is a numbered
+version on the Desk service (`/api/look-and-feel`); every page loads the latest
+one and falls back to the repository roster. **Download roster** exports the
+live roster so it can replace `size-roster.json` here.
+
+**New screens and elements.** Do not give an element its own font size, height
+or width when its type is in the roster. A new kind of element is added to the
+roster (a type, or a variant of a type) in the same change, with its contract
+component. Then run `node scripts/size_roster.mjs`. The `ROSTER-01` browser check
+fails on any visible element whose size is neither its roster type's size nor
+inherited from its surroundings.
+
 ## Adding or changing an object
 
 1. Find its type in `ui-contract.json`. Reuse it; register a new type only when needed.
 2. Account for all property groups. Use explicit `not applicable` in reviewed specifications where appropriate. Do not invent UI changes or numerical defaults.
 3. Record any new variants, properties and approved exceptions in the contract in the same change.
 4. Implement the change, then run `python3 scripts/ui_inventory.py`.
-5. Commit the updated contract, source and inventory together. Run `python3 scripts/ui_inventory.py --check` before merging.
+5. For sizes, update `size-roster.json` and run `node scripts/size_roster.mjs` (see Master size roster).
+6. Commit the updated contract, roster, source and inventory together. Run `python3 scripts/ui_inventory.py --check` before merging.
 
 The CI check fails when scanned UI source changes without a matching inventory
 refresh. Reviewers must still check component semantics and the visual result;

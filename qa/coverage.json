@@ -168,5 +168,10 @@
     "area": "Story source tabs and drafts",
     "mode": "fixture",
     "scope": "STORY-04 checks the Story settings labels (Story Type, Genre / Topic, Audience, Language) show Story Details values, all choices, two-way synchronization with Story Details, browser-style Upload PDF / Generate With AI / Write Yourself tabs with arrow/End keys, the PDF workspace appearing only after upload, and 1440/390 bounds. UPLOAD-03 sends the label values with Improve with AI and clears drafts when a setting changes. STORY-15 checks Draft 1–3 in all three tabs: each improvement fills the next draft, Improve is disabled when all three are used, arrow keys switch drafts, Clear AI Output clears only the chosen draft, Use AI Text applies the chosen draft and another draft can replace it, and editing Selected Text clears the drafts. Real AI quality remains separate."
+  },
+  {
+    "area": "Master size roster and Look and Feel",
+    "mode": "fixture",
+    "scope": "ROSTER-01 audits seven Studio and Desk screens: every control, heading, label and text element has its roster type's size or inherits it; unregistered sizes fail. ROSTER-02 checks the generated stylesheet matches the roster and that the Desk shadow root receives it. LOOK-01..03: administrators open User Preferences > Look and Feel, edit a type, add a variant, see invalid selectors refused, Apply to everyone (persisting across reload) and restore the repository default; non-administrators do not see the entry. The real publishing service and administrator-group verification are covered by backend/test_ecco_look_and_feel.py; live deployment remains blocked in the fixture."
   }
 ]

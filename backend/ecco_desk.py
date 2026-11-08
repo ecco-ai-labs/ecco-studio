@@ -595,6 +595,10 @@ def write(db, me, body, workspace_key, configured_key):
 
 
 def handle(handler, path, allowed_origin, database, configured_key):
+    if path == '/api/look-and-feel':
+        # Published master size roster: public read, administrator-only publish.
+        import ecco_look_and_feel
+        return ecco_look_and_feel.handle(handler, allowed_origin, database, connect, actor, now)
     if path in ('/api/desk/inbox/connect', '/api/desk/notification-group/connect'):
         # The existing workspace owner can configure the support mailbox before
         # a team administrator is enrolled. This is the same private owner key

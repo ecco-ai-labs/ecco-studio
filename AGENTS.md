@@ -7,6 +7,12 @@ For every UI change, read `design-system/README.md` and
   variants and explicitly approved exceptions to the contract in the same change.
 - Preserve user-approved appearance and behavior. Do not add controls, rename
   labels, change dimensions or normalize styles without user authorization.
+- Sizes (font size, height, width) come only from the master size roster,
+  `design-system/size-roster.json`. An element whose type is in the roster must
+  not set its own size. Add a new kind of element to the roster (type or variant)
+  in the same change, run `node scripts/size_roster.mjs`, and keep ROSTER-01
+  passing. Administrators can also change the live roster in Studio > User
+  Preferences > Look and Feel.
 - Regenerate `design-system/ui-inventory.json` with
   `python3 scripts/ui_inventory.py` after changing UI source.
 - Run `python3 scripts/ui_inventory.py --check` and review the inventory diff.

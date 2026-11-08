@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "Registry and specification; not yet a centralized runtime stylesheet. Existing values are recorded in ui-inventory.json. Unapproved numerical standards remain unset.",
+  "status": "Registry and specification. Element sizes (font size, height, width) are centralized in the master size roster (design-system/size-roster.json), applied at runtime by design-system/sizes.js and published from Studio > User Preferences > Look and Feel. Other numerical styles are recorded in ui-inventory.json.",
   "propertyGroups": {
     "identity": [
       "id",
@@ -120,7 +120,7 @@
     },
     "studioEntry": "Tell Your Story is disabled by default, including during Google session restoration and sign-in failures. Signed-out opacity is 0.5 with a not-allowed cursor. Enable only after backend-verified Google identity is available. Entry handlers also require the current identity. Preserve button dimensions, wording, themes and explicit click to enter. Successful checks of the same signed-in identity must retain open ticket dialogs and unsent work; only an actual account change or revoked session emits the authentication-change event.",
     "publishingStatus": "Publishing control-panel icon shows only YouTube: Connected or YouTube: Not Connected (or the connected platform name). Hover, keyboard focus and click reveal compact theme-aware status; never open Connections from the indicator or its channel list. Connection management stays in the Connections menu.",
-    "popupControlAppearance": "All Studio modal close/minimize controls, Activity drawer close, and Desk dialog/ticket close controls use popup-controls.css. Fixed 26x26 border-box with no padding, margin or shadow; 14x14 SVG strokes at 2px; theme accent background and contrast foreground for default/hover/focus; focus outline uses theme text. Behaviors and popup positioning remain unchanged. Explicit flex centering, zero SVG margins and higher specificity than dialog-wide button sizing ensure icons stay centered, including Connections.",
+    "popupControlAppearance": "All Studio modal close/minimize controls, Activity drawer close, and Desk dialog/ticket close controls use popup-controls.css. Fixed size from the master size roster (popup-close: 30x30) border-box with no padding, margin or shadow; 14x14 SVG strokes at 2px; theme accent background and contrast foreground for default/hover/focus; focus outline uses theme text. Behaviors and popup positioning remain unchanged. Explicit flex centering, zero SVG margins and higher specificity than dialog-wide button sizing ensure icons stay centered, including Connections.",
     "libraryBrowsing": "Image, Audio, Video, Story and Workflow libraries use the shared compact file browser specified by libraryFileBrowser. Each opens with List selected, followed by Small icons and Large icons. Search and date/status filtering remain available. Existing actions, media players and publishing selections are preserved; metadata details appear in the file preview.",
     "studioWorkspaceTabs": "Audio, Image and Video use a joined Final Script / Progress / Review tab strip in the right workspace: transparent tab surfaces, square corners, theme-accent underline on active tab; native tablist/tab/tabpanel semantics, roving tabindex and Arrow/Home/End navigation. Image edits the existing prompt and previews the composed generation prompt. Video shows source speech plus selected shot directions and opens existing script/shot editors. Progress mirrors current form status without moving form-owned state; sequence controls live in Progress. Review retains existing media nodes and actions. Polling never changes the selected tab; submit opens Progress. No new generation backend or speech re-recording is implied.",
     "notifications": {
@@ -169,7 +169,9 @@
       "variants": [
         "story-details-required-default"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: eyebrow, form-label"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -201,7 +203,9 @@
         "story-details-next",
         "story-grouped-choice"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: button, back-button, button-hero, button-journey-step"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -226,7 +230,9 @@
         "popup-minimize",
         "desk-account"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: icon-button"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -246,7 +252,9 @@
         "dismissTarget"
       ],
       "variants": [],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: popup-close"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -314,7 +322,9 @@
         "credit-purchases",
         "desk-account"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: heading-h3, heading-h2, heading-h1, selection-heading, heading-h1-story, heading-h1-landing, heading-h1-welcome, heading-h2-drawer"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -334,7 +344,9 @@
         "tone"
       ],
       "variants": [],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: body-text, welcome-subtitle, text-display"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -357,7 +369,9 @@
         "credit-purchases",
         "desk-account"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: help-text"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -378,7 +392,9 @@
         "rel"
       ],
       "variants": [],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: link"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -402,7 +418,9 @@
       "variants": [
         "three-tab-story-workspace"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: text-input"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -493,7 +511,9 @@
         "clip-frame-review",
         "three-tab-story-workspace"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: textarea"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -538,7 +558,9 @@
         "theme-preset",
         "story-output-choice"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: output-tile-text"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -703,7 +725,9 @@
         "selected"
       ],
       "variants": [],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: option-description"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -750,7 +774,9 @@
       "variants": [
         "desk-account"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: menu-option"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -798,7 +824,9 @@
         "story-source-tabs",
         "story-ai-drafts"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: tab"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -945,7 +973,9 @@
         "hierarchy"
       ],
       "variants": [],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: sidebar-item, library-chip-text"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -1041,7 +1071,9 @@
         "clip-frame-review",
         "credit-purchases"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: card, agent-card-title, agent-card-text"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -1082,7 +1114,9 @@
         "actions"
       ],
       "variants": [],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: list-row-title, list-row-details"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -1126,7 +1160,9 @@
         "alignment"
       ],
       "variants": [],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: table-cell"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -1308,7 +1344,9 @@
         "ecco-desk",
         "support-unread"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: default-badge"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -1332,7 +1370,9 @@
       "variants": [
         "story-details-summary"
       ],
-      "standardValues": {},
+      "standardValues": {
+        "sizes": "size-roster.json: error-text"
+      },
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
     {
@@ -2781,6 +2821,203 @@
     "fontSize": "Every authored nonzero UI font size uses calc(original - 2pt): exactly 2.6667 CSS pixels. Apply once at its declaration, preserving inherited text and responsive clamp values. Studio body starts at calc(16px - 2pt); embedded/standalone Desk body and host start at calc(14px - 2pt). Zero sizes used for icon-only labels stay zero.",
     "layout": "UI padding and gaps of at least 6px decrease by 2px per edge/gap. Fixed text line heights decrease 2px; standard compact text buttons are 28px high, Story Details inputs/dropdown triggers 40px, output tiles 52px, Next 44px. Two-line story brief is 54px. Equal Story/Audience card dimensions and viewport-bounded dropdown panels remain. At widths below 700px, Credit and Usage opens within its account menu rather than outside the left viewport edge; credit rows wrap and the panel scrolls vertically. The account menu is horizontally clamped within 12px viewport margins on mobile, including content and viewport changes.",
     "exceptions": "Google-hosted sign-in iframe typography and imported PDF canvas/text-layer fonts remain provider/document controlled. Media dimensions, glyph icons, popup close/minimize 26px targets and toolbar icon-only targets remain unchanged.",
-    "verification": "Browser checks cover exact font reductions, inherited/dynamic text, Desk shadow DOM, theme changes, keyboard focus, content fit and no horizontal overflow at 1440x1000 and 390x844; existing workflow suite remains required."
+    "verification": "Browser checks cover exact font reductions, inherited/dynamic text, Desk shadow DOM, theme changes, keyboard focus, content fit and no horizontal overflow at 1440x1000 and 390x844; existing workflow suite remains required.",
+    "supersededBy": "sizeRoster: element sizes now come from the master size roster; the calc(original - 2pt) rule remains only for properties the roster does not set."
+  },
+  "sizeRoster": {
+    "approval": "2026-11-08: User approved one size per element type through a 24-screen audit, two rounds of before/after mockups and per-row decisions; user requested a master roster that new screens follow, with new element kinds added to it, editable in Studio Look and Feel and applied to the whole UI by administrators.",
+    "source": "design-system/size-roster.json (repository default). design-system/sizes.css is generated from it by node scripts/size_roster.mjs and never edited by hand.",
+    "runtime": "design-system/sizes.js compiles the roster into one stylesheet in every Studio and Desk page, including Desk shadow roots, after all page styles. Roster rules share one specificity above page rules; when an element matches several roster entries the later entry wins (types, then variants).",
+    "publishing": "Studio > User Preferences > Look and Feel (administrators: Desk admins or the approved administrator group). Apply publishes a numbered version to /api/look-and-feel; every page loads the latest published roster, falling back to the repository roster. Use repository default publishes a reset.",
+    "newElements": "An element whose type exists in the roster takes that type's size and must not set its own. A new kind of element is added to the roster (a type, or a variant of a type) in the same change, with its contract component. ROSTER-01 fails on any visible element whose size is neither its roster type's size nor inherited.",
+    "keptCurrent": "Entries marked keptCurrent keep their pre-roster sizes by the user's choice and remain editable.",
+    "types": [
+      {
+        "id": "body-text",
+        "name": "Body text",
+        "component": "text"
+      },
+      {
+        "id": "help-text",
+        "name": "Help / caption text",
+        "component": "help-text"
+      },
+      {
+        "id": "eyebrow",
+        "name": "Eyebrow (small caps label)",
+        "component": "label"
+      },
+      {
+        "id": "link",
+        "name": "Link",
+        "component": "link"
+      },
+      {
+        "id": "table-cell",
+        "name": "Table text",
+        "component": "table-cell"
+      },
+      {
+        "id": "error-text",
+        "name": "Error / status text",
+        "component": "error"
+      },
+      {
+        "id": "form-label",
+        "name": "Form label",
+        "component": "label"
+      },
+      {
+        "id": "heading-h3",
+        "name": "Heading h3",
+        "component": "heading"
+      },
+      {
+        "id": "heading-h2",
+        "name": "Heading h2",
+        "component": "heading"
+      },
+      {
+        "id": "heading-h1",
+        "name": "Heading h1 (page title)",
+        "component": "heading"
+      },
+      {
+        "id": "text-input",
+        "name": "Input / dropdown field",
+        "component": "text-input"
+      },
+      {
+        "id": "textarea",
+        "name": "Multi-line text box",
+        "component": "textarea"
+      },
+      {
+        "id": "button",
+        "name": "Button",
+        "component": "button"
+      },
+      {
+        "id": "card",
+        "name": "Card (clickable tile)",
+        "component": "card"
+      },
+      {
+        "id": "icon-button",
+        "name": "Icon button",
+        "component": "icon-button"
+      },
+      {
+        "id": "menu-option",
+        "name": "Menu / dropdown option",
+        "component": "menu-item"
+      },
+      {
+        "id": "tab",
+        "name": "Tab",
+        "component": "tab"
+      },
+      {
+        "id": "sidebar-item",
+        "name": "Sidebar item",
+        "component": "navigation"
+      },
+      {
+        "id": "back-button",
+        "name": "Back button",
+        "component": "button"
+      },
+      {
+        "id": "popup-close",
+        "name": "Popup close / minimize",
+        "component": "popup-close"
+      },
+      {
+        "id": "output-tile-text",
+        "name": "Output tile text",
+        "component": "radio"
+      },
+      {
+        "id": "library-chip-text",
+        "name": "Library section chip text",
+        "component": "navigation"
+      },
+      {
+        "id": "option-description",
+        "name": "Dropdown option description",
+        "component": "dropdown-option"
+      },
+      {
+        "id": "list-row-title",
+        "name": "Library row title",
+        "component": "list-item"
+      },
+      {
+        "id": "list-row-details",
+        "name": "Library row details",
+        "component": "list-item"
+      },
+      {
+        "id": "default-badge",
+        "name": "Default badge",
+        "component": "badge"
+      },
+      {
+        "id": "welcome-subtitle",
+        "name": "Welcome subtitle",
+        "component": "text"
+      },
+      {
+        "id": "selection-heading",
+        "name": "Selected text heading",
+        "component": "heading"
+      },
+      {
+        "id": "agent-card-title",
+        "name": "Agent card title",
+        "component": "card"
+      },
+      {
+        "id": "agent-card-text",
+        "name": "Agent card text",
+        "component": "card"
+      },
+      {
+        "id": "button-hero",
+        "name": "Welcome call to action",
+        "component": "button"
+      },
+      {
+        "id": "button-journey-step",
+        "name": "Story landing step",
+        "component": "button"
+      },
+      {
+        "id": "heading-h1-story",
+        "name": "Story workspace title",
+        "component": "heading"
+      },
+      {
+        "id": "heading-h1-landing",
+        "name": "Story landing title",
+        "component": "heading"
+      },
+      {
+        "id": "heading-h1-welcome",
+        "name": "Welcome title",
+        "component": "heading"
+      },
+      {
+        "id": "heading-h2-drawer",
+        "name": "Credits drawer title",
+        "component": "heading"
+      },
+      {
+        "id": "text-display",
+        "name": "Brand name and empty-state title",
+        "component": "text"
+      }
+    ],
+    "verification": "node scripts/size_roster.mjs --check; qa ROSTER-01, ROSTER-02, LOOK-01..03; backend/test_ecco_look_and_feel.py."
   }
 }

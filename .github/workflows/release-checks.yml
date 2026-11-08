@@ -23,6 +23,8 @@ jobs:
           python3 -m unittest discover -s scripts -p 'test_release_pipeline.py'
           node tests/ecco-desk-releases.test.mjs
           python3 scripts/ui_inventory.py --check
+          node scripts/size_roster.mjs --check
+          python3 -m unittest discover -s backend -p 'test_ecco_look_and_feel.py'
       - name: Install browser checks
         working-directory: qa
         run: npm ci && npx playwright install --with-deps chrome
