@@ -19,6 +19,7 @@ import ecco_desk_mail
 import ecco_desk_chat
 import ecco_desk_replies
 import ecco_desk_groups
+import ecco_campaigns
 
 STATUSES = ('open', 'in_progress', 'waiting', 'resolved', 'closed')
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
@@ -90,6 +91,10 @@ def initialize(path, start_notifications=True):
             notificationId TEXT NOT NULL REFERENCES desk_notifications(id),
             userId TEXT NOT NULL REFERENCES desk_users(id), readAt TEXT NOT NULL,
             PRIMARY KEY(notificationId,userId));
+        CREATE TABLE IF NOT EXISTS desk_agents (
+            id TEXT PRIMARY KEY, name TEXT NOT NULL, nameKey TEXT NOT NULL UNIQUE,
+            description TEXT NOT NULL, steps TEXT NOT NULL,
+            createdBy TEXT NOT NULL REFERENCES desk_users(id), createdAt TEXT NOT NULL);
         ''')
         notification_columns = {row['name'] for row in db.execute('PRAGMA table_info(desk_notifications)')}
         if 'offer' not in notification_columns:
@@ -104,8 +109,10 @@ def initialize(path, start_notifications=True):
         ecco_desk_replies.initialize(db)
         import ecco_desk_google_chat
         ecco_desk_google_chat.initialize(db)
+        ecco_campaigns.initialize(db)
     if start_notifications:
         ecco_desk_mail.start(path)
+        ecco_campaigns.start(path)
 
 
 def now():
@@ -210,7 +217,7 @@ def unread(db, me):
 def user_notifications(db, me):
     # Apply the five-newest limit before receipts/expiry so dismissed older
     # notices never reappear to fill a newly vacant slot.
-    rows = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,n.revokedAt,n.offer,r.readAt
+    rows = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,n.revokedAt,n.offer,n.campaignId,r.readAt
         FROM (SELECT rowid AS sequence,* FROM desk_notifications
               WHERE audience='all' OR recipientId=? ORDER BY rowid DESC LIMIT 5) n
         LEFT JOIN desk_notification_reads r ON r.notificationId=n.id AND r.userId=?
@@ -218,7 +225,7 @@ def user_notifications(db, me):
         ORDER BY n.sequence DESC''', (me['userId'], me['userId'], now()))
     notifications = [{**{k:r[k] for k in
         ('id','title','body','severity','createdAt','expiresAt')},
-        'kind': 'special_offer' if r['offer'] else 'notification',
+        'kind': 'marketing_campaign' if r['campaignId'] else 'special_offer' if r['offer'] else 'notification',
         'offer': json.loads(r['offer']) if r['offer'] else None} for r in rows]
     # Read history is independent of the newest-five unread window. Keep only
     # this recipient's three most recently read, still-valid notices.
@@ -246,12 +253,12 @@ def manage_notifications(db, me):
     notices = []
     for r in rows:
         item = dict(r)
-        item['kind'] = 'special_offer' if r['offer'] else 'notification'
+        item['kind'] = 'marketing_campaign' if r['campaignId'] else 'special_offer' if r['offer'] else 'notification'
         item['offer'] = json.loads(r['offer']) if r['offer'] else None
         item['status'] = ('withdrawn' if r['revokedAt'] else 'expired' if r['expiresAt'] and r['expiresAt'] <= current
                           else 'read' if r['audience'] == 'user' and r['readCount'] else 'active')
         notices.append(item)
-    return dict(notificationVersion=1, specialOfferVersion=1, notifications=notices,
+    return dict(notificationVersion=1, specialOfferVersion=1, campaignVersion=1, notifications=notices,
                 users=[dict(r) for r in db.execute('SELECT * FROM desk_users ORDER BY name,email')])
 
 
@@ -313,7 +320,55 @@ def write_notification(db, me, body):
     return {'notificationVersion': 1, 'specialOfferVersion': 1, 'id': nid}
 
 
+def agents(db):
+    return [{**dict(r), 'steps': json.loads(r['steps'])} for r in db.execute(
+        'SELECT id,name,description,steps,createdAt FROM desk_agents ORDER BY createdAt,id')]
+
+
+def create_agent(db, me, body):
+    if me['role'] != 'admin' and me.get('canManageAgents') is not True:
+        raise DeskError('Only administrators can create agents.', 403)
+    if set(body) - {'op','id','name','description','steps'}:
+        raise DeskError('Unsupported agent settings.')
+    aid = text(body, 'id', 36)
+    if str(uuid.UUID(aid)) != aid:
+        raise DeskError('Invalid agent request ID.')
+    name = text(body, 'name', 80)
+    if name.casefold() == 'tester agent':
+        raise DeskError('Tester Agent is already in the pool.', 409)
+    description = body.get('description', '')
+    if not isinstance(description, str) or len(description) > 500:
+        raise DeskError('Purpose must be at most 500 characters.')
+    description = description.strip()
+    steps = body.get('steps')
+    if not isinstance(steps, list) or not 1 <= len(steps) <= 12:
+        raise DeskError('Add between 1 and 12 workflow steps.')
+    clean = []
+    for step in steps:
+        if not isinstance(step, dict) or set(step) != {'mode','workflow'}:
+            raise DeskError('Invalid workflow step.')
+        mode = choice(step, 'mode', ('ux','workflow','sweep'))
+        workflow = choice(step, 'workflow', ('libraries','video','image','audio','story','drive'))
+        clean.append({'mode': mode, 'workflow': workflow if mode == 'workflow' else 'libraries'})
+    encoded = json.dumps(clean, separators=(',', ':'))
+    old = db.execute('SELECT * FROM desk_agents WHERE id=?', (aid,)).fetchone()
+    if old:
+        if (old['name'],old['description'],old['steps'],old['createdBy']) != (name,description,encoded,me['userId']):
+            raise DeskError('This agent request was already saved. Refresh the pool before making changes.', 409)
+    else:
+        if db.execute('SELECT 1 FROM desk_agents WHERE nameKey=?', (name.casefold(),)).fetchone():
+            raise DeskError('An agent with this name already exists.', 409)
+        if db.execute('SELECT COUNT(*) FROM desk_agents').fetchone()[0] >= 100:
+            raise DeskError('The shared pool has reached its limit of 100 custom agents.', 409)
+        db.execute('INSERT INTO desk_agents VALUES (?,?,?,?,?,?,?)',
+                   (aid,name,name.casefold(),description,encoded,me['userId'],now()))
+        event(db, me, 'Agent created: ' + aid)
+    return {'agentWorkflowVersion': 1, 'agent': next(a for a in agents(db) if a['id'] == aid)}
+
+
 def read(db, me, query):
+    if 'campaigns' in query:
+        return ecco_campaigns.listing(db, me)
     if 'manageNotifications' in query:
         return manage_notifications(db, me)
     if 'userNotifications' in query:
@@ -331,6 +386,7 @@ def read(db, me, query):
                     chat=chat_state,readThrough=through[0] if through else None)
     rows = db.execute('SELECT * FROM desk_tickets ORDER BY updatedAt DESC') if staff(me) else db.execute("SELECT * FROM desk_tickets WHERE type='support' AND reporterId=? ORDER BY updatedAt DESC", (me['userId'],))
     result = dict(me=me, tickets=[customer_ticket(dict(r), me) for r in rows],
+                agentWorkflowVersion=1, agents=agents(db),
                 members=[dict(r) for r in db.execute('SELECT * FROM desk_members ORDER BY name')] if staff(me) else [],
                 users=[dict(r) for r in db.execute('SELECT * FROM desk_users ORDER BY name')] if me['role'] == 'admin' else [],
                 activity=[dict(r) for r in db.execute('SELECT id,ticketId,actorName,detail,visibility,createdAt FROM desk_events ORDER BY createdAt DESC LIMIT 100')] if staff(me) else [],
@@ -345,6 +401,10 @@ def read(db, me, query):
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op in ('previewCampaign','createCampaign','updateCampaign','setCampaignActive'):
+        return ecco_campaigns.write(db, me, body)
+    if op == 'createAgent':
+        return create_agent(db, me, body)
     if op in ('createNotification', 'withdrawNotification', 'readNotification'):
         return write_notification(db, me, body)
     if op == 'claimTicket':
@@ -540,11 +600,14 @@ def handle(handler, path, allowed_origin, database, configured_key):
             if personal_support and not (body.get('op') in ('comment','readTicket','readNotification','closeIssue','reopenIssue','chatRequest','chatCancel','chatEnd','chatMessage','chatTyping') or
                                          body.get('op') == 'createTicket' and body.get('type') == 'support'):
                 raise DeskError('This support page is for your own tickets only.', 403)
-        grants = {} if personal_support else ecco_desk_groups.access(user, fresh=bool(body and body.get('op') in ('createNotification','withdrawNotification')))
+        grants = {} if personal_support else ecco_desk_groups.access(user, fresh=bool(body and body.get('op') in ('createNotification','withdrawNotification','createAgent','previewCampaign','createCampaign','updateCampaign','setCampaignActive')))
         with connect(database) as db:
             # Serializes the permission check + mutation, including first-admin claim.
             db.execute('BEGIN IMMEDIATE')
             me = {**actor(db, user), **grants}
+            # The approved administrator group also manages reusable agent workflows.
+            # This capability does not grant staff/ticket/team access.
+            me['canManageAgents'] = not personal_support and (me['role'] == 'admin' or me.get('canManageNotifications') is True)
             # The Studio customer surface always uses requester permissions,
             # even if this Google identity separately has a staff/admin role.
             if personal_support:
@@ -552,6 +615,8 @@ def handle(handler, path, allowed_origin, database, configured_key):
             result = write(db, me, body, handler.headers.get('X-Ecco-Workspace-Key', ''), configured_key) if body is not None else read(db, me, parse_qs(urlsplit(handler.path).query))
             if personal_support and 'needsSetup' in result:
                 result['needsSetup'] = False
+                result.pop('agents', None)
+                result.pop('agentWorkflowVersion', None)
         handler.send(result, 201 if body and body.get('op') == 'createTicket' else 200)
     except (DeskError, google_signin.AuthError) as exc:
         handler.send({'error': str(exc)}, exc.status)

@@ -22,7 +22,7 @@ assert.equal(root.querySelector('h1').textContent,'Agents');assert(!root.querySe
 window.dispatchEvent(new StorageEvent('storage',{key:null,storageArea:sessionStorage}));await tick();assert(root.querySelector('.tester-agent'),'Studio session storage events must not reset Desk');
 button('Create ticket').click();await tick();await tick();assert.equal(posts.length,1);assert.equal(posts[0].requestType,'Bug');assert.match(root.querySelector('.agent-ticket-link').textContent,/SUP-0001/);
 root.querySelector('[aria-label="Refresh workspace"]').click();await tick();assert(root.querySelector('.tester-agent'),'Customer Agents view must survive refresh');
-button('User Notifications').click();await tick();assert(button('Connect Google'));assert.equal(managementReads,0);
+button('Notifications').click();await tick();assert(button('Connect Google'));assert.equal(managementReads,0);
 button('Connect Google').click();await tick();assert.match(root.querySelector('[role=alert]').textContent,/connect.*Storage/);assert.equal(groupStarts,0);
 localStorage.setItem('ecco-storage-access','synthetic-workspace-key');button('Connect Google').click();await tick();assert.equal(groupStarts,1);assert.equal(popup.opener,null);assert.match(popup.location.href,/^https:\/\/accounts.google.com\//);assert.match(root.querySelector('[role=status]').textContent,/Complete the Google approval/);
 me.canManageNotifications=true;me.notificationGroupStatus='connected';button('Refresh access').click();await tick();await tick();assert(root.querySelector('.notification-composer'));assert(managementReads>0);assert.equal(me.role,'customer','Group grant must not fabricate a staff role');

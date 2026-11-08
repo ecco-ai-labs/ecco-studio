@@ -14,7 +14,14 @@ export async function runTester(frame:HTMLIFrameElement,mode:Mode,workflow:strin
  try{
   update(run,'Opening Studio');frame.style.width='1440px';
   const url=new URL('../index.html',import.meta.url);url.searchParams.set('tester','1');
-  frame.src=url.href;
+  // A subsequent workflow can still see the preceding document until navigation
+  // commits. Wait for this navigation, not the old document's complete state.
+  await new Promise<void>((resolve,reject)=>{
+   const cleanup=()=>{clearTimeout(timer);frame.removeEventListener('load',loaded);signal.removeEventListener('abort',cancel);};
+   const loaded=()=>{cleanup();resolve();},cancel=()=>{cleanup();reject(new DOMException('Stopped','AbortError'));};
+   const timer=setTimeout(()=>{cleanup();reject(new Error('Studio did not finish loading within 25 seconds.'));},25000);
+   frame.addEventListener('load',loaded,{once:true});signal.addEventListener('abort',cancel,{once:true});frame.src=url.href;
+  });
   if(!await wait(()=>{try{return frame.contentDocument?.readyState==='complete'&&!!frame.contentDocument?.querySelector('#entry-tell-story,#workspace-library-group');}catch{return false;}},25000)){blocked('load','Open Studio','Studio did not load within 25 seconds. Check connectivity and retry.');return run;}
   const w=frame.contentWindow!,d=frame.contentDocument!;
   const q=(s:string)=>d.querySelector(s) as HTMLElement|null;

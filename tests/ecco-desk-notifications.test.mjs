@@ -20,10 +20,10 @@ const {mount}=await import('../desk/desk-app.mjs');
 const host=document.querySelector('#host'),cleanup=mount(host,{onSignIn(){}}),tick=()=>new Promise(r=>setTimeout(r,35));
 await tick();await tick();const root=host.shadowRoot;
 const button=text=>[...root.querySelectorAll('button')].find(b=>b.textContent.trim()===text);
-button('User Notifications').click();await tick();await tick();
+button('Notifications').click();await tick();await tick();
 const form=root.querySelector('.notification-composer');assert(form);
 assert.equal(form.elements.durationDays.value,'3');assert.equal(button('Create task'),undefined);assert.equal(root.querySelector('.metrics'),null);
-const select=(name,value)=>{form.elements[name].value=value;form.elements[name].dispatchEvent(new Event('change',{bubbles:true}))};
+const select=(name,value)=>{const control=name==='kind'?root.querySelector('[name=kind]'):form.elements[name];control.value=value;control.dispatchEvent(new Event('change',{bubbles:true}))};
 select('audience','user');await tick();select('recipientId','google:alice');select('severity','error');select('lifetime','read');await tick();assert.equal(form.elements.durationDays,undefined);
 form.elements.title.value='Account notice';form.elements.body.value='Only Alice sees this.';form.elements.title.focus();
 form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();
@@ -39,7 +39,7 @@ form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tic
 assert.equal(posts.at(-1).kind,'special_offer');assert.equal(posts.at(-1).severity,'informational');assert.deepEqual(posts.at(-1).offer,{credits:100,bonusCredits:50,cents:1000});assert.match(root.querySelector('.notification-history').textContent,/100 credits \+ 50 free/);
 const original=notices[0];button('Edit & re-issue').click();await tick();
 assert.match(root.textContent,/Re-issue Notification/);assert.equal(form.isConnected,false);
-const reissue=root.querySelector('.notification-composer');assert.equal(reissue.elements.title.value,'Diwali example');assert.equal(reissue.elements.price.value,'10.00');assert.equal(reissue.elements.kind.value,'special_offer');
+const reissue=root.querySelector('.notification-composer');assert.equal(reissue.elements.title.value,'Diwali example');assert.equal(reissue.elements.price.value,'10.00');assert.equal(root.querySelector('[name=kind]').value,'special_offer');
 assert.equal(root.activeElement,reissue.elements.title);
 reissue.elements.title.value='Updated offer';reissue.elements.durationDays.value='7';
 reissue.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();await tick();
@@ -47,5 +47,5 @@ assert.notEqual(posts.at(-1).requestId,original.requestId);assert.equal(posts.at
 assert.equal(root.querySelector('.notification-success').textContent,'Notification re-issued.');
 assert.equal(root.querySelector('.notification-composer').elements.title.value,'');
 cleanup();
-const staffHost=document.createElement('section');document.body.append(staffHost);data.me={...me,role:'staff'};const cleanStaff=mount(staffHost,{onSignIn(){}});await tick();await tick();assert(staffHost.shadowRoot.textContent.includes('User Notifications'));assert(!staffHost.shadowRoot.querySelector('.user-notifications'));cleanStaff();
+const staffHost=document.createElement('section');document.body.append(staffHost);data.me={...me,role:'staff'};const cleanStaff=mount(staffHost,{onSignIn(){}});await tick();await tick();assert(staffHost.shadowRoot.textContent.includes('Notifications'));assert(!staffHost.shadowRoot.querySelector('.user-notifications'));cleanStaff();
 console.log('PASS: admin tab, recipient/severity/duration, failure retains draft, idempotent retry, reset, history, withdrawal, staff restriction.');

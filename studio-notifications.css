@@ -29,7 +29,7 @@
 #notification-list [data-notification-status]{font-size:13px;line-height:1.5;margin:16px 0 0}
 #notification-list .notification-item:disabled{opacity:.6;cursor:wait}
 #notification-list [data-notification-history] h3{margin:20px 0 0;padding:10px 8px;border-top:1px solid var(--ecco-theme-border,#454065);border-bottom:1px solid var(--ecco-theme-border,#454065);font-size:14px;font-weight:600;background:var(--ecco-theme-control,#302a54)}
-@media(max-width:480px){#notification-list{padding:12px}#notification-list .notification-table th:first-child{width:50px}#notification-list .notification-table th:last-child{width:96px}#notification-list .notification-table th,#notification-list .notification-table td{padding-left:4px;padding-right:4px}}
+@media(max-width:480px){#notification-list{padding:12px}#notification-list .notification-table th:first-child{width:62px}#notification-list .notification-table th:last-child{width:96px}#notification-list .notification-table th,#notification-list .notification-table td{padding-left:4px;padding-right:4px}}
 
 #notification-list .notification-item[data-read="false"][data-expired="false"] .notification-title,#notification-list .notification-item[data-read="false"][data-expired="false"] .notification-body{font-weight:700!important}
 #notification-list .notification-item[data-read="true"] .notification-title,#notification-list .notification-item[data-read="true"] .notification-body,#notification-list .notification-item[data-expired="true"] .notification-title,#notification-list .notification-item[data-expired="true"] .notification-body{font-weight:400!important}

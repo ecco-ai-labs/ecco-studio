@@ -37,7 +37,7 @@
   {
     "area": "Tester Agent",
     "mode": "fixture",
-    "scope": "Desk pool/action controls, 50 findings and 25 separate critical Bug tickets using isolated fake API; real browser runner against video fixtures; customer account sees/runs Agents, submits its own support Bug and keeps view on refresh; pending notification connection control"
+    "scope": "Desk pool/action controls, 50 findings and 25 separate critical Bug tickets using isolated fake API; real browser runner against video fixtures; customer account sees/runs Agents, submits its own support Bug and keeps view on refresh; pending notification connection control; admin-only shared agent builder, ordered real workflow execution, persistence across refresh, group-admin and non-admin controls, Support/Notifications labels"
   },
   {
     "area": "Notification presentation and re-issue",
@@ -73,5 +73,11 @@
     "area": "Desk branding",
     "mode": "fixture",
     "scope": "Existing Ecco logo decodes on signed-in and signed-out screens; purple backgrounds, yellow primary controls, shared typography and notification form at desktop and 390px. Existing composer/account tests cover behavior."
+  },
+  {
+    "area": "Recurring campaigns",
+    "mode": "fixture + isolated SQLite",
+    "scope": "Create annual Cyber Monday schedule; next-run preview; edit, pause/resume, reload persistence, keyboard focus and 768px layout. Backend tests cover annual dates/DST, permissions, revocation, concurrent dispatch, retries and missed dates. No live announcements are sent by QA."
+
   }
 ]

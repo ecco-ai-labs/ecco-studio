@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState, type FormEvent} from 'react';
+import Campaigns from './Campaigns';
 import {AlertCircle, Bell, LoaderCircle, RefreshCw, Send} from 'lucide-react';
 
 type Notice={kind?:string;offer?:{credits:number;bonusCredits:number;cents:number};id:string;title:string;body:string;severity:string;audience:string;recipientId?:string|null;durationDays?:number|null;recipientName:string|null;recipientEmail:string|null;createdAt:string;expiresAt:string|null;status:string;readCount:number};
@@ -10,7 +11,7 @@ const stamp=(value:string|null)=>value?new Date(value).toLocaleString():'Until r
 
 export default function Notifications({api}:{api:Api}){
  const [notices,setNotices]=useState<Notice[]>([]),[users,setUsers]=useState<User[]>([]);
- const [audience,setAudience]=useState('all'),[lifetime,setLifetime]=useState('duration'),[kind,setKind]=useState('notification'),[offersReady,setOffersReady]=useState(false);
+ const [audience,setAudience]=useState('all'),[lifetime,setLifetime]=useState('duration'),[kind,setKind]=useState('notification'),[offersReady,setOffersReady]=useState(false),[campaignsReady,setCampaignsReady]=useState(false);
  const [loading,setLoading]=useState(true),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState('');
  const [reissue,setReissue]=useState<{notice:Notice;key:string}|null>(null);
  const formRef=useRef<HTMLFormElement>(null);
@@ -18,14 +19,14 @@ export default function Notifications({api}:{api:Api}){
  const refresh=useCallback(async()=>{const seq=++generation.current;try{
   const result=await api(undefined,'?manageNotifications=1');if(!mounted.current||seq!==generation.current)return;
   if(result.notificationVersion!==1||!Array.isArray(result.notifications))throw new Error('User notifications are not available on the service yet.');
-  setOffersReady(result.specialOfferVersion===1);setNotices(result.notifications);setUsers(result.users);setReady(true);
+  setCampaignsReady(result.campaignVersion===1);setOffersReady(result.specialOfferVersion===1);setNotices(result.notifications);setUsers(result.users);setReady(true);
  }catch(e){if(mounted.current&&seq===generation.current){setReady(false);setError((e as Error).message)}}finally{if(mounted.current&&seq===generation.current)setLoading(false)}},[api]);
  useEffect(()=>{mounted.current=true;refresh();const timer=setInterval(()=>{if(!document.hidden)refresh()},10000);return()=>{mounted.current=false;generation.current++;clearInterval(timer)}},[refresh]);
  useEffect(()=>{if(reissue){const title=formRef.current?.elements.namedItem('title') as HTMLInputElement|null;title?.focus();title?.scrollIntoView?.({block:'center'});}},[reissue]);
  function editAndReissue(notice:Notice){
   if(submitting.current||!ready)return;
   const key=newRequestId();requestId.current=key;setError('');setSuccess('');
-  setAudience(notice.audience);setLifetime(notice.durationDays==null?'read':'duration');setKind(notice.kind||'notification');setReissue({notice,key});
+  setAudience(notice.audience);setLifetime(notice.durationDays==null?'read':'duration');setKind(notice.kind==='special_offer'?'special_offer':'notification');setReissue({notice,key});
  }
  async function publish(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(submitting.current||!ready||kind==='special_offer'&&!offersReady)return;const form=e.currentTarget;
@@ -47,11 +48,12 @@ export default function Notifications({api}:{api:Api}){
  return <div className="user-notifications">
   {error&&<div className="alert error" role="alert"><AlertCircle size={17}/>{error}<button type="button" className="text-button" onClick={()=>{setError('');refresh()}}>Retry</button></div>}
   {success&&<p className="notification-success" role="status">{success}</p>}
-  <section className="ticket-section"><div className="section-heading"><div><Bell size={18}/><h2>{reissue?'Re-issue Notification':'New Notification'}</h2></div></div>
-   <form ref={formRef} key={reissue?.key||'new'} className="notification-composer" onSubmit={publish} onReset={()=>{setReissue(null);requestId.current=newRequestId();setAudience('all');setLifetime('duration');setKind('notification')}} aria-busy={busy}>
+  <section className="ticket-section"><div className="section-heading"><div><Bell size={18}/><h2>{kind==='marketing_campaign'?'Campaigns':reissue?'Re-issue Notification':'New Notification'}</h2></div></div>
+   <div className="notification-type"><label>Type<select aria-label="Type" name="kind" value={kind} disabled={busy} onChange={e=>setKind(e.target.value)}><option value="notification">Notification</option><option value="special_offer" disabled={!offersReady}>Special offer</option><option value="marketing_campaign">Marketing Campaign</option></select></label></div>
+   {kind==='marketing_campaign'?<Campaigns api={api} users={users} ready={campaignsReady}/>:<form ref={formRef} key={reissue?.key||'new'} className="notification-composer" onSubmit={publish} onReset={()=>{setReissue(null);requestId.current=newRequestId();setAudience('all');setLifetime('duration');setKind('notification')}} aria-busy={busy}>
     <fieldset disabled={busy||!ready}>
      {reissue&&<p className="form-info">Edit the details below, then publish a fresh copy with a new lifetime.</p>}
-     <label>Type<select name="kind" value={kind} onChange={e=>setKind(e.target.value)}><option value="notification">Notification</option><option value="special_offer" disabled={!offersReady}>Special offer</option></select></label>
+
      <div className="form-grid"><label>Recipients<select name="audience" value={audience} onChange={e=>setAudience(e.target.value)}><option value="all">All users</option><option value="user">Specific user</option></select></label>
       <label>Severity<select name="severity" key={kind} defaultValue={reissue?.notice.severity||'informational'} disabled={kind==='special_offer'}><option value="informational">Informational</option><option value="warning">Warning</option><option value="error">Error</option></select></label>
       {audience==='user'&&<label className="notification-full">User<select name="recipientId" required defaultValue={reissue?.notice.recipientId||''}><option value="">Choose a signed-in Studio user</option>{users.map(u=><option key={u.id} value={u.id}>{u.name} · {u.email} · {u.id.slice(-6)}</option>)}</select></label>}
@@ -69,7 +71,7 @@ export default function Notifications({api}:{api:Api}){
      <p className="form-info">Reading moves the notification to Old Notfication for that user. The last 3 read notices remain until expiry; unread notices also expire automatically.</p>
      <div className="notification-actions"><button type="reset" className="secondary-button">Clear form</button><button className="primary" type="submit">{busy?<LoaderCircle className="spin" size={16}/>:<Send size={16}/>} {busy?'Saving…':reissue?'Re-issue notification':'Publish notification'}</button></div>
     </fieldset>
-   </form>
+   </form>}
   </section>
   <section className="ticket-section" aria-label="Notification history"><div className="section-heading"><div><h2>Notification history</h2><span className="count">{notices.length}</span></div><button className="icon-button" type="button" aria-label="Refresh notifications" onClick={()=>{setError('');refresh()}}><RefreshCw size={17}/></button></div>
    {loading?<p className="detail-loading" role="status"><LoaderCircle className="spin" size={17}/>Loading notifications…</p>:notices.length?<div className="table-wrap"><table className="notification-history"><thead><tr><th>Notification</th><th>Recipients</th><th>Severity</th><th>Status</th><th>Created</th><th>Expires</th><th>Read</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{notices.map(n=><tr key={n.id} data-status={n.status}>
