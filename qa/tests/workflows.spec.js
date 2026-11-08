@@ -605,3 +605,16 @@ test('BILLING-01 configured promotion icons and expiry appear above regular pack
  await shop.getByRole('button',{name:'Continue Shopping',exact:true}).click();await page.setViewportSize({width:390,height:844});await expect(shop.locator('.credits-promotion-badge').first()).toHaveText('Dhamaka');expect(await shop.evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(await shop.evaluate(el=>el.clientWidth));
  await shop.locator('[data-notice-id=promo-outreach]').getByRole('button',{name:'Mark as Read',exact:true}).click();await expect(shop.locator('[data-notice-id=promo-outreach]')).toHaveCount(0);await expect(shop.getByRole('button',{name:'View Cart',exact:true})).toBeDisabled();await expect(shop.locator('.credits-pack')).toHaveCount(3);
 });
+
+
+test('CAMPAIGN-02 choose year, reject a past date and retain the saved year on edit',async({page})=>{
+ await page.clock.setFixedTime(new Date('2026-11-08T00:00:00Z'));
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('tab',{name:'Campaign',exact:true}).click();await page.getByRole('button',{name:'New Campaign',exact:true}).click();
+ await expect(page.getByLabel('Year',{exact:true})).toHaveValue('2026');await page.getByLabel('Repeat',{exact:true}).selectOption('yearly');await page.getByLabel('Month',{exact:true}).selectOption('11');await page.getByLabel('Day of Month',{exact:true}).fill('1');
+ await expect(page.getByRole('alert')).toContainText('2026 has already passed');await expect(page.getByRole('button',{name:'Create & Schedule',exact:true})).toBeDisabled();await expect(page.locator('.campaign-next')).not.toContainText('2027');
+ await page.getByLabel('Day of Month',{exact:true}).fill('27');await expect(page.locator('.campaign-next')).toContainText('Nov 27, 2026');await expect(page.getByRole('alert')).toHaveCount(0);
+ await page.getByLabel('Year',{exact:true}).selectOption('2028');await expect(page.locator('.campaign-next')).toContainText('Nov 27, 2028');
+ await page.getByLabel('Campaign Name',{exact:true}).fill('Year-selected campaign');await page.getByLabel('Title',{exact:true}).fill('November offer');await page.getByLabel('Message',{exact:true}).fill('Scheduled for the chosen year.');await page.getByRole('button',{name:'Create & Schedule',exact:true}).click();await expect(page.locator('.campaign-card')).toContainText('Nov 27, 2028');
+ await page.getByRole('button',{name:'Edit Year-selected campaign',exact:true}).click();await expect(page.getByLabel('Year',{exact:true})).toHaveValue('2028');await page.getByLabel('Year',{exact:true}).selectOption('2026');await expect(page.locator('.campaign-next')).toContainText('Nov 27, 2026');await page.getByRole('button',{name:'Save Campaign',exact:true}).click();await page.reload();await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('tab',{name:'Campaign',exact:true}).click();await expect(page.locator('.campaign-card')).toContainText('Nov 27, 2026');
+});

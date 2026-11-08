@@ -2351,6 +2351,7 @@
       "fields": [
         "Campaign Name",
         "Repeat",
+        "Year",
         "Time Zone",
         "Send Time",
         "Notification Duration (days)",
@@ -2380,7 +2381,13 @@
         "Paused campaigns remain paused after edits"
       ],
       "access": "Desk administrators and verified notification administrator group only",
-      "validation": "backend schedule/concurrency/permission tests plus browser creation/edit/pause/resume/persistence/focus checks"
+      "validation": "backend schedule/concurrency/permission tests plus browser creation/edit/pause/resume/persistence/focus checks",
+      "yearSelection": {
+        "approval": "2026-11-07: User requests choosing campaign year after a yearly campaign silently advanced to 2027.",
+        "interaction": "Year dropdown on new/edit campaign defaults to current year in the selected time zone. Edit reflects the next scheduled occurrence year. Year controls the first upcoming run; recurrence continues normally afterward. Server preview/create/update reject a selected date/time that has already passed instead of silently scheduling a later year. A valid corrected schedule clears the error and refreshes the full date preview. Existing saved campaigns retain their schedules until explicitly edited.",
+        "appearance": "Existing form-grid, label, native select, focus and disabled states; no restyling. Current year and ten subsequent years plus a saved outlying year are offered.",
+        "validation": "Optional persisted schedule.year supports legacy definitions; integer 2000–2100. Time-zone-aware first-year validation, long-range future scheduling, recurrence rollover and idempotent retries. campaignYearVersion 1 gates creation and preview; pending, stale or rejected preview disables save."
+      }
     }
   },
   "persistentConnections": {

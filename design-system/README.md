@@ -489,3 +489,5 @@ Notifications, OutReach and Campaign are browser-style tabs that open on their r
 ## Notification locations and Billing offers
 
 Show in selects Bell Icon, Billing, or both for notifications, OutReach and recurring campaigns. OutReach/Campaign creation offers NEW, Dhamaka, Limited Time or custom text icons. Saved icons and locations survive edits/re-issue and scheduled dispatch. Billing, Credit and Usage and Purchase Additional Credits display active promotional cards above regular options, with Offer lasts till dates. Three regular credit packages remain below; campaigns without purchase terms are announcements. Shared per-user reads and expiry remove cards. Backend presentation version 1 must precede Pages deployment.
+
+Campaign creation and editing now include Year for the first upcoming run. The date preview and save reject dates already passed in that year instead of silently advancing a year. Recurrence continues normally after the first run. Existing schedules stay unchanged until edited; opening Edit shows the next scheduled year.

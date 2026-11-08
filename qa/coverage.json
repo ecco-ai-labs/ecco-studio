@@ -93,5 +93,10 @@
     "area": "Production releases",
     "mode": "fixture + isolated SQLite + artifact validation",
     "scope": "Admin-only navigation and API authorization, exact-SHA prepare, failed-check/setup gates, separate explicit publish, immutable preview links, unknown dispatch idempotence, production receipts, rollback preparation, keyboard focus and 768px layout. Real GitHub dispatch, hosting, custom domain, Google OAuth and production deployment are blocked until service connections are configured."
+  },
+  {
+    "area": "Campaign year selection",
+    "mode": "fixture + isolated SQLite",
+    "scope": "Current-year default, past November 1 warning and disabled save, date correction, explicit future year, create/edit/reload persistence. Backend tests cover time zones, invalid year values, long-range future years, immutable rejected writes and recurring rollover after the chosen initial year. Live existing campaigns are not modified by QA."
   }
 ]
