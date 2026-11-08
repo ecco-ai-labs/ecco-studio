@@ -39,7 +39,8 @@
       const holiday=new Date(thanksgiving);holiday.setUTCDate(holiday.getUTCDate()+(plan.kind==='cyber_monday'?4:1));
       const match=plan.kind==='daily'||plan.kind==='once'&&+cursor===+start||plan.kind==='weekly'&&cursor.getUTCDay()===start.getUTCDay()||plan.kind==='monthly'&&d===Math.min(start.getUTCDate(),last)||plan.kind==='yearly'&&m===start.getUTCMonth()&&d===Math.min(start.getUTCDate(),last)||['cyber_monday','black_friday'].includes(plan.kind)&&+cursor===+holiday||plan.kind==='new_year'&&m===0&&d===1;
       const candidate=new Date(cursor);candidate.setUTCHours(17);
-      if(match&&candidate>Date.now())return candidate.toISOString();
+      const localDate=v=>new Intl.DateTimeFormat('en-CA',{timeZone:plan.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(v);
+      if(match&&(candidate>Date.now()||localDate(candidate)===localDate(new Date())))return candidate.toISOString();
      }
      return null;
     };
