@@ -605,3 +605,14 @@ labels are 16px (previously 13px), and both landing-page titles are 21px
 entries are 14px. Both landing lists start 24px lower and have no outer border
 or row dividers. The final story entry is Publish Your Story in both locations.
 Existing row dimensions, theme styles and keyboard focus remain.
+
+## Story Type and Genre / Topic — 8 November 2026
+
+Story Details, Generate With AI and Select Story Text share 12 presentation types
+and 17 genres/topics, defined in story-workspace-model.js. News Report and
+Documentary are types; Educational is replaced by Lesson / Tutorial and Training
+as types. Animation remains a visual style; adaptation, dubbing and repurposing
+remain creation workflows. Output and recurrence are independent. Existing saved
+values remain intact and are shown as additional options only for that draft;
+retired type IDs keep their friendly labels. No additional fields or layout changes.
+Interview starts with Host/Guest and retains Interview delivery in Audio Studio.

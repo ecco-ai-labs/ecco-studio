@@ -138,5 +138,10 @@
     "area": "Library and Tell Your Story landing pages",
     "mode": "fixture",
     "scope": "Only five library icons/names, no secondary heading, descriptions or chevrons. New Story and Go to Studio both open six story workflow options. Sidebar entry, all destinations, keyboard activation, Back, preserved drafts and matching mobile styles in all six themes. Subtitles render at 14px despite the shared compact button rule; both landing lists have no borders/dividers and 24px top spacing. Publish Your Story appears in the sidebar and the main list. No live generation or service writes."
+  },
+  {
+    "area": "Story Type and Genre / Topic",
+    "mode": "fixture",
+    "scope": "STORY-07 checks all 12 types and 17 genres/topics on Story Details, Generate With AI and Select Story Text, keyboard focus, current-value synchronization, no implicit service calls and 390px bounds. STORY-08 reopens retired/unknown choices without changing their stored values. Unit checks cover Interview Host/Guest and audio handoff. Real AI quality and media inference remain separate."
   }
 ]
