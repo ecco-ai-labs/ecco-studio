@@ -7,12 +7,12 @@ test('authenticated storage adapter routes generation, status and playback witho
  let adapter;const requests=[],key='test-only-workspace-access-key-12345';
  const asset={id:'asset1',kind:'asset',media:'audio',story_id:'story1'};
  const jobs=['running','done','error'].map((status,i)=>({id:'audio'+i,kind:'audio_job',title:'Narration',status,error:status==='error'?'Worker failed':'',asset_ids:status==='done'?['asset1']:[]}));
- const context={
-  document:{createElement:()=>({}),head:{append(){}},querySelector:()=>null},
-  localStorage:{getItem:()=>null},sessionStorage:{getItem:()=>key},MutationObserver:class{observe(){}},setTimeout(){},
-  window:{EccoAudioStudio:{connect(value){adapter=value;}}},
+ const context={reviewScript(){},
+  document:{dispatchEvent(){},createElement:()=>({}),head:{append(){}},querySelector:()=>null},
+  localStorage:{getItem:()=>null,setItem(){}},sessionStorage:{getItem:()=>key,setItem(){}},MutationObserver:class{observe(){}},setTimeout(){},
+  window:{addEventListener(){},dispatchEvent(){},EccoAudioStudio:{connect(value){adapter=value;}}},
   api(){throw Error('GPU API must not handle audio');},gpuConnected:()=>false,
-  LEGACY_STORY:'legacy',AbortSignal,URL,Blob,
+  LEGACY_STORY:'legacy',AbortSignal,URL,Blob,Event,
   fetch:async(url,options)=>{requests.push({url,options});return{ok:true,
    json:async()=>url.endsWith('/state')?{records:[asset,...jobs],config:{}}:{id:'job1',kind:'audio_job',status:'queued'},
    headers:{get:()=> 'audio/wav'},arrayBuffer:async()=>new Uint8Array([82,73,70,70]).buffer};}
@@ -21,7 +21,7 @@ test('authenticated storage adapter routes generation, status and playback witho
  const view=await context.api('state');
  assert.equal(view.records[1].kind,'job');
  assert.equal(view.records[1].source_kind,'audio_job');
- assert.equal(view.records[1].progress,'Running Generation');
+ assert.equal(view.records[1].progress,'Generating speech');
  assert.equal(view.records[1].label,'Audio · Narration');
  assert.equal(view.records[2].progress,'Audio saved.');
  assert.equal(view.records[3].status,'failed');
@@ -46,8 +46,8 @@ test('audio spinner remains active through queued/running and clears on completi
  const update=source.slice(source.indexOf(' function update(){'),source.indexOf(' function render(){'));
  const helper=fs.readFileSync(__dirname+'/studio.js','utf8').split('\n').find(s=>s.startsWith('function setGenerationBusy('));
  const button={setAttribute(k,v){this[k]=v;}},status={};
- const context={page:'audio',story:'story1',activeStory:'story1',signature:'[]',submitting:false,
-  q:s=>s==='#generate-audio'?button:s==='#audio-job-status'?status:{},
+ const context={reviewScript(){},verification:null,submissionError:'',page:'audio',story:'story1',activeStory:'story1',signature:'[]',submitting:false,
+  q:s=>s==='#audio-form'?{}:s==='#generate-audio'?button:s==='#audio-job-status'?status:null,
   window:{EccoGeneration:{jobId:()=> 'job1',results:()=>[]}},state:{records:[]},
   audioAssets:()=>[],showComputeStatus(){},esc:s=>s,render(){throw Error('Unexpected render');}};
  vm.createContext(context);vm.runInContext(helper+'\n'+update+'\nthis.runUpdate=update;',context);
@@ -56,7 +56,7 @@ test('audio spinner remains active through queued/running and clears on completi
   const busy=['queued','running'].includes(state);
   assert.equal(button.disabled,busy);assert.equal(button['aria-busy'],String(busy));
   assert.equal(button.innerHTML.includes('generation-spinner'),busy);
-  if(state==='running')assert.equal(status.textContent,'Running Generation');
+  if(state==='running')assert.equal(status.textContent,'Generating speech');
   if(state==='done')assert.equal(status.textContent,'Audio saved.');
   if(state==='failed')assert.equal(status.textContent,'Generation failed · Worker failed');
  }

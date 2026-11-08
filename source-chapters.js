@@ -28,6 +28,30 @@
   if(text.length>maxSelection)throw Error('This chapter has '+text.length.toLocaleString()+' characters, above the '+maxSelection.toLocaleString()+'-character source limit. Select a smaller passage; the chapter was not truncated.');
   return {text,pages:Array.from({length:last-start.page+1},(_,i)=>start.page+i),selection_label:boundary.chapter_title+' · PDF pages '+start.page+(last===start.page?'':'–'+last)};
  }
+ async function bookmarks(doc){
+  const result=[];
+  async function visit(items,depth=0){for(const item of items||[]){
+   try{const dest=typeof item.dest==='string'?await doc.getDestination(item.dest):item.dest;if(Array.isArray(dest)){const page=Number.isInteger(dest[0])?dest[0]+1:(await doc.getPageIndex(dest[0]))+1;if(page>=1&&page<=doc.numPages&&item.title?.trim())result.push({title:item.title.trim(),page,depth});}}catch{}
+   await visit(item.items,depth+1);
+  }}
+  await visit(await doc.getOutline?.()||[]);return result;
+ }
+ async function fromBookmark({doc,entries,index,maxSelection=Infinity,assertCurrent=()=>{}}){
+  const start=entries[index];if(!start)throw Error('Choose a chapter from the document.');
+  const end=entries.slice(index+1).find(item=>item.depth<=start.depth),pages=[];
+  const first=start.page,last=end?.page||doc.numPages;
+  if(last<first)throw Error('The PDF chapter order could not be verified. Search for its title with AI.');
+  for(let page=first;page<=last;page++){const item=await doc.getPage(page);pages[page-1]=lines((await item.getTextContent()).items);assertCurrent();}
+  const normalize=text=>text.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'').toLowerCase();
+  const anchor=entry=>{const content=pages[entry.page-1],title=normalize(entry.title),matches=[];
+   for(let i=0;i<content.length;i++)for(let n=1;n<=4&&i+n<=content.length;n++)if(normalize(content.slice(i,i+n).join(' '))===title)matches.push(i);
+   if(matches.length!==1)throw Error('The PDF bookmark does not identify a unique chapter heading. Search for its title with AI.');
+   return {page:entry.page,line:matches[0]+1,text:content[matches[0]]};
+  };
+  // Preserve physical page positions and exact source lines for the existing extractor.
+  pages.length=doc.numPages;
+  return extract(pages,{chapter_title:start.title,start:anchor(start),end:end?anchor(end):null,ends_at_document_end:!end},maxSelection);
+ }
  async function locate({pages,chapter,request,maxSelection=Infinity,assertCurrent=()=>{}}){
   if(!chapter.trim())throw Error('Enter a chapter number or title.');
   const index=outline(pages);
@@ -49,5 +73,5 @@
   if(verdict.valid!==true)throw Error(typeof verdict.reason==='string'?verdict.reason:'The chapter boundary is ambiguous. Select its pages manually.');
   return extract(pages,found,maxSelection);
  }
- window.EccoSourceChapters={lines,extract,locate,outline};
+ window.EccoSourceChapters={lines,extract,locate,outline,bookmarks,fromBookmark};
 })();

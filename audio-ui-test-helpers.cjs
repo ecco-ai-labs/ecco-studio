@@ -23,7 +23,7 @@ async function setup(storage={}, {legacyStorySetup=false}={}){
  if(storage['ecco-active-story'])w.testUI.selectStory(storage['ecco-active-story']);
  const q=s=>w.document.querySelector(s),nav=()=>[...w.document.querySelectorAll('#workspace-production-group .journey-step')].filter(b=>!b.hidden).map(b=>b.dataset.page);
  const choose=async value=>{const field=q('[name=story_format]');field.value=value;field.dispatchEvent(new w.Event('change',{bubbles:true}));await tick();};
- return {w,q,nav,choose,errors,close:()=>{observers.forEach(observer=>observer.disconnect());w.close();},async go(p){w.testUI.navigate(p);await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
+ return {w,q,nav,choose,errors,close:async()=>{observers.forEach(observer=>observer.disconnect());await tick();w.close();},async go(p){w.testUI.navigate(p);await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
 }
 const input=(x,selector,value,event='input')=>{const field=x.q(selector);assert.ok(field,selector);field.value=value;field.dispatchEvent(new x.w.Event(event,{bubbles:true}));return field;};
 

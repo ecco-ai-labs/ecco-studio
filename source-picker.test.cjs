@@ -5,21 +5,44 @@ function fixture(t,options={}){
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};w.HTMLCanvasElement.prototype.getContext=()=>({});
  w.IntersectionObserver=class{constructor(fn){this.fn=fn;}observe(target){this.fn([{target,isIntersecting:true}]);}disconnect(){}};
  let destroyed=0;
- const pages=['Excluded first page.','Use only page two.'];
- const doc={numPages:2,getMetadata:async()=>({info:{Title:'Fixture title'}}),getPage:async n=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),render:()=>({promise:Promise.resolve()}),getTextContent:async()=>({items:[{str:pages[n-1]}]})})};
- w.pdfFixture={GlobalWorkerOptions:{},getDocument:()=>({destroy:async()=>{destroyed++;},promise:Promise.resolve(doc)}),TextLayer:class{constructor({container,textContentSource}){this.container=container;this.text=textContentSource.items[0].str;}async render(){const span=w.document.createElement('span');span.textContent=this.text;this.container.append(span);}}};
+ const pages=options.pages||['Excluded first page.','Use only page two.'];
+ const doc={numPages:pages.length,getOutline:async()=>options.outline||[],getMetadata:async()=>({info:{Title:'Fixture title'}}),getPage:async n=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),render:()=>({promise:Promise.resolve()}),getTextContent:async()=>({items:(Array.isArray(pages[n-1])?pages[n-1]:[pages[n-1]]).map(str=>({str,hasEOL:true}))})})};
+ w.pdfFixture={GlobalWorkerOptions:{},getDocument:()=>({destroy:async()=>{destroyed++;},promise:Promise.resolve(doc)}),TextLayer:class{constructor({container,textContentSource}){this.container=container;this.text=textContentSource.items[0].str;}async render(){const span=w.document.createElement('span');span.textContent=this.text;span.style.left="8%";span.style.top="7%";this.container.append(span,w.document.createElement("br"));}}};
  w.eval(fs.readFileSync(__dirname+'/source-chapters.js','utf8'));
  w.eval(fs.readFileSync(__dirname+'/ai-text-refinement.js','utf8'));
  w.eval(fs.readFileSync(__dirname+'/source-picker.js','utf8').replace("import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.min.mjs')",'Promise.resolve(window.pdfFixture)'));
  const applied=[],picker=w.EccoSourcePicker.create({onApply:value=>applied.push(value),maxSelection:20000,...options}),q=s=>w.document.querySelector(s);
  return {w,picker,q,applied,destroyed:()=>destroyed};
 }
+test('document chapters use PDF bookmarks without AI and stop before the next heading on the same page',async t=>{
+ const x=fixture(t,{pages:[['Book title','Chapter One','Original opening.'],['Original ending.','Chapter Two','Do not include this.']],outline:[{title:'Chapter One',dest:[0]},{title:'Chapter Two',dest:[1]}]});
+ await x.picker.load({name:'chapters.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));
+ assert.equal(x.q('[data-chapter-list-label]').hidden,false);assert.equal(x.q('[data-chapter-list]').options.length,3);assert.equal(x.q('[data-selected]').value,'');
+ x.q('[data-chapter-list]').value='0';x.q('[data-find-chapter]').click();await new Promise(r=>setTimeout(r,0));
+ assert.equal(x.q('[data-selected]').value,'Chapter One\nOriginal opening.\n\nOriginal ending.');assert.equal(x.q('[data-chapter-menu]').open,false);assert.equal(x.q('[data-extract]').disabled,false);
+ x.q('[data-selected]').value=x.q('[data-selected]').value.replace('Chapter One\n','');x.q('[data-selected]').dispatchEvent(new x.w.Event('input'));x.q('[data-extract]').click();assert.equal(x.applied[0].text,'Original opening.\n\nOriginal ending.');
+});
+test('a complete 30,000-character chapter fills the middle pane without truncation',async t=>{
+ const words='Original chapter text. '.repeat(1400),x=fixture(t,{maxSelection:100000,pages:[['Chapter One',words],['Chapter Two','Excluded.']],outline:[{title:'Chapter One',dest:[0]},{title:'Chapter Two',dest:[1]}]});
+ await x.picker.load({name:'long.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));x.q('[data-chapter-list]').value='0';x.q('[data-find-chapter]').click();await new Promise(r=>setTimeout(r,0));
+ assert.equal(x.q('[data-selected]').value,'Chapter One\n'+words.trim());assert.ok(x.q('[data-selected]').value.length>30000);assert.equal(x.q('[data-extract]').disabled,false);
+ x.q('[data-clear-selection]').click();x.q('[data-pages]').value='1';x.q('[data-select-pages]').click();await new Promise(r=>setTimeout(r,0));assert.equal(x.q('[data-selected]').value,'Chapter One\n'+words.trim());
+});
+test('Enter in PDF Pages selects the requested original page',async t=>{
+ const x=fixture(t);await x.picker.load({name:'pages.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));x.q('[data-pages-menu] summary').click();x.q('[data-pages]').value='2';const enter=new x.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true});x.q('[data-pages]').dispatchEvent(enter);await new Promise(r=>setTimeout(r,0));assert.equal(enter.defaultPrevented,true);assert.equal(x.q('[data-selected]').value,'Use only page two.');assert.equal(x.q('[data-pages-menu]').open,false);
+});
 test('PDF preview supports later pages and commits only highlighted text with filename and title',async t=>{
  const x=fixture(t);await x.picker.load({name:'paper.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));await new Promise(resolve=>setTimeout(resolve,0));
  assert.equal(x.q('dialog').open,true);assert.equal(x.q('[data-extract]').disabled,true);assert.equal(x.q('.pdf-page-scroll').children.length,2);assert.equal(x.applied.length,0);
  const text=x.q('[data-page="2"] .textLayer span').firstChild,range=x.w.document.createRange();range.selectNodeContents(text);x.w.getSelection().removeAllRanges();x.w.getSelection().addRange(range);x.q('.pdf-page-scroll').dispatchEvent(new x.w.MouseEvent('mouseup'));
  assert.equal(x.q('[data-selected]').value,'Use only page two.');x.q('[data-extract]').click();assert.deepEqual(JSON.parse(JSON.stringify(x.applied)),[{text:'Use only page two.',name:'paper.pdf',title:'Fixture title',scope:'selected'}]);assert.equal(x.w.document.activeElement,x.q('#opener'));assert.equal(x.q('dialog').open,false);
  x.picker.destroy();assert.equal(x.destroyed(),1);assert.equal(x.q('dialog'),null);
+});
+test('PDF end-of-line markers stay on their own row instead of native BR hit boxes',async t=>{
+ const x=fixture(t);await x.picker.load({name:'lines.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));await new Promise(r=>setTimeout(r,0));
+ const layer=x.q('.textLayer'),line=layer.querySelector('span'),end=layer.querySelector('[data-pdf-line-break]');
+ assert.equal(layer.querySelector('br'),null);assert.equal(end.textContent,'\n');assert.equal(end.style.top,line.style.top);assert.match(end.style.left,/8%/);assert.equal(end.style.whiteSpace,'pre');
+ assert.equal(x.q('[data-selected]').value,'');
 });
 test('three panes keep the whole document separate, start blank, and give AI its own pane with document actions in the bottom ribbon',async t=>{
  const x=fixture(t);await x.picker.load({name:'full.txt',size:80,text:async()=>'Unselected document text.'},x.q('#opener'));

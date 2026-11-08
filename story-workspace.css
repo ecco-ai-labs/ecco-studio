@@ -26,6 +26,7 @@
 #story-simple-error{color:var(--ecco-theme-error,#ff7272)}
 #story-simple-ai-status[data-error=true]{color:var(--ecco-theme-error,#ff7272)}
 #story-simple-candidate{margin-top:16px}
+#story-simple-candidate[hidden]{display:none!important}
 #story-simple-candidate textarea{width:100%;min-height:180px}
 #story-simple-review{margin-top:16px}
 #story-simple-review .cards:empty{display:none}

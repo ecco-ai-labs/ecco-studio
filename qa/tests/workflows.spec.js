@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {readFile} from 'node:fs/promises';
 const librarySelectors={image:'#image-library-nav > details > summary',audio:'#workspace-audio-library > summary',video:'#workspace-video-library > summary',story:'.project > details > summary',workflow:'#workflow-library > summary'};
 async function boot(page,options={}){
   const errors=[];page.on('pageerror',error=>errors.push(error.message));page.qaErrors=errors;
@@ -7,7 +8,12 @@ async function boot(page,options={}){
     const url=new URL(route.request().url());
     return url.hostname==='127.0.0.1'?route.continue():route.abort('blockedbyclient');
   });
-  await page.goto('/?__qa=1&theme='+(options.theme||'default')+'&sourceFit='+(options.sourceFit||''));
+  if(options.pdf)await page.route('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/**',async route=>{
+    const asset=new URL(route.request().url()).pathname.split('/pdfjs-dist@6.4.299/')[1];
+    if(!['build/pdf.min.mjs','build/pdf.worker.min.mjs','web/pdf_viewer.css'].includes(asset))return route.abort();
+    await route.fulfill({body:await readFile(new URL('../node_modules/pdfjs-dist/'+asset,import.meta.url)),contentType:asset.endsWith('.css')?'text/css':'application/javascript',headers:{'Access-Control-Allow-Origin':'*'}});
+  });
+  await page.goto('/?__qa=1&theme='+(options.theme||'default')+'&sourceFit='+(options.sourceFit||'')+(options.pdf?'&pdf=1':''));
   await page.waitForFunction(()=>window.__qaReady);
   await expect(page.locator('#entry-tell-story')).toBeEnabled();
   if(options.enter!==false){
@@ -54,6 +60,14 @@ test('STORY-04 Generate With AI carries options and synchronizes Story Details',
   for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English',recurrence:'once'}))
     await page.locator('#story-simple-details [name='+name+']').selectOption(value);
   await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
+  const actions=page.locator('#page .story-source-actions');
+  for(const width of [1440,1024,390]){
+    await page.setViewportSize({width,height:1000});const row=await actions.boundingBox(),buttons=await actions.locator('button').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right};}));
+    expect(buttons).toHaveLength(3);for(const button of buttons){expect(Math.abs(button.width-buttons[0].width)).toBeLessThan(1);expect(Math.abs(button.height-buttons[0].height)).toBeLessThan(1);expect(button.x).toBeGreaterThanOrEqual(row.x-1);expect(button.right).toBeLessThanOrEqual(row.x+row.width+1);}
+    for(const y of new Set(buttons.map(button=>button.y)))expect(Math.abs(Math.max(...buttons.filter(button=>button.y===y).map(button=>button.right))-(row.x+row.width))).toBeLessThan(1);
+    if(width>=1024)expect(new Set(buttons.map(button=>button.y)).size).toBe(1);
+  }
+  await page.setViewportSize({width:1440,height:1000});await actions.getByRole('button',{name:'Write',exact:true}).click();await expect(page.locator('#story-simple-script')).toBeFocused();
   await page.locator('#page [data-ai]').click();
   await expect(page.locator('#ai-generation-dialog')).toBeVisible();
   await expect(page.getByRole('dialog',{name:'Generate With AI',exact:true})).toBeVisible();
@@ -359,7 +373,7 @@ test('UPLOAD-01 equal panes, permanent AI workspace and a bottom document ribbon
   const find=dialog.locator('.pdf-find-replace summary'),clear=dialog.getByRole('button',{name:'Clear Text',exact:true});
   await expect(dialog.locator('.pdf-selected-label')).toHaveCSS('border-top-color','rgb(255, 220, 36)');
   await selected.fill('Only these selected words.');await find.press('Enter');await expect(dialog.getByLabel('Find',{exact:true})).toBeFocused();await page.keyboard.press('Escape');await expect(find).toBeFocused();await expect(dialog).toBeVisible();
-  await dialog.getByLabel('AI instructions',{exact:true}).fill('Make it simpler.');await dialog.getByRole('button',{name:'Improve with AI',exact:true}).click();const error=page.getByRole('dialog',{name:'Unable to Improve Text',exact:true});await expect(error).toContainText(/Connect AI and workspace storage|QA fixture/);await expect(error.locator('[data-ai-recommendation]')).not.toBeEmpty();await error.getByRole('button',{name:'Continue Without AI',exact:true}).click();await expect(dialog.getByRole('button',{name:'Apply Text',exact:true})).toBeFocused();await expect(dialog).toBeVisible();await expect(dialog.getByLabel('AI Output',{exact:true})).toHaveValue('');
+  await dialog.getByLabel('AI instructions',{exact:true}).fill('Make it simpler.');await dialog.getByRole('button',{name:'Improve with AI',exact:true}).click();const error=page.getByRole('dialog',{name:'Unable to Improve Text',exact:true});await expect(error).toContainText(/Connect your saved workspace from Connections → Storage/);await expect(error.locator('[data-ai-recommendation]')).not.toBeEmpty();await error.getByRole('button',{name:'Continue Without AI',exact:true}).click();await expect(dialog.getByRole('button',{name:'Apply Text',exact:true})).toBeFocused();await expect(dialog).toBeVisible();await expect(dialog.getByLabel('AI Output',{exact:true})).toHaveValue('');
   await dialog.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(dialog.locator('[role=status]')).toContainText('Draft saved');
   await expect(clear).toHaveClass('secondary');expect(await clear.evaluate(el=>el.nextElementSibling.matches('[data-extract]'))).toBe(true);await clear.click();await expect(selected).toHaveValue('');await expect(dialog.getByRole('button',{name:'Apply Text',exact:true})).toBeDisabled();await expect(dialog.locator('.source-text-preview')).toHaveText('The original document remains untouched.');
   await page.setViewportSize({width:390,height:844});await find.click();const panel=await dialog.locator('.pdf-find-replace .pdf-tool-panel').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.x+panel.width).toBeLessThanOrEqual(390);await page.keyboard.press('Escape');await expect(dialog).toBeVisible();
@@ -376,6 +390,44 @@ test('UPLOAD-02 AI output review and fiction versus Sports News confirmation pre
   const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance'));expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED_REST');expect(calls.find(c=>c.body.fields[0].id==='source_compatibility').body.context.genre).toBe('Sports');
 });
 
+test('UPLOAD-06 Apply Text selects the audio cast, fills voice properties and keeps Story Details synchronized through Back',async({page})=>{
+  await boot(page,{sourceFit:'cast'});await page.getByLabel('Story Name',{exact:true}).fill('Ali and Morgiana');
+  for(const [name,value] of Object.entries({output:'audio',type:'news',genre:'Sports',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+  await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
+  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await (await chooser).setFiles({name:'Cast.txt',mimeType:'text/plain',buffer:Buffer.from('Ali and Morgiana found a cave. PRIVATE_UNSELECTED_REST')});
+  const source=page.getByRole('dialog',{name:'Select Story Text',exact:true});await source.getByLabel('Story Type',{exact:true}).selectOption('storybook');await source.getByLabel('Genre',{exact:true}).selectOption('Adventure');
+  await source.locator('[data-selected]').fill('Ali and Morgiana found a cave.');await source.getByLabel('AI instructions',{exact:true}).fill('Make this a scene with the characters speaking.');await source.getByRole('button',{name:'Improve with AI',exact:true}).click();await source.getByRole('button',{name:'Use AI Text',exact:true}).click();
+  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='story_workspace').length)).toBe(0);
+  await source.getByRole('button',{name:'Apply Text',exact:true}).click();await expect(source).toBeHidden();await expect(page.getByLabel('Number of characters',{exact:true})).toHaveValue('3');
+  await expect(page.locator('[data-cast-reason]')).toContainText('3 audio characters identified');await expect(page.locator('#story-simple-script')).toHaveValue('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');await expect(page.locator('#story-simple-candidate')).toBeHidden();
+  await expect(page.getByLabel('Character 2 Name',{exact:true})).toHaveValue('Ali');await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');
+  const character=page.locator('.story-simple-character').nth(1);await character.locator('summary').press('Enter');await expect(page.getByLabel('Character 2 Accent',{exact:true})).toHaveValue('Indian English');await expect(page.getByLabel('Character 2 Speaking style',{exact:true})).toHaveValue('Curious');await expect(page.getByLabel('Character 2 Emotion',{exact:true})).toHaveValue('surprise');await expect(page.getByLabel('Character 2 Voice',{exact:true})).not.toHaveValue('');await expect(page.locator('[data-property=appearance]')).toHaveCount(0);
+  const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='story_workspace'));expect(calls).toHaveLength(1);expect(JSON.parse(calls[0].body.context.summary)).toMatchObject({output:'audio',story_type:'storybook'});expect(calls[0].body.context.genre).toBe('Adventure');expect(calls[0].body.context.lines).toHaveLength(0);expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED_REST');
+  await page.locator('#workspace-back').click();await expect(page.locator('#story-simple-details [name=type]')).toHaveValue('storybook');await expect(page.locator('#story-simple-details [name=genre]')).toHaveValue('Adventure');await expect(page.locator('#story-simple-details [name=output]')).toHaveValue('audio');
+  await page.locator('#story-simple-details [name=type]').selectOption('audio-drama');await page.getByRole('tab',{name:'2. Story & Characters',exact:true}).click();await expect(page.getByLabel('Number of characters',{exact:true})).toHaveValue('3');
+});
+
+test('UPLOAD-07 real PDF pages and listed chapters populate original editable text before AI and final application',async({page})=>{
+ await boot(page,{sourceFit:'cast',pdf:true});await page.getByLabel('Story Name',{exact:true}).fill('PDF source test');
+ for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+ await page.getByRole('button',{name:'Continue to Story',exact:true}).click();const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await(await chooser).setFiles(new URL('../fixtures/source-chapters.pdf',import.meta.url).pathname);
+ const source=page.getByRole('dialog',{name:'Select Story Text',exact:true}),middle=source.locator('[data-selected]');await expect(source.locator('[data-document-info]')).toContainText('10 PDF pages');await expect(middle).toHaveValue('');
+ await source.locator('[data-pages-menu] summary').click();await source.locator('[data-pages]').fill('2–3');await source.locator('[data-pages]').press('Enter');await expect(middle).toHaveValue(/Page 2, line 1/);await expect(middle).toHaveValue(/Page 3, line 48/);await expect(middle).not.toHaveValue(/Page 1,|Page 4,|PRIVATE_NEXT_CHAPTER/);
+ await source.getByRole('button',{name:'Clear Text',exact:true}).click();await source.locator('[data-chapter-menu] summary').press('Enter');await expect(source.locator('[data-chapter-list]')).toBeFocused();await source.locator('[data-chapter-list]').selectOption({label:'Chapter One · page 1'});await source.getByRole('button',{name:'Add Chapter',exact:true}).click();await expect(middle).toHaveValue(/^Chapter One\nBy A. Writer/);await expect(middle).not.toHaveValue(/Chapter Two|PRIVATE_NEXT_CHAPTER/);expect((await middle.inputValue()).length).toBeGreaterThan(30000);expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance').length)).toBe(0);
+ await middle.fill((await middle.inputValue()).replace('By A. Writer\n',''));await expect(middle).not.toHaveValue(/By A. Writer/);await source.getByLabel('AI instructions',{exact:true}).fill('Make a short scene with the three characters speaking.');await source.getByRole('button',{name:'Improve with AI',exact:true}).click();await expect(source.getByLabel('AI Output',{exact:true})).toHaveValue(/Morgiana: I will help/);await expect(middle).toHaveValue(/Page 9, line 48/);
+ await source.getByRole('button',{name:'Use AI Text',exact:true}).click();await expect(middle).toHaveValue('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');await source.getByRole('button',{name:'Apply Text',exact:true}).click();await expect(source).toBeHidden();await expect(page.getByLabel('Number of characters',{exact:true})).toHaveValue('3');
+ const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance'));expect(JSON.stringify(calls)).not.toContain('PRIVATE_NEXT_CHAPTER');const cast=JSON.parse(calls.find(c=>c.body.fields[0].id==='story_workspace').body.context.summary);expect(cast.script).toBe('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');expect(cast.script).not.toContain('By A. Writer');
+});
+
+
+test('UPLOAD-08 mouse selection, Find and Replace, manual edits and saved selection use only chosen PDF text',async({page})=>{
+ await boot(page,{sourceFit:'cast',pdf:true});await page.getByLabel('Story Name',{exact:true}).fill('Selection editing test');for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);await page.getByRole('button',{name:'Continue to Story',exact:true}).click();
+ const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await(await chooser).setFiles(new URL('../fixtures/source-chapters.pdf',import.meta.url).pathname);
+ const source=page.getByRole('dialog',{name:'Select Story Text',exact:true}),middle=source.locator('[data-selected]');const author=source.locator('.textLayer span').filter({hasText:/^By A\. Writer$/});await expect(author).toBeVisible();const rect=await author.boundingBox();await page.mouse.move(rect.x,rect.y+rect.height/2);await page.mouse.down();await page.mouse.move(rect.x+rect.width+2,rect.y+rect.height/2,{steps:8});await page.mouse.up();await expect(middle).toHaveValue('By A. Writer');
+ await source.getByRole('button',{name:'Clear Text',exact:true}).click();await expect(middle).toHaveValue('');await source.locator('[data-pages-menu] summary').click();await source.locator('[data-pages]').fill('2');await source.locator('[data-pages]').press('Enter');await expect(middle).toHaveValue(/Page 2, line 48/);
+ await source.locator('.pdf-find-replace summary').click();await source.getByLabel('Find',{exact:true}).fill('Ali');await source.getByLabel('Replace with',{exact:true}).fill('Asha');await source.locator('[data-replace-scope]').selectOption('all');await source.getByRole('button',{name:'Replace',exact:true}).click();await expect(middle).toHaveValue(/Asha and Morgiana/);await expect(middle).not.toHaveValue(/Ali and Morgiana|Page 1,|Page 3,/);await page.keyboard.press('Escape');
+ await middle.fill('Asha: I will help.\nMorgiana: Thank you.');await source.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(source.locator('[role=status]')).toContainText('Draft saved');await page.keyboard.press('Escape');await page.getByRole('button',{name:'Resume Saved Selection',exact:true}).click();await expect(source.locator('[data-selected]')).toHaveValue('Asha: I will help.\nMorgiana: Thank you.');await source.getByRole('button',{name:'Apply Text',exact:true}).click();await expect(page.locator('#story-simple-script')).toHaveValue('Asha: I will help.\nMorgiana: Thank you.');
+});
 
 test('DESK-BRAND-01 original light Desk styling retains Ecco name and logo',async({page})=>{
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
@@ -696,4 +748,15 @@ test('AGENT-07 saved agents run only selected steps and tests',async({page})=>{
  const run=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-agent-runs:v1:qa-desk-user:qa-selective-agent'))[0]);
  expect(run.selection.ids).toEqual(['step-2/story-choices']);expect(run.checks.map(c=>[c.id,c.status])).toEqual([['step-2/story-choices','passed']]);
  expect(await page.evaluate(()=>window.__deskPosts.length)).toBe(0);
+});
+
+test('AUDIO-01 delayed voice preview restores Generate and never enables a duplicate active recording',async({page})=>{
+ await boot(page,{sourceFit:'audioPreview'});await page.getByLabel('Story Name',{exact:true}).fill('Audio preview regression');
+ for(const [name,value] of Object.entries({output:'audio',type:'audiobook',genre:'Adventure',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+ await page.getByRole('button',{name:'Continue to Story',exact:true}).click();await page.locator('#story-simple-script').fill('Narrator: Welcome to the story.');await page.getByRole('button',{name:'Continue to Generate',exact:true}).click();
+ const generate=page.locator('#generate-audio');await expect(generate).toBeEnabled();await page.locator('.story-simple-advanced > summary').click();await expect(page.locator('#audio-form [name=compute]')).toHaveValue('cpu');
+ await page.locator('#audio-form [data-open-controls]').click();await page.getByRole('button',{name:'Listen to selected voice',exact:true}).click();const preview=page.locator('#audio-voice-preview-dialog');await expect(preview.getByLabel('Voice preview playback',{exact:true})).toBeVisible();expect(await generate.isEnabled()).toBe(true);
+ await preview.getByRole('button',{name:'Close popup',exact:true}).click();await page.locator('#generation-controls-dialog').getByRole('button',{name:'Close popup',exact:true}).click();await generate.click();await expect(generate).toBeDisabled();await expect(page.locator('#audio-job-status')).toContainText(/running|Generating/);
+ await page.locator('#audio-form [data-open-controls]').click();await page.getByRole('button',{name:'Listen to selected voice',exact:true}).click();await expect(preview.getByLabel('Voice preview playback',{exact:true})).toBeVisible();expect(await generate.isEnabled()).toBe(false);
+ const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate'));expect(calls).toHaveLength(2);expect(calls[0].body.title).toContain('Voice preview');expect(calls[1].body.lines[0].text).toBe('Welcome to the story.');
 });
