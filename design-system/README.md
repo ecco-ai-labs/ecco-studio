@@ -543,3 +543,25 @@ saved selection and cannot restore a previous story’s source after navigation.
 ## Selective agent checks
 
 Tester Agent and saved agents open with no tests selected. Choose an action/workflow, expand the relevant group and tick individual checks, or explicitly Select all tests. Run selected tests stays disabled until a test is chosen. Scope changes clear the selection. Execution skips unchecked tests and empty workflow steps, and reports retain the selected IDs and available count. Required navigation can still report blocked prerequisites. Ticket selection remains separate.
+
+
+## Complete recordings and applied speaker scripts
+
+Apply Text assigns every source passage to a speaker and displays the complete
+speaker-labelled script. The original selected text remains available separately.
+Older applied drafts with missing assignments are repaired before opening Audio
+Studio. Assignment failures retain the text and request a targeted retry.
+Recording-wide 4,000-character and 80-turn restrictions are removed from editing,
+review, save, handoff and worker validation. Workers process internal sections and
+assemble one recording; no source words are dropped to fit a recording cap.
+Runtime capability and live-service verification are separate from fixture tests.
+
+## Generated script review — 8 November 2026
+
+In Select Story Text, Generate Script opens Generated Script for audio/video.
+Ordered editable turns and speaker dropdowns appear on the left; the character
+selector and properties appear on the right. Apply Text commits the complete plan
+and settings to Story and Characters. Generate opens the generation tab. The
+review saves a story-scoped Resume Script draft, retains edits across Close and
+Minimize, and never starts media inference. Source words are assigned completely
+before review; intentional user edits are retained.

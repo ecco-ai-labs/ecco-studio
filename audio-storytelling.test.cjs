@@ -70,5 +70,12 @@ test('Chapter dialogue can retain more than twenty short speaker turns',async t=
  const x=await fixture(t);const cast=[{id:'a',name:'Mira'},{id:'b',name:'Grandmother'}];
  const plan={opening:{character_id:'a',text:'A chapter begins.'},segments:Array.from({length:40},(_,i)=>({character_id:i%2?'a':'b',text:'A short spoken reply.'}))};
  assert.equal(x.w.EccoAudioScript.validatePlan(plan,cast,40).segments.length,40);
- assert.throws(()=>x.w.EccoAudioScript.validatePlan({...plan,segments:Array.from({length:81},(_,i)=>({character_id:i%2?'a':'b',text:'A reply.'}))},cast),/80 speech/);
+ assert.equal(x.w.EccoAudioScript.validatePlan({...plan,segments:Array.from({length:81},(_,i)=>({character_id:i%2?'a':'b',text:'A reply.'}))},cast).segments.length,81);
+});
+
+test('delivery preparation covers a complete chapter without rewriting or truncating its turns',async t=>{
+ const x=await fixture(t),plan={opening:{character_id:'a',text:'The complete chapter.'},segments:Array.from({length:93},(_,i)=>({character_id:i%2?'a':'b',text:('This is passage '+i+'. '+('The forest was quiet. '.repeat(150))).trim()}))};
+ const seen=[];const result=await x.w.EccoAudioDirection.refine({plan,cast:[{id:'a',name:'Mira'},{id:'b',name:'Grandmother'}],brief:{language:'English',genre:'Story Book Reading'},model:x.w.EccoAudioModels.find(m=>m.id==='chatterbox'),directionOnly:true,request:async(_,body)=>{const p=JSON.parse(body.context.summary).draft;assert.ok(p.segments.reduce((n,s)=>n+s.text.length,0)<=3000);seen.push(...p.segments.map(s=>s.text));return directed(body);}});
+ assert.ok(seen.length>93);assert.equal(seen.join(''),[plan.opening,...plan.segments].map(p=>p.text).join(''));
+ assert.deepEqual(Array.from(result.segments,p=>p.text),plan.segments.map(p=>p.text));assert.equal(result.opening.text,plan.opening.text);assert.equal(result.segments.at(-1).performance.emotion,'happy');
 });

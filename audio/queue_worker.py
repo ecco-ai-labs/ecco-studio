@@ -65,7 +65,7 @@ def cpu_threads():
 def worker_command(request, directory):
     model = request.get('model', 'indic-mio')
     base = Path(__file__).parent
-    if request.get('mixed_models_version') == 1:
+    if request.get('mixed_models_version') == 1 or request.get('long_form_version') == 1:
         env = dict(os.environ, HF_HUB_OFFLINE='1')
         if request.get('compute') == 'cpu':
             env['CUDA_VISIBLE_DEVICES'] = ''
@@ -143,7 +143,7 @@ def main():
         return
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'resources': preflight_resources(ROOT), 'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'sound_models': enabled_sounds()})
+        write(heartbeat, {'resources': preflight_resources(ROOT), 'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'long_form_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'sound_models': enabled_sounds()})
     recover_jobs(compute, pod)
     while True:
         beat()
@@ -161,11 +161,14 @@ def run_job(request, d, compute, pod, beat):
         with (d / 'worker.log').open('wb') as log:
             command, env = worker_command(request, d)
             process = subprocess.Popen(command, start_new_session=True, env=env, stdout=log, stderr=subprocess.STDOUT)
-            started = time.monotonic()
+            last_progress = time.monotonic()
+            previous_progress = None
             while process.poll() is None:
                 cancellation.check(d)
                 beat()
                 details = read(d / 'progress.json', {})
+                if details and details != previous_progress:
+                    last_progress, previous_progress = time.monotonic(), details
                 progress = details.get('progress')
                 if details.get('phase') == 'speech':
                     completed, total = details.get('completed'), details.get('total')
@@ -174,9 +177,9 @@ def run_job(request, d, compute, pod, beat):
                         write(d / 'status.json', {'status': 'running', 'progress': progress, 'compute': compute, 'worker_pod': pod})
                 if progress in ('Mixing music and effects', 'Loading sound model', 'Generating sound effect', 'Generating instrumental music'):
                     write(d / 'status.json', {'status': 'running', 'progress': progress, 'compute': compute, 'worker_pod': pod})
-                if time.monotonic() - started > 1800:
+                if time.monotonic() - last_progress > 1800:
                     cancellation.terminate(process)
-                    raise RuntimeError('Audio generation timed out. Split the script into shorter recordings.')
+                    raise RuntimeError('The audio worker stopped reporting progress. Your script is saved; reconnect the worker and retry.')
                 time.sleep(2)
             cancellation.check(d)
             if process.returncode:

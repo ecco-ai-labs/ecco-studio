@@ -35,8 +35,8 @@ def validate(body):
     if genre not in GENRES:
         raise ValueError('Choose a supported audio genre.')
     lines = body.get('lines')
-    if not isinstance(lines, list) or not 1 <= len(lines) <= 80:
-        raise ValueError('Add between 1 and 80 dialogue lines.')
+    if not isinstance(lines, list) or not lines:
+        raise ValueError('Add at least one dialogue line.')
     clean = []
     for line in lines:
         if not isinstance(line, dict):
@@ -81,8 +81,6 @@ def validate(body):
             if isinstance(pause, bool) or not isinstance(pause, (int, float)) or not math.isfinite(pause) or not 0 <= pause <= 10:
                 raise ValueError('pause_before must be between 0 and 10 seconds.')
             clean[-1]['pause_before'] = pause
-    if sum(len(line['text']) for line in clean) > 4000:
-        raise ValueError('Keep the complete script within 4,000 characters.')
     def bounded(key, default, low, high):
         value = body.get(key, default)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
@@ -111,6 +109,8 @@ def validate(body):
         result['exaggeration'] = bounded('exaggeration', .5, 0, 2)
     if any(any(key in line for key in ('speed', 'pitch', 'exaggeration', 'cfg_weight')) for line in clean):
         result['character_controls_version'] = 1
+    if len(clean) > 80 or sum(len(line['text']) for line in clean) > 4000:
+        result['long_form_version'] = 1
     if required_models(result) != {model_id}:
         result['mixed_models_version'] = 1
     if body.get('soundtrack') or body.get('sound_design_version'):

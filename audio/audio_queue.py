@@ -50,6 +50,7 @@ def request_ready(request):
     return any(w['compute'] == request['compute']
                and (not request.get('worker_id') or (w.get('pod') == request['worker_id'] and w.get('instance_routing_version') == 1))
                and needed.issubset(supported(w))
+               and (not request.get('long_form_version') or w.get('long_form_version') == 1)
                and (not request.get('mixed_models_version') or w.get('mixed_models_version') == 1)
                for w in workers())
 
@@ -73,6 +74,7 @@ def availability():
         compatible = [w for w in live if w['compute'] == target]
         sounds = sorted(set.intersection(*(set(sound_models(w)) for w in compatible))) if compatible else []
         compute[target] = {'ready': bool(models), 'models': models, 'sound_models': sounds,
+                           'long_form_version': 1 if models and all(w.get('long_form_version') == 1 for w in compatible) else 0,
                            'mixed_models_version': 1 if models and all(w.get('mixed_models_version') == 1 for w in compatible) else 0,
                            'sound_generation_version': 1 if sounds else 0,
                            'character_controls_version': 1 if models and all(w.get('character_controls_version') == 1 for w in live if w['compute'] == target) else 0,
@@ -100,7 +102,7 @@ def availability():
                           'memory_gb': w.get('memory_gb', config.get('memory_gb')),
                           'resources': w.get('resources'), 'updated': w.get('updated'),
                           'character_controls_version': w.get('character_controls_version', 0) if routable else 0,
-                          'mixed_models_version': w.get('mixed_models_version', 0) if routable else 0,
+                          'long_form_version': w.get('long_form_version', 0), 'mixed_models_version': w.get('mixed_models_version', 0) if routable else 0,
                           'sound_design_version': w.get('sound_design_version', 0) if routable else 0,
                           'sound_generation_version': w.get('sound_generation_version', 0) if routable else 0,
                           'reason': '' if available else 'Audio worker update required.' if w and not routable else 'Audio worker is unavailable or still starting.'})

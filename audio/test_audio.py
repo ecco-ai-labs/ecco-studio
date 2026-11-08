@@ -34,7 +34,8 @@ class AudioRequests(unittest.TestCase):
             body=copy.deepcopy(self.body);body['lines'][0]['text']=text
             with self.subTest(text_type=type(text)), self.assertRaises(ValueError):validate(body)
         body=copy.deepcopy(self.body);body['lines']=[dict(body['lines'][0],text='a'*500)]*9
-        with self.assertRaisesRegex(ValueError, '4,000'):validate(body)
+        self.assertEqual(validate(body)['long_form_version'], 1)
+        self.assertEqual(validate(body)['lines'], body['lines'])
 
     def test_rejects_unknown_model_language_and_preset_paths(self):
         for field,value in [('language','Spanish'),('voice','../../credentials')]:
@@ -49,7 +50,7 @@ class AudioRequests(unittest.TestCase):
                     validate(dict(self.body,**{field:value}))
 
     def test_no_empty_or_unbounded_dialogue(self):
-        for lines in [None, {}, [], self.body['lines']*81, [None]]:
+        for lines in [None, {}, [], [None]]:
             with self.subTest(lines_type=type(lines)),self.assertRaises(ValueError):validate(dict(self.body,lines=lines))
 
 if __name__ == '__main__':unittest.main()

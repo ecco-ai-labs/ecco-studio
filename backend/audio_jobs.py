@@ -44,6 +44,8 @@ def generate(body, env, *, job_id=None, sound=False):
             raise env['Problem']('This sound model is not installed and verified on ' + request['compute'].upper() + '. Connect a worker with this sound model enabled.', 503)
         if not sound and not target['ready']:
             raise env['Problem'](target['reason'], 503)
+        if request.get('long_form_version') and target.get('long_form_version') != 1:
+            raise env['Problem']('This audio worker needs the full-recording update. Your complete script is saved.', 503)
         if request.get('character_controls_version') and target.get('character_controls_version') != 1:
             raise env['Problem']('Update the selected audio worker before using per-character pitch, speed or expressiveness.', 503)
         if request.get('sound_design_version') and target.get('sound_design_version') != 1:

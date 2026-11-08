@@ -35,6 +35,9 @@ def stitch(request, segments, output, rate=48000):
             timeline.append({'start': frames / rate, 'end': (frames + len(pcm)//2) / rate})
             final.writeframes(pcm)
             frames += len(pcm)//2
+            write(output.parent / 'progress.json', {'phase': 'assembly', 'completed': i + 1, 'total': len(segments), 'progress': 'Assembling complete recording'})
+            raw.unlink(missing_ok=True)
+            converted.unlink(missing_ok=True)
     write(output.with_suffix('.timeline.json'), timeline)
     if request.get('soundtrack'):
         from audio_soundtrack import mix
@@ -44,6 +47,20 @@ def stitch(request, segments, output, rate=48000):
         mixed.replace(output)
 
 
+def processing_batches(items):
+    """Bound one inference process, never the user's recording."""
+    batch, size = [], 0
+    for item in items:
+        length = len(item[1]['text'])
+        if batch and (size + length > 4000 or len(batch) >= 80):
+            yield batch
+            batch, size = [], 0
+        batch.append(item)
+        size += length
+    if batch:
+        yield batch
+
+
 def synthesize(request, output, runtime):
     from queue_worker import worker_command
     groups = {}
@@ -51,11 +68,12 @@ def synthesize(request, output, runtime):
         groups.setdefault(line.get('model', request['model']), []).append((i, line))
     segments, completed = [None] * len(request['lines']), 0
     speech_progress(output, 0, len(segments))
-    for model, items in groups.items():
-        directory = output.parent / ('speech-' + model)
+    work = [(model, number, batch) for model, items in groups.items() for number, batch in enumerate(processing_batches(items))]
+    for model, number, items in work:
+        directory = output.parent / ('speech-' + model + '-' + str(number))
         directory.mkdir(exist_ok=True)
         # Children apply delivery DSP once. Parent alone inserts pauses and soundtrack.
-        child = {k: v for k, v in request.items() if k not in ('mixed_models_version', 'soundtrack', 'sound_design_version')}
+        child = {k: v for k, v in request.items() if k not in ('mixed_models_version', 'long_form_version', 'soundtrack', 'sound_design_version')}
         child.update(model=model, pause=0, lines=[{k: v for k, v in line.items() if k not in ('model', 'pause_before')} for _, line in items])
         child = validate(child)
         write(directory / 'request.json', child)
