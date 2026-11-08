@@ -20,6 +20,7 @@ import ecco_desk_chat
 import ecco_desk_replies
 import ecco_desk_groups
 import ecco_campaigns
+import ecco_releases
 
 STATUSES = ('open', 'in_progress', 'waiting', 'resolved', 'closed')
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
@@ -99,6 +100,10 @@ def initialize(path, start_notifications=True):
         notification_columns = {row['name'] for row in db.execute('PRAGMA table_info(desk_notifications)')}
         if 'offer' not in notification_columns:
             db.execute('ALTER TABLE desk_notifications ADD COLUMN offer TEXT')
+        if 'placements' not in notification_columns:
+            db.execute('ALTER TABLE desk_notifications ADD COLUMN placements INTEGER')
+        if 'badge' not in notification_columns:
+            db.execute('ALTER TABLE desk_notifications ADD COLUMN badge TEXT')
         # Additive migration preserves existing ticket IDs, content and permissions.
         columns = {row['name'] for row in db.execute('PRAGMA table_info(desk_tickets)')}
         if 'requestType' not in columns:
@@ -110,6 +115,7 @@ def initialize(path, start_notifications=True):
         import ecco_desk_google_chat
         ecco_desk_google_chat.initialize(db)
         ecco_campaigns.initialize(db)
+        ecco_releases.initialize(db)
     if start_notifications:
         ecco_desk_mail.start(path)
         ecco_campaigns.start(path)
@@ -214,28 +220,49 @@ def unread(db, me):
     return dict(unreadTickets=len(rows),unreadByTicket={str(r['id']):r['replies'] for r in rows})
 
 
+def notification_presentation(body, default=('bell',)):
+    locations = body.get('placements', list(default))
+    if (not isinstance(locations, list) or not 1 <= len(locations) <= 2 or
+            any(type(p) is not str or p not in ('bell','billing') for p in locations) or
+            len(set(locations)) != len(locations)):
+        raise DeskError('Choose at least one display location: Bell Icon or Billing.')
+    badge = body.get('badge', 'NEW')
+    if not isinstance(badge, str) or not 1 <= len(badge.strip()) <= 20 or any(ord(c) < 32 for c in badge):
+        raise DeskError('Icon text must contain 1 to 20 characters on one line.')
+    return sum(1 if p == 'bell' else 2 for p in locations), badge.strip()
+
+
+def notification_public(row):
+    value = {k:row[k] for k in ('id','title','body','severity','createdAt','expiresAt')}
+    mask = row['placements'] if row['placements'] is not None else (3 if row['offer'] or row['campaignId'] else 1)
+    value.update(kind='marketing_campaign' if row['campaignId'] else 'special_offer' if row['offer'] else 'notification',
+                 offer=json.loads(row['offer']) if row['offer'] else None,
+                 placements=[p for p,bit in (('bell',1),('billing',2)) if mask & bit], badge=row['badge'] or 'NEW')
+    if 'readAt' in row.keys():value['readAt']=row['readAt']
+    return value
+
+
 def user_notifications(db, me):
-    # Apply the five-newest limit before receipts/expiry so dismissed older
-    # notices never reappear to fill a newly vacant slot.
-    rows = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,n.revokedAt,n.offer,n.campaignId,r.readAt
-        FROM (SELECT rowid AS sequence,* FROM desk_notifications
-              WHERE audience='all' OR recipientId=? ORDER BY rowid DESC LIMIT 5) n
-        LEFT JOIN desk_notification_reads r ON r.notificationId=n.id AND r.userId=?
-        WHERE r.readAt IS NULL AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
-        ORDER BY n.sequence DESC''', (me['userId'], me['userId'], now()))
-    notifications = [{**{k:r[k] for k in
-        ('id','title','body','severity','createdAt','expiresAt')},
-        'kind': 'marketing_campaign' if r['campaignId'] else 'special_offer' if r['offer'] else 'notification',
-        'offer': json.loads(r['offer']) if r['offer'] else None} for r in rows]
-    # Read history is independent of the newest-five unread window. Keep only
-    # this recipient's three most recently read, still-valid notices.
-    history = db.execute('''SELECT n.id,n.title,n.body,n.severity,n.createdAt,n.expiresAt,r.readAt
+    # Each location has its own newest-five window before receipts and expiry.
+    # A billing-only notice must never displace a bell notice (or vice versa).
+    def feed(bit):
+        rows = db.execute('''SELECT n.*,r.readAt FROM
+            (SELECT rowid AS sequence,* FROM desk_notifications
+             WHERE (audience='all' OR recipientId=?) AND
+               (COALESCE(placements,CASE WHEN offer IS NOT NULL OR campaignId IS NOT NULL THEN 3 ELSE 1 END) & ?) != 0
+             ORDER BY rowid DESC LIMIT 5) n
+            LEFT JOIN desk_notification_reads r ON r.notificationId=n.id AND r.userId=?
+            WHERE r.readAt IS NULL AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
+            ORDER BY n.sequence DESC''', (me['userId'],bit,me['userId'],now()))
+        return [notification_public(r) for r in rows]
+    history = db.execute('''SELECT n.*,r.readAt
         FROM desk_notification_reads r JOIN desk_notifications n ON n.id=r.notificationId
         WHERE r.userId=? AND (n.audience='all' OR n.recipientId=?)
+          AND (COALESCE(n.placements,CASE WHEN n.offer IS NOT NULL OR n.campaignId IS NOT NULL THEN 3 ELSE 1 END) & 1) != 0
           AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
-        ORDER BY r.readAt DESC,r.rowid DESC LIMIT 3''', (me['userId'], me['userId'], now()))
-    return dict(notificationVersion=1, specialOfferVersion=1, notificationHistoryVersion=1,
-                notifications=notifications, readNotifications=[dict(r) for r in history])
+        ORDER BY r.readAt DESC,r.rowid DESC LIMIT 3''', (me['userId'],me['userId'],now()))
+    return dict(notificationVersion=1, specialOfferVersion=1, notificationHistoryVersion=1, notificationPresentationVersion=1,
+                notifications=feed(1), billingNotifications=feed(2), readNotifications=[{k:v for k,v in notification_public(r).items() if k not in ('offer','kind')} for r in history])
 
 
 def require_notification_admin(me):
@@ -254,11 +281,11 @@ def manage_notifications(db, me):
     for r in rows:
         item = dict(r)
         item['kind'] = 'marketing_campaign' if r['campaignId'] else 'special_offer' if r['offer'] else 'notification'
-        item['offer'] = json.loads(r['offer']) if r['offer'] else None
+        item.update(notification_public(r))
         item['status'] = ('withdrawn' if r['revokedAt'] else 'expired' if r['expiresAt'] and r['expiresAt'] <= current
                           else 'read' if r['audience'] == 'user' and r['readCount'] else 'active')
         notices.append(item)
-    return dict(notificationVersion=1, specialOfferVersion=1, campaignVersion=1, notifications=notices,
+    return dict(notificationVersion=1, specialOfferVersion=1, campaignVersion=1, notificationPresentationVersion=1, notifications=notices,
                 users=[dict(r) for r in db.execute('SELECT * FROM desk_users ORDER BY name,email')])
 
 
@@ -304,20 +331,24 @@ def write_notification(db, me, body):
     days = body.get('durationDays')
     if days is not None and (type(days) is not int or not 1 <= days <= 365):
         raise DeskError('Duration must be a whole number from 1 to 365 days, or Until read.')
+    placements, badge = notification_presentation(body, ('bell','billing') if kind=='special_offer' else ('bell',))
     existing = db.execute('SELECT * FROM desk_notifications WHERE id=?', (nid,)).fetchone()
     values = dict(title=title, body=message, severity=severity, audience=audience,
-                  recipientId=recipient, durationDays=days, createdBy=me['userId'], offer=offer)
+                  recipientId=recipient, durationDays=days, createdBy=me['userId'], offer=offer, placements=placements, badge=badge)
     if existing:
+        existing=dict(existing)
+        existing['placements']=existing['placements'] if existing['placements'] is not None else (3 if existing['offer'] or existing['campaignId'] else 1)
+        existing['badge']=existing['badge'] or 'NEW'
         if any(existing[k] != v for k,v in values.items()):
             raise DeskError('This notification request was already used. Refresh before creating another.', 409)
-        return {'notificationVersion': 1, 'specialOfferVersion': 1, 'id': nid}
+        return {'notificationVersion': 1, 'specialOfferVersion': 1, 'notificationPresentationVersion': 1, 'id': nid}
     created = now()
     expires = (dt.datetime.fromisoformat(created) + dt.timedelta(days=days)).isoformat(timespec='microseconds') if days else None
     db.execute('''INSERT INTO desk_notifications
-        (id,title,body,severity,audience,recipientId,durationDays,createdBy,createdAt,expiresAt,offer)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)''', (nid,title,message,severity,audience,recipient,days,me['userId'],created,expires,offer))
+        (id,title,body,severity,audience,recipientId,durationDays,createdBy,createdAt,expiresAt,offer,placements,badge)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)''', (nid,title,message,severity,audience,recipient,days,me['userId'],created,expires,offer,placements,badge))
     event(db, me, 'User notification published: ' + nid)
-    return {'notificationVersion': 1, 'specialOfferVersion': 1, 'id': nid}
+    return {'notificationVersion': 1, 'specialOfferVersion': 1, 'notificationPresentationVersion': 1, 'id': nid}
 
 
 def agents(db):
@@ -367,6 +398,8 @@ def create_agent(db, me, body):
 
 
 def read(db, me, query):
+    if "releases" in query:
+        return ecco_releases.listing(db, me)
     if 'campaigns' in query:
         return ecco_campaigns.listing(db, me)
     if 'manageNotifications' in query:
@@ -401,6 +434,8 @@ def read(db, me, query):
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op in ('prepareRelease', 'prepareRollback', 'publishRelease'):
+        return ecco_releases.write(db, me, body)
     if op in ('previewCampaign','createCampaign','updateCampaign','setCampaignActive'):
         return ecco_campaigns.write(db, me, body)
     if op == 'createAgent':

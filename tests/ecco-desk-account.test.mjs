@@ -15,7 +15,7 @@ globalThis.fetch=async(url,options)=>{
  if(String(url).endsWith('/logout'))throw Error('Network unavailable');
  if(String(url).endsWith('/challenge'))return response({client_id:'test-client',nonce:'test-nonce',challenge:'test-challenge'});
  if(String(url).endsWith('/google'))return new Promise(resolve=>{finishSignIn=x=>resolve(response(x))});
- if(String(url).includes('manageNotifications'))return response({notificationVersion:1,specialOfferVersion:1,notifications:[],users:[]});
+ if(String(url).includes('manageNotifications'))return response({notificationVersion:1,notificationPresentationVersion:1,specialOfferVersion:1,notifications:[],users:[]});
  return response(data);
 };
 const {mount}=await import('../desk/desk-app.mjs');

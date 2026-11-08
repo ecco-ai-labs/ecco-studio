@@ -376,25 +376,28 @@ test('UPLOAD-02 AI output review and fiction versus Sports News confirmation pre
 });
 
 
-test('DESK-BRAND-01 Ecco logo and purple/yellow controls across Desk and sign-in',async({page})=>{
+test('DESK-BRAND-01 original light Desk styling retains Ecco name and logo',async({page})=>{
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.goto('/desk/index.html?__qa=1');
   const logo=page.getByRole('img',{name:'Ecco AI Labs logo'});
   await expect(logo).toBeVisible();await expect.poll(()=>logo.evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
-  await expect(page.locator('.app-shell')).toHaveCSS('background-color','rgb(23, 21, 47)');
-  await expect(page.locator('.sidebar')).toHaveCSS('background-color','rgb(32, 29, 68)');
+  await expect(page.locator('.app-shell')).toHaveCSS('background-color','rgb(247, 248, 250)');
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color','rgb(17, 42, 56)');
   await page.getByRole('button',{name:'Notifications',exact:true}).click();
+  await expect(page.getByRole('button',{name:'New Notification',exact:true})).toHaveCSS('background-color','rgb(243, 212, 99)');
+  await expect(page.getByRole('tab',{name:'Notifications',exact:true})).toHaveCSS('background-color','rgb(255, 255, 255)');
   await page.getByRole('button',{name:'New Notification',exact:true}).click();
-  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('background-color','rgb(48, 42, 84)');
-  await expect(page.getByRole('button',{name:'Publish notification',exact:true})).toHaveCSS('background-color','rgb(255, 220, 36)');
-  await expect(page.locator('.notification-composer')).toHaveCSS('font-family',/Inter/);
+  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('background-color','rgb(255, 255, 255)');
+  await expect(page.getByRole('button',{name:'Publish notification',exact:true})).toHaveCSS('background-color','rgb(17, 42, 56)');
+  await expect(page.locator('.notification-composer')).toHaveCSS('font-family',/Arial/);
+  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('font-size','12px');
   await page.setViewportSize({width:390,height:844});
   await expect(page.getByLabel('Message',{exact:true})).toBeVisible();
   expect(await page.locator('.notification-composer').evaluate(el=>el.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
   await page.goto('/desk/index.html?__qa=1&signedOut=1');
   await expect(page.getByRole('heading',{name:'Sign in to Ecco Desk',exact:true})).toBeVisible();
   await expect(logo).toBeVisible();await expect.poll(()=>logo.evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
-  await expect(page.locator('.signin')).toHaveCSS('background-color','rgb(23, 21, 47)');
+  await expect(page.locator('.signin')).toHaveCSS('background-color','rgb(247, 248, 246)');
 });
 
 test('NOTIFY-03 notification table stays inside a narrow viewport',async({page})=>{
@@ -457,6 +460,7 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await page.getByRole('button',{name:'New Campaign',exact:true}).click();
   await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();
   await page.getByLabel('Campaign Name',{exact:true}).fill('Cyber Monday');
+  await page.getByLabel('Bell Icon',{exact:true}).uncheck();await page.getByLabel('Icon',{exact:true}).selectOption('Dhamaka');
   await expect(page.getByLabel('Repeat',{exact:true})).toHaveValue('cyber_monday');
   await expect(page.locator('.campaign-next')).toContainText('Nov 30, 2026');
   await page.getByLabel('Title',{exact:true}).fill('Cyber Monday is here');
@@ -467,6 +471,7 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await page.getByRole('button',{name:'Pause Cyber Monday',exact:true}).click();
   await expect(page.locator('.campaign-state')).toHaveText('Paused');
   await page.getByRole('button',{name:'Edit Cyber Monday',exact:true}).click();
+  await expect(page.getByLabel('Bell Icon',{exact:true})).not.toBeChecked();await expect(page.getByLabel('Billing',{exact:true})).toBeChecked();await expect(page.getByLabel('Icon',{exact:true})).toHaveValue('Dhamaka');
   await page.getByLabel('Message',{exact:true}).fill('Updated annual announcement.');
   await page.getByRole('button',{name:'Save Campaign',exact:true}).click();
   await page.getByRole('button',{name:'Resume Cyber Monday',exact:true}).click();
@@ -492,8 +497,10 @@ test('NOTIFY-04 history-first category tabs and circled create actions',async({p
   await expect(page.getByRole('tab',{name:'OutReach',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(page.locator('.notification-composer')).toHaveCount(0);await page.getByRole('button',{name:'New OutReach',exact:true}).click();
   await expect(page.getByLabel('Title',{exact:true})).toBeFocused();await page.getByLabel('Title',{exact:true}).fill('OutReach example');await page.getByLabel('Message',{exact:true}).fill('Example bonus credit offer');
+  await page.getByLabel('Bell Icon',{exact:true}).uncheck();await page.getByLabel('Icon',{exact:true}).selectOption('Dhamaka');
   await page.getByLabel('Purchase credits',{exact:true}).fill('100');await page.getByLabel('Free bonus credits',{exact:true}).fill('50');await page.getByLabel('Price (USD)',{exact:true}).fill('10');
-  await page.getByRole('button',{name:'Publish outreach',exact:true}).click();await expect(page.locator('.notification-composer')).toHaveCount(0);await expect(page.locator('.notification-history')).toContainText('OutReach example');
+  await page.getByRole('button',{name:'Publish outreach',exact:true}).click();await expect(page.locator('.notification-composer')).toHaveCount(0);await expect(page.locator('.notification-history')).toContainText('OutReach example');await expect(page.locator('.notification-history')).toContainText('Billing');
+  await page.getByRole('button',{name:'Edit and re-issue OutReach example',exact:true}).click();await expect(page.getByLabel('Bell Icon',{exact:true})).not.toBeChecked();await expect(page.getByLabel('Icon',{exact:true})).toHaveValue('Dhamaka');await page.getByRole('button',{name:'Cancel',exact:true}).click();
   await page.getByRole('tab',{name:'Notifications',exact:true}).click();await expect(page.locator('.notification-history')).toHaveCount(0);await expect(page.getByText('No notifications yet.',{exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Campaign',exact:true}).click();await expect(page.locator('.notification-composer')).toHaveCount(0);await page.getByRole('button',{name:'New Campaign',exact:true}).click();await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();await page.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page.getByRole('button',{name:'New Campaign',exact:true})).toBeFocused();
   await page.setViewportSize({width:390,height:844});const tabs=page.getByRole('tablist',{name:'Notification categories'});expect(await tabs.evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(await tabs.evaluate(el=>el.clientWidth));
@@ -534,4 +541,67 @@ for(const answer of ['Set burial count to 38','Store oil separately'])test(`UPLO
  const notice=page.getByRole('dialog',{name:'AI Needs Clarification',exact:true});const choice=notice.getByRole('button',{name:answer==='Set burial count to 38'?answer+' Recommended':answer,exact:true});await choice.focus();await page.keyboard.press('Enter');await expect(notice).toHaveCount(0);
  const output=source.getByLabel('AI Output',{exact:true});await expect(output).toHaveValue(answer==='Set burial count to 38'?'Thirty-nine jars held one jar of oil and thirty-eight robbers. They buried thirty-eight robbers.':'Thirty-nine jars hid thirty-nine robbers. The oil was stored separately.');await expect(source.locator('[data-selected]')).toHaveValue('Thirty-nine jars.');
  const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='source_excerpt'));expect(calls).toHaveLength(2);expect(calls[1].body.context.instructions).toContain('User selected this answer to the clarification: '+answer);expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED');
+});
+
+
+// Release management uses isolated GitHub/hosting receipts; never deploy from QA.
+async function releaseDesk(page,query=''){
+ await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await page.goto('/desk/index.html?__qa=1'+query);
+ await page.getByRole('button',{name:'Releases',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Pending changes',exact:true})).toBeVisible();
+}
+test('RELEASE-01 prepare freezes reviewed changes and only Publish requests deployment',async({page})=>{
+ await releaseDesk(page);
+ await expect(page.getByRole('button',{name:'Create task',exact:true})).toHaveCount(0);
+ await page.getByLabel('Release name',{exact:true}).fill('Library improvements');
+ await page.getByRole('button',{name:'Prepare release',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Prepared releases',exact:true})).toBeFocused();
+ await expect(page.getByRole('link',{name:'Preview Library improvements',exact:true})).toHaveAttribute('href','https://ecco-ai-labs.github.io/ecco-studio/previews/'+'a'.repeat(40)+'/');
+ expect(await page.evaluate(()=>window.__deskPosts.map(p=>p.op))).toEqual(['prepareRelease']);
+ // Later Dev edits must not alter the prepared release or the publish payload.
+ await page.evaluate(()=>window.__releaseData.head='d'.repeat(40));
+ await page.getByRole('button',{name:'Refresh status',exact:true}).click();
+ await page.getByRole('button',{name:'Publish Library improvements to Production',exact:true}).click();
+ await expect(page.getByText('Queued',{exact:true})).toBeVisible();
+ const posts=await page.evaluate(()=>window.__deskPosts);expect(posts[1]).toEqual({op:'publishRelease',id:posts[0].id});expect(posts[0].sha).toBe('a'.repeat(40));
+ await expect(page.getByRole('link',{name:'Preview Library improvements',exact:true})).toHaveAttribute('href',/a{40}/);
+});
+test('RELEASE-02 failed checks block preparation and setup blocks publishing',async({page})=>{
+ await releaseDesk(page,'&releaseChecks=failure');await page.getByLabel('Release name',{exact:true}).fill('Not ready');
+ await expect(page.getByRole('button',{name:'Prepare release',exact:true})).toBeDisabled();
+ await page.goto('/desk/index.html?__qa=1&releaseSetup=blocked');await page.getByRole('button',{name:'Releases',exact:true}).click();
+ await expect(page.getByRole('region',{name:'Production setup'})).toBeVisible();
+ await page.getByLabel('Release name',{exact:true}).fill('Waiting for hosting');await page.getByRole('button',{name:'Prepare release',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Publish Waiting for hosting to Production',exact:true})).toBeDisabled();
+ expect(await page.evaluate(()=>window.__deskPosts.filter(p=>p.op==='publishRelease'))).toEqual([]);
+});
+test('RELEASE-03 staff and customers cannot access release controls',async({page})=>{
+ await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ for(const role of ['staff','customer','group']){
+  await page.goto('/desk/index.html?__qa=1&role='+role);await expect(page.locator('.sidebar')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Releases',exact:true})).toHaveCount(0);
+ }
+});
+test('RELEASE-04 history prepares a rollback with keyboard and narrow layout',async({page})=>{
+ await releaseDesk(page);
+ await page.evaluate(()=>{window.__releaseData.history.push({id:'older',title:'Earlier release',sha:'c'.repeat(40),actor:'QA Admin',publishedAt:'2026-11-05T18:00:00Z',url:'https://github.com/ecco-ai-labs/ecco-studio/releases/tag/older'});});
+ await page.getByRole('button',{name:'Refresh status',exact:true}).click();
+ await page.getByRole('button',{name:'Prepare rollback',exact:true}).focus();await page.keyboard.press('Enter');
+ await expect(page.getByRole('heading',{name:'Prepared releases',exact:true})).toBeFocused();
+ const posts=await page.evaluate(()=>window.__deskPosts);expect(posts[0].op).toBe('prepareRollback');expect(posts[0].sha).toBe('c'.repeat(40));
+ await page.setViewportSize({width:768,height:1024});await expect(page.getByRole('button',{name:'Publish Rollback to cccccccc to Production',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('BILLING-01 configured promotion icons and expiry appear above regular packages',async({page})=>{
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ await page.goto('/?__qa=1&promotions=1');await page.locator('#entry-tell-story').click();await page.locator('#google-user-menu > summary').click();await page.getByRole('button',{name:'Billing',exact:true}).click();
+ const billing=page.getByRole('region',{name:'Billing',exact:true});await expect(billing.locator('.credits-promotion-badge')).toHaveText(['Dhamaka','NEW']);await expect(billing.locator('time')).toHaveCount(2);
+ await billing.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();const shop=page.locator('dialog[open]');
+ await expect(shop.locator('.credits-promotion')).toHaveCount(2);await expect(shop.locator('.credits-pack')).toHaveCount(3);await expect(shop.locator('.credits-promotion-expiry').first()).toContainText('Offer lasts till');
+ expect((await shop.locator('.credits-notices').boundingBox()).y).toBeLessThan((await shop.locator('.credits-pack-grid').boundingBox()).y);
+ await shop.getByRole('button',{name:'Select Diwali bonus',exact:true}).click();await shop.getByRole('button',{name:'View Cart',exact:true}).click();await expect(shop.locator('.credits-order-summary')).toContainText('150');await expect(shop.locator('.credits-order-total')).toContainText('$10.00');
+ await shop.getByRole('button',{name:'Continue Shopping',exact:true}).click();await page.setViewportSize({width:390,height:844});await expect(shop.locator('.credits-promotion-badge').first()).toHaveText('Dhamaka');expect(await shop.evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(await shop.evaluate(el=>el.clientWidth));
+ await shop.locator('[data-notice-id=promo-outreach]').getByRole('button',{name:'Mark as Read',exact:true}).click();await expect(shop.locator('[data-notice-id=promo-outreach]')).toHaveCount(0);await expect(shop.getByRole('button',{name:'View Cart',exact:true})).toBeDisabled();await expect(shop.locator('.credits-pack')).toHaveCount(3);
 });

@@ -469,9 +469,9 @@ updates and saves Story Details, including when the generation dialog is closed
 without generating. Details changes carry into the next AI opening. These values
 accompany the prompt in generation; opening or changing options never starts AI.
 
-### Ecco Desk shared branding
+### Ecco Desk identity and appearance
 
-Desk uses the existing Ecco logo, Inter/system typography and Studio default purple/yellow palette across sign-in, navigation, panels and controls. Embedded Desk inherits selected Studio theme tokens. This replaces the previous light Desk surface exception. The bell uses Number / Notification / Date it expires tables, 14px titles and 13px bodies, bold unread and regular read rows; the latest-three read history and expiry lifecycle remain.
+At the user’s request, Desk retains its previous navy sidebar, yellow accents, light panels, Arial typography, sizes and spacing. Only the Ecco AI Labs name and actual Ecco logo remain from the branding update. Embedded support retains its original theme-aware heading/sign-in treatment and light ticket panels. The bell uses Number / Notification / Date it expires tables, 14px titles and 13px bodies, bold unread and regular read rows; the latest-three read history and expiry lifecycle remain.
 
 ## Shared agent workflows
 
@@ -485,3 +485,7 @@ Notifications → Campaign offers set-once recurring announcements with a server
 ### Notification category tabs
 
 Notifications, OutReach and Campaign are browser-style tabs that open on their respective histories. The circled plus at the right opens the inline creation form; Cancel or successful publish/save returns to history. OutReach retains special-offer credit terms; Campaign retains automatic recurring schedules. Keyboard arrow/Home/End navigation and focus return are supported.
+
+## Notification locations and Billing offers
+
+Show in selects Bell Icon, Billing, or both for notifications, OutReach and recurring campaigns. OutReach/Campaign creation offers NEW, Dhamaka, Limited Time or custom text icons. Saved icons and locations survive edits/re-issue and scheduled dispatch. Billing, Credit and Usage and Purchase Additional Credits display active promotional cards above regular options, with Offer lasts till dates. Three regular credit packages remain below; campaigns without purchase terms are announcements. Shared per-user reads and expiry remove cards. Backend presentation version 1 must precede Pages deployment.

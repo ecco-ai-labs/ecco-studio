@@ -11,9 +11,9 @@ globalThis.fetch=async(url,options)=>{
   const p=JSON.parse(options.body);posts.push(p);if(fail)return new Response(JSON.stringify({error:'Temporary failure'}),{status:503});
   if(p.op==='createNotification')notices.unshift({...p,id:p.requestId,createdAt:new Date().toISOString(),expiresAt:null,status:'active',readCount:0,recipientName:'Alice',recipientEmail:'alice@example.test'});
   if(p.op==='withdrawNotification')notices[0].status='withdrawn';
-  return new Response(JSON.stringify({notificationVersion:1,specialOfferVersion:1,id:'n1'}));
+  return new Response(JSON.stringify({notificationVersion:1,notificationPresentationVersion:1,specialOfferVersion:1,id:'n1'}));
  }
- return new Response(JSON.stringify(String(url).includes('manageNotifications')?{notificationVersion:1,specialOfferVersion:1,notifications:notices,users}:data));
+ return new Response(JSON.stringify(String(url).includes('manageNotifications')?{notificationVersion:1,notificationPresentationVersion:1,specialOfferVersion:1,notifications:notices,users}:data));
 };
 localStorage.setItem('ecco-desk-staff-session','fixture-only');
 const {mount}=await import('../desk/desk-app.mjs');

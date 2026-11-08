@@ -1,0 +1,104 @@
+name: Release checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verified-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install and build Desk
+        run: npm ci --prefix desk && npm run build --prefix desk
+      - name: Validate release permissions, provenance and deployment guards
+        run: |
+          python3 -m unittest discover -s backend -p 'test_ecco_releases.py'
+          python3 -m unittest discover -s scripts -p 'test_release_pipeline.py'
+          node tests/ecco-desk-releases.test.mjs
+          python3 scripts/ui_inventory.py --check
+      - name: Install browser checks
+        working-directory: qa
+        run: npm ci && npx playwright install --with-deps chrome
+      - name: Test the complete registered browser workflow suite
+        working-directory: qa
+        run: npm test
+      - name: Package public frontend assets
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          CHECK_RUN_ID: ${{ github.run_id }}
+        run: python3 scripts/build_release.py --output release-dist --sha "$SOURCE_SHA" --run-id "$CHECK_RUN_ID"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecco-release-${{ github.sha }}
+          path: release-dist/
+          include-hidden-files: true
+          retention-days: 90
+      - name: Save browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-browser-evidence-${{ github.run_id }}
+          path: |
+            qa/results/
+            qa/report/
+          retention-days: 14
+
+  dev-preview:
+    needs: verified-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ECCO_DEV_PAGES_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: github-pages-dev
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ecco-release-${{ github.sha }}
+          path: release-dist
+      - name: Restore previous GitHub previews
+        run: |
+          if git ls-remote --exit-code --heads origin dev-previews; then
+            git fetch origin dev-previews
+            git worktree add previous-previews FETCH_HEAD
+          else
+            mkdir previous-previews
+          fi
+      - name: Assemble current Dev and pinned previews
+        run: python3 scripts/dev_preview.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dev-dist
+      - name: Deploy Dev / Test to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Retain previews for the next development build
+        run: |
+          cd dev-dist
+          git init -b dev-previews
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add origin https://github.com/ecco-ai-labs/ecco-studio.git
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" fetch origin dev-previews || true
+          if git rev-parse --verify FETCH_HEAD; then git reset --soft FETCH_HEAD; fi
+          git add .
+          git commit -m 'Update GitHub Dev previews'
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin HEAD:dev-previews
+        env:
+          GH_TOKEN: ${{ github.token }}
