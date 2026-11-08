@@ -133,5 +133,10 @@
     "area": "Compact character tabs and AI story-to-screenplay review",
     "mode": "fixture",
     "scope": "STORY-05 checks removed count/library/create/source controls, trailing plus, last-tab selection, property persistence, keyboard tabs, 62px two-line prompt, compact action gap, error popup controls and mobile bounds. STORY-06 checks audio/video prompt and editable output in the same popup, close/reopen persistence, desktop/mobile footer visibility, Generate Script with four assigned turns, nested validation error dismissal, minimize/navigation/resume, Apply and correct generation studio. Live backend separately verified five speaking roles across 12,421 source characters and 576 ordered units; synthetic browser fixtures do not establish model quality."
+  },
+  {
+    "area": "Library and Tell Your Story landing pages",
+    "mode": "fixture",
+    "scope": "Only five library icons/names, no secondary heading, descriptions or chevrons. New Story and Go to Studio both open six story workflow options. Sidebar entry, all destinations, keyboard activation, Back, preserved drafts and matching mobile styles in all six themes. No live generation or service writes."
   }
 ]

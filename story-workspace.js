@@ -370,7 +370,7 @@
   };
  }
  function mountEntry(actions,{start,rows,open:openStory,studio}){
-  actions.replaceChildren();const create=button('New Story',()=>{document.body.classList.remove('story-choice-mode');start({id:'',format:''});},'intent-trigger');
+  actions.replaceChildren();const create=button('New Story',()=>{document.body.classList.remove('story-choice-mode');start(null,{landing:true});},'intent-trigger');
   const existing=button('Existing Story',()=>{let d=document.createElement('dialog');d.className='generation-dialog';d.setAttribute('aria-label','Existing Story');d.innerHTML='<div class="form"><div class="section-head"><h2>Existing Story</h2><button type="button" data-close>Close</button></div><label>Search stories<input type="search" data-search></label><div class="form" data-stories></div></div>';const list=rows();const draw=()=>{const box=q('[data-stories]',d);box.replaceChildren();const matching=list.filter(s=>(s.title||'Untitled story').toLowerCase().includes(q('[data-search]',d).value.toLowerCase()));for(const item of matching)box.append(button(item.title||'Untitled story',()=>{d.close();document.body.classList.remove('story-choice-mode');openStory(item);},'secondary'));if(!matching.length)box.textContent=state.storage_pending?'Connect Storage to load saved stories. Local drafts appear here when available.':'No stories match.';};q('[data-search]',d).oninput=draw;q('[data-close]',d).onclick=()=>d.close();d.onclose=()=>{d.remove();if(existing.isConnected)existing.focus();};document.body.append(d);draw();d.showModal();q('[data-search]',d).focus();},'intent-trigger');
   actions.append(create,existing,button('Go to Studio',()=>{leave();studio();},'intent-trigger'));
  }

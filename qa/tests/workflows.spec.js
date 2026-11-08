@@ -19,6 +19,7 @@ async function boot(page,options={}){
   if(options.enter!==false){
     await page.locator('#entry-tell-story').click();
     await page.getByRole('button',{name:'New Story',exact:true}).click();
+    if(!options.landing)await page.locator('[data-story-destination="story-setup"]').click();
   }
 }
 async function openLibrary(page,kind){
@@ -73,6 +74,35 @@ test('ENTRY-01 welcome has one enabled Tell Your Story action',async({page})=>{
   await expect(page.locator('#workspace-entry button:visible')).toHaveCount(1);
   await expect(page.locator('dialog[open]')).toHaveCount(0);
 });
+for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} opens the same six-option Tell Your Story page`,async({page})=>{
+  await boot(page,{enter:false});await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:action,exact:true}).click();
+  await expect(page.locator('#heading')).toHaveText('Tell Your Story');
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['Describe Your Story','StoryBoard Your Story','Create Audio for Your Story','Create Images for Your Story','Create Videos for Your Story','Publish']);
+  await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await choices.first().focus();await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
+  await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story Name',{exact:true})).toHaveValue('');
+  await page.locator('#workspace-back').click();await expect(page.locator('#story-home-list')).toBeVisible();
+});
+test('STORY-home sidebar and Back preserve edited drafts and open the existing tools',async({page})=>{
+  await boot(page);await page.getByLabel('Story Name',{exact:true}).fill('Keep this story');
+  await page.locator('#workspace-production-group > summary').click();await expect(page.locator('#story-home-list')).toBeVisible();
+  await expect(page.locator('#workspace-production-group > summary')).toHaveAttribute('aria-current','page');await expect(page.locator('#story-workspace-header')).toBeHidden();
+  await page.locator('#workspace-back').click();await expect(page.getByLabel('Story Name',{exact:true})).toHaveValue('Keep this story');
+  for(const [target,selector]of [['story-setup','#story-simple-details'],['board','#page form'],['audio','#audio-form'],['images','#image-form'],['render','#video-form'],['journey-preview','#page [data-platform]']]){
+    await page.locator('#workspace-production-group > summary').click();await page.locator('[data-story-destination="'+target+'"]').click();
+    await expect(page.locator('#story-home-list')).toHaveCount(0);
+    if(target==='journey-preview')await expect(page.locator('#heading')).toHaveText(/Publish/);else if(target==='board')await expect(page.locator('#heading')).toHaveText('Storyboard');else await expect(page.locator(selector).first()).toBeVisible();
+  }
+  expect((await page.evaluate(()=>window.__qaCalls||[])).some(call=>/^(images|videos|audio\/generate|publish)$/.test(call.path))).toBe(false);
+});
+for(const theme of ['default','dark','forest','desert','ocean','dark-sky'])test(`LAYOUT-story-home matches Library at mobile width in ${theme}`,async({page})=>{
+  await page.setViewportSize({width:390,height:900});await boot(page,{landing:true,theme});
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveCount(6);
+  for(const choice of await choices.all())expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
+  const storyStyle=await choices.first().evaluate(el=>{const s=getComputedStyle(el);return [s.minHeight,s.padding,s.color,s.backgroundColor,s.gridTemplateColumns];});
+  await page.locator('#workspace-library-group > summary').click();
+  expect(await page.locator('#library-home-list button').first().evaluate(el=>{const s=getComputedStyle(el);return [s.minHeight,s.padding,s.color,s.backgroundColor,s.gridTemplateColumns];})).toEqual(storyStyle);
+});
 test('STORY-01 three tabs and left navigation stay visible',async({page})=>{
   await boot(page);await expect(page.locator('#story-workspace-header [role=tab]')).toHaveCount(3);
   await expect(page.locator('body > aside')).toBeVisible();
@@ -118,7 +148,8 @@ test('LIB-home-01 chooser shows aligned icons and opens each matching sidebar de
   await boot(page);
   const kinds=['story','image','audio','video','workflow'];
   await page.locator('#workspace-library-group > summary').click();
-  await expect(page.getByRole('heading',{name:'Choose a library',exact:true})).toBeVisible();
+  await expect(page.locator('#heading')).toHaveText('Library');
+  await expect(page.locator('#page h2,#page .library-home-detail,#page .library-home-arrow')).toHaveCount(0);
   await expect(page.locator('body > aside')).toBeVisible();
   await expect(page.locator('#story-workspace-header')).toBeHidden();
   const choices=page.locator('#library-home-list button');
@@ -130,8 +161,8 @@ test('LIB-home-01 chooser shows aligned icons and opens each matching sidebar de
   expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
   for(const kind of kinds){
     const choice=page.locator('[data-library-destination="'+kind+'"]');
-    await expect(choice.locator('.library-home-icon')).toBeVisible();
-    await expect(choice.locator('.library-home-detail')).toBeVisible();
+    await expect(choice.locator('.workspace-home-icon')).toBeVisible();
+    await expect(choice).toHaveText(new RegExp(kind[0].toUpperCase()+kind.slice(1)+' Library'));
     if(kind==='story')await choice.click();else await choice.press('Enter');
     await expect(page.locator('#page .library-files')).toBeVisible();
     await expect(page.locator(librarySelectors[kind])).toHaveAttribute('aria-current','page');
@@ -139,12 +170,12 @@ test('LIB-home-01 chooser shows aligned icons and opens each matching sidebar de
     await page.locator('#workspace-library-group > summary').click();
   }
 });
-test('LAYOUT-library-home narrow light-theme chooser keeps all choices and descriptions visible',async({page})=>{
+test('LAYOUT-library-home narrow light-theme chooser shows only the five library names',async({page})=>{
   await page.setViewportSize({width:390,height:900});await boot(page,{theme:'desert'});
   await page.locator('#workspace-library-group > summary').click();
   const choices=page.locator('#library-home-list button');await expect(choices).toHaveCount(5);
   for(const choice of await choices.all()){
-    await expect(choice).toBeVisible();await expect(choice.locator('.library-home-detail')).toBeVisible();
+    await expect(choice).toBeVisible();await expect(choice.locator('span')).toHaveCount(1);
     expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
   }
 });
