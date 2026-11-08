@@ -22,7 +22,7 @@
   {
     "area": "Source upload",
     "mode": "fixture",
-    "scope": "Equal desktop panes at 1440px/1024px, always-visible AI prompt/output, bottom ribbon and saved drafts, mobile tool bounds and Escape, selected-only AI output review, fictional source versus Sports News warning with explicit override using synthetic assessments. Real PDF rendering checked manually; live AI assessment accuracy requires connected test services."
+    "scope": "Equal desktop panes at 1440px/1024px, compact AI icon and four-setting ribbon above the unlabeled prompt, immediate Story Details synchronization, current settings in selected-only AI requests, stale output invalidation, always-visible AI output, bottom ribbon and saved drafts, mobile tool bounds and Escape, selected-only AI output review, fictional source versus Sports News warning with explicit override using synthetic assessments. Real PDF rendering checked manually; live AI assessment accuracy requires connected test services. Prompt/output textareas have equal height; AI clarification/error popups preserve source and return focus; Clear Text is a button adjacent to Apply Text."
   },
   {
     "area": "Themes and layout",

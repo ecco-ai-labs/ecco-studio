@@ -13,12 +13,12 @@
   state={records,config:{models_ready:{},storage:{volume:'qa-fixture'}},storage_pending:false};
   for(const item of records.filter(r=>r.kind==='asset'))mediaCache.set(item.id,'/'+item.path);
   const sourceFit=new URLSearchParams(location.search).get('sourceFit');
-  if(sourceFit==='fiction')Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
+  if(['fiction','clarification'].includes(sourceFit))Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
   window.__qaCalls=[];
   api=async(path,body)=>{
     window.__qaCalls.push({path,body});
     if(path==='state')return state;
-    if(sourceFit==='fiction'&&path==='ai/enhance'){const id=body.fields?.[0]?.id;if(id==='source_excerpt')return {revisions:[{id,text:'Alibaba discovered a hidden cave.'}]};if(id==='source_compatibility')return {revisions:[{id,text:JSON.stringify({verdict:'mismatch',source_kind:'Fictional storybook',reason:'This is fiction about Alibaba, not a sports news report.'})}]};}
+    if(['fiction','clarification'].includes(sourceFit)&&path==='ai/enhance'){const id=body.fields?.[0]?.id;if(id==='source_excerpt'&&sourceFit==='clarification')return {questions:['Should there be forty jars in total?'],revisions:[]};if(id==='source_excerpt')return {revisions:[{id,text:'Alibaba discovered a hidden cave.'}]};if(id==='source_compatibility')return {revisions:[{id,text:JSON.stringify({verdict:'mismatch',source_kind:'Fictional storybook',reason:'This is fiction about Alibaba, not a sports news report.'})}]};}
     if(path==='stories'){
       const record={id:'qa-created-'+window.__qaCalls.length,kind:'story',created:1700000000,...body};
       state.records.push(record);return record;
