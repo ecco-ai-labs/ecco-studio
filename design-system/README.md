@@ -354,7 +354,7 @@ Frame review keeps its preview/group selectors compact and names the active loca
 
 ## Three-tab story workspace — 7 November 2026
 
-Tell Your Story → New Story now opens one workspace with three browser-style tabs:
+Tell Your Story → New Story → Describe Your Story opens one workspace with three browser-style tabs:
 Story Details, Story & Characters, and Generate & Publish. Details collects output,
 type, genre, age group, language, optional location and recurrence. The second tab
 uses the existing PDF selection experience or an editable script, with editable library characters. Apply Text automatically identifies characters and
@@ -580,3 +580,13 @@ popup. Generate Script opens the shared screenplay review, where every turn and
 speaker/property is editable. Apply Text returns the reviewed work to the main
 Story and Characters screen. Text edits survive closing and reopening; minimizing
 and navigating away preserves the screenplay. No media inference starts here.
+
+## Library and Tell Your Story landing pages — 8 November 2026
+
+Library shows only the five library entries, with icons and names. The secondary
+heading, descriptions and trailing chevrons are removed. Tell Your Story uses the
+same list for the six existing workflow options. New Story and Go to Studio on the
+main page both open it, as does the Tell Your Story sidebar heading. New Story
+prepares a fresh draft; other entry routes retain existing work. Describe Your Story
+opens the three-tab workspace. Theme colors, keyboard controls, Back and draft
+preservation remain; no generation starts from opening a landing page.
