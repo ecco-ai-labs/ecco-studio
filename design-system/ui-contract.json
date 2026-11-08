@@ -166,7 +166,9 @@
         "required",
         "helpText"
       ],
-      "variants": [],
+      "variants": [
+        "story-details-required-default"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -195,7 +197,8 @@
         "clip-frame-review",
         "three-tab-story-workspace",
         "credit-purchases",
-        "desk-account"
+        "desk-account",
+        "story-details-next"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -531,7 +534,8 @@
         "checked"
       ],
       "variants": [
-        "theme-preset"
+        "theme-preset",
+        "story-output-choice"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -886,7 +890,8 @@
         "clip-frame-review",
         "three-tab-story-workspace",
         "credit-purchases",
-        "desk-account"
+        "desk-account",
+        "story-details-card"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -1315,7 +1320,9 @@
         "dismiss",
         "announcement"
       ],
-      "variants": [],
+      "variants": [
+        "story-details-summary"
+      ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
     },
@@ -1427,7 +1434,8 @@
       ],
       "variants": [
         "ecco-desk",
-        "three-tab-story-workspace"
+        "three-tab-story-workspace",
+        "story-details-cards"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -1449,7 +1457,8 @@
         "fields"
       ],
       "variants": [
-        "three-tab-story-workspace"
+        "three-tab-story-workspace",
+        "story-output-choice"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -2573,10 +2582,10 @@
     "displayNames": "Remove recognized media file extensions and trailing generated frame edit/duration suffixes from displayed names only, repeatedly from the end. Preserve meaningful title text, original records, paths and download filenames. Sort by the short displayed name; search still matches both short and full original names. Full names remain available in tooltips and the preview path."
   },
   "storyWorkspace": {
-    "approval": "2026-11-07: User approved implementing one workspace with Story Details, Story & Characters, and Generate & Publish browser-style tabs. Follow-up: restore the left navigation, fully reset New Story, make Generate with AI respond visibly, and keep story tabs out of Library views. 2026-11-08: compact source control panels, two-line brief, character tabs with trailing plus, remove count/library/create/source caption, popup errors, and AI text review inside the prompt popup before screenplay review.",
+    "approval": "2026-11-07: User approved implementing one workspace with Story Details, Story & Characters, and Generate & Publish browser-style tabs. Follow-up: restore the left navigation, fully reset New Story, make Generate with AI respond visibly, and keep story tabs out of Library views. 2026-11-08: compact source control panels, two-line brief, character tabs with trailing plus, remove count/library/create/source caption, popup errors, and AI text review inside the prompt popup before screenplay review. 2026-11-08: owner supplied the two-card Story Details reference and explicitly approved complete inline linked field validation, empty story choices, audience defaults, output radio cards, sticky right-aligned Next, and recurrence in the last step.",
     "identity": "story-workspace.js and story-workspace-model.js; #story-workspace-header and the existing #page tabpanel. Replaces the new-story category flyouts and guided setup navigation; standalone studios remain available. The existing left navigation remains visible. Direct Library and other non-workflow views hide the workflow header and deactivate its routing; minimized workflow popup context restores it on resume.",
-    "appearance": "Existing theme colors and native controls. Three equal browser-style tabs with 8px upper corners, 1px borders, 13px/18px padding, active 3px inset top accent. Details use a two-column grid with 16px gap; character property grids 12px gap. Panels reuse existing styles. Below 700px fields stack and tab text uses 13px with 10px padding. Below 1200px the story header control groups wrap within the viewport, preserving their internal sizes. The Notifications popup remains anchored below its bell while clamping horizontal placement to 12px viewport margins on opening, feed render and resize.",
-    "content": "Story Name, Output, Story Type, Genre / Topic, Audience age group, Language, optional Location and recurrence. Upload PDF, Generate With AI and Write each occupy a 172px control panel containing an equal 160px by 32px button, right aligned and wrapping. A 62px two-line optional brief follows with a 12px gap; hidden/empty status and resume rows reserve no space. The source filename/character caption, Number of characters, Choose from Library and Create Character controls are removed.",
+    "appearance": "Story Details follows the approved two-card reference: Your story and Your audience, top aligned, 24px gap, maximum 640px per card, 24px card padding and 14px corners. Cards stack below 1050px. Fields use 14px text and 44px controls; the three native output radios use 56px selectable tiles. The story heading is 34px (28px on mobile). Three equal tabs are 44px high with a 3px active top accent. Next is 48px high, 14px text, right aligned in a sticky bottom footer; the publishing footnote is left aligned. Draft status is small at top right above the tabs and uses normal flow on mobile. Existing theme colors, global controls and character layouts remain.",
+    "content": "Your story: Story name, What are you making? (Audio, Image, Video), Story type, Genre / Topic. Your audience: Audience age group, Language, Audience location (optional). One-time or recurring appears only in Generate & Publish. Publishing schedule: set in the last step. Next: Story and characters. Draft saved in this browser. Upload PDF, Generate With AI and Write each occupy a 172px control panel containing an equal 160px by 32px button, right aligned and wrapping. A 62px two-line optional brief follows with a 12px gap; hidden/empty status and resume rows reserve no space. The source filename/character caption, Number of characters, Choose from Library and Create Character controls are removed.",
     "states": "Required details and script validation, autosaved local draft, storage/AI unavailable, AI pending/review/error, uncertain story save, current real job progress and story-scoped results. Never infer generation completion from navigation.",
     "interaction": "Generate Script in Select Story Text opens a separate Generated Script review for audio/video. It identifies the complete cast and assigns every source passage to a speaker. Review shows editable ordered turns on the left, a speaker dropdown on every turn, and a character dropdown/properties on the right. Apply Text explicitly commits the edited plan and properties to Story and Characters. Generate then opens the existing generation tab; neither preparation action starts media inference. Source fit checking, story-scoped stale reply rejection and local autosaving remain.",
     "accessibility": "Native labelled inputs and buttons; tablist with roving focus and aria-selected; #page linked to the active tab. Polite local-save status, alert errors, native dialogs with close and focus return. Retain nested PDF dismissal and existing progress/cancel controls.",
@@ -2586,7 +2595,7 @@
     "navigation": "Clicking the top-level Library heading opens a compact, unboxed right-hand list of Story, Image, Audio, Video and Workflow Libraries. No library is selected by default. Hide story tabs and the journey guide, leave the story workspace and preserve its draft. Each native button activates the existing matching left-nav summary, opens the parent and library disclosures, highlights the current library and moves keyboard focus to its summary. The selected library contents open on the right. Reopening a story restores its draft. Back and popup restoration refresh cached form values from the latest story draft, including changes made in the second tab; they do not roll Story Type back to an earlier snapshot.",
     "characters": "Generated Script derives the full cast from selected text. Editable properties preserve voices and delivery for audio and add appearance for video. Character renaming updates all speaker dropdown labels without changing their stable IDs. Apply retains all edits. Existing image source/cast behavior remains. Main Characters renders Character 1, Character 2, etc. as browser-style native tabs with stable IDs, roving keyboard focus, arrows/Home/End and Enter/Space activation. Only the selected character properties are shown. The trailing + adds and selects the last character, focusing Name; existing maximum 20 cast members remains. Edits and selected tab persist per story.",
     "sourceSelection": "Story workspace accepts complete selected text without a global character cap. Select Chapter lists PDF outline entries with physical page numbers. Native bookmark selection extracts exact local lines from the verified heading to the next same-level heading, including mid-page boundaries; final chapter ends at document end. No AI or storage connection is needed for listed chapters or PDF pages. Ambiguous headings preserve current text and show an error; optional Find chapter with AI retains the verified locator. Native chapter select receives focus on opening and survives Save Draft. All selection methods populate the editable middle pane with source text. Explicit translation and tone requests take precedence over carried defaults. Generate Script reads the edited middle pane; Apply Text commits the subsequent review. Complete applied scripts are preserved through the updated full-recording audio worker.",
-    "errors": "Story, PDF selection/preview/draft and screenplay errors open the shared EccoErrors modal, with Close/Minimize and nested parent preservation. Existing inline diagnostics may remain as secondary status; they are never the only error presentation.",
+    "errors": "Missing Story Details fields use one focusable inline summary listing every missing field as a link to its control, plus aria-invalid and a text error on each field; this explicitly approved validation presentation replaces native first-error validation. All operational story, PDF and screenplay errors retain the shared EccoErrors popup with Close/Minimize and nested parent preservation.",
     "landing": "2026-11-08: New Story and Go to Studio on the main story-choice page both open the Tell Your Story landing page. The Tell Your Story sidebar heading opens the same page. Match the Library list appearance with six existing workflow destinations: Describe Your Story, StoryBoard Your Story, Create Audio for Your Story, Create Images for Your Story, Create Videos for Your Story, Publish Your Story. No descriptions or trailing arrows. New Story prepares a fresh isolated local draft; Go to Studio and sidebar navigation preserve existing work. Describe opens the existing three-tab story workspace. Landing pages hide story tabs and journey guide, preserve Back, themes and keyboard focus, and perform no generation or service writes. 2026-11-08: User requested headings at least 3px larger. Library and Tell Your Story top-level sidebar summaries increase from 13px to 16px; their landing-page title increases from 18px to 21px. Retain existing font family, weight, colors, row text sizes, keyboard focus and responsive wrapping. 2026-11-08: User requested 14px subtitles in both landing lists and their matching sidebar entries. Landing lists have no outer border or row dividers, and start 24px lower through top padding. The shared compact button rule reads the scoped --workspace-button-font-size custom property, falling back to 12px elsewhere. Existing row dimensions, icons, themes and focus indicators remain. The final workflow entry is labeled Publish Your Story in the sidebar and the right-hand landing page.",
     "aiGeneration": "Generate With AI keeps prompt, story options and editable Generated story in the same modal. Generate refreshes that output, while Generate Script explicitly opens the shared turn-by-turn screenplay review for audio/video. Apply Text there alone commits to the main story. Image output retains Apply Text. Output edits survive close/reopen per story. Pending generation disables inputs, errors preserve previous text, stale replies cannot overwrite a changed story. Prompt/output occupy the left pane and story options the right; panes scroll internally and footer actions remain visible on mobile.",
     "taxonomy": {
@@ -2627,6 +2636,30 @@
       "semantics": "Animation remains a visual style. Book Adaptation, Localization / Dubbing and Repurpose Content remain creation workflows rather than new-story Type choices. Output and recurrence stay independent.",
       "compatibility": "Retain established type IDs and stored legacy/unknown type and genre values. Append only the current retired choice when reopening a saved story, with its original friendly type label. Never silently reclassify old stories. Shared choices and labels guide source review and AI generation; Interview starts with Host/Guest and uses Interview audio delivery.",
       "presentation": "Reuse labelled native dropdowns and existing layout, theme, focus, popup dismissal and autosave behavior. No additional fields."
+    },
+    "details": {
+      "defaults": {
+        "title": "",
+        "output": "",
+        "type": "",
+        "genre": "",
+        "audience": "All ages",
+        "language": "English",
+        "location": "",
+        "recurrence": ""
+      },
+      "required": [
+        "title",
+        "output",
+        "type",
+        "genre",
+        "audience",
+        "language"
+      ],
+      "defaultBadges": "Age and Language show Default while their value is All ages or English respectively. Existing saved choices remain intact.",
+      "independence": "Output is single choice. Story type and Genre / Topic never filter each other.",
+      "validation": "Next and forward tabs validate all six fields together. Whitespace-only names are missing. Focus the summary on submit; links focus fields. Reconcile errors as the user edits.",
+      "publishing": "One-time or recurring moves to a separate panel in Generate & Publish, persists across media/publish routes, and stays empty for new drafts. Choosing recurring exposes the existing next-episode action; it never schedules or generates automatically."
     }
   },
   "creditPurchases": {

@@ -616,3 +616,19 @@ remain creation workflows. Output and recurrence are independent. Existing saved
 values remain intact and are shown as additional options only for that draft;
 retired type IDs keep their friendly labels. No additional fields or layout changes.
 Interview starts with Host/Guest and retains Interview delivery in Audio Studio.
+
+## Story Details reference — 8 November 2026
+
+The owner-approved reference replaces the flat Details grid with two top-aligned
+cards, each at most 640px wide: Your story (name, three single-choice output tiles,
+type, genre/topic) and Your audience (age, language, optional location). Story choices
+start empty; only All ages and English are preselected, with Default badges.
+Type and genre/topic remain independent. Cards stack on smaller screens.
+
+Every required field is labelled. Submit and forward tabs show one linked summary
+of all missing fields plus individual text errors and aria-invalid; focus moves to
+the summary, and each link focuses its control. This is the approved exception to
+popup errors for operational failures. Draft saved in this browser sits at top
+right. The sticky footer pairs Publishing schedule: set in the last step. with a
+right-aligned, 48px Next: Story and characters button. One-time or recurring moves
+to Generate & Publish and retains saved preferences without scheduling anything.

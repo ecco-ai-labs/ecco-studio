@@ -143,5 +143,10 @@
     "area": "Story Type and Genre / Topic",
     "mode": "fixture",
     "scope": "STORY-07 checks all 12 types and 17 genres/topics on Story Details, Generate With AI and Select Story Text, keyboard focus, current-value synchronization, no implicit service calls and 390px bounds. STORY-08 reopens retired/unknown choices without changing their stored values. Unit checks cover Interview Host/Guest and audio handoff. Real AI quality and media inference remain separate."
+  },
+  {
+    "area": "Story Details approved two-card layout",
+    "mode": "fixture",
+    "scope": "STORY-09\u201311 cover desktop and 390px layouts in default/light themes, 640px card bounds, empty single-choice output, audience defaults, visible right-aligned 48px Next, one complete linked error summary and field errors, keyboard selection/focus, independent type/topic lists, Back radio restoration, and recurrence saved in Generate & Publish. Unit tests additionally cover whitespace, all six missing fields, and draft reload. No live media inference or publishing."
   }
 ]

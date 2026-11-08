@@ -20,13 +20,13 @@
   try{
    localStorage.setItem(workspaceStory?'ecco-story-description:'+workspaceStory:'ecco-new-story-draft',JSON.stringify(saved));
    if(legacy.localDraftId)localStorage.setItem('ecco-story-setup:'+legacy.localDraftId,JSON.stringify(saved));
-   legacy=saved;message('Saved in this browser');return true;
+   legacy=saved;message('Draft saved in this browser');return true;
   }catch(error){message('Could not save this draft: '+error.message,true);return false;}
  }
  function header(){
   let root=q('#story-workspace-header');if(!root){root=document.createElement('section');root.id='story-workspace-header';q('#page').before(root);
    root.innerHTML='<div role="tablist" aria-label="Create your story"></div><p id="story-simple-save" role="status" aria-live="polite"></p><p id="story-simple-error" role="alert"></p><div id="story-simple-media" class="story-simple-actions" hidden></div>';
-   tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%3:e.key==='ArrowLeft'?(i+2)%3:e.key==='Home'?0:e.key==='End'?2:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
+   tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.className='story-workspace-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%3:e.key==='ArrowLeft'?(i+2)%3:e.key==='Home'?0:e.key==='End'?2:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
   }
   root.hidden=false;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const selected=i===data.tab;b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
   const pageRoot=q('#page');pageRoot.setAttribute('role','tabpanel');pageRoot.setAttribute('aria-labelledby','story-simple-tab-'+data.tab);
@@ -39,31 +39,53 @@
   }
  }
  function button(text,run,cls=''){const b=document.createElement('button');b.type='button';b.textContent=text;b.className=cls;b.onclick=run;return b;}
- function field(form,label,name,options){
-  const wrap=document.createElement('label');wrap.textContent=label;
-  const input=document.createElement(options?'select':'input');input.name=name;
-  if(options){input.append(new Option('Choose '+label.toLowerCase(),''));for(const entry of options){const [value,text]=Array.isArray(entry)?entry:[entry,entry];input.append(new Option(text,value));}if(data[name]&&![...input.options].some(o=>o.value===data[name]))input.append(new Option(data[name],data[name]));}
-  else input.maxLength=name==='title'?160:200;
-  input.value=data[name]||'';wrap.append(input);form.append(wrap);input.oninput=()=>{if(name==='output'&&data.output!==input.value)data.view='';data[name]=input.value;epoch++;persist();};return input;
+ const detailFields=[['title','Story name','Enter a story name.'],['output','What are you making?','Choose Audio, Image or Video.'],['type','Story type','Choose a story type.'],['genre','Genre / Topic','Choose a genre or topic.'],['audience','Audience age group','Choose an audience age group.'],['language','Language','Choose a language.']];
+ const detailDefaults={audience:'All ages',language:'English'};
+ function updateDetailDefaults(){for(const [name,value]of Object.entries(detailDefaults)){const badge=inPage('[data-default="'+name+'"]');if(badge)badge.hidden=data[name]!==value;}}
+ function detailChanged(name,value){if(name==='output'&&data.output!==value)data.view='';data[name]=value;epoch++;persist();updateDetailDefaults();if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();}
+ function field(form,label,name,options,{required=false,placeholder=''}={}){
+  const wrap=document.createElement('div');wrap.className='story-detail-field';
+  const caption=document.createElement('label');caption.htmlFor='story-detail-'+name;caption.append(document.createTextNode(label+' '));
+  const qualifier=document.createElement('span');qualifier.className='story-detail-qualifier';qualifier.textContent=required?'(required)':'(optional)';caption.append(qualifier);
+  const input=document.createElement(options?'select':'input');input.name=name;input.id='story-detail-'+name;input.required=required;
+  if(options){input.append(new Option(placeholder||'Choose '+label.toLowerCase(),''));for(const entry of options){const [value,text]=Array.isArray(entry)?entry:[entry,entry];input.append(new Option(text,value));}if(data[name]&&![...input.options].some(o=>o.value===data[name]))input.append(new Option(data[name],data[name]));}
+  else {input.maxLength=name==='title'?160:200;input.placeholder=placeholder;}
+  if(detailDefaults[name]){const badge=document.createElement('span');badge.className='story-detail-default';badge.dataset.default=name;badge.id=input.id+'-default';badge.textContent='Default';caption.append(badge);}
+  input.value=data[name]||'';wrap.append(caption,input);form.append(wrap);
+  if(required){const error=document.createElement('p');error.className='story-detail-error';error.id=input.id+'-error';error.hidden=true;wrap.append(error);}
+  input.oninput=()=>detailChanged(name,input.value);return input;
  }
  function details(){
-  page='story-details';q('#page').innerHTML='<form id="story-simple-details" class="panel form"><div class="story-simple-fields"></div><div class="story-simple-actions"><button type="submit">Continue to Story</button></div></form>';
-  const form=q('#story-simple-details'),grid=q('.story-simple-fields',form);
-  const title=field(grid,'Story Name','title');title.required=true;
-  const output=field(grid,'Output','output',[['audio','Audio'],['image','Image'],['video','Video']]);output.required=true;
-  const type=field(grid,'Story Type','type',M.typeOptions(data.type));type.required=true;
-  field(grid,'Genre / Topic','genre',genres).required=true;
-  field(grid,'Audience age group','audience',audiences).required=true;
-  field(grid,'Language','language',languages).required=true;
-  field(grid,'Audience location (optional)','location').placeholder='For example, India or worldwide';
-  field(grid,'One-time or recurring','recurrence',[['once','One-time'],['recurring','Recurring — episodes or chapters']]).required=true;
+  page='story-details';q('#page').innerHTML='<form id="story-simple-details" novalidate><section id="story-details-errors" class="story-details-errors" aria-labelledby="story-details-errors-title" tabindex="-1" hidden></section><div class="story-details-cards"><section class="panel story-details-card" aria-labelledby="story-details-story-title"><h2 id="story-details-story-title">Your story</h2><div data-story-fields></div></section><section class="panel story-details-card" aria-labelledby="story-details-audience-title"><h2 id="story-details-audience-title">Your audience</h2><div data-audience-fields></div></section></div><div class="story-details-footer"><p class="help">Publishing schedule: set in the last step.</p><button type="submit" class="story-details-next">Next: Story and characters <span aria-hidden="true">→</span></button></div></form>';
+  const form=q('#story-simple-details'),storyFields=q('[data-story-fields]',form),audienceFields=q('[data-audience-fields]',form);
+  field(storyFields,'Story name','title',null,{required:true});
+  const output=document.createElement('fieldset');output.id='story-detail-output';output.className='story-detail-field story-output-field';output.innerHTML='<legend>What are you making? <span class="story-detail-qualifier">(required)</span></legend><div class="story-output-options"></div><p id="story-detail-output-error" class="story-detail-error" hidden></p>';
+  for(const [value,label]of [['audio','Audio'],['image','Image'],['video','Video']]){const choice=document.createElement('label'),radio=document.createElement('input'),text=document.createElement('span');radio.type='radio';radio.name='output';radio.id='story-detail-output-'+value;radio.value=value;radio.required=true;radio.checked=data.output===value;text.textContent=label;choice.append(radio,text);q('.story-output-options',output).append(choice);radio.onchange=()=>{if(radio.checked)detailChanged('output',value);};}storyFields.append(output);
+  const type=field(storyFields,'Story type','type',M.typeOptions(data.type),{required:true});
+  field(storyFields,'Genre / Topic','genre',genres,{required:true,placeholder:'Choose genre or topic'});
+  field(audienceFields,'Audience age group','audience',audiences,{required:true});
+  field(audienceFields,'Language','language',languages,{required:true});
+  field(audienceFields,'Audience location','location',null,{placeholder:'For example, India or worldwide'});
   type.addEventListener('change',()=>{if(!data.castCustomized&&!data.script.trim()){data.cast=defaultCast();persist();}});
-  const help=document.createElement('p');help.className='help';help.textContent='For recurring stories, publishing dates are chosen after you review the result.';form.append(help);
-  form.onsubmit=e=>{e.preventDefault();select(1);};
+  updateDetailDefaults();form.onsubmit=e=>{e.preventDefault();select(1);};
+ }
+ function missingDetails(){return detailFields.filter(([name])=>name==='output'?!routes[data.output]:!String(data[name]||'').trim());}
+ function showDetailErrors(focus=false){
+  const form=inPage('#story-simple-details');if(!form)return;
+  const missing=missingDetails(),summary=q('#story-details-errors',form);
+  for(const [name,,text]of detailFields){const invalid=missing.some(([key])=>key===name),error=q('#story-detail-'+name+'-error',form),controls=[...form.querySelectorAll('[name="'+name+'"]')];if(name==='output')controls.push(q('#story-detail-output',form));
+   error.textContent=invalid?text:'';error.hidden=!invalid;
+   for(const control of controls){if(invalid){control.setAttribute('aria-invalid','true');control.setAttribute('aria-describedby',error.id);}else{control.removeAttribute('aria-invalid');control.removeAttribute('aria-describedby');}}
+  }
+  summary.replaceChildren();summary.hidden=!missing.length;
+  if(missing.length){const heading=document.createElement('h2'),list=document.createElement('ul');heading.id='story-details-errors-title';heading.textContent='Complete '+missing.length+' required '+(missing.length===1?'field':'fields')+' to continue';summary.append(heading,list);
+   for(const [name,label,text]of missing){const item=document.createElement('li'),link=document.createElement('a');const id='story-detail-'+name+(name==='output'?'-audio':'');link.href='#'+id;link.textContent=label+': '+text;link.onclick=e=>{e.preventDefault();const control=q('#'+id,form);control.focus();control.scrollIntoView({block:'center'});};item.append(link);list.append(item);}if(focus)summary.focus();
+  }
  }
  function validDetails(){
-  if(data.tab===0)return q('#story-simple-details')?.reportValidity();
-  if(!data.title.trim()||!routes[data.output]||!data.type||!data.genre||!data.language||!data.audience||!data.recurrence){data.tab=0;render();q('#story-simple-details').reportValidity();return false;}return true;
+  if(!missingDetails().length)return true;
+  if(data.tab!==0){data.tab=0;render();}
+  inPage('#story-simple-details').dataset.validated='true';showDetailErrors(true);return false;
  }
  async function syncSourceResume(origin=owner()){
   const resume=inPage('[data-resume]');if(!resume||!window.EccoPopupDrafts)return;
@@ -293,6 +315,8 @@
   saving=(async()=>{try{const created=await api('stories',{title:current.title,summary:current.script.slice(0,4000)});if(!created?.id)throw Error('Storage did not confirm the story.');
    state.records=[...state.records.filter(r=>r.id!==created.id),{...created,kind:'story',title:current.title}];
    const saved={...saveLegacy,cloudId:created.id,saveUncertain:false,simple_workspace:clone(current)};localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(saved));localStorage.setItem('ecco-story-setup:'+localId,JSON.stringify(saved));
+   // Mark the pending draft as saved too, so reopening cannot archive stale pre-save fields over it.
+   if(read('ecco-new-story-draft').localDraftId===localId)localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));
    if(current!==data||legacy.localDraftId!==localId)throw Error('The story was saved. Reopen it from Existing Story.');
    activeStory=created.id;workspaceStory=activeStory;legacy=saved;localStorage.setItem('ecco-active-story',activeStory);draft={...defaultDraft,story_id:activeStory,title:data.title,story:data.script,scenes:clone(data.scenes)};persistDraft();persist();storyControls();
   }catch(error){if(error.status&&error.status<500&&current===data){legacy.saveUncertain=false;persist();}throw error;}finally{saving=null;}})();return saving;
@@ -325,6 +349,7 @@
  }
  function adaptStudio(){
   if(!enabled||data?.tab!==2||!q('#page'))return;
+  let publishing=inPage('#story-simple-publishing');if(!publishing){publishing=document.createElement('section');publishing.id='story-simple-publishing';publishing.className='panel story-publishing-settings';publishing.innerHTML='<h2>Publishing schedule</h2>';const recurrence=field(publishing,'One-time or recurring','recurrence',[['once','One-time'],['recurring','Recurring — episodes or chapters']]);recurrence.addEventListener('change',()=>{const next=inPage('[data-next-episode]');if(next)next.hidden=data.recurrence!=='recurring';});q('#page').prepend(publishing);}
   for(const kind of ['audio','image','video']){
    const form=q('#'+kind+'-form');if(!form)continue;
    const model=q('[data-section=model]',form);if(model&&!model.closest('.story-simple-advanced')){const advanced=document.createElement('details');advanced.className='story-simple-advanced';const summary=document.createElement('summary');summary.textContent='Advanced · Model and Settings';advanced.append(summary);model.before(advanced);advanced.append(model);const compute=q('[data-section=compute]',form);if(compute)advanced.append(compute);const controls=q('[data-section=controls]',form);if(controls)advanced.append(controls);const prompt=q('[data-section=prompt]',form);if(prompt)advanced.append(prompt);}
@@ -362,7 +387,8 @@
    const saved=read(snapshot.workspaceStory?'ecco-story-description:'+snapshot.workspaceStory:'ecco-story-setup:'+snapshot.legacy.localDraftId);
    data=snapshot.data;if(saved.simple_workspace)Object.assign(data,clone(saved.simple_workspace));data.tab=snapshot.tab;data.view=snapshot.view;data.castPending=!!(aiRequest?.current===data);legacy=saved.simple_workspace?saved:snapshot.legacy;workspaceStory=snapshot.workspaceStory;enabled=true;epoch++;document.body.classList.add('story-simple-mode');header();
    // Navigation restores DOM nodes; refresh their values from the latest story.
-   for(const input of q('#story-simple-details',q('#page'))?.querySelectorAll('[name]')||[])if(input.name in data)input.value=data[input.name]||'';
+   for(const input of q('#story-simple-details',q('#page'))?.querySelectorAll('[name]')||[])if(input.name in data){if(input.type==='radio')input.checked=input.value===data[input.name];else input.value=data[input.name]||'';}
+   updateDetailDefaults();if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();
    const script=inPage('#story-simple-script');if(script)script.value=data.script;
    const brief=inPage('[data-brief]');if(brief)brief.value=data.brief||'';
    const cast=inPage('[data-characters]');if(cast)characterTabs();
