@@ -590,3 +590,7 @@ main page both open it, as does the Tell Your Story sidebar heading. New Story
 prepares a fresh draft; other entry routes retain existing work. Describe Your Story
 opens the three-tab workspace. Theme colors, keyboard controls, Back and draft
 preservation remain; no generation starts from opening a landing page.
+
+Library and Tell Your Story headings are 3px larger: the top-level sidebar
+labels are 16px (previously 13px), and both landing-page titles are 21px
+(previously 18px). Other text sizes and existing theme styles are retained.

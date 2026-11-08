@@ -45,3 +45,7 @@
 @media(max-width:1200px){main:has(#page>.workspace-home,#page>.library-files)>.workspace-ribbon{flex-wrap:wrap;gap:8px;align-items:flex-start}main:has(#page>.workspace-home,#page>.library-files)>.workspace-ribbon .header-right{flex:1 1 560px;min-width:0;max-width:100%;flex-wrap:wrap;gap:8px}main:has(#page>.workspace-home,#page>.library-files) #workspace-menus{min-width:0;max-width:100%;flex-wrap:wrap}}
 @media(pointer:coarse){#page .library-files .library-file-more{opacity:1}}
 @media(max-width:800px){.library-browser-tools{flex:1}.library-browser-tools input{flex:1;width:100px}#page .library-files{max-height:calc(100dvh - 260px)}}
+
+/* Larger Library and Tell Your Story headings, preserving other text sizes. */
+body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary{font-size:16px!important}
+main:has(#page>.workspace-home) #heading{font-size:21px}
