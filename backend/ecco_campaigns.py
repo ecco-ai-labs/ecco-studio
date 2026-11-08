@@ -98,6 +98,10 @@ def initialize(db):
       campaignId TEXT NOT NULL REFERENCES desk_campaigns(id), scheduledAt TEXT NOT NULL,
       status TEXT NOT NULL, notificationId TEXT, completedAt TEXT NOT NULL,
       PRIMARY KEY(campaignId,scheduledAt));
+    CREATE TABLE IF NOT EXISTS desk_campaign_reads (
+      campaignId TEXT NOT NULL REFERENCES desk_campaigns(id), scheduledAt TEXT NOT NULL,
+      userId TEXT NOT NULL REFERENCES desk_users(id), readAt TEXT NOT NULL,
+      PRIMARY KEY(campaignId,scheduledAt,userId));
     ''')
     if 'campaignId' not in {r['name'] for r in db.execute('PRAGMA table_info(desk_notifications)')}:
         db.execute('ALTER TABLE desk_notifications ADD COLUMN campaignId TEXT')
@@ -112,7 +116,7 @@ def listing(db,me):
     return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'upcomingCampaignVersion':1,'notificationPresentationVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
 
 def upcoming(db,me,current=None):
-    """Recipient-scoped Billing previews; never create unread notices or receipts."""
+    """Recipient-scoped Billing previews; reading never hides a campaign."""
     current=current or dt.datetime.now(UTC);items=[]
     for row in db.execute("SELECT * FROM desk_campaigns WHERE enabled=1 AND nextRunAt!='' ORDER BY nextRunAt,id"):
         config=json.loads(row['config']);lead=config.get('upcomingDays',7)
@@ -124,11 +128,28 @@ def upcoming(db,me,current=None):
         if db.execute('SELECT 1 FROM desk_campaign_runs WHERE campaignId=? AND scheduledAt=?',(row['id'],row['nextRunAt'])).fetchone():continue
         expires=starts+dt.timedelta(days=config['durationDays'])
         if expires<=current:continue
+        read=db.execute('SELECT readAt FROM desk_campaign_reads WHERE campaignId=? AND scheduledAt=? AND userId=?',
+                        (row['id'],row['nextRunAt'],me['userId'])).fetchone()
         items.append(dict(id='upcoming:'+row['id']+':'+row['nextRunAt'],campaignId=row['id'],kind='marketing_campaign',
             status='upcoming',title=config['title'],body=config['body'],severity='informational',badge=config.get('badge','NEW'),
-            startsAt=stamp(starts),expiresAt=stamp(expires),timezone=config['schedule']['timezone']))
-        if len(items)==5:break
+            startsAt=stamp(starts),expiresAt=stamp(expires),timezone=config['schedule']['timezone'],readAt=read['readAt'] if read else None))
     return items
+
+def mark_read(db,me,body):
+    from ecco_desk import text,DeskError,now,user_notifications,write_notification
+    cid=text(body,'campaignId',36);scheduled=text(body,'startsAt',64)
+    current=dt.datetime.fromisoformat(now())
+    preview=next((n for n in upcoming(db,me,current) if n['campaignId']==cid and n['startsAt']==scheduled),None)
+    if not preview:
+        # Dispatch may have completed between displaying and acknowledging a preview.
+        run=db.execute('''SELECT n.id FROM desk_campaign_runs r JOIN desk_notifications n ON n.id=r.notificationId
+            WHERE r.campaignId=? AND r.scheduledAt=? AND (n.audience='all' OR n.recipientId=?)
+            AND (COALESCE(n.placements,3) & 2)!=0 AND n.revokedAt IS NULL AND n.expiresAt>?''',
+            (cid,scheduled,me['userId'],now())).fetchone()
+        if not run:raise DeskError('Campaign not found.',404)
+        return write_notification(db,me,dict(op='readNotification',id=run['id']))
+    db.execute('INSERT OR IGNORE INTO desk_campaign_reads VALUES(?,?,?,?)',(cid,scheduled,me['userId'],now()))
+    return user_notifications(db,me)
 
 def validated(db,body):
     from ecco_desk import text,choice,DeskError,notification_presentation
@@ -206,6 +227,9 @@ def process_due(database,current=None):
                         recipientId=config['recipientId'],durationDays=config['durationDays'],placements=config.get('placements',['bell','billing']),badge=config.get('badge','NEW')))
                     notification_id=receipt['id']
                     db.execute('UPDATE desk_notifications SET campaignId=? WHERE id=?',(row['id'],notification_id))
+                    db.execute('''INSERT OR IGNORE INTO desk_notification_reads(notificationId,userId,readAt)
+                        SELECT ?,userId,readAt FROM desk_campaign_reads WHERE campaignId=? AND scheduledAt=?''',
+                        (notification_id,row['id'],row['nextRunAt']))
                 db.execute('INSERT INTO desk_campaign_runs VALUES(?,?,?,?,?)',(row['id'],row['nextRunAt'],'missed' if missed else 'sent',notification_id,instant))
             db.execute('UPDATE desk_campaigns SET nextRunAt=?,lastRunAt=?,lastStatus=?,lastError=NULL,runCount=runCount+? WHERE id=?',
                        (stamp(next_run(config['schedule'],current)),instant,'missed' if missed else 'sent',int(not missed and not existing),row['id']))

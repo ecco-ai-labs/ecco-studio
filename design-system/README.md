@@ -581,6 +581,14 @@ speaker/property is editable. Apply Text returns the reviewed work to the main
 Story and Characters screen. Text edits survive closing and reopening; minimizing
 and navigating away preserves the screenplay. No media inference starts here.
 
+## Campaign read visibility
+
+Upcoming and current campaigns remain in all Billing surfaces after acknowledgement.
+Unread titles and messages are bold; read titles, messages and badges use regular
+weight. Per-user occurrence receipts persist through reload and upcoming-to-active
+dispatch. Later recurrences begin unread. Campaigns are not displaced by newer
+notifications; expiry, withdrawal and recipient/schedule eligibility still apply.
+
 ## Library and Tell Your Story landing pages — 8 November 2026
 
 Library shows only the five library entries, with icons and names. The secondary

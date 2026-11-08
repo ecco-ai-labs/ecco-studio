@@ -45,7 +45,7 @@ test('notification close and minimize preserve unread state, resume once and cle
 });
 test('failed read stays unread and can be retried without claiming success',async()=>{
  const {w,q,fail}=setup();await tick();fail(true);q('.notification-item').click();await tick();
- assert.equal(q('.notification-count').textContent,'2');assert.match(q('[role="status"]').textContent,/Could not mark/);assert.equal(q('.notification-item').disabled,false);
+ assert.equal(q('.notification-count').textContent,'2');assert.match(q('[role="status"]').textContent,/Could not mark/);assert.equal(w.EccoNotifications.snapshot().notifications.length,2);assert.equal(q('.notification-item').disabled,false);
  fail(false);q('.notification-item').click();await tick();assert.equal(q('.notification-count').textContent,'1');w.close();
 });
 test('account switch clears immediately and rejects old in-flight feed',async()=>{
@@ -93,10 +93,25 @@ test('independent Billing feed, shared receipt and expiry preserve Bell counts a
  w.EccoAuth.user=null;w.document.dispatchEvent(new w.Event('ecco:auth-change'));assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,0);w.close();
 });
 
-test('upcoming is Billing-only, non-readable, refreshed at start and cleared across accounts',async()=>{
+test('older service upcoming preview stays Billing-only, refreshed at start and cleared across accounts',async()=>{
  const {w,q}=setup();await tick();let gets=0;const soon=notice('upcoming:test',{campaignId:'test',status:'upcoming',startsAt:new Date(Date.now()+100).toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString()});
  w.fetch=async(url,opts)=>{assert.equal(opts.method,'GET');gets++;return {ok:true,json:async()=>({notificationVersion:1,notificationPresentationVersion:1,upcomingCampaignVersion:1,notifications:[],billingNotifications:[],upcomingCampaigns:[soon]})}};
  await w.EccoNotifications.refresh();assert.equal(q('.notification-count').hidden,true);assert.equal(w.EccoNotifications.snapshot().upcomingCampaigns.length,0);assert.equal(w.EccoNotifications.snapshot('billing').upcomingCampaigns.length,1);assert.equal(await w.EccoNotifications.markRead(soon.id),false);
  const first=w.EccoNotifications.snapshot('billing');first.upcomingCampaigns[0].title='changed';assert.equal(w.EccoNotifications.snapshot('billing').upcomingCampaigns[0].title,soon.title);
  await new Promise(r=>setTimeout(r,120));assert(gets>=2);w.EccoAuth.user=null;w.document.dispatchEvent(new w.Event('ecco:auth-change'));assert.equal(w.EccoNotifications.snapshot('billing').upcomingCampaigns.length,0);w.close();
+});
+
+
+test('campaign read capability retains upcoming and current cards including more than five',async()=>{
+ const {w,q}=setup();await tick();
+ const upcoming=notice('upcoming:campaign',{kind:'marketing_campaign',campaignId:'campaign',status:'upcoming',startsAt:'2099-11-07T05:00:00Z',expiresAt:'2099-12-07T05:00:00Z'});
+ const current=Array.from({length:6},(_,i)=>notice('campaign-'+i,{kind:'marketing_campaign',expiresAt:'2099-12-07T05:00:00Z'}));let posts=0;
+ w.fetch=async(url,opts)=>{
+  if(opts.method==='POST'){posts++;const p=JSON.parse(opts.body);if(p.op==='readCampaign'){assert.equal(p.campaignId,'campaign');assert.equal(p.startsAt,upcoming.startsAt);upcoming.readAt=new Date().toISOString();}else{assert.equal(p.op,'readNotification');current.find(n=>n.id===p.id).readAt=new Date().toISOString();}}
+  return {ok:true,json:async()=>({notificationVersion:1,notificationPresentationVersion:1,campaignReadVersion:1,upcomingCampaignVersion:1,notifications:[],billingNotifications:current,upcomingCampaigns:[upcoming]})};
+ };
+ await w.EccoNotifications.refresh();assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,6);
+ assert.equal(await w.EccoNotifications.markRead(upcoming.id),true);let data=w.EccoNotifications.snapshot('billing');assert.equal(data.upcomingCampaigns.length,1);assert(data.upcomingCampaigns[0].readAt);
+ assert.equal(await w.EccoNotifications.markRead(current[0].id),true);data=w.EccoNotifications.snapshot('billing');assert.equal(data.notifications.length,6);assert(data.notifications[0].readAt);assert.equal(posts,2);assert.equal(q('.notification-count').hidden,true);
+ w.close();
 });
