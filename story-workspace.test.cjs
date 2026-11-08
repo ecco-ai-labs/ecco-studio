@@ -265,7 +265,7 @@ test('AI story review retains edited text on close, then opens the same screenpl
 test('main New Story and Go to Studio share the story landing while preserving draft isolation',async()=>{
  const x=await fixture();await x.start();x.script('Host: Keep this draft.\n\nGuest: Keep this too.');const prior=x.saved().localDraftId;
  const mount=()=>{const actions=x.w.document.createElement('div');x.q('#page').append(actions);x.w.EccoStoryWorkspace.mountEntry(actions,{start:x.w.EccoWorkspaceUI.startNewStory,studio:()=>x.w.testState.navigate('story-home'),rows:()=>[],open:()=>{}});return actions;};
- mount().lastElementChild.click();await tick();assert.equal(x.w.testState.page(),'story-home');assert.equal(x.q('#story-home-list').querySelectorAll('button').length,6);assert.equal(x.q('#story-workspace-header').hidden,true);assert.match(x.saved().simple_workspace.script,/Keep this draft/);
+ mount().lastElementChild.click();await tick();assert.equal(x.w.testState.page(),'story-home');assert.equal(x.q('#story-home-list').querySelectorAll('button').length,4);assert.equal(x.q('#story-workspace-header').hidden,true);assert.match(x.saved().simple_workspace.script,/Keep this draft/);
  mount().firstElementChild.click();await tick();assert.equal(x.w.testState.page(),'story-home');assert.notEqual(x.saved().localDraftId,prior);assert.equal(x.saved().simple_workspace.script,'');assert.match(JSON.parse(x.w.localStorage.getItem('ecco-story-setup:'+prior)).simple_workspace.script,/Keep this draft/);
  x.q('[data-story-destination="story-setup"]').click();await tick();assert.equal(x.q('[name=title]').value,'');assert.equal(x.q('#story-workspace-header').hidden,false);assert.deepEqual(x.errors,[]);
 });
@@ -286,7 +286,7 @@ test('retired and unknown saved categories survive details, AI options, source o
  for(const [type,label,genre] of [['audiobook','Audiobook','Educational'],['animation','Animation','Documentary'],['book-adaptation','Book Adaptation','News'],['dubbing','Localization / Dubbing','Science'],['repurpose','Repurpose Content','Custom topic'],['social','Social Story','Other'],['custom-old-type','custom-old-type','Custom topic']]){
   const value={...M.fresh({type,output:'audio'}),title:'Saved story',genre,audience:'All ages',language:'English',recurrence:'once',script:'Keep the original text.',cast:[{id:'n',name:'Narrator'}]};
   const x=await fixture({'ecco-story-setup:legacy':JSON.stringify({localDraftId:'legacy',simple_workspace:value})});x.w.EccoStoryWorkspace.openSetup('legacy');await tick();
-  assert.equal(x.q('[name=type]').value,type);assert.equal(x.q('[name=type]').selectedOptions[0].textContent,label);assert.equal(x.q('[name=genre]').value,genre);
+  assert.equal(x.q('[name=type]').value,type);assert.equal(x.q('[name=type]').selectedOptions[0].textContent,label);assert.equal(x.q('[name=genre]').value,genre);if(genre==='Other')x.fill('genreDescription','Existing custom topic');
   await x.w.EccoStoryWorkspace.select(1);x.q('[data-ai]').click();await tick();
   assert.equal(x.q('#ai-generation-dialog [name=story_type]').selectedOptions[0].textContent,label);assert.equal(x.q('#ai-generation-dialog [name=genre]').value,genre);x.q('#ai-generation-dialog').close();
   const source=await sourceHandle(x);assert.equal(source.aiSettings.getValues().story_type_label,label);assert.ok(source.aiSettings.fields[0].options.some(([id,text])=>id===type&&text===label));assert.equal(source.aiSettings.fields[1].label,'Genre / Topic');
@@ -297,7 +297,7 @@ test('retired and unknown saved categories survive details, AI options, source o
 test('Story Details starts with only audience defaults and reports every missing field with focus links',async()=>{
  const x=await fixture();x.w.EccoWorkspaceUI.startNewStory(null);await tick();const form=x.q('#story-simple-details');
  assert.deepEqual([...form.querySelectorAll('.story-details-card h2')].map(e=>e.textContent),['Your story','Your audience']);
- assert.deepEqual([...form.querySelector('[data-story-fields]').children].map(e=>e.querySelector('[name]')?.name),['title','output','type','genre']);
+ assert.deepEqual([...form.querySelector('[data-story-fields]').querySelectorAll(':scope > :not([hidden])')].map(e=>e.querySelector('[name]')?.name),['title','output','type','genre']);
  assert.equal(form.querySelectorAll('[name=output]').length,3);assert.equal(x.q('[name=output]:checked'),null);
  for(const name of ['title','type','genre','location'])assert.equal(x.q('[name='+name+']').value,'');
  assert.equal(x.q('[name=audience]').value,'All ages');assert.equal(x.q('[name=language]').value,'English');assert.equal(x.q('[name=recurrence]'),null);
@@ -309,7 +309,7 @@ test('Story Details starts with only audience defaults and reports every missing
  assert.equal(x.q('[data-default=audience]').hidden,true);assert.equal(x.q('[data-default=language]').hidden,true);
  x.fill('title','   ');assert.equal(x.q('[name=title]').getAttribute('aria-invalid'),'true');
  for(const [name,value]of Object.entries({title:'A forest',output:'image',type:'documentary',genre:'Nature',audience:'All ages',language:'English'}))x.fill(name,value);
- assert.equal(x.q('#story-details-errors').hidden,true);assert.equal(form.querySelectorAll('[aria-invalid=true]').length,0);assert.equal(x.q('[data-default=audience]').hidden,false);
+ assert.equal(x.q('#story-details-errors').hidden,true);assert.equal(form.querySelectorAll('[aria-invalid=true]').length,0);assert.equal(x.q('[data-default=audience]').hidden,true);
  form.requestSubmit();await tick();assert.ok(x.q('#story-simple-script'));assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);
 });
 test('output is single choice, type and topic stay independent, and restored controls keep their own values',async()=>{
@@ -328,4 +328,33 @@ test('recurrence belongs to Generate and Publish and survives navigation and dra
  await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=recurrence]'),null);await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(x.q('[name=recurrence]').value,'recurring');
  x.w.testState.navigate('publish');await tick();assert.equal(x.q('[name=recurrence]').value,'recurring');assert.equal(x.q('#story-simple-publishing').hidden,false);
  const storage=x.snapshot(),id=x.saved().localDraftId;x.close();const y=await fixture(storage);y.w.EccoStoryWorkspace.openSetup(id);await tick();assert.equal(y.saved().simple_workspace.recurrence,'recurring');assert.equal(y.w.testCalls.some(c=>/generate|publish/.test(c.path)),false);assert.deepEqual(y.errors,[]);
+});
+
+test('grouped menus retain canonical values, single selection and keyboard dismissal',async()=>{
+ const x=await fixture();x.w.EccoWorkspaceUI.startNewStory(null);await tick();
+ const open=name=>{x.q('#story-detail-'+name+'-button').click();return x.q('#story-detail-'+name+'-panel');};
+ const type=open('type');assert.equal(type.hidden,false);assert.deepEqual([...type.querySelectorAll('h3')].map(e=>e.textContent),['Stories','Talk and news','Teaching and business','Other']);assert.equal(type.querySelectorAll('button').length,12);assert.equal(type.querySelectorAll('.story-choice-description').length,12);
+ const first=type.querySelector('button');assert.equal(x.w.document.activeElement,first);first.dispatchEvent(new x.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));assert.equal(x.w.document.activeElement.dataset.choiceValue,'audio-drama');
+ x.w.document.activeElement.click();assert.equal(type.hidden,true);assert.equal(x.saved().simple_workspace.type,'audio-drama');assert.equal(x.q('[name=type]').value,'audio-drama');assert.equal(x.w.document.activeElement.id,'story-detail-type-button');
+ open('type');assert.equal(type.querySelectorAll('[aria-pressed=true]').length,1);assert.equal(type.querySelector('[aria-pressed=true]').dataset.choiceValue,'audio-drama');x.w.document.activeElement.dispatchEvent(new x.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(type.hidden,true);assert.equal(x.w.document.activeElement.id,'story-detail-type-button');
+ const genre=open('genre');assert.deepEqual([...genre.querySelectorAll('h3')].map(e=>e.textContent),['Story genres','Real-world topics']);assert.equal(genre.querySelectorAll('button').length,17);assert.equal(genre.querySelectorAll('.story-choice-description').length,0);
+ genre.querySelector('[data-choice-value="Science & Technology"]').click();assert.equal(x.saved().simple_workspace.genre,'Science & Technology');assert.equal(x.saved().simple_workspace.type,'audio-drama');
+ open('genre');x.q('[name=title]').dispatchEvent(new x.w.MouseEvent('pointerdown',{bubbles:true}));assert.equal(genre.hidden,true);assert.deepEqual(x.errors,[]);
+});
+test('Other descriptions participate in linked validation and survive reload without changing stored categories',async()=>{
+ const x=await fixture();await x.start('audio','storybook');await x.w.EccoStoryWorkspace.select(0);x.fill('type','custom');x.fill('genre','Other');const form=x.q('#story-simple-details');
+ for(const name of ['typeDescription','genreDescription']){assert.equal(x.q('[name='+name+']').required,true);assert.equal(x.q('[name='+name+']').closest('.story-detail-field').hidden,false);}
+ form.requestSubmit();await tick();assert.equal(x.q('#story-details-errors').querySelectorAll('a').length,2);assert.equal(x.q('#story-details-errors a').hash,'#story-detail-typeDescription');x.q('#story-details-errors a').click();assert.equal(x.w.document.activeElement.name,'typeDescription');
+ x.fill('typeDescription','A guided tour');x.fill('genreDescription','Architecture');assert.equal(x.q('#story-details-errors').hidden,true);x.fill('type','podcast');assert.equal(x.q('[name=typeDescription]').required,false);assert.equal(x.q('[name=typeDescription]').closest('.story-detail-field').hidden,true);x.fill('type','custom');assert.equal(x.q('[name=typeDescription]').value,'A guided tour');
+ const id=x.saved().localDraftId,storage=x.snapshot();x.close();const y=await fixture(storage);y.w.EccoStoryWorkspace.openSetup(id);await tick();assert.equal(y.saved().simple_workspace.type,'custom');assert.equal(y.saved().simple_workspace.genre,'Other');assert.equal(y.q('[name=typeDescription]').value,'A guided tour');assert.equal(y.q('[name=genreDescription]').value,'Architecture');assert.deepEqual(y.errors,[]);
+});
+test('output filters and renumbers both journey surfaces while preserving Publish',async()=>{
+ const x=await fixture();x.w.EccoWorkspaceUI.startNewStory(null);await tick();const all=['story-setup','board','audio','images','render','journey-preview'];
+ const visible=()=>[...x.q('#workspace-production-group').querySelectorAll('.journey-step')].filter(b=>!b.hidden);
+ assert.deepEqual(visible().map(b=>b.dataset.page),all);
+ for(const [output,expected]of [['audio',['story-setup','board','audio','journey-preview']],['image',['story-setup','board','images','journey-preview']],['video',all]]){
+  x.fill('output',output);await tick();assert.deepEqual(visible().map(b=>b.dataset.page),expected);assert.deepEqual(visible().map(b=>Number(b.textContent.split('.')[0])),expected.map((_,i)=>i+1));
+  x.q('#workspace-production-group > summary').click();await tick();const rows=[...x.q('#story-home-list').querySelectorAll('button')];assert.deepEqual(rows.map(b=>b.dataset.storyDestination),expected);assert.deepEqual(rows.map(b=>Number(b.textContent.split('.')[0])),expected.map((_,i)=>i+1));x.q('[data-story-destination="story-setup"]').click();await tick();assert.equal(x.q('[name=output]:checked').value,output);
+ }
+ assert.equal(x.w.testCalls.some(c=>/generate|publish|^stories$/.test(c.path)),false);assert.deepEqual(x.errors,[]);
 });

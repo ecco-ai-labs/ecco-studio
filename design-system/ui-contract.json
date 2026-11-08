@@ -198,7 +198,8 @@
         "three-tab-story-workspace",
         "credit-purchases",
         "desk-account",
-        "story-details-next"
+        "story-details-next",
+        "story-grouped-choice"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -653,7 +654,8 @@
         "audio-character-model",
         "clip-frame-review",
         "three-tab-story-workspace",
-        "credit-purchases"
+        "credit-purchases",
+        "story-grouped-choice"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -891,7 +893,8 @@
         "three-tab-story-workspace",
         "credit-purchases",
         "desk-account",
-        "story-details-card"
+        "story-details-card",
+        "story-grouped-choice"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -1458,7 +1461,8 @@
       ],
       "variants": [
         "three-tab-story-workspace",
-        "story-output-choice"
+        "story-output-choice",
+        "story-grouped-choice"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -2582,7 +2586,7 @@
     "displayNames": "Remove recognized media file extensions and trailing generated frame edit/duration suffixes from displayed names only, repeatedly from the end. Preserve meaningful title text, original records, paths and download filenames. Sort by the short displayed name; search still matches both short and full original names. Full names remain available in tooltips and the preview path."
   },
   "storyWorkspace": {
-    "approval": "2026-11-07: User approved implementing one workspace with Story Details, Story & Characters, and Generate & Publish browser-style tabs. Follow-up: restore the left navigation, fully reset New Story, make Generate with AI respond visibly, and keep story tabs out of Library views. 2026-11-08: compact source control panels, two-line brief, character tabs with trailing plus, remove count/library/create/source caption, popup errors, and AI text review inside the prompt popup before screenplay review. 2026-11-08: owner supplied the two-card Story Details reference and explicitly approved complete inline linked field validation, empty story choices, audience defaults, output radio cards, sticky right-aligned Next, and recurrence in the last step.",
+    "approval": "2026-11-07: User approved implementing one workspace with Story Details, Story & Characters, and Generate & Publish browser-style tabs. Follow-up: restore the left navigation, fully reset New Story, make Generate with AI respond visibly, and keep story tabs out of Library views. 2026-11-08: compact source control panels, two-line brief, character tabs with trailing plus, remove count/library/create/source caption, popup errors, and AI text review inside the prompt popup before screenplay review. 2026-11-08: owner supplied the two-card Story Details reference and explicitly approved complete inline linked field validation, empty story choices, audience defaults, output radio cards, sticky right-aligned Next, and recurrence in the last step. Follow-up: owner approved custom grouped dropdown panels with two-column options, required Other descriptions, persistent removal of edited Default tags, and output-dependent journey filtering/renumbering.",
     "identity": "story-workspace.js and story-workspace-model.js; #story-workspace-header and the existing #page tabpanel. Replaces the new-story category flyouts and guided setup navigation; standalone studios remain available. The existing left navigation remains visible. Direct Library and other non-workflow views hide the workflow header and deactivate its routing; minimized workflow popup context restores it on resume.",
     "appearance": "Story Details follows the approved two-card reference: Your story and Your audience, top aligned, 24px gap, maximum 640px per card, 24px card padding and 14px corners. Cards stack below 1050px. Fields use 14px text and 44px controls; the three native output radios use 56px selectable tiles. The story heading is 34px (28px on mobile). Three equal tabs are 44px high with a 3px active top accent. Next is 48px high, 14px text, right aligned in a sticky bottom footer; the publishing footnote is left aligned. Draft status is small at top right above the tabs and uses normal flow on mobile. Existing theme colors, global controls and character layouts remain.",
     "content": "Your story: Story name, What are you making? (Audio, Image, Video), Story type, Genre / Topic. Your audience: Audience age group, Language, Audience location (optional). One-time or recurring appears only in Generate & Publish. Publishing schedule: set in the last step. Next: Story and characters. Draft saved in this browser. Upload PDF, Generate With AI and Write each occupy a 172px control panel containing an equal 160px by 32px button, right aligned and wrapping. A 62px two-line optional brief follows with a 12px gap; hidden/empty status and resume rows reserve no space. The source filename/character caption, Number of characters, Choose from Library and Create Character controls are removed.",
@@ -2656,10 +2660,17 @@
         "audience",
         "language"
       ],
-      "defaultBadges": "Age and Language show Default while their value is All ages or English respectively. Existing saved choices remain intact.",
+      "defaultBadges": "All ages and English show Default until the user changes that field. The edited flag persists, so returning to a default value does not restore the tag.",
       "independence": "Output is single choice. Story type and Genre / Topic never filter each other.",
       "validation": "Next and forward tabs validate all six fields together. Whitespace-only names are missing. Focus the summary on submit; links focus fields. Reconcile errors as the user edits.",
-      "publishing": "One-time or recurring moves to a separate panel in Generate & Publish, persists across media/publish routes, and stays empty for new drafts. Choosing recurring exposes the existing next-episode action; it never schedules or generates automatically."
+      "publishing": "One-time or recurring moves to a separate panel in Generate & Publish, persists across media/publish routes, and stays empty for new drafts. Choosing recurring exposes the existing next-episode action; it never schedules or generates automatically.",
+      "menus": {
+        "scope": "Only Story Details. AI and source-selection dropdowns remain unchanged. Canonical type IDs and genre strings, legacy saved choices and existing AI prompt values are preserved.",
+        "presentation": "Compact 44px trigger opens beneath the button. Full-width group headings; two columns of options. Story type uses four groups and short descriptions; Genre / Topic uses two groups and names only. Panels scroll at 470px maximum, clamp to viewport width and available space below the button, and retain two columns at 390px.",
+        "interaction": "Single choice; independent fields. Options are native buttons with aria-pressed and selected check marks. Trigger has aria-haspopup=dialog, aria-expanded and aria-controls. Tab visits every option, arrows navigate, Escape closes and returns focus, outside pointer closes, selection closes and returns focus. Visible focus outlines use the theme accent.",
+        "other": "custom type and Other genre reveal required Describe your story type / Describe your genre or topic fields; values persist independently in typeDescription and genreDescription. Hidden descriptions cease being required. Missing descriptions join the same summary and inline validation."
+      },
+      "journey": "Story workspace output filters and renumbers both sidebar and journey list. Audio: Describe, Storyboard, Audio, Publish. Image: Describe, Storyboard, Images, Publish. Video or no output: all six. Publish is always retained; choosing a different output restores applicable steps without discarding story values."
     }
   },
   "creditPurchases": {

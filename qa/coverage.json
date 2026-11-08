@@ -148,5 +148,10 @@
     "area": "Story Details approved two-card layout",
     "mode": "fixture",
     "scope": "STORY-09\u201311 cover desktop and 390px layouts in default/light themes, 640px card bounds, empty single-choice output, audience defaults, visible right-aligned 48px Next, one complete linked error summary and field errors, keyboard selection/focus, independent type/topic lists, Back radio restoration, and recurrence saved in Generate & Publish. Unit tests additionally cover whitespace, all six missing fields, and draft reload. No live media inference or publishing."
+  },
+  {
+    "area": "Grouped Story Details choices and output journeys",
+    "mode": "fixture",
+    "scope": "STORY-12\u201314 verify both grouped menus at 1440x1000 and 390x844, two-column groups, descriptions, full Tab traversal, arrow selection, Escape focus return, outside dismissal, selected check marks, maximum 470px height and viewport bounds without horizontal overflow. Other descriptions join linked validation. Default tags remain removed after edits. Every output filters and renumbers sidebar and journey list with Publish retained. Earlier checks retain full empty-submit and step-3 recurrence coverage. Unit tests cover persisted descriptions, canonical values and reopening retired choices. AI/source dropdowns and prompt values are unchanged."
   }
 ]

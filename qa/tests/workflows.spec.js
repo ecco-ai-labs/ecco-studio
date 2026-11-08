@@ -24,6 +24,7 @@ async function boot(page,options={}){
 }
 async function fillStoryDetail(page,name,value){
  if(name==='output')await page.locator('#story-simple-details input[name=output][value="'+value+'"]').check();
+ else if(['type','genre'].includes(name)){await page.locator('#story-detail-'+name+'-button').click();await page.locator('#story-detail-'+name+'-panel [data-choice-value='+JSON.stringify(value)+']').click();}
  else await page.locator('#story-simple-details [name='+name+']').selectOption(value);
 }
 async function openLibrary(page,kind){
@@ -81,7 +82,7 @@ test('ENTRY-01 welcome has one enabled Tell Your Story action',async({page})=>{
 for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} opens the same six-option Tell Your Story page`,async({page})=>{
   await boot(page,{enter:false});await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:action,exact:true}).click();
   await expect(page.locator('#heading')).toHaveText('Tell Your Story');
-  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['Describe Your Story','StoryBoard Your Story','Create Audio for Your Story','Create Images for Your Story','Create Videos for Your Story','Publish Your Story']);
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. StoryBoard Your Story','3. Create Audio for Your Story','4. Create Images for Your Story','5. Create Videos for Your Story','6. Publish Your Story']);
   await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
   await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group [data-page=journey-preview]')).toHaveText('6. Publish Your Story');
   expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='14px'))).toBe(true);
@@ -479,7 +480,7 @@ test('UPLOAD-06 Apply Text selects the audio cast, fills voice properties and ke
   const character=page.locator('#story-character-properties .story-simple-character');await character.locator('summary').press('Enter');await expect(page.getByLabel('Character 2 Accent',{exact:true})).toHaveValue('Indian English');await expect(page.getByLabel('Character 2 Speaking style',{exact:true})).toHaveValue('Curious');await expect(page.getByLabel('Character 2 Emotion',{exact:true})).toHaveValue('surprise');await expect(page.getByLabel('Character 2 Voice',{exact:true})).not.toHaveValue('');await expect(page.locator('[data-property=appearance]')).toHaveCount(0);
   const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='story_workspace'));expect(calls).toHaveLength(1);expect(JSON.parse(calls[0].body.context.summary)).toMatchObject({output:'audio',story_type:'storybook'});expect(calls[0].body.context.genre).toBe('Adventure');expect(calls[0].body.context.lines).toHaveLength(0);expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED_REST');
   await page.locator('#workspace-back').click();await expect(page.locator('#story-simple-details [name=type]')).toHaveValue('storybook');await expect(page.locator('#story-simple-details [name=genre]')).toHaveValue('Adventure');await expect(page.locator('#story-simple-details [name=output][value=audio]')).toBeChecked();
-  await page.locator('#story-simple-details [name=type]').selectOption('audio-drama');await page.getByRole('tab',{name:'2. Story and Characters',exact:true}).click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
+  await fillStoryDetail(page,'type','audio-drama');await page.getByRole('tab',{name:'2. Story and Characters',exact:true}).click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
 });
 
 test('UPLOAD-07 real PDF pages and listed chapters populate original editable text before AI and final application',async({page})=>{
@@ -928,7 +929,7 @@ test('STORY-07 presentation types and genres/topics stay distinct across onboard
  const choices=async select=>select.locator('option').evaluateAll(options=>options.filter(o=>o.value).map(o=>o.textContent));
  await boot(page);const details=page.locator('#story-simple-details'),type=details.locator('[name=type]'),genre=details.locator('[name=genre]');
  expect(await choices(type)).toEqual(types);expect(await choices(genre)).toEqual(genres);
- await type.focus();await type.press('Tab');await expect(genre).toBeFocused();
+ await page.locator('#story-detail-type-button').focus();await page.locator('#story-detail-type-button').press('Tab');await expect(page.locator('#story-detail-genre-button')).toBeFocused();
  await page.getByLabel('Story name (required)',{exact:true}).fill('History interview');
  for(const [name,value] of Object.entries({output:'audio',type:'interview',genre:'History',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
  await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(2);
@@ -941,7 +942,7 @@ test('STORY-07 presentation types and genres/topics stay distinct across onboard
  await expect(source.getByLabel('Story Type',{exact:true})).toHaveValue('documentary');await expect(source.getByLabel('Genre / Topic',{exact:true})).toHaveValue('Nature');
  await source.getByLabel('Genre / Topic',{exact:true}).selectOption('Science & Technology');await source.getByRole('button',{name:'Close popup',exact:true}).press('Escape');await expect(source).toBeHidden();
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await expect(type).toHaveValue('documentary');await expect(genre).toHaveValue('Science & Technology');
- await page.setViewportSize({width:390,height:900});for(const field of [type,genre])expect(await field.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})).toBe(true);
+ await page.setViewportSize({width:390,height:900});for(const field of [page.locator('#story-detail-type-button'),page.locator('#story-detail-genre-button')])expect(await field.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})).toBe(true);
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance'||c.path==='ai/news/research'||c.path==='stories'||/generate/.test(c.path)))).toEqual([]);
 });
 for(const [type,label,genre] of [['book-adaptation','Book Adaptation','Documentary'],['retired-custom','retired-custom','Custom topic']])test(`STORY-08 saved ${type} selections remain intact`,async({page})=>{
@@ -957,7 +958,7 @@ for(const theme of ['default','ocean'])test(`STORY-09 approved cards, defaults a
  await page.setViewportSize({width:1280,height:940});await boot(page,{theme});
  const form=page.locator('#story-simple-details'),cards=form.locator('.story-details-card'),next=form.getByRole('button',{name:'Next: Story and characters',exact:true});
  await expect(cards).toHaveCount(2);await expect(cards.locator('h2')).toHaveText(['Your story','Your audience']);
- expect(await cards.first().locator('[data-story-fields] > *').evaluateAll(els=>els.map(e=>e.querySelector('[name]').name))).toEqual(['title','output','type','genre']);
+ expect(await cards.first().locator('[data-story-fields] > :not([hidden])').evaluateAll(els=>els.map(e=>e.querySelector('[name]').name))).toEqual(['title','output','type','genre']);
  for(const name of ['title','type','genre','location'])await expect(form.locator('[name='+name+']')).toHaveValue('');
  await expect(form.getByRole('radio')).toHaveCount(3);await expect(form.locator('[name=output]:checked')).toHaveCount(0);
  await expect(form.locator('[name=audience]')).toHaveValue('All ages');await expect(form.locator('[name=language]')).toHaveValue('English');await expect(form.locator('[data-default]:visible')).toHaveCount(2);
@@ -981,8 +982,8 @@ test('STORY-10 one linked summary identifies every missing detail and clears err
  await page.getByRole('tab',{name:'2. Story and Characters',exact:true}).click();await expect(summary).toBeFocused();await expect(page.getByRole('tab',{name:'1. Story Details',exact:true})).toHaveAttribute('aria-selected','true');
  await form.locator('[name=title]').fill('  ');await expect(form.locator('[name=title]')).toHaveAttribute('aria-invalid','true');await form.locator('[name=title]').fill('Forest documentary');
  for(const [name,value]of Object.entries({type:'documentary',genre:'Nature',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
- await expect(summary).toBeHidden();await expect(form.locator('[aria-invalid=true]')).toHaveCount(0);await expect(form.locator('[data-default]:visible')).toHaveCount(2);
- const genreOptions=await form.locator('[name=genre] option').allTextContents();await form.locator('[name=type]').selectOption('interview');await expect(form.locator('[name=genre]')).toHaveValue('Nature');expect(await form.locator('[name=genre] option').allTextContents()).toEqual(genreOptions);await form.locator('[name=genre]').selectOption('Comedy');await expect(form.locator('[name=type]')).toHaveValue('interview');
+ await expect(summary).toBeHidden();await expect(form.locator('[aria-invalid=true]')).toHaveCount(0);await expect(form.locator('[data-default]:visible')).toHaveCount(0);
+ const genreOptions=await form.locator('[name=genre] option').allTextContents();await fillStoryDetail(page,'type','interview');await expect(form.locator('[name=genre]')).toHaveValue('Nature');expect(await form.locator('[name=genre] option').allTextContents()).toEqual(genreOptions);await fillStoryDetail(page,'genre','Comedy');await expect(form.locator('[name=type]')).toHaveValue('interview');
  await next.click();await expect(page.locator('#story-simple-script')).toBeVisible();await page.locator('#workspace-back').click();await expect(page.getByRole('radio',{name:'Image',exact:true})).toBeChecked();expect(await form.locator('[name=output]').evaluateAll(els=>els.map(e=>e.value))).toEqual(['audio','image','video']);
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='stories'||/generate/.test(c.path)))).toEqual([]);
 });
@@ -992,4 +993,34 @@ test('STORY-11 recurrence moves to Generate and Publish and remains saved after 
  const recurrence=page.locator('#story-simple-publishing [name=recurrence]');await expect(recurrence).toHaveValue('');await recurrence.selectOption('recurring');await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeVisible();
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await expect(page.locator('[name=recurrence]')).toHaveCount(0);await page.getByRole('tab',{name:'3. Generate & Publish',exact:true}).click();await expect(recurrence).toHaveValue('recurring');
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>/generate|publish/.test(c.path)))).toEqual([]);
+});
+
+for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`STORY-12 grouped menus stay on screen and support keyboard at ${viewport.width}px`,async({page},info)=>{
+ await page.setViewportSize(viewport);await boot(page);
+ for(const [name,groups,count,selected]of [['type',['Stories','Talk and news','Teaching and business','Other'],12,'audio-drama'],['genre',['Story genres','Real-world topics'],17,'Adventure']]){
+  const trigger=page.locator('#story-detail-'+name+'-button'),panel=page.locator('#story-detail-'+name+'-panel'),options=panel.locator('[data-choice-value]');
+  await expect(trigger).toHaveAttribute('aria-haspopup','dialog');await expect(trigger).toHaveAttribute('aria-expanded','false');await trigger.press('Enter');await expect(panel).toBeVisible();await expect(trigger).toHaveAttribute('aria-expanded','true');await expect(panel.locator('h3')).toHaveText(groups);await expect(options).toHaveCount(count);await expect(options.first()).toBeFocused();
+  const bounds=await panel.evaluate(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height,width:innerWidth,viewportHeight:innerHeight,overflow:e.scrollWidth>e.clientWidth};});expect(bounds.left).toBeGreaterThanOrEqual(0);expect(bounds.right).toBeLessThanOrEqual(viewport.width);expect(bounds.top).toBeGreaterThanOrEqual(0);expect(bounds.bottom).toBeLessThanOrEqual(viewport.height);expect(bounds.height).toBeLessThanOrEqual(470);expect(bounds.overflow).toBe(false);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(panel.locator('.story-choice-description')).toHaveCount(name==='type'?12:0);expect(await options.first().evaluate(e=>getComputedStyle(e).outlineStyle)).toBe('solid');
+  for(let i=1;i<count;i++){await options.nth(i-1).press('Tab');await expect(options.nth(i)).toBeFocused();}
+  await options.last().press('Escape');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(page.locator('#story-simple-details [name='+name+']')).toHaveValue('');
+  await trigger.press('Enter');await options.first().press('ArrowRight');await expect(options.nth(1)).toBeFocused();await options.nth(1).press('Enter');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(page.locator('#story-simple-details [name='+name+']')).toHaveValue(selected);
+  await trigger.click();await expect(panel.locator('[aria-pressed=true]')).toHaveCount(1);await expect(panel.locator('[data-choice-value='+JSON.stringify(selected)+']')).toHaveAttribute('aria-pressed','true');await expect(panel.locator('[aria-pressed=true] [data-choice-check]')).toBeVisible();
+  await page.screenshot({path:info.outputPath('story-'+name+'-menu-'+viewport.width+'.png')});await page.locator('#story-details-story-title').click();await expect(panel).toBeHidden();
+ }
+});
+test('STORY-13 every output filters and renumbers the sidebar and journey list with Publish retained',async({page})=>{
+ await boot(page);const all=['story-setup','board','audio','images','render','journey-preview'],sidebar=page.locator('#workspace-production-group .journey-step:visible');expect(await sidebar.evaluateAll(els=>els.map(e=>e.dataset.page))).toEqual(all);
+ for(const [output,expected]of [['audio',['story-setup','board','audio','journey-preview']],['image',['story-setup','board','images','journey-preview']],['video',all]]){
+  await fillStoryDetail(page,'output',output);expect(await sidebar.evaluateAll(els=>els.map(e=>e.dataset.page))).toEqual(expected);expect(await sidebar.evaluateAll(els=>els.map(e=>Number(e.textContent.split('.')[0])))).toEqual(expected.map((_,i)=>i+1));
+  await page.locator('#workspace-production-group > summary').click();const rows=page.locator('#story-home-list button');expect(await rows.evaluateAll(els=>els.map(e=>e.dataset.storyDestination))).toEqual(expected);expect(await rows.evaluateAll(els=>els.map(e=>Number(e.textContent.split('.')[0])))).toEqual(expected.map((_,i)=>i+1));await rows.first().click();await expect(page.getByRole('radio',{name:output[0].toUpperCase()+output.slice(1),exact:true})).toBeChecked();
+ }
+ expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='stories'||/generate|publish/.test(c.path)))).toEqual([]);
+});
+test('STORY-14 Other descriptions are required and Default badges stay removed after an edit',async({page})=>{
+ await boot(page);const form=page.locator('#story-simple-details');await form.locator('[name=title]').fill('Custom story');await fillStoryDetail(page,'output','audio');await fillStoryDetail(page,'type','custom');await fillStoryDetail(page,'genre','Other');
+ const type=page.getByLabel('Describe your story type (required)',{exact:true}),genre=page.getByLabel('Describe your genre or topic (required)',{exact:true});await expect(type).toBeVisible();await expect(genre).toBeVisible();await form.getByRole('button',{name:'Next: Story and characters',exact:true}).click();
+ const summary=form.locator('#story-details-errors');await expect(summary.locator('a')).toHaveCount(2);await expect(type).toHaveAttribute('aria-invalid','true');await expect(genre).toHaveAttribute('aria-invalid','true');await summary.getByRole('link',{name:'Describe your story type: Describe your story type.',exact:true}).click();await expect(type).toBeFocused();await type.fill('A guided tour');await expect(summary.locator('a')).toHaveCount(1);await genre.fill('Architecture');await expect(summary).toBeHidden();
+ await form.locator('[name=audience]').selectOption('Families');await form.locator('[name=audience]').selectOption('All ages');await form.locator('[name=language]').selectOption('Hindi');await form.locator('[name=language]').selectOption('English');await expect(form.locator('[data-default]:visible')).toHaveCount(0);
+ await fillStoryDetail(page,'type','podcast');await expect(type).toBeHidden();await fillStoryDetail(page,'type','custom');await expect(type).toHaveValue('A guided tour');await form.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await expect(type).toHaveValue('A guided tour');await expect(genre).toHaveValue('Architecture');await expect(form.locator('[data-default]:visible')).toHaveCount(0);await expect(form.locator('[name=type]')).toHaveValue('custom');await expect(form.locator('[name=genre]')).toHaveValue('Other');
 });
