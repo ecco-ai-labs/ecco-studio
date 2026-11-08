@@ -2,6 +2,13 @@
 
 [**Open ECCO AI Labs Studio**](https://ecco-ai-labs.github.io/ecco-studio/)
 
+## Development and production releases
+
+GitHub remains the Dev/Test interface. Ecco Desk's administrator-only **Releases**
+page prepares tested versions and explicitly promotes them to the production
+website. Hosting/domain activation and the private release-service connection
+must be completed before publishing is enabled; see [RELEASES.md](RELEASES.md).
+
 Public frontend for ECCO AI Labs' image and video production workspace.
 
 GitHub Pages serves the interface. The Python backend, credentials, model weights and production media remain in the private GPU workspace. This repository contains no media or secrets.

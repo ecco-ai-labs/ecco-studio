@@ -6,13 +6,19 @@ is never a production source. All files are already public frontend assets.
 import json
 from pathlib import Path
 import shutil
-import subprocess
 
 
 def assemble(build, previous, output):
     build, previous, output = map(Path, (build, previous, output))
     manifest = json.loads((build / 'release.json').read_text())
-    shutil.copytree(build, output)
+    # Runs can finish out of order. Retain the newest successful Dev entry point
+    # while still adding the older build's immutable preview.
+    root_source = build
+    if (previous / 'release.json').exists():
+        old = json.loads((previous / 'release.json').read_text())
+        if int(old['checkRunId']) > int(manifest['checkRunId']):
+            root_source = previous
+    shutil.copytree(root_source, output, ignore=shutil.ignore_patterns('.git', 'previews'))
     previews = output / 'previews'
     if (previous / 'previews').exists():
         shutil.copytree(previous / 'previews', previews)

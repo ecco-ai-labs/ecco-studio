@@ -56,6 +56,8 @@ class PipelineTest(unittest.TestCase):
             dev_preview.assemble(root/'second',root/'previous',root/'current')
             self.assertEqual(json.loads((root/'current/previews'/SHA/'release.json').read_text())['sha'],SHA)
             self.assertEqual(json.loads((root/'current/release.json').read_text())['sha'],'b'*40)
+            dev_preview.assemble(root/'first',root/'current',root/'out-of-order')
+            self.assertEqual(json.loads((root/'out-of-order/release.json').read_text())['sha'],'b'*40)
 
 
 if __name__=='__main__': unittest.main()

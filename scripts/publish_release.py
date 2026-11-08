@@ -126,7 +126,8 @@ def main():
         subprocess.run(['npx', '--yes', 'wrangler@4.158.0', 'pages', 'deploy', str(output),
                         '--project-name', project, '--branch', branch, '--commit-hash', sha,
                         '--commit-message', 'Ecco production release ' + rid, '--commit-dirty=false'],
-                       cwd=temp, check=True, timeout=240)
+                       cwd=temp, env={k: v for k, v in os.environ.items() if k != 'GH_TOKEN'},
+                       check=True, timeout=240)
     deployed = None
     for _ in range(12):
         deployed = cf().get('canonical_deployment')
