@@ -8,7 +8,7 @@
  const legacyTypes={audiobook:'Audiobook',animation:'Animation','book-adaptation':'Book Adaptation',social:'Social Story',dubbing:'Localization / Dubbing',repurpose:'Repurpose Content'};
  function typeLabel(value){return types.find(([id])=>id===value)?.[1]||legacyTypes[value]||value;}
  function typeOptions(current){return current&&!types.some(([id])=>id===current)?[...types,[current,typeLabel(current)]]:types;}
- function fresh({type='',output=''}={}){return {version:1,title:'',output,type,genre:'',audience:'',language:'',location:'',recurrence:'',script:'',brief:'',cast:[],castCustomized:false,scenes:[],source:{text:'',name:'',pages:[]},tab:0,view:'',applied:{},plan:null};}
+ function fresh({type='',output=''}={}){return {version:1,title:'',output,type,genre:'',audience:'All ages',language:'English',location:'',recurrence:'',script:'',brief:'',cast:[],castCustomized:false,scenes:[],source:{text:'',name:'',pages:[]},tab:0,view:'',applied:{},plan:null};}
  function migrate(saved={},board={},audio={}){
   if(saved.simple_workspace)return copy(saved.simple_workspace);
   let p={};try{p=typeof saved.audio_preparation==='string'?JSON.parse(saved.audio_preparation):saved.audio_preparation||{};}catch{}

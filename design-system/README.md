@@ -616,3 +616,37 @@ remain creation workflows. Output and recurrence are independent. Existing saved
 values remain intact and are shown as additional options only for that draft;
 retired type IDs keep their friendly labels. No additional fields or layout changes.
 Interview starts with Host/Guest and retains Interview delivery in Audio Studio.
+
+## Story Details reference — 8 November 2026
+
+The owner-approved reference replaces the flat Details grid with two top-aligned
+cards, each at most 640px wide: Your story (name, three single-choice output tiles,
+type, genre/topic) and Your audience (age, language, optional location). Story choices
+start empty; only All ages and English are preselected, with Default badges.
+Type and genre/topic remain independent. Cards stack on smaller screens.
+
+Every required field is labelled. Submit and forward tabs show one linked summary
+of all missing fields plus individual text errors and aria-invalid; focus moves to
+the summary, and each link focuses its control. This is the approved exception to
+popup errors for operational failures. Draft saved in this browser sits at top
+right. The sticky footer pairs Publishing schedule: set in the last step. with a
+right-aligned, 48px Next: Story and characters button. One-time or recurring moves
+to Generate & Publish and retains saved preferences without scheduling anything.
+
+## Grouped Story Details choices and journeys — 8 November 2026
+
+Only Story Details replaces the type and genre selects visually with compact
+buttons and nonmodal panels. The approved references use full-width group titles
+and two-column option grids: four groups with descriptions for type, two groups
+with names only for genre/topic. Existing stored IDs, saved categories and AI prompt
+values remain intact. Panels fit the viewport below the trigger and scroll at a
+470px maximum. Native option buttons expose aria-pressed and check marks; triggers
+expose aria-haspopup/expanded/controls. Tab reaches every option, arrows navigate,
+Escape closes with focus return, and selection or an outside pointer closes.
+
+Other reveals its required description; both descriptions use the existing
+complete linked validation summary. Default badges disappear permanently for that
+draft once the user edits age or language. Output filters and renumbers the sidebar
+and journey list: Audio and Image each retain four applicable steps including
+Publish; Video and an empty output retain all six. No other editor gains these
+custom dropdowns, and choosing output does not start generation or publishing.

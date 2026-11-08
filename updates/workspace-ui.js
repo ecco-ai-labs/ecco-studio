@@ -332,7 +332,7 @@
  function storyHome(){
   homePage('story-home','Tell Your Story');sessionStorage.setItem('ecco-guided-mode','off');productionGroup();
   const icons={'story-setup':'story',board:'workflow',audio:'audio',images:'image',render:'video','journey-preview':'video'};
-  homeList('story-home',journeySteps.map(([target,title])=>({key:target,title:journeyLabels[target]||title,icon:icons[target],destination:'storyDestination',run:()=>{
+  homeList('story-home',currentJourneySteps().map(([target,title],i)=>({key:target,title:(i+1)+'. '+(journeyLabels[target]||title),icon:icons[target],destination:'storyDestination',run:()=>{
    const group=q('#workspace-production-group'),button=group?.querySelector('[data-page="'+target+'"]');if(!button)return;if(target==='board'&&!activeStory)newStoryStarted=true;group.open=true;button.click();button.focus({preventScroll:true});
   }})));
   journeyGuide();librarySelection();
@@ -501,7 +501,7 @@
   const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
   return ['audio','video'].includes(value)?value:activeStory?'video':'';
  }
- function currentJourneySteps(){if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
+ function currentJourneySteps(){const saved=readStory(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');if(saved.simple_workspace&&(!saved.cloudId||saved.cloudId===activeStory)){const output=saved.simple_workspace.output;return journeySteps.filter(([target])=>output==='audio'?!['images','render'].includes(target):output==='image'?!['audio','render'].includes(target):true);}if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
  function journeyPreview(){navigate('publish');}
  function productionGroup(){
   const steps=currentJourneySteps();
@@ -665,7 +665,7 @@
    dispose(){if(parking){parking.remove();parking=null;}}
   };
  }
- window.EccoWorkspaceUI={capturePopupContext,openLibrary(kind){if(kind==='video')libraryOverview('video');else if(kind==='audio')navigate('audio-library');},labelDialog,createFolder,uploadDialog,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
+ window.EccoWorkspaceUI={capturePopupContext,refreshJourney(){productionGroup();journeyGuide();},openLibrary(kind){if(kind==='video')libraryOverview('video');else if(kind==='audio')navigate('audio-library');},labelDialog,createFolder,uploadDialog,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
  const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
  modernize();welcomePage();
 })();

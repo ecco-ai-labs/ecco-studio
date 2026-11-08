@@ -20,13 +20,13 @@
   try{
    localStorage.setItem(workspaceStory?'ecco-story-description:'+workspaceStory:'ecco-new-story-draft',JSON.stringify(saved));
    if(legacy.localDraftId)localStorage.setItem('ecco-story-setup:'+legacy.localDraftId,JSON.stringify(saved));
-   legacy=saved;message('Saved in this browser');return true;
+   legacy=saved;message('Draft saved in this browser');return true;
   }catch(error){message('Could not save this draft: '+error.message,true);return false;}
  }
  function header(){
   let root=q('#story-workspace-header');if(!root){root=document.createElement('section');root.id='story-workspace-header';q('#page').before(root);
    root.innerHTML='<div role="tablist" aria-label="Create your story"></div><p id="story-simple-save" role="status" aria-live="polite"></p><p id="story-simple-error" role="alert"></p><div id="story-simple-media" class="story-simple-actions" hidden></div>';
-   tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%3:e.key==='ArrowLeft'?(i+2)%3:e.key==='Home'?0:e.key==='End'?2:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
+   tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.className='story-workspace-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%3:e.key==='ArrowLeft'?(i+2)%3:e.key==='Home'?0:e.key==='End'?2:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
   }
   root.hidden=false;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const selected=i===data.tab;b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
   const pageRoot=q('#page');pageRoot.setAttribute('role','tabpanel');pageRoot.setAttribute('aria-labelledby','story-simple-tab-'+data.tab);
@@ -39,31 +39,83 @@
   }
  }
  function button(text,run,cls=''){const b=document.createElement('button');b.type='button';b.textContent=text;b.className=cls;b.onclick=run;return b;}
- function field(form,label,name,options){
-  const wrap=document.createElement('label');wrap.textContent=label;
-  const input=document.createElement(options?'select':'input');input.name=name;
-  if(options){input.append(new Option('Choose '+label.toLowerCase(),''));for(const entry of options){const [value,text]=Array.isArray(entry)?entry:[entry,entry];input.append(new Option(text,value));}if(data[name]&&![...input.options].some(o=>o.value===data[name]))input.append(new Option(data[name],data[name]));}
-  else input.maxLength=name==='title'?160:200;
-  input.value=data[name]||'';wrap.append(input);form.append(wrap);input.oninput=()=>{if(name==='output'&&data.output!==input.value)data.view='';data[name]=input.value;epoch++;persist();};return input;
+ const detailFields=[['title','Story name','Enter a story name.'],['output','What are you making?','Choose Audio, Image or Video.'],['type','Story type','Choose a story type.'],['genre','Genre / Topic','Choose a genre or topic.'],['audience','Audience age group','Choose an audience age group.'],['language','Language','Choose a language.']];
+ const detailDefaults={audience:'All ages',language:'English'};
+ const detailDescriptions=[['typeDescription','Describe your story type','Describe your story type.'],['genreDescription','Describe your genre or topic','Describe your genre or topic.']];
+ const typeGroups=[['Stories',[['storybook','One narrator reads the story.'],['audio-drama','Characters speak with their own voices.']]],['Talk and news',[['podcast','Hosts talk through a topic.'],['interview','Questions and answers between voices.'],['news','A reporter presents the facts.'],['documentary','A narrated look at a real subject.']]],['Teaching and business',[['teaching','Teaches one skill or idea.'],['training','Builds skills for a role or team.'],['presentation','A spoken talk for an audience.'],['marketing','A short pitch for a product or idea.']]],['Other',[['ambient','Sound and mood, little or no speech.'],['custom','Something else. Describe it below.']]]];
+ const genreGroups=[['Story genres',genres.slice(0,10).map(value=>[value,''])],['Real-world topics',genres.slice(10).map(value=>[value,''])]];
+ let detailMenu=null;
+ function closeDetailMenu(focus=false){if(!detailMenu)return;const {panel,trigger}=detailMenu;detailMenu=null;panel.hidden=true;trigger.setAttribute('aria-expanded','false');if(focus&&trigger.isConnected)trigger.focus();}
+ function placeDetailMenu(){if(!detailMenu)return;const {panel,trigger}=detailMenu;if(!trigger.isConnected){closeDetailMenu();return;}const rect=trigger.getBoundingClientRect(),width=Math.min(640,innerWidth-32,Math.max(rect.width,560));panel.style.width=width+'px';panel.style.top=(trigger.offsetTop+rect.height+6)+'px';panel.style.left=Math.min(0,innerWidth-16-rect.left-width)+'px';panel.style.maxHeight=Math.max(0,Math.min(470,innerHeight-rect.bottom-16))+'px';}
+ document.addEventListener('pointerdown',event=>{if(detailMenu&&!detailMenu.panel.contains(event.target)&&!detailMenu.trigger.contains(event.target))closeDetailMenu();});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&detailMenu){event.preventDefault();event.stopPropagation();closeDetailMenu(true);}},true);
+ window.addEventListener('resize',placeDetailMenu);window.addEventListener('scroll',placeDetailMenu,true);
+ function updateDetailDefaults(){for(const [name,value]of Object.entries(detailDefaults)){const badge=inPage('[data-default="'+name+'"]');if(badge)badge.hidden=data[name]!==value||!!data.defaultEdited?.[name];}}
+ function updateDetailChoices(){
+  for(const name of ['type','genre']){const select=inPage('#story-detail-'+name),trigger=inPage('#story-detail-'+name+'-button');if(!select||!trigger)continue;
+   q('[data-choice-label]',trigger).textContent=select.selectedOptions[0]?.textContent||select.options[0].textContent;
+   for(const option of inPage('#story-detail-'+name+'-panel').querySelectorAll('[data-choice-value]')){const selected=option.dataset.choiceValue===data[name];option.setAttribute('aria-pressed',String(selected));q('[data-choice-check]',option).hidden=!selected;}
+   const description=inPage('#story-detail-'+name+'Description'),show=data[name]===(name==='type'?'custom':'Other');description.closest('.story-detail-field').hidden=!show;description.required=show;
+  }
+ }
+ function detailChanged(name,value){if(name==='output'&&data.output!==value)data.view='';if(name in detailDefaults&&data[name]!==value)data.defaultEdited={...data.defaultEdited,[name]:true};data[name]=value;epoch++;persist();updateDetailDefaults();updateDetailChoices();if(name==='output')window.EccoWorkspaceUI?.refreshJourney();if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();}
+ function choiceDropdown(select,groups){
+  const name=select.name,wrap=select.closest('.story-detail-field'),label=q('label',wrap),trigger=document.createElement('button'),panel=document.createElement('div');wrap.classList.add('story-choice-field');select.hidden=true;select.tabIndex=-1;
+  trigger.type='button';trigger.id=select.id+'-button';trigger.className='story-choice-trigger';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');label.htmlFor=trigger.id;label.id=select.id+'-label';trigger.setAttribute('aria-labelledby',label.id+' '+trigger.id);trigger.innerHTML='<span data-choice-label></span><span aria-hidden="true">⌄</span>';
+  panel.id=select.id+'-panel';panel.className='story-choice-panel';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','false');panel.setAttribute('aria-labelledby',label.id);trigger.setAttribute('aria-controls',panel.id);select.after(trigger,panel);
+  const listed=groups.flatMap(([,options])=>options.map(([value])=>value));const choices=groups.map(([heading,options])=>[heading,[...options]]);if(data[name]&&!listed.includes(data[name]))choices[choices.length-1][1].push([data[name],'']);
+  for(const [heading,options]of choices){const group=document.createElement('section'),title=document.createElement('h3'),grid=document.createElement('div');title.textContent=heading;title.id=panel.id+'-group-'+panel.children.length;group.setAttribute('aria-labelledby',title.id);grid.className='story-choice-options';group.append(title,grid);panel.append(group);
+   for(const [value,description]of options){const option=button('',()=>{select.value=value;select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));closeDetailMenu(true);},'story-choice-option');option.dataset.choiceValue=value;option.setAttribute('aria-pressed',String(data[name]===value));const title=document.createElement('span'),check=document.createElement('span');title.className='story-choice-name';title.textContent=name==='type'?M.typeLabel(value):value;check.dataset.choiceCheck='';check.setAttribute('aria-hidden','true');check.textContent='✓';check.hidden=data[name]!==value;option.append(title,check);if(description){const text=document.createElement('span');text.className='story-choice-description';text.textContent=description;option.append(text);}grid.append(option);}
+  }
+  trigger.onclick=()=>{if(detailMenu?.trigger===trigger){closeDetailMenu();return;}closeDetailMenu();panel.hidden=false;trigger.setAttribute('aria-expanded','true');detailMenu={panel,trigger};if(innerHeight-trigger.getBoundingClientRect().bottom<Math.min(280,innerHeight/2))trigger.scrollIntoView({block:'start'});placeDetailMenu();const selected=q('[aria-pressed=true]',panel)||q('button',panel);selected.focus({preventScroll:true});selected.scrollIntoView({block:'nearest'});placeDetailMenu();};
+  panel.onkeydown=event=>{const options=[...panel.querySelectorAll('button')],index=options.indexOf(document.activeElement);let next=null;if(event.key==='ArrowDown')next=index+2;else if(event.key==='ArrowUp')next=index-2;else if(event.key==='ArrowRight')next=index+1;else if(event.key==='ArrowLeft')next=index-1;else if(event.key==='Home')next=0;else if(event.key==='End')next=options.length-1;if(next!==null){event.preventDefault();options[(next+options.length)%options.length].focus();}};
+ }
+ function field(form,label,name,options,{required=false,placeholder=''}={}){
+  const wrap=document.createElement('div');wrap.className='story-detail-field';
+  const caption=document.createElement('label');caption.htmlFor='story-detail-'+name;caption.append(document.createTextNode(label+' '));
+  const qualifier=document.createElement('span');qualifier.className='story-detail-qualifier';qualifier.textContent=required?'(required)':'(optional)';caption.append(qualifier);
+  const input=document.createElement(options?'select':'input');input.name=name;input.id='story-detail-'+name;input.required=required;
+  if(options){input.append(new Option(placeholder||'Choose '+label.toLowerCase(),''));for(const entry of options){const [value,text]=Array.isArray(entry)?entry:[entry,entry];input.append(new Option(text,value));}if(data[name]&&![...input.options].some(o=>o.value===data[name]))input.append(new Option(data[name],data[name]));}
+  else {input.maxLength=name==='title'?160:200;input.placeholder=placeholder;}
+  if(detailDefaults[name]){const badge=document.createElement('span');badge.className='story-detail-default';badge.dataset.default=name;badge.id=input.id+'-default';badge.textContent='Default';caption.append(badge);}
+  input.value=data[name]||'';wrap.append(caption,input);form.append(wrap);
+  if(required){const error=document.createElement('p');error.className='story-detail-error';error.id=input.id+'-error';error.hidden=true;wrap.append(error);}
+  input.oninput=()=>detailChanged(name,input.value);return input;
  }
  function details(){
-  page='story-details';q('#page').innerHTML='<form id="story-simple-details" class="panel form"><div class="story-simple-fields"></div><div class="story-simple-actions"><button type="submit">Continue to Story</button></div></form>';
-  const form=q('#story-simple-details'),grid=q('.story-simple-fields',form);
-  const title=field(grid,'Story Name','title');title.required=true;
-  const output=field(grid,'Output','output',[['audio','Audio'],['image','Image'],['video','Video']]);output.required=true;
-  const type=field(grid,'Story Type','type',M.typeOptions(data.type));type.required=true;
-  field(grid,'Genre / Topic','genre',genres).required=true;
-  field(grid,'Audience age group','audience',audiences).required=true;
-  field(grid,'Language','language',languages).required=true;
-  field(grid,'Audience location (optional)','location').placeholder='For example, India or worldwide';
-  field(grid,'One-time or recurring','recurrence',[['once','One-time'],['recurring','Recurring — episodes or chapters']]).required=true;
+  closeDetailMenu();page='story-details';q('#page').innerHTML='<form id="story-simple-details" novalidate><section id="story-details-errors" class="story-details-errors" aria-labelledby="story-details-errors-title" tabindex="-1" hidden></section><div class="story-details-cards"><section class="panel story-details-card" aria-labelledby="story-details-story-title"><h2 id="story-details-story-title">Your story</h2><div data-story-fields></div></section><section class="panel story-details-card" aria-labelledby="story-details-audience-title"><h2 id="story-details-audience-title">Your audience</h2><div data-audience-fields></div></section></div><div class="story-details-footer"><p class="help">Publishing schedule: set in the last step.</p><button type="submit" class="story-details-next">Next: Story and characters <span aria-hidden="true">→</span></button></div></form>';
+  const form=q('#story-simple-details'),storyFields=q('[data-story-fields]',form),audienceFields=q('[data-audience-fields]',form);
+  field(storyFields,'Story name','title',null,{required:true});
+  const output=document.createElement('fieldset');output.id='story-detail-output';output.className='story-detail-field story-output-field';output.innerHTML='<legend>What are you making? <span class="story-detail-qualifier">(required)</span></legend><div class="story-output-options"></div><p id="story-detail-output-error" class="story-detail-error" hidden></p>';
+  for(const [value,label]of [['audio','Audio'],['image','Image'],['video','Video']]){const choice=document.createElement('label'),radio=document.createElement('input'),text=document.createElement('span');radio.type='radio';radio.name='output';radio.id='story-detail-output-'+value;radio.value=value;radio.required=true;radio.checked=data.output===value;text.textContent=label;choice.append(radio,text);q('.story-output-options',output).append(choice);radio.onchange=()=>{if(radio.checked)detailChanged('output',value);};}storyFields.append(output);
+  const type=field(storyFields,'Story type','type',M.typeOptions(data.type),{required:true});
+  field(storyFields,'Describe your story type','typeDescription',null,{required:true});
+  const genre=field(storyFields,'Genre / Topic','genre',genres,{required:true,placeholder:'Choose genre or topic'});
+  field(storyFields,'Describe your genre or topic','genreDescription',null,{required:true});
+  choiceDropdown(type,typeGroups);choiceDropdown(genre,genreGroups);
+  field(audienceFields,'Audience age group','audience',audiences,{required:true});
+  field(audienceFields,'Language','language',languages,{required:true});
+  field(audienceFields,'Audience location','location',null,{placeholder:'For example, India or worldwide'});
   type.addEventListener('change',()=>{if(!data.castCustomized&&!data.script.trim()){data.cast=defaultCast();persist();}});
-  const help=document.createElement('p');help.className='help';help.textContent='For recurring stories, publishing dates are chosen after you review the result.';form.append(help);
-  form.onsubmit=e=>{e.preventDefault();select(1);};
+  updateDetailDefaults();updateDetailChoices();form.onsubmit=e=>{e.preventDefault();select(1);};
+ }
+ function missingDetails(){const required=[...detailFields,...detailDescriptions.filter(([name])=>name==='typeDescription'?data.type==='custom':data.genre==='Other')];return required.filter(([name])=>name==='output'?!routes[data.output]:!String(data[name]||'').trim());}
+ function showDetailErrors(focus=false){
+  const form=inPage('#story-simple-details');if(!form)return;
+  const missing=missingDetails(),summary=q('#story-details-errors',form);
+  for(const [name,,text]of [...detailFields,...detailDescriptions]){const invalid=missing.some(([key])=>key===name),error=q('#story-detail-'+name+'-error',form),controls=[...form.querySelectorAll('[name="'+name+'"]')];if(name==='output')controls.push(q('#story-detail-output',form));if(['type','genre'].includes(name))controls.push(q('#story-detail-'+name+'-button',form));
+   error.textContent=invalid?text:'';error.hidden=!invalid;
+   for(const control of controls){if(invalid){control.setAttribute('aria-invalid','true');control.setAttribute('aria-describedby',error.id);}else{control.removeAttribute('aria-invalid');control.removeAttribute('aria-describedby');}}
+  }
+  summary.replaceChildren();summary.hidden=!missing.length;
+  if(missing.length){const heading=document.createElement('h2'),list=document.createElement('ul');heading.id='story-details-errors-title';heading.textContent='Complete '+missing.length+' required '+(missing.length===1?'field':'fields')+' to continue';summary.append(heading,list);
+   for(const [name,label,text]of missing){const item=document.createElement('li'),link=document.createElement('a');const id='story-detail-'+name+(name==='output'?'-audio':['type','genre'].includes(name)?'-button':'');link.href='#'+id;link.textContent=label+': '+text;link.onclick=e=>{e.preventDefault();const control=q('#'+id,form);control.focus();control.scrollIntoView({block:'center'});};item.append(link);list.append(item);}if(focus)summary.focus();
+  }
  }
  function validDetails(){
-  if(data.tab===0)return q('#story-simple-details')?.reportValidity();
-  if(!data.title.trim()||!routes[data.output]||!data.type||!data.genre||!data.language||!data.audience||!data.recurrence){data.tab=0;render();q('#story-simple-details').reportValidity();return false;}return true;
+  if(!missingDetails().length)return true;
+  if(data.tab!==0){data.tab=0;render();}
+  inPage('#story-simple-details').dataset.validated='true';showDetailErrors(true);return false;
  }
  async function syncSourceResume(origin=owner()){
   const resume=inPage('[data-resume]');if(!resume||!window.EccoPopupDrafts)return;
@@ -293,12 +345,14 @@
   saving=(async()=>{try{const created=await api('stories',{title:current.title,summary:current.script.slice(0,4000)});if(!created?.id)throw Error('Storage did not confirm the story.');
    state.records=[...state.records.filter(r=>r.id!==created.id),{...created,kind:'story',title:current.title}];
    const saved={...saveLegacy,cloudId:created.id,saveUncertain:false,simple_workspace:clone(current)};localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(saved));localStorage.setItem('ecco-story-setup:'+localId,JSON.stringify(saved));
+   // Mark the pending draft as saved too, so reopening cannot archive stale pre-save fields over it.
+   if(read('ecco-new-story-draft').localDraftId===localId)localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));
    if(current!==data||legacy.localDraftId!==localId)throw Error('The story was saved. Reopen it from Existing Story.');
    activeStory=created.id;workspaceStory=activeStory;legacy=saved;localStorage.setItem('ecco-active-story',activeStory);draft={...defaultDraft,story_id:activeStory,title:data.title,story:data.script,scenes:clone(data.scenes)};persistDraft();persist();storyControls();
   }catch(error){if(error.status&&error.status<500&&current===data){legacy.saveUncertain=false;persist();}throw error;}finally{saving=null;}})();return saving;
  }
  async function select(tab,view){
-  if(!data)return;message('',true);if(tab>0&&!validDetails())return;
+  if(!data)return;closeDetailMenu();message('',true);if(tab>0&&!validDetails())return;
   if(tab===2){
    if(sourcePending||data.scriptReviewDraft){message('Review your generated script and select Apply Text before continuing.',true);return;}
    if(data.castPending){message('Identifying characters from the applied text…');return;}
@@ -325,6 +379,7 @@
  }
  function adaptStudio(){
   if(!enabled||data?.tab!==2||!q('#page'))return;
+  let publishing=inPage('#story-simple-publishing');if(!publishing){publishing=document.createElement('section');publishing.id='story-simple-publishing';publishing.className='panel story-publishing-settings';publishing.innerHTML='<h2>Publishing schedule</h2>';const recurrence=field(publishing,'One-time or recurring','recurrence',[['once','One-time'],['recurring','Recurring — episodes or chapters']]);recurrence.addEventListener('change',()=>{const next=inPage('[data-next-episode]');if(next)next.hidden=data.recurrence!=='recurring';});q('#page').prepend(publishing);}
   for(const kind of ['audio','image','video']){
    const form=q('#'+kind+'-form');if(!form)continue;
    const model=q('[data-section=model]',form);if(model&&!model.closest('.story-simple-advanced')){const advanced=document.createElement('details');advanced.className='story-simple-advanced';const summary=document.createElement('summary');summary.textContent='Advanced · Model and Settings';advanced.append(summary);model.before(advanced);advanced.append(model);const compute=q('[data-section=compute]',form);if(compute)advanced.append(compute);const controls=q('[data-section=controls]',form);if(controls)advanced.append(controls);const prompt=q('[data-section=prompt]',form);if(prompt)advanced.append(prompt);}
@@ -355,14 +410,15 @@
   if(savedId){captureStudio();window.EccoWorkspaceUI.preserveNewStoryDraft();const saved=read(savedId==='pending'?'ecco-new-story-draft':'ecco-story-setup:'+savedId);activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);if(!activeStory){localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));localStorage.setItem('ecco-board-new-draft',JSON.stringify(saved.boardDraft||defaultDraft));}draft=loadDraft();}
   open();if(!savedId){data.tab=0;render();}
  }
- function leave(){if(!enabled)return;window.EccoPopups?.suspendContexts?.();captureStudio();persist();enabled=false;epoch++;document.body.classList.remove('story-simple-mode');q('#story-workspace-header')?.setAttribute('hidden','');q('#page')?.removeAttribute('role');q('#page')?.removeAttribute('aria-labelledby');}
+ function leave(){if(!enabled)return;closeDetailMenu();window.EccoPopups?.suspendContexts?.();captureStudio();persist();enabled=false;epoch++;document.body.classList.remove('story-simple-mode');q('#story-workspace-header')?.setAttribute('hidden','');q('#page')?.removeAttribute('role');q('#page')?.removeAttribute('aria-labelledby');}
  function captureContext(){
   if(!enabled)return null;captureStudio();persist();const snapshot={data,legacy,workspaceStory,tab:data.tab,view:data.view};
   return ()=>{
    const saved=read(snapshot.workspaceStory?'ecco-story-description:'+snapshot.workspaceStory:'ecco-story-setup:'+snapshot.legacy.localDraftId);
    data=snapshot.data;if(saved.simple_workspace)Object.assign(data,clone(saved.simple_workspace));data.tab=snapshot.tab;data.view=snapshot.view;data.castPending=!!(aiRequest?.current===data);legacy=saved.simple_workspace?saved:snapshot.legacy;workspaceStory=snapshot.workspaceStory;enabled=true;epoch++;document.body.classList.add('story-simple-mode');header();
    // Navigation restores DOM nodes; refresh their values from the latest story.
-   for(const input of q('#story-simple-details',q('#page'))?.querySelectorAll('[name]')||[])if(input.name in data)input.value=data[input.name]||'';
+   for(const input of q('#story-simple-details',q('#page'))?.querySelectorAll('[name]')||[])if(input.name in data){if(input.type==='radio')input.checked=input.value===data[input.name];else input.value=data[input.name]||'';}
+   updateDetailDefaults();updateDetailChoices();if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();
    const script=inPage('#story-simple-script');if(script)script.value=data.script;
    const brief=inPage('[data-brief]');if(brief)brief.value=data.brief||'';
    const cast=inPage('[data-characters]');if(cast)characterTabs();
