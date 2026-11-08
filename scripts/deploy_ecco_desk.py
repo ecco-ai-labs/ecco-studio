@@ -68,7 +68,7 @@ def main():
     mail_path = cwd / 'ecco_desk_mail.py'
     old_mail = mail_path.read_bytes() if mail_path.exists() else None
     extras = {}
-    for name in ('ecco_desk_chat.py', 'ecco_desk_replies.py', 'ecco_desk_inbox.py', 'ecco_desk_google_chat.py', 'ecco_desk_groups.py', 'ecco_campaigns.py'):
+    for name in ('ecco_desk_chat.py', 'ecco_desk_replies.py', 'ecco_desk_inbox.py', 'ecco_desk_google_chat.py', 'ecco_desk_groups.py', 'ecco_campaigns.py', 'ecco_releases.py'):
         with urlopen(f'https://raw.githubusercontent.com/ecco-ai-labs/ecco-studio/{args.commit}/backend/{name}', timeout=30) as response:
             content = response.read(1024 * 1024)
         compile(content, name, 'exec')
@@ -91,14 +91,16 @@ def main():
         old_module = module_path.read_bytes()
         if not args.previous_module_sha256 or hashlib.sha256(old_module).hexdigest() != args.previous_module_sha256:
             raise SystemExit('Existing Desk module changed. Inspect it before updating.')
-    hook = 'if google_signin.handle(self, path, ALLOWED_ORIGIN): return'
-    assert original.count(hook) == 2, 'Unexpected request handlers'
+    hooks = ['if google_signin.handle(self, path, ALLOWED_ORIGIN): return', 'if google_signin.handle(self, path, self.allowed_origin): return']
+    hook = next((candidate for candidate in hooks if original.count(candidate) == 2), None)
+    assert hook, 'Unexpected request handlers'
+    origin_argument = 'self.allowed_origin' if 'self.allowed_origin' in hook else 'ALLOWED_ORIGIN'
     assert original.count('    # Never run legacy.initialize()') == 1, 'Unexpected startup'
     updated = original
     if not installed:
         updated = updated.replace('import google_signin\n', 'import google_signin\nimport ecco_desk\n')
         updated = updated.replace("'Authorization,Content-Type,Range'", "'Authorization,Content-Type,Range,X-Ecco-Workspace-Key'")
-        updated = updated.replace(hook, hook + "\n        if ecco_desk.handle(self, path, ALLOWED_ORIGIN, legacy.DATA / 'studio.sqlite', self.access_key): return")
+        updated = updated.replace(hook, hook + f"\n        if ecco_desk.handle(self, path, {origin_argument}, legacy.DATA / 'studio.sqlite', self.access_key): return")
         updated = updated.replace('    # Never run legacy.initialize()', "    ecco_desk.initialize(legacy.DATA / 'studio.sqlite')\n    # Never run legacy.initialize()")
     old_start = "ecco_desk.initialize(legacy.DATA / 'studio.sqlite')"
     new_start = "ecco_desk.initialize(legacy.DATA / 'studio.sqlite', start_notifications=True)"

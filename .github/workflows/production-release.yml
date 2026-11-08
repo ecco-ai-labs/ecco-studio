@@ -1,0 +1,49 @@
+name: Publish production release
+run-name: Production release ${{ inputs.release_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      release_id: {description: 'Prepared release ID', required: true, type: string}
+      source_sha: {description: 'Exact tested source SHA', required: true, type: string}
+      expected_production_sha: {description: 'Current production SHA, or none for first release', required: true, type: string}
+      check_run_id: {description: 'Successful Release checks run ID', required: true, type: string}
+      title: {description: 'Release name', required: true, type: string}
+      actor: {description: 'Publishing administrator', required: true, type: string}
+      kind: {description: 'Release or rollback', type: choice, options: [release, rollback], default: release}
+permissions:
+  contents: read
+concurrency:
+  group: ecco-production
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://eccoailabs.com/
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Publish the exact tested artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RELEASE_ID: ${{ inputs.release_id }}
+          CHECK_RUN_ID: ${{ inputs.check_run_id }}
+          EXPECTED_PRODUCTION_SHA: ${{ inputs.expected_production_sha }}
+          RELEASE_TITLE: ${{ inputs.title }}
+          RELEASE_ACTOR: ${{ inputs.actor }}
+          RELEASE_KIND: ${{ inputs.kind }}
+        run: python3 scripts/publish_release.py

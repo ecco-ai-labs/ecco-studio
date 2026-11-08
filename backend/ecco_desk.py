@@ -20,6 +20,7 @@ import ecco_desk_chat
 import ecco_desk_replies
 import ecco_desk_groups
 import ecco_campaigns
+import ecco_releases
 
 STATUSES = ('open', 'in_progress', 'waiting', 'resolved', 'closed')
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
@@ -114,6 +115,7 @@ def initialize(path, start_notifications=True):
         import ecco_desk_google_chat
         ecco_desk_google_chat.initialize(db)
         ecco_campaigns.initialize(db)
+        ecco_releases.initialize(db)
     if start_notifications:
         ecco_desk_mail.start(path)
         ecco_campaigns.start(path)
@@ -396,6 +398,8 @@ def create_agent(db, me, body):
 
 
 def read(db, me, query):
+    if "releases" in query:
+        return ecco_releases.listing(db, me)
     if 'campaigns' in query:
         return ecco_campaigns.listing(db, me)
     if 'manageNotifications' in query:
@@ -430,6 +434,8 @@ def read(db, me, query):
 
 def write(db, me, body, workspace_key, configured_key):
     op = body.get('op')
+    if op in ('prepareRelease', 'prepareRollback', 'publishRelease'):
+        return ecco_releases.write(db, me, body)
     if op in ('previewCampaign','createCampaign','updateCampaign','setCampaignActive'):
         return ecco_campaigns.write(db, me, body)
     if op == 'createAgent':

@@ -533,6 +533,56 @@ test('UPLOAD-04 AI clarification opens a popup and preserves equal text boxes an
 });
 
 
+// Release management uses isolated GitHub/hosting receipts; never deploy from QA.
+async function releaseDesk(page,query=''){
+ await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await page.goto('/desk/index.html?__qa=1'+query);
+ await page.getByRole('button',{name:'Releases',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Pending changes',exact:true})).toBeVisible();
+}
+test('RELEASE-01 prepare freezes reviewed changes and only Publish requests deployment',async({page})=>{
+ await releaseDesk(page);
+ await expect(page.getByRole('button',{name:'Create task',exact:true})).toHaveCount(0);
+ await page.getByLabel('Release name',{exact:true}).fill('Library improvements');
+ await page.getByRole('button',{name:'Prepare release',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Prepared releases',exact:true})).toBeFocused();
+ await expect(page.getByRole('link',{name:'Preview Library improvements',exact:true})).toHaveAttribute('href','https://ecco-ai-labs.github.io/ecco-studio/previews/'+'a'.repeat(40)+'/');
+ expect(await page.evaluate(()=>window.__deskPosts.map(p=>p.op))).toEqual(['prepareRelease']);
+ // Later Dev edits must not alter the prepared release or the publish payload.
+ await page.evaluate(()=>window.__releaseData.head='d'.repeat(40));
+ await page.getByRole('button',{name:'Refresh status',exact:true}).click();
+ await page.getByRole('button',{name:'Publish Library improvements to Production',exact:true}).click();
+ await expect(page.getByText('Queued',{exact:true})).toBeVisible();
+ const posts=await page.evaluate(()=>window.__deskPosts);expect(posts[1]).toEqual({op:'publishRelease',id:posts[0].id});expect(posts[0].sha).toBe('a'.repeat(40));
+ await expect(page.getByRole('link',{name:'Preview Library improvements',exact:true})).toHaveAttribute('href',/a{40}/);
+});
+test('RELEASE-02 failed checks block preparation and setup blocks publishing',async({page})=>{
+ await releaseDesk(page,'&releaseChecks=failure');await page.getByLabel('Release name',{exact:true}).fill('Not ready');
+ await expect(page.getByRole('button',{name:'Prepare release',exact:true})).toBeDisabled();
+ await page.goto('/desk/index.html?__qa=1&releaseSetup=blocked');await page.getByRole('button',{name:'Releases',exact:true}).click();
+ await expect(page.getByRole('region',{name:'Production setup'})).toBeVisible();
+ await page.getByLabel('Release name',{exact:true}).fill('Waiting for hosting');await page.getByRole('button',{name:'Prepare release',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Publish Waiting for hosting to Production',exact:true})).toBeDisabled();
+ expect(await page.evaluate(()=>window.__deskPosts.filter(p=>p.op==='publishRelease'))).toEqual([]);
+});
+test('RELEASE-03 staff and customers cannot access release controls',async({page})=>{
+ await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ for(const role of ['staff','customer','group']){
+  await page.goto('/desk/index.html?__qa=1&role='+role);await expect(page.locator('.sidebar')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Releases',exact:true})).toHaveCount(0);
+ }
+});
+test('RELEASE-04 history prepares a rollback with keyboard and narrow layout',async({page})=>{
+ await releaseDesk(page);
+ await page.evaluate(()=>{window.__releaseData.history.push({id:'older',title:'Earlier release',sha:'c'.repeat(40),actor:'QA Admin',publishedAt:'2026-11-05T18:00:00Z',url:'https://github.com/ecco-ai-labs/ecco-studio/releases/tag/older'});});
+ await page.getByRole('button',{name:'Refresh status',exact:true}).click();
+ await page.getByRole('button',{name:'Prepare rollback',exact:true}).focus();await page.keyboard.press('Enter');
+ await expect(page.getByRole('heading',{name:'Prepared releases',exact:true})).toBeFocused();
+ const posts=await page.evaluate(()=>window.__deskPosts);expect(posts[0].op).toBe('prepareRollback');expect(posts[0].sha).toBe('c'.repeat(40));
+ await page.setViewportSize({width:768,height:1024});await expect(page.getByRole('button',{name:'Publish Rollback to cccccccc to Production',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
 test('BILLING-01 configured promotion icons and expiry appear above regular packages',async({page})=>{
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  await page.goto('/?__qa=1&promotions=1');await page.locator('#entry-tell-story').click();await page.locator('#google-user-menu > summary').click();await page.getByRole('button',{name:'Billing',exact:true}).click();
