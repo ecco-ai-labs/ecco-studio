@@ -38,7 +38,8 @@
       const thanksgiving=new Date(Date.UTC(y,10,1));thanksgiving.setUTCDate(1+(4-thanksgiving.getUTCDay()+7)%7+21);
       const holiday=new Date(thanksgiving);holiday.setUTCDate(holiday.getUTCDate()+(plan.kind==='cyber_monday'?4:1));
       const match=plan.kind==='daily'||plan.kind==='once'&&+cursor===+start||plan.kind==='weekly'&&cursor.getUTCDay()===start.getUTCDay()||plan.kind==='monthly'&&d===Math.min(start.getUTCDate(),last)||plan.kind==='yearly'&&m===start.getUTCMonth()&&d===Math.min(start.getUTCDate(),last)||['cyber_monday','black_friday'].includes(plan.kind)&&+cursor===+holiday||plan.kind==='new_year'&&m===0&&d===1;
-      const candidate=new Date(cursor);candidate.setUTCHours(17);
+      const [hour,minute]=plan.time.split(':').map(Number),target=Date.UTC(y,m,d,hour,minute);let candidate=new Date(target);
+      for(let pass=0;pass<2;pass++){const parts=new Intl.DateTimeFormat('en-GB',{timeZone:plan.timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(candidate);const get=t=>Number(parts.find(p=>p.type===t).value);candidate=new Date(+candidate+target-Date.UTC(get('year'),get('month')-1,get('day'),get('hour'),get('minute')));}
       const localDate=v=>new Intl.DateTimeFormat('en-CA',{timeZone:plan.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(v);
       if(match&&(candidate>Date.now()||localDate(candidate)===localDate(new Date())))return candidate.toISOString();
      }
