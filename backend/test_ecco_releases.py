@@ -1,6 +1,8 @@
 import json
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 import test_ecco_desk as fixtures
 import ecco_desk as desk
@@ -13,7 +15,14 @@ RID = 'c' * 32
 
 
 class ReleaseTest(unittest.TestCase):
-    setUp = fixtures.DeskTest.setUp
+    def setUp(self):
+        sessions = tempfile.TemporaryDirectory()
+        self.addCleanup(sessions.cleanup)
+        session_path = patch.object(fixtures.auth, 'SESSION_DB', Path(sessions.name) / 'sessions.sqlite')
+        session_path.start()
+        self.addCleanup(session_path.stop)
+        fixtures.DeskTest.setUp(self)
+
     tearDown = fixtures.DeskTest.tearDown
     login = fixtures.DeskTest.login
     call = fixtures.DeskTest.call

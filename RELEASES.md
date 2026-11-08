@@ -59,12 +59,13 @@ The code does not claim these external settings are already configured.
    ECCO_DEV_PREVIEWS_ENABLED=1
    ECCO_RELEASES_ENABLED=1
    ```
-   Enable publishing only after the host, domain, sign-in and API checks below
-   succeed. Existing unconfigured services continue to accept only the GitHub
+   Enable publishing after the host, domain and service configuration is ready.
+   The first deployment establishes the site for live checks in step 8; keep the
+   existing customer entry point until those checks pass. Existing unconfigured services accept only the GitHub
    origin. Unknown origins are never reflected into CORS.
 7. Add `https://eccoailabs.com` to the existing Google web OAuth client's
-   authorized JavaScript origins. Confirm actual sign-in/sign-out and authorized
-   storage/Desk access at that origin. Existing browser-local connections and
+   authorized JavaScript origins. Verify actual sign-in/sign-out and authorized
+   storage/Desk access after the first deployment. Existing browser-local connections and
    drafts do not move between domains automatically; reconnect and export any
    local-only drafts before retiring the old customer entry point. Server media
    and Google subject identities remain on the existing service.
