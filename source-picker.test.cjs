@@ -7,7 +7,7 @@ function fixture(t,options={}){
  let destroyed=0;
  const pages=options.pages||['Excluded first page.','Use only page two.'];
  const doc={numPages:pages.length,getOutline:async()=>options.outline||[],getMetadata:async()=>({info:{Title:'Fixture title'}}),getPage:async n=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),render:()=>({promise:Promise.resolve()}),getTextContent:async()=>({items:(Array.isArray(pages[n-1])?pages[n-1]:[pages[n-1]]).map(str=>({str,hasEOL:true}))})})};
- w.pdfFixture={GlobalWorkerOptions:{},getDocument:()=>({destroy:async()=>{destroyed++;},promise:Promise.resolve(doc)}),TextLayer:class{constructor({container,textContentSource}){this.container=container;this.text=textContentSource.items[0].str;}async render(){const span=w.document.createElement('span');span.textContent=this.text;this.container.append(span);}}};
+ w.pdfFixture={GlobalWorkerOptions:{},getDocument:()=>({destroy:async()=>{destroyed++;},promise:Promise.resolve(doc)}),TextLayer:class{constructor({container,textContentSource}){this.container=container;this.text=textContentSource.items[0].str;}async render(){const span=w.document.createElement('span');span.textContent=this.text;span.style.left="8%";span.style.top="7%";this.container.append(span,w.document.createElement("br"));}}};
  w.eval(fs.readFileSync(__dirname+'/source-chapters.js','utf8'));
  w.eval(fs.readFileSync(__dirname+'/ai-text-refinement.js','utf8'));
  w.eval(fs.readFileSync(__dirname+'/source-picker.js','utf8').replace("import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.min.mjs')",'Promise.resolve(window.pdfFixture)'));
@@ -37,6 +37,12 @@ test('PDF preview supports later pages and commits only highlighted text with fi
  const text=x.q('[data-page="2"] .textLayer span').firstChild,range=x.w.document.createRange();range.selectNodeContents(text);x.w.getSelection().removeAllRanges();x.w.getSelection().addRange(range);x.q('.pdf-page-scroll').dispatchEvent(new x.w.MouseEvent('mouseup'));
  assert.equal(x.q('[data-selected]').value,'Use only page two.');x.q('[data-extract]').click();assert.deepEqual(JSON.parse(JSON.stringify(x.applied)),[{text:'Use only page two.',name:'paper.pdf',title:'Fixture title',scope:'selected'}]);assert.equal(x.w.document.activeElement,x.q('#opener'));assert.equal(x.q('dialog').open,false);
  x.picker.destroy();assert.equal(x.destroyed(),1);assert.equal(x.q('dialog'),null);
+});
+test('PDF end-of-line markers stay on their own row instead of native BR hit boxes',async t=>{
+ const x=fixture(t);await x.picker.load({name:'lines.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));await new Promise(r=>setTimeout(r,0));
+ const layer=x.q('.textLayer'),line=layer.querySelector('span'),end=layer.querySelector('[data-pdf-line-break]');
+ assert.equal(layer.querySelector('br'),null);assert.equal(end.textContent,'\n');assert.equal(end.style.top,line.style.top);assert.match(end.style.left,/8%/);assert.equal(end.style.whiteSpace,'pre');
+ assert.equal(x.q('[data-selected]').value,'');
 });
 test('three panes keep the whole document separate, start blank, and give AI its own pane with document actions in the bottom ribbon',async t=>{
  const x=fixture(t);await x.picker.load({name:'full.txt',size:80,text:async()=>'Unselected document text.'},x.q('#opener'));

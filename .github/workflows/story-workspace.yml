@@ -2,14 +2,11 @@ name: Story workspace checks
 on:
   pull_request:
     paths:
-      - 'story-workspace*'
-      - 'story-journeys.js'
-      - 'updates/workspace-ui.js'
-      - 'index.html'
-      - 'audio-studio.js'
-      - 'ai-assistant.js'
-      - 'generation-studio.js'
-      - 'video-flow.js'
+      - '*.js'
+      - '*.cjs'
+      - '*.html'
+      - 'updates/**'
+      - 'tests/**'
       - '.github/workflows/story-workspace.yml'
 permissions:
   contents: read
@@ -21,6 +18,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --prefix /tmp/ecco-story-tests jsdom@26.1.0 --no-audit --no-fund
-      - run: NODE_PATH=/tmp/ecco-story-tests/node_modules node --test story-workspace.test.cjs story-journeys.test.cjs journey-runtime.test.cjs tests/studio-workspace-tabs.test.cjs tests/publishing-library.test.cjs
+      - run: npm install --prefix /tmp/ecco-story-tests jsdom@26.1.0 fake-indexeddb@6.2.4 --no-audit --no-fund
+      - run: NODE_PATH=/tmp/ecco-story-tests/node_modules node --test *.test.cjs tests/popup-controls.test.cjs tests/navigation-history.test.cjs tests/studio-workspace-tabs.test.cjs tests/model-selection.test.cjs tests/generation-stop.test.cjs tests/publishing-status.test.cjs tests/publishing-library.test.cjs
       - run: python3 scripts/ui_inventory.py --check

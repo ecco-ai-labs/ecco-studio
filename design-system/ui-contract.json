@@ -145,7 +145,7 @@
     },
     "settingsGitHubSync": "2026-11-07 user requested removal of Sync to GitHub from Settings. Remove its header markup, Settings mounting and unused button handler; retain the separate GitHub repository link and existing backend sync capabilities.",
     "toolbarTooltipTiming": "Connection and community control panels share immediate CSS hover tooltips with no animation or delay, including Discord, GitHub, Technical support and Notifications. Remove duplicate browser-native title tooltips while preserving accessible labels, unread counts, click actions and connection-status colors. Show the same tooltip on keyboard focus. Observe dynamic support/notification labels so unread descriptions stay current.",
-    "storyAppliedTextReview": "After Apply Text auto-detection, the empty candidate panel remains display:none when hidden. User-edited character emotion supersedes AI-suggested turn defaults; explicit manual turn emotion retains precedence."
+    "storyAppliedTextReview": "After Apply Text auto-detection, the empty candidate panel remains display:none when hidden. User-edited character emotion supersedes AI-suggested turn defaults; explicit manual turn emotion retains precedence. Completing a voice preview refreshes Audio generation readiness immediately without enabling it over an active recording job."
   },
   "components": [
     {
@@ -2350,7 +2350,7 @@
     },
     "campaigns": {
       "location": "Notifications > Campaign tab",
-      "creation": "Create Campaign opens an inline form; Create & Schedule saves and enables a recurring server schedule. No notification is sent immediately.",
+      "creation": "Create Campaign opens an inline form; Create & Schedule saves and enables the schedule. Today's due occurrence is queued immediately; future dates wait for their scheduled time.",
       "fields": [
         "Campaign Name",
         "Start",
@@ -2363,7 +2363,8 @@
         "Title",
         "Message",
         "Show in",
-        "Icon"
+        "Icon",
+        "Show Upcoming (days before)"
       ],
       "presets": [
         "Cyber Monday",
@@ -2388,10 +2389,16 @@
       "validation": "backend schedule/concurrency/permission tests plus browser creation/edit/pause/resume/persistence/focus checks",
       "calendarRange": {
         "approval": "2026-11-07: User replaces Year/Month/Day dropdowns with Start and End calendars followed by Recurrence. Past dates must be accepted.",
-        "interaction": "Native date inputs for Start and End, followed by Does not repeat, Every day/week/month/year and retained holiday presets. Required dates may be past, present or future; End must be on or after Start. Preview reports next remaining run, or no remaining runs without blocking save. Monthly/yearly recurrence anchors to Start, clamps short months and ends inclusively on End. Past runs are not replayed. History shows saved range and Completed when no runs remain. Existing unbounded schedules remain intact until edited; legacy edit supplies its next date and asks for End.",
+        "interaction": "Native date inputs for Start and End, followed by Does not repeat, Every day/week/month/year and retained holiday presets. Required dates may be past, present or future; End must be on or after Start. Preview reports next remaining run, or no remaining runs without blocking save. Monthly/yearly recurrence anchors to Start, clamps short months and ends inclusively on End. Today's unsent occurrence is queued even if its send time has passed, and preview/history show Starts now. Earlier local dates are not replayed. An occurrence receipt prevents resaving or resuming a sent date from publishing it again, including changes to send time. History shows saved range and Completed when no runs remain. Existing unbounded schedules remain intact until edited; legacy edit supplies its next date and asks for End.",
         "appearance": "Existing form-grid and native date input styling; two date controls beside each other, stacked on mobile. No Year/Month/Day dropdowns or past-date minimum.",
         "accessibility": "Start, End and Recurrence labels, calendar keyboard operation, native focus order, live next-run status, validation alerts only for invalid dates/ranges.",
         "validation": "campaignCalendarVersion 1 gates preview/save; a successful preview with null nextRunAt still enables Save. Stored ISO dates are interpreted in selected timezone, empty DB nextRunAt represents completion without a schema migration. Worker excludes completed rows; no runs beyond End."
+      },
+      "upcoming": {
+        "approval": "2026-11-08: Show campaigns days or weeks before their start in Billing. Default seven days; admin can change lead time.",
+        "control": "Existing labelled native number input, 0–90 whole days, default 7 including legacy campaigns; 0 disables. Visible when Billing selected. Saved through create/edit and history. Accessible helper explains 7/14-day examples. upcomingCampaignVersion 1 required before form is enabled.",
+        "display": "Separate recipient-scoped previews, earliest five, in Billing drawer, Credit and Usage and Purchase Additional Credits above regular options. Reuse promotional card, badge, body and expiry styles. Upcoming and configured badges, Starts and Offer lasts till in campaign timezone. No Select or Mark as Read, no Bell unread count or receipts. Existing schedule and dispatch time unchanged.",
+        "lifecycle": "Only enabled Billing campaigns in the advance window. Hide blocked, paused, completed, non-targeted and missed dates. Keep today’s due preview as Starting soon until worker dispatch. Refresh at start, every 30 seconds, focus and auth change; replace preview with actual notice after dispatch."
       }
     }
   },
@@ -2616,5 +2623,9 @@
     "accessibility": "Named native buttons, labelled input and tables, heading focus after preparation, alerts for errors and polite status for receipts. Persistent reading position; refresh does not replace input state. Mobile tables scroll internally. Existing theme-accent page Back is retained.",
     "persistence": "Server SQLite stores prepared releases and durable dispatch intents, scoped to administrators. GitHub production receipts and Cloudflare canonical deployment establish publication, not the HTTP dispatch response. No release credentials or history in browser storage.",
     "limits": "Frontend publication only; backend code, database migrations and GPU model deployment stay separate. GitHub immutable previews retain 10 verified builds; artifacts retain 90 days. Production remains disabled until hosting, domain, OAuth, API origins and release credentials are configured."
+  },
+  "pdfTextSelectionIntegrity": {
+    "behavior": "Position PDF line-ending newline spans with their corresponding text row; native BR hit boxes must not extend margin drags into following rows. Preserve copied line breaks and the original document.",
+    "verification": "source-picker.test.cjs and UPLOAD-08 real PDF mouse selection."
   }
 }

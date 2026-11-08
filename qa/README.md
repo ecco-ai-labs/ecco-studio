@@ -4,7 +4,7 @@ Run `npm ci`, `npx playwright install --with-deps chrome`, then `npm test` from 
 The GitHub **UX QA Agent** workflow runs on every push and pull request and supports **Run workflow**.
 Open the run summary for counts, failures and coverage; download `ecco-ux-qa-*` for `report/index.html`, screenshots, videos, traces and JSON.
 
-The suite registers 64 Chrome browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.
+The suite registers 81 Chrome browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.
 The exact production frontend loads in a local fixture host. Service responses, identity and media are synthetic; external requests are intercepted and blocked. No live tickets, charges, GPU jobs or YouTube uploads occur. `coverage.json` explicitly lists backend workflows that remain blocked.
 
 ## AI screenshot inspection
@@ -42,3 +42,7 @@ Validation: npm ci --prefix desk && npm run build --prefix desk; node tests/test
 Administrators and verified members of the configured administrator group can use Create New Agents at the top of the pool. Name the agent, add/reorder up to 12 supported check steps, then Create Agent. Definitions are shared in the server-backed pool and run sequentially; reports and tickets retain the existing review flow. This builder composes implemented browser checks; it does not execute arbitrary code, prompts, paid generation or publishing. Backend API version 1 is required. Validate authorization/persistence with `cd backend && python3 -m unittest test_ecco_desk_agents`.
 
 PDF workflow checks load the real pinned PDF.js package from local npm assets through intercepted requests. The PDF fixture has two bookmarked chapters and a first chapter over 30,000 characters. Page/chapter extraction is real; AI improvement, compatibility and character responses remain synthetic. No external request is allowed through the fixture route.
+
+The Story workspace checks job runs all top-level Node unit suites plus navigation,
+popup, studio tabs, model selection, cancellation and publishing suites. See
+[story-workflow-verification.md](story-workflow-verification.md) for the acceptance matrix.

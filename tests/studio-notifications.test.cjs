@@ -77,3 +77,11 @@ test('independent Billing feed, shared receipt and expiry preserve Bell counts a
  data.billingNotifications=[notice('expires',{expiresAt:new Date(Date.now()+70).toISOString()})];await w.EccoNotifications.refresh();assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,1);await new Promise(r=>setTimeout(r,85));assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,0);
  w.EccoAuth.user=null;w.document.dispatchEvent(new w.Event('ecco:auth-change'));assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,0);w.close();
 });
+
+test('upcoming is Billing-only, non-readable, refreshed at start and cleared across accounts',async()=>{
+ const {w,q}=setup();await tick();let gets=0;const soon=notice('upcoming:test',{campaignId:'test',status:'upcoming',startsAt:new Date(Date.now()+100).toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString()});
+ w.fetch=async(url,opts)=>{assert.equal(opts.method,'GET');gets++;return {ok:true,json:async()=>({notificationVersion:1,notificationPresentationVersion:1,upcomingCampaignVersion:1,notifications:[],billingNotifications:[],upcomingCampaigns:[soon]})}};
+ await w.EccoNotifications.refresh();assert.equal(q('.notification-count').hidden,true);assert.equal(w.EccoNotifications.snapshot().upcomingCampaigns.length,0);assert.equal(w.EccoNotifications.snapshot('billing').upcomingCampaigns.length,1);assert.equal(await w.EccoNotifications.markRead(soon.id),false);
+ const first=w.EccoNotifications.snapshot('billing');first.upcomingCampaigns[0].title='changed';assert.equal(w.EccoNotifications.snapshot('billing').upcomingCampaigns[0].title,soon.title);
+ await new Promise(r=>setTimeout(r,120));assert(gets>=2);w.EccoAuth.user=null;w.document.dispatchEvent(new w.Event('ecco:auth-change'));assert.equal(w.EccoNotifications.snapshot('billing').upcomingCampaigns.length,0);w.close();
+});

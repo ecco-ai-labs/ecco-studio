@@ -218,6 +218,17 @@
     await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;if(generation!==epoch)return;
     const content=await page.getTextContent();if(generation!==epoch)return;
     await new pdfjs.TextLayer({textContentSource:content,container:layer,viewport}).render();if(generation!==epoch)return;
+    // Native BR hit boxes ignore absolute positioning in Chromium. Represent
+    // each PDF line break as positioned text so margin drags stay on that line.
+    const renderedScale=layer.getBoundingClientRect().width/viewport.width||1;
+    for(const br of layer.querySelectorAll('br')){
+     const span=br.previousElementSibling;if(span?.tagName!=='SPAN')continue;
+     const end=document.createElement('span');end.textContent='\n';end.dataset.pdfLineBreak='';
+     end.style.left='calc('+span.style.left+' + '+(span.getBoundingClientRect().width/renderedScale)+'px)';
+     end.style.top=span.style.top;end.style.fontSize=getComputedStyle(span).fontSize;end.style.lineHeight='1';end.style.whiteSpace='pre';
+     br.replaceWith(end);
+    }
+
     shell.dataset.rendered='true';shell.removeAttribute('aria-busy');
    }catch(error){if(generation===epoch){shell.removeAttribute('aria-busy');note.textContent='Could not preview page '+shell.dataset.page+': '+error.message;}}
   }

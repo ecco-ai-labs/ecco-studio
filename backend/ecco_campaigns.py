@@ -75,9 +75,16 @@ def next_run(plan,after):
             if candidate>after.astimezone(UTC):return candidate
     return None
 
-def planned_run(raw,current):
-    """Past ranges are valid; only remaining occurrences can be dispatched."""
-    return next_run(raw,current)
+def planned_run(raw,current,db=None,cid=None):
+    """Include today's unsent occurrence when saving, even after its send time."""
+    plan=schedule(raw);zone=ZoneInfo(plan['timezone']);today=current.astimezone(zone).date()
+    day_start=dt.datetime.combine(today,dt.time(),zone).astimezone(UTC)
+    day_end=dt.datetime.combine(today+dt.timedelta(days=1),dt.time(),zone).astimezone(UTC)
+    if db is not None and cid and db.execute(
+            'SELECT 1 FROM desk_campaign_runs WHERE campaignId=? AND scheduledAt>=? AND scheduledAt<? LIMIT 1',
+            (cid,stamp(day_start),stamp(day_end))).fetchone():
+        return next_run(plan,day_end-dt.timedelta(microseconds=1))
+    return next_run(plan,day_start-dt.timedelta(microseconds=1))
 
 def initialize(db):
     db.executescript('''
@@ -97,12 +104,31 @@ def initialize(db):
 
 def public(row):
     result=dict(row);result.update(json.loads(result.pop('config')));result.pop('createdBy',None)
-    result['nextRunAt']=result['nextRunAt'] or None;result['enabled']=bool(result['enabled']);result.setdefault('placements',['bell','billing']);result.setdefault('badge','NEW');return result
+    result['nextRunAt']=result['nextRunAt'] or None;result['enabled']=bool(result['enabled']);result.setdefault('placements',['bell','billing']);result.setdefault('badge','NEW');result.setdefault('upcomingDays',7);return result
 
 def listing(db,me):
     from ecco_desk import require_notification_admin
     require_notification_admin(me)
-    return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'notificationPresentationVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
+    return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'upcomingCampaignVersion':1,'notificationPresentationVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
+
+def upcoming(db,me,current=None):
+    """Recipient-scoped Billing previews; never create unread notices or receipts."""
+    current=current or dt.datetime.now(UTC);items=[]
+    for row in db.execute("SELECT * FROM desk_campaigns WHERE enabled=1 AND nextRunAt!='' ORDER BY nextRunAt,id"):
+        config=json.loads(row['config']);lead=config.get('upcomingDays',7)
+        if not lead or row['lastError'] or 'billing' not in config.get('placements',['bell','billing']):continue
+        if config['audience']!='all' and config.get('recipientId')!=me['userId']:continue
+        starts=dt.datetime.fromisoformat(row['nextRunAt']);zone=ZoneInfo(config['schedule']['timezone'])
+        # Keep today's due preview while the worker dispatches. Never replay old dates.
+        if starts-current>dt.timedelta(days=lead) or starts.astimezone(zone).date()<current.astimezone(zone).date():continue
+        if db.execute('SELECT 1 FROM desk_campaign_runs WHERE campaignId=? AND scheduledAt=?',(row['id'],row['nextRunAt'])).fetchone():continue
+        expires=starts+dt.timedelta(days=config['durationDays'])
+        if expires<=current:continue
+        items.append(dict(id='upcoming:'+row['id']+':'+row['nextRunAt'],campaignId=row['id'],kind='marketing_campaign',
+            status='upcoming',title=config['title'],body=config['body'],severity='informational',badge=config.get('badge','NEW'),
+            startsAt=stamp(starts),expiresAt=stamp(expires),timezone=config['schedule']['timezone']))
+        if len(items)==5:break
+    return items
 
 def validated(db,body):
     from ecco_desk import text,choice,DeskError,notification_presentation
@@ -114,6 +140,9 @@ def validated(db,body):
     days=body.get('durationDays')
     if type(days) is not int or not 1<=days<=365:raise DeskError('Notification duration must be 1 to 365 days.')
     result['durationDays']=days;result['schedule']=schedule(body.get('schedule'))
+    lead=body.get('upcomingDays',7)
+    if type(lead) is not int or not 0<=lead<=90:raise DeskError('Upcoming notice must be 0 to 90 days before the campaign.')
+    result['upcomingDays']=lead
     mask,result['badge']=notification_presentation(body,('bell','billing'))
     result['placements']=[p for p,bit in (('bell',1),('billing',2)) if mask & bit]
     return result
@@ -121,7 +150,7 @@ def validated(db,body):
 def write(db,me,body,current=None):
     from ecco_desk import require_notification_admin,text,DeskError,event
     require_notification_admin(me);current=current or dt.datetime.now(UTC);op=body.get('op')
-    if op=='previewCampaign':return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'notificationPresentationVersion':1,'nextRunAt':stamp(planned_run(body.get('schedule'),current)) or None}
+    if op=='previewCampaign':return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'upcomingCampaignVersion':1,'notificationPresentationVersion':1,'nextRunAt':stamp(planned_run(body.get('schedule'),current,db,body.get('id'))) or None}
     cid=str(uuid.UUID(text(body,'id',36)));old=db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone()
     if op in ('updateCampaign','setCampaignActive'):
         if not old:raise DeskError('Campaign not found.',404)
@@ -130,24 +159,24 @@ def write(db,me,body,current=None):
         if type(body.get('enabled')) is not bool:raise DeskError('Choose Active or Paused.')
         enabled=body['enabled'];plan=json.loads(old['config'])['schedule']
         db.execute('UPDATE desk_campaigns SET enabled=?,version=version+1,createdBy=?,updatedAt=?,nextRunAt=?,lastError=NULL WHERE id=?',
-                   (int(enabled),me['userId'],stamp(current),stamp(next_run(plan,current)),cid))
+                   (int(enabled),me['userId'],stamp(current),stamp(planned_run(plan,current,db,cid)),cid))
         event(db,me,('Campaign resumed: ' if enabled else 'Campaign paused: ')+cid)
     elif op in ('createCampaign','updateCampaign'):
         config=validated(db,body);encoded=json.dumps(config,sort_keys=True,separators=(',',':'))
         if op=='createCampaign' and old:
-            old_config=json.loads(old['config']);old_config.setdefault('placements',['bell','billing']);old_config.setdefault('badge','NEW')
+            old_config=json.loads(old['config']);old_config.setdefault('placements',['bell','billing']);old_config.setdefault('badge','NEW');old_config.setdefault('upcomingDays',7)
             if old_config!=config or old['createdBy']!=me['userId']:raise DeskError('This campaign request was already saved. Refresh before changing it.',409)
         elif op=='createCampaign':
             if db.execute('SELECT COUNT(*) FROM desk_campaigns').fetchone()[0]>=100:raise DeskError('The workspace has reached 100 campaigns.',409)
             db.execute('INSERT INTO desk_campaigns(id,config,createdBy,enabled,createdAt,updatedAt,nextRunAt) VALUES(?,?,?,1,?,?,?)',
-                       (cid,encoded,me['userId'],stamp(current),stamp(current),stamp(planned_run(config['schedule'],current))))
+                       (cid,encoded,me['userId'],stamp(current),stamp(current),stamp(planned_run(config['schedule'],current,db,cid))))
             event(db,me,'Campaign scheduled: '+cid)
         else:
             db.execute('UPDATE desk_campaigns SET config=?,createdBy=?,version=version+1,updatedAt=?,nextRunAt=?,lastError=NULL WHERE id=?',
-                       (encoded,me['userId'],stamp(current),stamp(planned_run(config['schedule'],current)),cid))
+                       (encoded,me['userId'],stamp(current),stamp(planned_run(config['schedule'],current,db,cid)),cid))
             event(db,me,'Campaign updated: '+cid)
     else:raise DeskError('Unknown campaign action.')
-    return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'notificationPresentationVersion':1,'campaign':public(db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone())}
+    return {'campaignVersion':1,'campaignYearVersion':1,'campaignCalendarVersion':1,'upcomingCampaignVersion':1,'notificationPresentationVersion':1,'campaign':public(db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone())}
 
 def process_due(database,current=None):
     import ecco_desk as desk

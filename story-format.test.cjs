@@ -28,18 +28,18 @@ async function setup(storage={}, {autoConnect=false,records=null}={}){
  if(!window.testAutoconnect){
  state=window.fixtureState;
  window.testCalls=[];api=async(path,body)=>{window.testCalls.push({path,body});if(path==='stories'){const record={id:'created-story',kind:'story',...body};state.records.push(record);return record;}return {};};refresh=async()=>true;}`);
- await tick();
+ await tick();w.sessionStorage.setItem('ecco-guided-mode','on');
  const q=s=>w.document.querySelector(s),nav=()=>[...w.document.querySelectorAll('#workspace-production-group .journey-step')].filter(b=>!b.hidden).map(b=>b.dataset.page);
  const choose=async value=>{const field=q('[name=story_format]');field.value=value;field.dispatchEvent(new w.Event('change',{bubbles:true}));await tick();};
- return {w,q,nav,choose,errors,close,async go(p){w.testUI.navigate(p);await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
+ return {w,q,nav,choose,errors,close,async go(p){w.testUI.navigate(p);w.sessionStorage.setItem('ecco-guided-mode','on');w.EccoWorkspaceUI.selectJourneyStory(w.testUI.activeStory());await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
 }
 test('new stories require a format and immediately show the matching steps without duplicates',async()=>{
  const x=await setup();await x.go('story-setup');
  assert.equal(x.q('[name=story_format]').required,true);assert.equal(x.q('[name=story_format]').validity.valueMissing,true);
  assert.deepEqual(x.nav(),['story-setup','board','audio','images','render','journey-preview']);assert.equal(x.q('#story-setup-form').querySelector(':scope > label').dataset.storyFormat,'');
- await x.choose('audio');assert.deepEqual(x.nav(),['story-setup','board','audio']);
+ await x.choose('audio');assert.deepEqual(x.nav(),['story-setup','board','audio'],JSON.stringify({format:x.q('[name=story_format]')?.value,saved:x.w.localStorage.getItem('ecco-new-story-draft'),guided:x.w.sessionStorage.getItem('ecco-guided-mode'),errors:x.errors}));
  await x.choose('video');assert.deepEqual(x.nav(),['story-setup','board','audio','images','render','journey-preview']);
- await x.choose('audio');assert.deepEqual(x.nav(),['story-setup','board','audio']);assert.match(x.q('#journey-guide').textContent,/STEP 1 OF 3/);
+ await x.choose('audio');assert.deepEqual(x.nav(),['story-setup','board','audio'],JSON.stringify({format:x.q('[name=story_format]')?.value,saved:x.w.localStorage.getItem('ecco-new-story-draft'),guided:x.w.sessionStorage.getItem('ecco-guided-mode'),errors:x.errors}));assert.match(x.q('#journey-guide').textContent,/STEP 1 OF 3/);
  assert.deepEqual(x.errors,[]);x.close();
 });
 test('saving an audio story retains its format and finishes the journey at Audio Studio',async()=>{
@@ -71,7 +71,7 @@ test('opening an audio story from Story Library goes to its storyboard instead o
  const x=await setup({'ecco-story-description:audio-story':JSON.stringify({cloudId:'audio-story',story_format:'audio',title:'Audio Story'})});
  x.w.testUI.refreshStories();await tick();
  [...x.w.document.querySelectorAll('.project .tree-folder')].find(button=>button.textContent.includes('Audio Story')).click();await tick();
- assert.equal(x.q('#heading').textContent,'Storyboard');assert.equal(x.q('#image-form'),null);assert.deepEqual(x.nav(),['story-setup','board','audio']);assert.match(x.q('#journey-guide').textContent,/STEP 2 OF 3/);assert.deepEqual(x.errors,[]);x.close();
+ assert.equal(x.q('#heading').textContent,'Storyboard');assert.equal(x.q('#image-form'),null);assert.deepEqual(x.nav(),['story-setup','board','audio'],JSON.stringify({format:x.q('[name=story_format]')?.value,saved:x.w.localStorage.getItem('ecco-new-story-draft'),guided:x.w.sessionStorage.getItem('ecco-guided-mode'),errors:x.errors}));assert.match(x.q('#journey-guide').textContent,/STEP 2 OF 3/);assert.deepEqual(x.errors,[]);x.close();
 });
 
 
@@ -82,7 +82,7 @@ test('entry and libraries keep the full menu until an Audio story is explicitly 
  await x.go('library');assert.equal(x.nav().length,6);
  x.w.testUI.refreshStories();await tick();
  [...x.w.document.querySelectorAll('.project .tree-folder')].find(button=>button.textContent.includes('Audio Story')).click();await tick();
- assert.deepEqual(x.nav(),['story-setup','board','audio']);
+ assert.deepEqual(x.nav(),['story-setup','board','audio'],JSON.stringify({format:x.q('[name=story_format]')?.value,saved:x.w.localStorage.getItem('ecco-new-story-draft'),guided:x.w.sessionStorage.getItem('ecco-guided-mode'),errors:x.errors}));
  x.w.testUI.selectStory('video-story');await x.go('board');assert.equal(x.nav().length,6);
  assert.deepEqual(x.errors,[]);x.close();
 });
@@ -180,7 +180,7 @@ test('workflow library shows icons and reversible delete controls without openin
  await x.go('workflow-library');assert.equal(x.q('#workflow-form'),null);assert.ok(x.q('#workflow-library-list svg'));assert.equal(x.w.testUI.activeStory(),'');
  x.q('#workflow-library-list [aria-label="Delete Evening headlines"]').click();await tick();assert.equal(x.q('#workflow-library-list .text-library-card'),null);
  await x.go('trash');x.q('[aria-label="Restore Evening headlines"]').click();await tick();await x.go('workflow-library');assert.ok(x.q('#workflow-library-list .text-library-card'));
- x.q('#workflow-library-new').click();await tick();assert.equal(x.q('#workflow-form [name=name]').value,'');assert.equal(x.q('#workflow-form [name=prompt]').value,'');assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);x.close();
+ x.q('#workflow-library-new').click();await tick();x.q('[name=workflow-type][value=video]').click();x.q('#workflow-start [data-continue]').click();await tick();assert.equal(x.q('#workflow-form [name=name]').value,'');assert.equal(x.q('#workflow-form [name=prompt]').value,'');assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);x.close();
 });
 
 test('Research Prompt starts with the selected story script without making an AI request',async()=>{
@@ -198,7 +198,7 @@ test('selecting a saved story does not empty a separate unfinished draft; deleti
 
 test('Story Format is a separate Audio/Video toggle immediately before Upload with no default',async()=>{
  const x=await setup();await x.go('story-setup');const panel=x.q('#story-entry-panel'),control=x.q('.story-format-control');
- assert.equal(panel.firstElementChild,control);assert.equal(control.nextElementSibling.className,'story-source-controls');assert.deepEqual([...control.nextElementSibling.children].map(node=>node.textContent.trim()),['Story Library','Manual','Upload⌄Upload PDFPreview & Select×']);
+ assert.equal(panel.firstElementChild,control);assert.equal(control.nextElementSibling.className,'story-source-controls');assert.deepEqual([...control.nextElementSibling.children].map(node=>node.textContent.trim()),['Story Library','Manual','Upload⌄Upload PDFPreview & Select× Resume Saved Selection']);
  assert.equal(control.querySelectorAll('[aria-pressed="true"]').length,0);
  control.querySelector('[data-story-format-option="audio"]').click();await tick();assert.equal(x.q('[name=story_format]').value,'audio');assert.equal(x.nav().length,3);assert.equal(control.querySelector('[aria-pressed="true"]').textContent,'Audio');
  control.querySelector('[data-story-format-option="video"]').click();await tick();assert.equal(x.q('[name=story_format]').value,'video');assert.equal(x.nav().length,6);assert.deepEqual(x.errors,[]);x.close();
