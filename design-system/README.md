@@ -565,3 +565,18 @@ and settings to Story and Characters. Generate opens the generation tab. The
 review saves a story-scoped Resume Script draft, retains edits across Close and
 Minimize, and never starts media inference. Source words are assigned completely
 before review; intentional user edits are retained.
+
+## Compact story editing and AI review
+
+Story and Characters uses browser-style Character 1, 2, 3 tabs and a trailing +
+that adds and selects the final character. Only its properties are displayed.
+Number of characters, Choose from Library, Create Character and the source caption
+are removed. Upload PDF, Generate With AI and Write use equal compact control
+panels; the optional story brief is two lines, with empty status/resume rows hidden.
+Story preparation and selection errors open the shared error popup.
+
+Generate With AI retains prompt and editable generated story together in the same
+popup. Generate Script opens the shared screenplay review, where every turn and
+speaker/property is editable. Apply Text returns the reviewed work to the main
+Story and Characters screen. Text edits survive closing and reopening; minimizing
+and navigating away preserves the screenplay. No media inference starts here.

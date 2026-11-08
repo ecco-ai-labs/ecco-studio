@@ -153,7 +153,7 @@
  function generationInstructions(options={}){
   return [options.instructions?.trim(),options.language?'Write the generated text in '+options.language+'. Use its native script unless the user asks for transliteration. Keep JSON keys, IDs and technical setting names unchanged.':''].filter(Boolean).join('\n');
  }
- function requestGeneration({label,key,onGenerate,isValid=()=>true,characterForm=null,scopeKey=null,initialOptions=null,contextFields=[],onOptionsChange=()=>{}}){
+ function requestGeneration({label,key,onGenerate,isValid=()=>true,characterForm=null,scopeKey=null,initialOptions=null,contextFields=[],onOptionsChange=()=>{},review=null}){
   if(busy){showError('Another AI request is still running. Wait for it to finish, then try again.');return;}
   const story=activeStory,scope=scopeKey??story,draftKey='ecco-ai-generation:'+scope+':'+key,languageKey='ecco-ai-language:'+scope;
   let saved={};try{saved=JSON.parse(localStorage.getItem(draftKey)||'{}');}catch{}
@@ -191,17 +191,34 @@
    });
   }
   function readOptions(){return {language:select.value==='other'?custom.value.trim():select.value,instructions:instructions.value.trim(),...Object.fromEntries(contextFields.map(field=>[field.name,form.elements[field.name].value]))};}
+  let generating=false,output,next;
+  if(review){
+   dialog.classList.add('story-generation-review');
+   const pane=document.createElement('label');pane.className='story-generation-output';pane.textContent='Generated story';
+   output=document.createElement('textarea');output.rows=12;output.setAttribute('aria-label','Generated story');output.placeholder='Your generated story will appear here. Review and edit it before generating the script.';output.value=review.text||'';pane.append(output);const layout=form.querySelector('.story-generation-layout'),prompt=form.querySelector('.story-generation-prompt');if(layout&&prompt){const column=document.createElement('div');column.className='story-generation-writing';layout.insertBefore(column,prompt);column.append(prompt,pane);}else form.querySelector('[data-generation-status]').before(pane);
+   next=document.createElement('button');next.type='button';next.textContent=review.nextLabel||'Generate Script';next.dataset.generationNext='';next.disabled=!output.value.trim();form.querySelector('[type=submit]').after(next);
+   output.oninput=()=>{next.disabled=generating||!output.value.trim();review.onChange?.(output.value);};
+   next.onclick=async()=>{try{if(!isValid()||activeStory!==story)throw Error('Your story changed. Reopen Generate With AI.');if(!output.value.trim())throw Error('Generate or enter story text first.');await review.onNext(output.value);dialog.close();}catch(error){showError(error);}};
+  }
   const syncLanguage=()=>{form.querySelector('[data-other-language]').hidden=select.value!=='other';custom.required=select.value==='other';};syncLanguage();select.onchange=syncLanguage;
   if(form.elements.generation_target)form.elements.generation_target.onchange=()=>{const character=form.elements.generation_target.value==='character';select.closest('label').hidden=character;form.querySelector('[data-other-language]').hidden=character||select.value!=='other';custom.required=!character&&select.value==='other';form.querySelector('[type=submit]').textContent=character?'Continue':'Generate';};
   form.querySelector('[data-cancel]').onclick=()=>dialog.close();
-  form.onsubmit=event=>{
-   event.preventDefault();if(!form.reportValidity())return;
-   if(activeStory!==story||!isValid()){form.querySelector('[data-generation-status]').textContent='Your draft or selection changed. Reopen Generate With AI for the current field.';return;}
+  form.onsubmit=async event=>{
+   event.preventDefault();if(generating||!form.reportValidity())return;
+   if(activeStory!==story||!isValid()){showError('Your draft or selection changed. Reopen Generate With AI for the current field.');return;}
    if(form.elements.generation_target?.value==='character'){dialog.close();window.EccoCharacterStudio.open(characterForm,instructions.value.trim()||characterForm.elements.prompt?.value||'').catch(showError);return;}
    const options=readOptions();
    if(select.value==='other'&&!options.language){custom.focus();return;}
    localStorage.setItem(draftKey,JSON.stringify(options));localStorage.setItem(languageKey,options.language);
-   dialog.close();Promise.resolve().then(()=>onGenerate(options)).catch(showError);
+   if(!review){dialog.close();Promise.resolve().then(()=>onGenerate(options)).catch(showError);return;}
+   generating=true;next.disabled=true;const submit=form.querySelector('[type=submit]'),status=form.querySelector('[data-generation-status]');submit.disabled=true;submit.textContent='Generating…';dialog.setAttribute('aria-busy','true');status.textContent='Writing your story…';
+   const inputs=[...form.querySelectorAll('input,select,textarea')];inputs.forEach(input=>input.disabled=true);
+   try{
+    const text=await onGenerate(options);if(!dialog.isConnected||!isValid()||activeStory!==story)return;
+    if(typeof text!=='string'||!text.trim())throw Error('AI returned no story text. Try again.');
+    output.value=text;review.onChange?.(text);status.textContent='Review your story, then choose '+next.textContent+'.';
+   }catch(error){if(dialog.isConnected){status.textContent='Your prompt and previous text are saved. Retry Generate.';showError(error);}}
+   finally{generating=false;submit.disabled=false;submit.textContent='Generate';inputs.forEach(input=>input.disabled=false);next.disabled=!output.value.trim();dialog.setAttribute('aria-busy','false');if(dialog.open&&!document.querySelector('#ecco-error-popup[open]'))output.focus();}
   };
   dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.showModal();instructions.focus();
  }

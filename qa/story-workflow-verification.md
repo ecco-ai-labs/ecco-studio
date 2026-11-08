@@ -36,3 +36,17 @@ are real. Passing these checks does not certify model quality or connected servi
 
 Run the broad Node regression suite using the command in `.github/workflows/story-workspace.yml`.
 Run browser checks through `UX QA Agent` or `Release checks`; see `qa/README.md`.
+
+## 2026-11-08 live service acceptance
+
+The deployed complete-recording revision was checked on both existing CPU workers;
+both advertise `long_form_version=1`. A real Kokoro CPU recording containing
+85 turns and 5,090 source characters produced one 405.43-second, 48 kHz WAV.
+Its 85 nonempty, ordered timeline entries cover the final WAV duration. This
+checks completeness across inference batches; it is not a subjective audio-quality review.
+
+A separate real backend AI test assigned all 576 ordered source units from
+12,421 characters across two sections. The resulting speakers were Ali Baba,
+Cassim, Morgiana, Narrator and The captain; exact source words were preserved.
+This used synthetic story text through the live service and made no customer
+story changes. Browser fixtures separately verify the frontend workflow.
