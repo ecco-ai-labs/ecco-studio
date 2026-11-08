@@ -84,8 +84,8 @@ for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} open
   await expect(page.locator('#heading')).toHaveText('Tell Your Story');
   const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. StoryBoard Your Story','3. Create Audio for Your Story','4. Create Images for Your Story','5. Create Videos for Your Story','6. Publish Your Story']);
   await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
-  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group [data-page=journey-preview]')).toHaveText('6. Publish Your Story');
-  expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='14px'))).toBe(true);
+  await expect(choices.first()).toHaveCSS('font-size','11.3333px');await expect(page.locator('#workspace-production-group [data-page=journey-preview]')).toHaveText('6. Publish Your Story');
+  expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='11.3333px'))).toBe(true);
   await choices.first().focus();await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
   await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('');
   await page.locator('#workspace-back').click();await expect(page.locator('#story-home-list')).toBeVisible();
@@ -107,11 +107,11 @@ for(const theme of ['default','dark','forest','desert','ocean','dark-sky'])test(
   const choices=page.locator('#story-home-list button');await expect(choices).toHaveCount(6);
   for(const choice of await choices.all())expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
   const landingStyle=async()=>page.locator('#page .workspace-home').evaluate(el=>({padding:getComputedStyle(el).paddingTop,font:getComputedStyle(el.querySelector('button')).fontSize,borders:[...el.querySelectorAll('ul,li,button')].every(row=>{const s=getComputedStyle(row);return ['borderTopWidth','borderBottomWidth','borderLeftWidth','borderRightWidth'].every(p=>s[p]==='0px');})}));
-  expect(await landingStyle()).toEqual({padding:'24px',font:'14px',borders:true});
+  expect(await landingStyle()).toEqual({padding:'22px',font:'11.3333px',borders:true});
   const storyStyle=await choices.first().evaluate(el=>{const s=getComputedStyle(el);return [s.minHeight,s.padding,s.color,s.backgroundColor,s.gridTemplateColumns];});
   await page.locator('#workspace-library-group > summary').click();
   expect(await page.locator('#library-home-list button').first().evaluate(el=>{const s=getComputedStyle(el);return [s.minHeight,s.padding,s.color,s.backgroundColor,s.gridTemplateColumns];})).toEqual(storyStyle);
-  expect(await landingStyle()).toEqual({padding:'24px',font:'14px',borders:true});
+  expect(await landingStyle()).toEqual({padding:'22px',font:'11.3333px',borders:true});
 });
 test('STORY-01 three tabs and left navigation stay visible',async({page})=>{
   await boot(page);await expect(page.locator('#story-workspace-header [role=tab]')).toHaveCount(3);
@@ -164,8 +164,8 @@ test('LIB-home-01 chooser shows aligned icons and opens each matching sidebar de
   await expect(page.locator('#story-workspace-header')).toBeHidden();
   const choices=page.locator('#library-home-list button');
   await expect(choices).toHaveCount(5);
-  await expect(choices.first()).toHaveCSS('font-size','14px');
-  for(const selector of Object.values(librarySelectors))await expect(page.locator(selector)).toHaveCSS('font-size','14px');
+  await expect(choices.first()).toHaveCSS('font-size','11.3333px');
+  for(const selector of Object.values(librarySelectors))await expect(page.locator(selector)).toHaveCSS('font-size','11.3333px');
   expect(await choices.evaluateAll(rows=>rows.map(row=>row.dataset.libraryDestination))).toEqual(kinds);
   const bounds=await choices.evaluateAll(rows=>rows.map(row=>({left:row.getBoundingClientRect().left,width:row.getBoundingClientRect().width,iconLeft:row.querySelector('svg').getBoundingClientRect().left})));
   for(const row of bounds){expect(row.left).toBe(bounds[0].left);expect(row.width).toBe(bounds[0].width);expect(row.iconLeft).toBe(bounds[0].iconLeft);}
@@ -318,9 +318,9 @@ test('NOTIFY-01 numbered unread notices move to three-item read history',async({
   await expect(old.first().locator('.notification-body')).toHaveCSS('font-weight','400');
   await expect(page.getByRole('table',{name:'New notifications',exact:true}).getByRole('columnheader')).toHaveText(['Number','Notification','Date it expires']);
   await expect(page.locator('[data-notification-items] .notification-number').first()).toHaveText('1');
-  await expect(unread.first().locator('.notification-title')).toHaveCSS('font-size','14px');
-  await expect(unread.first().locator('.notification-body')).toHaveCSS('font-size','13px');
-  await expect(page.locator('[data-notification-items] td').first()).toHaveCSS('padding-top','16px');
+  await expect(unread.first().locator('.notification-title')).toHaveCSS('font-size','11.3333px');
+  await expect(unread.first().locator('.notification-body')).toHaveCSS('font-size','10.3333px');
+  await expect(page.locator('[data-notification-items] td').first()).toHaveCSS('padding-top','14px');
   await expect(page.locator('[data-notification-items] time').first()).toBeVisible();
   await unread.first().press('Enter');await expect(unread).toHaveCount(1);await expect(old).toHaveCount(3);
   await expect(old.first()).toContainText('New notice 1');await expect(unread.first()).toBeFocused();
@@ -519,7 +519,7 @@ test('DESK-BRAND-01 original light Desk styling retains Ecco name and logo',asyn
   await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('background-color','rgb(255, 255, 255)');
   await expect(page.getByRole('button',{name:'Publish notification',exact:true})).toHaveCSS('background-color','rgb(17, 42, 56)');
   await expect(page.locator('.notification-composer')).toHaveCSS('font-family',/Arial/);
-  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('font-size','12px');
+  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('font-size','9.33333px');
   await page.setViewportSize({width:390,height:844});
   await expect(page.getByLabel('Message',{exact:true})).toBeVisible();
   expect(await page.locator('.notification-composer').evaluate(el=>el.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
@@ -898,8 +898,8 @@ test('STORY-05 compact control panels and character tabs preserve edits, keyboar
  await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Character tab test');for(const [name,value]of Object.entries({output:'audio',type:'podcast',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();
  await expect(page.getByLabel('Number of characters',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Choose from Library',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Create Character',exact:true})).toHaveCount(0);await expect(page.locator('[data-source]')).toHaveCount(0);
  const tabs=page.getByRole('tablist',{name:'Story characters',exact:true});await expect(tabs.getByRole('tab')).toHaveCount(2);await tabs.getByRole('button',{name:'Add character',exact:true}).click();await expect(tabs.getByRole('tab')).toHaveCount(3);await expect(page.getByLabel('Character 3 Name',{exact:true})).toBeFocused();await page.getByLabel('Character 3 Name',{exact:true}).fill('Morgiana');await tabs.getByRole('tab',{name:'Character 1',exact:true}).click();await tabs.getByRole('tab',{name:'Character 1',exact:true}).press('End');await expect(tabs.getByRole('tab',{name:'Character 3',exact:true})).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');
- const brief=page.getByLabel('What should your story be about? (optional)',{exact:true});await expect(brief).toHaveAttribute('rows','2');await expect(brief).toHaveCSS('height','62px');const row=await page.locator('.story-source-actions').boundingBox(),label=await brief.locator('..').boundingBox();expect(label.y-row.y-row.height).toBeLessThanOrEqual(14);
- await page.screenshot({path:info.outputPath('character-tabs.png'),fullPage:true});await page.getByRole('button',{name:'Generate',exact:true}).click();const error=page.locator('#ecco-error-popup');await expect(error).toBeVisible();await popupControls(error);await expect(error).toContainText(/story|script/i);await error.getByRole('button',{name:'Close popup',exact:true}).click();await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');await page.setViewportSize({width:390,height:844});await expect(brief).toHaveCSS('height','62px');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('character-tabs-mobile.png'),fullPage:true});
+ const brief=page.getByLabel('What should your story be about? (optional)',{exact:true});await expect(brief).toHaveAttribute('rows','2');await expect(brief).toHaveCSS('height','54px');const row=await page.locator('.story-source-actions').boundingBox(),label=await brief.locator('..').boundingBox();expect(label.y-row.y-row.height).toBeLessThanOrEqual(14);
+ await page.screenshot({path:info.outputPath('character-tabs.png'),fullPage:true});await page.getByRole('button',{name:'Generate',exact:true}).click();const error=page.locator('#ecco-error-popup');await expect(error).toBeVisible();await popupControls(error);await expect(error).toContainText(/story|script/i);await error.getByRole('button',{name:'Close popup',exact:true}).click();await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');await page.setViewportSize({width:390,height:844});await expect(brief).toHaveCSS('height','54px');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('character-tabs-mobile.png'),fullPage:true});
 });
 for(const output of ['audio','video'])test(`STORY-06 AI story review stays in its popup before turn-by-turn screenplay for ${output}`,async({page},info)=>{
  await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('AI cave adventure');for(const [name,value]of Object.entries({output,type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await page.getByRole('button',{name:'Generate With AI',exact:true}).click();const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});await popupControls(ai);await ai.getByLabel('What should AI generate?',{exact:true}).fill('Write a cave adventure with Ali and Morgiana.');await ai.getByRole('button',{name:'Generate',exact:true}).click();await expect(ai.getByLabel('Generated story',{exact:true})).toHaveValue('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');await expect(page.locator('#story-simple-script')).toHaveValue('');await expect(ai).toBeVisible();await ai.getByLabel('Generated story',{exact:true}).fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.\n\nAli: We are safe.');await ai.getByRole('button',{name:'Close popup',exact:true}).click();await page.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Generated story',{exact:true})).toHaveValue(/We are safe/);await page.screenshot({path:info.outputPath('ai-story-review.png')});await page.setViewportSize({width:390,height:844});const next=ai.getByRole('button',{name:'Generate Script',exact:true});await expect(next).toBeInViewport();expect(await ai.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await page.screenshot({path:info.outputPath('ai-story-review-mobile.png')});await page.setViewportSize({width:1440,height:1000});await next.click();await expect(ai).toHaveCount(0);
@@ -964,7 +964,7 @@ for(const theme of ['default','ocean'])test(`STORY-09 approved cards, defaults a
  await expect(form.locator('[name=audience]')).toHaveValue('All ages');await expect(form.locator('[name=language]')).toHaveValue('English');await expect(form.locator('[data-default]:visible')).toHaveCount(2);
  await expect(form.locator('[name=recurrence]')).toHaveCount(0);await expect(page.locator('#story-simple-save')).toHaveText('Draft saved in this browser');await expect(form.locator('.help')).toHaveText('Publishing schedule: set in the last step.');
  const boxes=await cards.evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};}));expect(boxes[0].y).toBe(boxes[1].y);expect(boxes[0].w).toBe(boxes[1].w);expect(boxes[0].h).toBe(boxes[1].h);expect(boxes[1].x).toBeGreaterThan(boxes[0].x+boxes[0].w);for(const box of boxes)expect(box.w).toBeLessThanOrEqual(640);
- expect(await next.evaluate(e=>{const r=e.getBoundingClientRect(),f=e.closest('form').getBoundingClientRect();return {height:r.height,right:Math.abs(r.right-f.right),font:getComputedStyle(e).fontSize};})).toEqual({height:48,right:0,font:'14px'});await expect(next).toBeInViewport();
+ expect(await next.evaluate(e=>{const r=e.getBoundingClientRect(),f=e.closest('form').getBoundingClientRect();return {height:r.height,right:Math.abs(r.right-f.right),font:getComputedStyle(e).fontSize};})).toEqual({height:44,right:0,font:'11.3333px'});await expect(next).toBeInViewport();
  await page.screenshot({path:info.outputPath('story-details-'+theme+'.png')});
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,document.querySelector('#story-simple-details').offsetTop));
  expect(await form.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);await expect(next).toBeInViewport();
@@ -1024,6 +1024,35 @@ test('STORY-14 Other descriptions are required and Default badges stay removed a
  await form.locator('[name=audience]').selectOption('Families');await form.locator('[name=audience]').selectOption('All ages');await form.locator('[name=language]').selectOption('Hindi');await form.locator('[name=language]').selectOption('English');await expect(form.locator('[data-default]:visible')).toHaveCount(0);
  await fillStoryDetail(page,'type','podcast');await expect(type).toBeHidden();await fillStoryDetail(page,'type','custom');await expect(type).toHaveValue('A guided tour');await form.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await expect(type).toHaveValue('A guided tour');await expect(genre).toHaveValue('Architecture');await expect(form.locator('[data-default]:visible')).toHaveCount(0);await expect(form.locator('[name=type]')).toHaveValue('custom');await expect(form.locator('[name=genre]')).toHaveValue('Other');
 });
+
+for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TYPE-01 compact typography and controls at ${viewport.width}px`,async({page},info)=>{
+ await page.setViewportSize(viewport);await boot(page);
+ const font=async(selector,original)=>expect(await page.locator(selector).first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeCloseTo(original-8/3,3);
+ await font('body',16);await font('#heading',viewport.width<700?28:34);await font('.story-details-card h2',18);await font('#story-detail-title',14);await font('.story-detail-qualifier',14);await font('#story-simple-save',12);
+ for(const selector of ['#story-detail-title','#story-detail-audience','#story-detail-type-button'])await expect(page.locator(selector)).toHaveCSS('height','40px');
+ await expect(page.locator('.story-details-next')).toHaveCSS('min-height','44px');
+ const trigger=page.locator('#story-detail-type-button'),panel=page.locator('#story-detail-type-panel');await trigger.press('Enter');
+ const option=panel.locator('[data-choice-value]').first();await expect(option).toBeFocused();await font('#story-detail-type-panel .story-choice-option',viewport.width<700?14:15);await font('#story-detail-type-panel .story-choice-description',viewport.width<700?13:14);
+ // Children inherit the smaller label exactly once, including after dynamic panel creation.
+ expect(await option.evaluate(e=>getComputedStyle(e).fontSize)).toEqual(await option.locator('.story-choice-name').evaluate(e=>getComputedStyle(e).fontSize));
+ await expect(option).toHaveCSS('outline-style','solid');expect(await panel.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
+ await option.press('Escape');await expect(trigger).toBeFocused();await expect(panel).toBeHidden();
+ await page.locator('#google-user-menu>summary').click();await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();
+ if(viewport.width<700)for(const selector of ['#google-user-menu>.workspace-menu-items','#workspace-usage-drawer'])await expect.poll(()=>page.locator(selector).evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
+ await page.screenshot({path:info.outputPath('compact-account-'+viewport.width+'.png')});
+ await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
+ const shop=page.locator('dialog[open].credits-dialog');await expect(shop).toBeVisible();await font('.credits-pack h3',14);await popupControls(shop);expect(await shop.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);await shop.getByRole('button',{name:'Close popup',exact:true}).click();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-typography-'+viewport.width+'.png'),fullPage:true});
+});
+for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TYPE-02 compact Desk shadow-root typography at ${viewport.width}px`,async({page},info)=>{
+ await page.setViewportSize(viewport);await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());await page.goto('/desk/index.html?__qa=1');
+ if(viewport.width<=650)await page.getByRole('button',{name:'Open navigation',exact:true}).click();
+ await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('button',{name:'New Notification',exact:true}).click();
+ const title=page.getByLabel('Title',{exact:true});await expect(title).toHaveCSS('font-size','9.33333px');expect(await title.evaluate(e=>Boolean(e.getRootNode().host))).toBe(true);await title.fill('Compact typography check');await title.press('Tab');await expect(page.getByLabel('Message',{exact:true})).toBeFocused();
+ expect(await page.locator('.notification-composer').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-desk-'+viewport.width+'.png'),fullPage:true});
+
+});
+
 test('LIB-image-label-scope a parent label also lists images in its nested labels',async({page})=>{
   await boot(page);
   await page.evaluate(async()=>{

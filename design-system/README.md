@@ -654,3 +654,14 @@ custom dropdowns, and choosing output does not start generation or publishing.
 The follow-up uses title case for Your Story and Your Audience and equal card
 heights on desktop and mobile. Grid rows size both cards to the larger content
 height, including validation and Other fields; no fixed-height clipping.
+
+## Compact typography
+
+The November 8, 2026 owner request reduces every authored UI font by 2pt
+(2.6667 CSS pixels), superseding earlier font and spacing numbers. Sizes use
+`calc(original - 2pt)` at the declaration so inherited text is reduced once.
+UI padding and gaps of 6px or more decrease by 2px; fixed text controls and
+dropdown triggers also shrink. Story Details uses 40px fields, 52px output
+tiles and a 44px Next action. Equal card sizes and bounded popup panels remain.
+Media, PDF document fonts and Google-hosted sign-in remain outside application
+typography; icon-only close/minimize and toolbar targets keep their dimensions.

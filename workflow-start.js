@@ -24,7 +24,7 @@
   }
  },true);
  // The legacy audio editor adds its shortcut on redraw; suppress that redundant entry.
- const style=document.createElement('style');style.textContent='#new-audio-workflow{display:none!important}#workflow-start{max-width:640px}#workflow-start fieldset{border:1px solid var(--border,#514b69);border-radius:8px;padding:16px}#workflow-start legend{color:var(--accent,#ffdc24)}#workflow-start [role=alert]{color:#ff7272}';
+ const style=document.createElement('style');style.textContent='#new-audio-workflow{display:none!important}#workflow-start{max-width:640px}#workflow-start fieldset{border:1px solid var(--border,#514b69);border-radius:8px;padding:14px}#workflow-start legend{color:var(--accent,#ffdc24)}#workflow-start [role=alert]{color:#ff7272}';
  document.head.append(style);
  window.EccoWorkflowStart={show:start};
 })();

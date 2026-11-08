@@ -80,7 +80,7 @@
   const count=()=>{dialog.querySelector('[data-count]').textContent=chosen.size+' selected';for(const input of inputs)input.checked=chosen.has(input.value);};
   const addImages=(items,body)=>{const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px';body.append(grid);
    for(const asset of items.sort((a,b)=>a.created-b.created)){
-    const label=document.createElement('label');label.style.cssText='display:flex;flex-direction:column;gap:6px;cursor:pointer;padding:8px;background:#38305e;border-radius:8px';
+    const label=document.createElement('label');label.style.cssText='display:flex;flex-direction:column;gap:4px;cursor:pointer;padding:6px;background:#38305e;border-radius:8px';
     const input=document.createElement('input');input.type='checkbox';input.value=asset.id;input.style.width='auto';input.setAttribute('aria-label',asset.title||'Untitled image');inputs.push(input);
     const thumb=document.createElement('img');thumb.src=media(asset);thumb.alt='';thumb.loading='lazy';thumb.style.cssText='width:100%;height:120px;object-fit:contain';
     const title=document.createElement('span');title.textContent=asset.title||'Untitled image';

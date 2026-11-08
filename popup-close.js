@@ -8,17 +8,17 @@
  const style=document.createElement('style');
  style.textContent=`
  dialog{position:fixed}
- dialog.ecco-popup-close-ready{padding-top:44px!important}
+ dialog.ecco-popup-close-ready{padding-top:42px!important}
  dialog.ecco-popup-close-ready > button.ecco-popup-close{position:absolute!important;top:10px!important;right:10px!important;z-index:20}
  dialog.ecco-popup-close-ready > button.ecco-popup-minimize{position:absolute!important;top:10px!important;right:46px!important;z-index:20}
  dialog [data-ecco-replaced-close]{display:none!important}
  dialog[data-ecco-minimized]{display:none!important}
- #ecco-popup-resume{position:fixed;right:20px;bottom:20px;z-index:9999;max-width:min(360px,calc(100vw - 40px));padding:10px;background:var(--ecco-theme-surface,#252039);border:1px solid var(--ecco-theme-border,#51496f);border-radius:9px;color:var(--ecco-theme-text,#fff)}
+ #ecco-popup-resume{position:fixed;right:20px;bottom:20px;z-index:9999;max-width:min(360px,calc(100vw - 40px));padding:8px;background:var(--ecco-theme-surface,#252039);border:1px solid var(--ecco-theme-border,#51496f);border-radius:9px;color:var(--ecco-theme-text,#fff)}
  #ecco-popup-resume[hidden]{display:none!important}
  #ecco-popup-resume summary{cursor:pointer;color:var(--ecco-theme-accent,#ffdc24)}
- #ecco-popup-resume [data-popup-list]{display:grid;gap:8px;max-height:50vh;overflow:auto;margin-top:10px}
+ #ecco-popup-resume [data-popup-list]{display:grid;gap:6px;max-height:50vh;overflow:auto;margin-top:10px}
  #ecco-popup-resume button{white-space:normal;text-align:left}
- #ecco-popup-resume p{font-size:12px;margin:8px 0 0}
+ #ecco-popup-resume p{font-size:calc(12px - 2pt);margin:8px 0 0}
  `;
  document.head.append(style);
  const dock=document.createElement('details');dock.id='ecco-popup-resume';dock.hidden=true;
