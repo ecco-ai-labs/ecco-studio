@@ -376,25 +376,28 @@ test('UPLOAD-02 AI output review and fiction versus Sports News confirmation pre
 });
 
 
-test('DESK-BRAND-01 Ecco logo and purple/yellow controls across Desk and sign-in',async({page})=>{
+test('DESK-BRAND-01 original light Desk styling retains Ecco name and logo',async({page})=>{
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.goto('/desk/index.html?__qa=1');
   const logo=page.getByRole('img',{name:'Ecco AI Labs logo'});
   await expect(logo).toBeVisible();await expect.poll(()=>logo.evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
-  await expect(page.locator('.app-shell')).toHaveCSS('background-color','rgb(23, 21, 47)');
-  await expect(page.locator('.sidebar')).toHaveCSS('background-color','rgb(32, 29, 68)');
+  await expect(page.locator('.app-shell')).toHaveCSS('background-color','rgb(247, 248, 250)');
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color','rgb(17, 42, 56)');
   await page.getByRole('button',{name:'Notifications',exact:true}).click();
+  await expect(page.getByRole('button',{name:'New Notification',exact:true})).toHaveCSS('background-color','rgb(243, 212, 99)');
+  await expect(page.getByRole('tab',{name:'Notifications',exact:true})).toHaveCSS('background-color','rgb(255, 255, 255)');
   await page.getByRole('button',{name:'New Notification',exact:true}).click();
-  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('background-color','rgb(48, 42, 84)');
-  await expect(page.getByRole('button',{name:'Publish notification',exact:true})).toHaveCSS('background-color','rgb(255, 220, 36)');
-  await expect(page.locator('.notification-composer')).toHaveCSS('font-family',/Inter/);
+  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('background-color','rgb(255, 255, 255)');
+  await expect(page.getByRole('button',{name:'Publish notification',exact:true})).toHaveCSS('background-color','rgb(17, 42, 56)');
+  await expect(page.locator('.notification-composer')).toHaveCSS('font-family',/Arial/);
+  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('font-size','12px');
   await page.setViewportSize({width:390,height:844});
   await expect(page.getByLabel('Message',{exact:true})).toBeVisible();
   expect(await page.locator('.notification-composer').evaluate(el=>el.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
   await page.goto('/desk/index.html?__qa=1&signedOut=1');
   await expect(page.getByRole('heading',{name:'Sign in to Ecco Desk',exact:true})).toBeVisible();
   await expect(logo).toBeVisible();await expect.poll(()=>logo.evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
-  await expect(page.locator('.signin')).toHaveCSS('background-color','rgb(23, 21, 47)');
+  await expect(page.locator('.signin')).toHaveCSS('background-color','rgb(247, 248, 246)');
 });
 
 test('NOTIFY-03 notification table stays inside a narrow viewport',async({page})=>{

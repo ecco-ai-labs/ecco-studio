@@ -72,7 +72,7 @@
   {
     "area": "Desk branding",
     "mode": "fixture",
-    "scope": "Existing Ecco logo decodes on signed-in and signed-out screens; purple backgrounds, yellow primary controls, shared typography and notification form at desktop and 390px. Existing composer/account tests cover behavior."
+    "scope": "Existing Ecco logo decodes on signed-in and signed-out screens; original navy sidebar, light surfaces, navy primary controls, yellow circled plus, Arial typography and 12px form fields restored. Notification tabs/forms work at desktop and 390px; account/composer checks retain behavior."
   },
   {
     "area": "Recurring campaigns",
