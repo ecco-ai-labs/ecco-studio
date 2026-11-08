@@ -22,6 +22,22 @@ class ScheduleTest(unittest.TestCase):
  def test_schedule_validation(self):
   for p in [{},self.plan('url'),{**self.plan(),'timezone':'Invalid'},self.plan('weekly',weekday=7),self.plan('monthly',day=True)]:
    with self.assertRaises(desk.DeskError):campaigns.next_run(p,dt.datetime.now(UTC))
+ def test_explicit_year_and_past_date_do_not_roll_silently(self):
+  current=dt.datetime(2026,11,8,tzinfo=UTC)
+  p={**self.plan('yearly',month=11,day=1),'year':2026}
+  with self.assertRaisesRegex(desk.DeskError,'2026.*already passed.*2027'):campaigns.planned_run(p,current)
+  p['day']=27;self.assertEqual(campaigns.planned_run(p,current),dt.datetime(2026,11,27,17,tzinfo=UTC))
+  p['year']=2032;self.assertEqual(campaigns.planned_run(p,current).year,2032)
+  for bad in [True,2026.5,'2026',1999,2101]:
+   with self.assertRaises(desk.DeskError):campaigns.schedule({**p,'year':bad})
+ def test_year_uses_selected_zone_and_time(self):
+  current=dt.datetime(2027,1,1,2,tzinfo=UTC)
+  p={**self.plan('yearly',month=12,day=31),'time':'20:00','year':2026}
+  self.assertEqual(campaigns.planned_run(p,current),dt.datetime(2027,1,1,4,tzinfo=UTC))
+  with self.assertRaises(desk.DeskError):campaigns.planned_run({**p,'time':'17:00'},current)
+  for kind in ['daily','weekly','monthly']:
+   plan={**self.plan(kind,weekday=0,day=1),'year':2030}
+   self.assertEqual(campaigns.planned_run(plan,dt.datetime(2026,11,8,tzinfo=UTC)).astimezone(campaigns.ZoneInfo(plan['timezone'])).year,2030)
 class CampaignTest(unittest.TestCase):
  setUp=fixtures.DeskTest.setUp;tearDown=fixtures.DeskTest.tearDown;login=fixtures.DeskTest.login;call=fixtures.DeskTest.call;setup_team=fixtures.DeskTest.setup_team
  def payload(self,**changes):
@@ -83,4 +99,14 @@ class CampaignTest(unittest.TestCase):
   with desk.connect(self.database) as db:
    n=desk.notification_public(db.execute('SELECT * FROM desk_notifications').fetchone());self.assertEqual(n['kind'],'marketing_campaign');self.assertEqual(n['placements'],['billing']);self.assertEqual(n['badge'],'Dhamaka')
   status,r=self.call(body={**p,'op':'updateCampaign','version':1,'placements':['bell'],'badge':'NEW'});self.assertEqual(status,200,r);self.assertEqual(r['campaign']['placements'],['bell']);self.assertEqual(r['campaign']['badge'],'NEW')
+ def test_saved_year_repeats_after_initial_dispatch_and_past_year_rejected(self):
+  future=dt.datetime.now(UTC).year+2
+  p,c=self.create_campaign(schedule={**self.payload()['schedule'],'year':future})
+  self.assertEqual(c['schedule']['year'],future);self.assertEqual(dt.datetime.fromisoformat(c['nextRunAt']).year,future)
+  self.assertEqual(self.call(body=p)[0],200);self.tick(c)
+  saved=self.call(path='/api/desk?campaigns=1')[1];self.assertEqual(saved['campaignYearVersion'],1)
+  self.assertEqual(dt.datetime.fromisoformat(saved['campaigns'][0]['nextRunAt']).year,future+1)
+  bad={**p,'op':'updateCampaign','version':1,'schedule':{**p['schedule'],'year':2020}}
+  status,r=self.call(body=bad);self.assertEqual(status,400,r);self.assertIn('already passed',r['error'])
+  self.assertEqual(self.call(path='/api/desk?campaigns=1')[1]['campaigns'][0]['schedule']['year'],future)
 if __name__=='__main__':unittest.main()

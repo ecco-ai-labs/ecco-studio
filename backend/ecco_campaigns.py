@@ -18,7 +18,7 @@ def stamp(value):return value.astimezone(UTC).isoformat(timespec='microseconds')
 
 def schedule(raw):
     from ecco_desk import DeskError
-    if not isinstance(raw,dict) or set(raw)-{'kind','time','timezone','weekday','day','month'}:
+    if not isinstance(raw,dict) or set(raw)-{'kind','time','timezone','weekday','day','month','year'}:
         raise DeskError('Choose a valid campaign schedule.')
     kind=raw.get('kind');zone=raw.get('timezone');time=raw.get('time')
     if kind not in KINDS or zone not in ZONES or not isinstance(time,str) or not re.fullmatch(r'(?:[01][0-9]|2[0-3]):[0-5][0-9]',time):
@@ -29,14 +29,19 @@ def schedule(raw):
             value=raw.get(key)
             if type(value) is not int or not minimum<=value<=maximum:raise DeskError('Choose a valid '+key+'.')
             result[key]=value
+    if 'year' in raw:
+        year=raw['year']
+        if type(year) is not int or not 2000<=year<=2100:raise DeskError('Choose a valid campaign year (2000–2100).')
+        result['year']=year
     return result
 
 def next_run(plan,after):
     """One occurrence per local date. DST gaps shift forward; folds run only once."""
     plan=schedule(plan);zone=ZoneInfo(plan['timezone']);local=after.astimezone(zone)
     hour,minute=map(int,plan['time'].split(':'));kind=plan['kind']
+    first_day=max(local.date(),dt.date(plan.get('year',local.year),1,1))
     for offset in range(740):
-        day=local.date()+dt.timedelta(days=offset)
+        day=first_day+dt.timedelta(days=offset)
         thanksgiving=dt.date(day.year,11,1)
         thanksgiving+=dt.timedelta(days=(3-thanksgiving.weekday())%7+21)
         match=(kind=='daily' or kind=='weekly' and day.weekday()==plan['weekday'] or
@@ -49,6 +54,14 @@ def next_run(plan,after):
             candidate=dt.datetime.combine(day,dt.time(hour,minute),zone).astimezone(UTC)
             if candidate>after.astimezone(UTC):return candidate
     raise ValueError('No future occurrence found.')
+
+def planned_run(raw,current):
+    """Validate the user-selected first year without silently rolling it forward."""
+    from ecco_desk import DeskError
+    plan=schedule(raw);upcoming=next_run(plan,current);zone=ZoneInfo(plan['timezone'])
+    if 'year' in plan and upcoming.astimezone(zone).year!=plan['year']:
+        raise DeskError(f"The selected date or time in {plan['year']} has already passed. Choose a later date/time or select {upcoming.astimezone(zone).year}.")
+    return upcoming
 
 def initialize(db):
     db.executescript('''
@@ -73,7 +86,7 @@ def public(row):
 def listing(db,me):
     from ecco_desk import require_notification_admin
     require_notification_admin(me)
-    return {'campaignVersion':1,'notificationPresentationVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
+    return {'campaignVersion':1,'campaignYearVersion':1,'notificationPresentationVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
 
 def validated(db,body):
     from ecco_desk import text,choice,DeskError,notification_presentation
@@ -92,7 +105,7 @@ def validated(db,body):
 def write(db,me,body,current=None):
     from ecco_desk import require_notification_admin,text,DeskError,event
     require_notification_admin(me);current=current or dt.datetime.now(UTC);op=body.get('op')
-    if op=='previewCampaign':return {'campaignVersion':1,'notificationPresentationVersion':1,'nextRunAt':stamp(next_run(body.get('schedule'),current))}
+    if op=='previewCampaign':return {'campaignVersion':1,'campaignYearVersion':1,'notificationPresentationVersion':1,'nextRunAt':stamp(planned_run(body.get('schedule'),current))}
     cid=str(uuid.UUID(text(body,'id',36)));old=db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone()
     if op in ('updateCampaign','setCampaignActive'):
         if not old:raise DeskError('Campaign not found.',404)
@@ -111,14 +124,14 @@ def write(db,me,body,current=None):
         elif op=='createCampaign':
             if db.execute('SELECT COUNT(*) FROM desk_campaigns').fetchone()[0]>=100:raise DeskError('The workspace has reached 100 campaigns.',409)
             db.execute('INSERT INTO desk_campaigns(id,config,createdBy,enabled,createdAt,updatedAt,nextRunAt) VALUES(?,?,?,1,?,?,?)',
-                       (cid,encoded,me['userId'],stamp(current),stamp(current),stamp(next_run(config['schedule'],current))))
+                       (cid,encoded,me['userId'],stamp(current),stamp(current),stamp(planned_run(config['schedule'],current))))
             event(db,me,'Campaign scheduled: '+cid)
         else:
             db.execute('UPDATE desk_campaigns SET config=?,createdBy=?,version=version+1,updatedAt=?,nextRunAt=?,lastError=NULL WHERE id=?',
-                       (encoded,me['userId'],stamp(current),stamp(next_run(config['schedule'],current)),cid))
+                       (encoded,me['userId'],stamp(current),stamp(planned_run(config['schedule'],current)),cid))
             event(db,me,'Campaign updated: '+cid)
     else:raise DeskError('Unknown campaign action.')
-    return {'campaignVersion':1,'notificationPresentationVersion':1,'campaign':public(db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone())}
+    return {'campaignVersion':1,'campaignYearVersion':1,'notificationPresentationVersion':1,'campaign':public(db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone())}
 
 def process_due(database,current=None):
     import ecco_desk as desk

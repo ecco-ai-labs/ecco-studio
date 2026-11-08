@@ -29,14 +29,19 @@
      else if(!release){release={id:p.id,title:p.title,sha:p.sha,baseSha:releaseData.current?.sha||'',kind:p.op==='prepareRollback'?'rollback':'release',state:'prepared',createdAt:new Date().toISOString(),createdName:'QA Admin'};releaseData.releases.unshift(release);}
      return new Response(JSON.stringify({releaseVersion:1,release}));
     }
-    if(p.op==='previewCampaign')return new Response(JSON.stringify({campaignVersion:1,notificationPresentationVersion:1,nextRunAt:'2026-11-30T17:00:00.000000+00:00'}));
+    const campaignDate=plan=>{const year=plan.year||2026;return new Date(Date.UTC(year,plan.kind==='yearly'?plan.month-1:10,plan.kind==='yearly'?plan.day:30,17)).toISOString();};
+    if(p.op==='previewCampaign'){
+     const nextRunAt=campaignDate(p.schedule);
+     if(p.schedule.year&&Date.parse(nextRunAt)<=Date.now())return new Response(JSON.stringify({error:'The selected date or time in '+p.schedule.year+' has already passed. Choose a later date/time or select '+(p.schedule.year+1)+'.'}),{status:400});
+     return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,notificationPresentationVersion:1,nextRunAt}));
+    }
     if(['createCampaign','updateCampaign','setCampaignActive'].includes(p.op)){
      if(role!=='admin')return new Response(JSON.stringify({error:'Admin required'}),{status:403});
      let c=fixtureCampaigns.find(x=>x.id===p.id);
-     if(p.op==='createCampaign'){c={...p,version:1,enabled:true,nextRunAt:'2026-11-30T17:00:00.000000+00:00',lastStatus:null,lastRunAt:null,runCount:0};fixtureCampaigns.push(c)}
+     if(p.op==='createCampaign'){c={...p,version:1,enabled:true,nextRunAt:campaignDate(p.schedule),lastStatus:null,lastRunAt:null,runCount:0};fixtureCampaigns.push(c)}
      else if(!c||c.version!==p.version)return new Response(JSON.stringify({error:'Campaign changed'}),{status:409});
-     else Object.assign(c,p,{version:c.version+1});
-     localStorage.setItem('ecco-desk-qa-campaigns',JSON.stringify(fixtureCampaigns));return new Response(JSON.stringify({campaignVersion:1,notificationPresentationVersion:1,campaign:c}));
+     else Object.assign(c,p,{version:c.version+1,...(p.schedule?{nextRunAt:campaignDate(p.schedule)}:{})});
+     localStorage.setItem('ecco-desk-qa-campaigns',JSON.stringify(fixtureCampaigns));return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,notificationPresentationVersion:1,campaign:c}));
     }
     if(p.op==='createAgent'){if(!me.canManageAgents)return new Response(JSON.stringify({error:'Admin required'}),{status:403});const existing=data.agents.find(a=>a.id===p.id);const agent=existing||{id:p.id,name:p.name,description:p.description,steps:p.steps};if(!existing)data.agents.push(agent);localStorage.setItem('ecco-desk-qa-agents',JSON.stringify(data.agents));return new Response(JSON.stringify({agentWorkflowVersion:1,agent}));}
     if(p.op==='createNotification'&&!customer){notices.unshift({...p,id:p.requestId,createdAt:new Date().toISOString(),expiresAt:p.durationDays?new Date(Date.now()+p.durationDays*86400000).toISOString():null,status:'active',readCount:0});return new Response(JSON.stringify({...notificationData(),id:p.requestId}));}
@@ -45,7 +50,7 @@
    }
    if(url.searchParams.has('releases'))return new Response(JSON.stringify(role==='admin'?releaseData:{error:'Admin required'}),{status:role==='admin'?200:403});
    if(url.searchParams.has('manageNotifications'))return new Response(JSON.stringify({...notificationData(),campaignVersion:1}));
-   if(url.searchParams.has('campaigns'))return new Response(JSON.stringify({campaignVersion:1,notificationPresentationVersion:1,campaigns:fixtureCampaigns}));
+   if(url.searchParams.has('campaigns'))return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,notificationPresentationVersion:1,campaigns:fixtureCampaigns}));
    const id=url.searchParams.get('ticket');return new Response(JSON.stringify(id?{ticket:data.tickets.find(t=>t.id===Number(id)),comments:[],events:[]}:data));
   }
   return new Response(JSON.stringify({error:'External services disabled in QA'}),{status:503});
