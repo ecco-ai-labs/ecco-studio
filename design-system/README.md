@@ -436,6 +436,8 @@ Every Studio screen has a compact ← Back control above its title. It restores
 the preceding in-tab view, including library search/view, story tab and draft,
 focus and scroll. Up to 30 prior views are retained; an empty history disables
 Back and never substitutes the welcome page. Identity changes clear history.
+Page Back text and arrows always use the selected theme accent, including idle,
+hover and keyboard focus: yellow in Default. Existing disabled cues remain.
 Back is restricted to pages in the right-hand content pane, including Desk page
 views. Popups, hover panels, menus and drawers never receive page Back controls.
 Their existing close/minimize, Escape and outside-dismissal behavior remains.

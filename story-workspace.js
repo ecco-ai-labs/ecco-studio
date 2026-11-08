@@ -35,7 +35,7 @@
   if(data.tab===2){
    if(data.output==='video')for(const [view,label]of [['audio','Prepare Audio'],['images','Prepare Images'],['render','Generate Video']]){const b=button(label,()=>generateView(view),'secondary');b.setAttribute('aria-pressed',String(data.view===view));media.append(b);}
    const edit=button('Edit story',()=>select(1),'secondary');media.append(edit);
-   if(data.view==='publish')media.append(button('← Back',()=>window.EccoNavigation?.back(),'secondary'));
+   if(data.view==='publish')media.append(button('← Back',()=>window.EccoNavigation?.back(),'secondary ecco-page-back'));
   }
  }
  function button(text,run,cls=''){const b=document.createElement('button');b.type='button';b.textContent=text;b.className=cls;b.onclick=run;return b;}

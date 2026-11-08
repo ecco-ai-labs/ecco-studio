@@ -172,6 +172,17 @@ for(const theme of ['default','dark','forest','desert','ocean','dark-sky']){
     const summary=page.locator('#workspace-library-group > summary');await expect(summary).toBeVisible();
     expect(await summary.evaluate(el=>getComputedStyle(el).boxShadow)).toBe('none');
     await expect(page.getByRole('searchbox',{name:'Filter image library'})).toBeVisible();
+    const accents={default:'rgb(255, 220, 36)',dark:'rgb(199, 199, 206)',forest:'rgb(255, 255, 255)',desert:'rgb(107, 66, 38)',ocean:'rgb(0, 100, 200)','dark-sky':'rgb(105, 201, 255)'};
+    const back=page.locator('#workspace-back');await expect(back).toBeEnabled();
+    await page.mouse.move(0,0);await expect(back).toHaveCSS('color',accents[theme]);
+    await back.hover();await expect(back).toHaveCSS('color',accents[theme]);
+    await page.mouse.move(0,0);await expect(back).toHaveCSS('color',accents[theme]);
+    await back.focus();await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');
+    await expect(back).toBeFocused();await expect(back).toHaveCSS('color',accents[theme]);
+    await expect(back).toHaveCSS('outline-color',accents[theme]);
+    await page.locator('#workspace-trash').click();
+    await expect(page.locator('#back-images')).toHaveCSS('color',accents[theme]);
+    await expect(page.locator('#back-images')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
   });
 }
 for(const width of [1440,1024,768]){
@@ -286,6 +297,7 @@ test('NAV-05 Desk keeps page navigation but excludes Back from account menus and
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.goto('/desk/index.html?__qa=1');
   await expect(page.locator('.topbar .desk-back')).toBeVisible();
+  await expect(page.locator('.topbar .desk-back')).toHaveCSS('color','rgb(255, 220, 36)');
   await page.locator('.account-trigger').click();await expect(page.getByRole('menu').getByRole('menuitem',{name:'Back',exact:true})).toHaveCount(0);
   await page.getByRole('menu').getByRole('menuitem',{name:'Sign out',exact:true}).press('Escape');
   await page.getByRole('button',{name:'Create task',exact:true}).click();

@@ -2559,7 +2559,7 @@
   "previousScreenNavigation": {
     "approval": "2026-11-07: Back returns to the previous screen. User correction: ONLY pages in the right-hand pane may have Back; remove it from popups and hover menus.",
     "identity": "navigation-history.js/css, #workspace-back and Desk page .desk-back; existing page and header button types only.",
-    "appearance": "Compact 12px Back text and left arrow above the current page title, theme text/accent, transparent background and visible 2px focus outline. No Back control in popups, menus, hover panels or drawers.",
+    "appearance": "Compact 12px Back text and left arrow above the current page title, transparent background and visible 2px focus outline. User-approved 2026-11-08: every page Back text/arrow uses the selected theme accent at rest, on hover and on keyboard focus; Default is yellow #ffdc24. Existing disabled cues remain. No Back control in popups, menus, hover panels or drawers.",
     "behavior": "In-tab history keeps up to 30 visited views and restores existing DOM, draft state, story tab, library controls, focus and window scroll. Repeated refreshes of the same view do not add entries. No-history Back is disabled; welcome is never a fallback. Login identity changes clear history.",
     "layers": "Only content pages use Back. Popups, menus, hover panels and drawers retain their existing Close, Minimize, Escape and outside-dismissal behavior without added navigation controls. Desk page Back restores the prior page and filters.",
     "data": "No generation, payment, deletion, replayed form submission, external navigation or backend write from Back. Local history is never persisted across sign-out or reload."
