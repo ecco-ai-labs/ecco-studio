@@ -484,14 +484,14 @@
   };
  }
 
- const journeyLabels={'story-setup':'Describe Your Story',board:'StoryBoard Your Story',audio:'Create Audio for Your Story',images:'Create Images for Your Story',render:'Create Videos for Your Story','journey-preview':'Publish'};
+ const journeyLabels={'story-setup':'Describe Your Story',board:'StoryBoard Your Story',audio:'Create Audio for Your Story',images:'Create Images for Your Story',render:'Create Videos for Your Story','journey-preview':'Publish Your Story'};
  const journeySteps=[
   ['story-setup','Describe your story','Give your story a name and a short description.'],
   ['board','Review the storyboard','Split your story into scenes, then review the action and dialogue.'],
   ['audio','Create voices and sound','Prepare dialogue or narration for each scene and preview the audio.'],
   ['images','Choose scene images','Generate images or choose existing images, then assign them in the storyboard.'],
   ['render','Animate and sync','Animate your scene images. For dialogue, select LongCat, one image and a recording from Audio Library.'],
-  ['journey-preview','Publish','Review generated clips, download them, or open publishing. Full-film assembly and audio mixing are not connected yet.']
+  ['journey-preview','Publish Your Story','Review generated clips, download them, or open publishing. Full-film assembly and audio mixing are not connected yet.']
  ];
  function storyFormat(){
   const field=q('#story-setup-form [name=story_format]');if(field)return field.value;

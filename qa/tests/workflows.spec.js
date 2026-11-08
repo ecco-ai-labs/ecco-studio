@@ -77,8 +77,10 @@ test('ENTRY-01 welcome has one enabled Tell Your Story action',async({page})=>{
 for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} opens the same six-option Tell Your Story page`,async({page})=>{
   await boot(page,{enter:false});await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:action,exact:true}).click();
   await expect(page.locator('#heading')).toHaveText('Tell Your Story');
-  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['Describe Your Story','StoryBoard Your Story','Create Audio for Your Story','Create Images for Your Story','Create Videos for Your Story','Publish']);
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['Describe Your Story','StoryBoard Your Story','Create Audio for Your Story','Create Images for Your Story','Create Videos for Your Story','Publish Your Story']);
   await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group [data-page=journey-preview]')).toHaveText('6. Publish Your Story');
+  expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='14px'))).toBe(true);
   await choices.first().focus();await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
   await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story Name',{exact:true})).toHaveValue('');
   await page.locator('#workspace-back').click();await expect(page.locator('#story-home-list')).toBeVisible();
@@ -99,9 +101,12 @@ for(const theme of ['default','dark','forest','desert','ocean','dark-sky'])test(
   await page.setViewportSize({width:390,height:900});await boot(page,{landing:true,theme});
   const choices=page.locator('#story-home-list button');await expect(choices).toHaveCount(6);
   for(const choice of await choices.all())expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
+  const landingStyle=async()=>page.locator('#page .workspace-home').evaluate(el=>({padding:getComputedStyle(el).paddingTop,font:getComputedStyle(el.querySelector('button')).fontSize,borders:[...el.querySelectorAll('ul,li,button')].every(row=>{const s=getComputedStyle(row);return ['borderTopWidth','borderBottomWidth','borderLeftWidth','borderRightWidth'].every(p=>s[p]==='0px');})}));
+  expect(await landingStyle()).toEqual({padding:'24px',font:'14px',borders:true});
   const storyStyle=await choices.first().evaluate(el=>{const s=getComputedStyle(el);return [s.minHeight,s.padding,s.color,s.backgroundColor,s.gridTemplateColumns];});
   await page.locator('#workspace-library-group > summary').click();
   expect(await page.locator('#library-home-list button').first().evaluate(el=>{const s=getComputedStyle(el);return [s.minHeight,s.padding,s.color,s.backgroundColor,s.gridTemplateColumns];})).toEqual(storyStyle);
+  expect(await landingStyle()).toEqual({padding:'24px',font:'14px',borders:true});
 });
 test('STORY-01 three tabs and left navigation stay visible',async({page})=>{
   await boot(page);await expect(page.locator('#story-workspace-header [role=tab]')).toHaveCount(3);
@@ -154,6 +159,8 @@ test('LIB-home-01 chooser shows aligned icons and opens each matching sidebar de
   await expect(page.locator('#story-workspace-header')).toBeHidden();
   const choices=page.locator('#library-home-list button');
   await expect(choices).toHaveCount(5);
+  await expect(choices.first()).toHaveCSS('font-size','14px');
+  for(const selector of Object.values(librarySelectors))await expect(page.locator(selector)).toHaveCSS('font-size','14px');
   expect(await choices.evaluateAll(rows=>rows.map(row=>row.dataset.libraryDestination))).toEqual(kinds);
   const bounds=await choices.evaluateAll(rows=>rows.map(row=>({left:row.getBoundingClientRect().left,width:row.getBoundingClientRect().width,iconLeft:row.querySelector('svg').getBoundingClientRect().left})));
   for(const row of bounds){expect(row.left).toBe(bounds[0].left);expect(row.width).toBe(bounds[0].width);expect(row.iconLeft).toBe(bounds[0].iconLeft);}

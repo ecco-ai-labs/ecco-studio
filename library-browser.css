@@ -30,11 +30,10 @@
 #page .library-files button:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
 .library-file-preview{width:min(760px,calc(100vw - 32px));max-height:88vh;overflow:auto;background:var(--ecco-theme-surface,#201d44);color:var(--ecco-theme-text,#eeebf5);border:1px solid var(--ecco-theme-border,#605679);border-radius:9px;padding:18px}
 .library-file-preview h2{font-size:16px;overflow-wrap:anywhere}.library-preview-content{position:relative}.library-file-preview .library-original>img,.library-file-preview .library-original>video{display:block;width:100%;max-height:48vh;object-fit:contain}.library-file-preview audio{width:100%}.library-file-preview .actions{display:flex;flex-wrap:wrap;gap:8px}.library-file-preview .library-card-actions>summary{display:none}.library-file-preview .asset-corner-actions{position:static;justify-content:flex-end;margin-bottom:8px}.library-file-preview .library-metadata{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;font-size:12px}.library-metadata dt{color:var(--ecco-theme-muted,#b1acc9)}.library-metadata dd{margin:0}.library-file-preview .text-library-delete{position:static!important;transform:none!important}.library-file-preview .text-library-preview{display:none}
-/* One compact directory, with aligned rows and the same icons as the file browser. */
-#page .workspace-home{width:100%;max-width:760px;margin:0}
-.workspace-home-list{list-style:none;margin:0;padding:0;border-block:1px solid var(--ecco-theme-border,var(--border,#454065))}
+/* Plain landing lists, with aligned icons and names. */
+#page .workspace-home{width:100%;max-width:760px;margin:0;padding-top:24px}
+.workspace-home-list{--workspace-button-font-size:14px;list-style:none;margin:0;padding:0;border:0}
 .workspace-home-list>li{margin:0;padding:0}
-.workspace-home-list>li+li{border-top:1px solid color-mix(in srgb,var(--ecco-theme-border,var(--border,#454065)) 45%,transparent)}
 #page .workspace-home-list button{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;column-gap:16px;width:100%;min-height:52px!important;margin:0;padding:10px 12px!important;background:transparent!important;border:0!important;border-radius:0;box-shadow:none!important;color:var(--ecco-theme-text,#eeebf5)!important;text-align:left;font-family:inherit;font-size:14px!important;line-height:20px!important;font-weight:500!important;filter:none}
 .workspace-home-list .workspace-home-icon{width:20px;height:20px;color:var(--ecco-theme-accent,var(--accent,#ffdc24))}
 #page .workspace-home-list button:is(:hover,:focus-visible){background:var(--ecco-theme-control,#302a54)!important}
@@ -49,3 +48,7 @@
 /* Larger Library and Tell Your Story headings, preserving other text sizes. */
 body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary{font-size:16px!important}
 main:has(#page>.workspace-home) #heading{font-size:21px}
+
+/* Match the landing subtitles in the corresponding sidebar branches. */
+#workspace-production-group .journey-step{--workspace-button-font-size:14px}
+#workspace-library-group .workspace-library>summary{font-size:14px}
