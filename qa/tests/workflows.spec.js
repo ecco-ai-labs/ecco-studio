@@ -216,10 +216,15 @@ test('NOTIFY-01 numbered unread notices move to three-item read history',async({
   await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:'New Story',exact:true}).click();await page.locator('#notification-bell').click();
   const unread=page.locator('#notification-list [data-read="false"]'),old=page.locator('#notification-list [data-read="true"]');
   await expect(unread).toHaveCount(2);await expect(old).toHaveCount(3);
-  await expect(unread.first().locator('.notification-title')).toHaveText('1. New notice 1');
+  await expect(unread.first().locator('.notification-title')).toHaveText('New notice 1');
   await expect(unread.first().locator('.notification-body')).toHaveCSS('font-weight','700');
   await expect(old.first().locator('.notification-body')).toHaveCSS('font-weight','400');
-  await expect(unread.first()).toHaveCSS('margin-top','16px');
+  await expect(page.getByRole('table',{name:'New notifications',exact:true}).getByRole('columnheader')).toHaveText(['Number','Notification','Date it expires']);
+  await expect(page.locator('[data-notification-items] .notification-number').first()).toHaveText('1');
+  await expect(unread.first().locator('.notification-title')).toHaveCSS('font-size','14px');
+  await expect(unread.first().locator('.notification-body')).toHaveCSS('font-size','13px');
+  await expect(page.locator('[data-notification-items] td').first()).toHaveCSS('padding-top','16px');
+  await expect(page.locator('[data-notification-items] time').first()).toBeVisible();
   await unread.first().press('Enter');await expect(unread).toHaveCount(1);await expect(old).toHaveCount(3);
   await expect(old.first()).toContainText('New notice 1');await expect(unread.first()).toBeFocused();
   await unread.first().press('Enter');await expect(unread).toHaveCount(0);
@@ -231,6 +236,7 @@ test('NOTIFY-01 numbered unread notices move to three-item read history',async({
 test('NOTIFY-02 history opens an editable re-issue draft and retains the original',async({page})=>{
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Notifications',exact:true}).click();
+  await expect(page.locator('.notification-composer')).toHaveCount(0);await page.getByRole('button',{name:'New Notification',exact:true}).click();
   await page.getByLabel('Title',{exact:true}).fill('Original notice');await page.getByLabel('Message',{exact:true}).fill('Original message');
   await page.getByRole('button',{name:'Publish notification',exact:true}).click();
   await page.getByRole('button',{name:'Edit and re-issue Original notice',exact:true}).click();
@@ -362,6 +368,38 @@ test('UPLOAD-02 AI output review and fiction versus Sports News confirmation pre
 });
 
 
+test('DESK-BRAND-01 Ecco logo and purple/yellow controls across Desk and sign-in',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');
+  const logo=page.getByRole('img',{name:'Ecco AI Labs logo'});
+  await expect(logo).toBeVisible();await expect.poll(()=>logo.evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
+  await expect(page.locator('.app-shell')).toHaveCSS('background-color','rgb(23, 21, 47)');
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color','rgb(32, 29, 68)');
+  await page.getByRole('button',{name:'Notifications',exact:true}).click();
+  await page.getByRole('button',{name:'New Notification',exact:true}).click();
+  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('background-color','rgb(48, 42, 84)');
+  await expect(page.getByRole('button',{name:'Publish notification',exact:true})).toHaveCSS('background-color','rgb(255, 220, 36)');
+  await expect(page.locator('.notification-composer')).toHaveCSS('font-family',/Inter/);
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.getByLabel('Message',{exact:true})).toBeVisible();
+  expect(await page.locator('.notification-composer').evaluate(el=>el.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
+  await page.goto('/desk/index.html?__qa=1&signedOut=1');
+  await expect(page.getByRole('heading',{name:'Sign in to Ecco Desk',exact:true})).toBeVisible();
+  await expect(logo).toBeVisible();await expect.poll(()=>logo.evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
+  await expect(page.locator('.signin')).toHaveCSS('background-color','rgb(23, 21, 47)');
+});
+
+test('NOTIFY-03 notification table stays inside a narrow viewport',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/?__qa=1&notices=1');await page.waitForFunction(()=>window.__qaReady);
+  await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:'New Story',exact:true}).click();await page.locator('#notification-bell').click();
+  const panel=page.locator('#notification-list');
+  const bounds=await panel.evaluate(el=>({left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right,scroll:el.scrollWidth,width:el.clientWidth}));
+  expect(bounds.left).toBeGreaterThanOrEqual(0);expect(bounds.right).toBeLessThanOrEqual(390);expect(bounds.scroll).toBeLessThanOrEqual(bounds.width);
+  await expect(page.getByRole('table',{name:'New notifications',exact:true}).getByRole('columnheader')).toHaveText(['Number','Notification','Date it expires']);
+});
+
 test('AGENT-04 administrator creates, saves and runs a shared ordered workflow',async({page})=>{
   test.setTimeout(90000);
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
@@ -407,8 +445,8 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.goto('/desk/index.html?__qa=1');
   await page.getByRole('button',{name:'Notifications',exact:true}).click();
-  await page.getByLabel('Type',{exact:true}).selectOption('marketing_campaign');
-  await page.getByRole('button',{name:'Create Campaign',exact:true}).click();
+  await page.getByRole('tab',{name:'Campaign',exact:true}).click();
+  await page.getByRole('button',{name:'New Campaign',exact:true}).click();
   await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();
   await page.getByLabel('Campaign Name',{exact:true}).fill('Cyber Monday');
   await expect(page.getByLabel('Repeat',{exact:true})).toHaveValue('cyber_monday');
@@ -417,7 +455,7 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await page.getByLabel('Message',{exact:true}).fill('Our annual announcement.');
   await page.getByRole('button',{name:'Create & Schedule',exact:true}).click();
   await expect(page.locator('.campaign-card')).toHaveCount(1);
-  await expect(page.getByRole('button',{name:'Create Campaign',exact:true})).toBeFocused();
+  await expect(page.getByRole('button',{name:'New Campaign',exact:true})).toBeFocused();
   await page.getByRole('button',{name:'Pause Cyber Monday',exact:true}).click();
   await expect(page.locator('.campaign-state')).toHaveText('Paused');
   await page.getByRole('button',{name:'Edit Cyber Monday',exact:true}).click();
@@ -426,10 +464,29 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await page.getByRole('button',{name:'Resume Cyber Monday',exact:true}).click();
   await expect(page.locator('.campaign-state')).toHaveText('Active');
   await page.reload();await page.getByRole('button',{name:'Notifications',exact:true}).click();
-  await page.getByLabel('Type',{exact:true}).selectOption('marketing_campaign');
+  await page.getByRole('tab',{name:'Campaign',exact:true}).click();
   await expect(page.locator('.campaign-card')).toHaveCount(1);
   await page.locator('.campaign-card summary').click();await expect(page.locator('.campaign-card')).toContainText('Updated annual announcement.');
   await page.setViewportSize({width:768,height:1000});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
   expect(await page.evaluate(()=>window.__deskPosts.filter(p=>p.op==='createNotification').length)).toBe(0);
+
+});
+
+
+test('NOTIFY-04 history-first category tabs and circled create actions',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Notifications',exact:true}).click();
+  await expect(page.getByRole('tablist',{name:'Notification categories'}).getByRole('tab')).toHaveText(['Notifications','OutReach','Campaign']);
+  await expect(page.getByLabel('Type',{exact:true})).toHaveCount(0);await expect(page.locator('.notification-composer')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'New Notification',exact:true})).toHaveCSS('border-radius','50%');
+  await page.getByRole('tab',{name:'Notifications',exact:true}).press('ArrowRight');await expect(page.getByRole('tab',{name:'OutReach',exact:true})).toBeFocused();
+  await expect(page.getByRole('tab',{name:'OutReach',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(page.locator('.notification-composer')).toHaveCount(0);await page.getByRole('button',{name:'New OutReach',exact:true}).click();
+  await expect(page.getByLabel('Title',{exact:true})).toBeFocused();await page.getByLabel('Title',{exact:true}).fill('OutReach example');await page.getByLabel('Message',{exact:true}).fill('Example bonus credit offer');
+  await page.getByLabel('Purchase credits',{exact:true}).fill('100');await page.getByLabel('Free bonus credits',{exact:true}).fill('50');await page.getByLabel('Price (USD)',{exact:true}).fill('10');
+  await page.getByRole('button',{name:'Publish outreach',exact:true}).click();await expect(page.locator('.notification-composer')).toHaveCount(0);await expect(page.locator('.notification-history')).toContainText('OutReach example');
+  await page.getByRole('tab',{name:'Notifications',exact:true}).click();await expect(page.locator('.notification-history')).toHaveCount(0);await expect(page.getByText('No notifications yet.',{exact:true})).toBeVisible();
+  await page.getByRole('tab',{name:'Campaign',exact:true}).click();await expect(page.locator('.notification-composer')).toHaveCount(0);await page.getByRole('button',{name:'New Campaign',exact:true}).click();await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();await page.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page.getByRole('button',{name:'New Campaign',exact:true})).toBeFocused();
+  await page.setViewportSize({width:390,height:844});const tabs=page.getByRole('tablist',{name:'Notification categories'});expect(await tabs.evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(await tabs.evaluate(el=>el.clientWidth));
 });

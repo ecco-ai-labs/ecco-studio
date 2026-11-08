@@ -6,7 +6,8 @@
  const fixtureCampaigns=JSON.parse(localStorage.getItem('ecco-desk-qa-campaigns')||'[]');
  const fixtureAgents=JSON.parse(localStorage.getItem('ecco-desk-qa-agents')||'[]');
  const data={me,agentWorkflowVersion:1,agents:fixtureAgents,tickets:[],members:[{id:'qa-member',name:'QA Team',email:'qa@example.invalid',active:1,role:'staff',userId:me.userId}],users:[],activity:[],needsSetup:false};
- localStorage.setItem('ecco-desk-staff-session','synthetic-desk-session');
+ if(new URLSearchParams(location.search).has('signedOut'))localStorage.removeItem('ecco-desk-staff-session');else localStorage.setItem('ecco-desk-staff-session','synthetic-desk-session');
+
  window.__deskPosts=[];
  const notices=[];
  const notificationData=()=>({notificationVersion:1,specialOfferVersion:1,notifications:notices,users:[]});

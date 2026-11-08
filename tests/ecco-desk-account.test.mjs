@@ -57,11 +57,11 @@ for(const role of ['staff','customer']){
 }
 // Administrators reach the publishing form from the same navigation item.
 data.me=me;({root,cleanup}=await create());Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='Notifications').click();await tick();
-assert(root.textContent.includes('Publish notification'));cleanup();
+assert(root.querySelector('[aria-label="New Notification"]'));assert.equal(root.querySelector('.notification-composer'),null);cleanup();
 // Group-only administrators see publishing without staff navigation or support hours.
 data.me={...me,role:'customer',memberId:null,canManageNotifications:true,notificationAdminGroup:'group@example.test',notificationGroupStatus:'connected'};
 ({root,cleanup}=await create());Array.from(root.querySelectorAll('nav button')).find(b=>b.textContent==='Notifications').click();await tick();
-assert(root.textContent.includes('Publish notification'));assert(!root.querySelector('.support-hours'));
+assert(root.querySelector('[aria-label="New Notification"]'));assert.equal(root.querySelector('.notification-composer'),null);assert(!root.querySelector('.support-hours'));
 assert(!root.querySelector('nav').textContent.includes('Team members'));assert(!root.querySelector('nav').textContent.includes('Internal tasks'));
 root.querySelector('.account-trigger').click();await tick();assert(root.querySelector('[role="menu"]').textContent.includes('Notification administrator'));cleanup();
 data.me={...data.me,canManageNotifications:false,notificationGroupStatus:'unavailable'};
