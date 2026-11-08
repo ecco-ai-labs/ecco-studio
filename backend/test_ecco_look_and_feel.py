@@ -1,5 +1,6 @@
 """Look and Feel: public read, administrator-only versioned publish, strict roster validation."""
 import json
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,7 +13,16 @@ PATH = '/api/look-and-feel'
 
 
 class LookAndFeelTest(unittest.TestCase):
-    setUp = fixtures.DeskTest.setUp
+    def setUp(self):
+        # Keep sign-in sessions in a temporary folder, as test_ecco_releases does, so CI
+        # runners without a writable /workspace can run these tests.
+        sessions = tempfile.TemporaryDirectory()
+        self.addCleanup(sessions.cleanup)
+        session_path = patch.object(fixtures.auth, 'SESSION_DB', Path(sessions.name) / 'sessions.sqlite')
+        session_path.start()
+        self.addCleanup(session_path.stop)
+        fixtures.DeskTest.setUp(self)
+
     tearDown = fixtures.DeskTest.tearDown
     login = fixtures.DeskTest.login
     call = fixtures.DeskTest.call
