@@ -2,7 +2,12 @@
 /* Data-only helpers shared by the three-tab workspace and its regression tests. */
 (function(root){
  const copy=value=>JSON.parse(JSON.stringify(value));
- const types=[['storybook','Storybook'],['audiobook','Audiobook'],['podcast','Podcast'],['news','News'],['audio-drama','Audio Drama'],['documentary','Documentary'],['animation','Animation'],['book-adaptation','Book Adaptation'],['teaching','Teaching Series'],['training','Training Series'],['marketing','Marketing'],['social','Social Story'],['presentation','Presentation'],['ambient','Music / Ambient'],['dubbing','Localization / Dubbing'],['repurpose','Repurpose Content'],['custom','Other']];
+ // Keep established IDs so saved stories, news research and downstream workflows remain compatible.
+ const types=[['storybook','Narrated Story'],['audio-drama','Dramatized Story'],['podcast','Podcast'],['interview','Interview'],['news','News Report'],['documentary','Documentary'],['teaching','Lesson / Tutorial'],['training','Training'],['marketing','Advertisement'],['presentation','Presentation'],['ambient','Music / Ambient'],['custom','Other']];
+ const genres=['Comedy','Adventure','Action','Drama','Fantasy','Mystery','Thriller','Horror','Romance','Science Fiction','History','Biography','Business','Science & Technology','Sports','Nature','Other'];
+ const legacyTypes={audiobook:'Audiobook',animation:'Animation','book-adaptation':'Book Adaptation',social:'Social Story',dubbing:'Localization / Dubbing',repurpose:'Repurpose Content'};
+ function typeLabel(value){return types.find(([id])=>id===value)?.[1]||legacyTypes[value]||value;}
+ function typeOptions(current){return current&&!types.some(([id])=>id===current)?[...types,[current,typeLabel(current)]]:types;}
  function fresh({type='',output=''}={}){return {version:1,title:'',output,type,genre:'',audience:'',language:'',location:'',recurrence:'',script:'',brief:'',cast:[],castCustomized:false,scenes:[],source:{text:'',name:'',pages:[]},tab:0,view:'',applied:{},plan:null};}
  function migrate(saved={},board={},audio={}){
   if(saved.simple_workspace)return copy(saved.simple_workspace);
@@ -59,10 +64,10 @@
  }
  function signature(data,kind){
   const common={script:data.script,cast:data.cast,language:data.language};
-  return JSON.stringify(kind==='audio'?{...common,script:data.audioScript||data.script,genre:data.genre,audience:data.audience,location:data.location}:kind==='image'?{script:data.script,cast:data.cast.map(c=>({name:c.name,appearance:c.appearance,nationality:c.nationality,reference_id:c.reference_id}))}:{script:data.script,scenes:data.scenes,cast:data.cast.map(c=>({name:c.name,appearance:c.appearance,reference_id:c.reference_id}))});
+  return JSON.stringify(kind==='audio'?{...common,type:data.type,script:data.audioScript||data.script,genre:data.genre,audience:data.audience,location:data.location}:kind==='image'?{script:data.script,cast:data.cast.map(c=>({name:c.name,appearance:c.appearance,nationality:c.nationality,reference_id:c.reference_id}))}:{script:data.script,scenes:data.scenes,cast:data.cast.map(c=>({name:c.name,appearance:c.appearance,reference_id:c.reference_id}))});
  }
  // Keep references, timing and camera edits when the same scene survives a script edit.
  function reconcileScenes(next,previous){return next.map((s,i)=>{const old=previous.find(p=>p.narration===s.narration&&p.motion===s.motion);return old?{...s,...old,title:s.title,image_id:old.image_id||s.image_id||''}:{...s,image_id:s.image_id||''};});}
- const api={types,fresh,migrate,transcript,validateCast,parseScript,sourcePlan,validateProposal,signature,reconcileScenes};
+ const api={types,genres,typeLabel,typeOptions,fresh,migrate,transcript,validateCast,parseScript,sourcePlan,validateProposal,signature,reconcileScenes};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EccoStoryWorkspaceModel=api;
 })(typeof window==='undefined'?globalThis:window);

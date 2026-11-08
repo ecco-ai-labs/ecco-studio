@@ -272,3 +272,24 @@ test('main New Story and Go to Studio share the story landing while preserving d
 test('Go to Studio storyboard destination opens the editor without returning to story choices',async()=>{
  const x=await fixture();x.w.testState.navigate('story-home');await tick();x.q('[data-story-destination="board"]').click();await tick();assert.equal(x.w.testState.page(),'board');assert.ok(x.q('#story-text'));assert.equal(x.q('#story-choice-screen'),null);assert.equal(x.w.testCalls.some(c=>/generate|^images$|^videos$|^stories$/.test(c.path)),false);assert.deepEqual(x.errors,[]);
 });
+
+test('Interview starts with Host and Guest and keeps its delivery type in Audio Studio',async()=>{
+ const x=await fixture();await x.start('audio','interview');
+ assert.deepEqual(x.saved().simple_workspace.cast.map(c=>c.name),['Host','Guest']);
+ x.script('Host: What did you discover?\n\nGuest: A new planet.');await x.w.EccoStoryWorkspace.select(2);await tick();
+ const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:'+x.w.testState.story()));
+ assert.equal(audio.genre,'Interview');assert.equal(audio.guided_preparation.genre,'Business');assert.equal(audio.lines.length,2);
+ await x.w.EccoStoryWorkspace.select(0);x.fill('type','podcast');await x.w.EccoStoryWorkspace.select(2);await tick();
+ const changed=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:'+x.w.testState.story()));assert.equal(changed.genre,'Podcast');assert.deepEqual(changed.lines,audio.lines);assert.deepEqual(x.errors,[]);
+});
+test('retired and unknown saved categories survive details, AI options, source options and reopening',async()=>{
+ for(const [type,label,genre] of [['audiobook','Audiobook','Educational'],['animation','Animation','Documentary'],['book-adaptation','Book Adaptation','News'],['dubbing','Localization / Dubbing','Science'],['repurpose','Repurpose Content','Custom topic'],['social','Social Story','Other'],['custom-old-type','custom-old-type','Custom topic']]){
+  const value={...M.fresh({type,output:'audio'}),title:'Saved story',genre,audience:'All ages',language:'English',recurrence:'once',script:'Keep the original text.',cast:[{id:'n',name:'Narrator'}]};
+  const x=await fixture({'ecco-story-setup:legacy':JSON.stringify({localDraftId:'legacy',simple_workspace:value})});x.w.EccoStoryWorkspace.openSetup('legacy');await tick();
+  assert.equal(x.q('[name=type]').value,type);assert.equal(x.q('[name=type]').selectedOptions[0].textContent,label);assert.equal(x.q('[name=genre]').value,genre);
+  await x.w.EccoStoryWorkspace.select(1);x.q('[data-ai]').click();await tick();
+  assert.equal(x.q('#ai-generation-dialog [name=story_type]').selectedOptions[0].textContent,label);assert.equal(x.q('#ai-generation-dialog [name=genre]').value,genre);x.q('#ai-generation-dialog').close();
+  const source=await sourceHandle(x);assert.equal(source.aiSettings.getValues().story_type_label,label);assert.ok(source.aiSettings.fields[0].options.some(([id,text])=>id===type&&text===label));assert.equal(source.aiSettings.fields[1].label,'Genre / Topic');
+  await x.w.EccoStoryWorkspace.select(0);assert.equal(x.saved().simple_workspace.type,type);assert.equal(x.saved().simple_workspace.genre,genre);assert.equal(x.saved().simple_workspace.script,value.script);assert.deepEqual(x.errors,[]);x.close();
+ }
+});
