@@ -85,6 +85,11 @@
     "scope": "Three browser-style tabs; history first; circled plus opens focused fields; no type dropdown; OutReach credit offer posting and separate history; Campaign create/cancel and keyboard tabs; 390px tab fit. Real notifications are never sent by these checks."
   },
   {
+    "area": "Billing promotions and notification placement",
+    "mode": "fixture + isolated SQLite",
+    "scope": "Bell/Billing routing, independent five-item windows, targeting, shared read receipts, legacy defaults, badge validation, idempotency and scheduled metadata dispatch. Browser verifies stored icon/location on re-issue and campaign edit; Billing slide-out and purchase popup show badges/expiry above three regular options, exact offer cart math, read removal and mobile width. No live notifications, purchases or charges are submitted."
+  },
+  {
     "area": "Production releases",
     "mode": "fixture + isolated SQLite + artifact validation",
     "scope": "Admin-only navigation and API authorization, exact-SHA prepare, failed-check/setup gates, separate explicit publish, immutable preview links, unknown dispatch idempotence, production receipts, rollback preparation, keyboard focus and 768px layout. Real GitHub dispatch, hosting, custom domain, Google OAuth and production deployment are blocked until service connections are configured."

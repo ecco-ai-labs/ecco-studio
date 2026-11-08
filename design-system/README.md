@@ -478,3 +478,7 @@ Notifications → Campaign offers set-once recurring announcements with a server
 ### Notification category tabs
 
 Notifications, OutReach and Campaign are browser-style tabs that open on their respective histories. The circled plus at the right opens the inline creation form; Cancel or successful publish/save returns to history. OutReach retains special-offer credit terms; Campaign retains automatic recurring schedules. Keyboard arrow/Home/End navigation and focus return are supported.
+
+## Notification locations and Billing offers
+
+Show in selects Bell Icon, Billing, or both for notifications, OutReach and recurring campaigns. OutReach/Campaign creation offers NEW, Dhamaka, Limited Time or custom text icons. Saved icons and locations survive edits/re-issue and scheduled dispatch. Billing, Credit and Usage and Purchase Additional Credits display active promotional cards above regular options, with Offer lasts till dates. Three regular credit packages remain below; campaigns without purchase terms are announcements. Shared per-user reads and expiry remove cards. Backend presentation version 1 must precede Pages deployment.

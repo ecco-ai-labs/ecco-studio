@@ -68,15 +68,15 @@ def initialize(db):
 
 def public(row):
     result=dict(row);result.update(json.loads(result.pop('config')));result.pop('createdBy',None)
-    result['enabled']=bool(result['enabled']);return result
+    result['enabled']=bool(result['enabled']);result.setdefault('placements',['bell','billing']);result.setdefault('badge','NEW');return result
 
 def listing(db,me):
     from ecco_desk import require_notification_admin
     require_notification_admin(me)
-    return {'campaignVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
+    return {'campaignVersion':1,'notificationPresentationVersion':1,'campaigns':[public(r) for r in db.execute('SELECT * FROM desk_campaigns ORDER BY createdAt DESC')]}
 
 def validated(db,body):
-    from ecco_desk import text,choice,DeskError
+    from ecco_desk import text,choice,DeskError,notification_presentation
     result={key:text(body,key,maximum) for key,maximum in [('name',80),('title',160),('body',4000)]}
     result['audience']=choice(body,'audience',('all','user'))
     result['recipientId']=text(body,'recipientId',256) if result['audience']=='user' else None
@@ -85,12 +85,14 @@ def validated(db,body):
     days=body.get('durationDays')
     if type(days) is not int or not 1<=days<=365:raise DeskError('Notification duration must be 1 to 365 days.')
     result['durationDays']=days;result['schedule']=schedule(body.get('schedule'))
+    mask,result['badge']=notification_presentation(body,('bell','billing'))
+    result['placements']=[p for p,bit in (('bell',1),('billing',2)) if mask & bit]
     return result
 
 def write(db,me,body,current=None):
     from ecco_desk import require_notification_admin,text,DeskError,event
     require_notification_admin(me);current=current or dt.datetime.now(UTC);op=body.get('op')
-    if op=='previewCampaign':return {'campaignVersion':1,'nextRunAt':stamp(next_run(body.get('schedule'),current))}
+    if op=='previewCampaign':return {'campaignVersion':1,'notificationPresentationVersion':1,'nextRunAt':stamp(next_run(body.get('schedule'),current))}
     cid=str(uuid.UUID(text(body,'id',36)));old=db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone()
     if op in ('updateCampaign','setCampaignActive'):
         if not old:raise DeskError('Campaign not found.',404)
@@ -104,7 +106,8 @@ def write(db,me,body,current=None):
     elif op in ('createCampaign','updateCampaign'):
         config=validated(db,body);encoded=json.dumps(config,sort_keys=True,separators=(',',':'))
         if op=='createCampaign' and old:
-            if old['config']!=encoded or old['createdBy']!=me['userId']:raise DeskError('This campaign request was already saved. Refresh before changing it.',409)
+            old_config=json.loads(old['config']);old_config.setdefault('placements',['bell','billing']);old_config.setdefault('badge','NEW')
+            if old_config!=config or old['createdBy']!=me['userId']:raise DeskError('This campaign request was already saved. Refresh before changing it.',409)
         elif op=='createCampaign':
             if db.execute('SELECT COUNT(*) FROM desk_campaigns').fetchone()[0]>=100:raise DeskError('The workspace has reached 100 campaigns.',409)
             db.execute('INSERT INTO desk_campaigns(id,config,createdBy,enabled,createdAt,updatedAt,nextRunAt) VALUES(?,?,?,1,?,?,?)',
@@ -115,7 +118,7 @@ def write(db,me,body,current=None):
                        (encoded,me['userId'],stamp(current),stamp(next_run(config['schedule'],current)),cid))
             event(db,me,'Campaign updated: '+cid)
     else:raise DeskError('Unknown campaign action.')
-    return {'campaignVersion':1,'campaign':public(db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone())}
+    return {'campaignVersion':1,'notificationPresentationVersion':1,'campaign':public(db.execute('SELECT * FROM desk_campaigns WHERE id=?',(cid,)).fetchone())}
 
 def process_due(database,current=None):
     import ecco_desk as desk
@@ -142,7 +145,7 @@ def process_due(database,current=None):
                 if not missed:
                     receipt=desk.write_notification(db,me,dict(op='createNotification',requestId=uuid.uuid5(uuid.UUID(row['id']),row['nextRunAt']).hex,
                         title=config['title'],body=config['body'],kind='notification',severity='informational',audience=config['audience'],
-                        recipientId=config['recipientId'],durationDays=config['durationDays']))
+                        recipientId=config['recipientId'],durationDays=config['durationDays'],placements=config.get('placements',['bell','billing']),badge=config.get('badge','NEW')))
                     notification_id=receipt['id']
                     db.execute('UPDATE desk_notifications SET campaignId=? WHERE id=?',(row['id'],notification_id))
                 db.execute('INSERT INTO desk_campaign_runs VALUES(?,?,?,?,?)',(row['id'],row['nextRunAt'],'missed' if missed else 'sent',notification_id,instant))

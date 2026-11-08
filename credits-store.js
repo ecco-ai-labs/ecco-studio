@@ -10,7 +10,8 @@
  function dialog(title){const d=document.createElement('dialog');d.className='generation-dialog credits-dialog';const head=document.createElement('div');head.className='section-head';const h=document.createElement('h2');h.textContent=title;head.append(h,button('×',()=>d.close(),false));head.lastChild.setAttribute('aria-label','Close popup');d.append(head);document.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});return d;}
  function line(host,label,value){const p=document.createElement('p');p.className='credits-line';const name=document.createElement('span'),v=document.createElement('strong');name.textContent=label;v.textContent=value;p.append(name,v);host.append(p);}
  function status(host,text){const p=document.createElement('p');p.setAttribute('role','status');p.textContent=text;host.append(p);return p;}
- function offers(){return (window.EccoNotifications?.snapshot().notifications||[]).filter(n=>n.kind==='special_offer'&&n.severity==='informational'&&n.offer&&Number.isSafeInteger(n.offer.credits)&&n.offer.credits>0&&Number.isSafeInteger(n.offer.bonusCredits)&&n.offer.bonusCredits>=0&&Number.isSafeInteger(n.offer.cents)&&n.offer.cents>0).map(n=>({id:'offer:'+n.id,title:n.title,description:n.body,credits:n.offer.credits+n.offer.bonusCredits,baseCredits:n.offer.credits,bonusCredits:n.offer.bonusCredits,cents:n.offer.cents}));}
+ function notices(){return (window.EccoNotifications?.snapshot('billing').notifications||[]).filter(n=>!n.expiresAt||Date.parse(n.expiresAt)>Date.now());}
+ function offers(){return notices().filter(n=>n.kind==='special_offer'&&n.severity==='informational'&&n.offer&&Number.isSafeInteger(n.offer.credits)&&n.offer.credits>0&&Number.isSafeInteger(n.offer.bonusCredits)&&n.offer.bonusCredits>=0&&Number.isSafeInteger(n.offer.cents)&&n.offer.cents>0).map(n=>({id:'offer:'+n.id,title:n.title,description:n.body,credits:n.offer.credits+n.offer.bonusCredits,baseCredits:n.offer.credits,bonusCredits:n.offer.bonusCredits,cents:n.offer.cents}));}
  function products(){return [...PACKS,...offers()];}
  function totals(){return products().reduce((a,p)=>({credits:a.credits+p.credits*(cart[p.id]||0),cents:a.cents+p.cents*(cart[p.id]||0),items:a.items+(cart[p.id]||0)}),{credits:0,cents:0,items:0});}
  function noticeLow(){if(balance===null||balance>100||warned)return;warned=true;warning=dialog('Low credits');status(warning,WARNING);warning.append(button('Purchase Additional Credits',()=>{warning.close();open('shop');}));warning.showModal();}
@@ -21,28 +22,55 @@
  }
  function heading(host,text){const h=document.createElement('h3');h.textContent=text;host.append(h);}
  function selectPack(p){cart={[p.id]:1};cartMessage='';render();}
- function packCard(p,special=false){
+ function packCard(p){
   const item=document.createElement('section');item.className='credits-pack';item.dataset.selected=String(!!p&&!!cart[p.id]);
-  heading(item,special?'Special offer':p.credits.toLocaleString()+' credits');
+  heading(item,p.credits.toLocaleString()+' credits');
   const details=document.createElement('div');details.className='credits-pack-details';
-  if(p){if(special){heading(details,p.title);status(details,p.description);line(details,'Credits',p.baseCredits+' + '+p.bonusCredits+' free');}line(details,'Price',money(p.cents));}
-  else status(details,window.EccoNotifications?.snapshot().error?'Offers are temporarily unavailable.':window.EccoNotifications?.snapshot().loading?'Loading offers…':'No special offers available.');
+  line(details,'Price',money(p.cents));
   const select=button(p&&cart[p.id]?'✓ Selected':'Select',()=>selectPack(p));select.disabled=!p;select.dataset.creditFocus=p?.id||'special-offer';select.setAttribute('aria-pressed',String(!!p&&!!cart[p.id]));
   item.append(details,select);return item;
  }
+ function billingNotices(allowSelection=false){
+  const rows=notices();if(!rows.length)return null;
+  const section=document.createElement('section');section.className='credits-notices';section.setAttribute('aria-label','Offers and announcements');
+  rows.sort((a,b)=>Number(b.kind==='special_offer'||b.kind==='marketing_campaign')-Number(a.kind==='special_offer'||a.kind==='marketing_campaign')).forEach(n=>{
+   const card=document.createElement('article');card.className='credits-promotion';card.dataset.noticeId=n.id;card.dataset.severity=n.severity;
+   const head=document.createElement('div');head.className='credits-promotion-heading';
+   if(n.kind==='special_offer'||n.kind==='marketing_campaign'){const icon=document.createElement('span');icon.className='credits-promotion-badge';icon.textContent=n.badge||'NEW';head.append(icon);}
+   heading(head,n.title);card.append(head);const message=document.createElement('p');message.className='credits-promotion-message';message.textContent=n.body;card.append(message);
+   const expires=document.createElement('p');expires.className='credits-promotion-expiry';
+   if(n.expiresAt){const time=document.createElement('time');time.dateTime=n.expiresAt;time.textContent=new Date(n.expiresAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});expires.append('Offer lasts till ',time);}else expires.textContent='Available until read';
+   if(n.kind!=='special_offer'&&n.kind!=='marketing_campaign'&&n.expiresAt)expires.firstChild.textContent='Expires ';
+   card.append(expires);
+   const p=offers().find(p=>p.id==='offer:'+n.id),actions=document.createElement('div');actions.className='credits-promotion-actions';
+   if(p){line(card,'Credits',p.baseCredits+' + '+p.bonusCredits+' free');line(card,'Price',money(p.cents));const select=button(cart[p.id]?'✓ Selected':'Select',()=>selectPack(p));select.dataset.creditFocus=p.id;select.setAttribute('aria-label','Select '+p.title);select.setAttribute('aria-pressed',String(!!cart[p.id]));card.dataset.selected=String(!!cart[p.id]);if(allowSelection)actions.append(select);}
+   if(window.EccoNotifications?.markRead){const read=button('Mark as Read',async()=>{read.disabled=true;const ok=await window.EccoNotifications.markRead(n.id);if(!ok&&card.isConnected){read.disabled=false;status(card,'Could not mark as read. Please try again.');}},true);read.dataset.creditFocus='read:'+n.id;actions.append(read);}
+   if(actions.children.length)card.append(actions);section.append(card);
+  });return section;
+ }
+ function refreshBillingNotices(){
+  const drawer=q('#workspace-billing-drawer');if(!drawer)return;
+  let host=drawer.querySelector('[data-billing-promotions]');if(!host){host=document.createElement('div');host.dataset.billingPromotions='';drawer.prepend(host);}
+  host.replaceChildren();const cards=billingNotices();drawer.classList.toggle('has-promotions',!!cards);
+  if(cards){host.append(cards,button('Purchase Additional Credits',()=>{window.EccoBilling?.close();const menu=drawer.closest('details');if(menu)menu.open=false;open('shop');}));}
+ }
+ function refreshUsageNotices(){if(!usageDrawer)return;usageDrawer.querySelector('.credits-notices')?.remove();const notices=billingNotices();if(notices)usageDrawer.querySelector('.credits-usage-body').prepend(notices);}
  function render(){if(!panel)return;
   const focus=panel.contains(document.activeElement)?document.activeElement.dataset.creditFocus:null;
   panel.querySelector('[data-credits-body]')?.remove();const body=document.createElement('div');body.dataset.creditsBody='';body.className='form';panel.append(body);
   const title=panel.querySelector('h2');title.textContent=({usage:'Credits and Usage',shop:'Purchase Additional Credits',cart:'Your Cart',checkout:'Checkout'})[view];title.tabIndex=-1;
   if(view==='usage'){
+   const notices=billingNotices();if(notices)body.append(notices);
    body.classList.add('credits-usage-body');
    line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits',balanceLabel());line(body,'Credits used',balance===null?'—':String(used));
    body.append(button('Purchase Additional Credits',()=>open('shop')));
   }else{const divider=document.createElement('hr');divider.className='credits-divider';body.append(divider);}
   if(cartMessage)status(body,cartMessage);
   if(view==='shop'){
+   const notices=billingNotices(true);if(notices)body.append(notices);
+   heading(body,'Regular Credit Options');
    const grid=document.createElement('div');grid.className='credits-pack-grid';grid.setAttribute('aria-label','Choose one credit package');
-   PACKS.forEach(p=>grid.append(packCard(p)));grid.append(packCard(offers().find(p=>cart[p.id])||offers()[0],true));body.append(grid);
+   PACKS.forEach(p=>grid.append(packCard(p)));body.append(grid);
    const footer=document.createElement('div');footer.className='credits-shop-footer';
    const selection=status(footer,totals().items?totals().credits.toLocaleString()+' credits · '+money(totals().cents):'Select one credit package.');selection.setAttribute('aria-live','polite');
    const viewCart=button('View Cart',()=>open('cart'));viewCart.disabled=!totals().items;viewCart.dataset.creditFocus='view-cart';footer.append(viewCart);body.append(footer);
@@ -94,7 +122,7 @@
   closeUsage();usageTrigger=trigger;
   usageDrawer=document.createElement('div');usageDrawer.id='workspace-usage-drawer';usageDrawer.className='credits-dialog credits-usage-drawer';usageDrawer.setAttribute('role','region');usageDrawer.setAttribute('aria-label','Credits and Usage');
   const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='Credits and Usage';head.append(title);usageDrawer.append(head);
-  const body=document.createElement('div');body.className='form credits-usage-body';line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits','');body.lastChild.querySelector('strong').dataset.creditBalance='';line(body,'Credits used','');body.lastChild.querySelector('strong').dataset.creditUsed='';body.append(button('Purchase Additional Credits',()=>open('shop')));usageDrawer.append(body);menu.append(usageDrawer);trigger.setAttribute('aria-expanded','true');updateUsage();
+  const body=document.createElement('div');body.className='form credits-usage-body';line(body,'Starting allowance','500 credits');line(body,'Studio usage','100 credits / minute');line(body,'Available credits','');body.lastChild.querySelector('strong').dataset.creditBalance='';line(body,'Credits used','');body.lastChild.querySelector('strong').dataset.creditUsed='';body.append(button('Purchase Additional Credits',()=>open('shop')));usageDrawer.append(body);menu.append(usageDrawer);trigger.setAttribute('aria-expanded','true');updateUsage();refreshUsageNotices();window.EccoNotifications?.refresh();
   if(!menu.dataset.usageDrawerBound){
    menu.dataset.usageDrawerBound='true';
    menu.addEventListener('focusout',event=>{if(usageDrawer?.parentElement===menu&&event.relatedTarget&&!menu.closest('details')?.contains(event.relatedTarget))closeUsage();});
@@ -110,9 +138,23 @@
  async function tick(){
   if(!adapter||pending)return;pending=true;try{const result=await adapter.heartbeat();if(!Number.isFinite(result.balance)||result.balance<0)throw Error('Invalid credit balance');balance=result.balance;used=result.used;if(view==='usage')render();updateUsage();noticeLow();}catch(e){if(panel&&view==='usage'){render();status(panel.querySelector('[data-credits-body]'),'Credit balance could not be refreshed.');}if(usageDrawer){usageDrawer.querySelector('[data-credit-balance]').textContent='Could not refresh';}}finally{pending=false;}
  }
- function mount(){const old=q('#workspace-credits');if(old&&!old.dataset.creditStore){old.dataset.creditStore='true';old.textContent='Credits and Usage';old.dataset.userFlyout='usage';old.setAttribute('aria-controls','workspace-usage-drawer');old.setAttribute('aria-expanded','false');old.onclick=()=>open('usage',old);old.addEventListener('pointerenter',()=>open('usage',old,{hover:true}));old.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();open('usage',old);usageDrawer?.querySelector('button')?.focus();}});}q('#purchase-additional-credits')?.remove();}
- const style=document.createElement('style');style.textContent='.credits-dialog{color:var(--text,#eeebf5);background:var(--panel,#242147)}.credits-line{display:flex;justify-content:space-between;gap:16px;margin:5px 0}.credits-pack-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.credits-pack,.credits-cart-row{padding:12px;border:1px solid var(--border,#51496f);border-radius:8px}.credits-pack button{width:100%;margin-top:10px}.credits-dialog>.section-head>button{width:26px;height:26px;padding:0;background:#ffdc24;color:#211b33;font-size:20px}.credits-dialog [role=status]{font-size:12px}.credits-dialog input{min-width:0}.credits-dialog>.credits-billing-form{padding-top:1em}.credits-dialog>.credits-usage-body{padding-top:1em;gap:.5em}.credits-usage-body>.credits-line,.credits-usage-body>[role=status]{margin:0}';document.head.append(style);
+ function mount(){if(q('#workspace-billing-drawer')&&!q('#workspace-billing-drawer [data-billing-promotions]'))refreshBillingNotices();const old=q('#workspace-credits');if(old&&!old.dataset.creditStore){old.dataset.creditStore='true';old.textContent='Credits and Usage';old.dataset.userFlyout='usage';old.setAttribute('aria-controls','workspace-usage-drawer');old.setAttribute('aria-expanded','false');old.onclick=()=>open('usage',old);old.addEventListener('pointerenter',()=>open('usage',old,{hover:true}));old.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();open('usage',old);usageDrawer?.querySelector('button')?.focus();}});}q('#purchase-additional-credits')?.remove();}
+ const style=document.createElement('style');style.textContent='.credits-dialog{color:var(--text,#eeebf5);background:var(--panel,#242147)}.credits-line{display:flex;justify-content:space-between;gap:16px;margin:5px 0}.credits-pack-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.credits-pack,.credits-cart-row{padding:12px;border:1px solid var(--border,#51496f);border-radius:8px}.credits-pack button{width:100%;margin-top:10px}.credits-dialog>.section-head>button{width:26px;height:26px;padding:0;background:#ffdc24;color:#211b33;font-size:20px}.credits-dialog [role=status]{font-size:12px}.credits-dialog input{min-width:0}.credits-dialog>.credits-billing-form{padding-top:1em}.credits-dialog>.credits-usage-body{padding-top:1em;gap:.5em}.credits-usage-body>.credits-line,.credits-usage-body>[role=status]{margin:0}';document.head.append(style);
  const shopStyle=document.createElement('style');shopStyle.textContent=`
+ .credits-notices{display:grid;gap:12px;min-width:0;margin-bottom:8px}
+ .credits-promotion{padding:14px;border:1px solid var(--ecco-theme-border,var(--border,#51496f));border-radius:8px;min-width:0}
+ .credits-promotion-heading{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+ .credits-promotion-badge{display:inline-flex;align-items:center;border-radius:4px;padding:3px 7px;background:var(--ecco-theme-accent,var(--accent,#ffdc24));color:var(--ecco-theme-contrast,#211b33);font-size:11px;font-weight:700;max-width:100%;overflow-wrap:anywhere}
+ .credits-promotion-message{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0 8px}
+ .credits-promotion-expiry{font-size:12px;margin:0 0 10px;color:var(--ecco-theme-muted,var(--muted,#c6c2d5))}
+ .credits-promotion-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}.credits-promotion-actions button{width:auto}
+ .credits-promotion[data-selected=true]{border-color:var(--ecco-theme-accent,var(--accent,#ffdc24));box-shadow:inset 0 0 0 1px var(--ecco-theme-accent,var(--accent,#ffdc24))}
+ #workspace-billing-drawer.has-promotions{width:360px;max-width:calc(100vw - 32px);justify-content:flex-start;max-height:80dvh;overflow:auto}
+ #workspace-billing-drawer .credits-notices{max-height:50dvh;overflow:auto}
+ #workspace-billing-drawer .credits-promotion h3{font-size:14px;margin:0;overflow-wrap:anywhere}
+ #workspace-billing-drawer .credits-promotion-expiry{font-size:12px}
+ #workspace-billing-drawer [data-billing-promotions]>button{width:100%;font-size:12px}
+ #workspace-usage-drawer .credits-notices{max-width:340px;max-height:45dvh;overflow:auto}
  .credits-divider{width:100%;border:0;border-top:1px solid var(--ecco-theme-border,var(--border,#51496f));margin:0 0 4px}
  .credits-dialog h3{font-size:14px;line-height:1.4;margin:0;overflow-wrap:anywhere}
  .credits-pack{display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -130,9 +172,9 @@
  @media(max-width:420px){.credits-pack-grid{grid-template-columns:1fr}.credits-shop-footer{flex-wrap:wrap}}
  `;document.head.append(shopStyle);
  let lastOffers='';document.addEventListener('ecco:notifications-change',()=>{
-  const snapshot=window.EccoNotifications?.snapshot(),key=JSON.stringify(snapshot);if(key===lastOffers)return;lastOffers=key;
+  const snapshot=window.EccoNotifications?.snapshot('billing'),key=JSON.stringify(snapshot);if(key===lastOffers)return;lastOffers=key;
   const valid=new Set(products().map(p=>p.id));for(const id of Object.keys(cart))if(!valid.has(id)){delete cart[id];cartMessage='The special offer is no longer available. Please select another package.';}
-  if(panel&&view!=='usage')render();
+  if(panel)render();refreshUsageNotices();refreshBillingNotices();
  });
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;mount();});}).observe(document.body,{childList:true,subtree:true});mount();setInterval(tick,1000);
  const flyoutStyle=document.createElement('style');flyoutStyle.textContent='#workspace-usage-drawer{position:absolute;left:auto;right:100%;top:0;box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:12px;border:1px solid var(--ecco-theme-border,#48405c);border-radius:9px;box-shadow:0 12px 32px #0006;color:var(--ecco-theme-text,var(--text,#eeebf5));background:var(--ecco-theme-surface,var(--panel,#252039));z-index:2;animation:credits-slide-left .2s ease}#workspace-usage-drawer .section-head{margin:0;gap:16px}#workspace-usage-drawer h2{font-size:13px;margin:0}#workspace-usage-drawer .credits-line{font-size:13px}#workspace-usage-drawer>.credits-usage-body{display:flex;flex-direction:column;gap:.5em;padding-top:1em}#workspace-usage-drawer .credits-usage-body>button{min-height:30px;padding:6px 10px;font-size:12px;background:var(--ecco-theme-accent,var(--accent,#ffdc24))!important;color:var(--ecco-theme-contrast,#211b3c)!important;filter:none!important;box-shadow:none!important}html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]) #workspace-usage-drawer .credits-usage-body>button{background:var(--ecco-theme-control)!important;color:var(--ecco-theme-text)!important;box-shadow:inset 0 0 0 1px var(--ecco-theme-border)!important}@keyframes credits-slide-left{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}@media(prefers-reduced-motion:reduce){#workspace-usage-drawer{animation:none}}';document.head.append(flyoutStyle);
