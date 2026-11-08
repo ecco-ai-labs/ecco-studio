@@ -30,12 +30,24 @@
   const select=button(p&&cart[p.id]?'✓ Selected':'Select',()=>selectPack(p));select.disabled=!p;select.dataset.creditFocus=p?.id||'special-offer';select.setAttribute('aria-pressed',String(!!p&&!!cart[p.id]));
   item.append(details,select);return item;
  }
+ function readAction(n,card){
+  const read=button(n.readAt?'Read':'Mark as Read',async()=>{
+   const focused=document.activeElement===read,container=card.closest('.credits-dialog,#workspace-billing-drawer,#workspace-usage-drawer');read.disabled=true;
+   const ok=await window.EccoNotifications.markRead(n.id);
+   if(ok&&focused&&n.kind==='marketing_campaign'){
+    const current=Array.from((container||document).querySelectorAll('.credits-promotion')).find(el=>el.dataset.noticeId===n.id&&el.getClientRects().length);
+    const title=current?.querySelector('h3');if(title){title.tabIndex=-1;title.focus();}
+   }
+   if(!ok&&card.isConnected){read.disabled=false;status(card,'Could not mark as read. Please try again.');}
+  },true);
+  read.disabled=!!n.readAt;read.dataset.creditFocus='read:'+n.id;return read;
+ }
  function billingNotices(allowSelection=false){
   const upcoming=(window.EccoNotifications?.snapshot('billing').upcomingCampaigns||[]).filter(n=>Date.parse(n.expiresAt)>Date.now());
   const rows=notices();if(!rows.length&&!upcoming.length)return null;
   const section=document.createElement('section');section.className='credits-notices';section.setAttribute('aria-label','Offers and announcements');
   upcoming.forEach(n=>{
-   const card=document.createElement('article');card.className='credits-promotion';card.dataset.campaignId=n.campaignId;card.dataset.state='upcoming';
+   const card=document.createElement('article');card.className='credits-promotion';card.dataset.campaignId=n.campaignId;card.dataset.noticeId=n.id;card.dataset.state='upcoming';card.dataset.read=String(!!n.readAt);
    const head=document.createElement('div');head.className='credits-promotion-heading';
    const state=document.createElement('span');state.className='credits-promotion-badge';state.textContent='Upcoming';head.append(state);
    if(n.badge&&n.badge!=='Upcoming'){const badge=document.createElement('span');badge.className='credits-promotion-badge';badge.textContent=n.badge;head.append(badge);}
@@ -45,10 +57,12 @@
     time.textContent=new Date(value).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:n.timezone||undefined,timeZoneName:'short'});date.append(label,time);card.append(date);
    }
    if(Date.parse(n.startsAt)<=Date.now()){const pending=document.createElement('p');pending.className='credits-promotion-expiry';pending.textContent='Starting soon';card.append(pending);}
+   if(window.EccoNotifications?.snapshot('billing').campaignReadVersion===1&&window.EccoNotifications?.markRead){const actions=document.createElement('div');actions.className='credits-promotion-actions';actions.append(readAction(n,card));card.append(actions);}
    section.append(card);
   });
   rows.sort((a,b)=>Number(b.kind==='special_offer'||b.kind==='marketing_campaign')-Number(a.kind==='special_offer'||a.kind==='marketing_campaign')).forEach(n=>{
    const card=document.createElement('article');card.className='credits-promotion';card.dataset.noticeId=n.id;card.dataset.severity=n.severity;
+   if(n.kind==='marketing_campaign')card.dataset.read=String(!!n.readAt);
    const head=document.createElement('div');head.className='credits-promotion-heading';
    if(n.kind==='special_offer'||n.kind==='marketing_campaign'){const icon=document.createElement('span');icon.className='credits-promotion-badge';icon.textContent=n.badge||'NEW';head.append(icon);}
    heading(head,n.title);card.append(head);const message=document.createElement('p');message.className='credits-promotion-message';message.textContent=n.body;card.append(message);
@@ -58,7 +72,7 @@
    card.append(expires);
    const p=offers().find(p=>p.id==='offer:'+n.id),actions=document.createElement('div');actions.className='credits-promotion-actions';
    if(p){line(card,'Credits',p.baseCredits+' + '+p.bonusCredits+' free');line(card,'Price',money(p.cents));const select=button(cart[p.id]?'✓ Selected':'Select',()=>selectPack(p));select.dataset.creditFocus=p.id;select.setAttribute('aria-label','Select '+p.title);select.setAttribute('aria-pressed',String(!!cart[p.id]));card.dataset.selected=String(!!cart[p.id]);if(allowSelection)actions.append(select);}
-   if(window.EccoNotifications?.markRead){const read=button('Mark as Read',async()=>{read.disabled=true;const ok=await window.EccoNotifications.markRead(n.id);if(!ok&&card.isConnected){read.disabled=false;status(card,'Could not mark as read. Please try again.');}},true);read.dataset.creditFocus='read:'+n.id;actions.append(read);}
+   if(window.EccoNotifications?.markRead)actions.append(readAction(n,card));
    if(actions.children.length)card.append(actions);section.append(card);
   });return section;
  }
@@ -160,6 +174,8 @@
  .credits-promotion-heading{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
  .credits-promotion-badge{display:inline-flex;align-items:center;border-radius:4px;padding:3px 7px;background:var(--ecco-theme-accent,var(--accent,#ffdc24));color:var(--ecco-theme-contrast,#211b33);font-size:11px;font-weight:700;max-width:100%;overflow-wrap:anywhere}
  .credits-promotion-message{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0 8px}
+ .credits-promotion[data-read=false] h3,.credits-promotion[data-read=false] .credits-promotion-message{font-weight:700}
+ .credits-promotion[data-read=true] h3,.credits-promotion[data-read=true] .credits-promotion-message,.credits-promotion[data-read=true] .credits-promotion-badge{font-weight:400}
  .credits-promotion-expiry{font-size:12px;margin:0 0 10px;color:var(--ecco-theme-muted,var(--muted,#c6c2d5))}
  .credits-promotion-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}.credits-promotion-actions button{width:auto}
  .credits-promotion[data-selected=true]{border-color:var(--ecco-theme-accent,var(--accent,#ffdc24));box-shadow:inset 0 0 0 1px var(--ecco-theme-accent,var(--accent,#ffdc24))}

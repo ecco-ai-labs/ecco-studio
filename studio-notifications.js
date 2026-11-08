@@ -6,7 +6,7 @@
  controls.append(host);controls.setAttribute('aria-label','Community, support, source code and notifications');
  const bell=host.querySelector('button'),badge=host.querySelector('.notification-count'),panel=host.querySelector('section'),items=host.querySelector('[data-notification-items]'),status=host.querySelector('[data-notification-status]'),history=host.querySelector('[data-notification-history]'),readItems=host.querySelector('[data-read-notification-items]');
  const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk/support';
- let feed=[],billingFeed=[],upcomingFeed=[],readFeed=[],failed='',loading=false,revision=0,expiryTimer=0;const pending=new Set();
+ let feed=[],billingFeed=[],upcomingFeed=[],readFeed=[],failed='',readError='',loading=false,revision=0,expiryTimer=0,campaignReadVersion=0;const pending=new Set();
  function identity(){const u=window.EccoAuth?.user;return u&&(u.id||u.sub||u.email)||'';}
  function token(){return identity()?sessionStorage.getItem('ecco-user-session')||'':'';}
  function context(){return identity()+'|'+token();}
@@ -23,17 +23,18 @@
   if(data.notificationVersion!==1||!Array.isArray(data.notifications))throw Error('User notifications are not available yet.');
   const ids=new Set(),valid=n=>{if(!n||typeof n.id!=='string'||typeof n.title!=='string'||typeof n.body!=='string'||!['informational','warning','error'].includes(n.severity)||ids.has(n.id)||n.expiresAt&&!Number.isFinite(Date.parse(n.expiresAt)))return false;ids.add(n.id);return true;};
   feed=data.notifications.filter(valid).slice(0,5);
-  ids.clear();billingFeed=(data.notificationPresentationVersion===1&&Array.isArray(data.billingNotifications)?data.billingNotifications:feed.filter(n=>n.kind==='special_offer'||n.kind==='marketing_campaign')).filter(valid).slice(0,5);
-  ids.clear();upcomingFeed=data.upcomingCampaignVersion===1&&Array.isArray(data.upcomingCampaigns)?data.upcomingCampaigns.filter(n=>n?.status==='upcoming'&&Number.isFinite(Date.parse(n.startsAt))&&valid(n)).slice(0,5):[];
+  campaignReadVersion=data.campaignReadVersion===1?1:0;
+  ids.clear();billingFeed=(data.notificationPresentationVersion===1&&Array.isArray(data.billingNotifications)?data.billingNotifications:feed.filter(n=>n.kind==='special_offer'||n.kind==='marketing_campaign')).filter(valid);
+  ids.clear();upcomingFeed=data.upcomingCampaignVersion===1&&Array.isArray(data.upcomingCampaigns)?data.upcomingCampaigns.filter(n=>n?.status==='upcoming'&&Number.isFinite(Date.parse(n.startsAt))&&valid(n)):[];
   ids.clear();feed.forEach(n=>ids.add(n.id));
   readFeed=data.notificationHistoryVersion===1&&Array.isArray(data.readNotifications)?data.readNotifications.filter(valid).slice(0,3):[];
  }
- function snapshot(location='bell'){return {notifications:failed?[]:active(location==='billing'?billingFeed:feed).map(n=>({...n,offer:n.offer?{...n.offer}:null,placements:n.placements?[...n.placements]:undefined})),upcomingCampaigns:location==='billing'&&!failed?active(upcomingFeed).map(n=>({...n})):[],loading,error:failed};}
+ function snapshot(location='bell'){return {notifications:failed?[]:active(location==='billing'?billingFeed:feed).map(n=>({...n,offer:n.offer?{...n.offer}:null,placements:n.placements?[...n.placements]:undefined})),upcomingCampaigns:location==='billing'&&!failed?active(upcomingFeed).map(n=>({...n})):[],campaignReadVersion,loading,error:failed};}
  window.EccoNotifications={snapshot,refresh:load,markRead:id=>markRead(id,false)};
  function render(){
   const visible=active(),old=active(readFeed),count=visible.length,focused=document.activeElement?.dataset.notificationId;
   badge.hidden=!count;badge.textContent=String(count);bell.setAttribute('aria-label',count?`Notifications: ${count} unread`:'Notifications');bell.title=bell.getAttribute('aria-label');
-  items.replaceChildren();readItems.replaceChildren();items.closest('table').hidden=!count;history.hidden=!old.length;status.textContent=failed||(!token()?'Sign in to see notifications.':loading&&!count?'Loading notifications…':!count?'No New notifications':'');status.hidden=!status.textContent;
+  items.replaceChildren();readItems.replaceChildren();items.closest('table').hidden=!count;history.hidden=!old.length;status.textContent=readError||failed||(!token()?'Sign in to see notifications.':loading&&!count?'Loading notifications…':!count?'No New notifications':'');status.hidden=!status.textContent;
   function rowFor(n,index,read){
    const tr=document.createElement('tr'),number=document.createElement('td'),content=document.createElement('td'),expires=document.createElement('td');
    const row=document.createElement(read?'div':'button'),title=document.createElement('span'),body=document.createElement('span'),meta=document.createElement('span');
@@ -67,19 +68,20 @@
   finally{if(scope===context()&&seq===revision){loading=false;render();}}
  }
  async function markRead(id,fromBell=true){
-  if(pending.size||!active([...feed,...billingFeed]).some(n=>n.id===id))return false;
-  const scope=context(),seq=++revision;pending.add(id);failed='';render();
-  try{const data=await api({op:'readNotification',id});if(scope!==context()||seq!==revision)return;accept(data);
+  const upcoming=campaignReadVersion===1?active(upcomingFeed).find(n=>n.id===id):null;
+  if(pending.size||!upcoming&&!active([...feed,...billingFeed]).some(n=>n.id===id))return false;
+  const scope=context(),seq=++revision;pending.add(id);failed='';readError='';render();
+  try{const data=await api(upcoming?{op:'readCampaign',campaignId:upcoming.campaignId,startsAt:upcoming.startsAt}:{op:'readNotification',id});if(scope!==context()||seq!==revision)return;accept(data);
    try{localStorage.setItem('ecco-notifications-sync:'+identity(),String(Date.now()));}catch{}
    return true;
-  }catch(e){if(scope===context()&&seq===revision)failed='Could not mark notification as read. Please try again.';return false;}
+  }catch(e){if(scope===context()&&seq===revision)readError='Could not mark notification as read. Please try again.';return false;}
   finally{if(scope===context()&&seq===revision){pending.delete(id);loading=false;render();if(fromBell&&!panel.hidden)(items.querySelector('button:not(:disabled)')||bell).focus();}}
  }
  bell.onclick=()=>{if(popup.isMinimized()){popup.resume();return;}if(panel.hidden)open();else close();};
  document.addEventListener('pointerdown',e=>{if(!host.contains(e.target)&&!popup.isMinimized())close();});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){close();bell.focus();e.stopPropagation();}});
  panel.addEventListener('pointerdown',e=>e.stopPropagation());panel.addEventListener('click',e=>e.stopPropagation());
- document.addEventListener('ecco:auth-change',()=>{revision++;feed=[];billingFeed=[];upcomingFeed=[];readFeed=[];pending.clear();loading=false;failed='';close();render();load();});
+ document.addEventListener('ecco:auth-change',()=>{revision++;feed=[];billingFeed=[];upcomingFeed=[];readFeed=[];campaignReadVersion=0;pending.clear();loading=false;failed='';readError='';close();render();load();});
  window.addEventListener('storage',e=>{if(e.key==='ecco-notifications-sync:'+identity())load();});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();load();}});window.addEventListener('focus',load);
  render();load();setInterval(()=>{if(!document.hidden)load();},30000);

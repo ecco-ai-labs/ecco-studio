@@ -209,14 +209,66 @@ class CampaignTest(unittest.TestCase):
    data=self.call('alice',path='/api/desk/support?userNotifications=1')[1];self.assertEqual(data['upcomingCampaigns'],[]);self.assertEqual(len(data['billingNotifications']),1);self.assertEqual(data['billingNotifications'][0]['badge'],'Dhamaka')
   with patch.object(desk,'now',return_value=campaigns.stamp(starts+dt.timedelta(days=31))):
    data=self.call('alice',path='/api/desk/support?userNotifications=1')[1];self.assertEqual(data['upcomingCampaigns'],[]);self.assertEqual(data['billingNotifications'],[])
- def test_upcoming_bounded_sorted_and_blocked_or_completed_hidden(self):
+ def test_all_upcoming_sorted_and_blocked_or_completed_hidden(self):
   self.setup_team();clock=dt.datetime(2026,11,1,tzinfo=UTC)
   with desk.connect(self.database) as db:
    admin=desk.actor(db,dict(db.execute("SELECT * FROM desk_users WHERE id='google:owner'").fetchone()));me={'userId':'google:alice'}
    for day in range(7,1,-1):
     plan=dict(kind='once',time='09:00',timezone='UTC',startDate=f'2026-11-{day:02}',endDate=f'2026-11-{day:02}')
     campaigns.write(db,admin,self.payload(schedule=plan),clock)
-   rows=campaigns.upcoming(db,me,clock);self.assertEqual(len(rows),5);self.assertEqual([r['startsAt'][8:10] for r in rows],['02','03','04','05','06'])
+   rows=campaigns.upcoming(db,me,clock);self.assertEqual(len(rows),6);self.assertEqual([r['startsAt'][8:10] for r in rows],['02','03','04','05','06','07'])
    db.execute("UPDATE desk_campaigns SET lastError='Access blocked' WHERE id=?",(rows[0]['campaignId'],));db.execute("UPDATE desk_campaigns SET nextRunAt='' WHERE id=?",(rows[1]['campaignId'],))
    self.assertEqual(len(campaigns.upcoming(db,me,clock)),4)
+ def test_upcoming_read_persists_per_user_through_dispatch_and_restart(self):
+  p,c=self.create_campaign(durationDays=30,placements=['bell','billing'])
+  starts=dt.datetime.fromisoformat(c['nextRunAt']);before=starts-dt.timedelta(days=1)
+  with patch.object(desk,'now',return_value=campaigns.stamp(before)):
+   self.call('bob',path='/api/desk/support?userNotifications=1')
+   data=self.call('alice',path='/api/desk/support?userNotifications=1')[1]
+   preview=data['upcomingCampaigns'][0];self.assertIsNone(preview['readAt'])
+   body=dict(op='readCampaign',campaignId=c['id'],startsAt=preview['startsAt'])
+   for _ in range(2):
+    status,data=self.call('alice',body,path='/api/desk/support');self.assertEqual(status,200,data)
+    self.assertEqual(len(data['upcomingCampaigns']),1);self.assertIsNotNone(data['upcomingCampaigns'][0]['readAt'])
+   self.assertIsNone(self.call('bob',path='/api/desk/support?userNotifications=1')[1]['upcomingCampaigns'][0]['readAt'])
+   desk.initialize(self.database,start_notifications=False)
+   self.assertIsNotNone(self.call('alice',path='/api/desk/support?userNotifications=1')[1]['upcomingCampaigns'][0]['readAt'])
+  self.tick(c)
+  with patch.object(desk,'now',return_value=campaigns.stamp(self.due(c))):
+   data=self.call('alice',path='/api/desk/support?userNotifications=1')[1]
+   self.assertEqual(data['upcomingCampaigns'],[]);self.assertEqual(data['notifications'],[])
+   self.assertEqual(len(data['billingNotifications']),1);self.assertIsNotNone(data['billingNotifications'][0]['readAt'])
+   self.assertIsNone(self.call('bob',path='/api/desk/support?userNotifications=1')[1]['billingNotifications'][0]['readAt'])
+   # A click racing with dispatch still acknowledges this occurrence safely.
+   status,data=self.call('bob',body,path='/api/desk/support');self.assertEqual(status,200,data)
+   self.assertIsNotNone(data['billingNotifications'][0]['readAt'])
+  with patch.object(desk,'now',return_value=campaigns.stamp(starts+dt.timedelta(days=31))):
+   self.assertEqual(self.call('alice',path='/api/desk/support?userNotifications=1')[1]['billingNotifications'],[])
+  next_c=self.call(path='/api/desk?campaigns=1')[1]['campaigns'][0]
+  with patch.object(desk,'now',return_value=campaigns.stamp(dt.datetime.fromisoformat(next_c['nextRunAt'])-dt.timedelta(days=1))):
+   self.assertIsNone(self.call('alice',path='/api/desk/support?userNotifications=1')[1]['upcomingCampaigns'][0]['readAt'])
+ def test_current_read_stays_in_billing_beyond_regular_window_until_withdrawal(self):
+  p,c=self.create_campaign(durationDays=30,placements=['bell','billing']);self.tick(c)
+  with patch.object(desk,'now',return_value=campaigns.stamp(self.due(c))):
+   data=self.call('alice',path='/api/desk/support?userNotifications=1')[1];nid=data['billingNotifications'][0]['id']
+   status,data=self.call('alice',dict(op='readNotification',id=nid),path='/api/desk/support')
+   self.assertEqual(status,200);self.assertEqual(data['notifications'],[]);self.assertIsNotNone(data['billingNotifications'][0]['readAt'])
+   for i in range(6):
+    self.assertEqual(self.call(body=dict(op='createNotification',requestId=str(uuid.uuid4()),title='New '+str(i),body='Regular',severity='informational',audience='all',durationDays=30,placements=['billing']))[0],200)
+   desk.initialize(self.database,start_notifications=False)
+   data=self.call('alice',path='/api/desk/support?userNotifications=1')[1]
+   self.assertEqual(len(data['billingNotifications']),6);self.assertIn(nid,[n['id'] for n in data['billingNotifications']])
+   self.call(body=dict(op='withdrawNotification',id=nid))
+   self.assertNotIn(nid,[n['id'] for n in self.call('alice',path='/api/desk/support?userNotifications=1')[1]['billingNotifications']])
+ def test_upcoming_read_rejects_other_audience_paused_and_forged_occurrences(self):
+  self.setup_team();self.call('alice',path='/api/desk/support?userNotifications=1')
+  status,result=self.call(body=self.payload(audience='user',recipientId='google:alice'))
+  self.assertEqual(status,200,result);c=result['campaign'];starts=dt.datetime.fromisoformat(c['nextRunAt'])
+  body=dict(op='readCampaign',campaignId=c['id'],startsAt=c['nextRunAt'])
+  with patch.object(desk,'now',return_value=campaigns.stamp(starts-dt.timedelta(days=1))):
+   self.assertEqual(self.call('bob',body,path='/api/desk/support')[0],404)
+   self.assertEqual(self.call('anonymous',body,path='/api/desk/support')[0],401)
+   self.assertEqual(self.call('alice',{**body,'startsAt':campaigns.stamp(starts+dt.timedelta(days=1))},path='/api/desk/support')[0],404)
+   self.call(body=dict(op='setCampaignActive',id=c['id'],version=c['version'],enabled=False))
+   self.assertEqual(self.call('alice',body,path='/api/desk/support')[0],404)
 if __name__=='__main__':unittest.main()
