@@ -29,11 +29,23 @@
      else if(!release){release={id:p.id,title:p.title,sha:p.sha,baseSha:releaseData.current?.sha||'',kind:p.op==='prepareRollback'?'rollback':'release',state:'prepared',createdAt:new Date().toISOString(),createdName:'QA Admin'};releaseData.releases.unshift(release);}
      return new Response(JSON.stringify({releaseVersion:1,release}));
     }
-    const campaignDate=plan=>{const year=plan.year||2026;return new Date(Date.UTC(year,plan.kind==='yearly'?plan.month-1:10,plan.kind==='yearly'?plan.day:30,17)).toISOString();};
+    const campaignDate=plan=>{
+     if(!plan.startDate||!plan.endDate)return new Date('2026-11-30T17:00:00Z').toISOString();
+     const start=new Date(plan.startDate+'T00:00:00Z'),end=new Date(plan.endDate+'T23:59:59Z');
+     const cursor=new Date(Math.max(start.getTime(),Date.now()-86400000));cursor.setUTCHours(0,0,0,0);
+     for(let i=0;i<740&&cursor<=end;i++,cursor.setUTCDate(cursor.getUTCDate()+1)){
+      const d=cursor.getUTCDate(),m=cursor.getUTCMonth(),y=cursor.getUTCFullYear(),last=new Date(Date.UTC(y,m+1,0)).getUTCDate();
+      const thanksgiving=new Date(Date.UTC(y,10,1));thanksgiving.setUTCDate(1+(4-thanksgiving.getUTCDay()+7)%7+21);
+      const holiday=new Date(thanksgiving);holiday.setUTCDate(holiday.getUTCDate()+(plan.kind==='cyber_monday'?4:1));
+      const match=plan.kind==='daily'||plan.kind==='once'&&+cursor===+start||plan.kind==='weekly'&&cursor.getUTCDay()===start.getUTCDay()||plan.kind==='monthly'&&d===Math.min(start.getUTCDate(),last)||plan.kind==='yearly'&&m===start.getUTCMonth()&&d===Math.min(start.getUTCDate(),last)||['cyber_monday','black_friday'].includes(plan.kind)&&+cursor===+holiday||plan.kind==='new_year'&&m===0&&d===1;
+      const candidate=new Date(cursor);candidate.setUTCHours(17);
+      if(match&&candidate>Date.now())return candidate.toISOString();
+     }
+     return null;
+    };
     if(p.op==='previewCampaign'){
-     const nextRunAt=campaignDate(p.schedule);
-     if(p.schedule.year&&Date.parse(nextRunAt)<=Date.now())return new Response(JSON.stringify({error:'The selected date or time in '+p.schedule.year+' has already passed. Choose a later date/time or select '+(p.schedule.year+1)+'.'}),{status:400});
-     return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,notificationPresentationVersion:1,nextRunAt}));
+     if(p.schedule.endDate<p.schedule.startDate)return new Response(JSON.stringify({error:'End must be on or after Start.'}),{status:400});
+     return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,campaignCalendarVersion:1,notificationPresentationVersion:1,nextRunAt:campaignDate(p.schedule)}));
     }
     if(['createCampaign','updateCampaign','setCampaignActive'].includes(p.op)){
      if(role!=='admin')return new Response(JSON.stringify({error:'Admin required'}),{status:403});
@@ -41,7 +53,7 @@
      if(p.op==='createCampaign'){c={...p,version:1,enabled:true,nextRunAt:campaignDate(p.schedule),lastStatus:null,lastRunAt:null,runCount:0};fixtureCampaigns.push(c)}
      else if(!c||c.version!==p.version)return new Response(JSON.stringify({error:'Campaign changed'}),{status:409});
      else Object.assign(c,p,{version:c.version+1,...(p.schedule?{nextRunAt:campaignDate(p.schedule)}:{})});
-     localStorage.setItem('ecco-desk-qa-campaigns',JSON.stringify(fixtureCampaigns));return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,notificationPresentationVersion:1,campaign:c}));
+     localStorage.setItem('ecco-desk-qa-campaigns',JSON.stringify(fixtureCampaigns));return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,campaignCalendarVersion:1,notificationPresentationVersion:1,campaign:c}));
     }
     if(p.op==='createAgent'){if(!me.canManageAgents)return new Response(JSON.stringify({error:'Admin required'}),{status:403});const existing=data.agents.find(a=>a.id===p.id);const agent=existing||{id:p.id,name:p.name,description:p.description,steps:p.steps};if(!existing)data.agents.push(agent);localStorage.setItem('ecco-desk-qa-agents',JSON.stringify(data.agents));return new Response(JSON.stringify({agentWorkflowVersion:1,agent}));}
     if(p.op==='createNotification'&&!customer){notices.unshift({...p,id:p.requestId,createdAt:new Date().toISOString(),expiresAt:p.durationDays?new Date(Date.now()+p.durationDays*86400000).toISOString():null,status:'active',readCount:0});return new Response(JSON.stringify({...notificationData(),id:p.requestId}));}
@@ -50,7 +62,7 @@
    }
    if(url.searchParams.has('releases'))return new Response(JSON.stringify(role==='admin'?releaseData:{error:'Admin required'}),{status:role==='admin'?200:403});
    if(url.searchParams.has('manageNotifications'))return new Response(JSON.stringify({...notificationData(),campaignVersion:1}));
-   if(url.searchParams.has('campaigns'))return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,notificationPresentationVersion:1,campaigns:fixtureCampaigns}));
+   if(url.searchParams.has('campaigns'))return new Response(JSON.stringify({campaignVersion:1,campaignYearVersion:1,campaignCalendarVersion:1,notificationPresentationVersion:1,campaigns:fixtureCampaigns}));
    const id=url.searchParams.get('ticket');return new Response(JSON.stringify(id?{ticket:data.tickets.find(t=>t.id===Number(id)),comments:[],events:[]}:data));
   }
   return new Response(JSON.stringify({error:'External services disabled in QA'}),{status:503});

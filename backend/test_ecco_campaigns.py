@@ -22,22 +22,34 @@ class ScheduleTest(unittest.TestCase):
  def test_schedule_validation(self):
   for p in [{},self.plan('url'),{**self.plan(),'timezone':'Invalid'},self.plan('weekly',weekday=7),self.plan('monthly',day=True)]:
    with self.assertRaises(desk.DeskError):campaigns.next_run(p,dt.datetime.now(UTC))
- def test_explicit_year_and_past_date_do_not_roll_silently(self):
+ def test_legacy_year_allows_past_dates(self):
   current=dt.datetime(2026,11,8,tzinfo=UTC)
-  p={**self.plan('yearly',month=11,day=1),'year':2026}
-  with self.assertRaisesRegex(desk.DeskError,'2026.*already passed.*2027'):campaigns.planned_run(p,current)
-  p['day']=27;self.assertEqual(campaigns.planned_run(p,current),dt.datetime(2026,11,27,17,tzinfo=UTC))
-  p['year']=2032;self.assertEqual(campaigns.planned_run(p,current).year,2032)
-  for bad in [True,2026.5,'2026',1999,2101]:
-   with self.assertRaises(desk.DeskError):campaigns.schedule({**p,'year':bad})
- def test_year_uses_selected_zone_and_time(self):
-  current=dt.datetime(2027,1,1,2,tzinfo=UTC)
-  p={**self.plan('yearly',month=12,day=31),'time':'20:00','year':2026}
-  self.assertEqual(campaigns.planned_run(p,current),dt.datetime(2027,1,1,4,tzinfo=UTC))
-  with self.assertRaises(desk.DeskError):campaigns.planned_run({**p,'time':'17:00'},current)
-  for kind in ['daily','weekly','monthly']:
-   plan={**self.plan(kind,weekday=0,day=1),'year':2030}
-   self.assertEqual(campaigns.planned_run(plan,dt.datetime(2026,11,8,tzinfo=UTC)).astimezone(campaigns.ZoneInfo(plan['timezone'])).year,2030)
+  self.assertEqual(campaigns.planned_run(self.plan('yearly',month=11,day=1,year=2026),current),dt.datetime(2027,11,1,16,tzinfo=UTC))
+ def test_calendar_ranges_and_recurrence(self):
+  current=dt.datetime(2026,11,8,tzinfo=UTC)
+  p=self.plan('daily',startDate='2026-11-01',endDate='2026-11-30')
+  self.assertEqual(campaigns.planned_run(p,current),dt.datetime(2026,11,8,17,tzinfo=UTC))
+  self.assertIsNone(campaigns.planned_run({**p,'endDate':'2026-11-02'},current))
+  self.assertIsNone(campaigns.planned_run({**p,'kind':'once'},current))
+  self.assertEqual(campaigns.planned_run({**p,'kind':'weekly'},current),dt.datetime(2026,11,8,17,tzinfo=UTC))
+  self.assertIsNone(campaigns.planned_run({**p,'kind':'yearly'},current))
+  self.assertEqual(campaigns.planned_run({**p,'kind':'yearly','endDate':'2027-11-01'},current),dt.datetime(2027,11,1,16,tzinfo=UTC))
+  p=self.plan('monthly',startDate='2026-01-31',endDate='2027-03-31')
+  self.assertEqual(campaigns.next_run(p,dt.datetime(2027,2,1,tzinfo=UTC)),dt.datetime(2027,2,28,17,tzinfo=UTC))
+  self.assertEqual(campaigns.next_run(p,dt.datetime(2027,3,1,tzinfo=UTC)),dt.datetime(2027,3,31,16,tzinfo=UTC))
+  p=self.plan('yearly',startDate='2024-02-29',endDate='2028-02-29')
+  self.assertEqual(campaigns.next_run(p,dt.datetime(2027,1,1,tzinfo=UTC)),dt.datetime(2027,2,28,17,tzinfo=UTC))
+  self.assertEqual(campaigns.next_run(p,dt.datetime(2028,1,1,tzinfo=UTC)),dt.datetime(2028,2,29,17,tzinfo=UTC))
+ def test_calendar_boundaries_validation_and_time_zone(self):
+  p=self.plan('once',startDate='2026-12-31',endDate='2026-12-31');p['time']='20:00'
+  self.assertEqual(campaigns.planned_run(p,dt.datetime(2027,1,1,2,tzinfo=UTC)),dt.datetime(2027,1,1,4,tzinfo=UTC))
+  self.assertIsNone(campaigns.planned_run(p,dt.datetime(2027,1,1,4,tzinfo=UTC)))
+  future=self.plan('daily',startDate='2035-05-06',endDate='2035-05-06')
+  self.assertEqual(campaigns.planned_run(future,dt.datetime(2026,1,1,tzinfo=UTC)),dt.datetime(2035,5,6,16,tzinfo=UTC))
+  for change in [{'endDate':'2026-12-30'},{'startDate':'2026-02-30'},{'startDate':'2026-1-1'},{'endDate':''},{'endDate':None},{'startDate':True}]:
+   with self.assertRaises(desk.DeskError):campaigns.schedule({**p,**change})
+  p=self.plan('daily',startDate='2027-03-14',endDate='2027-03-14');p['time']='02:30'
+  run=campaigns.next_run(p,dt.datetime(2027,3,14,tzinfo=UTC));self.assertEqual(run,dt.datetime(2027,3,14,10,30,tzinfo=UTC));self.assertIsNone(campaigns.next_run(p,run))
 class CampaignTest(unittest.TestCase):
  setUp=fixtures.DeskTest.setUp;tearDown=fixtures.DeskTest.tearDown;login=fixtures.DeskTest.login;call=fixtures.DeskTest.call;setup_team=fixtures.DeskTest.setup_team
  def payload(self,**changes):
@@ -99,14 +111,30 @@ class CampaignTest(unittest.TestCase):
   with desk.connect(self.database) as db:
    n=desk.notification_public(db.execute('SELECT * FROM desk_notifications').fetchone());self.assertEqual(n['kind'],'marketing_campaign');self.assertEqual(n['placements'],['billing']);self.assertEqual(n['badge'],'Dhamaka')
   status,r=self.call(body={**p,'op':'updateCampaign','version':1,'placements':['bell'],'badge':'NEW'});self.assertEqual(status,200,r);self.assertEqual(r['campaign']['placements'],['bell']);self.assertEqual(r['campaign']['badge'],'NEW')
- def test_saved_year_repeats_after_initial_dispatch_and_past_year_rejected(self):
+ def test_calendar_past_range_saves_edits_restarts_and_never_sends(self):
+  past=dict(kind='daily',time='09:00',timezone='America/Los_Angeles',startDate='2020-01-01',endDate='2020-01-31')
+  p,c=self.create_campaign(schedule=past)
+  self.assertEqual(c['schedule'],past);self.assertIsNone(c['nextRunAt']);self.assertEqual(self.call(body=p)[0],200)
+  desk.initialize(self.database,start_notifications=False);self.tick(c,dt.datetime.now(UTC))
+  saved=self.call(path='/api/desk?campaigns=1')[1];self.assertEqual(saved['campaignCalendarVersion'],1);self.assertIsNone(saved['campaigns'][0]['nextRunAt'])
+  with desk.connect(self.database) as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_notifications').fetchone()[0],0)
+  status,r=self.call(body={**p,'op':'updateCampaign','version':1,'schedule':{**past,'endDate':'2019-12-01'}});self.assertEqual(status,400,r)
+  self.assertEqual(self.call(path='/api/desk?campaigns=1')[1]['campaigns'][0]['version'],1)
   future=dt.datetime.now(UTC).year+2
-  p,c=self.create_campaign(schedule={**self.payload()['schedule'],'year':future})
-  self.assertEqual(c['schedule']['year'],future);self.assertEqual(dt.datetime.fromisoformat(c['nextRunAt']).year,future)
-  self.assertEqual(self.call(body=p)[0],200);self.tick(c)
-  saved=self.call(path='/api/desk?campaigns=1')[1];self.assertEqual(saved['campaignYearVersion'],1)
-  self.assertEqual(dt.datetime.fromisoformat(saved['campaigns'][0]['nextRunAt']).year,future+1)
-  bad={**p,'op':'updateCampaign','version':1,'schedule':{**p['schedule'],'year':2020}}
-  status,r=self.call(body=bad);self.assertEqual(status,400,r);self.assertIn('already passed',r['error'])
-  self.assertEqual(self.call(path='/api/desk?campaigns=1')[1]['campaigns'][0]['schedule']['year'],future)
+  new={**past,'startDate':f'{future}-01-01','endDate':f'{future}-01-02'}
+  status,r=self.call(body={**p,'op':'updateCampaign','version':1,'schedule':new});self.assertEqual(status,200,r);self.assertEqual(r['campaign']['schedule'],new);self.assertIsNotNone(r['campaign']['nextRunAt'])
+ def test_calendar_end_inclusive_dispatch_stops_and_resume_does_not_replay(self):
+  future=dt.datetime.now(UTC).year+2
+  plan=dict(kind='daily',time='09:00',timezone='America/Los_Angeles',startDate=f'{future}-01-01',endDate=f'{future}-01-02')
+  p,c=self.create_campaign(schedule=plan);self.tick(c)
+  c=self.call(path='/api/desk?campaigns=1')[1]['campaigns'][0];self.tick(c);last=self.due(c)
+  saved=self.call(path='/api/desk?campaigns=1')[1]['campaigns'][0];self.assertIsNone(saved['nextRunAt']);self.assertEqual(saved['runCount'],2)
+  self.tick(saved,last+dt.timedelta(days=1))
+  with desk.connect(self.database) as db:
+   self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_notifications').fetchone()[0],2)
+   me=desk.actor(db,dict(db.execute("SELECT * FROM desk_users WHERE id='google:owner'").fetchone()))
+   result=campaigns.write(db,me,dict(op='setCampaignActive',id=c['id'],version=1,enabled=True),last+dt.timedelta(days=1));self.assertIsNone(result['campaign']['nextRunAt'])
+ def test_preview_past_range_is_successful_and_save_is_idempotent(self):
+  self.setup_team();plan=dict(kind='monthly',time='09:00',timezone='UTC',startDate='2020-01-31',endDate='2020-03-31')
+  status,r=self.call(body=dict(op='previewCampaign',schedule=plan));self.assertEqual(status,200,r);self.assertIsNone(r['nextRunAt']);self.assertEqual(r['campaignCalendarVersion'],1)
 if __name__=='__main__':unittest.main()
