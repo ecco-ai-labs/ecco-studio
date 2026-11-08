@@ -11,6 +11,8 @@
   const billingNotices=new URLSearchParams(location.search).has('promotions')?[
     {id:'promo-outreach',kind:'special_offer',title:'Diwali bonus',body:'Buy 100 credits and get 50 free.',severity:'informational',badge:'Dhamaka',expiresAt:'2099-11-30T17:00:00Z',offer:{credits:100,bonusCredits:50,cents:1000}},
     {id:'promo-campaign',kind:'marketing_campaign',title:'Cyber Monday',body:'Our annual campaign is open.',severity:'informational',badge:'NEW',expiresAt:'2099-12-01T17:00:00Z'}]:[];
+  const upcomingCampaigns=new URLSearchParams(location.search).has('upcoming')?[{id:'upcoming:qa-campaign',campaignId:'qa-campaign',status:'upcoming',kind:'marketing_campaign',title:'Festival preview',body:'Our offer begins soon.',severity:'informational',badge:'Dhamaka',startsAt:'2099-11-07T05:00:00Z',expiresAt:'2099-12-07T05:00:00Z',timezone:'America/Los_Angeles'}]:[];
+  window.__qaUpcoming=upcomingCampaigns;window.__qaBillingNotices=billingNotices;
   let readNotices=new URLSearchParams(location.search).has('notices')?[1,2,3].map(n=>({id:'old-'+n,title:'Read notice '+n,body:'Read message '+n,severity:'informational',expiresAt:new Date(Date.now()+3600000).toISOString()})):[];
   window.fetch=async(input,options={})=>{
     const url=new URL(typeof input==='string'?input:input.url,location.href);
@@ -21,7 +23,7 @@
     if(url.pathname.endsWith('/auth/logout'))return json({ok:true});
     if(url.pathname==='/api/desk/support'&&(url.searchParams.has('userNotifications')||options.method==='POST')){
       if(options.method==='POST'){const p=JSON.parse(options.body);if(p.op!=='readNotification')return json({error:'Unsupported fixture action'},400);const billingIndex=billingNotices.findIndex(n=>n.id===p.id);if(billingIndex>=0)billingNotices.splice(billingIndex,1);const index=notices.findIndex(n=>n.id===p.id);if(index>=0)readNotices=[notices.splice(index,1)[0],...readNotices].slice(0,3);}
-      return json({notificationVersion:1,notificationPresentationVersion:1,billingNotifications:billingNotices,notificationHistoryVersion:1,notifications:notices,readNotifications:readNotices});
+      return json({notificationVersion:1,notificationPresentationVersion:1,billingNotifications:billingNotices,upcomingCampaignVersion:1,upcomingCampaigns,notificationHistoryVersion:1,notifications:notices,readNotifications:readNotices});
     }
     if(url.pathname.includes('notification'))return json({notifications:[],unread_count:0});
     if(url.pathname.includes('credit'))return json({balance:100,used:0});

@@ -167,4 +167,56 @@ class CampaignTest(unittest.TestCase):
    fixed=campaigns.write(db,me,{**payload,'op':'updateCampaign','version':1},current)['campaign'];self.assertEqual(fixed['nextRunAt'],'2026-11-07T17:00:00.000000+00:00')
   self.assertEqual(campaigns.planned_run({**plan,'time':'20:00'},current),dt.datetime(2026,11,8,4,tzinfo=UTC))
   self.assertEqual(campaigns.planned_run(plan,current+dt.timedelta(days=1)),dt.datetime(2027,11,7,17,tzinfo=UTC))
+ def test_upcoming_default_legacy_lead_time_and_validation(self):
+  import json
+  p,c=self.create_campaign();starts=dt.datetime.fromisoformat(c['nextRunAt']);self.assertEqual(c['upcomingDays'],7)
+  with desk.connect(self.database) as db:
+   me={'userId':'google:alice'}
+   self.assertEqual(campaigns.upcoming(db,me,starts-dt.timedelta(days=7,seconds=1)),[])
+   preview=campaigns.upcoming(db,me,starts-dt.timedelta(days=7))[0]
+   self.assertEqual(preview['title'],p['title']);self.assertEqual(preview['status'],'upcoming')
+   self.assertEqual(dt.datetime.fromisoformat(preview['expiresAt'])-starts,dt.timedelta(days=2))
+   config=json.loads(db.execute('SELECT config FROM desk_campaigns WHERE id=?',(c['id'],)).fetchone()[0]);config.pop('upcomingDays');db.execute('UPDATE desk_campaigns SET config=? WHERE id=?',(json.dumps(config),c['id']))
+   self.assertEqual(len(campaigns.upcoming(db,me,starts-dt.timedelta(days=6))),1)
+   self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_notifications').fetchone()[0],0)
+   self.assertEqual(db.execute('SELECT COUNT(*) FROM desk_campaign_runs').fetchone()[0],0)
+  self.assertEqual(self.call(body=p)[0],200) # legacy retry remains idempotent
+  for lead in [-1,91,True,'7',1.5,None]:
+   self.assertEqual(self.call(body=self.payload(upcomingDays=lead))[0],400)
+  for lead in [0,14,30,90]:
+   status,data=self.call(body=self.payload(upcomingDays=lead));self.assertEqual(status,200,data);self.assertEqual(data['campaign']['upcomingDays'],lead)
+ def test_upcoming_target_placement_pause_and_window(self):
+  self.call('alice',path='/api/desk/support')
+  p,c=self.create_campaign(audience='user',recipientId='google:alice',placements=['billing'],upcomingDays=30)
+  starts=dt.datetime.fromisoformat(c['nextRunAt']);clock=starts-dt.timedelta(days=20)
+  with patch.object(desk,'now',return_value=campaigns.stamp(clock)):
+   status,data=self.call('alice',path='/api/desk/support?userNotifications=1');self.assertEqual(status,200,data);self.assertEqual(data['upcomingCampaignVersion'],1);self.assertEqual(len(data['upcomingCampaigns']),1);self.assertEqual(data['notifications'],[]);self.assertEqual(data['billingNotifications'],[])
+   self.assertEqual(self.call('bob',path='/api/desk/support?userNotifications=1')[1]['upcomingCampaigns'],[])
+  status,paused=self.call(body=dict(op='setCampaignActive',id=c['id'],version=1,enabled=False));self.assertEqual(status,200)
+  with desk.connect(self.database) as db:self.assertEqual(campaigns.upcoming(db,{'userId':'google:alice'},clock),[])
+  self.call(body={**p,'op':'updateCampaign','version':2,'placements':['bell']});self.call(body=dict(op='setCampaignActive',id=c['id'],version=3,enabled=True))
+  with desk.connect(self.database) as db:self.assertEqual(campaigns.upcoming(db,{'userId':'google:alice'},clock),[])
+  self.call(body={**p,'op':'updateCampaign','version':4,'upcomingDays':0})
+  with desk.connect(self.database) as db:self.assertEqual(campaigns.upcoming(db,{'userId':'google:alice'},clock),[])
+ def test_upcoming_becomes_active_only_after_dispatch_and_not_after_expiry(self):
+  p,c=self.create_campaign(placements=['billing'],badge='Dhamaka',durationDays=30);starts=dt.datetime.fromisoformat(c['nextRunAt']);clock=starts-dt.timedelta(hours=1)
+  with desk.connect(self.database) as db:
+   me={'userId':'google:alice'};self.assertEqual(len(campaigns.upcoming(db,me,clock)),1)
+   self.assertEqual(len(campaigns.upcoming(db,me,starts)),1) # waiting for the worker, never a purchase
+   self.assertEqual(campaigns.upcoming(db,me,starts+dt.timedelta(days=1)),[])
+  self.tick(c)
+  with patch.object(desk,'now',return_value=campaigns.stamp(self.due(c))):
+   data=self.call('alice',path='/api/desk/support?userNotifications=1')[1];self.assertEqual(data['upcomingCampaigns'],[]);self.assertEqual(len(data['billingNotifications']),1);self.assertEqual(data['billingNotifications'][0]['badge'],'Dhamaka')
+  with patch.object(desk,'now',return_value=campaigns.stamp(starts+dt.timedelta(days=31))):
+   data=self.call('alice',path='/api/desk/support?userNotifications=1')[1];self.assertEqual(data['upcomingCampaigns'],[]);self.assertEqual(data['billingNotifications'],[])
+ def test_upcoming_bounded_sorted_and_blocked_or_completed_hidden(self):
+  self.setup_team();clock=dt.datetime(2026,11,1,tzinfo=UTC)
+  with desk.connect(self.database) as db:
+   admin=desk.actor(db,dict(db.execute("SELECT * FROM desk_users WHERE id='google:owner'").fetchone()));me={'userId':'google:alice'}
+   for day in range(7,1,-1):
+    plan=dict(kind='once',time='09:00',timezone='UTC',startDate=f'2026-11-{day:02}',endDate=f'2026-11-{day:02}')
+    campaigns.write(db,admin,self.payload(schedule=plan),clock)
+   rows=campaigns.upcoming(db,me,clock);self.assertEqual(len(rows),5);self.assertEqual([r['startsAt'][8:10] for r in rows],['02','03','04','05','06'])
+   db.execute("UPDATE desk_campaigns SET lastError='Access blocked' WHERE id=?",(rows[0]['campaignId'],));db.execute("UPDATE desk_campaigns SET nextRunAt='' WHERE id=?",(rows[1]['campaignId'],))
+   self.assertEqual(len(campaigns.upcoming(db,me,clock)),4)
 if __name__=='__main__':unittest.main()

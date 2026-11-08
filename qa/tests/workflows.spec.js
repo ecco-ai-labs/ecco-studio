@@ -461,6 +461,7 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await page.getByRole('button',{name:'New Campaign',exact:true}).click();
   await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();
   await page.getByLabel('Campaign Name',{exact:true}).fill('Cyber Monday');
+  await expect(page.getByLabel('Show Upcoming (days before)',{exact:true})).toHaveValue('7');await page.getByLabel('Show Upcoming (days before)',{exact:true}).fill('14');
   await page.getByLabel('Bell Icon',{exact:true}).uncheck();await page.getByLabel('Icon',{exact:true}).selectOption('Dhamaka');
   await page.getByLabel('Start',{exact:true}).fill('2026-11-01');await page.getByLabel('End',{exact:true}).fill('2028-12-31');await page.getByLabel('Recurrence',{exact:true}).selectOption('cyber_monday');
   await expect(page.locator('.campaign-next')).toContainText('Nov 30, 2026');
@@ -473,6 +474,7 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await expect(page.locator('.campaign-state')).toHaveText('Paused');
   await page.getByRole('button',{name:'Edit Cyber Monday',exact:true}).click();
   await expect(page.getByLabel('Bell Icon',{exact:true})).not.toBeChecked();await expect(page.getByLabel('Billing',{exact:true})).toBeChecked();await expect(page.getByLabel('Icon',{exact:true})).toHaveValue('Dhamaka');
+  await expect(page.getByLabel('Show Upcoming (days before)',{exact:true})).toHaveValue('14');
   await page.getByLabel('Message',{exact:true}).fill('Updated annual announcement.');
   await page.getByRole('button',{name:'Save Campaign',exact:true}).click();
   await page.getByRole('button',{name:'Resume Cyber Monday',exact:true}).click();
@@ -634,4 +636,18 @@ test('CAMPAIGN-03 a campaign starting today previews immediate activation after 
  await page.getByLabel('Send Time',{exact:true}).fill('21:00');await expect(page.locator('.campaign-next')).toContainText('Nov 7, 2026, 9:00 PM');await expect(page.locator('.campaign-next')).not.toContainText('Starts now');await page.getByLabel('Send Time',{exact:true}).fill('09:00');await expect(page.locator('.campaign-next')).toContainText('Starts now');
  await page.getByLabel('Campaign Name',{exact:true}).fill('Starts today');await page.getByLabel('Title',{exact:true}).fill('Annual offer');await page.getByLabel('Message',{exact:true}).fill('Visible for 30 days.');await page.getByRole('button',{name:'Create & Schedule',exact:true}).click();await expect(page.locator('.campaign-card')).toContainText('Starts now · Nov 7, 2026');
  await page.getByRole('button',{name:'Edit Starts today',exact:true}).click();await expect(page.getByLabel('Notification Duration (days)',{exact:true})).toHaveValue('30');await expect(page.getByLabel('Billing',{exact:true})).toBeChecked();await expect(page.getByLabel('Bell Icon',{exact:true})).not.toBeChecked();await expect(page.locator('.campaign-next')).toContainText('Starts now');
+});
+
+
+test('CAMPAIGN-04 Upcoming appears across Billing surfaces without unread or purchase actions and transitions on refresh',async({page})=>{
+ await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await page.goto('/?__qa=1&upcoming=1');await page.locator('#entry-tell-story').click();await page.locator('#google-user-menu > summary').click();await page.getByRole('button',{name:'Billing',exact:true}).click();
+ const drawer=page.locator('#workspace-billing-drawer'),preview=drawer.locator('[data-state=upcoming]');
+ await expect(preview).toContainText('Upcoming');await expect(preview).toContainText('Dhamaka');await expect(preview).toContainText('Festival preview');await expect(preview).toContainText('Starts');await expect(preview).toContainText('Offer lasts till');await expect(preview.locator('time')).toHaveCount(2);await expect(preview.getByRole('button')).toHaveCount(0);await expect(page.locator('#notification-bell')).toHaveAttribute('aria-label','Notifications');
+ await drawer.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
+ const shop=page.locator('dialog[open].credits-dialog');await expect(shop.locator('[data-state=upcoming]')).toBeVisible();await expect(shop.locator('[data-state=upcoming] button')).toHaveCount(0);await expect(shop.locator('.credits-pack')).toHaveCount(3);await expect(shop.getByRole('button',{name:'View Cart',exact:true})).toBeDisabled();
+ expect(await shop.evaluate(el=>!!(el.querySelector('[data-state=upcoming]').compareDocumentPosition(el.querySelector('.credits-pack-grid'))&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+ await shop.getByRole('button',{name:'Close popup',exact:true}).click();await page.locator('#google-user-menu > summary').click();await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();await expect(page.locator('#workspace-usage-drawer [data-state=upcoming]')).toBeVisible();
+ await page.evaluate(async()=>{window.__qaUpcoming.length=0;window.__qaBillingNotices.push({id:'active-campaign',kind:'marketing_campaign',title:'Festival preview',body:'Our offer is now active.',severity:'informational',badge:'Dhamaka',expiresAt:'2099-12-07T05:00:00Z'});await window.EccoNotifications.refresh()});
+ await expect(page.locator('#workspace-usage-drawer [data-state=upcoming]')).toHaveCount(0);await expect(page.locator('#workspace-usage-drawer [data-notice-id=active-campaign]')).toContainText('Our offer is now active.');await expect(page.locator('#notification-bell')).toHaveAttribute('aria-label','Notifications');
 });

@@ -31,8 +31,22 @@
   item.append(details,select);return item;
  }
  function billingNotices(allowSelection=false){
-  const rows=notices();if(!rows.length)return null;
+  const upcoming=(window.EccoNotifications?.snapshot('billing').upcomingCampaigns||[]).filter(n=>Date.parse(n.expiresAt)>Date.now());
+  const rows=notices();if(!rows.length&&!upcoming.length)return null;
   const section=document.createElement('section');section.className='credits-notices';section.setAttribute('aria-label','Offers and announcements');
+  upcoming.forEach(n=>{
+   const card=document.createElement('article');card.className='credits-promotion';card.dataset.campaignId=n.campaignId;card.dataset.state='upcoming';
+   const head=document.createElement('div');head.className='credits-promotion-heading';
+   const state=document.createElement('span');state.className='credits-promotion-badge';state.textContent='Upcoming';head.append(state);
+   if(n.badge&&n.badge!=='Upcoming'){const badge=document.createElement('span');badge.className='credits-promotion-badge';badge.textContent=n.badge;head.append(badge);}
+   heading(head,n.title);card.append(head);const message=document.createElement('p');message.className='credits-promotion-message';message.textContent=n.body;card.append(message);
+   for(const [label,value] of [['Starts ',n.startsAt],['Offer lasts till ',n.expiresAt]]){
+    const date=document.createElement('p');date.className='credits-promotion-expiry';const time=document.createElement('time');time.dateTime=value;
+    time.textContent=new Date(value).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:n.timezone||undefined,timeZoneName:'short'});date.append(label,time);card.append(date);
+   }
+   if(Date.parse(n.startsAt)<=Date.now()){const pending=document.createElement('p');pending.className='credits-promotion-expiry';pending.textContent='Starting soon';card.append(pending);}
+   section.append(card);
+  });
   rows.sort((a,b)=>Number(b.kind==='special_offer'||b.kind==='marketing_campaign')-Number(a.kind==='special_offer'||a.kind==='marketing_campaign')).forEach(n=>{
    const card=document.createElement('article');card.className='credits-promotion';card.dataset.noticeId=n.id;card.dataset.severity=n.severity;
    const head=document.createElement('div');head.className='credits-promotion-heading';
