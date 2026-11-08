@@ -816,7 +816,7 @@ test('AGENT-07 saved agents run only selected steps and tests',async({page})=>{
 
 test('AUDIO-01 delayed voice preview restores Generate and never enables a duplicate active recording',async({page})=>{
  await boot(page,{sourceFit:'audioPreview'});await page.getByLabel('Story Name',{exact:true}).fill('Audio preview regression');
- for(const [name,value] of Object.entries({output:'audio',type:'audiobook',genre:'Adventure',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
+ for(const [name,value] of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English',recurrence:'once'}))await page.locator('#story-simple-details [name='+name+']').selectOption(value);
  await page.getByRole('button',{name:'Continue to Story',exact:true}).click();await page.locator('#story-simple-script').fill('Narrator: Welcome to the story.');await page.getByRole('button',{name:'Generate',exact:true}).click();
  const generate=page.locator('#generate-audio');await expect(generate).toBeEnabled();await page.locator('.story-simple-advanced > summary').click();await expect(page.locator('#audio-form [name=compute]')).toHaveValue('cpu');
  await page.locator('#audio-form [data-open-controls]').click();await page.getByRole('button',{name:'Listen to selected voice',exact:true}).click();const preview=page.locator('#audio-voice-preview-dialog');await expect(preview.getByLabel('Voice preview playback',{exact:true})).toBeVisible();expect(await generate.isEnabled()).toBe(true);
