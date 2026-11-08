@@ -12,7 +12,9 @@
  function context(){return identity()+'|'+token();}
  function hide(){panel.hidden=true;bell.setAttribute('aria-expanded','false');}
  function close(){popup.dismiss();hide();}
+ function position(){if(panel.hidden)return;const edge=host.getBoundingClientRect().right,width=panel.getBoundingClientRect().width,left=Math.max(12,Math.min(edge-width,innerWidth-width-12));panel.style.right=(edge-left-width)+'px';}
  function open(){panel.hidden=false;bell.setAttribute('aria-expanded','true');render();load();}
+ window.addEventListener('resize',position);
  const popup=window.EccoPopups.registerPanel(panel,{title:'Notifications',onMinimize:hide,onResume:open});
  panel.querySelector('.ecco-popup-close').onclick=()=>{close();bell.focus();};
  panel.querySelector('.ecco-popup-minimize').onclick=()=>popup.minimize();
@@ -47,7 +49,7 @@
    row.append(title,body,meta);content.append(row);tr.append(number,content,expires);(read?readItems:items).append(tr);if(!read&&focused===n.id)row.focus();
   }
   visible.forEach((n,index)=>rowFor(n,index,false));old.forEach((n,index)=>rowFor(n,index,true));
-  document.dispatchEvent(new CustomEvent('ecco:notifications-change'));
+  position();document.dispatchEvent(new CustomEvent('ecco:notifications-change'));
   clearTimeout(expiryTimer);const deadlines=[...visible,...old,...active(billingFeed),...active(upcomingFeed)].filter(n=>n.expiresAt).map(n=>Date.parse(n.expiresAt));
   deadlines.push(...active(upcomingFeed).map(n=>Date.parse(n.startsAt)).filter(t=>t>Date.now()));
   if(deadlines.length)expiryTimer=setTimeout(()=>{render();load()},Math.min(2147483647,Math.max(1,Math.min(...deadlines)-Date.now()+1)));
