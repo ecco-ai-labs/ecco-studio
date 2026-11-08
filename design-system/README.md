@@ -414,10 +414,19 @@ Agents is available to signed-in standalone Desk customers as well as staff. Cus
 
 PDF, TXT and Markdown uploads use three equal desktop panes: the complete document,
 initially empty Selected Text with a yellow border, and Improve with AI. The AI
-pane always shows a large prompt above a separate output editor. Review and Apply
-Improvement change only the selected passage; the original document is untouched.
+pane places a compact AI sparkle action and Story Type, Genre, Audience and Language
+in one ribbon directly above the prompt box, without a visible Prompt label or
+selection helper sentence. Choices carry over from Story Details and update them
+immediately; reopening or resuming reflects later changes. They accompany the
+prompt in each request. Changing settings invalidates pending or unapplied AI
+output while preserving the selected passage and prompt. The prompt and AI output textareas
+share equal height. Use AI Text copies output to Selected Text; Clear AI Output
+removes only that output. AI clarification questions and errors appear in nested
+popups and never occupy the output area. Dismissing a clarification focuses the
+prompt. Remove the redundant For: story caption. The original document is untouched.
 The bottom ribbon contains page selection, verified chapter selection, Find and
-Replace, Clear Selected Text, Save Draft and final Apply. Its tools open upward
+Replace, Save Draft, Clear Text and Apply Text. Clear Text is a secondary button
+immediately left of Apply Text. Its tools open upward
 without resizing the panes; Escape, Back and outside clicks dismiss only that tool.
 All panes have independent content scrolling and stack equally on narrow screens.
 
@@ -434,7 +443,7 @@ Audio preparation retains its specific Edit Source / Questions / Characters acti
 No backend action is replayed.
 ### Source suitability and drafts
 
-The picker displays the current Story Details. Before accepting a selected source,
+The AI ribbon reflects current Story Details. Before accepting a selected source,
 AI compares it with the story title, type, genre and brief. A fiction passage for
 Sports News, for example, prompts an explanation and explicit Use Anyway or Choose
 Different Text. An unavailable assessment is clearly unverified and requires an
