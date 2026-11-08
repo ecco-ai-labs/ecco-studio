@@ -187,6 +187,10 @@ class StorageTest(unittest.TestCase):
  def test_folder_persists(self):
   with self.call('/api/library/folders',{'name':'Test label'}) as r:folder=json.load(r)
   self.assertEqual(api.legacy.get(folder['id'])['name'],'Test label')
+ def test_library_labels_route_and_capability(self):
+  with self.call('/api/library/labels/create',{'library':'video','name':'Footage'}) as r:folder=json.load(r)
+  self.assertEqual(api.legacy.get(folder['id'])['kind'],'video_folder')
+  with self.call('/api/state') as r:self.assertEqual(json.load(r)['config']['storage']['library_labels'],1)
  def test_generation_rejected(self):
   with self.assertRaises(HTTPError) as error:self.call('/api/images',{'prompt':'test'})
   self.assertEqual(error.exception.code,409)
