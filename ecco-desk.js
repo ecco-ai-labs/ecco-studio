@@ -6,9 +6,10 @@
  const params=new URL(location.href).searchParams;
  let unmount=null,host=null,loading=null;
  let intent=params.get('desk');
- function clear(){if(unmount)unmount();unmount=null;host=null;}
+ function clear(force=false){if(!force&&host&&window.EccoPopups?.hasMinimizedWithin(host))return;if(unmount)unmount();unmount=null;host=null;}
  function signIn(){intent='support';navigate('welcome');window.EccoAuth?.open();}
  async function support(){
+  if(host&&window.EccoPopups?.hasMinimizedWithin(host)){window.EccoPopups.resumeWithin(host);return;}
   if(page==='support'&&host?.isConnected)return;
   window.EccoWorkspaceUI?.persistWorkingDraft();
   clear();page='support';document.body.classList.remove('workspace-entry-mode');
@@ -20,7 +21,7 @@
   bar.append(back);root.append(bar);
   host=document.createElement('section');host.id='ecco-desk-support';host.setAttribute('aria-label','Ecco Desk customer support');root.append(host);
   const target=host;target.textContent='Opening support…';
-  try{loading=loading||import(new URL('desk/desk-app.mjs?v=20261108-upcoming-campaigns',base).href);const app=await loading;if(target!==host||!target.isConnected)return;target.replaceChildren();unmount=app.mount(target,{embedded:true,portalOnly:true,onSignIn:signIn});}
+  try{loading=loading||import(new URL('desk/desk-app.mjs?v=20261108-popup-controls',base).href);const app=await loading;if(target!==host||!target.isConnected)return;target.replaceChildren();unmount=app.mount(target,{embedded:true,portalOnly:true,onSignIn:signIn});}
   catch{loading=null;if(target===host){target.replaceChildren();const message=document.createElement('p');message.textContent='Support could not load. Please try again.';const retry=document.createElement('button');retry.textContent='Try again';retry.onclick=()=>{clear();support()};target.append(message,retry);}}
  }
  const previousNavigate=navigate;navigate=function(p,...args){if(p==='support')return support();clear();document.title='Ecco AI Labs Studios';return previousNavigate.call(this,p,...args)};
@@ -49,5 +50,5 @@
  document.addEventListener('ecco:auth-change',afterLogin);
  if(intent==='support')support();else if(intent==='team'&&!window.EccoAuth?.user){navigate('welcome');window.EccoAuth?.open();}
  afterLogin();
- window.EccoDesk={open:support,close:clear};
+ window.EccoDesk={open:support,close:()=>clear(true)};
 })();

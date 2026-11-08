@@ -28,6 +28,39 @@ async function openLibrary(page,kind){
   await expect(page.locator('#page .library-files')).toBeVisible();
   return page.locator('#page .library-files');
 }
+async function popupControls(popup){
+ const close=popup.locator('.ecco-popup-close'),minimize=popup.getByRole('button',{name:'Minimize popup',exact:true});
+ await expect(close).toBeVisible();await expect(minimize).toBeVisible();
+ for(const property of ['width','height','background-color','color'])expect(await close.evaluate((el,p)=>getComputedStyle(el).getPropertyValue(p),property)).toBe(await minimize.evaluate((el,p)=>getComputedStyle(el).getPropertyValue(p),property));
+ await expect(close).toHaveCSS('width','26px');await expect(minimize).toHaveCSS('height','26px');
+}
+for(const theme of ['default','dark','forest','desert','ocean','dark-sky'])test(`POPUP-01 Notifications close, minimize and resume in ${theme}`,async({page})=>{
+ await boot(page,{theme});const bell=page.locator('#notification-bell'),panel=page.locator('#notification-list'),dock=page.locator('#ecco-popup-resume');
+ await bell.click();await popupControls(panel);const unread=await bell.getAttribute('aria-label');
+ await panel.getByRole('button',{name:'Minimize popup',exact:true}).click();await expect(panel).toBeHidden();
+ await page.getByLabel('Story Name',{exact:true}).click();await expect(dock).toBeVisible();
+ await dock.getByRole('button',{name:'Resume Notifications',exact:true}).click();await expect(panel).toBeVisible();await expect(dock).toBeHidden();await expect(bell).toHaveAttribute('aria-label',unread);
+ await panel.getByRole('button',{name:'Close popup',exact:true}).press('Enter');await expect(panel).toBeHidden();await expect(bell).toBeFocused();
+ await bell.click();await panel.getByRole('button',{name:'Minimize popup',exact:true}).click();await bell.click();await expect(panel).toBeVisible();await expect(dock).toBeHidden();
+ await page.setViewportSize({width:390,height:844});await popupControls(panel);const box=await panel.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(390);
+ await panel.getByRole('button',{name:'Close popup',exact:true}).press('Escape');await expect(panel).toBeHidden();
+});
+test('POPUP-02 native purchase dialog retains its selected option across minimize and restore',async({page})=>{
+ await boot(page);await page.locator('#google-user-menu > summary').click();await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
+ const popup=page.locator('dialog[open].credits-dialog');await popupControls(popup);await popup.getByRole('button',{name:'Select',exact:true}).first().click();
+ await popup.getByRole('button',{name:'Minimize popup',exact:true}).click();await expect(popup).toBeHidden();await page.locator('#ecco-popup-resume button').click();await expect(popup).toBeVisible();await expect(popup.getByRole('button',{name:'✓ Selected',exact:true})).toBeVisible();
+ expect(await page.locator('dialog').evaluateAll(dialogs=>dialogs.every(dialog=>dialog.querySelectorAll(':scope > .ecco-popup-close').length===1&&dialog.querySelectorAll(':scope > .ecco-popup-minimize').length===1))).toBe(true);
+ await popup.getByRole('button',{name:'Close popup',exact:true}).click();await expect(popup).toHaveCount(0);
+});
+test('POPUP-03 Desk forms and ticket details retain drafts across navigation and restore',async({page})=>{
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());await page.goto('/desk/index.html?__qa=1');
+ await page.getByRole('button',{name:'Create task',exact:true}).click();const form=page.getByRole('dialog',{name:'Create an internal task',exact:true});await popupControls(form);
+ await form.locator('[name=title]').fill('Keep popup draft');await form.locator('[name=description]').fill('Keep all entered work.');await form.getByRole('button',{name:'Minimize popup',exact:true}).click();await expect(form).toBeHidden();
+ await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.locator('#ecco-popup-resume button').click();await expect(form.locator('[name=title]')).toHaveValue('Keep popup draft');await expect(form.locator('[name=description]')).toHaveValue('Keep all entered work.');
+ await form.getByRole('button',{name:'Create task',exact:true}).click();const ticket=page.getByRole('dialog',{name:'TASK-0001',exact:true});await popupControls(ticket);
+ await ticket.getByRole('textbox',{name:'Reply message',exact:true}).fill('Unsent reply survives minimizing.');await ticket.getByRole('button',{name:'Minimize popup',exact:true}).click();await page.getByRole('button',{name:'Overview',exact:true}).click();await page.locator('#ecco-popup-resume button').click();await expect(ticket.getByRole('textbox',{name:'Reply message',exact:true})).toHaveValue('Unsent reply survives minimizing.');await ticket.getByRole('button',{name:'Close ticket',exact:true}).click();await expect(ticket).toHaveCount(0);
+ await page.getByRole('button',{name:'Team members',exact:true}).click();await page.getByRole('button',{name:'Add team member',exact:true}).click();const member=page.getByRole('dialog',{name:'Add a team member',exact:true});await popupControls(member);await member.getByLabel('Role',{exact:true}).selectOption('admin');await member.getByRole('button',{name:'Minimize popup',exact:true}).click();await page.locator('#ecco-popup-resume button').click();await expect(member.getByLabel('Role',{exact:true})).toHaveValue('admin');await member.getByRole('button',{name:'Close dialog',exact:true}).press('Escape');await expect(member).toHaveCount(0);
+});
 test.afterEach(async({page},info)=>{
   if(page.qaErrors?.length){
     await info.attach('browser-errors',{body:JSON.stringify(page.qaErrors,null,2),contentType:'application/json'});
