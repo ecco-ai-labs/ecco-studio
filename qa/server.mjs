@@ -21,9 +21,9 @@ const server = http.createServer(async (req, res) => {
         .replace(/<link[^>]+href="https:[^>]+>/g, '')
         .replace('<head>', '<head><script src="/qa/tests/bootstrap.js"></script>')
         .replace('</body>', '<script src="/qa/tests/fixture.js"></script></body>'));
-      // Inject a known rendering defect only into the runner's isolated fixture.
+      // Inject a known defect (library search ignores typing) only into the runner's isolated fixture.
       // This verifies detection even after production search is repaired.
-      if(url.searchParams.get('tester')==='1')body=Buffer.from(body.toString().replace('</head>','<style>#page .library-files > .card[hidden]{display:grid!important}</style></head>'));
+      if(url.searchParams.get('tester')==='1')body=Buffer.from(body.toString().replace('</head>','<script>document.addEventListener("input",e=>{if(e.target&&e.target.id==="lh-search")e.stopImmediatePropagation();},true)</script></head>'));
       // PDF tests fulfill these three pinned reader assets from npm locally; the browser route still blocks external traffic.
       const reader=url.searchParams.get('pdf')==='1'?' https://cdn.jsdelivr.net':'';
       res.setHeader('Content-Security-Policy', "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'"+reader+"; style-src 'self' 'unsafe-inline'"+reader+"; worker-src 'self' blob:; connect-src 'self'; media-src 'self' blob:; img-src 'self' data: blob:; font-src 'self' data:; frame-src 'none'; object-src 'none'");

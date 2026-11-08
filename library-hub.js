@@ -3,6 +3,7 @@
    Items, labels and actions come from the existing records and endpoints; labels nest with
    the stored "Parent / Child" names and any item can carry several labels. */
 (()=>{
+ const cssq=v=>String(v).replace(/[^\w-]/g,c=>'\\'+c);
  const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const records=()=>typeof state!=='undefined'&&state?state.records:[];
@@ -66,7 +67,7 @@
   for(const id of s.filters){const f=list.find(x=>x.id===id);if(!f)continue;const ok=scope(kind,f);out=out.filter(it=>it.labels.some(l=>ok.has(l)));}
   if(s.type!=='all')out=out.filter(it=>it.type===s.type);
   const text=s.q.trim().toLowerCase();if(text)out=out.filter(it=>it.name.toLowerCase().includes(text));
-  out=out.slice().sort((a,b)=>s.sort==='old'?(a.created||0)-(b.created||0):s.sort==='name'?a.name.localeCompare(b.name):(b.created||0)-(a.created||0));
+  out=out.slice().sort((a,b)=>s.sort==='old'?(a.created||0)-(b.created||0):s.sort==='name'?a.name.localeCompare(b.name):s.sort==='namedesc'?b.name.localeCompare(a.name):(b.created||0)-(a.created||0));
   return {all,out,list};
  }
  const labelText=(it,list)=>{const names=it.labels.map(id=>list.find(f=>f.id===id)).filter(Boolean).map(leaf);return names.length?names.join(' · '):'No labels';};
@@ -120,7 +121,7 @@
  function lightbox(item){
   let d=q('#library-hub-viewer');if(!d){d=document.createElement('dialog');d.id='library-hub-viewer';d.className='lh-viewer';document.body.append(d);}
   d.innerHTML='<div class="lh-viewer-head"><strong>'+esc(item.name)+'</strong></div><div class="lh-viewer-body"><img data-asset="'+esc(item.id)+'" alt="'+esc(item.name)+'" src="'+esc(media(item.asset))+'"></div>';
-  d.onclose=()=>{const opener=q('.lh [data-pick="'+CSS.escape(item.id)+'"]');opener?.focus();};
+  d.onclose=()=>{const opener=q('.lh [data-pick="'+cssq(item.id)+'"]');opener?.focus();};
   d.showModal();hydrate();
  }
  function renameLabelDialog(kind,folder){
@@ -151,7 +152,7 @@
    +'<div class="lh-head"><h2 class="lh-title"></h2><div class="lh-meta"><span class="lh-count" role="status"></span><span class="lh-label-tools"></span></div></div>'
    +'<div class="lh-tools"><label class="sr" for="lh-search">Search '+esc(K.plural)+'</label><input id="lh-search" type="search" placeholder="Search '+esc(K.plural)+'" value="'+esc(s.q)+'">'
    +'<label class="sr" for="lh-type">Type</label><select id="lh-type"><option value="all">All types</option>'+types.map(t=>'<option value="'+esc(t)+'"'+(t===s.type?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select>'
-   +'<label class="sr" for="lh-sort">Sort by</label><select id="lh-sort"><option value="new"'+(s.sort==='new'?' selected':'')+'>Newest first</option><option value="old"'+(s.sort==='old'?' selected':'')+'>Oldest first</option><option value="name"'+(s.sort==='name'?' selected':'')+'>Name A to Z</option></select>'
+   +'<label class="sr" for="lh-sort">Sort by</label><select id="lh-sort"><option value="new"'+(s.sort==='new'?' selected':'')+'>Newest first</option><option value="old"'+(s.sort==='old'?' selected':'')+'>Oldest first</option><option value="name"'+(s.sort==='name'?' selected':'')+'>Name A to Z</option><option value="namedesc"'+(s.sort==='namedesc'?' selected':'')+'>Name Z to A</option></select>'
    +'<div class="lh-seg" role="group" aria-label="View"><button type="button" data-act="view" data-view="grid">Grid</button><button type="button" data-act="view" data-view="list">List</button></div></div>'
    +'<div class="lh-chips" hidden></div>'
    +'<div class="lh-body"><div class="lh-results"></div><aside class="lh-details" aria-label="Details" hidden></aside></div></div>';
@@ -265,7 +266,7 @@
   const root=event.target.closest('#page .lh');if(!root)return;
   const b=event.target.closest('[data-act]');if(!b)return;
   const kind=root.dataset.kind,s=ui[kind],act=b.dataset.act;
-  if(act==='pick'){s.sel=s.sel===b.dataset.pick?'':b.dataset.pick;menu=false;results();root.querySelector('[data-pick="'+CSS.escape(b.dataset.pick)+'"]')?.focus();}
+  if(act==='pick'){s.sel=s.sel===b.dataset.pick?'':b.dataset.pick;menu=false;results();root.querySelector('[data-pick="'+cssq(b.dataset.pick)+'"]')?.focus();}
   else if(act==='view'){s.view=b.dataset.view;localStorage.setItem('ecco-library-view-'+kind,s.view);results();}
   else if(act==='clear'){s.filters=[];s.sel='';results();renderNav();}
   else if(act==='chip-x'){s.filters=s.filters.filter(x=>x!==b.dataset.id);s.sel='';results();renderNav();}
@@ -303,7 +304,7 @@
   if(kind==='audio')return window.EccoAudioLibrary.upload(inherit);
   if(kind==='video')return window.EccoWorkspaceUI.uploadVideoDialog();
   if(kind==='story')return window.EccoWorkspaceUI.startNewStory();
-  if(kind==='workflow')return window.EccoWorkflows.show();
+  if(kind==='workflow')return window.EccoWorkflowStart?window.EccoWorkflowStart.show():window.EccoWorkflows.show();
  }
 
  /* ---------- entry points ---------- */

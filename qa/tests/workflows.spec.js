@@ -854,7 +854,7 @@ test('AGENT-06 choose individual tests and never execute unchecked actions',asyn
  await page.getByLabel('Action',{exact:true}).selectOption('workflow');await page.getByLabel('Workflow',{exact:true}).selectOption('video');
  await page.getByRole('button',{name:'Select all tests',exact:true}).click();await expect(page.locator('.agent-test-grid input:checked')).toHaveCount(9);
  await page.getByRole('button',{name:'Clear all tests',exact:true}).click();await expect(page.getByRole('button',{name:'Run selected tests (0)',exact:true})).toBeDisabled();
- const small=page.getByRole('checkbox',{name:'Video Library: Small thumbnails',exact:true});await small.focus();await page.keyboard.press('Space');await expect(small).toBeChecked();
+ const small=page.getByRole('checkbox',{name:'Video Library: List thumbnails',exact:true});await small.focus();await page.keyboard.press('Space');await expect(small).toBeChecked();
  await page.getByRole('button',{name:'Run selected tests (1)',exact:true}).click();await expect(small).toBeDisabled();
  await expect(page.getByRole('button',{name:'Run selected tests (1)',exact:true})).toBeEnabled({timeout:60000});
  let report=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user'))[0]);
