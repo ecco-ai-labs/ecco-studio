@@ -366,6 +366,12 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .pdf-ai-notice{width:min(560px,92vw);max-height:80vh;overflow:auto}
 .pdf-ai-notice h2{font-size:20px;line-height:1.4;margin:0}
 .pdf-ai-notice [data-ai-message]{white-space:pre-wrap;line-height:1.6;margin:0}
+.pdf-ai-recommendation{padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--panel)}
+.pdf-ai-recommendation p{margin:6px 0 0;line-height:1.5;white-space:pre-wrap}
+.pdf-ai-choices{display:grid;gap:8px}
+.pdf-ai-choice{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;white-space:normal;padding:12px;min-height:44px}
+.pdf-ai-choice small{color:var(--accent);flex-shrink:0;font-size:11px}
+.pdf-ai-notice-actions{flex-wrap:wrap;gap:8px}
 .pdf-ai-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pdf-ai-actions>[data-apply-improvement]{flex:1}
 .pdf-ai-section [data-ai-status]{margin:0;max-height:70px;overflow:auto}
