@@ -144,7 +144,8 @@
       }
     },
     "settingsGitHubSync": "2026-11-07 user requested removal of Sync to GitHub from Settings. Remove its header markup, Settings mounting and unused button handler; retain the separate GitHub repository link and existing backend sync capabilities.",
-    "toolbarTooltipTiming": "Connection and community control panels share immediate CSS hover tooltips with no animation or delay, including Discord, GitHub, Technical support and Notifications. Remove duplicate browser-native title tooltips while preserving accessible labels, unread counts, click actions and connection-status colors. Show the same tooltip on keyboard focus. Observe dynamic support/notification labels so unread descriptions stay current."
+    "toolbarTooltipTiming": "Connection and community control panels share immediate CSS hover tooltips with no animation or delay, including Discord, GitHub, Technical support and Notifications. Remove duplicate browser-native title tooltips while preserving accessible labels, unread counts, click actions and connection-status colors. Show the same tooltip on keyboard focus. Observe dynamic support/notification labels so unread descriptions stay current.",
+    "storyAppliedTextReview": "After Apply Text auto-detection, the empty candidate panel remains display:none when hidden. User-edited character emotion supersedes AI-suggested turn defaults; explicit manual turn emotion retains precedence."
   },
   "components": [
     {

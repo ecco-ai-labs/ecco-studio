@@ -519,3 +519,9 @@ A valid cast survives a failed speaker-assignment attempt; the text and failure 
 visible. Audio generation retains its separate 4,000-character/80-turn service limits.
 PDF selection is verified with real PDF.js rendering; AI quality and live service delivery
 remain separate checks requiring connected services.
+
+Story review respects the hidden candidate state after automatic Apply Text character
+detection; no empty review panel remains. An explicitly changed character emotion
+overrides AI-generated turn defaults, while a manually edited turn retains its own
+emotion. Native PDF text highlighting, actual Find and Replace, saved-selection resume,
+and final manual text application are part of browser acceptance coverage.
