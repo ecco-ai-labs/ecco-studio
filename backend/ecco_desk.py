@@ -260,7 +260,8 @@ def user_notifications(db, me):
           AND n.revokedAt IS NULL AND (n.expiresAt IS NULL OR n.expiresAt>?)
         ORDER BY r.readAt DESC,r.rowid DESC LIMIT 3''', (me['userId'],me['userId'],now()))
     return dict(notificationVersion=1, specialOfferVersion=1, notificationHistoryVersion=1, notificationPresentationVersion=1,
-                notifications=feed(1), billingNotifications=feed(2), readNotifications=[{k:v for k,v in notification_public(r).items() if k not in ('offer','kind')} for r in history])
+                notifications=feed(1), billingNotifications=feed(2), upcomingCampaignVersion=1,
+                upcomingCampaigns=ecco_campaigns.upcoming(db,me,dt.datetime.fromisoformat(now())), readNotifications=[{k:v for k,v in notification_public(r).items() if k not in ('offer','kind')} for r in history])
 
 
 def require_notification_admin(me):
