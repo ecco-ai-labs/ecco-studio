@@ -4,7 +4,7 @@ Run `npm ci`, `npx playwright install --with-deps chrome`, then `npm test` from 
 The GitHub **UX QA Agent** workflow runs on every push and pull request and supports **Run workflow**.
 Open the run summary for counts, failures and coverage; download `ecco-ux-qa-*` for `report/index.html`, screenshots, videos, traces and JSON.
 
-The suite registers 52 Chrome browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.
+The suite registers 64 Chrome browser checks: all five libraries in all three views, sorting/search, real image/video thumbnail pixels, story tabs and fresh drafts, AI instruction dialog, six themes, three viewport widths, preview focus, Workspace Drive and local sign-out, plus Desk selection/bulk ticketing and the browser Tester Agent itself.
 The exact production frontend loads in a local fixture host. Service responses, identity and media are synthetic; external requests are intercepted and blocked. No live tickets, charges, GPU jobs or YouTube uploads occur. `coverage.json` explicitly lists backend workflows that remain blocked.
 
 ## AI screenshot inspection
@@ -36,3 +36,7 @@ Review severity (editable before ticket creation), select individual rows or Sel
 Reports and ticket links persist for the latest ten runs in this browser, scoped to the Desk identity. Download report before changing browsers. Automatic CI results are separate: download qa-summary.json from the Actions artifact and use Import CI report; no GitHub token is placed in the browser. Raw screenshot/trace evidence remains in the Actions artifact. Browser checks are deterministic; optional AI review is not enabled by the Desk run button.
 
 Validation: npm ci --prefix desk && npm run build --prefix desk; node tests/tester-agent.test.mjs; node tests/ecco-desk-agents.test.mjs; node tests/ecco-desk-access.test.mjs. The 25-of-50 bulk ticket scenario uses a fake API and never creates real tickets. AGENT-02 injects a hidden-row display defect only into the runner fixture, so detection is tested independently of whether production search is subsequently repaired. Production library checks receive no injected defect.
+
+## Creating agents
+
+Administrators and verified members of the configured administrator group can use Create New Agents at the top of the pool. Name the agent, add/reorder up to 12 supported check steps, then Create Agent. Definitions are shared in the server-backed pool and run sequentially; reports and tickets retain the existing review flow. This builder composes implemented browser checks; it does not execute arbitrary code, prompts, paid generation or publishing. Backend API version 1 is required. Validate authorization/persistence with `cd backend && python3 -m unittest test_ecco_desk_agents`.

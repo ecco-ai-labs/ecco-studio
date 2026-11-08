@@ -218,7 +218,7 @@ test('NOTIFY-01 numbered unread notices move to three-item read history',async({
 
 test('NOTIFY-02 history opens an editable re-issue draft and retains the original',async({page})=>{
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
-  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'User Notifications',exact:true}).click();
+  await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Notifications',exact:true}).click();
   await page.getByLabel('Title',{exact:true}).fill('Original notice');await page.getByLabel('Message',{exact:true}).fill('Original message');
   await page.getByRole('button',{name:'Publish notification',exact:true}).click();
   await page.getByRole('button',{name:'Edit and re-issue Original notice',exact:true}).click();
@@ -311,7 +311,7 @@ test('AGENT-03 customer account can run agent and create its own Bug tickets',as
   await page.getByRole('button',{name:'Create ticket',exact:true}).click();await expect(page.locator('.agent-ticket-link')).toHaveText('SUP-0001 ↗');
   expect(await page.evaluate(()=>window.__deskPosts[0].type)).toBe('support');
   await page.getByRole('button',{name:'Refresh workspace',exact:true}).click();await expect(page.locator('.tester-agent')).toBeVisible();
-  await page.getByRole('button',{name:'User Notifications',exact:true}).click();await expect(page.getByRole('button',{name:'Connect Google',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Notifications',exact:true}).click();await expect(page.getByRole('button',{name:'Connect Google',exact:true})).toBeVisible();
   await expect(page.locator('.notification-composer')).toHaveCount(0);
  });
 test('UPLOAD-01 equal panes, permanent AI workspace and a bottom document ribbon',async({page})=>{
@@ -346,4 +346,77 @@ test('UPLOAD-02 AI output review and fiction versus Sports News confirmation pre
   await warning.getByRole('button',{name:'Choose Different Text',exact:true}).click();await expect(warning).toHaveCount(0);await expect(source).toBeVisible();await expect(source.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeFocused();await expect(source.locator('[data-selected]')).toHaveValue('Alibaba discovered a hidden cave.');
   await source.getByRole('button',{name:'Apply Selected Text',exact:true}).click();await warning.getByRole('button',{name:'Use Anyway',exact:true}).click();await expect(source).toBeHidden();await expect(page.locator('#story-simple-script')).toHaveValue('Alibaba discovered a hidden cave.');
   const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance'));expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED_REST');expect(calls.find(c=>c.body.fields[0].id==='source_compatibility').body.context.genre).toBe('Sports');
+});
+
+
+test('AGENT-04 administrator creates, saves and runs a shared ordered workflow',async({page})=>{
+  test.setTimeout(90000);
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');
+  await page.getByRole('button',{name:'Agents',exact:true}).click();
+  await page.getByRole('button',{name:'Create New Agents',exact:true}).click();
+  await expect(page.getByLabel('Agent Name',{exact:true})).toBeFocused();
+  await page.getByLabel('Agent Name',{exact:true}).fill('Release Review');
+  await page.getByLabel('Purpose',{exact:true}).fill('Review story navigation and video previews');
+  await page.getByRole('button',{name:'Add Step',exact:true}).click();
+  await page.getByLabel('Step 2 workflow',{exact:true}).selectOption('story');
+  await page.getByRole('button',{name:'Move step 2 up',exact:true}).click();
+  await expect(page.getByLabel('Step 1 workflow',{exact:true})).toHaveValue('story');
+  await page.getByRole('button',{name:'Create Agent',exact:true}).click();
+  await expect(page.locator('.agent-card')).toHaveCount(2);
+  await expect(page.getByRole('button',{name:'Create New Agents',exact:true})).toBeFocused();
+  await page.reload();await page.getByRole('button',{name:'Agents',exact:true}).click();
+  await page.locator('.agent-card').filter({hasText:'Release Review'}).click();
+  await expect(page.getByRole('heading',{name:'Release Review',exact:true})).toBeVisible();
+  await expect(page.locator('.agent-step-summary li')).toHaveCount(2);
+  await page.getByRole('button',{name:'Run checks',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled({timeout:75000});
+  const run=await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('ecco-desk-qa-agents'))[0].id;return JSON.parse(localStorage.getItem('ecco-agent-runs:v1:qa-desk-user:'+id))[0];});
+  expect(run.scope).toBe('Release Review');expect(run.status).toBe('completed');
+  expect(run.checks.some(c=>c.id==='step-1/story-choices'&&c.status==='passed')).toBe(true);
+  expect(run.checks.some(c=>c.id==='step-2/video-small-thumb-0'&&c.status==='passed')).toBe(true);
+  expect(new Set(run.checks.map(c=>c.id)).size).toBe(run.checks.length);
+  await expect(page.locator('.agent-finding')).toHaveCount(1);
+  await page.getByRole('button',{name:'Create ticket',exact:true}).click();await expect(page.locator('.agent-ticket-link')).toHaveCount(1);
+});
+test('AGENT-05 only administrators see creation; shortened navigation remains available',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  for(const role of ['customer','staff','group']){
+    await page.goto('/desk/index.html?__qa=1&role='+role);
+    await expect(page.getByRole('button',{name:'Notifications',exact:true})).toBeVisible();
+    if(role!=='staff')await expect(page.getByRole('button',{name:/^Support 0$/})).toBeVisible();
+    await page.getByRole('button',{name:'Agents',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Create New Agents',exact:true})).toHaveCount(role==='group'?1:0);
+  }
+});
+
+test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');
+  await page.getByRole('button',{name:'Notifications',exact:true}).click();
+  await page.getByLabel('Type',{exact:true}).selectOption('marketing_campaign');
+  await page.getByRole('button',{name:'Create Campaign',exact:true}).click();
+  await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();
+  await page.getByLabel('Campaign Name',{exact:true}).fill('Cyber Monday');
+  await expect(page.getByLabel('Repeat',{exact:true})).toHaveValue('cyber_monday');
+  await expect(page.locator('.campaign-next')).toContainText('Nov 30, 2026');
+  await page.getByLabel('Title',{exact:true}).fill('Cyber Monday is here');
+  await page.getByLabel('Message',{exact:true}).fill('Our annual announcement.');
+  await page.getByRole('button',{name:'Create & Schedule',exact:true}).click();
+  await expect(page.locator('.campaign-card')).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'Create Campaign',exact:true})).toBeFocused();
+  await page.getByRole('button',{name:'Pause Cyber Monday',exact:true}).click();
+  await expect(page.locator('.campaign-state')).toHaveText('Paused');
+  await page.getByRole('button',{name:'Edit Cyber Monday',exact:true}).click();
+  await page.getByLabel('Message',{exact:true}).fill('Updated annual announcement.');
+  await page.getByRole('button',{name:'Save Campaign',exact:true}).click();
+  await page.getByRole('button',{name:'Resume Cyber Monday',exact:true}).click();
+  await expect(page.locator('.campaign-state')).toHaveText('Active');
+  await page.reload();await page.getByRole('button',{name:'Notifications',exact:true}).click();
+  await page.getByLabel('Type',{exact:true}).selectOption('marketing_campaign');
+  await expect(page.locator('.campaign-card')).toHaveCount(1);
+  await page.locator('.campaign-card summary').click();await expect(page.locator('.campaign-card')).toContainText('Updated annual announcement.');
+  await page.setViewportSize({width:768,height:1000});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
+  expect(await page.evaluate(()=>window.__deskPosts.filter(p=>p.op==='createNotification').length)).toBe(0);
 });

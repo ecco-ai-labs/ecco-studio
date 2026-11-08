@@ -1,5 +1,5 @@
 export type Role = 'admin'|'staff'|'customer';
-export type Actor = {canManageNotifications?:boolean;notificationAdminGroup?:string;notificationGroupStatus?:'not_connected'|'connected'|'unavailable';userId:string; name:string; email:string; role:Role; memberId:string|null};
+export type Actor = {canManageAgents?:boolean;canManageNotifications?:boolean;notificationAdminGroup?:string;notificationGroupStatus?:'not_connected'|'connected'|'unavailable';userId:string; name:string; email:string; role:Role; memberId:string|null};
 export type Member = {id:string; userId:string|null; name:string; email:string; role:string; active:number};
 export type Ticket = {id:number; type:'internal'|'support'; requestType?:string; title:string; description:string; status:string; priority:string; category:string; reporterId:string; reporterName:string; reporterEmail:string; assigneeId:string|null; dueDate:string|null; version:number; createdAt:string; updatedAt:string};
 export type Comment = {channel?:'web'|'email'|'chat';id:string; authorName:string; body:string; visibility:string; createdAt:string};
