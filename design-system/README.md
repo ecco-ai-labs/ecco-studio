@@ -450,3 +450,7 @@ Location controls initialized from Story Details. Changing a choice immediately
 updates and saves Story Details, including when the generation dialog is closed
 without generating. Details changes carry into the next AI opening. These values
 accompany the prompt in generation; opening or changing options never starts AI.
+
+### Ecco Desk shared branding
+
+Desk uses the existing Ecco logo, Inter/system typography and Studio default purple/yellow palette across sign-in, navigation, panels and controls. Embedded Desk inherits selected Studio theme tokens. This replaces the previous light Desk surface exception. The bell uses Number / Notification / Date it expires tables, 14px titles and 13px bodies, bold unread and regular read rows; the latest-three read history and expiry lifecycle remain.

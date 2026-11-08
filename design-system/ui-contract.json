@@ -128,14 +128,17 @@
         "badge",
         "panel",
         "list",
-        "button"
+        "button",
+        "table",
+        "table-row",
+        "table-cell"
       ],
       "appearance": "Bell in GitHub/Support control panel, matching 16px icons; compact theme-aware dropdown, exact unread count in small top-right badge; hide zero badge.",
       "behavior": "Authenticated in-app feed from /api/desk/support?userNotifications=1. Show up to the five newest notices addressed to the signed-in Google subject or all users; older displaced notices are never backfilled after read/expiry. Clicking or Enter/Space acknowledges exactly one notice on the server and moves it into read history on success, reducing the unread badge; opening the bell does not mark anything read. Read receipts persist across devices, separately for each subject. Unread notices expire at the admin-set UTC deadline; Until read has no time expiry. Pending reads disable the row; failed reads retain it with a retryable error. Display severity as text and color. No private feed caching in localStorage or static files. Refresh every 30 seconds while visible and on focus/open/account changes; clear immediately and discard stale results on account change. Preserve Escape/outside/bell dismissal, header event isolation and focus return. notifications.json is no longer the active feed.",
       "accessibility": "Named button, aria-expanded/controls, keyboard-focusable notification rows with Read/Unread accessible names, focus retained after dismissal; textContent for feed content.",
       "readHistory": {
         "approval": "2026-11-07: User requested Old Notfication for the last 3 read notices until expiry, numbered spaced unread entries, and No New notifications when none remain. Preserve bold unread title and body.",
-        "appearance": "Number the unread title from 1. Existing notification rows use a 16px top margin. Old Notfication is a 13px bold section bar with 20px top margin, 10px vertical padding and existing theme-border separators. Read title/body remain regular weight; old rows are noninteractive articles.",
+        "appearance": "2026-11-07 user approved a three-column table: Number, Notification, Date it expires. Titles are 14px; message bodies are one size smaller at 13px. Unread rows use weight 700; read rows use 400. Numbering restarts at 1 in each section. Dates show local date and time with time-zone abbreviation; no deadline shows Until read. The existing Old Notfication bar and latest-three expiry rules remain. Expired records in administrator history use regular weight. Bell panel is 600px bounded by viewport minus 24px; fixed table columns wrap naturally with 16px vertical cell padding. Native table headers and a keyboard-operable mark-read button inside the notification cell preserve accessible semantics.",
         "behavior": "Server returns three latest read notices per authenticated user, ordered by read time independently of the five-newest unread window. Exclude expired or withdrawn notices before limiting. Until read notices have no time expiry and stay only while among the latest three. No private history in localStorage. Expiry timer removes either kind without waiting for polling. Clear both lists on account change or rejected session. Special-offer snapshots include unread only.",
         "compatibility": "notificationHistoryVersion 1 and readNotifications supply durable history. Older services render no invented read history."
       }
@@ -2135,10 +2138,11 @@
         "ecco-desk.js",
         "desk/src/Desk.tsx",
         "desk/src/entry.tsx",
-        "desk/src/desk.css"
+        "desk/src/desk.css",
+        "desk/src/Brand.tsx"
       ]
     },
-    "appearance": "Preserves the user-approved Desk design: navy sidebar, yellow primary action, light ticket surfaces. Studio retains its selected theme and existing header dimensions. Desk CSS is scoped in a shadow root so it never restyles Studio. Embedded support hides the standalone sidebar, topbar and footer. Its sign-in panel and page heading inherit Studio theme text, surface, border and accent; ticket surfaces retain the approved light Desk style. The headset reuses community-panel theme text, accent hover/focus and focus outline, with transparent button background; SVG strokes stay visible and do not shrink.",
+    "appearance": "2026-11-07 user approved matching Ecco Studio branding: existing logo-transparent.png at 46px, Ecco AI Labs 20px wordmark with Ecco Desk sublabel. Inter/system font, 14px body/controls, 13px labels, 12px captions, 18px section headings, 28px page headings. Default background #17152f, sidebar #201d44, surface #252039, controls #302a54, text #e7ebe9, muted #b1acc9, border #454065, accent #ffdc24, contrast #211b33. Primary buttons use yellow with dark text; selected navigation uses yellow text. All panels, forms, drawers and sign-in use semantic tokens that inherit Studio theme values inside shadow DOM. Existing layouts and actions remain. This supersedes the earlier light Desk surface exception.",
     "layout": "Support uses a headset with microphone beside Discord/GitHub, inside the existing 32px asset-icon button with a 16px glyph. Support renders in the main page with Back to Studio. No team-workspace link appears on the customer surface. Desk retains its metric cards, scrollable table, right detail drawer and centered dialogs.",
     "content": "Ecco Desk branding; internal tasks, customer support, personal assignments, explicit team access, activity history. Customer support shows only the requester\u2019s support tickets.",
     "states": "Loading, signed out, empty, error, filtered empty, populated, busy, open dialog/drawer. Errors use role=alert and success uses role=status; network requests time out. Refresh rechecks server permissions.",

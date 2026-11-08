@@ -2,7 +2,7 @@
 (()=>{
  const controls=document.querySelector('#workspace-community-controls');if(!controls)return;
  const host=document.createElement('div');host.id='studio-notifications';
- host.innerHTML='<button id="notification-bell" type="button" class="secondary asset-icon" aria-label="Notifications" aria-expanded="false" aria-controls="notification-list"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-count" hidden aria-hidden="true"></span></button><section id="notification-list" aria-label="Notifications" hidden><strong>Notifications</strong><div data-notification-items></div><p data-notification-status role="status"></p><section data-notification-history hidden aria-labelledby="old-notification-heading"><h3 id="old-notification-heading">Old Notfication</h3><div data-read-notification-items></div></section></section>';
+ host.innerHTML='<button id="notification-bell" type="button" class="secondary asset-icon" aria-label="Notifications" aria-expanded="false" aria-controls="notification-list"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-count" hidden aria-hidden="true"></span></button><section id="notification-list" aria-label="Notifications" hidden><strong>Notifications</strong><table class="notification-table" aria-label="New notifications"><thead><tr><th scope="col">Number</th><th scope="col">Notification</th><th scope="col">Date it expires</th></tr></thead><tbody data-notification-items></tbody></table><p data-notification-status role="status"></p><section data-notification-history hidden aria-labelledby="old-notification-heading"><h3 id="old-notification-heading">Old Notfication</h3><table class="notification-table" aria-label="Old notifications"><thead><tr><th scope="col">Number</th><th scope="col">Notification</th><th scope="col">Date it expires</th></tr></thead><tbody data-read-notification-items></tbody></table></section></section>';
  controls.append(host);controls.setAttribute('aria-label','Community, support, source code and notifications');
  const bell=host.querySelector('button'),badge=host.querySelector('.notification-count'),panel=host.querySelector('section'),items=host.querySelector('[data-notification-items]'),status=host.querySelector('[data-notification-status]'),history=host.querySelector('[data-notification-history]'),readItems=host.querySelector('[data-read-notification-items]');
  const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk/support';
@@ -23,14 +23,20 @@
  function render(){
   const visible=active(),old=active(readFeed),count=visible.length,focused=document.activeElement?.dataset.notificationId;
   badge.hidden=!count;badge.textContent=String(count);bell.setAttribute('aria-label',count?`Notifications: ${count} unread`:'Notifications');bell.title=bell.getAttribute('aria-label');
-  items.replaceChildren();readItems.replaceChildren();history.hidden=!old.length;status.textContent=failed||(!token()?'Sign in to see notifications.':loading&&!count?'Loading notifications…':!count?'No New notifications':'');status.hidden=!status.textContent;
+  items.replaceChildren();readItems.replaceChildren();items.closest('table').hidden=!count;history.hidden=!old.length;status.textContent=failed||(!token()?'Sign in to see notifications.':loading&&!count?'Loading notifications…':!count?'No New notifications':'');status.hidden=!status.textContent;
   function rowFor(n,index,read){
-   const row=document.createElement(read?'article':'button'),title=document.createElement('span'),body=document.createElement('span'),meta=document.createElement('span');
-   row.className='notification-item';row.dataset.notificationId=n.id;row.dataset.read=String(read);row.dataset.severity=n.severity;
-   title.className='notification-title';body.className='notification-body';meta.className='notification-meta';title.textContent=read?n.title:`${index+1}. ${n.title}`;body.textContent=n.body;
-   const level={informational:'Informational',warning:'Warning',error:'Error'}[n.severity];meta.textContent=level+(n.expiresAt?' · Expires '+new Date(n.expiresAt).toLocaleString():'');
-   if(!read){row.type='button';row.disabled=pending.has(n.id);row.setAttribute('aria-busy',String(pending.has(n.id)));row.setAttribute('aria-label',`${index+1}. ${level}: ${n.title} — Unread. Activate to mark as read.`);row.onclick=()=>markRead(n.id);}
-   row.append(title,body,meta);(read?readItems:items).append(row);if(!read&&focused===n.id)row.focus();
+   const tr=document.createElement('tr'),number=document.createElement('td'),content=document.createElement('td'),expires=document.createElement('td');
+   const row=document.createElement(read?'div':'button'),title=document.createElement('span'),body=document.createElement('span'),meta=document.createElement('span');
+   const expired=!!n.expiresAt&&Date.parse(n.expiresAt)<=Date.now();
+   tr.dataset.state=read||expired?'old':'unread';number.className='notification-number';number.textContent=String(index+1);
+   row.className='notification-item';row.dataset.notificationId=n.id;row.dataset.read=String(read);row.dataset.expired=String(expired);row.dataset.severity=n.severity;
+   title.className='notification-title';body.className='notification-body';meta.className='notification-meta';title.textContent=n.title;body.textContent=n.body;
+   const level={informational:'Informational',warning:'Warning',error:'Error'}[n.severity];meta.textContent=level;
+   expires.className='notification-expiry';
+   if(n.expiresAt){const date=new Date(n.expiresAt),time=document.createElement('time');time.dateTime=n.expiresAt;time.textContent=date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});const clock=document.createElement('span');clock.textContent=date.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',timeZoneName:'short'});time.append(clock);expires.append(time);}
+   else expires.textContent='Until read';
+   if(!read&&!expired){row.type='button';row.disabled=pending.has(n.id);row.setAttribute('aria-busy',String(pending.has(n.id)));row.setAttribute('aria-label',`${index+1}. ${level}: ${n.title} — Unread. Activate to mark as read.`);row.onclick=()=>markRead(n.id);}
+   row.append(title,body,meta);content.append(row);tr.append(number,content,expires);(read?readItems:items).append(tr);if(!read&&focused===n.id)row.focus();
   }
   visible.forEach((n,index)=>rowFor(n,index,false));old.forEach((n,index)=>rowFor(n,index,true));
   document.dispatchEvent(new CustomEvent('ecco:notifications-change'));

@@ -42,7 +42,7 @@
   {
     "area": "Notification presentation and re-issue",
     "mode": "fixture",
-    "scope": "Unread numbering/spacing/bold, three regular-weight read items, keyboard read and dismissal, empty state, editable re-issue draft and separate preserved history. Real delivery and backend deployment remain separate checks."
+    "scope": "Three-column native notification tables; separate numbering and local expiry dates, 14px titles/13px bodies, bold unread and regular read rows, three-item history, keyboard reads/dismissal, narrow viewport fit, empty state, editable re-issue draft with original retained. Real delivery remains separate."
   },
   {
     "area": "Billing",
@@ -68,5 +68,10 @@
     "area": "AI visual review",
     "mode": "optional",
     "scope": "Runs when UX_QA_OPENAI_API_KEY and UX_QA_VISION_MODEL are configured; otherwise explicitly blocked"
+  },
+  {
+    "area": "Desk branding",
+    "mode": "fixture",
+    "scope": "Existing Ecco logo decodes on signed-in and signed-out screens; purple backgrounds, yellow primary controls, shared typography and notification form at desktop and 390px. Existing composer/account tests cover behavior."
   }
 ]

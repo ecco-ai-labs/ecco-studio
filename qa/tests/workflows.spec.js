@@ -204,10 +204,15 @@ test('NOTIFY-01 numbered unread notices move to three-item read history',async({
   await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:'New Story',exact:true}).click();await page.locator('#notification-bell').click();
   const unread=page.locator('#notification-list [data-read="false"]'),old=page.locator('#notification-list [data-read="true"]');
   await expect(unread).toHaveCount(2);await expect(old).toHaveCount(3);
-  await expect(unread.first().locator('.notification-title')).toHaveText('1. New notice 1');
+  await expect(unread.first().locator('.notification-title')).toHaveText('New notice 1');
   await expect(unread.first().locator('.notification-body')).toHaveCSS('font-weight','700');
   await expect(old.first().locator('.notification-body')).toHaveCSS('font-weight','400');
-  await expect(unread.first()).toHaveCSS('margin-top','16px');
+  await expect(page.getByRole('table',{name:'New notifications',exact:true}).getByRole('columnheader')).toHaveText(['Number','Notification','Date it expires']);
+  await expect(page.locator('[data-notification-items] .notification-number').first()).toHaveText('1');
+  await expect(unread.first().locator('.notification-title')).toHaveCSS('font-size','14px');
+  await expect(unread.first().locator('.notification-body')).toHaveCSS('font-size','13px');
+  await expect(page.locator('[data-notification-items] td').first()).toHaveCSS('padding-top','16px');
+  await expect(page.locator('[data-notification-items] time').first()).toBeVisible();
   await unread.first().press('Enter');await expect(unread).toHaveCount(1);await expect(old).toHaveCount(3);
   await expect(old.first()).toContainText('New notice 1');await expect(unread.first()).toBeFocused();
   await unread.first().press('Enter');await expect(unread).toHaveCount(0);
@@ -346,4 +351,36 @@ test('UPLOAD-02 AI output review and fiction versus Sports News confirmation pre
   await warning.getByRole('button',{name:'Choose Different Text',exact:true}).click();await expect(warning).toHaveCount(0);await expect(source).toBeVisible();await expect(source.getByRole('button',{name:'Apply Selected Text',exact:true})).toBeFocused();await expect(source.locator('[data-selected]')).toHaveValue('Alibaba discovered a hidden cave.');
   await source.getByRole('button',{name:'Apply Selected Text',exact:true}).click();await warning.getByRole('button',{name:'Use Anyway',exact:true}).click();await expect(source).toBeHidden();await expect(page.locator('#story-simple-script')).toHaveValue('Alibaba discovered a hidden cave.');
   const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance'));expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED_REST');expect(calls.find(c=>c.body.fields[0].id==='source_compatibility').body.context.genre).toBe('Sports');
+});
+
+
+test('DESK-BRAND-01 Ecco logo and purple/yellow controls across Desk and sign-in',async({page})=>{
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/desk/index.html?__qa=1');
+  const logo=page.getByRole('img',{name:'Ecco AI Labs logo'});
+  await expect(logo).toBeVisible();await expect.poll(()=>logo.evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
+  await expect(page.locator('.app-shell')).toHaveCSS('background-color','rgb(23, 21, 47)');
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color','rgb(32, 29, 68)');
+  await page.getByRole('button',{name:'User Notifications',exact:true}).click();
+  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('background-color','rgb(48, 42, 84)');
+  await expect(page.getByRole('button',{name:'Publish notification',exact:true})).toHaveCSS('background-color','rgb(255, 220, 36)');
+  await expect(page.locator('.notification-composer')).toHaveCSS('font-family',/Inter/);
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.getByLabel('Message',{exact:true})).toBeVisible();
+  expect(await page.locator('.notification-composer').evaluate(el=>el.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
+  await page.goto('/desk/index.html?__qa=1&signedOut=1');
+  await expect(page.getByRole('heading',{name:'Sign in to Ecco Desk',exact:true})).toBeVisible();
+  await expect(logo).toBeVisible();await expect.poll(()=>logo.evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
+  await expect(page.locator('.signin')).toHaveCSS('background-color','rgb(23, 21, 47)');
+});
+
+test('NOTIFY-03 notification table stays inside a narrow viewport',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await page.goto('/?__qa=1&notices=1');await page.waitForFunction(()=>window.__qaReady);
+  await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:'New Story',exact:true}).click();await page.locator('#notification-bell').click();
+  const panel=page.locator('#notification-list');
+  const bounds=await panel.evaluate(el=>({left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right,scroll:el.scrollWidth,width:el.clientWidth}));
+  expect(bounds.left).toBeGreaterThanOrEqual(0);expect(bounds.right).toBeLessThanOrEqual(390);expect(bounds.scroll).toBeLessThanOrEqual(bounds.width);
+  await expect(page.getByRole('table',{name:'New notifications',exact:true}).getByRole('columnheader')).toHaveText(['Number','Notification','Date it expires']);
 });
