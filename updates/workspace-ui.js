@@ -245,7 +245,7 @@
     catch(error){status.hidden=false;status.textContent=error.message||'Could not refresh. Try again.';status.title=status.textContent;}
     finally{button.disabled=false;button.removeAttribute('aria-busy');}
    };
-   const style=document.createElement('style');style.textContent='[data-category="Account"] .workspace-menu-items{overflow:visible}#workspace-billing-drawer{display:flex!important;position:absolute;left:auto;right:100%;top:0;width:100%;min-height:100%;border:1px solid #48405c;border-radius:9px;box-shadow:0 12px 32px #0006;box-sizing:border-box;padding:12px 36px 12px 12px;flex-direction:column;justify-content:center;gap:10px;background:var(--panel,#252039);z-index:2;transform:translateX(0);visibility:visible;clip-path:inset(0 0 0 0);transition:clip-path .2s ease,visibility .2s}#workspace-billing-drawer[hidden]{clip-path:inset(0 0 0 100%);visibility:hidden;pointer-events:none}#workspace-billing-drawer p{font-size:13px;line-height:1.4;margin:0;color:#fff!important}#workspace-billing-drawer .billing-refresh{position:absolute;right:8px;top:8px;display:grid;place-items:center;width:24px;height:24px;min-height:0;padding:3px;color:#fff!important;background:transparent;border:0;border-radius:4px}#workspace-billing-drawer .billing-refresh:hover{background:#ffffff20}#workspace-billing-drawer .billing-refresh[aria-busy] svg{animation:billing-spin 1s linear infinite}#workspace-billing-drawer .billing-refresh-status{color:#ff6b6b!important;font-size:11px}#workspace-billing-drawer .billing-refresh-status[hidden]{display:none}@keyframes billing-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#workspace-billing-drawer{transition:none}#workspace-billing-drawer .billing-refresh svg{animation:none!important}}';document.head.append(style);
+   const style=document.createElement('style');style.textContent='[data-category="Account"] .workspace-menu-items{overflow:visible}#workspace-billing-drawer{display:flex!important;position:absolute;left:auto;right:100%;top:0;width:100%;min-height:100%;border:1px solid #48405c;border-radius:9px;box-shadow:0 12px 32px #0006;box-sizing:border-box;padding:10px 34px 10px 10px;flex-direction:column;justify-content:center;gap:8px;background:var(--panel,#252039);z-index:2;transform:translateX(0);visibility:visible;clip-path:inset(0 0 0 0);transition:clip-path .2s ease,visibility .2s}#workspace-billing-drawer[hidden]{clip-path:inset(0 0 0 100%);visibility:hidden;pointer-events:none}#workspace-billing-drawer p{font-size:calc(13px - 2pt);line-height:1.4;margin:0;color:#fff!important}#workspace-billing-drawer .billing-refresh{position:absolute;right:8px;top:8px;display:grid;place-items:center;width:24px;height:24px;min-height:0;padding:3px;color:#fff!important;background:transparent;border:0;border-radius:4px}#workspace-billing-drawer .billing-refresh:hover{background:#ffffff20}#workspace-billing-drawer .billing-refresh[aria-busy] svg{animation:billing-spin 1s linear infinite}#workspace-billing-drawer .billing-refresh-status{color:#ff6b6b!important;font-size:calc(11px - 2pt)}#workspace-billing-drawer .billing-refresh-status[hidden]{display:none}@keyframes billing-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#workspace-billing-drawer{transition:none}#workspace-billing-drawer .billing-refresh svg{animation:none!important}}';document.head.append(style);
   }
   if(open){
    window.EccoCredits?.closeUsage();
@@ -630,7 +630,7 @@
    const title=document.createElement('h1');title.innerHTML='Ecco AI Labs<span class="entry-subtitle">Studios</span>';
    const choices=document.createElement('div');choices.className='row';choices.style.cssText='display:flex;flex-wrap:wrap;justify-content:center;gap:12px';
    const create=document.createElement('button');create.id='entry-tell-story';create.type='button';create.textContent='Tell Your Story';
-   const resume=document.createElement('button');resume.id='entry-continue-story';resume.type='button';resume.className='secondary';resume.textContent='Continue with current story';resume.style.cssText='font-size:15px;padding:13px 30px;border-radius:8px';
+   const resume=document.createElement('button');resume.id='entry-continue-story';resume.type='button';resume.className='secondary';resume.textContent='Continue with current story';resume.style.cssText='font-size:calc(15px - 2pt);padding:11px 28px;border-radius:8px';
    choices.append(create);
    const copyright=document.createElement('p');copyright.className='entry-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';
    entry.append(brand,title,choices,copyright);document.body.append(entry);
@@ -720,7 +720,7 @@
  #toggle-activity{display:none!important}
  #activity-panel{display:block!important;position:fixed;top:0;right:0;bottom:0;width:min(480px,calc(100vw - 48px));box-sizing:border-box;z-index:90;transform:translateX(0);visibility:visible;transition:transform .25s ease,visibility .25s;overflow-y:auto}
  #activity-panel[hidden]{display:block!important;transform:translateX(100%);visibility:hidden;pointer-events:none}
- #activity-edge-arrow{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:91;width:40px;height:64px;padding:0;border-radius:10px 0 0 10px;font-size:25px;background:#38305e;color:#eeebf5;border:1px solid #70658c;transition:right .25s ease}
+ #activity-edge-arrow{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:91;width:40px;height:64px;padding:0;border-radius:10px 0 0 10px;font-size:calc(25px - 2pt);background:#38305e;color:#eeebf5;border:1px solid #70658c;transition:right .25s ease}
  #activity-edge-arrow.drawer-open{right:min(480px,calc(100vw - 48px))}
  body.workspace-entry-mode #activity-edge-arrow,body.workspace-entry-mode #activity-panel{display:none!important}
  @media(prefers-reduced-motion:reduce){#activity-panel,#activity-edge-arrow{transition:none}}
@@ -776,7 +776,7 @@
  document.body.append(arrow);
  const style=document.createElement('style');
  style.textContent=`
- body > #activity-edge-arrow{position:fixed;right:0;top:50%;width:34px;height:48px;min-width:34px;padding:0;border-radius:8px 0 0 8px;font-size:21px;color:var(--accent,#ffdc24);transform:translate(110%,-50%);opacity:0;pointer-events:none;transition:transform .2s ease,opacity .2s ease,right .25s ease}
+ body > #activity-edge-arrow{position:fixed;right:0;top:50%;width:34px;height:48px;min-width:34px;padding:0;border-radius:8px 0 0 8px;font-size:calc(21px - 2pt);color:var(--accent,#ffdc24);transform:translate(110%,-50%);opacity:0;pointer-events:none;transition:transform .2s ease,opacity .2s ease,right .25s ease}
  body > #activity-edge-arrow.edge-near,body > #activity-edge-arrow.drawer-open,body > #activity-edge-arrow:focus-visible{transform:translate(0,-50%);opacity:1;pointer-events:auto}
  body > #activity-edge-arrow.drawer-open{right:min(480px,calc(100vw - 48px))}
  body > #activity-edge-arrow.has-active-jobs{width:56px}

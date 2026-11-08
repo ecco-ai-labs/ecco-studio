@@ -2,7 +2,7 @@
 /* Keep connection controls available while other top menus are frozen. */
 (()=>{
  const style=document.createElement('style');
- style.textContent='body.story-choice-mode #story-choice-screen .story-choice-actions button{background:#ffdc24!important;color:#000!important;box-sizing:border-box;width:190px;height:46px;min-height:46px;padding:4px 10px;white-space:normal;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif!important;font-size:15px!important;font-weight:650!important;line-height:normal!important}';
+ style.textContent='body.story-choice-mode #story-choice-screen .story-choice-actions button{background:#ffdc24!important;color:#000!important;box-sizing:border-box;width:190px;height:42px;min-height:42px;padding:4px 8px;white-space:normal;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif!important;font-size:calc(15px - 2pt)!important;font-weight:650!important;line-height:normal!important}';
  document.head.append(style);
  const frozen=new Map();
  function sync(){

@@ -1,11 +1,11 @@
 /* Share the Image/Video studio grid, panel and form control styles. */
 .audio-studio{margin:0;min-width:0}
 .audio-studio .audio-workspace{align-items:start}
-.audio-model-controls,.audio-line-controls,.audio-output-controls{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.audio-model-controls,.audio-line-controls,.audio-output-controls{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
 .audio-studio #audio-form,.audio-studio label{min-width:0}
 .audio-studio input,.audio-studio select{min-width:0}
-.audio-line{border:1px solid var(--border);border-radius:8px;margin:0 0 16px;padding:12px;min-width:0;display:grid;gap:12px}
-.audio-line legend{padding:0 8px;font-size:12px;font-weight:600}
+.audio-line{border:1px solid var(--border);border-radius:8px;margin:0 0 16px;padding:10px;min-width:0;display:grid;gap:10px}
+.audio-line legend{padding:0 6px;font-size:calc(12px - 2pt);font-weight:600}
 .audio-line textarea{width:100%;resize:vertical;min-height:100px}
 .audio-line [data-remove-line]{justify-self:start}
 .audio-studio #add-audio-line{align-self:flex-start}
@@ -17,12 +17,12 @@
 .audio-studio #audio-job-status:empty{display:none}
 
 
-.audio-speaker-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.audio-speaker-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
 .audio-speaker-tabs [aria-pressed=true],.audio-speaker-tabs [aria-selected=true]{border-color:var(--accent,#ffdc24);color:var(--accent,#ffdc24);box-shadow:0 0 0 1px #ffdc2420}
-[data-delivery-controls],[data-speaker-panel]{display:flex;flex-direction:column;gap:12px}
-.audio-voice-row,.audio-turn-heading{display:flex;align-items:flex-end;gap:10px}
+[data-delivery-controls],[data-speaker-panel]{display:flex;flex-direction:column;gap:10px}
+.audio-voice-row,.audio-turn-heading{display:flex;align-items:flex-end;gap:8px}
 .audio-voice-row>label,.audio-turn-heading>label{flex:1;min-width:0}
-.generation-dialog .audio-voice-preview{display:flex;align-items:center;gap:6px;min-height:36px;flex-shrink:0}
+.generation-dialog .audio-voice-preview{display:flex;align-items:center;gap:4px;min-height:32px;flex-shrink:0}
 .generation-dialog [data-speaker-field=delivery]{min-height:90px}
 .audio-direction-note{margin:0;line-height:1.5}
 #audio-voice-preview-dialog{width:min(560px,calc(100vw - 32px))}
@@ -33,14 +33,14 @@
 .audio-studio [hidden]{display:none!important}
 #audio-review-results{min-width:0}
 #audio-gallery{min-width:0}
-.audio-card-preview{aspect-ratio:16/9;background:#14112b;display:flex;align-items:center;justify-content:center;padding:48px 14px 14px;min-width:0}
+.audio-card-preview{aspect-ratio:16/9;background:#14112b;display:flex;align-items:center;justify-content:center;padding:46px 12px 12px;min-width:0}
 .audio-card-preview audio{min-width:0;margin:0}
 .audio-card .card-body{min-width:0}
 
 /* Reuse generation controls and popup dimensions for character and script setup. */
-[data-audio-characters],.audio-character-names,#audio-script-instructions [data-script-turn-list]{display:flex;flex-direction:column;gap:12px}
-#audio-script-instructions .audio-script-brief{display:flex;flex-direction:column;gap:16px;border:0;padding:0;margin:0;min-width:0}
-#audio-script-instructions [data-script-review]{border-top:1px solid var(--border);padding-top:16px}
+[data-audio-characters],.audio-character-names,#audio-script-instructions [data-script-turn-list]{display:flex;flex-direction:column;gap:10px}
+#audio-script-instructions .audio-script-brief{display:flex;flex-direction:column;gap:14px;border:0;padding:0;margin:0;min-width:0}
+#audio-script-instructions [data-script-review]{border-top:1px solid var(--border);padding-top:14px}
 #audio-script-instructions [data-script-status]{white-space:pre-wrap}
 #audio-script-instructions .audio-line textarea{min-height:100px}
 #audio-script-instructions:modal{position:fixed;inset:0;margin:auto}
@@ -48,58 +48,58 @@
 /* Guided audio preparation reuses the existing modal, field and theme rules. */
 #audio-guided-dialog:modal{position:fixed;inset:0;margin:auto}
 #audio-guided-dialog [hidden]{display:none!important}
-#audio-guided-dialog [data-stage],#audio-guided-dialog [data-extra-questions],#audio-guided-dialog [data-cast],#audio-guided-dialog [data-turn-list]{display:flex;flex-direction:column;gap:16px;min-width:0}
-#audio-guided-dialog .audio-guided-steps{display:flex;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--border);padding-bottom:12px}
+#audio-guided-dialog [data-stage],#audio-guided-dialog [data-extra-questions],#audio-guided-dialog [data-cast],#audio-guided-dialog [data-turn-list]{display:flex;flex-direction:column;gap:14px;min-width:0}
+#audio-guided-dialog .audio-guided-steps{display:flex;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border);padding-bottom:10px}
 #audio-guided-dialog .audio-guided-steps [aria-current=step]{color:var(--accent);font-weight:600}
 #audio-guided-dialog [data-status],#audio-guided-dialog .audio-source-review{white-space:pre-wrap;overflow-wrap:anywhere}
 #audio-guided-dialog textarea{min-height:100px}
 
 
 /* Inline cue review and measured speech progress use the existing theme. */
-.audio-inline-cue{border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px 0;min-width:0}
+.audio-inline-cue{border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;min-width:0}
 .audio-inline-cue>summary{cursor:pointer}
 .audio-inline-cue>.form{margin-top:12px}
 .audio-inline-cue audio,[data-speech-progress]{width:100%;accent-color:var(--accent)}
 [data-turn-sounds]:empty{display:none}
 
 /* Audio verification and cancellation share the Progress workspace. */
-#audio-progress-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0}
-#audio-progress-actions button{width:auto;flex:0 1 auto;min-height:36px}
+#audio-progress-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:16px 0}
+#audio-progress-actions button{width:auto;flex:0 1 auto;min-height:32px}
 #audio-progress-actions #stop-audio{margin-left:auto}
 [data-audio-verification]{margin-top:16px}
-[data-verification-summary]{margin:0;font-size:13px;line-height:1.5}
-[data-verification-checks]{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-[data-verification-checks]>li{--check-color:var(--ecco-theme-muted,#b1acc9);border:1px solid var(--ecco-theme-border,#51496f);border-left:3px solid var(--check-color);border-radius:8px;padding:12px;min-width:0;overflow-wrap:anywhere}
+[data-verification-summary]{margin:0;font-size:calc(13px - 2pt);line-height:1.5}
+[data-verification-checks]{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+[data-verification-checks]>li{--check-color:var(--ecco-theme-muted,#b1acc9);border:1px solid var(--ecco-theme-border,#51496f);border-left:3px solid var(--check-color);border-radius:8px;padding:10px;min-width:0;overflow-wrap:anywhere}
 [data-verification-checks]>li[data-status=passed]{--check-color:var(--ecco-theme-success,#7bcf9b)}
 [data-verification-checks]>li[data-status=failed]{--check-color:var(--ecco-theme-error,#ff6b6b);background:color-mix(in srgb,var(--ecco-theme-error,#ff6b6b) 7%,transparent)}
 [data-verification-checks]>li:is([data-status=blocked],[data-status=unverified],[data-status=checking]){--check-color:var(--ecco-theme-accent,#ffdc24)}
-.audio-check-heading{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px 12px;font-size:14px;line-height:1.5}
-.audio-check-state{display:inline-flex;align-items:center;gap:5px;color:var(--check-color);font-size:12px;font-weight:600;white-space:nowrap}
-[data-check-detail],[data-check-resolution]{margin:6px 0 0;font-size:13px;line-height:1.5}
+.audio-check-heading{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:4px 10px;font-size:calc(14px - 2pt);line-height:1.5}
+.audio-check-state{display:inline-flex;align-items:center;gap:5px;color:var(--check-color);font-size:calc(12px - 2pt);font-weight:600;white-space:nowrap}
+[data-check-detail],[data-check-resolution]{margin:6px 0 0;font-size:calc(13px - 2pt);line-height:1.5}
 [data-check-detail]{color:var(--ecco-theme-muted,#b1acc9)}
 [data-check-resolution]{color:var(--ecco-theme-text,#fff)}
 [data-verification-summary][data-status=failed]{color:var(--ecco-theme-error,#ff6b6b)}
 [data-verification-summary][data-status=passed]{color:var(--ecco-theme-success,#7bcf9b)}
 
 /* One final-script editor and one shared AI action row. */
-.audio-script-heading{align-items:center;flex-wrap:wrap;gap:12px}
+.audio-script-heading{align-items:center;flex-wrap:wrap;gap:10px}
 .audio-script-heading h3{margin:0}
-.audio-script-heading .generation-ai-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+.audio-script-heading .generation-ai-actions{display:flex;flex-wrap:wrap;gap:6px;margin:0}
 #audio-final-script-panel [data-script-edit-status]:empty{display:none}
 
 /* Compact column filters within Flow Verification only. */
-.audio-verification-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:12px}
-.audio-verification-filters label{display:grid;gap:4px;flex:1 1 120px;min-width:0;font-size:13px}
+.audio-verification-filters{display:flex;flex-wrap:wrap;gap:6px;align-items:end;margin-top:12px}
+.audio-verification-filters label{display:grid;gap:4px;flex:1 1 120px;min-width:0;font-size:calc(13px - 2pt)}
 .audio-verification-filters input,.audio-verification-filters select{width:100%;min-width:0}
 .audio-verification-filters button{width:auto}
 [data-verification-checks]>li[hidden]{display:none!important}
 
-[data-audio-task-progress]{display:grid;gap:10px;margin:12px 0}
+[data-audio-task-progress]{display:grid;gap:8px;margin:12px 0}
 [data-audio-task-progress][hidden]{display:none!important}
-.audio-task-row{border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px;padding:10px}
-.audio-task-heading{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.audio-task-row{border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px;padding:8px}
+.audio-task-heading{display:flex;justify-content:space-between;gap:8px;font-size:calc(13px - 2pt)}
 .audio-task-row progress{display:block;width:100%;height:6px;accent-color:var(--ecco-theme-accent,#ffdc24);margin:8px 0}
-.audio-task-row p{font-size:12px;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.audio-task-row p{font-size:calc(12px - 2pt);line-height:1.5;margin:0;overflow-wrap:anywhere}
 .audio-task-row[data-status=done] [data-task-state]{color:var(--ecco-theme-success,#7bcf9b)}
 .audio-task-row:is([data-status=error],[data-status=failed]){border-color:var(--ecco-theme-error,#ff6b6b)}
 .audio-task-row:is([data-status=error],[data-status=failed]) [data-task-state]{color:var(--ecco-theme-error,#ff6b6b)}

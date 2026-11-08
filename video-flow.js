@@ -73,7 +73,7 @@
    const select=q('[data-shot]',root),wasOpen=select.open;select.replaceChildren();
    shotIndex=Math.max(0,Math.min(shotIndex,data.shots.length-1));
    const summary=document.createElement('summary');summary.textContent='Choose shots to include in video'+(activeShots().length?' · '+activeShots().length+' shots selected':'');select.append(summary);
-   const choices=document.createElement('div');choices.className='form';choices.style.cssText='max-height:260px;overflow:auto;padding:8px;gap:6px';
+   const choices=document.createElement('div');choices.className='form';choices.style.cssText='max-height:260px;overflow:auto;padding:6px;gap:6px';
    data.shots.forEach((s,i)=>{
     const line=document.createElement('div');line.style.cssText='display:flex;align-items:center;gap:8px';
     const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=s.selected!==false;checkbox.style.cssText='width:14px;height:14px;min-width:14px;margin:0;flex:none';checkbox.setAttribute('aria-label','Include shot '+(i+1)+' in video');
@@ -134,9 +134,9 @@
     const box=q('[data-list="'+kind+'"]',root);box.replaceChildren();box.hidden=!data[idsKey[kind]].length;box.style.display=box.hidden?'none':'';
     data[idsKey[kind]].forEach((id,i)=>{
      const a=find(id,kind),card=document.createElement('div');card.className='generation-selected-item';card.style.cssText='position:relative;display:inline-flex;flex-direction:column;gap:4px;vertical-align:top;margin:4px;width:'+(kind==='audio'?'220px':'72px')+';';
-     const label=document.createElement('span');label.textContent=a?title(a):'Unavailable';label.title=label.textContent;label.style.cssText='font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%';
+     const label=document.createElement('span');label.textContent=a?title(a):'Unavailable';label.title=label.textContent;label.style.cssText='font-size:calc(11px - 2pt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%';
      if(a){const preview=document.createElement(kind==='image'?'img':kind);preview.src=media(a);preview.dataset.asset=id;preview.style.cssText=kind==='audio'?'width:100%;height:32px':'width:72px;height:56px;object-fit:cover;border-radius:5px';if(kind==='image')preview.alt=title(a);else{preview.controls=true;preview.preload='metadata';}card.append(preview);}
-     const remove=document.createElement('button');remove.type='button';remove.className='small secondary';remove.textContent='×';remove.title='Remove selection';remove.style.cssText='position:absolute;right:-5px;top:-5px;width:20px;min-width:20px;height:20px;min-height:20px;padding:0;border-radius:50%;line-height:18px;font-size:16px;background:#292343;color:white;z-index:1';remove.setAttribute('aria-label','Remove '+kind+' '+(i+1));
+     const remove=document.createElement('button');remove.type='button';remove.className='small secondary';remove.textContent='×';remove.title='Remove selection';remove.style.cssText='position:absolute;right:-5px;top:-5px;width:20px;min-width:20px;height:20px;min-height:20px;padding:0;border-radius:50%;line-height:16px;font-size:calc(16px - 2pt);background:#292343;color:white;z-index:1';remove.setAttribute('aria-label','Remove '+kind+' '+(i+1));
      remove.onclick=()=>{data[idsKey[kind]].splice(i,1);persist();drawLists();drawShots();};
      card.append(label,remove);box.append(card);
     });

@@ -106,14 +106,14 @@
  let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;mount();});}).observe(document.body,{childList:true,subtree:true});
  const css=document.createElement('style');css.textContent=`
  body>aside #workspace-library-group details:has(>.library-more){position:relative}
- body>aside #workspace-library-group .library-has-menu{position:relative;padding-right:30px!important}
- body>aside #workspace-library-group .library-more{position:absolute!important;right:0!important;top:2px!important;left:auto!important;width:26px!important;min-width:26px!important;height:28px!important;min-height:0!important;padding:0!important;border:0!important;background:transparent!important;color:#fff!important;font-size:22px!important;line-height:26px!important;z-index:3}
+ body>aside #workspace-library-group .library-has-menu{position:relative;padding-right:28px!important}
+ body>aside #workspace-library-group .library-more{position:absolute!important;right:0!important;top:2px!important;left:auto!important;width:26px!important;min-width:26px!important;height:28px!important;min-height:0!important;padding:0!important;border:0!important;background:transparent!important;color:#fff!important;font-size:calc(22px - 2pt)!important;line-height:24px!important;z-index:3}
  body>aside #workspace-library-group .library-more::before{display:none!important}
  body>aside #workspace-library-group .library-more:hover{background:#302a54!important}
  .library-options-menu{position:fixed;z-index:10000;min-width:150px;padding:5px;border:1px solid #514b69;border-radius:7px;background:#201c30;box-shadow:0 8px 24px #0008}
- .library-options-menu button{display:block;width:100%;min-height:0!important;text-align:left;color:white;background:transparent;padding:6px 10px!important;font-size:12px!important;line-height:18px!important;font-weight:500!important}
+ .library-options-menu button{display:block;width:100%;min-height:0!important;text-align:left;color:white;background:transparent;padding:4px 8px!important;font-size:calc(12px - 2pt)!important;line-height:16px!important;font-weight:500!important}
  .library-options-menu button:disabled{opacity:.4;cursor:not-allowed}
- .library-options-menu [role=alert]{font-size:12px;color:#ff7272;max-width:220px}
+ .library-options-menu [role=alert]{font-size:calc(12px - 2pt);color:#ff7272;max-width:220px}
  #workspace-library-group .library-has-menu .workspace-delete,#workspace-library-group .library-selected-row>.workspace-delete{display:none!important}
  .library-options-menu button:hover,.library-options-menu button:focus-visible{background:#38305e}
  .library-rename-dialog{width:min(420px,calc(100vw - 32px))}.library-rename-dialog [role=alert]{color:#ff7272}

@@ -5,7 +5,7 @@ button:is(#close-activity,.ecco-popup-close,.ecco-popup-minimize,.icon-button[ar
  flex:0 0 26px!important;padding:0!important;margin:0!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:0!important;
  border:0!important;border-radius:5px!important;background:var(--ecco-theme-accent,#ffdc24)!important;
  color:var(--ecco-theme-contrast,#211b33)!important;box-shadow:none!important;
- font:600 20px/1 Arial,sans-serif!important;letter-spacing:normal!important;cursor:pointer;transform:none!important;
+ font:600 calc(20px - 2pt)/1 Arial,sans-serif!important;letter-spacing:normal!important;cursor:pointer;transform:none!important;
 }
 button:is(#close-activity,.ecco-popup-close,.ecco-popup-minimize,.icon-button[aria-label="Close dialog"],.icon-button[aria-label="Close ticket"]):not([hidden]):focus-visible{
  outline:2px solid var(--ecco-theme-text,#fff)!important;outline-offset:2px!important;
