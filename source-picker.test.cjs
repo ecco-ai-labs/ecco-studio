@@ -1,5 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),{JSDOM}=require('jsdom');
-function fixture(t){
+function fixture(t,options={}){
  const dom=new JSDOM('<button id="opener">Upload</button>',{runScripts:'outside-only',url:'https://example.test'}),w=dom.window;t.after(()=>w.close());
  w.TextEncoder=TextEncoder;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};w.HTMLCanvasElement.prototype.getContext=()=>({});
@@ -11,7 +11,7 @@ function fixture(t){
  w.eval(fs.readFileSync(__dirname+'/source-chapters.js','utf8'));
  w.eval(fs.readFileSync(__dirname+'/ai-text-refinement.js','utf8'));
  w.eval(fs.readFileSync(__dirname+'/source-picker.js','utf8').replace("import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.min.mjs')",'Promise.resolve(window.pdfFixture)'));
- const applied=[],picker=w.EccoSourcePicker.create({onApply:value=>applied.push(value),maxSelection:20000}),q=s=>w.document.querySelector(s);
+ const applied=[],picker=w.EccoSourcePicker.create({onApply:value=>applied.push(value),maxSelection:20000,...options}),q=s=>w.document.querySelector(s);
  return {w,picker,q,applied,destroyed:()=>destroyed};
 }
 test('PDF preview supports later pages and commits only highlighted text with filename and title',async t=>{
@@ -45,9 +45,9 @@ test('Inline AI prompt sends only the exact passage and reviews before applying 
  x.q('[data-apply-improvement]').click();assert.equal(selected.value,'A great story.\nKeep this ending.');assert.equal(x.q('.pdf-story-dialog').open,true);assert.equal(x.w.document.activeElement,selected);assert.equal(x.applied.length,0);assert.equal(x.q('.source-text-preview').textContent,'PRIVATE_UNSELECTED text.');
  x.q('[data-extract]').click();assert.equal(x.applied[0].text,'A great story.\nKeep this ending.');
 });
-test('Inline AI connection errors, stale replies and close preserve source selection',async t=>{
+test('AI connection error popups, stale replies and close preserve source selection',async t=>{
  const x=fixture(t);await x.picker.load({name:'source.txt',size:40,text:async()=>'Original words.'},x.q('#opener'));const selected=x.q('[data-selected]');selected.value='Original words.';selected.dispatchEvent(new x.w.Event('input'));selected.setSelectionRange(0,0);
- x.q('[data-ai-prompt]').value='Make it clearer.';x.q('[data-ai-prompt]').dispatchEvent(new x.w.Event('input'));x.q('[data-improve-selection]').click();await new Promise(r=>setTimeout(r,0));assert.match(x.q('[data-ai-status]').textContent,/Connect AI and workspace storage/);assert.equal(selected.value,'Original words.');
+ x.q('[data-ai-prompt]').value='Make it clearer.';x.q('[data-ai-prompt]').dispatchEvent(new x.w.Event('input'));x.q('[data-improve-selection]').click();await new Promise(r=>setTimeout(r,0));assert.match(x.q('[data-ai-message]').textContent,/Connect AI and workspace storage/);assert.equal(x.q('[data-ai-status]').textContent,'');x.q('[data-dismiss]').click();assert.equal(selected.value,'Original words.');
  x.w.EccoStorage={ready:true};x.w.EccoAI={enabled:true};let finish;x.w.api=()=>new Promise(resolve=>finish=resolve);x.q('[data-improve-selection]').click();assert.equal(x.q('[data-improve-selection]').getAttribute('aria-busy'),'true');selected.value='My newer edit.';selected.dispatchEvent(new x.w.Event('input'));finish({revisions:[{id:'source_excerpt',text:'Late suggestion.'}]});await new Promise(r=>setTimeout(r,0));assert.match(x.q('[data-ai-status]').textContent,/Selected Text changed/);assert.equal(selected.value,'My newer edit.');assert.equal(x.q('[data-apply-improvement]').disabled,true);
  x.q('[data-improve-selection]').click();x.q('[data-close]').click();finish({revisions:[{id:'source_excerpt',text:'Late after closing.'}]});await new Promise(r=>setTimeout(r,0));assert.equal(x.w.document.activeElement,x.q('#opener'));x.picker.open();assert.equal(selected.value,'My newer edit.');assert.equal(x.q('[data-ai-review]').hidden,false);assert.equal(x.q('[data-ai-suggestion]').value,'');assert.equal(x.q('[data-ai-suggestion]').readOnly,true);
  await x.picker.load({name:'new.txt',size:20,text:async()=>'New source'},x.q('#opener'));assert.equal(x.q('[data-ai-prompt]').value,'');assert.equal(x.q('[data-selected]').value,'');assert.equal(x.applied.length,0);
@@ -119,4 +119,23 @@ test('Saved drafts retain both the AI prompt and uncommitted output for review',
  const x=fixture(t);x.w.File.prototype.arrayBuffer=async()=>new ArrayBuffer(0);await x.picker.load({name:'book.pdf',size:100,arrayBuffer:async()=>new ArrayBuffer(0)},x.q('#opener'));x.w.EccoStorage={ready:true};x.w.EccoAI={enabled:true};x.w.api=async()=>({revisions:[{id:'source_excerpt',text:'A clearer sentence.'}]});
  x.q('[data-selected]').value='A sentence.';x.q('[data-selected]').dispatchEvent(new x.w.Event('input'));x.q('[data-ai-prompt]').value='Make it clearer.';x.q('[data-ai-prompt]').dispatchEvent(new x.w.Event('input'));x.q('[data-improve-selection]').click();await new Promise(r=>setTimeout(r,0));const saved=await x.picker.snapshot();x.picker.clear();await x.picker.restore(saved);x.picker.open();
  assert.equal(x.q('[data-selected]').value,'A sentence.');assert.equal(x.q('[data-ai-prompt]').value,'Make it clearer.');assert.equal(x.q('[data-ai-suggestion]').value,'A clearer sentence.');assert.equal(x.q('[data-apply-improvement]').disabled,false);x.q('[data-apply-improvement]').click();assert.equal(x.q('[data-selected]').value,'A clearer sentence.');
+});
+
+test('AI ribbon settings guide the request and invalidate output when changed locally or externally',async t=>{
+ const values={story_type:'podcast',genre:'Comedy',age_group:'All ages',language:'English'},options={aiSettings:{fields:[{name:'language',label:'Language',options:['English','Hindi']},{name:'genre',label:'Genre',options:['Comedy','Sports']}],getValues:()=>values,onChange:patch=>Object.assign(values,patch)}};
+ const x=fixture(t,options);x.w.File.prototype.text=function(){return new Promise(resolve=>{const reader=new x.w.FileReader();reader.onload=()=>resolve(reader.result);reader.readAsText(this);});};await x.picker.load({name:'source.txt',size:60,text:async()=>'PRIVATE_UNSELECTED document.'},x.q('#opener'));x.w.EccoStorage={ready:true};x.w.EccoAI={enabled:true};
+ const selected=x.q('[data-selected]');selected.value='Chosen passage.';selected.dispatchEvent(new x.w.Event('input'));x.q('[data-ai-prompt]').value='Make it simpler.';x.q('[data-ai-prompt]').dispatchEvent(new x.w.Event('input'));
+ assert.equal(x.q('[data-ai-setting=language]').value,'English');assert.equal(x.q('[data-improve-selection]').getAttribute('aria-label'),'Improve with AI');assert.equal(x.q('[data-improve-selection]').textContent,'✦');assert.doesNotMatch(x.q('.pdf-ai-pane').textContent,/Uses only Selected Text|Prompt/);
+ const change=(name,value)=>{const field=x.q('[data-ai-setting='+name+']');field.value=value;field.dispatchEvent(new x.w.Event('change'));};change('language','Hindi');assert.equal(values.language,'Hindi');
+ let finish;const calls=[];x.w.api=(path,body)=>{calls.push(body);return new Promise(resolve=>finish=resolve);};x.q('[data-improve-selection]').click();assert.equal(calls[0].context.language,'Hindi');assert.equal(JSON.parse(calls[0].context.summary).age_group,'All ages');assert.doesNotMatch(JSON.stringify(calls),/PRIVATE_UNSELECTED/);
+ change('genre','Sports');finish({revisions:[{id:'source_excerpt',text:'Stale reply.'}]});await new Promise(r=>setTimeout(r,0));assert.equal(x.q('[data-ai-suggestion]').value,'');assert.equal(x.q('[data-apply-improvement]').disabled,true);assert.equal(selected.value,'Chosen passage.');
+ x.q('[data-improve-selection]').click();finish({revisions:[{id:'source_excerpt',text:'Current reply.'}]});await new Promise(r=>setTimeout(r,0));const saved=await x.picker.snapshot();assert.equal(x.q('[data-ai-suggestion]').value,'Current reply.');
+ values.language='English';x.q('[data-apply-improvement]').click();assert.equal(selected.value,'Chosen passage.');assert.match(x.q('[data-ai-message]').textContent,/story settings changed/);x.q('[data-dismiss]').click();await x.picker.restore(saved);x.picker.open();assert.equal(x.q('[data-ai-setting=language]').value,'English');assert.equal(x.q('[data-ai-suggestion]').value,'');assert.equal(x.q('[data-ai-prompt]').value,'Make it simpler.');
+});
+
+test('AI clarification is a nested popup, never output, and returns to the prompt without applying text',async t=>{
+ const x=fixture(t);await x.picker.load({name:'jars.txt',size:50,text:async()=>'Original document.'},x.q('#opener'));x.w.EccoStorage={ready:true};x.w.EccoAI={enabled:true};x.w.api=async()=>({questions:['Should there be forty jars in total?'],revisions:[]});
+ x.q('[data-selected]').value='Thirty-nine jars.';x.q('[data-selected]').dispatchEvent(new x.w.Event('input'));x.q('[data-ai-prompt]').value='Improve the narration.';x.q('[data-ai-prompt]').dispatchEvent(new x.w.Event('input'));x.q('[data-improve-selection]').click();await new Promise(r=>setTimeout(r,0));
+ assert.equal(x.q('.pdf-ai-notice').getAttribute('aria-label'),'AI Needs Clarification');assert.match(x.q('[data-ai-message]').textContent,/forty jars/);assert.equal(x.q('[data-ai-status]').textContent,'');assert.equal(x.q('[data-ai-suggestion]').value,'');assert.equal(x.q('[data-selected]').value,'Thirty-nine jars.');assert.equal(x.applied.length,0);x.q('[data-dismiss]').click();assert.equal(x.q('.pdf-ai-notice'),null);assert.equal(x.w.document.activeElement,x.q('[data-ai-prompt]'));assert.equal(x.q('.pdf-story-dialog').open,true);
+ assert.equal(x.q('[data-clear-selection]').textContent,'Clear Text');assert.equal(x.q('[data-clear-selection]').nextElementSibling,x.q('[data-extract]'));assert.equal(x.q('[data-extract]').textContent,'Apply Text');
 });

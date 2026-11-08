@@ -351,11 +351,21 @@ aside>#workspace-trash{margin-left:auto;align-self:flex-end}
 .pdf-story-page{margin:0 auto 16px;overflow:hidden;flex:none}
 .pdf-page-content{position:relative;transform-origin:top left}
 .pdf-review-box.pdf-selected-label textarea{flex:1 1 auto;min-height:0;height:auto;width:100%;box-sizing:border-box;resize:none;font-size:16px;line-height:1.6;padding:12px}
-.pdf-ai-sections{display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:16px;flex:1;min-height:0}
-.pdf-ai-section{display:flex;flex-direction:column;gap:8px;min-height:0}
-.pdf-ai-section>label{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;font-size:14px;font-weight:500}
-.pdf-ai-section textarea{flex:1;min-height:0;width:100%;box-sizing:border-box;resize:none;font-size:16px;font-weight:400;padding:12px}
-.pdf-ai-output{border-top:1px solid #45405e;padding-top:12px}
+.pdf-ai-sections{display:grid;grid-template-rows:auto minmax(0,1fr) auto minmax(0,1fr) auto;gap:8px;flex:1;min-height:0}
+.pdf-ai-section{display:contents}
+.pdf-ai-ribbon{display:flex;align-items:flex-end;gap:8px;flex:none;min-width:0;padding:8px;border:1px solid #45405e;border-radius:7px;background:#252039}
+.pdf-ai-settings{display:flex;flex:1;gap:8px;min-width:0;overflow-x:auto;scrollbar-width:thin}
+.pdf-ai-settings>label{display:flex;flex:1;flex-direction:column;gap:4px;min-width:64px;font-size:10px;line-height:14px;font-weight:500;white-space:nowrap;color:var(--muted,#b8b1c9)}
+.pdf-ai-settings select{width:100%;min-width:0;box-sizing:border-box;height:30px;min-height:30px;padding:4px 2px;font-size:12px;line-height:18px;font-weight:400;border-radius:4px;cursor:pointer;color:var(--text,#eeebf5)}
+.pdf-story-dialog button.pdf-ai-icon{display:flex;align-items:center;justify-content:center;flex:none;width:30px!important;min-width:30px!important;height:30px!important;min-height:30px!important;padding:0!important;font-size:20px!important;line-height:1!important;color:var(--accent,#ffdc24)}
+.pdf-ai-icon .generation-spinner{margin:0}
+.pdf-ai-icon:focus-visible,.pdf-ai-settings select:focus-visible{outline:2px solid var(--accent,#ffdc24);outline-offset:2px}
+.pdf-ai-section>.pdf-ai-output-label{margin:4px 0 0;padding-top:8px;border-top:1px solid #45405e;font-size:14px;font-weight:500;line-height:20px}
+.pdf-ai-section textarea{height:100%;min-height:0;width:100%;box-sizing:border-box;resize:none;font-size:16px;font-weight:400;padding:12px}
+.pdf-ai-footer{display:flex;flex-direction:column;gap:8px;min-height:0}
+.pdf-ai-notice{width:min(560px,92vw);max-height:80vh;overflow:auto}
+.pdf-ai-notice h2{font-size:20px;line-height:1.4;margin:0}
+.pdf-ai-notice [data-ai-message]{white-space:pre-wrap;line-height:1.6;margin:0}
 .pdf-ai-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pdf-ai-actions>[data-apply-improvement]{flex:1}
 .pdf-ai-section [data-ai-status]{margin:0;max-height:70px;overflow:auto}

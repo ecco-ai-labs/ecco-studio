@@ -69,7 +69,11 @@
   if(pickerOwner===owner()&&picker)return picker;
   picker?.destroy();pickerOwner=owner();const current=pickerOwner;
   const currentPicker=window.EccoSourcePicker.create({maxSelection:20000,
-   contextLabel:()=>[data.title,M.types.find(([id])=>id===data.type)?.[1]||data.type,data.genre].filter(Boolean).join(' · '),
+   aiSettings:{
+    fields:[{name:'story_type',label:'Story Type',options:M.types},{name:'genre',label:'Genre',options:genres},{name:'age_group',label:'Audience',options:audiences},{name:'language',label:'Language',options:languages}],
+    getValues:()=>({title:data.title,story_type:data.type,story_type_label:M.types.find(([id])=>id===data.type)?.[1]||data.type,genre:data.genre,age_group:data.audience,language:data.language,location:data.location}),
+    onChange:options=>{if(current!==owner()||!enabled)throw Error('Return to the story where you opened this document.');syncStoryOptions(options);}
+   },
    reviewSelection:async(selection,valid,opener)=>{
     const target=data,version=epoch;
     const currentSource=()=>{valid();if(current!==owner()||!enabled||target!==data||version!==epoch)throw Error('Story Details changed. Review this source against your updated story.');};
@@ -128,15 +132,18 @@
  function aiStatus(text,error=false){
   message(text,error);const status=q('#story-simple-ai-status');if(status){status.textContent=text;status.dataset.error=String(error);status.setAttribute('role',error?'alert':'status');if(error)status.scrollIntoView({block:'nearest'});}
  }
+ function syncStoryOptions(options){
+   const oldType=data.type;
+   for(const [key,field] of [['story_type','type'],['genre','genre'],['age_group','audience'],['language','language'],['location','location']])if(typeof options[key]==='string'&&(options[key]||key==='location'))data[field]=options[key];
+   if(data.type!==oldType&&!data.castCustomized){data.cast=defaultCast();const root=inPage('[data-characters]');if(root){characters(root);inPage('[data-count]').value=data.cast.length;}}
+   epoch++;persist();
+ }
  function generateStory(){
   const current=data,identity=owner();
   if(!window.EccoAI?.requestGeneration){aiStatus('AI controls could not load. Refresh Studio and try again.',true);return;}
   const syncOptions=options=>{
    if(!enabled||current!==data||identity!==owner()||data.tab!==1)return;
-   const oldType=data.type;
-   for(const [key,field] of [['story_type','type'],['genre','genre'],['age_group','audience'],['language','language'],['location','location']])if(typeof options[key]==='string'&&(options[key]||key==='location'))data[field]=options[key];
-   if(data.type!==oldType&&!data.castCustomized){data.cast=defaultCast();characters(inPage('[data-characters]'));inPage('[data-count]').value=data.cast.length;}
-   epoch++;persist();
+   syncStoryOptions(options);
   };
   window.EccoAI.requestGeneration({label:'Create the story for '+data.title,key:'story-workspace',scopeKey:identity,
    contextFields:[{name:'story_type',label:'Story Type',options:M.types},{name:'genre',label:'Genre',options:genres},{name:'age_group',label:'Age Group',options:audiences},{name:'location',label:'Audience Location',placeholder:'For example, India or worldwide'}],

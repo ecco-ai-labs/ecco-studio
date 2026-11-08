@@ -165,7 +165,7 @@
    assertCurrent();const byId=new Map((result.revisions||[]).map(r=>[r.id,r.text]));if(byId.size!==fields.length||fields.some(f=>typeof byId.get(f.id)!=='string'||byId.get(f.id).length>f.max_length))throw Error('AI returned an incomplete response. Try this step again.');return {values:Object.fromEntries(byId),questions:result.questions||[],notes:result.notes||[]};
   }
   let previewSourceName='',pendingSource=false;
-  const sourcePicker=window.EccoSourcePicker.create({onSave:saveDraft,title:'Select Source Text',selectedLabel:'Selected Source Text',applyLabel:'Apply Selected Text',maxSelection:20000,onApply(selection){
+  const sourcePicker=window.EccoSourcePicker.create({onSave:saveDraft,title:'Select Source Text',selectedLabel:'Selected Source Text',applyLabel:'Apply Text',maxSelection:20000,onApply(selection){
    assertCurrent();pendingSource=false;data.source_text=selection.text;data.source_scope='selected';data.source_name=previewSourceName||selection.name;data.source_pages=selection.pages||[];data.source_selection=selection.selection_label||'Selected text';changed();
    const field=el('[data-value=source_text]');if(field){field.value=data.source_text;field.closest('details').open=true;}
    updateSourceControls();status.textContent='Selected text applied. Only this selection will be used by AI.';
