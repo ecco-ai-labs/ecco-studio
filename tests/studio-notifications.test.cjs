@@ -12,6 +12,7 @@ function setup(){
   if(opts.method==='POST'){const {id,op}=JSON.parse(opts.body);assert.equal(op,'readNotification');const n=state[who].find(n=>n.id===id);if(n)history[who]=[{...n,readAt:new Date().toISOString()},...history[who]].slice(0,3);state[who]=state[who].filter(n=>n.id!==id);billing[who]=billing[who].filter(n=>n.id!==id)}
   return {ok:true,json:async()=>({notificationVersion:1,notificationHistoryVersion:1,notifications:state[who],readNotifications:history[who]})};
  };
+ w.eval(fs.readFileSync('popup-close.js','utf8'));
  w.eval(fs.readFileSync('studio-notifications.js','utf8'));
  return {w,state,history,billing,calls,q:s=>w.document.querySelector(s),poll:()=>interval(),fail:v=>failure=v,hold:v=>held=v};
 }
@@ -27,6 +28,20 @@ test('server reads remove only clicked row; safe text, severity, badge, focus an
  q('[data-notification-id="two"]').click();await tick();assert.equal(q('.notification-count').hidden,true);assert.equal(w.document.activeElement,bell);assert.equal(q('[role="status"]').textContent,'No New notifications');
  w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape'}));assert.equal(q('#notification-list').hidden,true);
  bell.click();q('#outside').dispatchEvent(new w.Event('pointerdown',{bubbles:true}));assert.equal(q('#notification-list').hidden,true);await tick();w.close();
+});
+test('notification close and minimize preserve unread state, resume once and clear on account change',async()=>{
+ const {w,q,calls}=setup();await tick();const bell=q('#notification-bell'),panel=q('#notification-list');
+ bell.click();await tick();
+ assert(q('.notification-window-controls .ecco-popup-close'));assert(q('.notification-window-controls .ecco-popup-minimize'));
+ q('.ecco-popup-minimize').click();assert.equal(panel.hidden,true);assert.equal(bell.getAttribute('aria-expanded'),'false');
+ q('#outside').dispatchEvent(new w.Event('pointerdown',{bubbles:true}));
+ assert.equal(w.document.querySelectorAll('#ecco-popup-resume button').length,1);
+ q('#ecco-popup-resume button').click();await tick();assert.equal(panel.hidden,false);assert.equal(q('#ecco-popup-resume').hidden,true);
+ assert.equal(q('.notification-count').textContent,'2');assert.equal(calls.filter(c=>c.method==='POST').length,0);
+ q('.ecco-popup-minimize').click();bell.click();await tick();assert.equal(panel.hidden,false);assert.equal(q('#ecco-popup-resume').hidden,true);
+ q('.ecco-popup-close').click();assert.equal(panel.hidden,true);assert.equal(w.document.activeElement,bell);
+ bell.click();q('.ecco-popup-minimize').click();w.EccoAuth.user=null;w.document.dispatchEvent(new w.Event('ecco:auth-change'));await tick();
+ assert.equal(q('#ecco-popup-resume').hidden,true);assert.equal(q('.notification-item'),null);w.close();
 });
 test('failed read stays unread and can be retried without claiming success',async()=>{
  const {w,q,fail}=setup();await tick();fail(true);q('.notification-item').click();await tick();

@@ -94,6 +94,7 @@ lucide-react/dist/esm/icons/lock-keyhole.mjs:
 lucide-react/dist/esm/icons/log-out.mjs:
 lucide-react/dist/esm/icons/menu.mjs:
 lucide-react/dist/esm/icons/message-square.mjs:
+lucide-react/dist/esm/icons/minus.mjs:
 lucide-react/dist/esm/icons/package-check.mjs:
 lucide-react/dist/esm/icons/pause.mjs:
 lucide-react/dist/esm/icons/play.mjs:

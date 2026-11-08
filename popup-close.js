@@ -1,7 +1,9 @@
 'use strict';
 /* Shared close/minimize controls. Minimizing never fires the popup's close cleanup. */
 (()=>{
- const groups=[],records=new WeakMap(),mutedClose=new WeakMap(),nativeClose=HTMLDialogElement.prototype.close,nativeShow=HTMLDialogElement.prototype.show,nativeModal=HTMLDialogElement.prototype.showModal;
+ if(window.EccoPopups)return;
+ const {document,HTMLDialogElement,MutationObserver,Event}=window;
+ const groups=[],panels=new Set(),records=new WeakMap(),mutedClose=new WeakMap(),nativeClose=HTMLDialogElement.prototype.close,nativeShow=HTMLDialogElement.prototype.show,nativeModal=HTMLDialogElement.prototype.showModal;
  let navigating=false,order=0;
  const style=document.createElement('style');
  style.textContent=`
@@ -51,6 +53,11 @@
  }
  function resume(group){
   if(!groups.includes(group))return;
+  if(group.panel){
+   groups.splice(groups.indexOf(group),1);group.panel.group=null;delete group.panel.element.dataset.eccoMinimized;
+   group.context?.restore();group.panel.options.onResume();group.context?.dispose();renderDock();
+   queueMicrotask(()=>{if(group.focus?.isConnected)group.focus.focus();});return;
+  }
   if(visibleDialogs().length)minimize();
   group.context?.restore();
   for(const dialog of group.dialogs){
@@ -61,15 +68,38 @@
   groups.splice(groups.indexOf(group),1);group.context?.dispose();renderDock();
  }
  function renderDock(){
-  for(let i=groups.length-1;i>=0;i--)if(!groups[i].dialogs.some(d=>d.isConnected&&records.get(d)?.group===groups[i])){groups[i].context?.dispose();groups.splice(i,1);}
+  for(let i=groups.length-1;i>=0;i--)if(groups[i].panel?!groups[i].panel.element.isConnected:!groups[i].dialogs.some(d=>d.isConnected&&records.get(d)?.group===groups[i])){groups[i].context?.dispose();groups.splice(i,1);}
   dock.hidden=!groups.length;const list=dock.querySelector('[data-popup-list]');list.replaceChildren();
   for(const group of groups){const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='Resume '+group.title;button.onclick=()=>resume(group);list.append(button);}
   dock.querySelector('summary').textContent='Resume popups ('+groups.length+')';
  }
- const previousNavigate=navigate;
- navigate=function(...args){for(const group of groups)group.context?.suspend();navigating=true;try{return previousNavigate.apply(this,args);}finally{navigating=false;}};
- window.EccoPopups={minimize,resume,isMinimized:dialog=>!!records.get(dialog)?.group};
+ // Custom popups (including React shadow roots) explicitly register their lifecycle.
+ // Their owners keep the DOM and state mounted, and Close remains owner-specific.
+ function registerPanel(element,options){
+  const panel={element,options,group:null};panels.add(panel);
+  function dismiss(){if(!panel.group)return;const group=panel.group,index=groups.indexOf(group);if(index>=0)groups.splice(index,1);panel.group=null;delete element.dataset.eccoMinimized;group.context?.dispose();renderDock();}
+  return {
+   minimize(){
+    if(panel.group)return;
+    let focus=document.activeElement;while(focus?.shadowRoot?.activeElement)focus=focus.shadowRoot.activeElement;
+    const group={panel,title:options.title,focus:element.contains(focus)?focus:null,context:options.captureContext?.()};panel.group=group;groups.push(group);
+    element.dataset.eccoMinimized='true';options.onMinimize();renderDock();dock.open=true;dock.querySelector('summary').focus();
+   },
+   resume(){if(panel.group)resume(panel.group);},
+   isMinimized:()=>!!panel.group,dismiss,dispose(){dismiss();panels.delete(panel);}
+  };
+ }
+ if(typeof navigate==='function'){
+  const previousNavigate=navigate;
+  navigate=function(...args){for(const group of groups)group.context?.suspend();navigating=true;try{return previousNavigate.apply(this,args);}finally{navigating=false;}};
+ }
+ const belongsTo=(panel,host)=>host.contains(panel.element)||host.shadowRoot?.contains(panel.element);
+ window.EccoPopups={minimize,resume,registerPanel,isMinimized:dialog=>!!records.get(dialog)?.group,
+  hasMinimizedWithin:host=>[...panels].some(panel=>panel.group&&belongsTo(panel,host)),
+  resumeWithin(host){for(const panel of panels)if(panel.group&&belongsTo(panel,host))resume(panel.group);}
+ };
  function mount(){
+  if(!document.body)return;
   for(const dialog of document.querySelectorAll('dialog')){
    register(dialog);
    dialog.classList.add('ecco-popup-close-ready');
@@ -78,7 +108,7 @@
     const text=button.textContent.trim(),label=button.getAttribute('aria-label')||'';
     if(/^(?:×|✕|x|close|cancel)$/i.test(text)||/^(?:close|cancel)(?:\s|$)/i.test(label))button.setAttribute('data-ecco-replaced-close','');
    }
-   if([...dialog.children].some(el=>el.classList.contains('ecco-popup-close')))continue;
+   if(![...dialog.children].some(el=>el.classList.contains('ecco-popup-close'))){
    const close=document.createElement('button');close.type='button';close.className='ecco-popup-close';
    close.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>';close.setAttribute('aria-label','Close popup');close.title='Close';
    close.addEventListener('click',event=>{
@@ -86,6 +116,8 @@
     dialog.close('cancel');
    });
    dialog.append(close);
+   }
+   if([...dialog.children].some(el=>el.classList.contains('ecco-popup-minimize')))continue;
    const minimizeButton=document.createElement('button');minimizeButton.type='button';minimizeButton.className='secondary ecco-popup-minimize';minimizeButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 12h12"/></svg>';minimizeButton.setAttribute('aria-label','Minimize popup');minimizeButton.title='Minimize and keep your work';minimizeButton.onclick=event=>{event.preventDefault();event.stopPropagation();minimize();};dialog.append(minimizeButton);
   }
  }

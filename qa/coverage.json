@@ -115,6 +115,11 @@
     "scope": "Real Audio Studio controls and a synthetic delayed worker response: preview completion immediately restores Generate; an active recording keeps Generate disabled; the identical audition is cached. No live synthesis occurs."
   },
   {
+    "area": "Popup close and minimize",
+    "mode": "fixture",
+    "scope": "Notifications: both controls, matching 26px theme styles in all six themes, 390px fit, close/keyboard/outside dismissal, one Resume entry and bell resume without changing unread counts. Native dialog controls are audited after dynamic mounting and purchase selection survives minimizing. Desk task/support forms, team-member form and ticket detail retain text/role/reply drafts across minimize, page navigation, restore and close. Node checks cover account-switch removal, nested native dialogs and parent draft retention. No live ticket writes or purchases."
+  },
+  {
     "area": "Selective agent checks",
     "mode": "fixture",
     "scope": "No selected tests by default; explicit select-all/clear, keyboard selection, thumbnail-only execution with no search/sort actions, descending-only sort, scope reset, 768px layout, and saved-agent step skipping. Real library/account prerequisites remain separately required."

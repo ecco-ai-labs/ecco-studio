@@ -33,3 +33,6 @@
 
 #notification-list .notification-item[data-read="false"][data-expired="false"] .notification-title,#notification-list .notification-item[data-read="false"][data-expired="false"] .notification-body{font-weight:700!important}
 #notification-list .notification-item[data-read="true"] .notification-title,#notification-list .notification-item[data-read="true"] .notification-body,#notification-list .notification-item[data-expired="true"] .notification-title,#notification-list .notification-item[data-expired="true"] .notification-body{font-weight:400!important}
+
+#notification-list .notification-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+#notification-list .notification-window-controls{display:flex;align-items:center;gap:10px;flex:none}

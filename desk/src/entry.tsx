@@ -1,4 +1,5 @@
 import React from 'react';
+import '../../popup-close.js';
 import {createRoot} from 'react-dom/client';
 import Desk from './Desk';
 import css from './desk.css';
