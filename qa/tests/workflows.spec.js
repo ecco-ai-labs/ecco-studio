@@ -27,6 +27,8 @@ async function fillStoryDetail(page,name,value){
  else if(['type','genre'].includes(name)){await page.locator('#story-detail-'+name+'-button').click();await page.locator('#story-detail-'+name+'-panel [data-choice-value='+JSON.stringify(value)+']').click();}
  else await page.locator('#story-simple-details [name='+name+']').selectOption(value);
 }
+// Setup only: the applied script is stored in a hidden field (the Story / Script box was removed from the page).
+async function setScript(page,text){await page.locator('#story-simple-script').evaluate((el,value)=>{el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}));},text);}
 async function openLibrary(page,kind,{keepView=false}={}){
   const group=page.locator('#workspace-library-group');
   if(await group.getAttribute('open')===null)await group.locator(':scope > summary').click();
@@ -135,7 +137,7 @@ test('STORY-04 story settings labels and source tabs carry Story Details and syn
   for(const [label,value] of Object.entries({'Story Type':'podcast','Genre / Topic':'Comedy','Audience':'All ages','Language':'English'}))await expect(settings.getByLabel(label,{exact:true})).toHaveValue(value);
   const sources=page.getByRole('tablist',{name:'Story source',exact:true}),pdf=sources.getByRole('tab',{name:'Upload PDF',exact:true}),ai=sources.getByRole('tab',{name:'Generate With AI',exact:true}),write=sources.getByRole('tab',{name:'Write Yourself',exact:true});
   await expect(sources.getByRole('tab')).toHaveText(['Upload PDF','Generate With AI','Write Yourself']);await expect(pdf).toHaveAttribute('aria-selected','true');
-  await expect(page.getByRole('tabpanel',{name:'Upload PDF',exact:true}).getByRole('button',{name:'Upload PDF',exact:true})).toBeVisible();await expect(page.getByRole('dialog',{name:'Select Story Text',exact:true})).toHaveCount(0);await expect(page.getByRole('dialog',{name:'Generate With AI',exact:true})).toBeHidden();
+  const pdfPanel=page.getByRole('tabpanel',{name:'Upload PDF',exact:true});await expect(pdfPanel.getByRole('button',{name:'Upload PDF',exact:true})).toBeVisible();for(const heading of ['Document Preview','Selected Text','Improve with AI'])await expect(pdfPanel.getByText(heading,{exact:true})).toBeVisible();await expect(page.getByText('Story / Script',{exact:true})).toBeHidden();await expect(page.locator('#story-simple-script')).toBeHidden();await expect(page.getByRole('dialog',{name:'Select Story Text',exact:true})).toHaveCount(0);await expect(page.getByRole('dialog',{name:'Generate With AI',exact:true})).toBeHidden();
   await pdf.focus();await page.keyboard.press('ArrowRight');await expect(ai).toBeFocused();await expect(ai).toHaveAttribute('aria-selected','true');
   await expect(page.getByRole('dialog',{name:'Generate With AI',exact:true})).toBeVisible();await expect(page.getByRole('dialog',{name:'Select Story Text',exact:true})).toBeHidden();
   await page.keyboard.press('End');await expect(write).toBeFocused();await expect(page.getByRole('dialog',{name:'Write Yourself',exact:true})).toBeVisible();
@@ -888,7 +890,7 @@ test('AGENT-07 saved agents run only selected steps and tests',async({page})=>{
 test('AUDIO-01 delayed voice preview restores Generate and never enables a duplicate active recording',async({page})=>{
  await boot(page,{sourceFit:'audioPreview'});await page.getByLabel('Story name (required)',{exact:true}).fill('Audio preview regression');
  for(const [name,value] of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
- await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await page.locator('#story-simple-script').fill('Narrator: Welcome to the story.');await page.getByRole('button',{name:'Generate',exact:true}).click();
+ await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await setScript(page,'Narrator: Welcome to the story.');await page.getByRole('button',{name:'Generate',exact:true}).click();
  const generate=page.locator('#generate-audio');await expect(generate).toBeEnabled();await page.locator('.story-simple-advanced > summary').click();await expect(page.locator('#audio-form [name=compute]')).toHaveValue('cpu');
  await page.locator('#audio-form [data-open-controls]').click();await page.getByRole('button',{name:'Listen to selected voice',exact:true}).click();const preview=page.locator('#audio-voice-preview-dialog');await expect(preview.getByLabel('Voice preview playback',{exact:true})).toBeVisible();expect(await generate.isEnabled()).toBe(true);
  await preview.getByRole('button',{name:'Close popup',exact:true}).click();await page.locator('#generation-controls-dialog').getByRole('button',{name:'Close popup',exact:true}).click();await generate.click();await expect(generate).toBeDisabled();await expect(page.locator('#audio-job-status')).toContainText(/running|Generating/);
@@ -1071,12 +1073,12 @@ test('STORY-10 one linked summary identifies every missing detail and clears err
  for(const [name,value]of Object.entries({type:'documentary',genre:'Nature',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
  await expect(summary).toBeHidden();await expect(form.locator('[aria-invalid=true]')).toHaveCount(0);await expect(form.locator('[data-default]:visible')).toHaveCount(0);
  const genreOptions=await form.locator('[name=genre] option').allTextContents();await fillStoryDetail(page,'type','interview');await expect(form.locator('[name=genre]')).toHaveValue('Nature');expect(await form.locator('[name=genre] option').allTextContents()).toEqual(genreOptions);await fillStoryDetail(page,'genre','Comedy');await expect(form.locator('[name=type]')).toHaveValue('interview');
- await next.click();await expect(page.locator('#story-simple-script')).toBeVisible();await page.locator('#workspace-back').click();await expect(page.getByRole('radio',{name:'Image',exact:true})).toBeChecked();expect(await form.locator('[name=output]').evaluateAll(els=>els.map(e=>e.value))).toEqual(['audio','image','video']);
+ await next.click();await expect(page.getByRole('tablist',{name:'Story source',exact:true})).toBeVisible();await expect(page.locator('#story-simple-script')).toBeHidden();await page.locator('#workspace-back').click();await expect(page.getByRole('radio',{name:'Image',exact:true})).toBeChecked();expect(await form.locator('[name=output]').evaluateAll(els=>els.map(e=>e.value))).toEqual(['audio','image','video']);
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='stories'||/generate/.test(c.path)))).toEqual([]);
 });
 test('STORY-11 recurrence moves to Generate and Publish and remains saved after returning to details',async({page})=>{
  await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Publishing preference');for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure'}))await fillStoryDetail(page,name,value);
- await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await page.locator('#story-simple-script').fill('Narrator: A new day begins.');await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();
+ await page.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await setScript(page,'Narrator: A new day begins.');await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();
  const recurrence=page.locator('#story-simple-publishing [name=recurrence]');await expect(recurrence).toHaveValue('');await recurrence.selectOption('recurring');await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeVisible();
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await expect(page.locator('[name=recurrence]')).toHaveCount(0);await page.getByRole('tab',{name:'3. Generate & Publish',exact:true}).click();await expect(recurrence).toHaveValue('recurring');
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>/generate|publish/.test(c.path)))).toEqual([]);

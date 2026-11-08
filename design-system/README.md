@@ -688,4 +688,4 @@ selects Use AI Text. Other drafts stay available as alternatives until Selected 
 is edited. Clear AI Output clears only the chosen draft. Inline workspaces are
 non-modal dialogs marked data-inline-panel, so popup close/minimize controls and
 popup minimizing skip them. Story Import and the Audio journey keep their single AI
-Output. The Story / Script box and Characters below the tabs are unchanged.
+Output. Before a file is chosen, the Upload PDF tab already shows the three boxes with Upload PDF inside Document Preview; afterwards Upload PDF sits under the document name. The old Story / Script box is no longer shown; it remains only as hidden storage for the applied script. Characters below the tabs are unchanged.
