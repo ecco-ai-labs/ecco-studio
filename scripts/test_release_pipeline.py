@@ -8,6 +8,7 @@ from unittest.mock import patch
 import build_release
 import publish_release
 import dev_preview
+import auto_release
 
 SHA='a'*40
 
@@ -58,6 +59,12 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(json.loads((root/'current/release.json').read_text())['sha'],'b'*40)
             dev_preview.assemble(root/'first',root/'current',root/'out-of-order')
             self.assertEqual(json.loads((root/'out-of-order/release.json').read_text())['sha'],'b'*40)
+
+    def test_automatic_release_publishes_only_the_newest_main_build(self):
+        self.assertEqual(auto_release.plan(SHA,'identical','b'*40),'b'*40)
+        self.assertEqual(auto_release.plan(SHA,'identical','none'),'none')
+        self.assertIsNone(auto_release.plan(SHA,'ahead','b'*40))
+        self.assertIsNone(auto_release.plan(SHA,'identical',SHA))
 
 
 if __name__=='__main__': unittest.main()

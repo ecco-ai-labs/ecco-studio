@@ -107,3 +107,19 @@ change does not configure those accounts or activate a domain.
 References: [GitHub custom Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages),
 [Cloudflare Direct Upload](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/),
 [Cloudflare custom domains](https://developers.cloudflare.com/pages/configuration/custom-domains/).
+
+## Automatic production releases (8 November 2026)
+
+For rapid development, the owner removed the manual release gate. Every push to
+`main` whose **Release checks** run succeeds is published to
+`https://eccoailabs.com/` by `.github/workflows/auto-production.yml`, which runs
+`scripts/auto_release.py`. It reuses `publish_release.py`, so only the exact
+tested artifact from that run is uploaded, with the same provenance and hash
+checks, and a GitHub release receipt is recorded. Only the newest commit on
+`main` is published; an older run that finishes late is skipped.
+
+To pause automatic releases, set the repository variable `ECCO_AUTO_PRODUCTION`
+to `false`. If the GitHub `production` environment requires reviewers, GitHub
+still waits for that approval; remove the rule in repository settings to make
+releases fully automatic. Ecco Desk **Releases** remains available for
+rollbacks.
