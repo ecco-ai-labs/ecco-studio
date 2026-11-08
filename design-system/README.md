@@ -539,3 +539,7 @@ Campaigns also have Show Upcoming (days before), default 7; 14 means two weeks a
 
 Save Draft makes Resume Saved Selection available immediately. Resume reads the latest
 saved selection and cannot restore a previous story’s source after navigation.
+
+## Selective agent checks
+
+Tester Agent and saved agents open with no tests selected. Choose an action/workflow, expand the relevant group and tick individual checks, or explicitly Select all tests. Run selected tests stays disabled until a test is chosen. Scope changes clear the selection. Execution skips unchecked tests and empty workflow steps, and reports retain the selected IDs and available count. Required navigation can still report blocked prerequisites. Ticket selection remains separate.

@@ -2314,18 +2314,30 @@
         "sources": [
           "desk/src/Agents.tsx",
           "desk/src/tester-runner.ts",
-          "desk/src/tester-model.ts"
+          "desk/src/tester-model.ts",
+          "desk/src/tester-catalog.ts",
+          "desk/src/TestSelection.tsx"
         ],
         "parent": "Standalone signed-in Desk workspace"
       },
       "appearance": "Existing Desk navy, green, white panels, 12px controls, 11px labels, 5px control radius. Bot icon 18px in nav, 28px pool card. Severity uses existing error red, warning brown and informational blue. Native form controls and checkbox.",
       "layout": "Pool card, compact action form, summary counts, severity and assignment toolbar, compact expandable issue rows on one page. 22px panel inset (16px narrow), flex-wrap toolbars. Desktop run preview 360x225px, narrow 216x135px, fixed bottom right, inert and noninteractive.",
-      "content": "Check UX consistency, Perform a workflow, Run available workflow sweep; six workflow choices; Run checks, Stop, Import CI report, Download report, Select critical, Select visible, Clear selection, assignment, individual/bulk separate tickets, history.",
+      "content": "Check UX consistency, Perform a workflow, Run available workflow sweep; six workflow choices; Choose tests to run, Run selected tests, Stop, Import CI report, Download report, Select critical, Select visible, Clear selection, assignment, individual/bulk separate tickets, history.",
       "states": "Pool/selected agent, idle/running/stopped/complete, passed/failed/blocked, no findings/filtered empty, selected/ticketed/receipt pending, network error and local storage full. Blocked checks never become passing claims. Customer Agent navigation, titles and controls survive polling and workspace refresh. Studio iframe sessionStorage events do not reset the separate Desk identity; cross-tab Desk localStorage account changes still reset it.",
       "interaction": "Real same-origin Studio read-only navigation in an iframe. Check five libraries, list/icons/search/sort/media loading and widths. Twenty items per library/view cap explicitly records untested remainder. No new story, generation, delete, purchase or publish. Stop aborts and removes frame. Live history is browser-local per Desk identity; latest ten runs. Automatic CI reports imported using strict JSON shape and size bounds; never execute uploaded content.",
       "accessibility": "Native labels/selects/checkboxes/details, visible focus, role=status progress and receipt status, role=alert errors; decorative preview inert/aria-hidden. Keep selection and evidence on screen when creating tickets.",
       "authorization": "Agents is visible and runnable to every signed-in standalone Desk account, including Customer and notification-only group members. Staff creates internal Bug tickets with assignment; other accounts create only their own support Bug tickets under unchanged server permissions and cannot see members or other users’ tickets. Embedded Studio customer support does not expose Agents. Ticket links retain their internal/support type. Severity critical/high/medium/low maps to urgent/high/normal/low. Web Locks serializes batches per identity; explicit finding markers reconcile receipts. An uncertain POST is persisted before sending and never automatically retried until a matching existing ticket is found. Navigation/account change aborts future actions.",
-      "limitations": "Browser checks are deterministic and report observed DOM/rendering facts. CI uses isolated synthetic service data with screenshot evidence; optional AI review requires separate secret/model. No exhaustive coverage claim. Live mutation workflows remain blocked until isolated environments exist."
+      "limitations": "Browser checks are deterministic and report observed DOM/rendering facts. CI uses isolated synthetic service data with screenshot evidence; optional AI review requires separate secret/model. No exhaustive coverage claim. Live mutation workflows remain blocked until isolated environments exist.",
+      "testSelection": {
+        "approval": "User requests choosing individual tests before an agent runs, instead of all tests selected by default.",
+        "defaults": "Zero selected tests on opening an agent or changing its action/workflow. Run selected tests (0) is disabled. No automatic run.",
+        "controls": "Grouped native checkboxes, accessible individual test names, Select all tests, Clear all tests, Select group, Clear group and selected count. Single workflow exposes its checklist directly; multiple groups use native disclosures.",
+        "scope": "Each library offers navigation, hidden story tabs, view defaults, columns, search, ascending/descending sorting and each preview size; UX/sweep adds each viewport width. Story entry and Workspace Drive have separate checks. Saved agent groups retain original step numbers; empty steps do not execute.",
+        "execution": "Selection is validated and passed into the runner. Unchecked actions are not executed and reports are never merely filtered after a full run. Required navigation and missing prerequisites remain visible as blocked. Empty/invalid selections cannot navigate. Explicit selections exclude unrelated unimplemented generation checks.",
+        "results": "Persist selected test IDs and available count with every run. Same-screen results and downloaded report disclose that unselected tests were not run. Existing finding selection and ticket receipts remain independent.",
+        "appearance": "Existing 12px Desk controls, 16px native checkboxes, navy accent, 16px panel inset and 8px radius; 3/2/1-column checklist at desktop/tablet/mobile. The agent grid track can shrink so run history does not force tablet overflow. Disabled during run or ticket writes; keyboard Space toggles checkboxes.",
+        "validation": "Browser checks assert thumbnail-only run has no search/sort interactions, standalone descending sort works, empty selection is disabled, scope changes clear selection, and saved agents skip unselected steps. Existing all-test coverage explicitly selects all."
+      }
     },
     "agentBuilder": {
       "approval": "User requested Create New Agents at the top for administrators to create additional agentic workflows; rename My support tickets to Support and User Notifications to Notifications.",

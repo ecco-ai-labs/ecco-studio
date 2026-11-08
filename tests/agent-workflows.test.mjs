@@ -16,3 +16,11 @@ assert.deepEqual(calls,['video']);assert.equal(stopped.status,'cancelled');asser
 calls=[];const before=new AbortController();before.abort();assert.equal((await runAgentWorkflow({},definition,before.signal,()=>{},execute)).status,'cancelled');assert.deepEqual(calls,[]);
 const blocked=await runAgentWorkflow({},definition,new AbortController().signal,()=>{},async()=>{throw Error('Unavailable');});assert.equal(blocked.checks[0].status,'blocked');assert.equal(blocked.findings.length,0);
 console.log('Agent workflow: ordered execution, combined unique findings, cancellation and explicit blocking passed.');
+
+let selectedCalls=[];
+const scoped=async(_frame,_mode,workflow,_signal,update,ids)=>{selectedCalls.push({workflow,ids});const result={checks:[],findings:[],status:'completed'};update(result,'Done');return result;};
+const subset=await runAgentWorkflow({},definition,new AbortController().signal,()=>{},scoped,['step-2/story-choices']);
+assert.deepEqual(selectedCalls,[{workflow:'story',ids:['story-choices']}]);assert.deepEqual(subset.selection.ids,['step-2/story-choices']);
+selectedCalls=[];await runAgentWorkflow({},definition,new AbortController().signal,()=>{},scoped,[]);assert.deepEqual(selectedCalls,[]);
+await runAgentWorkflow({},definition,new AbortController().signal,()=>{},scoped,['step-99/video-small']);assert.deepEqual(selectedCalls,[]);
+console.log('Selected workflows: unselected steps never execute; empty and invalid selections never run.');

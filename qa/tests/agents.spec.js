@@ -20,9 +20,10 @@ test('AGENT-01 50 findings and 25 critical issues create 25 separate tickets',as
 test('AGENT-02 run Video workflow, detect injected search regression and decoded thumbnails',async({page})=>{
  test.setTimeout(90000);await open(page);
  await page.getByLabel('Action',{exact:true}).selectOption('workflow');await page.getByLabel('Workflow',{exact:true}).selectOption('video');
- await page.getByRole('button',{name:'Run checks',exact:true}).click();
+ await page.getByRole('button',{name:'Select all tests',exact:true}).click();
+  await page.getByRole('button',{name:/^Run selected tests/}).click();
  await expect(page.getByRole('button',{name:'Stop',exact:true})).toBeVisible();
- await expect(page.getByRole('button',{name:'Run checks',exact:true})).toBeEnabled({timeout:75000});
+ await expect(page.getByRole('button',{name:/^Run selected tests/})).toBeEnabled({timeout:75000});
  const report=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-tester-runs:v1:qa-desk-user')||'[]')[0]);
  expect(report.checks.some(c=>c.id==='video-small-thumb-0'&&c.status==='passed')).toBe(true);
  expect(report.checks.some(c=>c.id==='video-large-thumb-0'&&c.status==='passed')).toBe(true);

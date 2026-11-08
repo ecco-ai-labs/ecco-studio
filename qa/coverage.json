@@ -113,5 +113,10 @@
     "area": "Delayed audio voice preview readiness",
     "mode": "fixture",
     "scope": "Real Audio Studio controls and a synthetic delayed worker response: preview completion immediately restores Generate; an active recording keeps Generate disabled; the identical audition is cached. No live synthesis occurs."
+  },
+  {
+    "area": "Selective agent checks",
+    "mode": "fixture",
+    "scope": "No selected tests by default; explicit select-all/clear, keyboard selection, thumbnail-only execution with no search/sort actions, descending-only sort, scope reset, 768px layout, and saved-agent step skipping. Real library/account prerequisites remain separately required."
   }
 ]
