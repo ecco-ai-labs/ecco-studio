@@ -59,6 +59,7 @@
   for(const it of out){it.labels=byItem.get(it.id)||[];it.kind=kind;}
   return out;
  }
+ const hook=(kind,it)=>kind==='story'?(it.local?' data-local-story-id="'+esc(it.id)+'"':' data-story-id="'+esc(it.id)+'"'):kind==='workflow'?' data-workflow-id="'+esc(it.id)+'"':' data-asset-id="'+esc(it.id)+'"';
  function visible(kind){
   const s=ui[kind],all=items(kind),list=folders(kind);
   let out=all;
@@ -108,7 +109,7 @@
  }
  function primary(kind,item){
   if(kind==='image')return lightbox(item);
-  if(kind==='story'){if(item.local){storySetupPage(item.id);return;}return window.EccoWorkspaceUI.openStory(item.id);}
+  if(kind==='story'){if(item.local){document.body.classList.remove('workspace-entry-mode');window.EccoWorkspaceUI.openLocalStory(item.id);return;}return window.EccoWorkspaceUI.openStory(item.id);}
   if(kind==='workflow')return window.EccoWorkflows.show(item.id);
   if(kind==='video'){
    const v=item.asset;persistDraft();activeStory=v.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();lastSignature='';storyControls();navigate('publish');
@@ -175,11 +176,11 @@
    const searching=Boolean(s.q.trim()||s.type!=='all'||filters.length);
    box.innerHTML='<div class="lh-empty"><p>'+(searching?'Nothing matches your search and filters.':'Nothing here yet.')+'</p>'+(searching?'<button type="button" class="secondary" data-act="reset">Reset search and filters</button>':'')+'</div>';
   }else if(s.view==='grid'){
-   box.innerHTML='<div class="lh-grid">'+out.map(it=>'<button type="button" class="lh-card" data-act="pick" data-pick="'+esc(it.id)+'" aria-pressed="'+(s.sel===it.id)+'"><span class="lh-thumb" style="background:'+hue(it.id)+'">'+thumb(kind,it,40)+'</span>'+(s.sel===it.id?'<span class="lh-tick" aria-hidden="true">✓</span>':'')+'<span class="lh-card-text"><span class="lh-name">'+esc(it.name)+'</span><span class="lh-sub">'+esc(it.type+(it.created?' · '+stamp(it.created).split(', ').slice(0,2).join(', '):''))+'</span><span class="lh-lab">'+esc(labelText(it,list))+'</span></span></button>').join('')
+   box.innerHTML='<div class="lh-grid">'+out.map(it=>'<button type="button" class="lh-card" data-act="pick"'+hook(kind,it)+' data-pick="'+esc(it.id)+'" aria-pressed="'+(s.sel===it.id)+'"><span class="lh-thumb" style="background:'+hue(it.id)+'">'+thumb(kind,it,40)+'</span>'+(s.sel===it.id?'<span class="lh-tick" aria-hidden="true">✓</span>':'')+'<span class="lh-card-text"><span class="lh-name">'+esc(it.name)+'</span><span class="lh-sub">'+esc(it.type+(it.created?' · '+stamp(it.created).split(', ').slice(0,2).join(', '):''))+'</span><span class="lh-lab">'+esc(labelText(it,list))+'</span></span></button>').join('')
     +'<button type="button" class="lh-add" data-act="add-card"><span>'+esc(K.add)+'</span><small>'+(kind==='story'?'Import a story you already wrote':K.asset?'Browse for files':'Start a new one')+'</small></button></div>';
   }else{
    box.innerHTML='<div class="lh-list" role="table" aria-label="'+esc(K.title)+'"><div class="lh-row lh-headrow" role="row"><span role="columnheader">Name</span><span role="columnheader">Labels</span><span role="columnheader">Type</span><span role="columnheader">Created</span></div>'
-    +out.map(it=>'<button type="button" class="lh-row" role="row" data-act="pick" data-pick="'+esc(it.id)+'" aria-pressed="'+(s.sel===it.id)+'"><span class="lh-rowname"><span class="lh-mini" style="background:'+hue(it.id)+'">'+thumb(kind,it,16)+'</span><span class="lh-name">'+esc(it.name)+'</span></span><span class="lh-lab">'+esc(labelText(it,list))+'</span><span>'+esc(it.type)+'</span><span>'+esc(stamp(it.created))+'</span></button>').join('')+'</div>';
+    +out.map(it=>'<button type="button" class="lh-row" role="row" data-act="pick"'+hook(kind,it)+' data-pick="'+esc(it.id)+'" aria-pressed="'+(s.sel===it.id)+'"><span class="lh-rowname"><span class="lh-mini" style="background:'+hue(it.id)+'">'+thumb(kind,it,16)+'</span><span class="lh-name">'+esc(it.name)+'</span></span><span class="lh-lab">'+esc(labelText(it,list))+'</span><span>'+esc(it.type)+'</span><span>'+esc(stamp(it.created))+'</span></button>').join('')+'</div>';
   }
   details(kind,list);
   if(K.asset)hydrate();
@@ -317,7 +318,7 @@
   shell(kind);results();renderNav();
  }
  const previousNavigate=navigate;
- navigate=function(target,...args){if(PAGE_KIND[target])return open(PAGE_KIND[target]);return previousNavigate.call(this,target,...args);};
+ navigate=function(target,...args){if(PAGE_KIND[target]&&target!=='story-library')return open(PAGE_KIND[target]);return previousNavigate.call(this,target,...args);};
  if(window.EccoWorkspaceUI)window.EccoWorkspaceUI.openLibrary=kind=>open(kind);
  let lastSignature='';
  function sync(){
