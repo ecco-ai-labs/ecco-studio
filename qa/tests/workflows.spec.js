@@ -1037,12 +1037,15 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TY
  expect(await option.evaluate(e=>getComputedStyle(e).fontSize)).toEqual(await option.locator('.story-choice-name').evaluate(e=>getComputedStyle(e).fontSize));
  await expect(option).toHaveCSS('outline-style','solid');expect(await panel.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
  await option.press('Escape');await expect(trigger).toBeFocused();await expect(panel).toBeHidden();
- await page.locator('#google-user-menu>summary').click();await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
+ await page.locator('#google-user-menu>summary').click();await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();
+ if(viewport.width<700)expect(await page.locator('#workspace-usage-drawer').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
+ await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
  const shop=page.locator('dialog[open].credits-dialog');await expect(shop).toBeVisible();await font('.credits-pack h3',14);await popupControls(shop);expect(await shop.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);await shop.getByRole('button',{name:'Close popup',exact:true}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-typography-'+viewport.width+'.png'),fullPage:true});
 });
 for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TYPE-02 compact Desk shadow-root typography at ${viewport.width}px`,async({page},info)=>{
  await page.setViewportSize(viewport);await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());await page.goto('/desk/index.html?__qa=1');
+ if(viewport.width<=650)await page.getByRole('button',{name:'Open navigation',exact:true}).click();
  await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('button',{name:'New Notification',exact:true}).click();
  const title=page.getByLabel('Title',{exact:true});await expect(title).toHaveCSS('font-size','9.33333px');expect(await title.evaluate(e=>Boolean(e.getRootNode().host))).toBe(true);await title.fill('Compact typography check');await title.press('Tab');await expect(page.getByLabel('Message',{exact:true})).toBeFocused();
  expect(await page.locator('.notification-composer').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-desk-'+viewport.width+'.png'),fullPage:true});

@@ -157,6 +157,6 @@
   {
     "area": "Compact typography",
     "mode": "fixture",
-    "scope": "2pt (2.6667px) reduction across authored Studio and Desk fonts, dynamic menus/popups and inherited child text; 40px Story Details controls, 44px Next and compact equal cards. Exact computed styles, panel bounds, keyboard focus, no horizontal overflow at 1440x1000 and 390x844. Google-hosted iframe and PDF document text are outside application typography."
+    "scope": "2pt (2.6667px) reduction across authored Studio and Desk fonts, dynamic menus/popups and inherited child text; 40px Story Details controls, 44px Next and compact equal cards. Exact computed styles, panel bounds, keyboard focus, no horizontal overflow at 1440x1000 and 390x844. Google-hosted iframe and PDF document text are outside application typography. Credit and Usage remains on-screen and opens the shop on mobile; Desk navigation uses its Open navigation button before selecting a destination."
   }
 ]
