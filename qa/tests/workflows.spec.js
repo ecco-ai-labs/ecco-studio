@@ -181,8 +181,9 @@ for(const theme of ['default','dark','forest','desert','ocean','dark-sky']){
     await expect(back).toBeFocused();await expect(back).toHaveCSS('color',accents[theme]);
     await expect(back).toHaveCSS('outline-color',accents[theme]);
     await page.locator('#workspace-trash').click();
-    await expect(page.locator('#back-images')).toHaveCSS('color',accents[theme]);
-    await expect(page.locator('#back-images')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+    await expect(page.locator('#trash-items')).toBeVisible();
+    await expect(back).toHaveCSS('color',accents[theme]);
+    await expect(back).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
   });
 }
 for(const width of [1440,1024,768]){
