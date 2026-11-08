@@ -1024,3 +1024,22 @@ test('STORY-14 Other descriptions are required and Default badges stay removed a
  await form.locator('[name=audience]').selectOption('Families');await form.locator('[name=audience]').selectOption('All ages');await form.locator('[name=language]').selectOption('Hindi');await form.locator('[name=language]').selectOption('English');await expect(form.locator('[data-default]:visible')).toHaveCount(0);
  await fillStoryDetail(page,'type','podcast');await expect(type).toBeHidden();await fillStoryDetail(page,'type','custom');await expect(type).toHaveValue('A guided tour');await form.getByRole('button',{name:'Next: Story and characters',exact:true}).click();await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await expect(type).toHaveValue('A guided tour');await expect(genre).toHaveValue('Architecture');await expect(form.locator('[data-default]:visible')).toHaveCount(0);await expect(form.locator('[name=type]')).toHaveValue('custom');await expect(form.locator('[name=genre]')).toHaveValue('Other');
 });
+test('LIB-image-label-scope a parent label also lists images in its nested labels',async({page})=>{
+  await boot(page);
+  await page.evaluate(async()=>{
+    state.records.push(
+      {id:'qa-f-people',kind:'image_folder',name:'People',created:1700005000},
+      {id:'qa-f-kids',kind:'image_folder',name:'People / Kids',created:1700005001},
+      {id:'qa-l-0',kind:'library_item',asset_id:'qa-image-0',folder_id:'qa-f-people',created:1700005000},
+      {id:'qa-l-1',kind:'library_item',asset_id:'qa-image-1',folder_id:'qa-f-kids',created:1700005001});
+    await refresh();storyControls();
+  });
+  const gallery=await openLibrary(page,'image');
+  await page.locator('#image-library-nav .tree-folder',{hasText:/^People$/}).click();
+  await expect(gallery.locator('.card')).toHaveCount(2);
+  await page.getByRole('button',{name:'Expand People'}).click();
+  await page.locator('#image-library-nav .tree-folder',{hasText:/^Kids$/}).click();
+  await expect(gallery.locator('.card')).toHaveCount(1);
+  await expect(gallery.locator('.card .library-file-open').first()).toHaveAttribute('aria-label','Open Zebra image sample');
+  expect(page.qaErrors).toEqual([]);
+});

@@ -3,7 +3,9 @@
 const styles={default:'As described in prompt',cartoon:'Cartoon',animation:'3D animation',origami:'Origami',clay:'Clay / claymation',human:'Human / realistic portrait',photo:'Photographic',anime:'Anime',watercolor:'Watercolor',oil:'Oil painting',pixel:'Pixel art'};
 let selectedFolder='all',librarySignature='';
 const folders=()=>state.records.filter(r=>r.kind==='image_folder'&&!r.deleted).sort((a,b)=>a.name.localeCompare(b.name));
-const savedImages=()=>{const ids=new Set(state.records.filter(r=>r.kind==='library_item'&&(selectedFolder==='all'||r.folder_id===selectedFolder)).map(r=>r.asset_id));return state.records.filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted&&(selectedFolder==='all'||ids.has(a.id))).sort((a,b)=>b.created-a.created);};
+// A parent label ("People") also covers its nested labels ("People / Old man").
+const folderScope=()=>{if(selectedFolder==='all')return null;const root=folders().find(f=>f.id===selectedFolder),ids=new Set([selectedFolder]);if(root)for(const f of folders())if(f.name.startsWith(root.name+' / '))ids.add(f.id);return ids;};
+const savedImages=()=>{const scope=folderScope();const ids=new Set(state.records.filter(r=>r.kind==='library_item'&&!r.deleted&&(!scope||scope.has(r.folder_id))).map(r=>r.asset_id));return state.records.filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted&&(selectedFolder==='all'||ids.has(a.id))).sort((a,b)=>b.created-a.created);};
 const icon=(name)=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+({download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',trash:'<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>'}[name])+'</svg>';
 function folderOptions(){return folders().map(f=>'<option value="'+f.id+'">'+esc(f.name)+'</option>').join('');}
 function sidebar(){let box=$('#image-library-nav');if(!box){box=document.createElement('section');box.id='image-library-nav';box.setAttribute('aria-label','Image library');$('.project').before(box);}
