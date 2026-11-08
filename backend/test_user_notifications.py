@@ -159,6 +159,39 @@ class NotificationTest(unittest.TestCase):
         self.assertEqual(result['notifications'][0]['expiresAt'], (instant+dt.timedelta(days=9)).isoformat(timespec='microseconds'))
         self.assertEqual(result['readNotifications'][0]['id'], original)
 
+    def test_independent_placement_windows_shared_reads_and_targeting(self):
+        self.prepare()
+        bell=self.publish(placements=['bell'])
+        billing=[self.publish(placements=['billing'],badge='Dhamaka') for _ in range(6)]
+        both=self.publish(placements=['bell','billing'],audience='user',recipientId='google:alice')
+        def data(who='alice'):return self.call(who,path='/api/desk/support?userNotifications=1')[1]
+        result=data();self.assertEqual(result['notificationPresentationVersion'],1)
+        self.assertEqual([n['id'] for n in result['notifications']],[both,bell])
+        self.assertEqual(len(result['billingNotifications']),5)
+        self.assertNotIn(billing[0],[n['id'] for n in result['billingNotifications']])
+        self.assertEqual(result['billingNotifications'][1]['badge'],'Dhamaka')
+        self.assertNotIn(both,[n['id'] for n in data('bob')['billingNotifications']])
+        self.call('alice',dict(op='readNotification',id=both),path='/api/desk/support')
+        self.assertNotIn(both,[n['id'] for n in data()['billingNotifications']])
+        self.assertEqual([n['id'] for n in data()['readNotifications']],[both])
+        self.call('alice',dict(op='readNotification',id=billing[-1]),path='/api/desk/support')
+        self.assertEqual([n['id'] for n in data()['readNotifications']],[both])
+        self.assertEqual(len(data()['billingNotifications']),3)
+
+    def test_presentation_validation_idempotency_and_legacy_defaults(self):
+        self.prepare()
+        for fields in [dict(placements=[]),dict(placements=['email']),dict(placements=['bell','bell']),dict(placements='billing'),dict(badge=''),dict(badge='x'*21),dict(badge='bad\nicon')]:
+            p=self.payload();p.update(fields);self.assertEqual(self.call(body=p)[0],400,fields)
+        p=self.payload(placements=['billing','bell'],badge='Dhamaka')
+        self.assertEqual(self.call(body=p)[0],200);p['placements'].reverse();self.assertEqual(self.call(body=p)[0],200)
+        p['badge']='NEW';self.assertEqual(self.call(body=p)[0],409)
+        ordinary=self.publish();offer=self.publish(kind='special_offer',severity='informational',offer=dict(credits=100,bonusCredits=50,cents=1000))
+        with desk.connect(self.database) as db:db.execute('UPDATE desk_notifications SET placements=NULL,badge=NULL WHERE id IN (?,?)',(ordinary,offer))
+        desk.initialize(self.database,start_notifications=False)
+        result=self.call('alice',path='/api/desk/support?userNotifications=1')[1]
+        self.assertIn(ordinary,[n['id'] for n in result['notifications']]);self.assertNotIn(ordinary,[n['id'] for n in result['billingNotifications']])
+        self.assertEqual(result['billingNotifications'][0]['id'],offer);self.assertEqual(result['billingNotifications'][0]['badge'],'NEW')
+
 
 if __name__ == '__main__':
     unittest.main()

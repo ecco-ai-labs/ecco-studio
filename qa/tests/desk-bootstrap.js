@@ -10,7 +10,7 @@
 
  window.__deskPosts=[];
  const notices=[];
- const notificationData=()=>({notificationVersion:1,specialOfferVersion:1,notifications:notices,users:[]});
+ const notificationData=()=>({notificationVersion:1,notificationPresentationVersion:1,specialOfferVersion:1,notifications:notices,users:[]});
  const original=window.fetch.bind(window);
  window.fetch=async(input,options={})=>{
   const url=new URL(typeof input==='string'?input:input.url,location.href);
@@ -18,14 +18,14 @@
   if(url.pathname==='/api/desk'){
    if(options.method==='POST'){
     const p=JSON.parse(options.body||'{}');window.__deskPosts.push(p);
-    if(p.op==='previewCampaign')return new Response(JSON.stringify({campaignVersion:1,nextRunAt:'2026-11-30T17:00:00.000000+00:00'}));
+    if(p.op==='previewCampaign')return new Response(JSON.stringify({campaignVersion:1,notificationPresentationVersion:1,nextRunAt:'2026-11-30T17:00:00.000000+00:00'}));
     if(['createCampaign','updateCampaign','setCampaignActive'].includes(p.op)){
      if(role!=='admin')return new Response(JSON.stringify({error:'Admin required'}),{status:403});
      let c=fixtureCampaigns.find(x=>x.id===p.id);
      if(p.op==='createCampaign'){c={...p,version:1,enabled:true,nextRunAt:'2026-11-30T17:00:00.000000+00:00',lastStatus:null,lastRunAt:null,runCount:0};fixtureCampaigns.push(c)}
      else if(!c||c.version!==p.version)return new Response(JSON.stringify({error:'Campaign changed'}),{status:409});
      else Object.assign(c,p,{version:c.version+1});
-     localStorage.setItem('ecco-desk-qa-campaigns',JSON.stringify(fixtureCampaigns));return new Response(JSON.stringify({campaignVersion:1,campaign:c}));
+     localStorage.setItem('ecco-desk-qa-campaigns',JSON.stringify(fixtureCampaigns));return new Response(JSON.stringify({campaignVersion:1,notificationPresentationVersion:1,campaign:c}));
     }
     if(p.op==='createAgent'){if(!me.canManageAgents)return new Response(JSON.stringify({error:'Admin required'}),{status:403});const existing=data.agents.find(a=>a.id===p.id);const agent=existing||{id:p.id,name:p.name,description:p.description,steps:p.steps};if(!existing)data.agents.push(agent);localStorage.setItem('ecco-desk-qa-agents',JSON.stringify(data.agents));return new Response(JSON.stringify({agentWorkflowVersion:1,agent}));}
     if(p.op==='createNotification'&&!customer){notices.unshift({...p,id:p.requestId,createdAt:new Date().toISOString(),expiresAt:p.durationDays?new Date(Date.now()+p.durationDays*86400000).toISOString():null,status:'active',readCount:0});return new Response(JSON.stringify({...notificationData(),id:p.requestId}));}
@@ -33,7 +33,7 @@
     const ticket={...p,id:data.tickets.length+1,status:'open',reporterId:me.userId,reporterName:me.name,reporterEmail:me.email,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),version:1};data.tickets.push(ticket);return new Response(JSON.stringify({ticket}));
    }
    if(url.searchParams.has('manageNotifications'))return new Response(JSON.stringify({...notificationData(),campaignVersion:1}));
-   if(url.searchParams.has('campaigns'))return new Response(JSON.stringify({campaignVersion:1,campaigns:fixtureCampaigns}));
+   if(url.searchParams.has('campaigns'))return new Response(JSON.stringify({campaignVersion:1,notificationPresentationVersion:1,campaigns:fixtureCampaigns}));
    const id=url.searchParams.get('ticket');return new Response(JSON.stringify(id?{ticket:data.tickets.find(t=>t.id===Number(id)),comments:[],events:[]}:data));
   }
   return new Response(JSON.stringify({error:'External services disabled in QA'}),{status:503});

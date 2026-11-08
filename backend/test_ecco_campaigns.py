@@ -78,4 +78,9 @@ class CampaignTest(unittest.TestCase):
    c=r['campaign'];campaigns.process_due(self.database,self.due(c));self.assertTrue(access.call_args.kwargs['fresh'])
   with desk.connect(self.database) as db:
    self.assertEqual(db.execute('SELECT recipientId FROM desk_notifications').fetchone()[0],'google:alice');self.assertIsNone(db.execute("SELECT 1 FROM desk_members WHERE userId='google:alice'").fetchone())
+ def test_presentation_survives_schedule_dispatch_and_edit(self):
+  p,c=self.create_campaign(placements=['billing'],badge='Dhamaka');self.tick(c)
+  with desk.connect(self.database) as db:
+   n=desk.notification_public(db.execute('SELECT * FROM desk_notifications').fetchone());self.assertEqual(n['kind'],'marketing_campaign');self.assertEqual(n['placements'],['billing']);self.assertEqual(n['badge'],'Dhamaka')
+  status,r=self.call(body={**p,'op':'updateCampaign','version':1,'placements':['bell'],'badge':'NEW'});self.assertEqual(status,200,r);self.assertEqual(r['campaign']['placements'],['bell']);self.assertEqual(r['campaign']['badge'],'NEW')
 if __name__=='__main__':unittest.main()

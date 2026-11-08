@@ -96,3 +96,14 @@ tbody tr.has-support-reply{background:#fff9e4}tbody tr.has-support-reply:hover{b
 .notification-history tr[data-status=read] summary,.notification-history tr[data-status=expired] summary,.notification-history tr[data-status=withdrawn] summary{font-weight:400}
 .notification-history summary{font-size:12px}.notification-history details p{font-size:11px}
 @media(max-width:650px){.notification-tabs{padding:0 4px}.notification-tabs [role=tab]{flex:1;padding:12px 8px}.notification-actions{flex-wrap:wrap}}
+
+/* Shared notification placement and promotional badge controls. */
+.notification-composer .notice-presentation{border:1px solid var(--line);padding:14px;margin:0 0 18px;border-radius:8px}
+.notice-presentation legend{font-size:12px;font-weight:600;padding:0 5px;color:var(--navy)}
+.notice-locations{display:flex;flex-wrap:wrap;gap:16px}
+.notification-composer .notice-locations label{display:flex;align-items:flex-start;gap:8px;margin:0;cursor:pointer}
+.notification-composer .notice-locations input{width:16px;height:16px;margin:1px 0 0;accent-color:var(--navy)}
+.notice-locations small{display:block;color:var(--muted);font-size:10px;margin-top:4px}
+.notice-badge-controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:18px}
+.notification-composer .notice-badge-controls label{margin:0;min-width:150px}
+.notice-badge{display:inline-flex;align-items:center;justify-content:center;max-width:100%;overflow-wrap:anywhere;border-radius:5px;padding:6px 10px;background:var(--yellow);color:var(--navy);font-size:11px;font-weight:700;line-height:1.4;letter-spacing:.5px}
