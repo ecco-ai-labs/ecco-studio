@@ -1038,7 +1038,8 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TY
  await expect(option).toHaveCSS('outline-style','solid');expect(await panel.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
  await option.press('Escape');await expect(trigger).toBeFocused();await expect(panel).toBeHidden();
  await page.locator('#google-user-menu>summary').click();await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();
- if(viewport.width<700)expect(await page.locator('#workspace-usage-drawer').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
+ if(viewport.width<700)for(const selector of ['#google-user-menu>.workspace-menu-items','#workspace-usage-drawer'])await expect.poll(()=>page.locator(selector).evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
+ await page.screenshot({path:info.outputPath('compact-account-'+viewport.width+'.png')});
  await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
  const shop=page.locator('dialog[open].credits-dialog');await expect(shop).toBeVisible();await font('.credits-pack h3',14);await popupControls(shop);expect(await shop.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);await shop.getByRole('button',{name:'Close popup',exact:true}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-typography-'+viewport.width+'.png'),fullPage:true});
