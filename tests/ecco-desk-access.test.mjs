@@ -12,7 +12,7 @@ const popup={opener:'fixture',location:{href:''},close(){}};window.open=()=>popu
 globalThis.fetch=async(url,options)=>{
  if(String(url).endsWith('/notification-group/connect')){groupStarts++;assert.equal(options.headers.Authorization,'Bearer synthetic-workspace-key');assert.equal(options.body,'{}');return new Response(JSON.stringify({url:'https://accounts.google.com/o/oauth2/auth?fixture=1'}));}
  if(options.method==='POST'){const p=JSON.parse(options.body);posts.push(p);assert.equal(p.type,'support');assert.equal(p.assigneeId,null);const ticket={...p,id:1,status:'open',reporterId:me.userId};data.tickets.push(ticket);return new Response(JSON.stringify({ticket}));}
- if(String(url).includes('manageNotifications')){managementReads++;assert(me.canManageNotifications);return new Response(JSON.stringify({notificationVersion:1,specialOfferVersion:1,notifications:[],users:[]}));}
+ if(String(url).includes('manageNotifications')){managementReads++;assert(me.canManageNotifications);return new Response(JSON.stringify({notificationVersion:1,notificationPresentationVersion:1,specialOfferVersion:1,notifications:[],users:[]}));}
  return new Response(JSON.stringify(data));
 };
 const {mount}=await import('../desk/desk-app.mjs'),host=document.querySelector('#host'),cleanup=mount(host),tick=()=>new Promise(r=>setTimeout(r,45));await tick();await tick();

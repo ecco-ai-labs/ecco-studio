@@ -4,16 +4,16 @@ const notice=(id,extra={})=>({id,title:'Notice '+id,body:'<img src=x onerror=ale
 function setup(){
  const d=new JSDOM('<div id="workspace-community-controls"></div><button id="outside">Outside</button>',{url:'https://ecco-ai-labs.github.io/ecco-studio/',runScripts:'outside-only',pretendToBeVisual:true}),w=d.window;
  w.EccoAuth={user:{id:'alice'}};w.sessionStorage.setItem('ecco-user-session','alice-session');w.AbortSignal=AbortSignal;
- let interval;w.setInterval=fn=>{interval=fn;return 0};const state={alice:[notice('one'),notice('two',{severity:'error'})],bob:[notice('private')]};const history={alice:[],bob:[]};const calls=[];let failure=false,held=null;
+ let interval;w.setInterval=fn=>{interval=fn;return 0};const state={alice:[notice('one'),notice('two',{severity:'error'})],bob:[notice('private')]};const history={alice:[],bob:[]};const billing={alice:[],bob:[]};const calls=[];let failure=false,held=null;
  w.fetch=async(url,opts)=>{
   const who=opts.headers.Authorization.replace('Bearer ','').replace('-session','');calls.push({url:String(url),...opts,who});
   if(held)return held;
   if(failure)return {ok:false,status:503,json:async()=>({error:'Unavailable'})};
-  if(opts.method==='POST'){const {id,op}=JSON.parse(opts.body);assert.equal(op,'readNotification');const n=state[who].find(n=>n.id===id);if(n)history[who]=[{...n,readAt:new Date().toISOString()},...history[who]].slice(0,3);state[who]=state[who].filter(n=>n.id!==id)}
+  if(opts.method==='POST'){const {id,op}=JSON.parse(opts.body);assert.equal(op,'readNotification');const n=state[who].find(n=>n.id===id);if(n)history[who]=[{...n,readAt:new Date().toISOString()},...history[who]].slice(0,3);state[who]=state[who].filter(n=>n.id!==id);billing[who]=billing[who].filter(n=>n.id!==id)}
   return {ok:true,json:async()=>({notificationVersion:1,notificationHistoryVersion:1,notifications:state[who],readNotifications:history[who]})};
  };
  w.eval(fs.readFileSync('studio-notifications.js','utf8'));
- return {w,state,history,calls,q:s=>w.document.querySelector(s),poll:()=>interval(),fail:v=>failure=v,hold:v=>held=v};
+ return {w,state,history,billing,calls,q:s=>w.document.querySelector(s),poll:()=>interval(),fail:v=>failure=v,hold:v=>held=v};
 }
 test('server reads remove only clicked row; safe text, severity, badge, focus and dismissal',async()=>{
  const {w,q,calls}=setup();await tick();const bell=q('#notification-bell');
@@ -69,3 +69,11 @@ test('special offer snapshot follows the same read and expiry lifecycle as the b
  await new Promise(r=>setTimeout(r,85));assert.equal(q('[data-read="true"]'),null);assert.equal(q('[data-notification-history]').hidden,true);
  w.close();
  });
+
+test('independent Billing feed, shared receipt and expiry preserve Bell counts and outside focus',async()=>{
+ const {w,q,hold}=setup();await tick();let data={notificationVersion:1,notificationPresentationVersion:1,notificationHistoryVersion:1,notifications:[notice('both')],billingNotifications:[notice('billing-only'),notice('both')],readNotifications:[]};
+ w.fetch=async(url,opts)=>{if(opts.method==='POST'){const {id}=JSON.parse(opts.body);data.notifications=data.notifications.filter(n=>n.id!==id);data.billingNotifications=data.billingNotifications.filter(n=>n.id!==id);}return {ok:true,json:async()=>data}};
+ await w.EccoNotifications.refresh();assert.equal(q('.notification-count').textContent,'1');assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,2);q('#outside').focus();assert.equal(await w.EccoNotifications.markRead('billing-only'),true);assert.equal(w.document.activeElement,q('#outside'));assert.equal(q('.notification-count').textContent,'1');await w.EccoNotifications.markRead('both');assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,0);assert.equal(q('.notification-count').hidden,true);
+ data.billingNotifications=[notice('expires',{expiresAt:new Date(Date.now()+70).toISOString()})];await w.EccoNotifications.refresh();assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,1);await new Promise(r=>setTimeout(r,85));assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,0);
+ w.EccoAuth.user=null;w.document.dispatchEvent(new w.Event('ecco:auth-change'));assert.equal(w.EccoNotifications.snapshot('billing').notifications.length,0);w.close();
+});

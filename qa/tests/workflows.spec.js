@@ -460,6 +460,7 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await page.getByRole('button',{name:'New Campaign',exact:true}).click();
   await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();
   await page.getByLabel('Campaign Name',{exact:true}).fill('Cyber Monday');
+  await page.getByLabel('Bell Icon',{exact:true}).uncheck();await page.getByLabel('Icon',{exact:true}).selectOption('Dhamaka');
   await expect(page.getByLabel('Repeat',{exact:true})).toHaveValue('cyber_monday');
   await expect(page.locator('.campaign-next')).toContainText('Nov 30, 2026');
   await page.getByLabel('Title',{exact:true}).fill('Cyber Monday is here');
@@ -470,6 +471,7 @@ test('CAMPAIGN-01 schedule, edit, pause and resume a persistent annual campaign'
   await page.getByRole('button',{name:'Pause Cyber Monday',exact:true}).click();
   await expect(page.locator('.campaign-state')).toHaveText('Paused');
   await page.getByRole('button',{name:'Edit Cyber Monday',exact:true}).click();
+  await expect(page.getByLabel('Bell Icon',{exact:true})).not.toBeChecked();await expect(page.getByLabel('Billing',{exact:true})).toBeChecked();await expect(page.getByLabel('Icon',{exact:true})).toHaveValue('Dhamaka');
   await page.getByLabel('Message',{exact:true}).fill('Updated annual announcement.');
   await page.getByRole('button',{name:'Save Campaign',exact:true}).click();
   await page.getByRole('button',{name:'Resume Cyber Monday',exact:true}).click();
@@ -495,8 +497,10 @@ test('NOTIFY-04 history-first category tabs and circled create actions',async({p
   await expect(page.getByRole('tab',{name:'OutReach',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(page.locator('.notification-composer')).toHaveCount(0);await page.getByRole('button',{name:'New OutReach',exact:true}).click();
   await expect(page.getByLabel('Title',{exact:true})).toBeFocused();await page.getByLabel('Title',{exact:true}).fill('OutReach example');await page.getByLabel('Message',{exact:true}).fill('Example bonus credit offer');
+  await page.getByLabel('Bell Icon',{exact:true}).uncheck();await page.getByLabel('Icon',{exact:true}).selectOption('Dhamaka');
   await page.getByLabel('Purchase credits',{exact:true}).fill('100');await page.getByLabel('Free bonus credits',{exact:true}).fill('50');await page.getByLabel('Price (USD)',{exact:true}).fill('10');
-  await page.getByRole('button',{name:'Publish outreach',exact:true}).click();await expect(page.locator('.notification-composer')).toHaveCount(0);await expect(page.locator('.notification-history')).toContainText('OutReach example');
+  await page.getByRole('button',{name:'Publish outreach',exact:true}).click();await expect(page.locator('.notification-composer')).toHaveCount(0);await expect(page.locator('.notification-history')).toContainText('OutReach example');await expect(page.locator('.notification-history')).toContainText('Billing');
+  await page.getByRole('button',{name:'Edit and re-issue OutReach example',exact:true}).click();await expect(page.getByLabel('Bell Icon',{exact:true})).not.toBeChecked();await expect(page.getByLabel('Icon',{exact:true})).toHaveValue('Dhamaka');await page.getByRole('button',{name:'Cancel',exact:true}).click();
   await page.getByRole('tab',{name:'Notifications',exact:true}).click();await expect(page.locator('.notification-history')).toHaveCount(0);await expect(page.getByText('No notifications yet.',{exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Campaign',exact:true}).click();await expect(page.locator('.notification-composer')).toHaveCount(0);await page.getByRole('button',{name:'New Campaign',exact:true}).click();await expect(page.getByLabel('Campaign Name',{exact:true})).toBeFocused();await page.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page.getByRole('button',{name:'New Campaign',exact:true})).toBeFocused();
   await page.setViewportSize({width:390,height:844});const tabs=page.getByRole('tablist',{name:'Notification categories'});expect(await tabs.evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(await tabs.evaluate(el=>el.clientWidth));
@@ -526,4 +530,17 @@ test('UPLOAD-04 AI clarification opens a popup and preserves equal text boxes an
  const source=page.getByRole('dialog',{name:'Select Story Text',exact:true});await source.locator('[data-selected]').fill('Thirty-nine jars.');await source.getByLabel('AI instructions',{exact:true}).fill('Improve the narration.');await source.getByRole('button',{name:'Improve with AI',exact:true}).click();
  const notice=page.getByRole('dialog',{name:'AI Needs Clarification',exact:true});await expect(notice).toBeVisible();await expect(notice).toContainText('Should there be forty jars in total?');await expect(source.getByLabel('AI Output',{exact:true})).toHaveValue('');await expect(source.locator('[data-ai-status]')).toHaveText('');
  await notice.getByRole('button',{name:'Edit Prompt',exact:true}).click();await expect(notice).toHaveCount(0);await expect(source.getByLabel('AI instructions',{exact:true})).toBeFocused();await expect(source.locator('[data-selected]')).toHaveValue('Thirty-nine jars.');const a=await source.getByLabel('AI instructions',{exact:true}).boundingBox(),b=await source.getByLabel('AI Output',{exact:true}).boundingBox();expect(Math.abs(a.height-b.height)).toBeLessThan(1);
+});
+
+
+test('BILLING-01 configured promotion icons and expiry appear above regular packages',async({page})=>{
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ await page.goto('/?__qa=1&promotions=1');await page.locator('#entry-tell-story').click();await page.locator('#google-user-menu > summary').click();await page.getByRole('button',{name:'Billing',exact:true}).click();
+ const billing=page.getByRole('region',{name:'Billing',exact:true});await expect(billing.locator('.credits-promotion-badge')).toHaveText(['Dhamaka','NEW']);await expect(billing.locator('time')).toHaveCount(2);
+ await billing.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();const shop=page.locator('dialog[open]');
+ await expect(shop.locator('.credits-promotion')).toHaveCount(2);await expect(shop.locator('.credits-pack')).toHaveCount(3);await expect(shop.locator('.credits-promotion-expiry').first()).toContainText('Offer lasts till');
+ expect((await shop.locator('.credits-notices').boundingBox()).y).toBeLessThan((await shop.locator('.credits-pack-grid').boundingBox()).y);
+ await shop.getByRole('button',{name:'Select Diwali bonus',exact:true}).click();await shop.getByRole('button',{name:'View Cart',exact:true}).click();await expect(shop.locator('.credits-order-summary')).toContainText('150');await expect(shop.locator('.credits-order-total')).toContainText('$10.00');
+ await shop.getByRole('button',{name:'Continue Shopping',exact:true}).click();await page.setViewportSize({width:390,height:844});await expect(shop.locator('.credits-promotion-badge').first()).toHaveText('Dhamaka');expect(await shop.evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(await shop.evaluate(el=>el.clientWidth));
+ await shop.locator('[data-notice-id=promo-outreach]').getByRole('button',{name:'Mark as Read',exact:true}).click();await expect(shop.locator('[data-notice-id=promo-outreach]')).toHaveCount(0);await expect(shop.getByRole('button',{name:'View Cart',exact:true})).toBeDisabled();await expect(shop.locator('.credits-pack')).toHaveCount(3);
 });
