@@ -2671,6 +2671,11 @@
         "other": "custom type and Other genre reveal required Describe your story type / Describe your genre or topic fields; values persist independently in typeDescription and genreDescription. Hidden descriptions cease being required. Missing descriptions join the same summary and inline validation."
       },
       "journey": "Story workspace output filters and renumbers both sidebar and journey list. Audio: Describe, Storyboard, Audio, Publish. Image: Describe, Storyboard, Images, Publish. Video or no output: all six. Publish is always retained; choosing a different output restores applicable steps without discarding story values."
+    },
+    "titlePlacement": {
+      "approval": "2026-11-08: User approved the mockup placing the story title below the control panels, left-aligned above the tabs.",
+      "layout": "In the three-tab Story workspace, use one control row with Back at left and the existing controls at right, followed by the small right-aligned draft status and a full-width left-aligned story title. On mobile Back and wrapping controls use separate rows. Long titles wrap without pushing controls or overlapping status/tabs. Preserve the approved compact font sizes, card dimensions and form behavior.",
+      "implementation": "Reuse #heading and #story-simple-save. Move the existing live-status node into the main ribbon once and hide it outside story mode; CSS grid orders the existing header contents only in story-simple-mode. Other pages retain their existing header layout."
     }
   },
   "creditPurchases": {
