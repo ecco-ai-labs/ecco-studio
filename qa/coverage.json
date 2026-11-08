@@ -147,7 +147,7 @@
   {
     "area": "Story Details approved two-card layout",
     "mode": "fixture",
-    "scope": "STORY-09\u201311 cover desktop and 390px layouts in default/light themes, 640px card bounds, empty single-choice output, audience defaults, visible right-aligned 48px Next, one complete linked error summary and field errors, keyboard selection/focus, independent type/topic lists, Back radio restoration, and recurrence saved in Generate & Publish. Unit tests additionally cover whitespace, all six missing fields, and draft reload. No live media inference or publishing."
+    "scope": "STORY-09\u201311 cover desktop and 390px layouts in default/light themes, 640px card bounds, empty single-choice output, audience defaults, visible right-aligned 48px Next, one complete linked error summary and field errors, keyboard selection/focus, independent type/topic lists, Back radio restoration, and recurrence saved in Generate & Publish. Unit tests additionally cover whitespace, all six missing fields, and draft reload. No live media inference or publishing. Both headings use title case, and card width/height equality is checked in desktop and stacked mobile layouts."
   },
   {
     "area": "Grouped Story Details choices and output journeys",

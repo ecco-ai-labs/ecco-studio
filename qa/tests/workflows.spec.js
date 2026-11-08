@@ -957,18 +957,18 @@ for(const [type,label,genre] of [['book-adaptation','Book Adaptation','Documenta
 for(const theme of ['default','ocean'])test(`STORY-09 approved cards, defaults and persistent next action in ${theme}`,async({page},info)=>{
  await page.setViewportSize({width:1280,height:940});await boot(page,{theme});
  const form=page.locator('#story-simple-details'),cards=form.locator('.story-details-card'),next=form.getByRole('button',{name:'Next: Story and characters',exact:true});
- await expect(cards).toHaveCount(2);await expect(cards.locator('h2')).toHaveText(['Your story','Your audience']);
+ await expect(cards).toHaveCount(2);await expect(cards.locator('h2')).toHaveText(['Your Story','Your Audience']);
  expect(await cards.first().locator('[data-story-fields] > :not([hidden])').evaluateAll(els=>els.map(e=>e.querySelector('[name]').name))).toEqual(['title','output','type','genre']);
  for(const name of ['title','type','genre','location'])await expect(form.locator('[name='+name+']')).toHaveValue('');
  await expect(form.getByRole('radio')).toHaveCount(3);await expect(form.locator('[name=output]:checked')).toHaveCount(0);
  await expect(form.locator('[name=audience]')).toHaveValue('All ages');await expect(form.locator('[name=language]')).toHaveValue('English');await expect(form.locator('[data-default]:visible')).toHaveCount(2);
  await expect(form.locator('[name=recurrence]')).toHaveCount(0);await expect(page.locator('#story-simple-save')).toHaveText('Draft saved in this browser');await expect(form.locator('.help')).toHaveText('Publishing schedule: set in the last step.');
- const boxes=await cards.evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width};}));expect(boxes[0].y).toBe(boxes[1].y);expect(boxes[1].x).toBeGreaterThan(boxes[0].x+boxes[0].w);for(const box of boxes)expect(box.w).toBeLessThanOrEqual(640);
+ const boxes=await cards.evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};}));expect(boxes[0].y).toBe(boxes[1].y);expect(boxes[0].w).toBe(boxes[1].w);expect(boxes[0].h).toBe(boxes[1].h);expect(boxes[1].x).toBeGreaterThan(boxes[0].x+boxes[0].w);for(const box of boxes)expect(box.w).toBeLessThanOrEqual(640);
  expect(await next.evaluate(e=>{const r=e.getBoundingClientRect(),f=e.closest('form').getBoundingClientRect();return {height:r.height,right:Math.abs(r.right-f.right),font:getComputedStyle(e).fontSize};})).toEqual({height:48,right:0,font:'14px'});await expect(next).toBeInViewport();
  await page.screenshot({path:info.outputPath('story-details-'+theme+'.png')});
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,document.querySelector('#story-simple-details').offsetTop));
  expect(await form.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);await expect(next).toBeInViewport();
- const mobile=await cards.evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width};}));expect(mobile[1].x).toBe(mobile[0].x);expect(mobile[1].y).toBeGreaterThan(mobile[0].y);for(const box of mobile){expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.w).toBeLessThanOrEqual(390);}
+ const mobile=await cards.evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};}));expect(mobile[1].x).toBe(mobile[0].x);expect(mobile[0].w).toBe(mobile[1].w);expect(mobile[0].h).toBe(mobile[1].h);expect(mobile[1].y).toBeGreaterThan(mobile[0].y);for(const box of mobile){expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.w).toBeLessThanOrEqual(390);}
  await page.screenshot({path:info.outputPath('story-details-'+theme+'-mobile.png')});
  await page.getByRole('radio',{name:'Image',exact:true}).check();await expect(form.locator('[name=output]:checked')).toHaveCount(1);await expect(page.getByRole('radio',{name:'Image',exact:true})).toBeChecked();
 });
