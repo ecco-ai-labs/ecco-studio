@@ -24,7 +24,7 @@ async function boot(page,options={}){
 }
 async function fillStoryDetail(page,name,value){
  if(name==='output')await page.locator('#story-simple-details input[name=output][value="'+value+'"]').check();
- else if(['type','genre'].includes(name)){await page.locator('#story-detail-'+name+'-button').click();await page.locator('#story-detail-'+name+'-panel [data-choice-value='+JSON.stringify(value)+']').click();}
+ else if(['type','genre'].includes(name)){await page.locator('#story-detail-'+name+'-button').click();await page.locator('#story-detail-'+name+'-panel [data-choice-value='+JSON.stringify(value)+']:not([data-choice-mode=recurring])').click();}
  else await page.locator('#story-simple-details [name='+name+']').selectOption(value);
 }
 async function setScript(page,text){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await page.locator('#story-simple-script').fill(text);}
@@ -1076,25 +1076,60 @@ test('STORY-10 one linked summary identifies every missing detail and clears err
  await next.click();await expect(page.getByRole('tablist',{name:'Story source',exact:true})).toBeVisible();await expect(page.locator('#story-simple-script')).toBeHidden();await page.locator('#workspace-back').click();await expect(page.getByRole('radio',{name:'Image',exact:true})).toBeChecked();expect(await form.locator('[name=output]').evaluateAll(els=>els.map(e=>e.value))).toEqual(['audio','image','video']);
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='stories'||/generate/.test(c.path)))).toEqual([]);
 });
-test('STORY-11 recurrence moves to Generate and Publish and remains saved after returning to details',async({page})=>{
+test('STORY-11 Story type sets One time or Recurring generation; Generation shows a summary only for Recurring',async({page})=>{
  await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Publishing preference');for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure'}))await fillStoryDetail(page,name,value);
- await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await setScript(page,'Narrator: A new day begins.');await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();
- const recurrence=page.locator('#story-simple-publishing [name=recurrence]');await expect(recurrence).toHaveValue('');await recurrence.selectOption('recurring');await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeVisible();
- await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await expect(page.locator('[name=recurrence]')).toHaveCount(0);await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();await expect(recurrence).toHaveValue('recurring');
+ await expect(page.locator('#story-detail-type-button [data-generation-tag]')).toHaveText('One time');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await setScript(page,'Narrator: A new day begins.');await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();
+ await expect(page.locator('#story-simple-publishing')).toHaveCount(0);await expect(page.locator('[name=recurrence]')).toHaveCount(0);await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeHidden();
+ await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=storybook]').click();
+ await expect(page.locator('#story-detail-type-button [data-generation-tag]')).toHaveText('Recurring');expect(await page.evaluate(()=>JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('Publishing preference')&&localStorage.getItem(k).includes('simple_workspace')))).simple_workspace?.recurrence)).toBe('recurring');
+ await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();const summary=page.locator('#story-simple-publishing');await expect(summary.getByRole('heading',{name:'Recurring'})).toBeVisible();await expect(summary).toContainText('Set the schedule in Story Script → Recurrence.');await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeVisible();
+ await summary.getByRole('button',{name:'Change in Story Script → Recurrence',exact:true}).click();await expect(page.getByRole('tab',{name:'Recurrence',exact:true})).toHaveAttribute('aria-selected','true');
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>/generate|publish/.test(c.path)))).toEqual([]);
+});
+test('STORY-18 Recurring generation: split Story type list, PDF tab name, one-time warning, Recurrence tab and Save as workflow',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Cave series');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();const panel=page.locator('#story-detail-type-panel');
+ await expect(panel.locator('.story-choice-pane-title')).toHaveText(['One time generation','Recurring Generation']);await expect(panel.locator('[data-choice-mode=once] [data-choice-value]')).toHaveCount(12);
+ const recurringTypes=panel.locator('[data-choice-mode=recurring] [data-choice-value]');await expect(recurringTypes).toHaveCount(8);for(const id of ['presentation','marketing','ambient','custom'])await expect(panel.locator('[data-choice-mode=recurring] [data-choice-value='+id+']')).toHaveCount(0);
+ await panel.locator('[data-choice-mode=recurring] [data-choice-value=audio-drama]').click();await expect(page.locator('#story-detail-type-button [data-generation-tag]')).toHaveText('Recurring');
+ await fillStoryDetail(page,'genre','Adventure');await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
+ await expect(page.locator('[data-generation-pill]')).toHaveText('Recurring');await expect(page.getByRole('tab',{name:'PDF with multiple chapters/episodes',exact:true})).toBeVisible();
+ const types=await page.locator('[data-story-settings] [name=story_type] option').evaluateAll(o=>o.map(x=>x.value));expect(types).not.toContain('marketing');
+ const rec=page.getByRole('tab',{name:'Recurrence',exact:true});await expect(rec).toBeVisible();await rec.click();await expect(page.locator('[data-recurrence]')).toContainText('Add a story with chapters or parts');
+ // A single story is refused for Recurring generation.
+ await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();const box=page.getByRole('dialog',{name:'Write Yourself',exact:true});await box.locator('[data-selected]').fill('Ali found a cave and went home.');
+ await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();const warning=page.locator('dialog.story-shape-warning');await expect(warning).toBeVisible();await expect(warning.getByRole('heading')).toHaveText('This story is a one-time story');
+ await warning.getByRole('button',{name:'Go back',exact:true}).click();await expect(warning).toHaveCount(0);await expect(page.getByRole('tab',{name:'Write Yourself',exact:true})).toHaveAttribute('aria-selected','true');
+ // A story in parts gets a schedule.
+ await box.locator('[data-selected]').fill('Part 1\nAli finds the cave.\n\nPart 2\nThe door opens.\n\nPart 3\nMorgiana helps.');await expect(page.locator('[data-source-tab=rec]')).toBeVisible();
+ await rec.click();await expect(page.locator('dialog.story-tab-warning')).toHaveCount(0);const r=page.locator('[data-recurrence]');await expect(r).toContainText('3 parts → 3 episodes.');await expect(r.locator('[data-rec-episodes] tr')).toHaveCount(3);
+ await r.locator('[data-rec=repeat]').selectOption('daily');await expect(r.locator('[data-rec-episodes] tr')).toHaveCount(3);await r.getByLabel('Workflow name').fill('Cave nights');await r.getByRole('button',{name:'Save as workflow',exact:true}).click();
+ await expect(r.locator('[data-rec-saved]')).toHaveText('Saved as “Cave nights” · in Workflows');const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').find(w=>w.name==='Cave nights'));expect(saved).toMatchObject({source_mode:'chapters',total_chapters:3,repeat:'daily',status:'draft',schedule_requested:false});
+ await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await expect(page.locator('dialog.story-tab-warning')).toHaveCount(0);await expect(box.locator('[data-selected]')).toHaveValue(/Part 3/);
+ await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
+ await setScript(page,'Narrator: Part 1.');await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();await expect(page.locator('#story-simple-publishing')).toContainText('3 episodes · every day');await expect(page.locator('#story-simple-publishing')).toContainText('saved as workflow “Cave nights”');
+ // One time with parts: Recurrence appears on its own and offers to switch.
+ await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();
+ await page.getByRole('tab',{name:'2. Story Script',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await expect(page.getByRole('tab',{name:'Upload PDF',exact:true})).toBeVisible();
+ await rec.click();await expect(page.locator('[data-recurrence]')).toContainText('You chose One time generation.');await page.getByRole('button',{name:'Make it recurring',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('Recurring');
+ // Switch to One time from the warning.
+ await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await box.locator('[data-selected]').fill('Just one short story.');await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();
+ await warning.getByRole('button',{name:'Switch to One time',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await expect(page.locator('[data-source-tab=rec]')).toBeHidden();
+ expect(page.qaErrors).toEqual([]);
 });
 
 for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`STORY-12 grouped menus stay on screen and support keyboard at ${viewport.width}px`,async({page},info)=>{
  await page.setViewportSize(viewport);await boot(page);
- for(const [name,groups,count,selected]of [['type',['Stories','Talk and news','Teaching and business','Other'],12,'audio-drama'],['genre',['Story genres','Real-world topics'],17,'Adventure']]){
+ for(const [name,groups,count,selected]of [['type',['Stories','Talk and news','Teaching and business','Other','Stories','Talk and news','Teaching and business'],20,'audio-drama'],['genre',['Story genres','Real-world topics'],17,'Adventure']]){
   const trigger=page.locator('#story-detail-'+name+'-button'),panel=page.locator('#story-detail-'+name+'-panel'),options=panel.locator('[data-choice-value]');
   await expect(trigger).toHaveAttribute('aria-haspopup','dialog');await expect(trigger).toHaveAttribute('aria-expanded','false');await trigger.press('Enter');await expect(panel).toBeVisible();await expect(trigger).toHaveAttribute('aria-expanded','true');await expect(panel.locator('h3')).toHaveText(groups);await expect(options).toHaveCount(count);await expect(options.first()).toBeFocused();
   const bounds=await panel.evaluate(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height,width:innerWidth,viewportHeight:innerHeight,overflow:e.scrollWidth>e.clientWidth};});expect(bounds.left).toBeGreaterThanOrEqual(0);expect(bounds.right).toBeLessThanOrEqual(viewport.width);expect(bounds.top).toBeGreaterThanOrEqual(0);expect(bounds.bottom).toBeLessThanOrEqual(viewport.height);expect(bounds.height).toBeLessThanOrEqual(470);expect(bounds.overflow).toBe(false);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await expect(panel.locator('.story-choice-description')).toHaveCount(name==='type'?12:0);expect(await options.first().evaluate(e=>getComputedStyle(e).outlineStyle)).toBe('solid');
+  await expect(panel.locator('.story-choice-description')).toHaveCount(name==='type'?20:0);if(name==='type')await expect(panel.locator('.story-choice-pane-title')).toHaveText(['One time generation','Recurring Generation']);expect(await options.first().evaluate(e=>getComputedStyle(e).outlineStyle)).toBe('solid');
   for(let i=1;i<count;i++){await options.nth(i-1).press('Tab');await expect(options.nth(i)).toBeFocused();}
   await options.last().press('Escape');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(page.locator('#story-simple-details [name='+name+']')).toHaveValue('');
   await trigger.press('Enter');await options.first().press('ArrowRight');await expect(options.nth(1)).toBeFocused();await options.nth(1).press('Enter');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(page.locator('#story-simple-details [name='+name+']')).toHaveValue(selected);
-  await trigger.click();await expect(panel.locator('[aria-pressed=true]')).toHaveCount(1);await expect(panel.locator('[data-choice-value='+JSON.stringify(selected)+']')).toHaveAttribute('aria-pressed','true');await expect(panel.locator('[aria-pressed=true] [data-choice-check]')).toBeVisible();
+  await trigger.click();await expect(panel.locator('[aria-pressed=true]')).toHaveCount(1);await expect(panel.locator('[data-choice-value='+JSON.stringify(selected)+']:not([data-choice-mode=recurring])')).toHaveAttribute('aria-pressed','true');await expect(panel.locator('[aria-pressed=true] [data-choice-check]')).toBeVisible();
   await page.screenshot({path:info.outputPath('story-'+name+'-menu-'+viewport.width+'.png')});await page.locator('#story-details-story-title').click();await expect(panel).toBeHidden();
  }
 });

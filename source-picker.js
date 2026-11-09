@@ -412,7 +412,9 @@
    finally{if(!disposed){ideaBusy=false;ideaRun.setAttribute('aria-busy','false');ideaRun.innerHTML=label;paintAIAction();controls();}}
   };
   paintDrafts();if(textMode){ready=true;controls();}
-  return {load,open,mount,clear,paneTools:()=>{const pane=dialog.querySelector('.pdf-document-pane');return paneTools(pane,pane.querySelector('.pdf-review-heading'));},snapshot,restore,refreshSettings:()=>refreshAISettings(),setText(text){selected.value=text||'';reportSelection();updateReplace();},hasDrafts:()=>drafts.some(d=>typeof d==='string'&&d.trim()),setIdea(text){const input=dialog.querySelector('[data-idea]');if(input)input.value=text||'';},get element(){return dialog;},get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
+  // Chapters for a recurring series: PDF bookmarks plus every text line, so headings can be counted.
+  async function structure(){let lines=[];try{if(doc)lines=(await pdfText()).flat();else if(file)lines=(await file.text()).split(/\r?\n/);}catch{lines=[];}return {bookmarks:chapterEntries.length,lines};}
+  return {load,open,mount,clear,structure,paneTools:()=>{const pane=dialog.querySelector('.pdf-document-pane');return paneTools(pane,pane.querySelector('.pdf-review-heading'));},snapshot,restore,refreshSettings:()=>refreshAISettings(),setText(text){selected.value=text||'';reportSelection();updateReplace();},hasDrafts:()=>drafts.some(d=>typeof d==='string'&&d.trim()),setIdea(text){const input=dialog.querySelector('[data-idea]');if(input)input.value=text||'';},get element(){return dialog;},get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
  }
  window.EccoSourcePicker={create};
 })();

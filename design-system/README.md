@@ -819,3 +819,20 @@ arrive (owner request 2026-11-08).
 After Next: Characters, AI's explanation of its cast is no longer shown. Generate
 voice on Characters loads the story's audio settings itself, so it works before
 Audio Studio has been opened (owner report 2026-11-08: "reading 'compute'").
+
+## Recurring generation — 9 November 2026
+
+Owner-approved flow (clickable mock). Story Details: the Story type list opens in
+two panes, One time generation (all 12 types) and Recurring Generation (8 types;
+Presentation, Advertisement, Music / Ambient and Other are one-time only). The
+choice sets `recurrence` and shows as a tag on the Story type button and as a pill
+on the Story Script ribbon. When Recurring, the PDF tab reads PDF with multiple
+chapters/episodes and a Recurrence tab is the last Story Script tab (it also
+appears for a One time story found to have chapters or parts, with Make it
+recurring). Recurrence holds the schedule, the episode list and Save as workflow,
+which writes a draft to the Workflows store. A recurring story with no chapters
+or parts gets "This story is a one-time story" with Go back and Switch to One
+time (checked after a PDF upload and on Next: Story Characters; headings are
+counted, and AI confirms before the warning for written or generated text).
+Story Generation and Story Publishing no longer show the Publishing schedule box:
+a recurring story shows a summary with Change in Story Script → Recurrence.

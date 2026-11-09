@@ -26,6 +26,7 @@ async function fixture(storage={}){
 }
 async function requestStoryAI(x,instructions){x.q('#page [data-source-tab=ai]').click();await tick();const host=x.q('#page [data-source-host=ai]'),idea=host?.querySelector('[data-idea]');assert.ok(idea);if(instructions!==undefined){idea.value=instructions;idea.dispatchEvent(new x.w.Event('input',{bubbles:true}));}host.querySelector('[data-generate-idea]').click();await tick();}
 const aiHost=x=>x.q('#page [data-source-host=ai]'),aiButton=x=>aiHost(x).querySelector('[data-generate-idea]');
+const makeRecurring=async x=>{await x.w.EccoStoryWorkspace.select(0);await tick();x.q('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value="'+x.saved().simple_workspace.type+'"]').click();await tick();};
 test('speaker labels never become spoken words and edited directions survive unchanged turns',()=>{
  const cast=[{id:'a',name:'Motu'},{id:'b',name:'Patlu'}],previous={segments:[{character_id:'a',text:'Hello!',performance:{emotion:'happy'}}]};
  assert.deepEqual(M.parseScript('Motu: Hello!\n\nPatlu: Hi!',cast,previous).segments,[{character_id:'a',text:'Hello!',performance:{emotion:'happy'}},{character_id:'b',text:'Hi!'}]);
@@ -76,7 +77,7 @@ test('video script edits rebuild scenes while audio preparation and next episode
  const x=await fixture();await x.start('video','storybook');x.script('The child opens a gate.');await x.w.EccoStoryWorkspace.select(4);await tick();const id=x.w.testState.story();
  await x.w.EccoStoryWorkspace.select(1);x.script('The child enters a garden.');await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(JSON.parse(x.w.localStorage.getItem('ecco-board-draft:'+id)).scenes[0].narration,'The child enters a garden.');
  [...x.q('#story-simple-media').querySelectorAll('button')].find(b=>b.textContent==='Prepare Audio').click();await tick();await x.w.EccoStoryWorkspace.select(1);assert.equal(x.q('#story-simple-script').value,'The child enters a garden.');await x.w.EccoStoryWorkspace.select(4);await tick();
- x.fill('recurrence','recurring');x.q('[data-next-episode]').click();await tick();const next=x.saved().simple_workspace;assert.equal(next.script,'');assert.equal(next.audioScript,'');assert.equal(next.scenes.length,0);assert.equal(next.output,'video');assert.equal(next.cast.length,1);assert.deepEqual(x.errors,[]);
+ await makeRecurring(x);await x.w.EccoStoryWorkspace.select(4);await tick();x.q('[data-next-episode]').click();await tick();const next=x.saved().simple_workspace;assert.equal(next.script,'');assert.equal(next.audioScript,'');assert.equal(next.scenes.length,0);assert.equal(next.output,'video');assert.equal(next.cast.length,1);assert.deepEqual(x.errors,[]);
 });
 test('publishing stays in the third tab and requires an approved result from this story',async()=>{
  const x=await fixture();await x.start('video','storybook');x.script('A child plays.');await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(x.q('[data-publish]').disabled,true);const id=x.w.testState.story();
@@ -321,12 +322,12 @@ test('output is single choice, type and topic stay independent, and restored con
  assert.deepEqual([...x.q('#story-simple-details').querySelectorAll('[name=output]')].map(e=>e.value),['audio','image','video']);assert.equal(x.q('[name=output]:checked').value,'image');
  assert.equal(x.q('[data-default=audience]').hidden,true);assert.deepEqual(x.errors,[]);
 });
-test('recurrence belongs to Generate and Publish and survives navigation and draft reload',async()=>{
+test('Story type sets One time or Recurring generation; Generate shows a recurrence summary only for Recurring and it survives reload',async()=>{
  const x=await fixture();await x.start('video','storybook');assert.equal(x.saved().simple_workspace.recurrence,'');x.script('A forest at dawn.');await x.w.EccoStoryWorkspace.select(4);await tick();
- assert.ok(x.q('#story-simple-publishing'));assert.equal(x.q('[name=recurrence]').value,'');assert.equal(x.q('[data-next-episode]').hidden,true);
- x.fill('recurrence','recurring');assert.equal(x.q('[data-next-episode]').hidden,false);assert.equal(x.saved().simple_workspace.recurrence,'recurring');
- await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=recurrence]'),null);await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(x.q('[name=recurrence]').value,'recurring');
- x.w.testState.navigate('publish');await tick();assert.equal(x.q('[name=recurrence]').value,'recurring');assert.equal(x.q('#story-simple-publishing').hidden,false);
+ assert.equal(x.q('#story-simple-publishing'),null);assert.equal(x.q('[name=recurrence]'),null);assert.equal(x.q('[data-next-episode]').hidden,true);
+ await makeRecurring(x);assert.equal(x.saved().simple_workspace.recurrence,'recurring');assert.equal(x.q('#story-detail-type-button [data-generation-tag]').textContent,'Recurring');
+ await x.w.EccoStoryWorkspace.select(4);await tick();assert.ok(x.q('#story-simple-publishing [data-recurrence-summary]'));assert.equal(x.q('[data-next-episode]').hidden,false);
+ x.w.testState.navigate('publish');await tick();assert.ok(x.q('#story-simple-publishing'));
  const storage=x.snapshot(),id=x.saved().localDraftId;x.close();const y=await fixture(storage);y.w.EccoStoryWorkspace.openSetup(id);await tick();assert.equal(y.saved().simple_workspace.recurrence,'recurring');assert.equal(y.w.testCalls.some(c=>/generate|publish/.test(c.path)),false);assert.deepEqual(y.errors,[]);
 });
 
