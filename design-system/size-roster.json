@@ -466,7 +466,7 @@
       "id": "library-label-text",
       "name": "Library label text",
       "contractComponent": "navigation",
-      "font": "@text-large",
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
