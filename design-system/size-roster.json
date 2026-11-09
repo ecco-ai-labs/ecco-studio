@@ -14,7 +14,7 @@
       "id": "body-text",
       "name": "Body text",
       "contractComponent": "text",
-      "font": "@text-xs",
+      "font": "@text-medium-large",
       "height": null,
       "width": null,
       "selectors": [
@@ -155,7 +155,7 @@
       "id": "form-label",
       "name": "Form label",
       "contractComponent": "label",
-      "font": "@text-regular",
+      "font": "@text-medium-large",
       "height": null,
       "width": null,
       "selectors": [
@@ -188,7 +188,7 @@
       "id": "heading-h2",
       "name": "Heading h2",
       "contractComponent": "heading",
-      "font": "@heading-4",
+      "font": "@heading-2",
       "height": null,
       "width": null,
       "selectors": [
@@ -205,7 +205,7 @@
       "id": "heading-h1",
       "name": "Heading h1 (page title)",
       "contractComponent": "heading",
-      "font": "@heading-5",
+      "font": "@heading-1",
       "height": null,
       "width": null,
       "selectors": [
@@ -222,8 +222,8 @@
       "id": "text-input",
       "name": "Input / dropdown field",
       "contractComponent": "text-input",
-      "font": "@text-regular",
-      "height": "@control-large",
+      "font": "@text-medium-large",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         "input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image])",
@@ -240,7 +240,7 @@
       "id": "textarea",
       "name": "Multi-line text box",
       "contractComponent": "textarea",
-      "font": "@text-regular",
+      "font": "@text-medium-large",
       "height": null,
       "width": null,
       "selectors": [
@@ -256,7 +256,7 @@
       "id": "button",
       "name": "Button",
       "contractComponent": "button",
-      "font": "@text-small",
+      "font": "@text-regular",
       "height": "@control-medium",
       "width": null,
       "selectors": [
@@ -297,7 +297,7 @@
       "id": "icon-button",
       "name": "Icon button",
       "contractComponent": "icon-button",
-      "font": "@text-regular",
+      "font": "@text-medium-large",
       "height": "@control-medium",
       "width": null,
       "selectors": [
@@ -354,7 +354,7 @@
       "id": "tab",
       "name": "Tab",
       "contractComponent": "tab",
-      "font": "@text-regular",
+      "font": "@text-medium-large",
       "height": "@control-medium",
       "width": null,
       "selectors": [
@@ -392,8 +392,8 @@
       "id": "back-button",
       "name": "Back button",
       "contractComponent": "button",
-      "font": "@text-large",
-      "height": "@control-small",
+      "font": "@text-xl",
+      "height": "@control-large",
       "width": null,
       "selectors": [
         "[data-screen-back]",
@@ -433,7 +433,7 @@
       "id": "output-tile-text",
       "name": "Output tile text",
       "contractComponent": "radio",
-      "font": "@text-medium",
+      "font": "@text-medium-large",
       "height": null,
       "width": null,
       "selectors": [
@@ -466,7 +466,7 @@
       "id": "library-label-text",
       "name": "Library label text",
       "contractComponent": "navigation",
-      "font": "@text-medium",
+      "font": "@text-large",
       "height": null,
       "width": null,
       "selectors": [
@@ -496,7 +496,7 @@
       "id": "list-row-title",
       "name": "Library row title",
       "contractComponent": "list-item",
-      "font": "@text-medium-large",
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -511,7 +511,7 @@
       "id": "list-row-details",
       "name": "Library row details",
       "contractComponent": "list-item",
-      "font": "@text-medium",
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -542,7 +542,7 @@
       "id": "welcome-subtitle",
       "name": "Welcome subtitle",
       "contractComponent": "text",
-      "font": "@title-main",
+      "font": "@title-sub",
       "height": null,
       "width": null,
       "selectors": [
@@ -665,7 +665,7 @@
       "id": "button-hero",
       "of": "button",
       "name": "Welcome call to action",
-      "font": "@text-medium-large",
+      "font": "@text-xl",
       "height": "@control-large",
       "width": null,
       "selectors": [
@@ -680,7 +680,7 @@
       "id": "button-journey-step",
       "of": "button",
       "name": "Story landing step",
-      "font": "@text-medium-large",
+      "font": "@text-large",
       "height": "@control-medium",
       "width": null,
       "selectors": [
@@ -741,7 +741,7 @@
       "id": "heading-h2-drawer",
       "of": "heading-h2",
       "name": "Credits drawer title",
-      "font": "@heading-5",
+      "font": "@heading-3",
       "height": null,
       "width": null,
       "selectors": [
@@ -774,8 +774,8 @@
       "id": "sidebar-group-header",
       "of": "sidebar-item",
       "name": "Sidebar section header",
-      "font": "@title-main",
-      "height": "@control-large",
+      "font": "@title-sub",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         "#workspace-library-group > summary",
@@ -806,7 +806,7 @@
       "id": "sidebar-label-row",
       "of": "sidebar-item",
       "name": "Library label row",
-      "font": "@text-medium",
+      "font": "@text-large",
       "height": null,
       "width": null,
       "selectors": [
@@ -836,7 +836,7 @@
       "id": "eyebrow-labels",
       "of": "eyebrow",
       "name": "Library LABELS heading",
-      "font": "@text-medium",
+      "font": "@text-xl",
       "height": null,
       "width": null,
       "selectors": [
@@ -851,8 +851,8 @@
       "id": "button-header-menu",
       "of": "button",
       "name": "Header menus",
-      "font": "@text-regular",
-      "height": null,
+      "font": "@text-xl",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         "#education-menu > summary",
@@ -884,7 +884,7 @@
       "id": "heading-h1-story-landing",
       "of": "heading-h1",
       "name": "Tell Your Story page title",
-      "font": "@heading-4",
+      "font": "@heading-1",
       "height": null,
       "width": null,
       "selectors": [
