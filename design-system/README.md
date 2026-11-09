@@ -717,3 +717,16 @@ is edited. Clear AI Output clears only the chosen draft. Inline workspaces are
 non-modal dialogs marked data-inline-panel, so popup close/minimize controls and
 popup minimizing skip them. Story Import and the Audio journey keep their single AI
 Output. Before a file is chosen, the Upload PDF tab already shows the three boxes with Upload PDF inside Document Preview; afterwards Upload PDF sits under the document name. The old Story / Script box is no longer shown; it remains only as hidden storage for the applied script. Characters below the tabs are unchanged.
+
+## Six workflow steps — 8 November 2026
+
+After reviewing screenshots, the owner approved six steps across the top in place
+of the three tabs: 1. Details, 2. Story, 3. Characters, 4. Script, 5. Generate,
+6. Publish. Story holds the settings labels and the three source tabs and ends
+with Next: Characters. The Characters box moves into Characters (cast tabs,
+Recommend with AI and suggestion review), ending with Next: Script. Script shows
+the applied turn-by-turn script for review and editing, with Resume Script, and
+ends with Generate; applying a reviewed script opens Script. Generate and Publish
+reuse the existing generation and publishing pages. Details' button reads Next:
+Story. Saved three-tab drafts open their Generate & Publish tab as Generate, or
+Publish when publishing was open.

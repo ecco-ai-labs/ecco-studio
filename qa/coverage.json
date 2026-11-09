@@ -173,5 +173,10 @@
     "area": "Master size roster and Look and Feel",
     "mode": "fixture",
     "scope": "ROSTER-01 audits seven Studio and Desk screens: every control, heading, label and text element has its roster type's size or inherits it; unregistered sizes fail. ROSTER-02 checks the generated stylesheet matches the roster and that the Desk shadow root receives it. LOOK-01..03: administrators open User Preferences > Look and Feel, edit a type, add a variant, see invalid selectors refused, Apply to everyone (persisting across reload) and restore the repository default; non-administrators do not see the entry. The real publishing service and administrator-group verification are covered by backend/test_ecco_look_and_feel.py; live deployment remains blocked in the fixture."
+  },
+  {
+    "area": "Six workflow steps",
+    "mode": "fixture",
+    "scope": "STORY-01 checks the six step names. STORY-05 checks the Story step has no Characters box, Next: Characters, character tabs on Characters, Next: Script and the empty-script error from Generate, with character edits kept. UPLOAD-06/07/09/10 and STORY-06 apply a reviewed script, check it on Script and the cast on Characters, then Generate from Script. AUDIO-01 and STORY-11 write the script on the Script step."
   }
 ]

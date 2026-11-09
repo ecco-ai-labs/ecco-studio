@@ -37,50 +37,50 @@ test('unchanged scenes preserve existing images and camera edits',()=>{
  const retained=M.reconcileScenes([{...scene,image_id:'',seconds:3,camera_move:'Static'}],[scene])[0];assert.equal(retained.image_id,'saved-image');assert.equal(retained.seconds,4);assert.equal(retained.camera_move,'Orbit');
  assert.equal(M.reconcileScenes([{...scene,narration:'Changed',image_id:''}],[scene])[0].image_id,'');
 });
-test('three tabs autosave all details, keep drafts isolated and reopen after refresh',async()=>{
+test('six steps autosave all details, keep drafts isolated and reopen after refresh',async()=>{
  const x=await fixture();await x.start();x.script('Host: Welcome.\n\nGuest: Good morning.');
- assert.equal(x.q('#story-workspace-header').querySelectorAll('[role=tab]').length,3);
+ assert.deepEqual([...x.q('#story-workspace-header').querySelectorAll('[role=tab]')].map(t=>t.textContent),['1. Details','2. Story','3. Characters','4. Script','5. Generate','6. Publish']);
  assert.equal(x.saved().simple_workspace.location,'India');
  await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=genre]').value,'Business');await x.w.EccoStoryWorkspace.select(1);assert.match(x.q('#story-simple-script').value,/Good morning/);
  const localId=x.saved().localDraftId,storage=x.snapshot();x.close();const y=await fixture(storage);y.w.EccoStoryWorkspace.openSetup(localId);await tick();assert.match(y.q('#story-simple-script').value,/Good morning/);
  y.w.EccoWorkspaceUI.startNewStory({id:'custom',format:''});await tick();assert.equal(y.q('[name=title]').value,'');assert.equal(y.saved().simple_workspace.script,'');assert.deepEqual(y.errors,[]);
 });
 test('podcast routes directly to audio with two speakers, preserves later edits, and never generates implicitly',async()=>{
- const x=await fixture();await x.start();x.script('Host: Welcome to business news.\n\nGuest: Here are today’s headlines.');await x.w.EccoStoryWorkspace.select(2);await tick();
+ const x=await fixture();await x.start();x.script('Host: Welcome to business news.\n\nGuest: Here are today’s headlines.');await x.w.EccoStoryWorkspace.select(4);await tick();
  assert.ok(x.q('#audio-form'));assert.equal(x.w.testState.page(),'audio');const id=x.w.testState.story(),key='ecco-audio-draft:'+id;
  let audio=JSON.parse(x.w.localStorage.getItem(key));assert.equal(audio.speakers.length,2);assert.equal(audio.lines[0].text,'Welcome to business news.');assert.equal(audio.script_brief.genre,'Business');assert.match(audio.script_brief.instructions,/India/);
  assert.equal(x.w.testCalls.some(c=>/generate|^images$|^videos$/.test(c.path)),false);
- await x.w.EccoStoryWorkspace.select(1);x.script('Host: Changed opening.\n\nGuest: Same answer.');await x.w.EccoStoryWorkspace.select(2);await tick();audio=JSON.parse(x.w.localStorage.getItem(key));assert.equal(audio.lines[0].text,'Changed opening.');
+ await x.w.EccoStoryWorkspace.select(1);x.script('Host: Changed opening.\n\nGuest: Same answer.');await x.w.EccoStoryWorkspace.select(4);await tick();audio=JSON.parse(x.w.localStorage.getItem(key));assert.equal(audio.lines[0].text,'Changed opening.');
  assert.equal(x.w.testCalls.filter(c=>c.path==='stories').length,1);assert.deepEqual(x.errors,[]);
 });
 test('image and video choices open their own studios inside tab three',async()=>{
- for(const [output,selector]of [['image','#image-form'],['video','#video-form']]){const x=await fixture();await x.start(output,'storybook');x.script('A child discovers a secret garden.');await x.w.EccoStoryWorkspace.select(2);await tick();assert.ok(x.q(selector),output);assert.equal(x.q('#story-simple-tab-2').getAttribute('aria-selected'),'true');assert.equal(x.w.testCalls.some(c=>c.path==='images'||c.path==='videos'),false);assert.deepEqual(x.errors,[]);x.close();}
+ for(const [output,selector]of [['image','#image-form'],['video','#video-form']]){const x=await fixture();await x.start(output,'storybook');x.script('A child discovers a secret garden.');await x.w.EccoStoryWorkspace.select(4);await tick();assert.ok(x.q(selector),output);assert.equal(x.q('#story-simple-tab-4').getAttribute('aria-selected'),'true');assert.equal(x.w.testCalls.some(c=>c.path==='images'||c.path==='videos'),false);assert.deepEqual(x.errors,[]);x.close();}
 });
 test('a late AI response cannot replace an edited story or cast',async()=>{
  const x=await fixture();await x.start();x.script('Host: Original.\n\nGuest: Original.');let resolve;
- x.w.testAPI=()=>new Promise(r=>resolve=r);await requestStoryAI(x);x.script('Host: My new edit.\n\nGuest: Keep me.');resolve({revisions:[{id:'story_workspace',text:'{}'}]});await tick();assert.match(x.q('#story-simple-script').value,/My new edit/);assert.match(x.q('#story-simple-error').textContent,/changed/);assert.equal(x.q('#story-simple-candidate').hidden,true);
+ x.w.testAPI=()=>new Promise(r=>resolve=r);await requestStoryAI(x);x.script('Host: My new edit.\n\nGuest: Keep me.');resolve({revisions:[{id:'story_workspace',text:'{}'}]});await tick();assert.match(x.q('#story-simple-script').value,/My new edit/);assert.match(x.q('#story-simple-error').textContent,/changed/);assert.equal(x.q('#story-simple-candidate'),null);
 });
 test('AI suggestions require review and Apply, and receive only the selected source',async()=>{
  const x=await fixture();await x.start('audio','storybook');x.w.testAPI=async()=>({revisions:[{id:'story_workspace',text:JSON.stringify({characters:[{id:'n',name:'Narrator'}],assignments:[{unit_id:0,character_id:'n'}]})}]});let sourceOptions;x.w.EccoSourcePicker.create=options=>{sourceOptions=options;return {ready:true,load:async()=>options.onApply({text:'Selected source passage.',name:'sample.pdf',pages:[2],selection_label:'Page 2'}),destroy(){}};};const upload=x.q('[data-file]');Object.defineProperty(upload,'files',{value:[{name:'sample.pdf',wholeDocument:'Unselected private passage.'}]});await upload.onchange({target:upload});await applyReview(x);const cast=x.saved().simple_workspace.cast;
  x.w.testAPI=async(path,body)=>{x.w.testCalls.push({path,body});return {revisions:[{id:'story_workspace',text:JSON.stringify({characters:cast,reason:'One narrator fits this story.',segments:[{character_id:cast[0].id,text:'A funny story.'}],scenes:[]})}]};};
- await requestStoryAI(x);assert.equal(x.q('#story-simple-script').value,'Narrator: Selected source passage.');assert.equal(x.q('#story-simple-candidate').hidden,true);assert.equal(aiHost(x).hidden,false);assert.match(aiHost(x).querySelector('[data-ai-suggestion]').value,/A funny story/);const sent=JSON.stringify(x.w.testCalls[0].body);assert.match(sent,/Selected source passage/);assert.doesNotMatch(sent,/Unselected private passage/);aiHost(x).querySelector('[data-apply-improvement]').click();aiHost(x).querySelector('[data-extract]').click();await applyReview(x);assert.match(x.q('#story-simple-script').value,/A funny story/);assert.deepEqual(x.errors,[]);
+ await requestStoryAI(x);assert.equal(x.q('#story-simple-script').value,'Narrator: Selected source passage.');assert.equal(x.q('#story-simple-candidate'),null);assert.equal(aiHost(x).hidden,false);assert.match(aiHost(x).querySelector('[data-ai-suggestion]').value,/A funny story/);const sent=JSON.stringify(x.w.testCalls[0].body);assert.match(sent,/Selected source passage/);assert.doesNotMatch(sent,/Unselected private passage/);aiHost(x).querySelector('[data-apply-improvement]').click();aiHost(x).querySelector('[data-extract]').click();await applyReview(x);assert.match(x.q('#story-simple-script').value,/A funny story/);assert.deepEqual(x.errors,[]);
 });
 test('unconfirmed story save blocks duplicate submission and retains all input',async()=>{
- const x=await fixture();await x.start('image','storybook');x.script('A garden.');let saves=0;x.w.testAPI=async()=>{saves++;throw Error('Response lost');};await x.w.EccoStoryWorkspace.select(2);await x.w.EccoStoryWorkspace.select(2);assert.equal(saves,1);assert.equal(x.q('#story-simple-script').value,'A garden.');assert.match(x.q('#story-simple-error').textContent,/not confirmed/);
+ const x=await fixture();await x.start('image','storybook');x.script('A garden.');let saves=0;x.w.testAPI=async()=>{saves++;throw Error('Response lost');};await x.w.EccoStoryWorkspace.select(4);await x.w.EccoStoryWorkspace.select(4);assert.equal(saves,1);assert.equal(x.q('#story-simple-script').value,'A garden.');assert.match(x.q('#story-simple-error').textContent,/not confirmed/);
 });
 test('changing output keeps the audio draft and routes to the newly chosen studio',async()=>{
- const x=await fixture();await x.start();x.script('Host: Welcome.\n\nGuest: Hello.');await x.w.EccoStoryWorkspace.select(2);await tick();const key='ecco-audio-draft:'+x.w.testState.story(),old=x.w.localStorage.getItem(key);
- await x.w.EccoStoryWorkspace.select(0);x.fill('output','image');await x.w.EccoStoryWorkspace.select(2);await tick();assert.ok(x.q('#image-form'));assert.equal(x.w.localStorage.getItem(key),old);assert.deepEqual(x.errors,[]);
+ const x=await fixture();await x.start();x.script('Host: Welcome.\n\nGuest: Hello.');await x.w.EccoStoryWorkspace.select(4);await tick();const key='ecco-audio-draft:'+x.w.testState.story(),old=x.w.localStorage.getItem(key);
+ await x.w.EccoStoryWorkspace.select(0);x.fill('output','image');await x.w.EccoStoryWorkspace.select(4);await tick();assert.ok(x.q('#image-form'));assert.equal(x.w.localStorage.getItem(key),old);assert.deepEqual(x.errors,[]);
 });
 test('video script edits rebuild scenes while audio preparation and next episodes keep visual content isolated',async()=>{
- const x=await fixture();await x.start('video','storybook');x.script('The child opens a gate.');await x.w.EccoStoryWorkspace.select(2);await tick();const id=x.w.testState.story();
- await x.w.EccoStoryWorkspace.select(1);x.script('The child enters a garden.');await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(JSON.parse(x.w.localStorage.getItem('ecco-board-draft:'+id)).scenes[0].narration,'The child enters a garden.');
- [...x.q('#story-simple-media').querySelectorAll('button')].find(b=>b.textContent==='Prepare Audio').click();await tick();await x.w.EccoStoryWorkspace.select(1);assert.equal(x.q('#story-simple-script').value,'The child enters a garden.');await x.w.EccoStoryWorkspace.select(2);await tick();
+ const x=await fixture();await x.start('video','storybook');x.script('The child opens a gate.');await x.w.EccoStoryWorkspace.select(4);await tick();const id=x.w.testState.story();
+ await x.w.EccoStoryWorkspace.select(1);x.script('The child enters a garden.');await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(JSON.parse(x.w.localStorage.getItem('ecco-board-draft:'+id)).scenes[0].narration,'The child enters a garden.');
+ [...x.q('#story-simple-media').querySelectorAll('button')].find(b=>b.textContent==='Prepare Audio').click();await tick();await x.w.EccoStoryWorkspace.select(1);assert.equal(x.q('#story-simple-script').value,'The child enters a garden.');await x.w.EccoStoryWorkspace.select(4);await tick();
  x.fill('recurrence','recurring');x.q('[data-next-episode]').click();await tick();const next=x.saved().simple_workspace;assert.equal(next.script,'');assert.equal(next.audioScript,'');assert.equal(next.scenes.length,0);assert.equal(next.output,'video');assert.equal(next.cast.length,1);assert.deepEqual(x.errors,[]);
 });
 test('publishing stays in the third tab and requires an approved result from this story',async()=>{
- const x=await fixture();await x.start('video','storybook');x.script('A child plays.');await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(x.q('[data-publish]').disabled,true);const id=x.w.testState.story();
- x.w.testState.records([{id:'ready-video',kind:'asset',media:'video',stage:'prod',story_id:id,title:'Preview',created:1,path:'preview.mp4'}]);await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(x.q('[data-publish]').disabled,false);x.q('[data-publish]').click();await tick();assert.equal(x.w.testState.page(),'publish');assert.equal(x.q('#story-simple-tab-2').getAttribute('aria-selected'),'true');assert.equal(x.w.testCalls.some(c=>/publish|youtube/.test(c.path)),false);assert.deepEqual(x.errors,[]);
+ const x=await fixture();await x.start('video','storybook');x.script('A child plays.');await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(x.q('[data-publish]').disabled,true);const id=x.w.testState.story();
+ x.w.testState.records([{id:'ready-video',kind:'asset',media:'video',stage:'prod',story_id:id,title:'Preview',created:1,path:'preview.mp4'}]);await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(x.q('[data-publish]').disabled,false);x.q('[data-publish]').click();await tick();assert.equal(x.w.testState.page(),'publish');assert.equal(x.q('#story-simple-tab-4').getAttribute('aria-selected'),'true');assert.equal(x.w.testCalls.some(c=>/publish|youtube/.test(c.path)),false);assert.deepEqual(x.errors,[]);
 });
 
 test('left navigation stays visible and direct Library entry removes the story tabs',async()=>{
@@ -171,12 +171,12 @@ test('Apply Text automatically identifies the audio cast and passes voices and e
  const x=await fixture();await x.start('audio','news');const source=await sourceHandle(x);source.aiSettings.onChange({story_type:'storybook',genre:'Adventure'});
  const received=[];x.w.testAPI=async(path,body)=>{received.push({path,body});return path==='stories'?{id:'cast-story',kind:'story'}:{revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,segments:ensembleSegments,reason:'Narration and two distinct speaking roles.'})}]};};
  assert.equal(received.length,0);source.onApply({text:ensembleText,name:'cast.txt',pages:[2]});await applyReview(x);assert.equal(received.length,1);const request=received[0].body,context=JSON.parse(request.context.summary);assert.equal(context.output,'audio');assert.equal(context.story_type,'storybook');assert.equal(context.script,ensembleText);assert.equal(context.source.text,undefined);assert.equal(request.context.lines.length,0);assert.doesNotMatch(JSON.stringify(request),/UNSELECTED_PRIVATE/);assert.match(request.context.instructions,/never replace a multi-character story with a lone narrator/);
- assert.equal(x.q('[data-character-tabs]').querySelectorAll('[role=tab]').length,3);x.q('#story-character-tab-1').click();assert.equal(x.q('#story-simple-script').value,ensembleText);assert.equal(x.q('[data-property=appearance]'),null);assert.equal(x.q('[data-character="1"][data-property=voice]').value,'en_male');assert.equal(x.q('[data-character="1"][data-property=dialect]').value,'Indian English');assert.equal(x.q('[data-cast-panel]').getAttribute('aria-busy'),'false');assert.match(x.q('[data-cast-reason]').textContent,/3 audio characters/);assert.equal(x.q('#story-simple-candidate').hidden,true);
- await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=type]').value,'storybook');assert.equal(x.q('[name=output]:checked').value,'audio');x.fill('type','audio-drama');x.q('[name=type]').dispatchEvent(new x.w.Event('change'));assert.equal(x.saved().simple_workspace.cast.length,3);await x.w.EccoStoryWorkspace.select(2);await tick();const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:cast-story'));assert.equal(audio.speakers.length,3);assert.equal(audio.speakers[1].voice,'en_male');assert.equal(audio.speakers[1].dialect,'Indian English');assert.equal(audio.lines[1].speaker_id,'a');assert.equal(audio.lines[1].text,'Open sesame!');assert.equal(audio.lines[2].speaker_id,'m');assert.deepEqual(x.errors,[]);
+ assert.equal(x.q('#story-simple-script').value,ensembleText);await x.w.EccoStoryWorkspace.select(2);assert.equal(x.q('[data-character-tabs]').querySelectorAll('[role=tab]').length,3);x.q('#story-character-tab-1').click();assert.equal(x.q('[data-property=appearance]'),null);assert.equal(x.q('[data-character="1"][data-property=voice]').value,'en_male');assert.equal(x.q('[data-character="1"][data-property=dialect]').value,'Indian English');assert.equal(x.q('[data-cast-panel]').getAttribute('aria-busy'),'false');assert.match(x.q('[data-cast-reason]').textContent,/3 audio characters/);assert.equal(x.q('#story-simple-candidate'),null);
+ await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=type]').value,'storybook');assert.equal(x.q('[name=output]:checked').value,'audio');x.fill('type','audio-drama');x.q('[name=type]').dispatchEvent(new x.w.Event('change'));assert.equal(x.saved().simple_workspace.cast.length,3);await x.w.EccoStoryWorkspace.select(4);await tick();const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:cast-story'));assert.equal(audio.speakers.length,3);assert.equal(audio.speakers[1].voice,'en_male');assert.equal(audio.speakers[1].dialect,'Indian English');assert.equal(audio.lines[1].speaker_id,'a');assert.equal(audio.lines[1].text,'Open sesame!');assert.equal(audio.lines[2].speaker_id,'m');assert.deepEqual(x.errors,[]);
 });
 test('image characters expose visual properties and exclude audio voices and audio-only library entries',async()=>{
  const x=await fixture();await x.start('image','storybook');const source=await sourceHandle(x);x.w.testAPI=async()=>({revisions:[{id:'story_workspace',text:JSON.stringify({characters:[{id:'a',name:'Ali',appearance:'A woodcutter in a blue tunic.'},{id:'m',name:'Morgiana',appearance:'A woman carrying a lantern.'}],reason:'Two visible characters.'})}]});
- source.onApply({text:'Ali and Morgiana stand at the cave.',name:'cast.txt'});await tick();assert.equal(x.q('[data-character-tabs]').querySelectorAll('[role=tab]').length,2);assert.ok(x.q('[data-property=appearance]'));assert.equal(x.q('[data-property=voice]'),null);assert.equal(x.q('[data-property=dialect]'),null);assert.equal(x.q('[data-property=emotion]'),null);
+ source.onApply({text:'Ali and Morgiana stand at the cave.',name:'cast.txt'});await tick();await x.w.EccoStoryWorkspace.select(2);assert.equal(x.q('[data-character-tabs]').querySelectorAll('[role=tab]').length,2);assert.ok(x.q('[data-property=appearance]'));assert.equal(x.q('[data-property=voice]'),null);assert.equal(x.q('[data-property=dialect]'),null);assert.equal(x.q('[data-property=emotion]'),null);
  assert.equal(x.q('[data-library]'),null);assert.equal(x.q('[data-create]'),null);assert.equal(x.q('[data-count]'),null);x.q('#story-character-tab-1').click();assert.equal(x.q('[data-property=appearance]').value,'A woman carrying a lantern.');assert.deepEqual(x.errors,[]);
 });
 test('a late automatic cast result preserves new script edits and does not change a new story',async()=>{
@@ -207,7 +207,7 @@ test('Save Draft exposes Resume immediately and restores the latest saved select
 test('complete chapters over 100,000 characters and 80 turns reach Audio Studio unchanged',async()=>{
  const x=await fixture();await x.start('audio','storybook');
  const text=Array.from({length:210},(_,i)=>'Passage '+i+'. '+('The woodcutter walked through the forest. '.repeat(16)).trim()).join('\n\n');
- x.script(text);await x.w.EccoStoryWorkspace.select(2);await tick();
+ x.script(text);await x.w.EccoStoryWorkspace.select(4);await tick();
  assert.ok(x.q('#audio-form'),x.q('#story-simple-error')?.textContent);
  const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:'+x.w.testState.story()));
  assert.equal(audio.lines.map(p=>p.text).join('\n\n'),text);
@@ -223,7 +223,7 @@ test('Apply Text converts unlabelled prose to a complete visible speaker script 
  const saved=x.saved().simple_workspace;assert.equal(saved.source.text,prose);assert.equal(saved.sourceAssignmentPending,false);
  assert.match(x.q('#story-simple-script').value,/Ali: “Open sesame!”/);assert.match(x.q('#story-simple-script').value,/Morgiana: “I will help.”/);
  assert.equal(saved.plan.segments.map(p=>p.text).join(''),prose);
- await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(x.w.testState.page(),'audio');assert.equal(x.q('#story-simple-error').textContent,'');assert.deepEqual(x.errors,[]);
+ await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(x.w.testState.page(),'audio');assert.equal(x.q('#story-simple-error').textContent,'');assert.deepEqual(x.errors,[]);
 });
 
 test('an older applied prose draft repairs its missing assignments when Generate is selected',async()=>{
@@ -231,7 +231,7 @@ test('an older applied prose draft repairs its missing assignments when Generate
  Object.assign(old,{title:'Legacy',genre:'Adventure',audience:'All ages',language:'English',recurrence:'once',script:prose,source:{text:prose,name:'chapter.pdf'},cast:ensembleCast,sourceAssignmentPending:true,tab:1});
  const x=await fixture({'ecco-story-setup:legacy':JSON.stringify({localDraftId:'legacy',simple_workspace:old})});x.w.EccoStoryWorkspace.openSetup('legacy');await tick();
  x.w.testAPI=async(path,body)=>{if(path==='stories')return{id:'legacy-prose',kind:'story'};const units=JSON.parse(body.context.summary).source_units;return{revisions:[{id:'story_workspace',text:JSON.stringify({characters:ensembleCast,assignments:units.map(u=>({unit_id:u.id,character_id:u.dialogue?(u.text.includes('sesame')?'a':'m'):'n'}))})}]};};
- await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(x.w.testState.page(),'audio');assert.equal(x.saved().simple_workspace.sourceAssignmentPending,false);assert.equal(x.q('#story-simple-error').textContent,'');assert.deepEqual(x.errors,[]);
+ await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(x.w.testState.page(),'audio');assert.equal(x.saved().simple_workspace.sourceAssignmentPending,false);assert.equal(x.q('#story-simple-error').textContent,'');assert.deepEqual(x.errors,[]);
 });
 
 for(const output of ['audio','video'])test('Generate Script reviews and preserves edited turns and character properties for '+output,async()=>{
@@ -253,7 +253,7 @@ for(const output of ['audio','video'])test('Generate Script reviews and preserve
 
 test('character tabs add at the end, preserve property edits and remove redundant controls',async()=>{
  const x=await fixture();await x.start();assert.equal(x.q('[data-count]'),null);assert.equal(x.q('[data-library]'),null);assert.equal(x.q('[data-create]'),null);assert.equal(x.q('[data-source]'),null);assert.equal(x.q('[data-brief]'),null);assert.ok(aiHost(x).querySelector('[data-idea]'));
- x.q('.story-character-add').click();assert.equal(x.q('[data-character-tabs]').querySelectorAll('[role=tab]').length,3);assert.equal(x.q('#story-character-tab-2').getAttribute('aria-selected'),'true');const name=x.q('[data-property=name]');assert.equal(x.w.document.activeElement,name);name.value='Morgiana';name.dispatchEvent(new x.w.Event('input',{bubbles:true}));x.q('#story-character-tab-0').click();assert.equal(x.q('[data-property=name]').value,'Host');x.q('#story-character-tab-2').click();assert.equal(x.q('[data-property=name]').value,'Morgiana');await x.w.EccoStoryWorkspace.select(0);await x.w.EccoStoryWorkspace.select(1);assert.equal(x.q('[data-property=name]').value,'Morgiana');assert.deepEqual(x.errors,[]);
+ await x.w.EccoStoryWorkspace.select(2);x.q('.story-character-add').click();assert.equal(x.q('[data-character-tabs]').querySelectorAll('[role=tab]').length,3);assert.equal(x.q('#story-character-tab-2').getAttribute('aria-selected'),'true');const name=x.q('[data-property=name]');assert.equal(x.w.document.activeElement,name);name.value='Morgiana';name.dispatchEvent(new x.w.Event('input',{bubbles:true}));x.q('#story-character-tab-0').click();assert.equal(x.q('[data-property=name]').value,'Host');x.q('#story-character-tab-2').click();assert.equal(x.q('[data-property=name]').value,'Morgiana');await x.w.EccoStoryWorkspace.select(0);await x.w.EccoStoryWorkspace.select(2);assert.equal(x.q('[data-property=name]').value,'Morgiana');assert.deepEqual(x.errors,[]);
 });
 test('AI story review retains edited text on close, then opens the same screenplay review as PDF',async()=>{
  for(const output of ['audio','video']){
@@ -276,10 +276,10 @@ test('Go to Studio storyboard destination opens the editor without returning to 
 test('Interview starts with Host and Guest and keeps its delivery type in Audio Studio',async()=>{
  const x=await fixture();await x.start('audio','interview');
  assert.deepEqual(x.saved().simple_workspace.cast.map(c=>c.name),['Host','Guest']);
- x.script('Host: What did you discover?\n\nGuest: A new planet.');await x.w.EccoStoryWorkspace.select(2);await tick();
+ x.script('Host: What did you discover?\n\nGuest: A new planet.');await x.w.EccoStoryWorkspace.select(4);await tick();
  const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:'+x.w.testState.story()));
  assert.equal(audio.genre,'Interview');assert.equal(audio.guided_preparation.genre,'Business');assert.equal(audio.lines.length,2);
- await x.w.EccoStoryWorkspace.select(0);x.fill('type','podcast');await x.w.EccoStoryWorkspace.select(2);await tick();
+ await x.w.EccoStoryWorkspace.select(0);x.fill('type','podcast');await x.w.EccoStoryWorkspace.select(4);await tick();
  const changed=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:'+x.w.testState.story()));assert.equal(changed.genre,'Podcast');assert.deepEqual(changed.lines,audio.lines);assert.deepEqual(x.errors,[]);
 });
 test('retired and unknown saved categories survive details, AI options, source options and reopening',async()=>{
@@ -322,10 +322,10 @@ test('output is single choice, type and topic stay independent, and restored con
  assert.equal(x.q('[data-default=audience]').hidden,true);assert.deepEqual(x.errors,[]);
 });
 test('recurrence belongs to Generate and Publish and survives navigation and draft reload',async()=>{
- const x=await fixture();await x.start('video','storybook');assert.equal(x.saved().simple_workspace.recurrence,'');x.script('A forest at dawn.');await x.w.EccoStoryWorkspace.select(2);await tick();
+ const x=await fixture();await x.start('video','storybook');assert.equal(x.saved().simple_workspace.recurrence,'');x.script('A forest at dawn.');await x.w.EccoStoryWorkspace.select(4);await tick();
  assert.ok(x.q('#story-simple-publishing'));assert.equal(x.q('[name=recurrence]').value,'');assert.equal(x.q('[data-next-episode]').hidden,true);
  x.fill('recurrence','recurring');assert.equal(x.q('[data-next-episode]').hidden,false);assert.equal(x.saved().simple_workspace.recurrence,'recurring');
- await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=recurrence]'),null);await x.w.EccoStoryWorkspace.select(2);await tick();assert.equal(x.q('[name=recurrence]').value,'recurring');
+ await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=recurrence]'),null);await x.w.EccoStoryWorkspace.select(4);await tick();assert.equal(x.q('[name=recurrence]').value,'recurring');
  x.w.testState.navigate('publish');await tick();assert.equal(x.q('[name=recurrence]').value,'recurring');assert.equal(x.q('#story-simple-publishing').hidden,false);
  const storage=x.snapshot(),id=x.saved().localDraftId;x.close();const y=await fixture(storage);y.w.EccoStoryWorkspace.openSetup(id);await tick();assert.equal(y.saved().simple_workspace.recurrence,'recurring');assert.equal(y.w.testCalls.some(c=>/generate|publish/.test(c.path)),false);assert.deepEqual(y.errors,[]);
 });

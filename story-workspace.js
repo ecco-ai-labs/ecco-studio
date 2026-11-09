@@ -6,7 +6,8 @@
  const read=(key,fallback={})=>{try{return JSON.parse(localStorage.getItem(key))||fallback;}catch{return fallback;}};
  const originalNavigate=navigate;
  const routes={audio:'audio',image:'images',video:'render'};
- const tabs=['Story Details','Story and Characters','Generate & Publish'];
+ const tabs=['Details','Story','Characters','Script','Generate','Publish'];
+ const STORY=1,CHARACTERS=2,SCRIPT=3,GENERATE=4,PUBLISH=5,generating=tab=>tab>=GENERATE;
  const genres=M.genres;
  const audiences=['All ages','Children (3–5)','Children (6–8)','Children (9–12)','Teenagers (13–17)','Adults (18+)','Families'];
  const languages=['English','Hindi','Urdu','Tamil','Punjabi','Arabic','Spanish','Portuguese','French','German','Italian','Japanese','Korean','Chinese','Bengali','Telugu','Marathi','Gujarati','Kannada','Malayalam'];
@@ -26,16 +27,16 @@
  function header(){
   let root=q('#story-workspace-header');if(!root){root=document.createElement('section');root.id='story-workspace-header';q('#page').before(root);
    root.innerHTML='<div role="tablist" aria-label="Create your story"></div><p id="story-simple-save" role="status" aria-live="polite"></p><p id="story-simple-error" role="alert"></p><div id="story-simple-media" class="story-simple-actions" hidden></div>';
-   tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.className='story-workspace-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%3:e.key==='ArrowLeft'?(i+2)%3:e.key==='Home'?0:e.key==='End'?2:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
+   tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.className='story-workspace-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const n=tabs.length,next=e.key==='ArrowRight'?(i+1)%n:e.key==='ArrowLeft'?(i+n-1)%n:e.key==='Home'?0:e.key==='End'?n-1:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
   }
   const ribbon=q('main > header'),save=q('#story-simple-save');if(save.parentElement!==ribbon)ribbon.append(save);
   root.hidden=false;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const selected=i===data.tab;b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
   const pageRoot=q('#page');pageRoot.setAttribute('role','tabpanel');pageRoot.setAttribute('aria-labelledby','story-simple-tab-'+data.tab);
   q('#heading').textContent=data.title||'Tell Your Story';
-  const media=q('#story-simple-media');media.hidden=data.tab!==2;media.replaceChildren();
-  if(data.tab===2){
+  const media=q('#story-simple-media');media.hidden=!generating(data.tab);media.replaceChildren();
+  if(generating(data.tab)){
    if(data.output==='video')for(const [view,label]of [['audio','Prepare Audio'],['images','Prepare Images'],['render','Generate Video']]){const b=button(label,()=>generateView(view),'secondary');b.setAttribute('aria-pressed',String(data.view===view));media.append(b);}
-   const edit=button('Edit story',()=>select(1),'secondary');media.append(edit);
+   const edit=button('Edit story',()=>select(STORY),'secondary');media.append(edit);
    if(data.view==='publish')media.append(button('← Back',()=>window.EccoNavigation?.back(),'secondary ecco-page-back'));
   }
  }
@@ -84,7 +85,7 @@
   input.oninput=()=>detailChanged(name,input.value);return input;
  }
  function details(){
-  closeDetailMenu();page='story-details';q('#page').innerHTML='<form id="story-simple-details" novalidate><section id="story-details-errors" class="story-details-errors" aria-labelledby="story-details-errors-title" tabindex="-1" hidden></section><div class="story-details-cards"><section class="panel story-details-card" aria-labelledby="story-details-story-title"><h2 id="story-details-story-title">Your Story</h2><div data-story-fields></div></section><section class="panel story-details-card" aria-labelledby="story-details-audience-title"><h2 id="story-details-audience-title">Your Audience</h2><div data-audience-fields></div></section></div><div class="story-details-footer"><p class="help">Publishing schedule: set in the last step.</p><button type="submit" class="story-details-next">Next: Story and characters <span aria-hidden="true">→</span></button></div></form>';
+  closeDetailMenu();page='story-details';q('#page').innerHTML='<form id="story-simple-details" novalidate><section id="story-details-errors" class="story-details-errors" aria-labelledby="story-details-errors-title" tabindex="-1" hidden></section><div class="story-details-cards"><section class="panel story-details-card" aria-labelledby="story-details-story-title"><h2 id="story-details-story-title">Your Story</h2><div data-story-fields></div></section><section class="panel story-details-card" aria-labelledby="story-details-audience-title"><h2 id="story-details-audience-title">Your Audience</h2><div data-audience-fields></div></section></div><div class="story-details-footer"><p class="help">Publishing schedule: set in the last step.</p><button type="submit" class="story-details-next">Next: Story <span aria-hidden="true">→</span></button></div></form>';
   const form=q('#story-simple-details'),storyFields=q('[data-story-fields]',form),audienceFields=q('[data-audience-fields]',form);
   field(storyFields,'Story name','title',null,{required:true});
   const output=document.createElement('fieldset');output.id='story-detail-output';output.className='story-detail-field story-output-field';output.innerHTML='<legend>What are you making? <span class="story-detail-qualifier">(required)</span></legend><div class="story-output-options"></div><p id="story-detail-output-error" class="story-detail-error" hidden></p>';
@@ -141,7 +142,7 @@
    select.onchange=()=>{if(!enabled||data.tab!==1)return;syncStoryOptions({[field.name]:select.value});refreshPickerSettings();if(field.name==='story_type')settingsBar();};
    label.append(select);root.append(label);
   }
-  const help=document.createElement('p');help.className='help';help.textContent='Changes here also update Story Details.';root.append(help);
+  const help=document.createElement('p');help.className='help';help.textContent='Changes here also update Details.';root.append(help);
  }
  function showSourceTab(name,focus=false){
   if(!['pdf','ai','write'].includes(name))name='pdf';data.sourceTab=name;
@@ -228,7 +229,7 @@
     data.source={text:selection.text,name:selection.name,pages:selection.pages||[],selection:selection.selection_label||''};
     data.cast=review.cast;data.castCustomized=true;data.plan=review.plan;data.script=M.transcript(review.plan,review.cast);data.audioScript=data.script;data.scenes=[];
     data.castReason=review.cast.length+' '+(data.output==='audio'?'audio ':'')+'characters identified from selected text.';data.sourceAssignmentPending=false;data.castPending=false;sourcePending=false;
-    delete data.scriptReviewDraft;data.tab=1;epoch++;aiRequest=null;persist();render();return inPage('[data-next]');
+    delete data.scriptReviewDraft;data.tab=SCRIPT;epoch++;aiRequest=null;persist();render();return inPage('[data-next]');
    }
   });
  }
@@ -269,17 +270,30 @@
  }
  function story(){
   page='story-properties';if(!data.cast.length)data.cast=defaultCast();
-  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel"><div class="story-settings-bar" role="group" aria-label="Story settings" data-story-settings></div><div class="story-source-tabs" role="tablist" aria-label="Story source"><button type="button" role="tab" id="story-source-tab-pdf" aria-controls="story-source-panel-pdf" data-source-tab="pdf">Upload PDF</button><button type="button" role="tab" id="story-source-tab-ai" aria-controls="story-source-panel-ai" data-source-tab="ai">Generate With AI</button><button type="button" role="tab" id="story-source-tab-write" aria-controls="story-source-panel-write" data-source-tab="write">Write Yourself</button></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-pdf" aria-labelledby="story-source-tab-pdf" data-source-panel="pdf"><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden><div class="pdf-selection-layout story-source-placeholder" data-source-placeholder><section class="pdf-review-box pdf-document-pane" aria-label="Document preview panel"><strong class="pdf-review-heading">Document Preview</strong><p class="help">Upload a PDF to preview it here.</p><div class="story-upload-slot" data-upload-slot><button type="button" class="secondary" data-upload>Upload PDF</button></div></section><section class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading">Selected Text</span><span class="help">Only this text will be used in your story.</span><textarea disabled rows="12" aria-label="Selected Text (upload a PDF first)" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></section><section class="pdf-review-box pdf-ai-pane"><strong class="pdf-review-heading">Improve with AI</strong><textarea disabled rows="6" aria-label="AI instructions (upload a PDF first)" placeholder="Describe how to improve the selected text…"></textarea><div class="pdf-ai-drafts" aria-hidden="true"><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 1</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 2</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 3</button></div><textarea disabled rows="8" aria-label="Draft (upload a PDF first)" placeholder="Your AI output will appear here."></textarea></section></div><div class="story-source-host" data-source-host="pdf"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-ai" aria-labelledby="story-source-tab-ai" data-source-panel="ai"><div class="story-source-host" data-source-host="ai"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-write" aria-labelledby="story-source-tab-write" data-source-panel="write"><div class="story-source-host" data-source-host="write"></div></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="row story-source-resume"><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button><button type="button" class="secondary" data-script-resume hidden>Resume Script</button><button type="button" class="secondary" data-keep hidden>Keep previous selection</button></div><label class="story-final-script" hidden>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help hidden></p><div id="story-simple-candidate" class="panel form" hidden></div><div data-sources></div></section><section class="panel form" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><p class="help" data-cast-reason></p><div class="form" data-characters id="story-character-properties" role="tabpanel"></div></section><div class="story-simple-actions"><button type="button" data-next>Generate</button></div></div>';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel"><div class="story-settings-bar" role="group" aria-label="Story settings" data-story-settings></div><div class="story-source-tabs" role="tablist" aria-label="Story source"><button type="button" role="tab" id="story-source-tab-pdf" aria-controls="story-source-panel-pdf" data-source-tab="pdf">Upload PDF</button><button type="button" role="tab" id="story-source-tab-ai" aria-controls="story-source-panel-ai" data-source-tab="ai">Generate With AI</button><button type="button" role="tab" id="story-source-tab-write" aria-controls="story-source-panel-write" data-source-tab="write">Write Yourself</button></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-pdf" aria-labelledby="story-source-tab-pdf" data-source-panel="pdf"><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden><div class="pdf-selection-layout story-source-placeholder" data-source-placeholder><section class="pdf-review-box pdf-document-pane" aria-label="Document preview panel"><strong class="pdf-review-heading">Document Preview</strong><p class="help">Upload a PDF to preview it here.</p><div class="story-upload-slot" data-upload-slot><button type="button" class="secondary" data-upload>Upload PDF</button></div></section><section class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading">Selected Text</span><span class="help">Only this text will be used in your story.</span><textarea disabled rows="12" aria-label="Selected Text (upload a PDF first)" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></section><section class="pdf-review-box pdf-ai-pane"><strong class="pdf-review-heading">Improve with AI</strong><textarea disabled rows="6" aria-label="AI instructions (upload a PDF first)" placeholder="Describe how to improve the selected text…"></textarea><div class="pdf-ai-drafts" aria-hidden="true"><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 1</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 2</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 3</button></div><textarea disabled rows="8" aria-label="Draft (upload a PDF first)" placeholder="Your AI output will appear here."></textarea></section></div><div class="story-source-host" data-source-host="pdf"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-ai" aria-labelledby="story-source-tab-ai" data-source-panel="ai"><div class="story-source-host" data-source-host="ai"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-write" aria-labelledby="story-source-tab-write" data-source-panel="write"><div class="story-source-host" data-source-host="write"></div></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="row story-source-resume"><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button><button type="button" class="secondary" data-script-resume hidden>Resume Script</button><button type="button" class="secondary" data-keep hidden>Keep previous selection</button></div><label class="story-final-script" hidden>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help hidden></p><div data-sources></div></section><div class="story-simple-actions"><button type="button" data-next>Next: Characters</button></div></div>';
   const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
   inPage('[data-keep]').hidden=!sourcePending;inPage('[data-keep]').onclick=()=>{sourcePending=false;render();};
-  inPage('[data-script-help]').textContent='For multiple speakers, write “Name: spoken words” for each turn, with a blank line between turns. Directions belong in character properties.';
-  inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
-  inPage('[data-upload]').onclick=()=>inPage('[data-file]').click();inPage('[data-file]').onchange=async e=>{const file=e.target.files[0];if(!file)return;const origin=owner();sourcePending=true;try{const chosen=sourcePicker();chosen.mount?.(inPage('[data-source-host=pdf]'));placeUpload();await chosen.load(file,inPage('[data-upload]'));if(origin===owner()&&data.tab===1)render();}catch(error){message(error.message,true);}};
+  inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
+  inPage('[data-upload]').onclick=()=>inPage('[data-file]').click();inPage('[data-file]').onchange=async e=>{const file=e.target.files[0];if(!file)return;const origin=owner();sourcePending=true;try{const chosen=sourcePicker();chosen.mount?.(inPage('[data-source-host=pdf]'));placeUpload();await chosen.load(file,inPage('[data-upload]'));if(origin===owner()&&data.tab===STORY)render();}catch(error){message(error.message,true);}};
   settingsBar();sourceTabs();
   void syncSourceResume().catch(error=>message(error.message,true));
   inPage('[data-script-resume]').hidden=!data.scriptReviewDraft;inPage('[data-script-resume]').onclick=()=>openScriptReview(data.scriptReviewDraft);
+  inPage('[data-next]').onclick=()=>select(CHARACTERS);showSources();
+ }
+ function charactersPage(){
+  page='story-characters';if(!data.cast.length)data.cast=defaultCast();
+  q('#page').innerHTML='<div class="form"><section class="panel form" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><p class="help" data-cast-reason></p><div class="form" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions"><button type="button" data-next>Next: Script</button></div></div>';
+  inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
   inPage('[data-cast-reason]').textContent=data.castReason||'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.';
-  characterTabs();inPage('[data-next]').onclick=()=>select(2);showSources();
+  characterTabs();inPage('[data-next]').onclick=()=>select(SCRIPT);
+ }
+ function scriptPage(){
+  page='story-script';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-script-panel"><div class="section-head"><h2>Script</h2><button type="button" class="secondary" data-script-resume hidden>Resume Script</button></div><label>Script<textarea id="story-simple-script" rows="18" placeholder="Generate Script in the Story step fills this in. You can also write it here."></textarea></label><p class="help" data-script-help></p></section><div class="story-simple-actions"><button type="button" data-next>Generate</button></div></div>';
+  const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
+  inPage('[data-script-help]').textContent='For multiple speakers, write “Name: spoken words” for each turn, with a blank line between turns. Directions belong in character properties.';
+  inPage('[data-script-resume]').hidden=!data.scriptReviewDraft;inPage('[data-script-resume]').onclick=()=>openScriptReview(data.scriptReviewDraft);
+  inPage('[data-next]').onclick=()=>select(GENERATE);
  }
  function showSources(){const root=inPage('[data-sources]');if(!root||!data.research?.items)return;root.replaceChildren();const h=document.createElement('h3');h.textContent='News sources';root.append(h);for(const item of data.research.items)for(const source of item.sources||[]){try{const url=new URL(source.url);if(url.protocol!=='https:')continue;const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title||url.hostname;root.append(a,document.createElement('br'));}catch{}}}
  function aiStatus(text,error=false){
@@ -327,7 +341,7 @@
    const proposal=M.validateProposal(parsed,data,castOnly);if(preserveCast&&(proposal.cast.length!==data.cast.length||proposal.cast.some((c,i)=>c.id!==data.cast[i].id||c.name!==data.cast[i].name)))throw Error('AI changed your chosen cast. Your characters are preserved; try again.');
    if(autoApply){applyDetectedCast(proposal,model,valid);return;}
    if(returnProposal){aiStatus('');return {proposal,research};}
-   if(data.tab!==1){message('Return to Story & Characters and request the suggestion again.');return;}
+   if(data.tab!==CHARACTERS){message('Return to Characters and request the suggestion again.');return;}
    const box=q('#story-simple-candidate');box.hidden=false;box.replaceChildren();const heading=document.createElement('h3');heading.textContent=castOnly?'Suggested characters':'Review AI story';box.append(heading);const info=document.createElement('p');info.textContent=proposal.cast.map(c=>c.name+' — '+(c.role||'Character')).join('; ')+(proposal.reason?'\n'+proposal.reason:'');box.append(info);
    let edit;if(!castOnly){edit=document.createElement('textarea');edit.rows=10;edit.value=proposal.script;edit.setAttribute('aria-label','Suggested story');box.append(edit);}
    box.append(button(castOnly?'Apply characters':'Apply story',()=>{try{valid();data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.reason;if(!castOnly){data.script=edit.value;delete data.audioScript;data.plan=data.output==='audio'?M.parseScript(edit.value,proposal.cast,proposal.plan):proposal.plan;data.scenes=edit.value===proposal.script?M.reconcileScenes(proposal.scenes,data.scenes):[];data.research=research;}epoch++;persist();render();}catch(error){message(error.message,true);}}),button('Discard',()=>{box.hidden=true;box.replaceChildren();},'secondary'));
@@ -361,7 +375,7 @@
   data.applied[kind]=signature;
  }
  function captureStudio(){
-  if(!data||!activeStory||activeStory!==workspaceStory||data.tab!==2||page!==data.view)return;
+  if(!data||!activeStory||activeStory!==workspaceStory||!generating(data.tab)||page!==data.view)return;
   const before=JSON.stringify(data);
   if(data.view==='audio'){
    const audio=read('ecco-audio-draft:'+activeStory);if(!audio.speakers?.length)return;
@@ -388,7 +402,7 @@
  }
  async function select(tab,view){
   if(!data)return;closeDetailMenu();message('',true);if(tab>0&&!validDetails())return;
-  if(tab===2){
+  if(generating(tab)){
    if(sourcePending||data.scriptReviewDraft){message('Review your generated script and select Apply Text before continuing.',true);return;}
    if(data.castPending){message('Identifying characters from the applied text…');return;}
    if(!data.script.trim()){message('Write or generate a story first.',true);return;}
@@ -398,22 +412,22 @@
    }
    if(!data.cast.length)data.cast=defaultCast();try{M.validateCast(data.cast);if(data.output==='audio')M.parseScript(data.audioScript||data.script,data.cast,data.plan);const b=inPage('[data-next]');if(b)b.disabled=true;await ensureSaved();}catch(error){message(error.message,true);inPage('[data-next]')?.removeAttribute('disabled');return;}
   }
-  captureStudio();if(tab===2)return generateView(view||data.view||routes[data.output]);data.tab=tab;persist();render();
+  captureStudio();if(generating(tab))return generateView(tab===PUBLISH?'publish':view||(data.view!=='publish'&&data.view)||routes[data.output]);data.tab=tab;persist();render();
  }
  function generateView(view){
   if(!data||!activeStory)return;message('',true);captureStudio();
   try{
    if(view==='audio')prepareAudio();if(view==='images')prepareVisual('image');if(view==='render')prepareVisual('video');
-   data.tab=2;data.view=view;persist();rendering=true;originalNavigate(view);rendering=false;header();adaptStudio();
+   data.tab=view==='publish'?PUBLISH:GENERATE;data.view=view;persist();rendering=true;originalNavigate(view);rendering=false;header();adaptStudio();
   }catch(error){rendering=false;message(error.message,true);}
  }
  function render(){
   enabled=true;document.body.classList.remove('workspace-entry-mode','story-choice-mode');document.body.classList.add('story-simple-mode');q('#workspace-entry')?.remove();sessionStorage.setItem('ecco-guided-mode','off');header();
-  if(data.tab===0)details();else if(data.tab===1)story();else generateView(['audio','images','render','publish','board'].includes(data.view)?data.view:routes[data.output]);
+  if(data.tab===0)details();else if(data.tab===STORY)story();else if(data.tab===CHARACTERS)charactersPage();else if(data.tab===SCRIPT)scriptPage();else generateView(data.tab===PUBLISH?'publish':['audio','images','render','board'].includes(data.view)?data.view:routes[data.output]);
   header();persist();
  }
  function adaptStudio(){
-  if(!enabled||data?.tab!==2||!q('#page'))return;
+  if(!enabled||!generating(data?.tab)||!q('#page'))return;
   let publishing=inPage('#story-simple-publishing');if(!publishing){publishing=document.createElement('section');publishing.id='story-simple-publishing';publishing.className='panel story-publishing-settings';publishing.innerHTML='<h2>Publishing schedule</h2>';const recurrence=field(publishing,'One-time or recurring','recurrence',[['once','One-time'],['recurring','Recurring — episodes or chapters']]);recurrence.addEventListener('change',()=>{const next=inPage('[data-next-episode]');if(next)next.hidden=data.recurrence!=='recurring';});q('#page').prepend(publishing);}
   for(const kind of ['audio','image','video']){
    const form=q('#'+kind+'-form');if(!form)continue;
@@ -439,7 +453,7 @@
   const record=state.records.find(r=>r.id===activeStory)||{};if(!legacy.audio_preparation&&record.audio_preparation)legacy.audio_preparation=record.audio_preparation;
   data=M.migrate({...legacy,title:legacy.title||record.title,summary:legacy.summary||record.summary},activeStory?loadDraft():read('ecco-board-new-draft'),activeStory?read('ecco-audio-draft:'+activeStory):read('ecco-audio-draft:local:'+legacy.localDraftId));
   if(pickerOwner!==owner())destroyPickers();
-  workspaceStory=activeStory;data.castPending=false;data.applied=data.applied||{};if(!routes[data.output])data.tab=0;if(data.tab===2&&!activeStory)data.tab=1;render();
+  workspaceStory=activeStory;data.castPending=false;data.applied=data.applied||{};if(data.tabLayout!==6){if(data.tab===2)data.tab=data.view==='publish'?PUBLISH:GENERATE;data.tabLayout=6;}if(!routes[data.output])data.tab=0;if(generating(data.tab)&&!activeStory)data.tab=STORY;render();
  }
  function openSetup(savedId){
   if(savedId){captureStudio();window.EccoWorkspaceUI.preserveNewStoryDraft();const saved=read(savedId==='pending'?'ecco-new-story-draft':'ecco-story-setup:'+savedId);activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);if(!activeStory){localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));localStorage.setItem('ecco-board-new-draft',JSON.stringify(saved.boardDraft||defaultDraft));}draft=loadDraft();}
@@ -467,10 +481,10 @@
  }
  navigate=function(target,...args){
   if(target==='story-setup'&&!rendering)return openSetup();
-  if(enabled&&!rendering&&['audio','images','render','publish','board'].includes(target))return activeStory?generateView(target):select(2,target);
+  if(enabled&&!rendering&&['audio','images','render','publish','board'].includes(target))return activeStory?generateView(target):select(target==='publish'?PUBLISH:GENERATE,target);
   if(enabled&&!rendering)leave();return originalNavigate.call(this,target,...args);
  };
  document.addEventListener('ecco:auth-change',()=>{if(enabled){leave();data=null;destroyPickers();}});
- new MutationObserver(records=>{if(queued||!enabled)return;if(records.every(r=>r.target.closest?.('[data-inline-panel]')))return;queued=true;queueMicrotask(()=>{queued=false;if(!enabled||rendering)return;const expected=data?.tab===0?'story-details':data?.tab===1?'story-properties':data?.view;if(page!==expected){leave();return;}adaptStudio();});}).observe(q('#page'),{childList:true,subtree:true});
+ new MutationObserver(records=>{if(queued||!enabled)return;if(records.every(r=>r.target.closest?.('[data-inline-panel]')))return;queued=true;queueMicrotask(()=>{queued=false;if(!enabled||rendering)return;const expected=data?.tab===0?'story-details':data?.tab===STORY?'story-properties':data?.tab===CHARACTERS?'story-characters':data?.tab===SCRIPT?'story-script':data?.view;if(page!==expected){leave();return;}adaptStudio();});}).observe(q('#page'),{childList:true,subtree:true});
  window.EccoStoryWorkspace={open,openSetup,mountEntry,select,leave,captureContext,get active(){return enabled;}};
 })();
