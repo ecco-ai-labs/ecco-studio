@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: production
-      url: https://eccoailabs.com/
+      url: https://ecco-ai-labs.github.io/ecco-studio/
     permissions:
       contents: write
       actions: read

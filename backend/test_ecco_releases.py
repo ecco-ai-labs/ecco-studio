@@ -149,12 +149,12 @@ class ReleaseTest(unittest.TestCase):
                 releases.reconcile(db, [{'id': RID, 'sha': HEAD}])
                 self.assertEqual(db.execute('SELECT state FROM desk_releases').fetchone()[0], 'deployed')
 
-    @patch.dict(os.environ, {'ECCO_ALLOWED_ORIGINS': 'https://ecco-ai-labs.github.io,https://eccoailabs.com'})
+    @patch.dict(os.environ, {'ECCO_ALLOWED_ORIGINS': 'https://ecco-ai-labs.github.io'})
     def test_prod_origin_preserves_server_authorization(self):
         self.setup_team()
-        self.assertEqual(self.call(origin='https://eccoailabs.com')[0], 200)
-        self.assertEqual(self.call(origin='https://eccoailabs.com.evil.example')[0], 403)
-        self.assertEqual(self.call('alice', self.payload(), origin='https://eccoailabs.com')[0], 403)
+        self.assertEqual(self.call(origin='https://ecco-ai-labs.github.io')[0], 200)
+        self.assertEqual(self.call(origin='https://ecco-ai-labs.github.io.evil.example')[0], 403)
+        self.assertEqual(self.call('alice', self.payload(), origin='https://ecco-ai-labs.github.io')[0], 403)
         self.assertEqual(web_origins.request_origin({'Origin': 'https://evil.example'}), '')
 
 
