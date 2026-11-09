@@ -805,3 +805,7 @@ hidden because the tab already names the box.
 Next: Characters ignores any clarification question AI adds beside its character
 list and tells AI not to ask questions there (owner report 2026-11-08: a title
 question stopped the character tabs from appearing).
+
+While AI generates characters, Characters shows a spinner beside the status and an
+animated progress bar (role progressbar, "Generating characters") until the tabs
+arrive (owner request 2026-11-08).

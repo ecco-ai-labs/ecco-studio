@@ -277,7 +277,10 @@
  }
  function paintCastStatus(){
   const root=inPage('[data-cast-panel]');if(!root)return;root.setAttribute('aria-busy',String(!!data.castPending));
-  inPage('[data-cast-reason]').textContent=data.castPending?'Identifying characters and recommending their properties…':data.castReason||'Apply source text to identify its characters, or create your own cast.';
+  const reason=inPage('[data-cast-reason]');reason.textContent=data.castPending?'Identifying characters and recommending their properties…':data.castReason||'Apply source text to identify its characters, or create your own cast.';
+  // While AI works, a spinner and a moving bar show that characters are being generated (owner request 2026-11-08).
+  root.querySelector('.story-cast-progress')?.remove();
+  if(data.castPending){const spin=document.createElement('span');spin.className='generation-spinner';spin.setAttribute('aria-hidden','true');reason.prepend(spin);const bar=document.createElement('div');bar.className='story-cast-progress';bar.setAttribute('role','progressbar');bar.setAttribute('aria-label','Generating characters');bar.append(document.createElement('span'));reason.after(bar);}
   root.querySelectorAll('input,select,button').forEach(control=>control.disabled=!!data.castPending||(control.matches('.story-character-add')&&data.cast.length>=20));
  }
  function characterTabs(){
