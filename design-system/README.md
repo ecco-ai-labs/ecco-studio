@@ -749,7 +749,7 @@ step keeps its place before Script; the Script step is unchanged.
   `#d8bd88`) or Tested (green `#5fd08a` with a check). The tab's accessible name
   stays the character name; `aria-description` carries the status.
 - Left: **From Story** (name, role, age group, gender, personality, language,
-  dialect; More properties holds the rest and Save to Character Library).
+  dialect; More properties, open by default, holds the rest and Save to Character Library). Dialect replaces the earlier Accent label, as in the mock-up.
 - Right, audio stories: **Create voice** (Suggested voice, Audio model, Voice,
   Generate voice, sample player) and **Test** (the character's story lines or
   your own line, Mark as tested). Samples run through `EccoAudioStudio.sample`.

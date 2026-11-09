@@ -105,7 +105,7 @@
   const personality=field(c,index,'Personality','personality',{multiline:true});personality.classList.add('story-simple-wide');grid.append(personality);
   if(speaks())grid.append(field(c,index,'Language','language',{options:languages,onchange:()=>{if(!visual())drawCreate(c,index);}}),field(c,index,'Dialect','dialect'));
   section.append(grid);
-  const more=element('details',{className:'story-cast-more'},element('summary',{text:'More properties'}));
+  const more=element('details',{className:'story-cast-more',open:true},element('summary',{text:'More properties'}));
   const extra=element('div',{className:'story-character-fields'});
   extra.append(field(c,index,'Nationality','nationality'));
   if(speaks())extra.append(field(c,index,'Speaking style','style'),field(c,index,'Emotion','emotion',{options:window.EccoAudioDirection?.emotions||['neutral']}));
