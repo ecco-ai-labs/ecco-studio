@@ -753,3 +753,11 @@ character, with suggested gender, age group, accent, speaking style, personality
 and voice, and the properties open. The same text is not read twice. Personality
 is a new character property.
 
+## Story step produces only the story — 8 November 2026
+
+Owner direction: the Story step only generates the story, with three drafts.
+The Generate Script / Apply Text button is removed from all three Story tabs, so
+the Generated Script popup no longer opens from Story (it remains only to resume
+a saved draft). Next: Characters carries the chosen story text to Script and asks
+AI for the characters.
+

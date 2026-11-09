@@ -17,7 +17,7 @@
   {
     "area": "Story workflow",
     "mode": "fixture",
-    "scope": "3 tabs, required name, fresh story, AI dialog with carried Story Details and immediate reverse synchronization, equal Upload PDF/Generate With AI/Write sizes and right alignment at desktop and mobile widths, Write keyboard focus, navigation away; live AI generation blocked; Apply Text automatically identifies a three-character audio cast, voice properties exclude visual controls, Use AI Text alone does not start detection, applied words are preserved, and Back refreshes News to Storybook rather than restoring stale form values. Live character-extraction quality remains unverified. UPLOAD-09 verifies narrator-only retry and full-chapter audio submission beyond 4,000 characters and 80 turns. UPLOAD-10 verifies unlabelled prose over 20,000 characters becomes a complete labelled script before Audio Studio without losing source words. AI/worker replies are synthetic."
+    "scope": "3 tabs, required name, fresh story, AI dialog with carried Story Details and immediate reverse synchronization, equal Upload PDF/Generate With AI/Write sizes and right alignment at desktop and mobile widths, Write keyboard focus, navigation away; live AI generation blocked; Apply Text automatically identifies a three-character audio cast, voice properties exclude visual controls, Use AI Text alone does not start detection, applied words are preserved, and Back refreshes News to Storybook rather than restoring stale form values. Live character-extraction quality remains unverified. UPLOAD-09 verifies full-chapter audio submission beyond 4,000 characters and 80 turns after Next: Characters. AI/worker replies are synthetic."
   },
   {
     "area": "Source upload",
@@ -127,12 +127,12 @@
   {
     "area": "Generated Script review",
     "mode": "fixture",
-    "scope": "UPLOAD-11 covers audio/video Generate Script, all turn speaker dropdowns, character renaming, voice and appearance edits, close/resume, minimize, desktop columns and 390px fit, Apply focus and full handoff to generation. AI and workers are synthetic; this does not establish live inference quality."
+    "scope": "Not reachable from the Story step since 8 November 2026 (owner direction: the Story step only generates the story). The review popup remains only for resuming a saved Generated Script draft; UPLOAD-10 and UPLOAD-11 were retired with the Generate Script button."
   },
   {
     "area": "Compact character tabs and AI story-to-screenplay review",
     "mode": "fixture",
-    "scope": "STORY-05 checks removed count/library/create/source controls, trailing plus, last-tab selection, property persistence, keyboard tabs, three story source tabs, error popup controls and mobile bounds. STORY-06 checks the Generate With AI tab: idea, Write Story into Draft 1, Use AI Text into Story Text, edits kept across tab switches, no popup controls on the inline workspace, mobile bounds, Generate Script with four assigned turns, nested validation error dismissal, minimize/navigation/resume, Apply and correct generation studio. Live backend separately verified five speaking roles across 12,421 source characters and 576 ordered units; synthetic browser fixtures do not establish model quality."
+    "scope": "STORY-05 checks removed count/library/create/source controls, trailing plus, last-tab selection, property persistence, keyboard tabs, three story source tabs, error popup controls and mobile bounds. STORY-06 checks the Generate With AI tab: idea, Write Story into Draft 1, Use AI Text into Story Text, edits kept across tab switches, no popup controls on the inline workspace, mobile bounds, no Generate Script button, Next: Characters making three character tabs, the story on Script and the correct generation studio. Synthetic browser fixtures do not establish model quality."
   },
   {
     "area": "Library and Tell Your Story landing pages",
@@ -177,7 +177,7 @@
   {
     "area": "Six workflow steps",
     "mode": "fixture",
-    "scope": "STORY-01 checks the six step names. STORY-05 checks the Story step has no Characters box, Next: Characters, character tabs on Characters, Next: Script and the empty-script error from Generate, with character edits kept. UPLOAD-06/07/09/10 and STORY-06 apply a reviewed script, check it on Script and the cast on Characters, then Generate from Script. AUDIO-01 and STORY-11 write the script on the Script step."
+    "scope": "STORY-01 checks the six step names. STORY-05 checks the Story step has no Characters box, Next: Characters, character tabs on Characters, Next: Script and the empty-script error from Generate, with character edits kept. UPLOAD-02/06/07/08/09 and STORY-06 check the Story step has no Generate Script button and that Next: Characters carries the chosen story text to Script and the AI-suggested cast to Characters, then Generate from Script. AUDIO-01 and STORY-11 write the script on the Script step."
   },
   {
     "area": "Story pane icons and AI character reading",

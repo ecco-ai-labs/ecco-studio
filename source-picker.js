@@ -61,7 +61,7 @@
   <button type="button" data-extract disabled></button>
  </div>
 </footer>`;
-  dialog.querySelector('strong').textContent=title;dialog.querySelector('.pdf-selected-label span').textContent=selectedLabel;dialog.querySelector('[data-selected]').setAttribute('aria-label',selectedLabel);dialog.querySelector('[data-extract]').textContent=applyLabel;
+  dialog.querySelector('strong').textContent=title;dialog.querySelector('.pdf-selected-label span').textContent=selectedLabel;dialog.querySelector('[data-selected]').setAttribute('aria-label',selectedLabel);dialog.querySelector('[data-extract]').textContent=applyLabel||'';dialog.querySelector('[data-extract]').hidden=!applyLabel;
   if(inline){dialog.classList.add('pdf-story-inline');dialog.dataset.inlinePanel='';dialog.querySelector('[data-close]').hidden=true;}else document.body.append(dialog);
   if(selectedPlaceholder)dialog.querySelector('[data-selected]').placeholder=selectedPlaceholder;
   if(textMode){
@@ -151,7 +151,7 @@
    const choiceRoot=notice.querySelector('[data-ai-choices]');
    for(const choice of choices){const button=document.createElement('button');button.type='button';button.className='secondary pdf-ai-choice';button.dataset.aiChoice=choice.label;const label=document.createElement('span');label.textContent=choice.label;button.append(label);if(choice.recommended){const badge=document.createElement('small');badge.textContent='Recommended';button.append(badge);}button.onclick=()=>run(()=>onChoice(choice.label));choiceRoot.append(button);}
    if(!clarification){const retry=document.createElement('button');retry.type='button';retry.className='secondary';retry.textContent='Try Again';retry.onclick=()=>run(()=>{resetAI();improveSelection();});choiceRoot.append(retry);}
-   proceed.textContent=clarification?'Continue Anyway':'Continue Without AI';proceed.className='secondary';proceed.onclick=()=>{focusAfter=clarification?aiSuggestion:extract;run(()=>onContinue?.());};dismiss.onclick=()=>notice.close();
+   proceed.textContent=clarification?'Continue Anyway':'Continue Without AI';proceed.className='secondary';proceed.onclick=()=>{focusAfter=clarification?aiSuggestion:extract.hidden?selected:extract;run(()=>onContinue?.());};dismiss.onclick=()=>notice.close();
    notice.addEventListener('close',()=>{notice.remove();if(aiNotice===notice)aiNotice=null;if(dialog.open)focusAfter.focus();},{once:true});document.body.append(notice);notice.showModal();(choiceRoot.querySelector('button')||dismiss).focus();
   }
   const controls=()=>{dialog.querySelectorAll('[data-document-selection] input,[data-document-selection] select,[data-document-selection] button').forEach(el=>el.disabled=busy||!ready);const empty=!selected.value.trim();extract.disabled=!ready||busy||aiBusy||ideaBusy||empty||selected.value.trim().length>maxSelection;dialog.querySelector('[data-clear-selection]').disabled=!ready||busy||empty;improve.disabled=!ready||busy||aiBusy||ideaBusy||empty||!aiPrompt.value.trim()||(DRAFTS>1&&filledDrafts()>=DRAFTS);const ideaRun=dialog.querySelector('[data-generate-idea]');if(ideaRun)ideaRun.disabled=busy||aiBusy||ideaBusy;applyImprovement.disabled=aiBusy||ideaBusy||!aiContext||!hasSuggestion;dialog.querySelector('[data-discard-improvement]').disabled=aiBusy||ideaBusy||!hasSuggestion;aiSuggestion.readOnly=aiBusy||!hasSuggestion;};
@@ -368,7 +368,7 @@
     if(reviewSelection){busy=true;controls();updateReplace();extract.setAttribute('aria-busy','true');extract.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Checking Story Fit…';note.textContent='Checking selected text against Story Details…';const accepted=await reviewSelection(selection,valid,extract);valid();if(!accepted){note.textContent='Source was not applied. Choose different text or update Story Details.';return;}}
     valid();onApply(selection);if(!inline)dialog.close();
    }catch(error){if(generation===epoch&&!disposed){note.textContent=error.message;window.EccoErrors?.show(error,{title:'Unable to use story text'});}}
-   finally{if(generation===epoch&&!disposed){busy=false;extract.textContent=applyLabel;extract.setAttribute('aria-busy','false');controls();updateReplace();if(reviewSelection&&dialog.open)(extract.disabled?selected:extract).focus();}}
+   finally{if(generation===epoch&&!disposed){busy=false;extract.textContent=applyLabel;extract.setAttribute('aria-busy','false');controls();updateReplace();if(reviewSelection&&dialog.open)(extract.disabled||extract.hidden?selected:extract).focus();}}
   };
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{aiNotice?.close();selectionEpoch++;resetAI();closeMenus();if(opener?.isConnected)opener.focus();});

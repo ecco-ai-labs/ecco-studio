@@ -171,7 +171,7 @@
   ensurePickerOwner();if(textPickers[kind])return textPickers[kind];
   const current=pickerOwner,ai=kind==='ai',name=ai?'AI generated story':'Written story';
   const created=window.EccoSourcePicker.create({inline:true,drafts:3,expandableText:true,mode:'text',title:ai?'Generate With AI':'Write Yourself',selectedLabel:ai?'Story Text':'Your Story',
-   selectedPlaceholder:ai?'Choose a draft and select Use AI Text to place it here.':'Write or paste your story here.',sourceName:name,applyLabel:data.output==='image'?'Apply Text':'Generate Script',
+   selectedPlaceholder:ai?'Choose a draft and select Use AI Text to place it here.':'Write or paste your story here.',sourceName:name,applyLabel:null,
    aiSettings:{fields:[],getValues:settingValues,onChange:options=>{if(current!==owner()||!enabled)throw Error('Return to the story where you started.');syncStoryOptions(options);}},
    onTextChange:text=>{if(current!==owner()||!data)return;if(ai)data.aiStoryDraft={...(data.aiStoryDraft||{}),text};else data.writtenStory=text;persist();},
    idea:ai?{label:'What should your story be about?',placeholder:'For example, two hosts discussing business news for Indian adults',value:data.brief||'',
@@ -196,7 +196,7 @@
  }
  function sourcePicker(){
   ensurePickerOwner();if(picker)return picker;const current=pickerOwner;
-  const currentPicker=window.EccoSourcePicker.create({inline:true,drafts:3,expandablePreview:true,expandableText:true,applyLabel:data.output==='image'?'Apply Text':'Generate Script',
+  const currentPicker=window.EccoSourcePicker.create({inline:true,drafts:3,expandablePreview:true,expandableText:true,applyLabel:null,
    aiSettings:{
     fields:[],
     getValues:()=>({title:data.title,output:data.output,story_type:data.type,story_type_label:M.typeLabel(data.type),genre:data.genre,age_group:data.audience,language:data.language,location:data.location}),
@@ -283,7 +283,8 @@
   settingsBar();sourceTabs();
   void syncSourceResume().catch(error=>message(error.message,true));
   inPage('[data-script-resume]').hidden=!data.scriptReviewDraft;inPage('[data-script-resume]').onclick=()=>openScriptReview(data.scriptReviewDraft);
-  inPage('[data-next]').onclick=()=>{const text=storyText();select(CHARACTERS);if(text&&text!==data.castFrom)void recommend(true,{readStory:text});};showSources();
+  // The Story step only produces the story; Next: Characters carries it forward (owner direction 2026-11-08).
+  inPage('[data-next]').onclick=()=>{const text=storyText();if(text&&text!==data.castFrom){data.script=text;delete data.audioScript;data.scenes=[];epoch++;persist();}select(CHARACTERS);if(text&&text!==data.castFrom)void recommend(true,{readStory:text});};showSources();
  }
  function charactersPage(){
   page='story-characters';if(!data.cast.length)data.cast=defaultCast();
