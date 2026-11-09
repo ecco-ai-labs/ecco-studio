@@ -13,7 +13,7 @@
   state={records,config:{models_ready:{},storage:{volume:'qa-fixture'}},storage_pending:false};
   for(const item of records.filter(r=>r.kind==='asset'))mediaCache.set(item.id,'/'+item.path);
   const sourceFit=new URLSearchParams(location.search).get('sourceFit');
-  if(['fiction','clarification','cast','castRetry','audioPreview','drafts'].includes(sourceFit))Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
+  if(['fiction','clarification','cast','castRetry','audioPreview','drafts','picture'].includes(sourceFit))Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
   window.__qaCalls=[];
   api=async(path,body)=>{
     window.__qaCalls.push({path,body});
@@ -24,6 +24,7 @@
       return {revisions:[{id:'audio_directed_script',text:JSON.stringify({...draft,opening:draft.opening?part(draft.opening):null,segments:draft.segments.map(part),expressiveness:null})}]};
     }
 
+    if(sourceFit==='picture'&&path==='ai/enhance'&&body.fields?.[0]?.id==='picture_description'){const n=window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='picture_description').length;return {revisions:[{id:'picture_description',text:'Picture '+n+': '+body.fields[0].text+', '+JSON.parse(body.context.summary).image_style+'.'}]};}
     if(sourceFit==='drafts'&&path==='ai/enhance'&&body.fields?.[0]?.id==='source_excerpt'){const n=window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='source_excerpt').length;return {revisions:[{id:'source_excerpt',text:'Version '+n+' of the cave story.'}]};}
     if(['cast','castRetry'].includes(sourceFit)&&path==='ai/enhance'){
       const id=body.fields?.[0]?.id,story={characters:[

@@ -803,7 +803,8 @@
         "story-ai-drafts",
         "six-step-story-workspace",
         "named-character-tabs",
-        "recurring-generation"
+        "recurring-generation",
+        "output-aware-steps"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -830,7 +831,8 @@
         "story-ai-drafts",
         "six-step-story-workspace",
         "named-character-tabs",
-        "recurring-generation"
+        "recurring-generation",
+        "output-aware-steps"
       ],
       "standardValues": {
         "sizes": "size-roster.json: tab"

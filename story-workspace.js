@@ -30,6 +30,7 @@
    tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.className='story-workspace-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const n=tabs.length,next=e.key==='ArrowRight'?(i+1)%n:e.key==='ArrowLeft'?(i+n-1)%n:e.key==='Home'?0:e.key==='End'?n-1:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
   }
   const ribbon=q('main > header'),save=q('#story-simple-save');if(save.parentElement!==ribbon)ribbon.append(save);
+  let shown=0;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const hide=isImage()&&i===SCRIPT;b.hidden=hide;if(!hide){shown++;const label=shown+'. '+(isImage()&&i===STORY?'Story Picture':tabs[i]);if(b.textContent!==label)b.textContent=label;}});
   root.hidden=false;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const selected=i===data.tab;b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
   const pageRoot=q('#page');pageRoot.setAttribute('role','tabpanel');pageRoot.setAttribute('aria-labelledby','story-simple-tab-'+data.tab);
   q('#heading').textContent=data.title||'Tell Your Story';
@@ -46,7 +47,11 @@
  const detailDescriptions=[['typeDescription','Describe your story type','Describe your story type.'],['genreDescription','Describe your genre or topic','Describe your genre or topic.']];
  const typeGroups=[['Stories',[['storybook','One narrator reads the story.'],['audio-drama','Characters speak with their own voices.']]],['Talk and news',[['podcast','Hosts talk through a topic.'],['interview','Questions and answers between voices.'],['news','A reporter presents the facts.'],['documentary','A narrated look at a real subject.']]],['Teaching and business',[['teaching','Teaches one skill or idea.'],['training','Builds skills for a role or team.'],['presentation','A spoken talk for an audience.'],['marketing','A short pitch for a product or idea.']]],['Other',[['ambient','Sound and mood, little or no speech.'],['custom','Something else. Describe it below.']]]];
  // Story type is chosen as One time or Recurring generation; these four types are one-time only (owner decision 2026-11-09).
- const ONE_TIME_ONLY=['presentation','marketing','ambient','custom'],isRecurring=()=>data?.recurrence==='recurring';
+ const ONE_TIME_ONLY=['presentation','marketing','ambient','custom'],isRecurring=()=>data?.recurrence==='recurring'&&data?.output!=='image';
+ // Output-aware fields (owner-approved mock, 2026-11-09): Image uses Image style and no Genre or Language; Video adds Visual style.
+ const IMAGE_STYLES=['Cartoon','3D animation','Origami','Clay / claymation','Human / realistic portrait','Photographic','Anime','Watercolor','Oil painting','Pixel art'],VIDEO_STYLES=['Cinematic realistic film','Cartoon animation','Clay stop-motion','Origami animation','Vintage hand-drawn animation'];
+ const isImage=()=>data?.output==='image',outputFields=[['imageStyle','Image style','Choose an image style.'],['videoStyle','Visual style','Choose a visual style.']];
+ function requiredDetails(){const image=isImage();return [...detailFields.filter(([n])=>!(image&&['type','genre','language'].includes(n))),...(image?[outputFields[0]]:[]),...(data.output==='video'?[outputFields[1]]:[])];}
  const genreGroups=[['Story genres',genres.slice(0,10).map(value=>[value,''])],['Real-world topics',genres.slice(10).map(value=>[value,''])]];
  let detailMenu=null;
  function closeDetailMenu(focus=false){if(!detailMenu)return;const {panel,trigger}=detailMenu;detailMenu=null;panel.hidden=true;trigger.setAttribute('aria-expanded','false');if(focus&&trigger.isConnected)trigger.focus();}
@@ -63,7 +68,7 @@
    const description=inPage('#story-detail-'+name+'Description'),show=data[name]===(name==='type'?'custom':'Other');description.closest('.story-detail-field').hidden=!show;description.required=show;
   }
  }
- function detailChanged(name,value){if(name==='output'&&data.output!==value)data.view='';if(name in detailDefaults&&data[name]!==value)data.defaultEdited={...data.defaultEdited,[name]:true};data[name]=value;epoch++;persist();updateDetailDefaults();updateDetailChoices();if(name==='output')window.EccoWorkspaceUI?.refreshJourney();if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();}
+ function detailChanged(name,value){if(name==='output'&&data.output!==value){data.view='';if(value==='image')data.recurrence='once';}if(name in detailDefaults&&data[name]!==value)data.defaultEdited={...data.defaultEdited,[name]:true};data[name]=value;epoch++;persist();updateDetailDefaults();updateDetailChoices();if(name==='output'){window.EccoWorkspaceUI?.refreshJourney();updateOutputFields();updateDetailChoices();header();}if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();}
  function choiceDropdown(select,groups){
   const name=select.name,wrap=select.closest('.story-detail-field'),label=q('label',wrap),trigger=document.createElement('button'),panel=document.createElement('div');wrap.classList.add('story-choice-field');select.hidden=true;select.tabIndex=-1;
   trigger.type='button';trigger.id=select.id+'-button';trigger.className='story-choice-trigger';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');label.htmlFor=trigger.id;label.id=select.id+'-label';trigger.setAttribute('aria-labelledby',label.id+' '+trigger.id);trigger.innerHTML='<span class="story-choice-value"><span data-choice-label></span><span class="story-generation-tag" data-generation-tag hidden></span></span><span aria-hidden="true">⌄</span>';
@@ -103,17 +108,26 @@
   const genre=field(storyFields,'Genre / Topic','genre',genres,{required:true,placeholder:'Choose genre or topic'});
   field(storyFields,'Describe your genre or topic','genreDescription',null,{required:true});
   choiceDropdown(type,typeGroups);choiceDropdown(genre,genreGroups);
+  if(!data.videoStyle)data.videoStyle=VIDEO_STYLES[0];
+  const imageStyle=field(storyFields,'Image style','imageStyle',IMAGE_STYLES,{required:true}),videoStyle=field(storyFields,'Visual style','videoStyle',VIDEO_STYLES,{required:true});output.after(imageStyle.closest('.story-detail-field'));
   field(audienceFields,'Audience age group','audience',audiences,{required:true});
   field(audienceFields,'Language','language',languages,{required:true});
   field(audienceFields,'Audience location','location',null,{placeholder:'For example, India or worldwide'});
   type.addEventListener('change',()=>{if(!data.castCustomized&&!data.script.trim()){data.cast=defaultCast();persist();}});
-  updateDetailDefaults();updateDetailChoices();form.onsubmit=e=>{e.preventDefault();select(1);};
+  updateDetailDefaults();updateDetailChoices();updateOutputFields();form.onsubmit=e=>{e.preventDefault();select(1);};
  }
- function missingDetails(){const required=[...detailFields,...detailDescriptions.filter(([name])=>name==='typeDescription'?data.type==='custom':data.genre==='Other')];return required.filter(([name])=>name==='output'?!routes[data.output]:!String(data[name]||'').trim());}
+ function updateOutputFields(){
+  const form=inPage('#story-simple-details');if(!form)return;const image=isImage(),wrapOf=name=>q('#story-detail-'+name,form)?.closest('.story-detail-field');
+  for(const name of ['type','genre','language'])if(wrapOf(name))wrapOf(name).hidden=image;
+  if(image)for(const name of ['typeDescription','genreDescription'])if(wrapOf(name))wrapOf(name).hidden=true;
+  if(wrapOf('imageStyle'))wrapOf('imageStyle').hidden=!image;if(wrapOf('videoStyle'))wrapOf('videoStyle').hidden=data.output!=='video';
+  q('[type=submit]',form)?.replaceChildren(document.createTextNode(image?'Next: Story Picture ':'Next: Story Script '),Object.assign(document.createElement('span'),{textContent:'→',ariaHidden:'true'}));
+ }
+ function missingDetails(){const required=[...requiredDetails(),...detailDescriptions.filter(([name])=>!isImage()).filter(([name])=>name==='typeDescription'?data.type==='custom':data.genre==='Other')];return required.filter(([name])=>name==='output'?!routes[data.output]:!String(data[name]||'').trim());}
  function showDetailErrors(focus=false){
   const form=inPage('#story-simple-details');if(!form)return;
   const missing=missingDetails(),summary=q('#story-details-errors',form);
-  for(const [name,,text]of [...detailFields,...detailDescriptions]){const invalid=missing.some(([key])=>key===name),error=q('#story-detail-'+name+'-error',form),controls=[...form.querySelectorAll('[name="'+name+'"]')];if(name==='output')controls.push(q('#story-detail-output',form));if(['type','genre'].includes(name))controls.push(q('#story-detail-'+name+'-button',form));
+  for(const [name,,text]of [...detailFields,...outputFields,...detailDescriptions]){const invalid=missing.some(([key])=>key===name),error=q('#story-detail-'+name+'-error',form),controls=[...form.querySelectorAll('[name="'+name+'"]')];if(name==='output')controls.push(q('#story-detail-output',form));if(['type','genre'].includes(name))controls.push(q('#story-detail-'+name+'-button',form));
    error.textContent=invalid?text:'';error.hidden=!invalid;
    for(const control of controls){if(invalid){control.setAttribute('aria-invalid','true');control.setAttribute('aria-describedby',error.id);}else{control.removeAttribute('aria-invalid');control.removeAttribute('aria-describedby');}}
   }
@@ -398,12 +412,55 @@
   // The Story step only produces the story; Next: Characters carries it forward (owner direction 2026-11-08).
   inPage('[data-next]').onclick=async()=>{if(isRecurring()){const origin=owner(),shape=await readShape({confirm:true});if(origin!==owner()||data.tab!==STORY)return;if(!shape.multi){await oneTimeWarning(shape);return;}}const text=storyText();if(text&&text!==data.castFrom){data.script=text;delete data.audioScript;data.scenes=[];epoch++;persist();}select(CHARACTERS);if(text&&text!==data.castFrom)void recommend(true,{readStory:text});};showSources();
  }
+ // ---- Story Picture (Image output) ----
+ function picturePage(){
+  page='story-picture';if(!data.cast.length)data.cast=defaultCast();const tab=data.pictureTab==='ai'?'ai':'photo';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel story-picture-panel"><div class="story-settings-bar" role="group" aria-label="Picture settings" data-picture-settings></div><div class="story-source-tabs" role="tablist" aria-label="Picture source"><button type="button" role="tab" id="story-picture-tab-photo" aria-controls="story-picture-panel-photo" data-picture-tab="photo">Upload a Photo</button><button type="button" role="tab" id="story-picture-tab-ai" aria-controls="story-picture-panel-ai" data-picture-tab="ai">Generate With AI</button></div>'
+   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-photo" aria-labelledby="story-picture-tab-photo" data-picture-panel="photo"><div class="story-picture-photo-row"><section class="pdf-review-box story-photo-box" aria-labelledby="story-photo-title"><div class="pdf-pane-head"><h3 class="pdf-review-heading" id="story-photo-title">Photo</h3></div><input type="file" accept="image/*" data-photo-file hidden><div class="story-photo-preview" data-photo-preview></div></section><div class="story-source-host" data-picture-host="photo"></div></div></div>'
+   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-ai" aria-labelledby="story-picture-tab-ai" data-picture-panel="ai"><div class="story-source-host" data-picture-host="ai"></div></div>'
+   +'<p id="story-simple-ai-status" role="status" aria-live="polite"></p></section><div class="story-simple-actions"><button type="button" data-next>Next: Story Characters</button></div></div>';
+  const bar=inPage('[data-picture-settings]');
+  for(const [name,label,options]of [['imageStyle','Image Style',IMAGE_STYLES],['audience','Audience',audiences]]){const l=document.createElement('label');l.className='story-setting';l.textContent=label;const select=document.createElement('select');select.name=name;select.setAttribute('aria-label',label);select.add(new Option('Choose…',''));for(const o of options)select.add(new Option(o,o));select.value=data[name]||'';select.onchange=()=>{data[name]=select.value;epoch++;persist();};l.append(select);bar.append(l);}
+  const help=document.createElement('p');help.className='help';help.textContent='Changes here also update Details.';bar.append(help);
+  const show=name=>{data.pictureTab=name;for(const b of q('#page').querySelectorAll('[data-picture-tab]')){const on=b.dataset.pictureTab===name;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}for(const p of q('#page').querySelectorAll('[data-picture-panel]'))p.hidden=p.dataset.picturePanel!==name;persist();};
+  for(const b of q('#page').querySelectorAll('[data-picture-tab]'))b.onclick=()=>show(b.dataset.pictureTab);show(tab);
+  paintPhoto();const file=inPage('[data-photo-file]');file.onchange=()=>{const chosen=file.files[0];if(!chosen)return;if(!chosen.type.startsWith('image/')){message('Choose an image file.',true);return;}const reader=new FileReader();reader.onload=()=>{data.photo={name:chosen.name,url:chosen.size<=1500000?reader.result:''};photoUrl=reader.result;epoch++;persist();paintPhoto();};reader.readAsDataURL(chosen);};
+  if(window.EccoSourcePicker){picturePicker('photo').mount(inPage('[data-picture-host=photo]'));picturePicker('ai').mount(inPage('[data-picture-host=ai]'));}
+  inPage('[data-next]').onclick=()=>{if(!pictureText()){message('Describe the picture first.',true);return;}data.script=pictureText();epoch++;persist();select(CHARACTERS);};
+ }
+ let photoUrl='';
+ function paintPhoto(){
+  const box=inPage('[data-photo-preview]');if(!box)return;box.replaceChildren();const url=photoUrl||data.photo?.url||'';
+  const pick=document.createElement('button');pick.type='button';pick.dataset.photoPick='';pick.onclick=()=>inPage('[data-photo-file]').click();
+  if(data.photo?.name){const name=document.createElement('p');name.className='help';name.textContent=data.photo.name;pick.className='secondary';pick.textContent='Replace photo';box.append(name);if(url){const img=document.createElement('img');img.src=url;img.alt='Uploaded photo';box.append(img);}else{const note=document.createElement('p');note.className='help';note.textContent='Upload the photo again to see it here.';box.append(note);}box.append(pick);}
+  else{pick.className='story-upload-target';pick.innerHTML='<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload a Photo';box.append(pick);}
+ }
+ const pictureText=()=>String((data.pictureTab==='ai'?data.pictureAI:data.photoDesc)||'').trim();
+ function picturePicker(kind){
+  const key='picture-'+kind;ensurePickerOwner();if(textPickers[key])return textPickers[key];
+  const current=pickerOwner,ai=kind==='ai';
+  const created=window.EccoSourcePicker.create({inline:true,drafts:3,expandableText:true,mode:'text',title:ai?'Generate With AI':'Upload a Photo',selectedLabel:ai?'Picture Description':'What to make from it',
+   selectedPlaceholder:ai?'Choose a draft and select Use AI Text to place it here.':'For example, turn this photo into a watercolor picture for a children’s book',sourceName:ai?'AI picture description':'Photo description',applyLabel:null,
+   aiSettings:{fields:[],getValues:()=>({title:data.title,output:'image',image_style:data.imageStyle,age_group:data.audience}),onChange:()=>{}},
+   onTextChange:text=>{if(current!==owner()||!data)return;if(ai)data.pictureAI=text;else data.photoDesc=text;persist();},
+   idea:ai?{label:'What should your picture show?',placeholder:'For example, a girl carrying a basket of salt up a hill at sunrise',value:data.pictureIdea||'',
+    onInput:value=>{if(current!==owner()||!enabled)return;data.pictureIdea=value;persist();},generateLabel:'Generate With AI',
+    generate:async(index=0)=>{if(current!==owner()||!enabled)throw Error('Return to the story where you started.');return describePicture(index);}}:null,
+   onApply(){}});
+  created.setText(ai?data.pictureAI||'':data.photoDesc||'');textPickers[key]=created;return created;
+ }
+ // AI writes picture descriptions; the pictures themselves are made in Story Generation (Image Studio).
+ async function describePicture(index){
+  const idea=String(data.pictureIdea||'').trim()||'a picture that suits the story';
+  const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,fields:[{id:'picture_description',text:idea,max_length:2000}],context:{title:data.title,genre:'',language:'English',summary:JSON.stringify({output:'image',image_style:data.imageStyle,audience:data.audience}),lines:[],instructions:'Rewrite the idea as one vivid picture description of 1–3 sentences in the '+(data.imageStyle||'chosen')+' style for '+(data.audience||'all ages')+'. Return only the description. Do not ask questions.'+(index?' Make version '+(index+1)+' of 3 slightly different in composition.':'')},review_only:false});
+  const value=result.revisions?.find(r=>r.id==='picture_description')?.text;if(typeof value!=='string'||!value.trim())throw Error('AI returned no picture description. Try again.');return value.trim();
+ }
  function charactersPage(){
   page='story-characters';if(!data.cast.length)data.cast=defaultCast();
   q('#page').innerHTML='<div class="form"><section class="panel form story-cast" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-cast-reason></p><div class="story-cast-bar"><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><div class="story-cast-legend help" aria-hidden="true"><span><span class="story-cast-status" data-status="none"></span>Not created</span><span><span class="story-cast-status" data-status="created"></span>Created</span><span><span class="story-cast-status" data-status="tested"><svg viewBox="0 0 16 16"><path d="M4.5 8.2l2.3 2.3 4.7-4.8"/></svg></span>Tested</span></div></div><div class="story-cast-body" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions story-cast-actions"><p class="help" id="story-cast-progress" data-cast-progress role="status" aria-live="polite"></p><button type="button" data-next>Next: Story Screen Play</button></div></div>';
   inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
   inPage('[data-cast-reason]').textContent=data.castReason||(data.castFrom?'':'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.');
-  characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
+  characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(isImage()){select(GENERATE);return;}if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
  }
  function scriptPage(){
   page='story-script';
@@ -539,7 +596,8 @@
  }
  function render(){
   enabled=true;document.body.classList.remove('workspace-entry-mode','story-choice-mode');document.body.classList.add('story-simple-mode');q('#workspace-entry')?.remove();sessionStorage.setItem('ecco-guided-mode','off');header();
-  if(data.tab===0)details();else if(data.tab===STORY)story();else if(data.tab===CHARACTERS)charactersPage();else if(data.tab===SCRIPT)scriptPage();else generateView(data.tab===PUBLISH?'publish':['audio','images','render','board'].includes(data.view)?data.view:routes[data.output]);
+  if(isImage()&&data.tab===SCRIPT)data.tab=CHARACTERS;
+  if(data.tab===0)details();else if(data.tab===STORY)(isImage()?picturePage():story());else if(data.tab===CHARACTERS)charactersPage();else if(data.tab===SCRIPT)scriptPage();else generateView(data.tab===PUBLISH?'publish':['audio','images','render','board'].includes(data.view)?data.view:routes[data.output]);
   header();persist();
  }
  function adaptStudio(){
@@ -605,6 +663,6 @@
   if(enabled&&!rendering)leave();return originalNavigate.call(this,target,...args);
  };
  document.addEventListener('ecco:auth-change',()=>{if(enabled){leave();data=null;destroyPickers();}});
- new MutationObserver(records=>{if(queued||!enabled)return;if(records.every(r=>r.target.closest?.('[data-inline-panel]')))return;queued=true;queueMicrotask(()=>{queued=false;if(!enabled||rendering)return;const expected=data?.tab===0?'story-details':data?.tab===STORY?'story-properties':data?.tab===CHARACTERS?'story-characters':data?.tab===SCRIPT?'story-script':data?.view;if(page!==expected){leave();return;}adaptStudio();});}).observe(q('#page'),{childList:true,subtree:true});
+ new MutationObserver(records=>{if(queued||!enabled)return;if(records.every(r=>r.target.closest?.('[data-inline-panel]')))return;queued=true;queueMicrotask(()=>{queued=false;if(!enabled||rendering)return;const expected=data?.tab===0?'story-details':data?.tab===STORY?(isImage()?'story-picture':'story-properties'):data?.tab===CHARACTERS?'story-characters':data?.tab===SCRIPT?'story-script':data?.view;if(page!==expected){leave();return;}adaptStudio();});}).observe(q('#page'),{childList:true,subtree:true});
  window.EccoStoryWorkspace={open,openSetup,mountEntry,select,leave,captureContext,get active(){return enabled;}};
 })();

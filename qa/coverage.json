@@ -198,5 +198,10 @@
     "area": "Recurring generation",
     "mode": "fixture",
     "scope": "STORY-11 checks Story type sets One time or Recurring generation: the Story type button and the Story Script ribbon show One time or Recurring, Generation shows no schedule box for One time and a Recurring summary with Change in Story Script → Recurrence for Recurring, and the choice is saved. STORY-18 checks the split Story type list (12 One time types, 8 Recurring types without Presentation, Advertisement, Music / Ambient and Other), the PDF tab name PDF with multiple chapters/episodes, the Recurrence tab as the last Story Script tab, the one-time warning with Go back and Switch to One time, a 3-part story giving 3 episodes, Save as workflow writing a draft to the Workflows store, the summary on Generation, and Recurrence appearing for a One time story in parts with Make it recurring. Running a saved workflow on schedule still needs the workspace scheduling service. STORY-18 also checks the two panes are the same width and that Genre shows no tag. STORY-19 checks the series hint in Generate With AI when Recurring, the one-time warning right after Use AI Text, and Switch to One time restoring the normal hint."
+  },
+  {
+    "area": "Output-aware story steps",
+    "mode": "fixture",
+    "scope": "STORY-20 checks Image: Story Details shows Image style (required) and hides Story type, Genre / Topic and Language; the steps are Story Details, Story Picture, Story Characters, Story Generation, Story Publishing (no Screen Play); Story Picture has Upload a Photo (preview, Replace photo) and Generate With AI (three AI picture descriptions, Use AI Text); characters are optional and Next goes to Image Studio with the description saved as the script. Video shows Visual style (default Cinematic realistic film) with Language and the six steps. AI pictures themselves are made in Story Generation."
   }
 ]

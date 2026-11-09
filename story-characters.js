@@ -73,9 +73,10 @@
    const tab=q('#story-character-tab-'+index,list);if(!tab)return;const state=status(c);
    tab.querySelector('.story-cast-status')?.replaceWith(marker(state));tab.setAttribute('aria-description',LABELS[state]);tab.dataset.status=state;
   });
-  const p=progress(),ready=p.created===p.total&&p.total>0;
-  const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent='Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue');
-  const next=q('[data-next]',q('#page'));if(next){next.disabled=!ready;next.setAttribute('aria-describedby','story-cast-progress');}
+  // Pictures do not need every character created first (owner-approved mock, 2026-11-09).
+  const p=progress(),optional=ctx.data.output==='image',ready=optional||(p.created===p.total&&p.total>0);
+  const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent=optional?'Optional for pictures: create a look to keep the same person across images.':'Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue');
+  const next=q('[data-next]',q('#page'));if(next){if(optional&&next.textContent!=='Next: Story Generation')next.textContent='Next: Story Generation';next.disabled=!ready;next.setAttribute('aria-describedby','story-cast-progress');}
  }
 
  /* From Story */

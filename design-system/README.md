@@ -840,3 +840,14 @@ a recurring story shows a summary with Change in Story Script → Recurrence.
 The two Story type panes are equal width with one column each. When Recurring, the
 one-time warning also appears right after Use AI Text, and Generate With AI hints at
 a series ("a 5-part series…").
+
+## Output-aware steps — 9 November 2026
+
+Owner-approved mock. Image: Story Details shows Image style (the Image Studio
+styles) instead of Story type, and no Genre / Topic or Language; Image is always
+one time. Steps: Story Details, Story Picture, Story Characters (optional, Create
+look), Story Generation, Story Publishing. Story Picture has two tabs: Upload a
+Photo (photo, What to make from it, Improve with AI) and Generate With AI (idea,
+three AI picture descriptions, Picture Description). The description becomes the
+picture prompt for Image Studio. Video adds Visual style (the existing film
+styles). Audio is unchanged.
