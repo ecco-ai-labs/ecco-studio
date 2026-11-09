@@ -791,3 +791,13 @@ Script draft in a saved story is discarded on open so it no longer blocks Genera
 The character reading started by Next: Characters is no longer cancelled by moving
 between steps or changing settings while AI works; only switching to another story
 cancels it (owner report 2026-11-08: only Narrator appeared after Back).
+
+## One story tab at a time — 8 November 2026
+
+Owner request: only one of Upload PDF, Generate With AI and Write Yourself holds
+the story. Leaving a tab with work opens "Leave <tab>?" with Go back (returns to
+that tab, nothing changes) and Proceed (erases that tab — file, selected text,
+idea, drafts and saved selection — and opens the new tab). Empty tabs switch
+without asking. Write Story is now the same ✦ icon button as Improve with AI
+(owner choice: icon everywhere), and the title line inside the inline boxes is
+hidden because the tab already names the box.

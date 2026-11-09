@@ -149,10 +149,31 @@
   for(const tab of q('#page').querySelectorAll('[data-source-tab]')){const on=tab.dataset.sourceTab===name;tab.setAttribute('aria-selected',String(on));tab.tabIndex=on?0:-1;if(on&&focus)tab.focus();}
   for(const panel of q('#page').querySelectorAll('[data-source-panel]'))panel.hidden=panel.dataset.sourcePanel!==name;
  }
+ // One story at a time: leaving a tab that has work asks first, then erases it (owner request 2026-11-08).
+ const SOURCE_NAMES={pdf:'Upload PDF',ai:'Generate With AI',write:'Write Yourself'};
+ function sourceHasContent(name){
+  const p=name==='pdf'?picker:textPickers[name];if(!p)return false;const el=p.element;
+  return !!((name==='pdf'&&p.ready)||el.querySelector('[data-selected]')?.value.trim()||el.querySelector('[data-idea]')?.value.trim()||p.hasDrafts?.());
+ }
+ function eraseSource(name){
+  if(name==='pdf'){picker?.destroy();picker=null;sourcePending=false;data.source={text:'',name:'',pages:[]};window.EccoPopupDrafts?.put('simple-source:'+owner(),null).catch(()=>{});}
+  else{textPickers[name]?.destroy();delete textPickers[name];if(name==='ai'){data.brief='';data.aiStoryDraft=null;}else data.writtenStory='';}
+  epoch++;
+ }
+ function switchSourceTab(name,focus=false){
+  const from=data.sourceTab||'pdf';if(name===from){showSourceTab(name,focus);return;}
+  if(!sourceHasContent(from)){showSourceTab(name,focus);persist();return;}
+  const dialog=document.createElement('dialog');dialog.className='story-tab-warning';dialog.setAttribute('aria-labelledby','story-tab-warning-title');
+  dialog.innerHTML='<h2 id="story-tab-warning-title"></h2><p></p><div class="row"><button type="button" class="secondary" data-go-back>Go back</button><button type="button" data-proceed>Proceed</button></div>';
+  dialog.querySelector('h2').textContent='Leave '+SOURCE_NAMES[from]+'?';dialog.querySelector('p').textContent='Everything in '+SOURCE_NAMES[from]+' will be erased if you switch to '+SOURCE_NAMES[name]+'. Only one tab can hold your story.';
+  let proceed=false;dialog.querySelector('[data-go-back]').onclick=()=>dialog.close();dialog.querySelector('[data-proceed]').onclick=()=>{proceed=true;dialog.close();};
+  dialog.addEventListener('close',()=>{dialog.remove();if(!enabled||!inPage('.story-source-tabs'))return;if(proceed){eraseSource(from);data.sourceTab=name;persist();render();inPage('[data-source-tab='+name+']')?.focus();}else showSourceTab(from,true);},{once:true});
+  document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-go-back]').focus();
+ }
  function sourceTabs(){
   const list=inPage('.story-source-tabs');if(!list)return;const tabs=[...list.querySelectorAll('[data-source-tab]')];
-  for(const tab of tabs)tab.onclick=()=>{showSourceTab(tab.dataset.sourceTab);persist();};
-  list.onkeydown=event=>{const index=tabs.findIndex(tab=>tab.getAttribute('aria-selected')==='true'),step={ArrowRight:1,ArrowLeft:-1}[event.key];if(!step&&event.key!=='Home'&&event.key!=='End')return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+step+tabs.length)%tabs.length;showSourceTab(tabs[next].dataset.sourceTab,true);persist();};
+  for(const tab of tabs)tab.onclick=()=>switchSourceTab(tab.dataset.sourceTab);
+  list.onkeydown=event=>{const index=tabs.findIndex(tab=>tab.getAttribute('aria-selected')==='true'),step={ArrowRight:1,ArrowLeft:-1}[event.key];if(!step&&event.key!=='Home'&&event.key!=='End')return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+step+tabs.length)%tabs.length;switchSourceTab(tabs[next].dataset.sourceTab,true);};
   showSourceTab(data.sourceTab||'pdf');
   if(!window.EccoSourcePicker)return;
   if(picker&&pickerOwner===owner()){picker.mount?.(inPage('[data-source-host=pdf]'));placeUpload();}textPicker('ai').mount(inPage('[data-source-host=ai]'));textPicker('write').mount(inPage('[data-source-host=write]'));

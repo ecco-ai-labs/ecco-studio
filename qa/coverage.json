@@ -188,5 +188,10 @@
     "area": "Story Characters step",
     "mode": "fixture",
     "scope": "Owner-approved Characters mock-up: one tab per character with Not created / Created / Tested status, From Story properties, Create voice (audio: suggested voice, audio model, voice, Generate voice, sample) or Create avatar (image and video: suggested avatar prompt, image model, Generate avatar, avatar options and preview), Test (story lines and own line for voices; review for avatars), Mark as tested, Next: Script disabled until every character is created, persistence across steps, roster audit and 390px layout. Voice samples and image jobs use synthetic fixture results; real generation needs storage and a GPU and remains blocked"
+  },
+  {
+    "area": "One story tab at a time",
+    "mode": "fixture",
+    "scope": "STORY-17 checks switching from an empty story tab needs no confirmation; leaving a tab with work opens 'Leave <tab>?' with Go back (stays, work kept) and Proceed (erases that tab and opens the new one); Esc and keyboard arrows behave as Go back / switch; Write Story and Improve with AI are the same ✦ icon button in every tab; the inline boxes show no 'Select Story Text' / 'Generate With AI' / 'Write Yourself' title line. Real AI quality remains separate."
   }
 ]

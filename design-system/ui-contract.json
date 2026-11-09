@@ -229,7 +229,8 @@
         "studio-support",
         "popup-minimize",
         "desk-account",
-        "story-pane-tools"
+        "story-pane-tools",
+        "story-ai-action"
       ],
       "standardValues": {
         "sizes": "size-roster.json: icon-button"

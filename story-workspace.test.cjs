@@ -134,8 +134,8 @@ test('AI shows connection failures in a popup and does not submit until storage 
 });
 test('AI scopes controls to this story and shows pending, error and retry states',async()=>{
  const x=await fixture();await x.start();const unrelated=x.w.document.createElement('input');unrelated.setAttribute('data-ai','0');x.w.document.body.prepend(unrelated);await x.w.EccoStoryWorkspace.select(1);
- let reject;x.w.testAPI=()=>new Promise((_,r)=>reject=r);await requestStoryAI(x,'Explain business news.');assert.equal(aiButton(x).disabled,true);assert.equal(aiButton(x).textContent,'Generating…');assert.match(x.q('#story-simple-ai-status').textContent,/Writing/);assert.equal(unrelated.disabled,false);
- reject(Error('AI service is unavailable.'));await tick();assert.match(x.q('#story-simple-ai-status').textContent,/AI service is unavailable/);assert.equal(aiButton(x).disabled,false);assert.equal(aiButton(x).textContent,'Write Story');assert.deepEqual(x.errors,[]);
+ let reject;x.w.testAPI=()=>new Promise((_,r)=>reject=r);await requestStoryAI(x,'Explain business news.');assert.equal(aiButton(x).disabled,true);assert.equal(aiButton(x).getAttribute('aria-busy'),'true');assert.match(x.q('#story-simple-ai-status').textContent,/Writing/);assert.equal(unrelated.disabled,false);
+ reject(Error('AI service is unavailable.'));await tick();assert.match(x.q('#story-simple-ai-status').textContent,/AI service is unavailable/);assert.equal(aiButton(x).disabled,false);assert.equal(aiButton(x).getAttribute('aria-label'),'Write Story');assert.equal(aiButton(x).getAttribute('aria-busy'),'false');assert.deepEqual(x.errors,[]);
 });
 test('a new story has fresh AI instructions and cannot receive the previous response',async()=>{
  const x=await fixture();await x.start();let resolve;x.w.testAPI=()=>new Promise(r=>resolve=r);await requestStoryAI(x,'Old story instructions');

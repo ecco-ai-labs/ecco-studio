@@ -70,8 +70,9 @@
     const pane=document.createElement('section');pane.className='pdf-review-box pdf-idea-pane';
     const heading=document.createElement('label');heading.className='pdf-review-heading';heading.textContent=idea.label;
     const input=document.createElement('textarea');input.dataset.idea='';input.dir='auto';input.maxLength=idea.maxLength||4000;input.placeholder=idea.placeholder||'';input.value=idea.value||'';input.id='source-idea-'+crypto.randomUUID();heading.htmlFor=input.id;
-    const run=document.createElement('button');run.type='button';run.dataset.generateIdea='';run.textContent=idea.generateLabel||'Generate';
-    pane.append(heading,input,run);dialog.querySelector('.pdf-selection-layout').prepend(pane);
+    // The AI action is the same ✦ icon as Improve with AI in every tab (owner choice 2026-11-08).
+    const run=document.createElement('button');run.type='button';run.dataset.generateIdea='';run.className='secondary pdf-ai-icon';const runLabel=idea.generateLabel||'Generate';run.setAttribute('aria-label',runLabel);run.title=runLabel;run.innerHTML='<span aria-hidden="true">✦</span>';
+    pane.append(heading,input);dialog.querySelector('.pdf-selection-layout').prepend(pane);paneTools(pane,heading).append(run);
     input.oninput=()=>idea.onInput?.(input.value);
    }else dialog.classList.add('pdf-story-no-idea');
   }
@@ -394,7 +395,7 @@
   const ideaRun=dialog.querySelector('[data-generate-idea]');
   if(ideaRun)ideaRun.onclick=async()=>{
    if(ideaRun.disabled)return;
-   const label=ideaRun.textContent;ideaBusy=true;ideaRun.setAttribute('aria-busy','true');ideaRun.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Generating…';controls();
+   const label=ideaRun.innerHTML;ideaBusy=true;ideaRun.setAttribute('aria-busy','true');ideaRun.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>';controls();
    try{
     let context=aiContext;try{context?.valid();if(context&&(context.start!==0||context.end!==context.original.length))context=null;}catch{context=null;}
     // A new Write Story replaces earlier drafts with a fresh set of three.
@@ -408,10 +409,10 @@
     }
     aiStatus.textContent='Three drafts are ready. Choose one, then select Use AI Text.';
    }catch(error){if(!disposed)aiStatus.textContent=error.message;}
-   finally{if(!disposed){ideaBusy=false;ideaRun.setAttribute('aria-busy','false');ideaRun.textContent=label;paintAIAction();controls();}}
+   finally{if(!disposed){ideaBusy=false;ideaRun.setAttribute('aria-busy','false');ideaRun.innerHTML=label;paintAIAction();controls();}}
   };
   paintDrafts();if(textMode){ready=true;controls();}
-  return {load,open,mount,clear,paneTools:()=>{const pane=dialog.querySelector('.pdf-document-pane');return paneTools(pane,pane.querySelector('.pdf-review-heading'));},snapshot,restore,refreshSettings:()=>refreshAISettings(),setText(text){selected.value=text||'';reportSelection();updateReplace();},setIdea(text){const input=dialog.querySelector('[data-idea]');if(input)input.value=text||'';},get element(){return dialog;},get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
+  return {load,open,mount,clear,paneTools:()=>{const pane=dialog.querySelector('.pdf-document-pane');return paneTools(pane,pane.querySelector('.pdf-review-heading'));},snapshot,restore,refreshSettings:()=>refreshAISettings(),setText(text){selected.value=text||'';reportSelection();updateReplace();},hasDrafts:()=>drafts.some(d=>typeof d==='string'&&d.trim()),setIdea(text){const input=dialog.querySelector('[data-idea]');if(input)input.value=text||'';},get element(){return dialog;},get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
  }
  window.EccoSourcePicker={create};
 })();
