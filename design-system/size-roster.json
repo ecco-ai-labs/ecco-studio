@@ -1007,6 +1007,21 @@
         "Notifications"
       ],
       "area": "Header"
+    },
+    {
+      "id": "story-upload-target",
+      "of": "button",
+      "name": "Upload PDF drop area",
+      "font": null,
+      "height": 220,
+      "width": null,
+      "selectors": [
+        "#page button.story-upload-target"
+      ],
+      "examples": [
+        "Upload PDF"
+      ],
+      "area": "Story pages"
     }
   ],
   "scale": [

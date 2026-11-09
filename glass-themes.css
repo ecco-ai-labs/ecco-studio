@@ -1,5 +1,5 @@
 /* Opt-in glass surfaces. No dimensions or media pixels are changed. */
-html[data-ecco-theme="ocean"]{color-scheme:light;--glass-backdrop:radial-gradient(ellipse at 15% 8%,#ffffffba,transparent 48%),radial-gradient(ellipse at 90% 55%,#64b4d255,transparent 50%),linear-gradient(175deg,#cbe6f7 0%,#edf6fa 38%,#a8d4e4 56%,#eee3ce 100%);--glass-solid:#eef6fa;--glass-highlight:#ffffff88;--glass-shadow:#214b6920}
+html[data-ecco-theme="ocean"]{color-scheme:light;--glass-backdrop:linear-gradient(180deg,#d9edf7 0%,#e4f2f8 100%);--glass-solid:#eef6fa;--glass-highlight:#ffffff88;--glass-shadow:#214b6920}
 html[data-ecco-theme="dark-sky"]{color-scheme:dark;--glass-backdrop:radial-gradient(ellipse at 8% 24%,#18558999,transparent 50%),radial-gradient(ellipse at 80% 8%,#17558677,transparent 45%),linear-gradient(145deg,#061c32,#020e1b);--glass-solid:#102c48;--glass-highlight:#99d5ff30;--glass-shadow:#00081455}
 html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]){background:var(--glass-backdrop) fixed;color:var(--ecco-theme-text)}
 html:is([data-ecco-theme="ocean"],[data-ecco-theme="dark-sky"]) :is(body,main,#page,#workspace-entry,#story-choice-screen){background:transparent!important}

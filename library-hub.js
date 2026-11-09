@@ -164,7 +164,7 @@
   s.filters=filters.map(f=>f.id);
   const title=filters.length?filters.map(leaf).join(' + '):'All '+K.plural;
   root.querySelector('.lh-title').textContent=title;
-  const crumb=root.querySelector('.lh-crumb');
+  const crumb=root.querySelector('.lh-crumb');crumb.hidden=!filters.length;
   crumb.innerHTML='<button type="button" data-act="clear" class="'+(filters.length?'link':'now')+'"'+(filters.length?'':' aria-current="page"')+'>'+esc(K.title)+'</button>'+(filters.length?'<span aria-hidden="true">›</span><span class="now">'+esc(filters.length===1?path(filters[0]):filters.map(leaf).join(' + '))+'</span>':'');
   root.querySelector('.lh-count').textContent=state.storage_pending&&K.asset?'Connect your saved workspace from Account → Storage.':out.length+' '+(out.length===1?K.singular:K.plural);
   const tools=root.querySelector('.lh-label-tools');
