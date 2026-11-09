@@ -1404,3 +1404,14 @@ test('TOOLTIP-01 all header tooltips share the theme panel color; connection sta
  expect(storage.bg).toBe(github.bg);expect(settings.bg).toBe(github.bg);
  expect(storage.dot).not.toBeNull();expect(github.dot).toBeNull();
 });
+test('LOOK-06 header tooltips are set in Look and Feel',async({page})=>{
+ await bootAdmin(page);
+ const panel=await openLookAndFeel(page);
+ await panel.getByRole('tab',{name:'Colors',exact:true}).click();
+ await panel.getByLabel('Tooltip fill',{exact:true}).selectOption('accent');
+ await panel.getByLabel('Tooltip text size',{exact:true}).selectOption('@text-large');
+ await panel.getByLabel('Tooltip dot size in pixels',{exact:true}).fill('10');await panel.getByLabel('Tooltip dot size in pixels',{exact:true}).press('Tab');
+ const tip=()=>page.evaluate(()=>{const e=document.querySelector('#studio-storage-indicator'),a=getComputedStyle(e,'::after'),b=getComputedStyle(e,'::before');return {shown:a.content!=='none',bg:a.backgroundColor,font:a.fontSize,dot:b.width};});
+ await panel.getByRole('button',{name:'Show a tooltip',exact:true}).click();
+ await expect.poll(tip).toEqual({shown:true,bg:'rgb(255, 220, 36)',font:'14px',dot:'10px'});
+});

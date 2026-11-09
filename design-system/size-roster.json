@@ -1400,5 +1400,13 @@
         }
       }
     }
+  },
+  "tooltips": {
+    "about": "Hover labels in the header (AI, Storage, GPU, Discord, GitHub, Support, Notifications, User Preferences …). fill, text and border name a color role from colors.roles, so they follow every theme. Connection tooltips show a dot in the theme's connected / not-connected color.",
+    "font": "@text-small",
+    "fill": "surface",
+    "text": "text",
+    "border": "border",
+    "dot": 7
   }
 }

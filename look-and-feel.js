@@ -127,11 +127,29 @@
    <label class="themepick">Theme<select id="color-theme" aria-label="Theme to edit">${Object.entries(c.themes).map(([id,t])=>`<option value="${esc(id)}"${id===colorTheme?' selected':''}>${esc(t.label)}</option>`).join('')}</select></label>
    <section class="cat"><h3>Colors</h3>${Object.entries(c.roles).map(([k,r])=>row('colors',k,r.label,r.builtIn)).join('')}</section>
    <section class="cat"><h3>Connection status</h3>${row('status','connected','Connected')}${row('status','disconnected','Not connected')}</section>
-   ${th.glass?`<section class="cat"><h3>Backdrop</h3>${[['backdrop','Page backdrop'],['solid','Solid panels'],['highlight','Highlight'],['shadow','Shadow']].map(([k,l])=>row('glass',k,l)).join('')}</section>`:''}`;
+   ${th.glass?`<section class="cat"><h3>Backdrop</h3>${[['backdrop','Page backdrop'],['solid','Solid panels'],['highlight','Highlight'],['shadow','Shadow']].map(([k,l])=>row('glass',k,l)).join('')}</section>`:''}
+   ${tipSection()}`;
  }
+ /* Header tooltips: the same for every theme; colors name a role, so each theme's own color is used. */
+ function tipSection(){
+  const t=draft.tooltips;if(!t)return '';
+  const roles=Object.entries(draft.colors.roles);
+  const roleSel=(k,lab)=>`<label class="tiprow">${lab}<select data-tip="${k}" aria-label="Tooltip ${lab.toLowerCase()}">${roles.map(([id,r])=>`<option value="${esc(id)}"${t[k]===id?' selected':''}>${esc(r.label)}</option>`).join('')}</select></label>`;
+  const fonts=draft.scale.filter(g=>g.kind==='font').map(g=>`<optgroup label="${esc(g.name)}">${g.tokens.map(x=>`<option value="@${esc(x.id)}"${t.font==='@'+x.id?' selected':''}>${esc(x.name)} · ${fmt(x.value)} px</option>`).join('')}</optgroup>`).join('');
+  return `<section class="cat"><h3>Header tooltips</h3><p class="muted small">The hover labels on the header icons, in every theme. Connection tooltips (AI, Storage, GPU) show a dot in the connected / not-connected color above.</p>
+   ${roleSel('fill','Fill')}${roleSel('text','Text color')}${roleSel('border','Border')}
+   <label class="tiprow">Text size<select data-tip="font" aria-label="Tooltip text size">${fonts}</select></label>
+   <label class="tiprow">Dot size<input type="number" min="4" max="20" step="1" data-tip="dot" value="${fmt(t.dot)}" aria-label="Tooltip dot size in pixels"></label>
+   <button type="button" class="ghost" id="tip-show">Show a tooltip</button></section>`;
+ }
+ // Keep one connection tooltip open for a few seconds so the change can be seen.
+ let tipTimer=0;
+ function showTip(){const el=document.querySelector('#studio-storage-indicator[data-icon-tooltip],#connection-indicators>[data-icon-tooltip]');if(!el)return;el.classList.add('ecco-tooltip-demo');clearTimeout(tipTimer);tipTimer=setTimeout(()=>{el.classList.remove('ecco-tooltip-demo');},4000);}
  function wireColors(){
   const pick=root.getElementById('color-theme');
   if(pick)pick.onchange=()=>{colorTheme=pick.value;const radio=document.querySelector(`#workspace-theme-drawer input[name=ecco-theme][value="${window.CSS.escape(colorTheme)}"]`);if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}render();};
+  for(const el of root.querySelectorAll('[data-tip]'))el.onchange=()=>{const k=el.dataset.tip;let v=el.value;if(k==='dot'){v=+v;if(!(v>=4&&v<=20)){setMessage('The tooltip dot must be between 4 and 20 px.','error');el.value=draft.tooltips.dot;return;}}draft.tooltips[k]=v;preview();showTip();};
+  const show=root.getElementById('tip-show');if(show)show.onclick=showTip;
   for(const input of root.querySelectorAll('[data-color]'))input.onchange=()=>{
    const [group,key]=input.dataset.color.split(':'),v=input.value.trim(),th=draft.colors.themes[colorTheme];
    if(v&&group!=='glass'&&!COLOR_RE.test(v)){setMessage(`"${v}" is not a color. Use a hex color like #1f6feb or rgba(…).`,'error');return;}
@@ -280,7 +298,7 @@
  .label{position:fixed;background:var(--ecco-theme-accent,#ffdc24);color:var(--ecco-theme-contrast,#1d1b2b);font:600 12px/1 Inter,system-ui,sans-serif;padding:5px 7px;border-radius:5px;pointer-events:none;white-space:nowrap}
  .label[hidden]{display:none}
  @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
-.crow{display:grid;grid-template-columns:20px minmax(0,1fr) 140px;gap:8px;align-items:center;margin:4px 0}.crow .sw{width:20px;height:20px;border-radius:5px;border:1px solid #8886}.crow input{width:100%;box-sizing:border-box;font:12px ui-monospace,Menlo,monospace;padding:4px 6px}.themepick{display:flex;gap:8px;align-items:center;margin:6px 0}`;
+.crow{display:grid;grid-template-columns:20px minmax(0,1fr) 140px;gap:8px;align-items:center;margin:4px 0}.crow .sw{width:20px;height:20px;border-radius:5px;border:1px solid #8886}.crow input{width:100%;box-sizing:border-box;font:12px ui-monospace,Menlo,monospace;padding:4px 6px}.themepick{display:flex;gap:8px;align-items:center;margin:6px 0}.tiprow{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;align-items:center;margin:5px 0;font-size:13px}.tiprow select,.tiprow input{width:100%;box-sizing:border-box}`;
  function build(){
   host=document.createElement('div');host.id='look-and-feel-panel';
   root=S().attachPlain(host,{mode:'open'});

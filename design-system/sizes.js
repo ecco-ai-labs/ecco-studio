@@ -57,9 +57,26 @@
   }
   return c;
  }
+ /* Header tooltips: a text size from the scale, color roles for fill/text/border, and a dot size. */
+ const TIP_ROLES=['background','surface','control','text','contrast','muted','accent','border','error','success','shadow'];
+ function tooltips(t,roster){
+  if(!t||typeof t!=='object')throw new Error('Tooltip settings are missing.');
+  const roles=roster.colors?Object.keys(roster.colors.roles):TIP_ROLES;
+  for(const k of ['fill','text','border'])if(!roles.includes(t[k]))throw new Error(`Tooltip ${k} must be one of the color roles.`);
+  cssValue('font',t.font,tokens(roster));
+  if(typeof t.dot!=='number'||!(t.dot>=4&&t.dot<=20))throw new Error('The tooltip dot must be between 4 and 20 px.');
+  return t;
+ }
+ function tooltipCss(roster,map){
+  const t=roster.tooltips;if(!t)return '';
+  const built=k=>roster.colors?.roles?.[k]?.builtIn||'#24204a';
+  const role=k=>`var(--ecco-theme-${t[k]},${built(t[k])})`;
+  return `:root{--ecco-tooltip-font:${cssValue('font',t.font,map)};--ecco-tooltip-fill:${role('fill')};--ecco-tooltip-text:${role('text')};--ecco-tooltip-border:${role('border')};--ecco-tooltip-dot:${+t.dot}px}`;
+ }
  function validate(roster){
   if(!roster||typeof roster!=='object'||!Array.isArray(roster.types))throw new Error('The roster needs a list of element types.');
   if(roster.colors!==undefined)colors(roster.colors);
+  if(roster.tooltips!==undefined)tooltips(roster.tooltips,roster);
   const clean={...roster,scale:[],types:[],variants:[]},ids=new Set(),tids=new Set();
   if(roster.scale!==undefined&&!Array.isArray(roster.scale))throw new Error('The size scale must be a list of categories.');
   for(const g of roster.scale||[]){
@@ -106,6 +123,7 @@
   const roster=validate(input),map=tokens(roster);
   const out=['/* Generated from the Ecco master size roster. Do not edit; change design-system/size-roster.json or use Look and Feel in Studio. */'];
   if(Object.keys(map).length)out.push(`:root{${Object.values(map).map(t=>`--ecco-size-${t.id}:${+t.value.toFixed(3)}px`).join(';')}}`);
+  const tips=tooltipCss(roster,map);if(tips)out.push('/* Header tooltips */',tips);
   const list_=entries(roster);
   // An element belongs only to the last roster entry it matches (as classify() does), so each
   // rule skips elements that a later entry claims. A later entry with no size leaves the

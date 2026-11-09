@@ -151,7 +151,19 @@ def validate(roster):
     out = {'schemaVersion': 2, 'scale': scale, 'types': types, 'variants': clean_variants}
     if roster.get('colors') is not None:
         out['colors'] = validate_colors(roster['colors'])
+    if roster.get('tooltips') is not None:
+        tips = roster['tooltips']
+        roles = set(out['colors']['roles']) if 'colors' in out else set(TIP_ROLES)
+        if not isinstance(tips, dict) or any(tips.get(k) not in roles for k in ('fill', 'text', 'border')):
+            raise LookError('Tooltip fill, text and border must each be one of the color roles.')
+        dot = tips.get('dot')
+        if not isinstance(dot, (int, float)) or isinstance(dot, bool) or not 4 <= dot <= 20:
+            raise LookError('The tooltip dot must be between 4 and 20 px.')
+        out['tooltips'] = {'font': _size('font', tips.get('font'), token_ids), 'fill': tips['fill'], 'text': tips['text'], 'border': tips['border'], 'dot': dot}
     return out
+
+
+TIP_ROLES = ('background', 'surface', 'control', 'text', 'contrast', 'muted', 'accent', 'border', 'error', 'success', 'shadow')
 
 
 COLOR = re.compile(r'^(#[0-9a-fA-F]{3,8}|rgba?\([0-9., %]{1,40}\))$')
