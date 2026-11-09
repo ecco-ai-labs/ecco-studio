@@ -10,7 +10,7 @@
 .lh-treehead{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ecco-theme-muted,#c9c5ea);padding:2px 4px 4px}
 .lh-trow{display:flex;align-items:center;gap:3px;min-height:28px}
 .lh-spacer{width:16px;flex:none}
-.lh-toggle{width:16px;height:16px;flex:none;padding:0;border:1px solid var(--ecco-theme-border,#4a4580);border-radius:3px;background:transparent;color:var(--accent,#ffdc24);font-size:12px;line-height:1;cursor:pointer;display:grid;place-items:center}
+.lh-toggle{width:16px;height:16px;flex:none;padding:0;border:1px solid transparent;border-radius:3px;background:transparent;color:var(--accent,#ffdc24);font-size:12px;line-height:1;cursor:pointer;display:grid;place-items:center}
 .lh-node{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:6px;height:28px;padding:0 6px;border:0;border-radius:5px;background:transparent;color:var(--ecco-theme-text,#f2f0ff);font-size:12px;cursor:pointer;text-align:left}
 .lh-tree>.lh-node{padding-left:22px}
 .lh-node-text{display:flex;align-items:center;gap:6px;min-width:0}
@@ -99,7 +99,7 @@
 .lh-viewer-body img{max-width:86vw;max-height:78vh;display:block}
 @media(max-width:900px){.lh-body:has(.lh-details:not([hidden])){grid-template-columns:minmax(0,1fr)}.lh-details{position:static}.lh-row{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}.lh-row>:nth-child(n+3){display:none}.lh-title{font-size:22px}}
 /* The sidebar theme flattens every button; the +/− toggles and the library switcher are the approved boxed exceptions. */
-html body>aside #library-hub-nav .lh-toggle{border:1px solid var(--ecco-theme-border,#4a4580)!important;border-radius:3px!important;color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
+html body>aside #library-hub-nav .lh-toggle{border:1px solid transparent!important;border-radius:3px!important;color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important}
 html body>aside #library-hub-nav .lh-libs button{border:1px solid var(--ecco-theme-border,#3a3568)!important;border-radius:7px!important}
 html body>aside #library-hub-nav .lh-libs button[aria-current=page]{border-color:var(--ecco-theme-accent,var(--accent,#ffdc24))!important;background:rgba(255,220,36,.08)!important}
 html body>aside #library-hub-nav .lh-node[aria-pressed=true]{background:rgba(255,220,36,.12)!important;box-shadow:inset 3px 0 var(--ecco-theme-accent,var(--accent,#ffdc24))!important}

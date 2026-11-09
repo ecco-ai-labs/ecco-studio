@@ -222,8 +222,8 @@
       "id": "text-input",
       "name": "Input / dropdown field",
       "contractComponent": "text-input",
-      "font": "@text-medium-large",
-      "height": "@control-medium",
+      "font": "@text-medium",
+      "height": "@control-small",
       "width": null,
       "selectors": [
         "input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image])",
@@ -331,7 +331,7 @@
       "id": "menu-option",
       "name": "Menu / dropdown option",
       "contractComponent": "menu-item",
-      "font": "@text-regular",
+      "font": "@text-medium-large",
       "height": "@control-medium",
       "width": null,
       "selectors": [
@@ -680,7 +680,7 @@
       "id": "fine-print",
       "name": "Fine print",
       "contractComponent": "text",
-      "font": "@text-medium-large",
+      "font": "@text-small",
       "height": null,
       "width": null,
       "selectors": [
@@ -838,8 +838,8 @@
       "id": "sidebar-label-row",
       "of": "sidebar-item",
       "name": "Library label row",
-      "font": "@text-large",
-      "height": null,
+      "font": "@text-regular",
+      "height": "@control-small",
       "width": null,
       "selectors": [
         "#library-hub-nav .lh-node"
@@ -847,7 +847,8 @@
       "examples": [
         "All images"
       ],
-      "area": "Left navigation"
+      "area": "Left navigation",
+      "icon": "@icon-small"
     },
     {
       "id": "sidebar-new-label",
@@ -883,8 +884,8 @@
       "id": "button-header-menu",
       "of": "button",
       "name": "Header menus",
-      "font": "@text-xl",
-      "height": "@control-medium",
+      "font": "@text-medium-large",
+      "height": "@control-small",
       "width": null,
       "selectors": [
         "#education-menu > summary",
@@ -946,8 +947,8 @@
       "id": "button-story-choice",
       "of": "button",
       "name": "Tell Your Story choice",
-      "font": null,
-      "height": null,
+      "font": "@title-sub",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         ".story-choice-actions .intent-trigger"
@@ -963,9 +964,9 @@
       "id": "label-expand",
       "of": "icon-button",
       "name": "Label expand box",
-      "font": null,
-      "height": null,
-      "width": null,
+      "font": "@text-medium-large",
+      "height": 16,
+      "width": 16,
       "icon": null,
       "selectors": [
         "#library-hub-nav .lh-toggle"
@@ -994,10 +995,7 @@
         "#activity-files-menu",
         "#notification-bell",
         "#workspace-discord",
-        "#workspace-support",
-        ".header-right button[aria-label]:has(> svg:only-child)",
-        "#studio-storage-indicator",
-        "#connected-accelerator"
+        "#workspace-support"
       ],
       "examples": [
         "Storage",

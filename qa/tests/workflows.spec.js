@@ -581,7 +581,7 @@ test('DESK-BRAND-01 original light Desk styling retains Ecco name and logo',asyn
   await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('background-color','rgb(255, 255, 255)');
   await expect(page.getByRole('button',{name:'Publish notification',exact:true})).toHaveCSS('background-color','rgb(17, 42, 56)');
   await expect(page.locator('.notification-composer')).toHaveCSS('font-family',/Arial/);
-  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('font-size','12px');
+  await expect(page.getByLabel('Title',{exact:true})).toHaveCSS('font-size','11px');
   await page.setViewportSize({width:390,height:844});
   await expect(page.getByLabel('Message',{exact:true})).toBeVisible();
   expect(await page.locator('.notification-composer').evaluate(el=>el.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
@@ -1139,8 +1139,8 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TY
  await page.setViewportSize(viewport);await boot(page);
  // Sizes come from the master size roster (design-system/size-roster.json), at every width.
  const font=async(selector,px)=>expect(await page.locator(selector).first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeCloseTo(px,3);
- await font('body',12);await font('#heading',20);await font('.story-details-card h2',15);await font('#story-detail-title',12);await font('.story-detail-qualifier',12);await font('#story-simple-save',12);
- for(const selector of ['#story-detail-title','#story-detail-audience'])await expect(page.locator(selector)).toHaveCSS('height','30px');
+ await font('body',12);await font('#heading',20);await font('.story-details-card h2',15);await font('#story-detail-title',11);await font('.story-detail-qualifier',12);await font('#story-simple-save',12);
+ for(const selector of ['#story-detail-title','#story-detail-audience'])await expect(page.locator(selector)).toHaveCSS('height','25px');
  await expect(page.locator('#story-detail-type-button')).toHaveCSS('height','30px');
  await expect(page.locator('.story-details-next')).toHaveCSS('min-height','30px');
  const trigger=page.locator('#story-detail-type-button'),panel=page.locator('#story-detail-type-panel');await trigger.press('Enter');
@@ -1160,7 +1160,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TY
  await page.setViewportSize(viewport);await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());await page.goto('/desk/index.html?__qa=1');
  if(viewport.width<=650)await page.getByRole('button',{name:'Open navigation',exact:true}).click();
  await page.getByRole('button',{name:'Notifications',exact:true}).click();await page.getByRole('button',{name:'New Notification',exact:true}).click();
- const title=page.getByLabel('Title',{exact:true});await expect(title).toHaveCSS('font-size','12px');expect(await title.evaluate(e=>Boolean(e.getRootNode().host))).toBe(true);await title.fill('Compact typography check');await title.press('Tab');await expect(page.getByLabel('Message',{exact:true})).toBeFocused();
+ const title=page.getByLabel('Title',{exact:true});await expect(title).toHaveCSS('font-size','11px');expect(await title.evaluate(e=>Boolean(e.getRootNode().host))).toBe(true);await title.fill('Compact typography check');await title.press('Tab');await expect(page.getByLabel('Message',{exact:true})).toBeFocused();
  expect(await page.locator('.notification-composer').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-desk-'+viewport.width+'.png'),fullPage:true});
 
 });
