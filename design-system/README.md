@@ -809,3 +809,7 @@ question stopped the character tabs from appearing).
 While AI generates characters, Characters shows a spinner beside the status and an
 animated progress bar (role progressbar, "Generating characters") until the tabs
 arrive (owner request 2026-11-08).
+
+After Next: Characters, AI's explanation of its cast is no longer shown. Generate
+voice on Characters loads the story's audio settings itself, so it works before
+Audio Studio has been opened (owner report 2026-11-08: "reading 'compute'").

@@ -332,6 +332,8 @@
  // Returns {asset_id,url}. Reuses the connected audio service, compute checks and line controls.
  async function sampleVoice(character,text,{title='Character voice'}={}){
   if(!service)throw Error('Connect workspace storage from Connections → Storage to create voices.');
+  // The Characters step can ask for a voice before Audio Studio has opened this story.
+  if(!draft||story!==activeStory)load();
   const current=service,model=characterModel(character);if(!model)throw Error('Choose an audio model first.');
   await requireCompute(draft.compute,model.id,draft.worker_id);
   const job=await current.generate({model:model.id,compute:draft.compute,worker_id:draft.worker_id,...(model.id==='chatterbox'?{exaggeration:Number(character.exaggeration??draft.exaggeration??0.5)}:{}),genre:draft.genre,pause:0,story_id:activeStory,title,performance_brief:performanceBrief(),lines:[{text:String(text).slice(0,300),voice:character.voice,language:character.language,...window.EccoAudioDirection.lineControls({},character,model)}]});

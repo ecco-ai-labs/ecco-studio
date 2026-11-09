@@ -277,7 +277,7 @@
  }
  function paintCastStatus(){
   const root=inPage('[data-cast-panel]');if(!root)return;root.setAttribute('aria-busy',String(!!data.castPending));
-  const reason=inPage('[data-cast-reason]');reason.textContent=data.castPending?'Identifying characters and recommending their properties…':data.castReason||'Apply source text to identify its characters, or create your own cast.';
+  const reason=inPage('[data-cast-reason]');reason.textContent=data.castPending?'Identifying characters and recommending their properties…':data.castReason||(data.castFrom?'':'Apply source text to identify its characters, or create your own cast.');reason.hidden=!reason.textContent;
   // While AI works, a spinner and a moving bar show that characters are being generated (owner request 2026-11-08).
   root.querySelector('.story-cast-progress')?.remove();
   if(data.castPending){const spin=document.createElement('span');spin.className='generation-spinner';spin.setAttribute('aria-hidden','true');reason.prepend(spin);const bar=document.createElement('div');bar.className='story-cast-progress';bar.setAttribute('role','progressbar');bar.setAttribute('aria-label','Generating characters');bar.append(document.createElement('span'));reason.after(bar);}
@@ -307,7 +307,7 @@
   page='story-characters';if(!data.cast.length)data.cast=defaultCast();
   q('#page').innerHTML='<div class="form"><section class="panel form story-cast" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-cast-reason></p><div class="story-cast-bar"><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><div class="story-cast-legend help" aria-hidden="true"><span><span class="story-cast-status" data-status="none"></span>Not created</span><span><span class="story-cast-status" data-status="created"></span>Created</span><span><span class="story-cast-status" data-status="tested"><svg viewBox="0 0 16 16"><path d="M4.5 8.2l2.3 2.3 4.7-4.8"/></svg></span>Tested</span></div></div><div class="story-cast-body" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions story-cast-actions"><p class="help" id="story-cast-progress" data-cast-progress role="status" aria-live="polite"></p><button type="button" data-next>Next: Script</button></div></div>';
   inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
-  inPage('[data-cast-reason]').textContent=data.castReason||'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.';
+  inPage('[data-cast-reason]').textContent=data.castReason||(data.castFrom?'':'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.');
   characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
  }
  function scriptPage(){
@@ -361,7 +361,7 @@
    if(result.questions?.length&&!autoApply&&!readStory)throw Error(result.questions.join(' '));const value=result.revisions?.find(r=>r.id==='story_workspace')?.text;if(typeof value!=='string')throw Error('AI returned no usable suggestion. Try again.');
    let parsed;try{parsed=JSON.parse(value.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));}catch{throw Error('AI returned an unreadable suggestion. Your current story is unchanged.');}
    const proposal=M.validateProposal(parsed,data,castOnly);if(preserveCast&&(proposal.cast.length!==data.cast.length||proposal.cast.some((c,i)=>c.id!==data.cast[i].id||c.name!==data.cast[i].name)))throw Error('AI changed your chosen cast. Your characters are preserved; try again.');
-   if(autoApply||readStory){applyDetectedCast(proposal,model,valid);if(readStory){data.castFrom=readStory;data.castReason=proposal.cast.length+' characters suggested from your story. Change anything that doesn\u2019t fit.'+(proposal.reason?' '+proposal.reason:'');persist();if(data.tab===CHARACTERS)render();}return;}
+   if(autoApply||readStory){applyDetectedCast(proposal,model,valid);if(readStory){data.castFrom=readStory;data.castReason='';persist();if(data.tab===CHARACTERS)render();}return;}
    if(returnProposal){aiStatus('');return {proposal,research};}
    if(data.tab!==CHARACTERS){message('Return to Characters and request the suggestion again.');return;}
    const box=q('#story-simple-candidate');box.hidden=false;box.replaceChildren();const heading=document.createElement('h3');heading.textContent=castOnly?'Suggested characters':'Review AI story';box.append(heading);const info=document.createElement('p');info.textContent=proposal.cast.map(c=>c.name+' — '+(c.role||'Character')).join('; ')+(proposal.reason?'\n'+proposal.reason:'');box.append(info);
