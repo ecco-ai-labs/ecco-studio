@@ -153,7 +153,11 @@
  const SOURCE_NAMES={pdf:'Upload PDF',ai:'Generate With AI',write:'Write Yourself'};
  function sourceHasContent(name){
   const p=name==='pdf'?picker:textPickers[name];if(!p)return false;const el=p.element;
-  return !!((name==='pdf'&&p.ready)||el.querySelector('[data-selected]')?.value.trim()||el.querySelector('[data-idea]')?.value.trim()||p.hasDrafts?.());
+  // Only what the person can see in the tab counts, so leftover hidden content never triggers the warning.
+  const seen=node=>!!node&&node.getClientRects().length>0;
+  const filled=selector=>[...el.querySelectorAll(selector)].some(f=>seen(f)&&f.value.trim());
+  const drafts=p.hasDrafts?.()&&[...el.querySelectorAll('.pdf-ai-draft-tab,.pdf-ai-drafts')].some(seen);
+  return !!((name==='pdf'&&p.ready&&p.name)||filled('[data-selected]')||filled('[data-idea]')||drafts);
  }
  function eraseSource(name){
   if(name==='pdf'){picker?.destroy();picker=null;sourcePending=false;data.source={text:'',name:'',pages:[]};window.EccoPopupDrafts?.put('simple-source:'+owner(),null).catch(()=>{});}
