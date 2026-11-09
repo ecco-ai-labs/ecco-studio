@@ -765,3 +765,7 @@ AI for the characters.
 Resume Script is removed from the Story and Script steps, and a leftover Generated
 Script draft in a saved story is discarded on open so it no longer blocks Generate
 (owner request 2026-11-08).
+
+The character reading started by Next: Characters is no longer cancelled by moving
+between steps or changing settings while AI works; only switching to another story
+cancels it (owner report 2026-11-08: only Narrator appeared after Back).

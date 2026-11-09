@@ -324,7 +324,8 @@
   if(aiRequest?.current===data){if(returnProposal)throw Error('AI is still working on this story.');aiStatus('AI is still working on this story…');return;}
   const token=epoch,current=data,identity=owner(),request={current,identity};aiRequest=request;if(autoApply||readStory){data.castPending=true;paintCastStatus();}
   const buttons=[inPage('[data-ai]'),inPage('[data-cast-ai]')],labels=buttons.map(b=>b?.textContent);buttons.forEach(b=>{if(b){b.disabled=true;b.setAttribute('aria-busy','true');}});if(buttons[castOnly?1:0])buttons[castOnly?1:0].textContent=castOnly?'Recommending…':'Generating…';if(inPage('[data-ai-connections]'))inPage('[data-ai-connections]').hidden=true;message('',true);aiStatus('Checking AI connection…');
-  const valid=()=>{if(current!==data||token!==epoch||identity!==owner()||!enabled)throw Error('The story changed while AI was working. Your edits are preserved; request a new suggestion.');};
+  // Reading characters on Next: Characters survives moving between steps; only a different story cancels it.
+  const valid=()=>{if(current!==data||(!readStory&&token!==epoch)||identity!==owner()||!enabled)throw Error('The story changed while AI was working. Your edits are preserved; request a new suggestion.');};
   try{
    if(!window.EccoStorage?.ready){if(inPage('[data-ai-connections]'))inPage('[data-ai-connections]').hidden=false;throw Error('Connect Storage to generate this story. Your draft is saved.');}
    if(!window.EccoAI?.enabled)await window.EccoAI?.refresh();valid();

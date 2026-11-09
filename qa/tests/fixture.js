@@ -17,6 +17,7 @@
   window.__qaCalls=[];
   api=async(path,body)=>{
     window.__qaCalls.push({path,body});
+    if(window.__qaHold&&path==='ai/enhance')await window.__qaHold;
     if(path==='state')return state;
     if(['audioPreview','castRetry'].includes(sourceFit)&&path==='ai/enhance'&&body.fields?.[0]?.id==='audio_directed_script'){
       const draft=JSON.parse(body.context.summary).draft,part=p=>({...p,performance:{emotion:'neutral',direction:'Clear speech.',pause_before:0}});

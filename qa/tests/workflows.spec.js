@@ -952,6 +952,11 @@ test('STORY-16 Next: Characters reads the story and makes one tab per character 
  const reads=()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='story_workspace').length);expect(await reads()).toBe(1);
  const call=await page.evaluate(()=>window.__qaCalls.find(c=>c.body?.fields?.[0]?.id==='story_workspace'));expect(JSON.parse(call.body.context.summary).script).toContain('Morgiana: I will help.');
  await page.getByRole('tab',{name:'2. Story',exact:true}).click();await page.getByRole('button',{name:'Next: Characters',exact:true}).click();await expect(tabs.getByRole('tab')).toHaveCount(3);expect(await reads()).toBe(1);
+ // Moving between steps while AI is still reading does not throw the answer away.
+ await page.getByRole('tab',{name:'2. Story',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await box.locator('[data-selected]').fill('Narrator: Night fell.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
+ await page.evaluate(()=>{window.__qaHold=new Promise(r=>window.__qaRelease=r);});await page.getByRole('button',{name:'Next: Characters',exact:true}).click();await expect(page.locator('[data-cast-reason]')).toContainText('Identifying characters');
+ await page.locator('#workspace-back').click();await expect(page.getByRole('tablist',{name:'Story source',exact:true})).toBeVisible();await page.getByRole('group',{name:'Story settings',exact:true}).getByLabel('Genre / Topic',{exact:true}).selectOption('Fantasy');
+ await page.evaluate(()=>{window.__qaHold=null;window.__qaRelease();});await expect.poll(reads).toBe(2);await page.getByRole('tab',{name:'3. Characters',exact:true}).click();await expect(tabs.getByRole('tab')).toHaveText(['Narrator','Ali','Morgiana']);await expect(page.locator('[data-cast-reason]')).toContainText('3 characters suggested');expect(page.qaErrors).toEqual([]);
 });
 for(const tab of ['Upload PDF','Generate With AI','Write Yourself'])test(`STORY-15 ${tab} keeps three AI drafts and uses the chosen one`,async({page})=>{
  await boot(page,{sourceFit:'drafts'});await page.getByLabel('Story name (required)',{exact:true}).fill('Draft choices');
