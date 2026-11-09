@@ -11,6 +11,9 @@ For every UI change, read `design-system/README.md` and
   `design-system/size-roster.json`. An element whose type is in the roster must
   not set its own size. Add a new kind of element to the roster (type or variant)
   in the same change, run `node scripts/size_roster.mjs`, and keep ROSTER-01
+- Theme colors also live only in `design-system/size-roster.json` (`colors`). Change them there and run
+  `node scripts/size_roster.mjs`; it regenerates the PALETTE/PRESETS lines in `theme.js` and the backdrops in
+  `glass-themes.css`, and `--check` fails CI if they drift.
   passing. Administrators can also change the live roster in Studio > User
   Preferences > Look and Feel.
 - Regenerate `design-system/ui-inventory.json` with

@@ -43,6 +43,12 @@ components. It does not change the running UI or claim existing styles are unifi
 
 ## Master size roster
 
+[size-roster.json](size-roster.json) is the single place for every size, height
+and theme color. Its `colors` section holds the color roles and each theme's
+colors (and the Ocean / Dark Sky backdrops); `node scripts/size_roster.mjs`
+generates them into `theme.js` and `glass-themes.css`, so never edit those
+values there directly.
+
 Font size, height and width of every element type are defined once in
 [size-roster.json](size-roster.json). Each entry names an element type, the
 selectors that belong to it and its sizes; variants refine a type for specific
