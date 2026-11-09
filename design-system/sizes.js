@@ -108,8 +108,8 @@
    if(width)decl.push(`width:${width}!important`,`min-width:${width}!important`);
    out.push(`/* ${e.name} (${e.id}) */`);
    if(decl.length)out.push(`${target}{${decl.join(';')}}`);
-   // Controls with a fixed height drop vertical padding so text stays inside the box.
-   const boxes=e.selectors.filter(s=>!FIELD.test(s));
+   // Controls and fields with a fixed height drop vertical padding so text stays inside the box.
+   const boxes=e.selectors.filter(s=>!/^textarea\b/.test(s));
    if(height&&boxes.length)out.push(`${PREFIX}:where(${boxes.join(',')})${not}{padding-top:0!important;padding-bottom:0!important}`);
    if(icon)out.push(`${target} svg{width:${icon}!important;height:${icon}!important;min-width:${icon}!important}`);
   });

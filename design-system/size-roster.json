@@ -658,6 +658,38 @@
       "examples": [
         "Not created / Created / Tested dot on a character tab"
       ]
+    },
+    {
+      "id": "panel-title",
+      "name": "Panel title",
+      "contractComponent": "heading",
+      "font": "@heading-3",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".pdf-review-heading"
+      ],
+      "examples": [
+        "Document Preview",
+        "Selected Text",
+        "Improve with AI"
+      ],
+      "area": "Popups"
+    },
+    {
+      "id": "fine-print",
+      "name": "Fine print",
+      "contractComponent": "text",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#workspace-copyright"
+      ],
+      "examples": [
+        "© 2026 Ecco AI Labs India Pvt Ltd. All rights reserved."
+      ],
+      "area": "Left navigation"
     }
   ],
   "variants": [
@@ -909,6 +941,74 @@
         "Generated avatar choice on the Characters step"
       ],
       "area": "Story Characters"
+    },
+    {
+      "id": "button-story-choice",
+      "of": "button",
+      "name": "Tell Your Story choice",
+      "font": null,
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".story-choice-actions .intent-trigger"
+      ],
+      "examples": [
+        "New Story",
+        "Existing Story",
+        "Go to Studio"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "label-expand",
+      "of": "icon-button",
+      "name": "Label expand box",
+      "font": null,
+      "height": null,
+      "width": null,
+      "icon": null,
+      "selectors": [
+        "#library-hub-nav .lh-toggle"
+      ],
+      "examples": [
+        "+"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "header-icon-button",
+      "of": "icon-button",
+      "name": "Header icon button",
+      "font": null,
+      "height": null,
+      "width": null,
+      "icon": null,
+      "selectors": [
+        "#connection-indicators button",
+        "#connection-indicators summary",
+        "#workspace-settings-controls > button",
+        "#workspace-settings-controls > details > summary[data-settings-icon]",
+        "#connection-panel-menu > summary",
+        "#studio-ai-button",
+        "#studio-publishing-icon",
+        "#activity-files-menu",
+        "#notification-bell",
+        "#workspace-discord",
+        "#workspace-support",
+        ".header-right button[aria-label]:has(> svg:only-child)",
+        "#studio-storage-indicator",
+        "#connected-accelerator"
+      ],
+      "examples": [
+        "Storage",
+        "AI",
+        "YouTube",
+        "Discord",
+        "GitHub",
+        "Support",
+        "Notifications"
+      ],
+      "area": "Header"
     }
   ],
   "scale": [
