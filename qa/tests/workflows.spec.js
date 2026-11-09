@@ -1348,3 +1348,11 @@ test('LOOK-05 the Look and Feel panel follows the theme and Close hides it',asyn
  await panel.getByRole('button',{name:'Close Look and Feel',exact:true}).click();
  await expect(page.locator('#look-and-feel-panel')).toBeHidden();
 });
+test('THEME-02 switching between glass themes keeps each theme backdrop',async({page})=>{
+ await boot(page);
+ const pick=v=>page.evaluate(v=>{const r=document.querySelector(`#workspace-theme-drawer input[value="${v}"]`);r.checked=true;r.dispatchEvent(new Event('change'));},v);
+ const backdrop=()=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--glass-backdrop').trim());
+ await pick('dark-sky');await expect.poll(backdrop).toContain('#18558999');
+ await pick('ocean');await expect.poll(backdrop).toBe('linear-gradient(180deg,#d9edf7 0%,#e4f2f8 100%)');
+ await pick('dark-sky');await expect.poll(backdrop).toContain('linear-gradient(145deg,#061c32,#020e1b)');
+});
