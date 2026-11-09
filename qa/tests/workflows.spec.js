@@ -89,8 +89,8 @@ for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} open
   await expect(page.locator('#heading')).toHaveText('Tell Your Story');
   const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. StoryBoard Your Story','3. Create Audio for Your Story','4. Create Images for Your Story','5. Create Videos for Your Story','6. Publish Your Story']);
   await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
-  await expect(choices.first()).toHaveCSS('font-size','11.3333px');await expect(page.locator('#workspace-production-group [data-page=journey-preview]')).toHaveText('6. Publish Your Story');
-  expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='10px'))).toBe(true);
+  await expect(choices.first()).toHaveCSS('font-size','12px');await expect(page.locator('#workspace-production-group [data-page=journey-preview]')).toHaveText('6. Publish Your Story');
+  expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='12px'))).toBe(true);
   await choices.first().focus();await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
   await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('');
   await page.locator('#workspace-back').click();await expect(page.locator('#story-home-list')).toBeVisible();
@@ -112,7 +112,7 @@ for(const theme of ['default','dark','forest','desert','ocean','dark-sky'])test(
   const choices=page.locator('#story-home-list button');await expect(choices).toHaveCount(6);
   for(const choice of await choices.all())expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
   const landingStyle=async()=>page.locator('#page .workspace-home').evaluate(el=>({padding:getComputedStyle(el).paddingTop,font:getComputedStyle(el.querySelector('button')).fontSize,borders:[...el.querySelectorAll('ul,li,button')].every(row=>{const s=getComputedStyle(row);return ['borderTopWidth','borderBottomWidth','borderLeftWidth','borderRightWidth'].every(p=>s[p]==='0px');})}));
-  expect(await landingStyle()).toEqual({padding:'22px',font:'11.3333px',borders:true});
+  expect(await landingStyle()).toEqual({padding:'22px',font:'12px',borders:true});
 });
 test('STORY-01 six steps and left navigation stay visible',async({page})=>{
   await boot(page);await expect(page.locator('#story-workspace-header [role=tab]')).toHaveText(['1. Details','2. Story','3. Characters','4. Script','5. Generate','6. Publish']);
@@ -1143,12 +1143,12 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TY
  await page.setViewportSize(viewport);await boot(page);
  // Sizes come from the master size roster (design-system/size-roster.json), at every width.
  const font=async(selector,px)=>expect(await page.locator(selector).first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeCloseTo(px,3);
- await font('body',7);await font('#heading',15);await font('.story-details-card h2',12);await font('#story-detail-title',10);await font('.story-detail-qualifier',10);await font('#story-simple-save',7);
+ await font('body',7);await font('#heading',20);await font('.story-details-card h2',12);await font('#story-detail-title',10);await font('.story-detail-qualifier',10);await font('#story-simple-save',7);
  for(const selector of ['#story-detail-title','#story-detail-audience'])await expect(page.locator(selector)).toHaveCSS('height','40px');
  await expect(page.locator('#story-detail-type-button')).toHaveCSS('height','30px');
  await expect(page.locator('.story-details-next')).toHaveCSS('min-height','30px');
  const trigger=page.locator('#story-detail-type-button'),panel=page.locator('#story-detail-type-panel');await trigger.press('Enter');
- const option=panel.locator('[data-choice-value]').first();await expect(option).toBeFocused();await font('#story-detail-type-panel .story-choice-option',8.5);await font('#story-detail-type-panel .story-choice-description',14-8/3);
+ const option=panel.locator('[data-choice-value]').first();await expect(option).toBeFocused();await font('#story-detail-type-panel .story-choice-option',8.5);await font('#story-detail-type-panel .story-choice-description',11);
  // Children inherit the smaller label exactly once, including after dynamic panel creation.
  expect(await option.evaluate(e=>getComputedStyle(e).fontSize)).toEqual(await option.locator('.story-choice-name').evaluate(e=>getComputedStyle(e).fontSize));
  await expect(option).toHaveCSS('outline-style','solid');expect(await panel.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
@@ -1157,7 +1157,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TY
  if(viewport.width<700)for(const selector of ['#google-user-menu>.workspace-menu-items','#workspace-usage-drawer'])await expect.poll(()=>page.locator(selector).evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth;})).toBe(true);
  await page.screenshot({path:info.outputPath('compact-account-'+viewport.width+'.png')});
  await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();
- const shop=page.locator('dialog[open].credits-dialog');await expect(shop).toBeVisible();await font('.credits-pack h3',10);await popupControls(shop);expect(await shop.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);await shop.getByRole('button',{name:'Close popup',exact:true}).click();
+ const shop=page.locator('dialog[open].credits-dialog');await expect(shop).toBeVisible();await font('.credits-pack h3',11);await popupControls(shop);expect(await shop.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);await shop.getByRole('button',{name:'Close popup',exact:true}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('compact-typography-'+viewport.width+'.png'),fullPage:true});
 });
 for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`TYPE-02 compact Desk shadow-root typography at ${viewport.width}px`,async({page},info)=>{
@@ -1198,59 +1198,74 @@ test('ROSTER-02 the generated stylesheet matches the roster and both surfaces lo
 async function openLookAndFeel(page){
  await page.locator('[data-category="Activity"] > summary').click();
  await page.locator('#look-and-feel-open').click();
- await expect(page.locator('#look-and-feel tbody tr').first()).toBeVisible();
+ const panel=page.locator('#look-and-feel-panel');
+ await expect(panel.locator('[data-entry]').first()).toBeVisible();
+ return panel;
 }
-async function bootAdmin(page){
+async function bootAdmin(page,query='lookAndFeelAdmin=1'){
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort('blockedbyclient'));
- await page.goto('/?__qa=1&lookAndFeelAdmin=1');await page.waitForFunction(()=>window.__qaReady);
+ await page.goto('/?__qa=1&'+query);await page.waitForFunction(()=>window.__qaReady);
  await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:'New Story',exact:true}).click();await page.locator('[data-story-destination="story-setup"]').click();
 }
-test('LOOK-01 an administrator edits an element type and Apply changes every screen for everyone',async({page})=>{
+test('LOOK-01 a size name changes live and Apply publishes it to everyone',async({page})=>{
  await bootAdmin(page);
  const next=page.locator('.story-details-next');await expect(next).toHaveCSS('font-size','8.5px');
- await openLookAndFeel(page);
- await expect(page.locator('#heading')).toHaveText('Look and Feel');
- const font=page.getByLabel('Button font in pixels',{exact:true});await expect(font).toHaveValue('8.5');
- await expect(page.getByRole('button',{name:'Apply to everyone',exact:true})).toBeDisabled();
- await font.fill('12');await font.press('Tab');
- await page.getByRole('button',{name:'Apply to everyone',exact:true}).click();
- await expect(page.locator('#laf-message')).toHaveText('Applied to everyone. Version 1 is live.');
- await expect(page.getByRole('button',{name:'Add element',exact:true})).toHaveCSS('font-size','12px');
- await page.locator('#workspace-back').click();await expect(next).toHaveCSS('font-size','12px');
- // A new visit (any user) loads the published roster.
+ const panel=await openLookAndFeel(page);
+ // The list starts with the elements on this screen; the Next button is a Button.
+ await expect(panel.locator('[data-entry="button"] .count')).toContainText('on this screen');
+ await expect(panel.getByRole('button',{name:'Apply to everyone',exact:true})).toBeDisabled();
+ await panel.getByLabel('Button text size',{exact:true}).selectOption('@heading-1');
+ await expect(next).toHaveCSS('font-size','20px');
+ // Changing a size in the scale changes every element that uses it, immediately.
+ await panel.getByRole('tab',{name:'Sizes',exact:true}).click();
+ const h1=panel.getByLabel('Heading Heading 1 in pixels',{exact:true});await h1.fill('22');
+ await expect(next).toHaveCSS('font-size','22px');
+ await panel.getByRole('button',{name:'Apply to everyone',exact:true}).click();
+ await expect(panel.locator('#msg')).toHaveText('Applied to everyone. Version 1 is live.');
+ // A new visit loads the published roster.
  await page.reload();await page.waitForFunction(()=>window.EccoSizes?.state.version===1);
  await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:'New Story',exact:true}).click();await page.locator('[data-story-destination="story-setup"]').click();
- await expect(page.locator('.story-details-next')).toHaveCSS('font-size','12px');
+ await expect(page.locator('.story-details-next')).toHaveCSS('font-size','22px');
  expect(await page.evaluate(rosterAudit)).toMatchObject({problems:[]});
- // Restoring the repository default is also published to everyone.
- await openLookAndFeel(page);await page.getByRole('button',{name:'Use repository default',exact:true}).click();
- await expect(page.locator('#laf-message')).toHaveText('The repository default is now live for everyone.');
- await expect(page.getByRole('button',{name:'Add element',exact:true})).toHaveCSS('font-size','8.5px');
+ const again=await openLookAndFeel(page);
+ await again.getByRole('button',{name:'Use repository default',exact:true}).click();
+ await expect(again.locator('#msg')).toHaveText('The repository default is now live for everyone.');
+ await expect(page.locator('.story-details-next')).toHaveCSS('font-size','8.5px');
 });
-test('LOOK-02 a new element is added to the roster and takes its own size everywhere',async({page})=>{
- await bootAdmin(page);await expect(page.locator('#story-simple-save')).toHaveCSS('font-size','7px');
- await openLookAndFeel(page);
- await page.getByRole('button',{name:'Add element',exact:true}).click();
- await page.getByLabel('Name',{exact:true}).fill('Draft status');
- await page.getByLabel('Kind',{exact:true}).selectOption({label:'Variant of Body text'});
- await page.getByLabel('Font (px)',{exact:true}).fill('9');
- await page.getByLabel('Applies to: CSS selectors, one per line',{exact:true}).fill('#story-simple-save');
- await page.getByRole('button',{name:'Add to list',exact:true}).click();
- await expect(page.getByLabel('Draft status font in pixels',{exact:true})).toHaveValue('9');
- // Invalid selectors are refused before anything is applied.
- await page.getByRole('button',{name:'Add element',exact:true}).click();
- await page.getByLabel('Name',{exact:true}).fill('Broken');await page.getByLabel('Applies to: CSS selectors, one per line',{exact:true}).fill('p{color:red}');
- await page.getByRole('button',{name:'Add to list',exact:true}).click();
- await expect(page.locator('#laf-message')).toContainText('plain CSS selectors');
- await page.getByRole('button',{name:'Cancel',exact:true}).click();
- await page.getByRole('button',{name:'Apply to everyone',exact:true}).click();
- await expect(page.locator('#laf-message')).toHaveText('Applied to everyone. Version 1 is live.');
+test('LOOK-02 Pick on page selects the clicked element and new elements join the roster',async({page})=>{
+ await bootAdmin(page);
+ const panel=await openLookAndFeel(page);
+ await panel.getByRole('button',{name:'Pick on page',exact:true}).click();
  await page.locator('#workspace-back').click();
- await expect(page.locator('#story-simple-save')).toHaveCSS('font-size','9px');
- expect(await page.evaluate(rosterAudit)).toMatchObject({problems:[]});
+ // Picking never runs the page action.
+ await expect(page.locator('#heading')).toHaveText('Tell Your Story');
+ await expect(panel.locator('.el.sel b').first()).toHaveText('Back button');
+ await panel.getByLabel('Back button text size',{exact:true}).selectOption('@text-regular');
+ await expect(page.locator('#workspace-back')).toHaveCSS('font-size','10px');
+ // An element can be added as a variant with its own size from the scale.
+ await panel.locator('#addnew > summary').click();
+ await panel.getByLabel('Name',{exact:true}).fill('Draft status');
+ await panel.getByLabel('Kind',{exact:true}).selectOption({label:'Variant of Body text'});
+ await panel.getByLabel('New element text size',{exact:true}).selectOption('@text-regular');
+ await panel.getByLabel('Applies to: CSS selectors, one per line',{exact:true}).fill('#story-simple-save');
+ await panel.getByRole('button',{name:'Add',exact:true}).click();
+ await expect(page.locator('#story-simple-save')).toHaveCSS('font-size','10px');
+ await expect(panel.locator('[data-entry="draft-status"]')).toBeVisible();
+ // Invalid selectors are refused.
+ await panel.locator('#addnew > summary').click();
+ await panel.getByLabel('Name',{exact:true}).fill('Broken');await panel.getByLabel('Applies to: CSS selectors, one per line',{exact:true}).fill('p{color:red}');
+ await panel.getByRole('button',{name:'Add',exact:true}).click();
+ await expect(panel.locator('#msg')).toContainText('plain CSS selectors');
+ await panel.getByRole('button',{name:'Discard changes',exact:true}).click();
+ await expect(page.locator('#workspace-back')).toHaveCSS('font-size','14px');
 });
-test('LOOK-03 only administrators see Look and Feel',async({page})=>{
+test('LOOK-03 Look and Feel is for administrators, or anyone previewing with ?design',async({page})=>{
  await boot(page);await page.locator('[data-category="Activity"] > summary').click();
  await expect(page.locator('[data-category="Activity"] .workspace-menu-items')).toBeVisible();
- await expect(page.locator('#look-and-feel-open')).toBeHidden();
+ await expect(page.locator('#look-and-feel-open')).toHaveCount(0);
+ await bootAdmin(page,'design=1');
+ const panel=await openLookAndFeel(page);
+ await panel.getByLabel('Button text size',{exact:true}).selectOption('@text-regular');
+ await expect(page.locator('.story-details-next')).toHaveCSS('font-size','10px');
+ await expect(panel.getByRole('button',{name:'Apply to everyone',exact:true})).toBeDisabled();
 });

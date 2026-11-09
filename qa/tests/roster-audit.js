@@ -9,7 +9,6 @@ export function rosterAudit(){
  if(!roster)return {error:'No roster is loaded.'};
  const SKIP='svg,canvas,video,audio,iframe,.textLayer,.annotationLayer,[aria-hidden="true"],.laf-sample,option';
  const CONTROL='button,summary,[role=button],[role=tab],[role=option],[role=menuitem],input,select,textarea';
- const px=v=>typeof v==='number'?v:typeof v==='string'&&/^calc\((\d+(?:\.\d+)?)px - 2pt\)$/.test(v)?+RegExp.$1-8/3:null;
  const all=[];const walk=root=>{for(const el of root.querySelectorAll('*')){all.push(el);if(el.shadowRoot)walk(el.shadowRoot);}};walk(document);
  const visible=el=>{const r=el.getBoundingClientRect();if(r.width<2||r.height<2)return false;const cs=getComputedStyle(el);return cs.visibility!=='hidden'&&cs.display!=='none'&&+cs.opacity!==0;};
  const ownText=el=>[...el.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
@@ -24,9 +23,9 @@ export function rosterAudit(){
   const cs=getComputedStyle(el),font=parseFloat(cs.fontSize),entry=S.classify(roster,el);
   const text=(el.innerText||el.value||el.getAttribute('aria-label')||el.placeholder||'').replace(/\s+/g,' ').trim().slice(0,40);
   if(entry){
-   const want=px(entry.font);
+   const want=entry.fontPx;
    if(want!==null&&Math.abs(font-want)>0.05)problems.push({element:label(el),text,type:entry.id,issue:`font ${font}px, roster says ${+want.toFixed(2)}px`});
-   if(typeof entry.height==='number'&&!/^inline/.test(cs.display)){const h=el.getBoundingClientRect().height;if(Math.abs(h-entry.height)>1)problems.push({element:label(el),text,type:entry.id,issue:`height ${Math.round(h)}px, roster says ${entry.height}px`});}
+   if(typeof entry.heightPx==='number'&&!/^inline/.test(cs.display)){const h=el.getBoundingClientRect().height;if(Math.abs(h-entry.heightPx)>1)problems.push({element:label(el),text,type:entry.id,issue:`height ${Math.round(h)}px, roster says ${entry.heightPx}px`});}
    continue;
   }
   const parent=parentOf(el),inherited=parent?parseFloat(getComputedStyle(parent).fontSize):font;

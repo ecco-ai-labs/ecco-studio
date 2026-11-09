@@ -1,21 +1,20 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "title": "Ecco Studio master size roster",
   "approval": "2026-11-08: User approved these sizes through the size audit, two rounds of before/after mockups of 24 screens and per-row decisions. Element types are sized here once; every instance of a type takes these values.",
   "howItWorks": [
-    "Each entry is an element type. Its selectors decide which elements belong to it; font, height and width are applied to every match by design-system/sizes.css.",
-    "Entries are applied in order. When an element matches several entries, the later entry wins, so variants and more specific types come after general ones.",
-    "Edit this file, then run: python3 scripts/size_roster.py. Never edit design-system/sizes.css by hand.",
-    "A new element whose type is already here needs no size of its own. A new kind of element must be added here (a new type or a variant) in the same change; the ROSTER-01 browser check fails otherwise.",
-    "Types marked keptCurrent keep the size they had before the roster existed; they are listed so they can be edited like any other type."
+    "The size scale lists named sizes in categories (Title, Heading, Text, Control height, Icon, Image). Each element type picks a size by name (\"@heading-2\"); changing a size changes every element that uses it.",
+    "Each element entry names the selectors that belong to it. Entries are applied in order; when an element matches several, the later entry wins. Variants refine a type and inherit any size they leave empty.",
+    "Edit this file, then run: node scripts/size_roster.mjs. Never edit design-system/sizes.css by hand. Administrators can also edit sizes live in Studio > User Preferences > Look and Feel.",
+    "A new element whose type is already here needs no size of its own. A new kind of element must be added here (a type or a variant) with a size from the scale; the ROSTER-01 browser check fails otherwise."
   ],
-  "units": "Numbers are CSS pixels. A string is used as-is (for example a kept original size such as calc(15px - 2pt)). null leaves that property to the element's own styles.",
+  "units": "Sizes refer to the scale with \"@id\". A plain number of pixels is allowed for a one-off size; null leaves that property to the element's own styles.",
   "types": [
     {
       "id": "body-text",
       "name": "Body text",
       "contractComponent": "text",
-      "font": 7,
+      "font": "@text-xs",
       "height": null,
       "width": null,
       "selectors": [
@@ -64,13 +63,14 @@
         "Starting allowance",
         "2 images",
         "Studios"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "help-text",
       "name": "Help / caption text",
       "contractComponent": "help-text",
-      "font": 10,
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -82,13 +82,14 @@
       "examples": [
         "Publishing schedule: set in the last step.",
         "Saved in this browser only."
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "eyebrow",
       "name": "Eyebrow (small caps label)",
       "contractComponent": "label",
-      "font": 7.5,
+      "font": "@text-xs",
       "height": null,
       "width": null,
       "selectors": [
@@ -98,13 +99,14 @@
       "examples": [
         "LABELS",
         "ECCO DESK"
-      ]
+      ],
+      "area": "Desk"
     },
     {
       "id": "link",
       "name": "Link",
       "contractComponent": "link",
-      "font": 7.5,
+      "font": "@text-xs",
       "height": null,
       "width": null,
       "selectors": [
@@ -112,13 +114,14 @@
       ],
       "examples": [
         "← Ecco AI Labs Studio"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "table-cell",
       "name": "Table text",
       "contractComponent": "table-cell",
-      "font": 10,
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -128,13 +131,14 @@
       "examples": [
         "Video",
         "Nov 14, 2023"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "error-text",
       "name": "Error / status text",
       "contractComponent": "error",
-      "font": 11,
+      "font": "@text-medium",
       "height": null,
       "width": null,
       "selectors": [
@@ -143,13 +147,14 @@
       ],
       "examples": [
         "Add a story name."
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "form-label",
       "name": "Form label",
       "contractComponent": "label",
-      "font": 10,
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -159,13 +164,14 @@
       "examples": [
         "Story name (required)",
         "What are you making? (required)"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "heading-h3",
       "name": "Heading h3",
       "contractComponent": "heading",
-      "font": 10,
+      "font": "@heading-5",
       "height": null,
       "width": null,
       "selectors": [
@@ -174,13 +180,14 @@
       "examples": [
         "STORIES",
         "500 credits"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "heading-h2",
       "name": "Heading h2",
       "contractComponent": "heading",
-      "font": 12,
+      "font": "@heading-4",
       "height": null,
       "width": null,
       "selectors": [
@@ -190,13 +197,14 @@
         "Your Story",
         "All images",
         "Generate With AI"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "heading-h1",
       "name": "Heading h1 (page title)",
       "contractComponent": "heading",
-      "font": 10,
+      "font": "@heading-5",
       "height": null,
       "width": null,
       "selectors": [
@@ -206,14 +214,15 @@
         "Model Garden",
         "Image library",
         "Notifications"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "text-input",
       "name": "Input / dropdown field",
       "contractComponent": "text-input",
-      "font": 10,
-      "height": 40,
+      "font": "@text-regular",
+      "height": "@control-large",
       "width": null,
       "selectors": [
         "input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image])",
@@ -223,13 +232,14 @@
         "Story name",
         "Search images",
         "All types"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "textarea",
       "name": "Multi-line text box",
       "contractComponent": "textarea",
-      "font": 10,
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -238,14 +248,15 @@
       "examples": [
         "Write your story here",
         "Describe how to improve the selected text"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "button",
       "name": "Button",
       "contractComponent": "button",
-      "font": 8.5,
-      "height": 30,
+      "font": "@text-small",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         "button",
@@ -259,13 +270,14 @@
         "Upload PDF",
         "Next: Story and characters →",
         "Choose story type ⌄"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "card",
       "name": "Card (clickable tile)",
       "contractComponent": "card",
-      "font": 10,
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -277,14 +289,15 @@
         "Zebra image sample",
         "Add images",
         "Tester Agent"
-      ]
+      ],
+      "area": "Library pages"
     },
     {
       "id": "icon-button",
       "name": "Icon button",
       "contractComponent": "icon-button",
-      "font": 9.33,
-      "height": 30,
+      "font": "@text-regular",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         "button[aria-label]:has(> svg:only-child)",
@@ -309,14 +322,16 @@
         "Discord",
         "Model Garden",
         "+"
-      ]
+      ],
+      "area": "Header",
+      "icon": "@icon-medium"
     },
     {
       "id": "menu-option",
       "name": "Menu / dropdown option",
       "contractComponent": "menu-item",
-      "font": 10,
-      "height": 30,
+      "font": "@text-regular",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         ".workspace-menu-items button",
@@ -331,14 +346,15 @@
         "Connections",
         "Credit and Usage",
         "How to"
-      ]
+      ],
+      "area": "Menus"
     },
     {
       "id": "tab",
       "name": "Tab",
       "contractComponent": "tab",
-      "font": 10,
-      "height": 30,
+      "font": "@text-regular",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         "[role=tab]"
@@ -347,14 +363,15 @@
         "1. Story Details",
         "Character 1",
         "Notifications"
-      ]
+      ],
+      "area": "Everywhere"
     },
     {
       "id": "sidebar-item",
       "name": "Sidebar item",
       "contractComponent": "navigation",
-      "font": 10,
-      "height": 25,
+      "font": "@text-regular",
+      "height": "@control-small",
       "width": null,
       "selectors": [
         "body > aside button",
@@ -366,14 +383,16 @@
         "1. Describe Your Story",
         "Images 2",
         "Overview"
-      ]
+      ],
+      "area": "Left navigation",
+      "icon": "@icon-medium"
     },
     {
       "id": "back-button",
       "name": "Back button",
       "contractComponent": "button",
-      "font": 10,
-      "height": 25,
+      "font": "@text-large",
+      "height": "@control-small",
       "width": null,
       "selectors": [
         "[data-screen-back]",
@@ -388,15 +407,16 @@
       ],
       "examples": [
         "← Back"
-      ]
+      ],
+      "area": "Header"
     },
     {
       "id": "popup-close",
       "name": "Popup close / minimize",
       "contractComponent": "popup-close",
-      "font": 18,
-      "height": 30,
-      "width": 30,
+      "font": null,
+      "height": "@control-medium",
+      "width": "@control-medium",
       "selectors": [
         ".ecco-popup-close",
         ".ecco-popup-minimize"
@@ -404,14 +424,15 @@
       "examples": [
         "Close popup",
         "Minimize popup"
-      ]
+      ],
+      "area": "Popups",
+      "icon": "@icon-small"
     },
     {
       "id": "output-tile-text",
       "name": "Output tile text",
       "contractComponent": "radio",
-      "keptCurrent": true,
-      "font": "calc(14px - 2pt)",
+      "font": "@text-medium",
       "height": null,
       "width": null,
       "selectors": [
@@ -421,14 +442,14 @@
         "Audio",
         "Image",
         "Video"
-      ]
+      ],
+      "area": "Story pages"
     },
     {
       "id": "library-chip-text",
       "name": "Library section chip text",
       "contractComponent": "navigation",
-      "keptCurrent": true,
-      "font": "calc(13px - 2pt)",
+      "font": "@text-xl",
       "height": null,
       "width": null,
       "selectors": [
@@ -437,14 +458,29 @@
       "examples": [
         "Stories",
         "Images"
-      ]
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "library-label-text",
+      "name": "Library label text",
+      "contractComponent": "navigation",
+      "font": "@text-medium",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-hub-nav .lh-node span"
+      ],
+      "examples": [
+        "All images"
+      ],
+      "area": "Left navigation"
     },
     {
       "id": "option-description",
       "name": "Dropdown option description",
       "contractComponent": "dropdown-option",
-      "keptCurrent": true,
-      "font": "calc(14px - 2pt)",
+      "font": "@text-medium",
       "height": null,
       "width": null,
       "selectors": [
@@ -452,14 +488,14 @@
       ],
       "examples": [
         "One narrator reads the story."
-      ]
+      ],
+      "area": "Story pages"
     },
     {
       "id": "list-row-title",
       "name": "Library row title",
       "contractComponent": "list-item",
-      "keptCurrent": true,
-      "font": 13,
+      "font": "@text-medium-large",
       "height": null,
       "width": null,
       "selectors": [
@@ -467,14 +503,14 @@
       ],
       "examples": [
         "Zebra image sample"
-      ]
+      ],
+      "area": "Library pages"
     },
     {
       "id": "list-row-details",
       "name": "Library row details",
       "contractComponent": "list-item",
-      "keptCurrent": true,
-      "font": 11,
+      "font": "@text-medium",
       "height": null,
       "width": null,
       "selectors": [
@@ -483,14 +519,14 @@
       ],
       "examples": [
         "No labels"
-      ]
+      ],
+      "area": "Library pages"
     },
     {
       "id": "default-badge",
       "name": "Default badge",
       "contractComponent": "badge",
-      "keptCurrent": true,
-      "font": "calc(12px - 2pt)",
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -498,14 +534,14 @@
       ],
       "examples": [
         "Default"
-      ]
+      ],
+      "area": "Story pages"
     },
     {
       "id": "welcome-subtitle",
       "name": "Welcome subtitle",
       "contractComponent": "text",
-      "keptCurrent": true,
-      "font": "calc(22px - 2pt)",
+      "font": "@title-main",
       "height": null,
       "width": null,
       "selectors": [
@@ -513,14 +549,14 @@
       ],
       "examples": [
         "Studios"
-      ]
+      ],
+      "area": "Welcome"
     },
     {
       "id": "selection-heading",
       "name": "Selected text heading",
       "contractComponent": "heading",
-      "keptCurrent": true,
-      "font": "calc(16px - 2pt)",
+      "font": "@heading-3",
       "height": null,
       "width": null,
       "selectors": [
@@ -528,14 +564,14 @@
       ],
       "examples": [
         "Selected Text"
-      ]
+      ],
+      "area": "Story pages"
     },
     {
       "id": "agent-card-title",
       "name": "Agent card title",
       "contractComponent": "card",
-      "keptCurrent": true,
-      "font": "calc(17px - 2pt)",
+      "font": "@heading-3",
       "height": null,
       "width": null,
       "selectors": [
@@ -543,14 +579,14 @@
       ],
       "examples": [
         "Tester Agent"
-      ]
+      ],
+      "area": "Desk"
     },
     {
       "id": "agent-card-text",
       "name": "Agent card text",
       "contractComponent": "card",
-      "keptCurrent": true,
-      "font": "calc(12px - 2pt)",
+      "font": "@text-regular",
       "height": null,
       "width": null,
       "selectors": [
@@ -559,6 +595,37 @@
       ],
       "examples": [
         "Check UX consistency"
+      ],
+      "area": "Desk"
+    },
+    {
+      "id": "list-thumbnail",
+      "name": "Library list thumbnail",
+      "contractComponent": "image",
+      "area": "Library pages",
+      "font": null,
+      "height": "@image-small",
+      "width": "@image-small",
+      "selectors": [
+        ".lh-row .lh-mini"
+      ],
+      "examples": [
+        "Thumbnail in list view"
+      ]
+    },
+    {
+      "id": "card-thumbnail",
+      "name": "Library card thumbnail",
+      "contractComponent": "image",
+      "area": "Library pages",
+      "font": null,
+      "height": "@image-medium",
+      "width": null,
+      "selectors": [
+        ".lh-card .lh-thumb"
+      ],
+      "examples": [
+        "Thumbnail in grid view"
       ]
     }
   ],
@@ -567,38 +634,37 @@
       "id": "button-hero",
       "of": "button",
       "name": "Welcome call to action",
-      "keptCurrent": true,
-      "font": "calc(15px - 2pt)",
-      "height": 40,
+      "font": "@text-medium-large",
+      "height": "@control-large",
       "width": null,
       "selectors": [
         "#entry-tell-story"
       ],
       "examples": [
         "Tell Your Story"
-      ]
+      ],
+      "area": "Welcome"
     },
     {
       "id": "button-journey-step",
       "of": "button",
       "name": "Story landing step",
-      "keptCurrent": true,
-      "font": "calc(14px - 2pt)",
-      "height": 28,
+      "font": "@text-medium-large",
+      "height": "@control-medium",
       "width": null,
       "selectors": [
         "#story-home-list button[data-story-destination]"
       ],
       "examples": [
         "1. Describe Your Story"
-      ]
+      ],
+      "area": "Story pages"
     },
     {
       "id": "heading-h1-story",
       "of": "heading-h1",
       "name": "Story workspace title",
-      "keptCurrent": false,
-      "font": 15,
+      "font": "@title-main",
       "height": null,
       "width": null,
       "selectors": [
@@ -607,14 +673,14 @@
       "examples": [
         "Tell Your Story",
         "story name"
-      ]
+      ],
+      "area": "Story pages"
     },
     {
       "id": "heading-h1-landing",
       "of": "heading-h1",
       "name": "Story landing title",
-      "keptCurrent": true,
-      "font": "calc(21px - 2pt)",
+      "font": "@title-main",
       "height": null,
       "width": null,
       "selectors": [
@@ -622,14 +688,14 @@
       ],
       "examples": [
         "Tell Your Story"
-      ]
+      ],
+      "area": "Library pages"
     },
     {
       "id": "heading-h1-welcome",
       "of": "heading-h1",
       "name": "Welcome title",
-      "keptCurrent": true,
-      "font": "calc(38px - 2pt)",
+      "font": "@title-display",
       "height": null,
       "width": null,
       "selectors": [
@@ -637,14 +703,14 @@
       ],
       "examples": [
         "Ecco AI Labs Studios"
-      ]
+      ],
+      "area": "Welcome"
     },
     {
       "id": "heading-h2-drawer",
       "of": "heading-h2",
       "name": "Credits drawer title",
-      "keptCurrent": true,
-      "font": "calc(13px - 2pt)",
+      "font": "@heading-5",
       "height": null,
       "width": null,
       "selectors": [
@@ -652,14 +718,14 @@
       ],
       "examples": [
         "Credits and Usage"
-      ]
+      ],
+      "area": "Menus"
     },
     {
       "id": "text-display",
       "of": "body-text",
       "name": "Brand name and empty-state title",
-      "keptCurrent": true,
-      "font": "calc(20px - 2pt)",
+      "font": "@title-main",
       "height": null,
       "width": null,
       "selectors": [
@@ -670,6 +736,296 @@
       "examples": [
         "ECCO AI Labs",
         "Build your cast"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "sidebar-group-header",
+      "of": "sidebar-item",
+      "name": "Sidebar section header",
+      "font": "@title-main",
+      "height": "@control-large",
+      "width": null,
+      "selectors": [
+        "#workspace-library-group > summary",
+        "#workspace-production-group > summary"
+      ],
+      "examples": [
+        "Library",
+        "Tell Your Story"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "sidebar-step",
+      "of": "sidebar-item",
+      "name": "Sidebar story step",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#workspace-production-group button"
+      ],
+      "examples": [
+        "1. Describe Your Story"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "sidebar-label-row",
+      "of": "sidebar-item",
+      "name": "Library label row",
+      "font": "@text-medium",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-hub-nav .lh-node"
+      ],
+      "examples": [
+        "All images"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "sidebar-new-label",
+      "of": "sidebar-item",
+      "name": "New label button",
+      "font": "@text-medium",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-hub-nav .lh-newbtn"
+      ],
+      "examples": [
+        "+ New label"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "eyebrow-labels",
+      "of": "eyebrow",
+      "name": "Library LABELS heading",
+      "font": "@text-medium",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-hub-nav .lh-treehead"
+      ],
+      "examples": [
+        "LABELS"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "button-header-menu",
+      "of": "button",
+      "name": "Header menus",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#education-menu > summary",
+        "#google-user-name"
+      ],
+      "examples": [
+        "Education and Learning",
+        "Signed-in user name"
+      ],
+      "area": "Header"
+    },
+    {
+      "id": "button-library-landing",
+      "of": "button",
+      "name": "Library page item",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-home-list button"
+      ],
+      "examples": [
+        "Story Library",
+        "Image Library"
+      ],
+      "area": "Library pages"
+    },
+    {
+      "id": "heading-h1-story-landing",
+      "of": "heading-h1",
+      "name": "Tell Your Story page title",
+      "font": "@heading-4",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "main:has(#story-home-list) #heading"
+      ],
+      "examples": [
+        "Tell Your Story"
+      ],
+      "area": "Story pages"
+    }
+  ],
+  "scale": [
+    {
+      "id": "title",
+      "name": "Title",
+      "kind": "font",
+      "tokens": [
+        {
+          "id": "title-display",
+          "name": "Display",
+          "value": 36
+        },
+        {
+          "id": "title-main",
+          "name": "Main title",
+          "value": 20
+        },
+        {
+          "id": "title-sub",
+          "name": "Subtitle",
+          "value": 15
+        }
+      ]
+    },
+    {
+      "id": "heading",
+      "name": "Heading",
+      "kind": "font",
+      "tokens": [
+        {
+          "id": "heading-1",
+          "name": "Heading 1",
+          "value": 20
+        },
+        {
+          "id": "heading-2",
+          "name": "Heading 2",
+          "value": 15
+        },
+        {
+          "id": "heading-3",
+          "name": "Heading 3",
+          "value": 14
+        },
+        {
+          "id": "heading-4",
+          "name": "Heading 4",
+          "value": 12
+        },
+        {
+          "id": "heading-5",
+          "name": "Heading 5",
+          "value": 11
+        }
+      ]
+    },
+    {
+      "id": "text",
+      "name": "Text",
+      "kind": "font",
+      "tokens": [
+        {
+          "id": "text-xl",
+          "name": "Extra large",
+          "value": 15
+        },
+        {
+          "id": "text-large",
+          "name": "Large",
+          "value": 14
+        },
+        {
+          "id": "text-medium-large",
+          "name": "Medium large",
+          "value": 12
+        },
+        {
+          "id": "text-medium",
+          "name": "Medium",
+          "value": 11
+        },
+        {
+          "id": "text-regular",
+          "name": "Regular",
+          "value": 10
+        },
+        {
+          "id": "text-small",
+          "name": "Small",
+          "value": 8.5
+        },
+        {
+          "id": "text-xs",
+          "name": "Extra small",
+          "value": 7
+        }
+      ]
+    },
+    {
+      "id": "control",
+      "name": "Control height",
+      "kind": "height",
+      "tokens": [
+        {
+          "id": "control-small",
+          "name": "Small",
+          "value": 25
+        },
+        {
+          "id": "control-medium",
+          "name": "Medium",
+          "value": 30
+        },
+        {
+          "id": "control-large",
+          "name": "Large",
+          "value": 40
+        }
+      ]
+    },
+    {
+      "id": "icon",
+      "name": "Icon",
+      "kind": "icon",
+      "tokens": [
+        {
+          "id": "icon-small",
+          "name": "Small",
+          "value": 14
+        },
+        {
+          "id": "icon-medium",
+          "name": "Medium",
+          "value": 16
+        },
+        {
+          "id": "icon-large",
+          "name": "Large",
+          "value": 20
+        }
+      ]
+    },
+    {
+      "id": "image",
+      "name": "Image",
+      "kind": "height",
+      "tokens": [
+        {
+          "id": "image-small",
+          "name": "Small",
+          "value": 24
+        },
+        {
+          "id": "image-medium",
+          "name": "Medium",
+          "value": 131
+        },
+        {
+          "id": "image-large",
+          "name": "Large",
+          "value": 200
+        }
       ]
     }
   ]

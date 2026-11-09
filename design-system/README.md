@@ -55,8 +55,17 @@ a CSS rule applies to every matching element.
 | [sizes.js](sizes.js) | Compiles the roster into one stylesheet on every Studio and Desk page, including Desk shadow roots, and loads the published roster |
 | [sizes.css](sizes.css) | Generated first-paint stylesheet. Run `node scripts/size_roster.mjs`; never edit it by hand |
 
-**Editing.** Administrators open **Studio > User Preferences > Look and Feel**
-to change sizes, add elements and **Apply to everyone**. Each Apply is a numbered
+**Size scale.** Sizes have names, grouped into categories: Title, Heading,
+Text, Control height, Icon and Image. Each element picks a size by name
+(`"font": "@heading-2"`), so changing "Heading 2" changes every element that uses
+it. A plain number is allowed for a one-off size, but prefer a name.
+
+**Editing.** Administrators open **Studio > User Preferences > Look and Feel**.
+It is a panel beside the real screen: the Elements tab lists what is on the
+current screen, the Sizes tab edits the scale, and **Pick on page** selects an
+element by clicking it. Every change previews immediately; **Apply to everyone**
+publishes it. Anyone can preview with `?design=1` in the address; **Copy roster**
+exports the edited roster. Each Apply is a numbered
 version on the Desk service (`/api/look-and-feel`); every page loads the latest
 one and falls back to the repository roster. **Download roster** exports the
 live roster so it can replace `size-roster.json` here.

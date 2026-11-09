@@ -15,7 +15,8 @@ MAX_BYTES = 65536
 ID = re.compile(r'^[a-z][a-z0-9-]{1,47}$')
 KEPT_FONT = re.compile(r'^calc\(\d{1,2}(\.\d{1,3})?px - 2pt\)$')
 UNSAFE = re.compile(r'[{};@\\]|/\*|</')
-LIMITS = {'font': (4, 96), 'height': (10, 200), 'width': (10, 1200)}
+LIMITS = {'font': (4, 96), 'height': (10, 1200), 'width': (10, 1200), 'icon': (6, 96)}
+KINDS = {'font': 'font', 'height': 'height', 'icon': 'icon'}
 SCHEMA = '''CREATE TABLE IF NOT EXISTS look_and_feel_versions (
     version INTEGER PRIMARY KEY, roster TEXT NOT NULL, updatedBy TEXT NOT NULL,
     updatedByName TEXT NOT NULL, updatedAt TEXT NOT NULL)'''
@@ -37,9 +38,13 @@ def _selector(value):
     return value.strip()
 
 
-def _size(kind, value):
+def _size(kind, value, scale=()):
     if value is None:
         return None
+    if isinstance(value, str) and value.startswith('@'):
+        if value[1:] not in scale:
+            raise LookError(f'The size "{value[1:]}" is not in the size scale.')
+        return value
     if isinstance(value, bool):
         raise LookError(kind.title() + ' must be a number of pixels.')
     if isinstance(value, (int, float)):
@@ -60,6 +65,36 @@ def validate(roster):
     if not isinstance(variants, list):
         raise LookError('Variants must be a list.')
     seen, types, clean_variants = set(), [], []
+    scale_in = roster.get('scale', [])
+    if not isinstance(scale_in, list) or len(scale_in) > 12:
+        raise LookError('The size scale must be a list of at most 12 categories.')
+    scale, token_ids = [], set()
+    for group in scale_in:
+        if not isinstance(group, dict) or not isinstance(group.get('id'), str) or not ID.match(group['id']):
+            raise LookError('Each size category needs an id of lowercase letters, digits and hyphens.')
+        if group.get('kind') not in KINDS:
+            raise LookError('Each size category must be a font, height or icon category.')
+        gname = group.get('name')
+        if not isinstance(gname, str) or not gname.strip() or len(gname) > 40:
+            raise LookError('Each size category needs a name of at most 40 characters.')
+        items = group.get('tokens')
+        if not isinstance(items, list) or not 1 <= len(items) <= 20:
+            raise LookError(f'"{gname}" needs between 1 and 20 sizes.')
+        clean_tokens = []
+        for token in items:
+            if not isinstance(token, dict) or not isinstance(token.get('id'), str) or not ID.match(token['id']):
+                raise LookError(f'Each size in "{gname}" needs an id of lowercase letters, digits and hyphens.')
+            if token['id'] in token_ids:
+                raise LookError(f'Two sizes share the id "{token["id"]}".')
+            token_ids.add(token['id'])
+            tname = token.get('name')
+            if not isinstance(tname, str) or not tname.strip() or len(tname) > 40:
+                raise LookError(f'Each size in "{gname}" needs a name of at most 40 characters.')
+            value = token.get('value')
+            if isinstance(value, str) and value.startswith('@'):
+                raise LookError('A size in the scale must be a number of pixels.')
+            clean_tokens.append({'id': token['id'], 'name': tname.strip(), 'value': _size(group['kind'], value)})
+        scale.append({'id': group['id'], 'name': gname.strip(), 'kind': group['kind'], 'tokens': clean_tokens})
 
     def entry(item, variant):
         if not isinstance(item, dict):
@@ -78,7 +113,13 @@ def validate(roster):
             raise LookError(f'"{name}" needs between 1 and 40 selectors.')
         out = {'id': eid, 'name': name.strip(), 'selectors': [_selector(s) for s in selectors]}
         for kind in LIMITS:
-            out[kind] = _size(kind, item.get(kind))
+            if kind in item or kind != 'icon':
+                out[kind] = _size(kind, item.get(kind), token_ids)
+        area = item.get('area')
+        if area is not None:
+            if not isinstance(area, str) or len(area) > 40:
+                raise LookError(f'"{name}" has an invalid page area.')
+            out['area'] = area
         exclude = item.get('excludeInside')
         if exclude is not None:
             if not isinstance(exclude, list) or len(exclude) > 60:
@@ -107,7 +148,7 @@ def validate(roster):
         raise LookError('The roster needs at least one element type.')
     if len(types) + len(clean_variants) > 200:
         raise LookError('The roster is limited to 200 elements.')
-    return {'schemaVersion': 1, 'types': types, 'variants': clean_variants}
+    return {'schemaVersion': 2, 'scale': scale, 'types': types, 'variants': clean_variants}
 
 
 def current(db):

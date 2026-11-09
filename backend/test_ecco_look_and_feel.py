@@ -44,9 +44,12 @@ class LookAndFeelTest(unittest.TestCase):
         self.setup_team()
         changed = json.loads(json.dumps(ROSTER))
         changed['types'][0]['font'] = 8
+        changed['scale'][0]['tokens'][0]['value'] = 30
         status, data = self.publish(roster=changed)
         self.assertEqual(status, 200, data)
         self.assertEqual(data['version'], 1)
+        self.assertEqual(data['roster']['scale'][0]['tokens'][0]['value'], 30)
+        self.assertEqual(data['roster']['types'][1]['font'], ROSTER['types'][1]['font'])
         self.assertEqual(data['history'][0]['updatedBy'], 'Owner')
         status, public = self.read()
         self.assertEqual(public['roster']['types'][0]['font'], 8)
@@ -82,6 +85,9 @@ class LookAndFeelTest(unittest.TestCase):
             lambda r: r['types'][0].update(id='Bad Id'),
             lambda r: r['variants'][0].update(of='missing-type'),
             lambda r: r['types'].append(dict(r['types'][0])),
+            lambda r: r['types'][0].update(font='@no-such-size'),
+            lambda r: r['scale'][0]['tokens'][0].update(value=500),
+            lambda r: r['scale'][0]['tokens'].append(dict(r['scale'][0]['tokens'][0])),
         ):
             roster = json.loads(json.dumps(ROSTER))
             change(roster)

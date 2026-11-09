@@ -2827,10 +2827,10 @@
     "supersededBy": "sizeRoster: element sizes now come from the master size roster; the calc(original - 2pt) rule remains only for properties the roster does not set."
   },
   "sizeRoster": {
-    "approval": "2026-11-08: User approved one size per element type through a 24-screen audit, two rounds of before/after mockups and per-row decisions; user requested a master roster that new screens follow, with new element kinds added to it, editable in Studio Look and Feel and applied to the whole UI by administrators.",
+    "approval": "2026-11-08: User approved one size per element type through a 24-screen audit, two rounds of before/after mockups and per-row decisions; user requested a master roster that new screens follow, with new element kinds added to it, editable in Studio Look and Feel and applied to the whole UI by administrators. 2026-11-08 later: user approved a named size scale with every element assigned a size name, a live side panel and Pick on page.",
     "source": "design-system/size-roster.json (repository default). design-system/sizes.css is generated from it by node scripts/size_roster.mjs and never edited by hand.",
     "runtime": "design-system/sizes.js compiles the roster into one stylesheet in every Studio and Desk page, including Desk shadow roots, after all page styles. Roster rules share one specificity above page rules; when an element matches several roster entries the later entry wins (types, then variants).",
-    "publishing": "Studio > User Preferences > Look and Feel (administrators: Desk admins or the approved administrator group). Apply publishes a numbered version to /api/look-and-feel; every page loads the latest published roster, falling back to the repository roster. Use repository default publishes a reset.",
+    "publishing": "Studio > User Preferences > Look and Feel opens a side panel beside the live screen (Elements on this screen, Sizes, Pick on page). Changes preview instantly; administrators (Desk admins or the approved administrator group) Apply to everyone, publishing a numbered version to /api/look-and-feel. ?design=1 allows preview without publishing. Use repository default publishes a reset.",
     "newElements": "An element whose type exists in the roster takes that type's size and must not set its own. A new kind of element is added to the roster (a type, or a variant of a type) in the same change, with its contract component. ROSTER-01 fails on any visible element whose size is neither its roster type's size nor inherited.",
     "keptCurrent": "Entries marked keptCurrent keep their pre-roster sizes by the user's choice and remain editable.",
     "types": [
@@ -2945,6 +2945,11 @@
         "component": "navigation"
       },
       {
+        "id": "library-label-text",
+        "name": "Library label text",
+        "component": "navigation"
+      },
+      {
         "id": "option-description",
         "name": "Dropdown option description",
         "component": "dropdown-option"
@@ -2985,6 +2990,16 @@
         "component": "card"
       },
       {
+        "id": "list-thumbnail",
+        "name": "Library list thumbnail",
+        "component": "image"
+      },
+      {
+        "id": "card-thumbnail",
+        "name": "Library card thumbnail",
+        "component": "image"
+      },
+      {
         "id": "button-hero",
         "name": "Welcome call to action",
         "component": "button"
@@ -3018,8 +3033,49 @@
         "id": "text-display",
         "name": "Brand name and empty-state title",
         "component": "text"
+      },
+      {
+        "id": "sidebar-group-header",
+        "name": "Sidebar section header",
+        "component": "navigation"
+      },
+      {
+        "id": "sidebar-step",
+        "name": "Sidebar story step",
+        "component": "navigation"
+      },
+      {
+        "id": "sidebar-label-row",
+        "name": "Library label row",
+        "component": "navigation"
+      },
+      {
+        "id": "sidebar-new-label",
+        "name": "New label button",
+        "component": "navigation"
+      },
+      {
+        "id": "eyebrow-labels",
+        "name": "Library LABELS heading",
+        "component": "label"
+      },
+      {
+        "id": "button-header-menu",
+        "name": "Header menus",
+        "component": "button"
+      },
+      {
+        "id": "button-library-landing",
+        "name": "Library page item",
+        "component": "button"
+      },
+      {
+        "id": "heading-h1-story-landing",
+        "name": "Tell Your Story page title",
+        "component": "heading"
       }
     ],
-    "verification": "node scripts/size_roster.mjs --check; qa ROSTER-01, ROSTER-02, LOOK-01..03; backend/test_ecco_look_and_feel.py."
+    "verification": "node scripts/size_roster.mjs --check; qa ROSTER-01, ROSTER-02, LOOK-01..03; backend/test_ecco_look_and_feel.py.",
+    "scale": "Sizes are named and grouped (Title, Heading, Text, Control height, Icon, Image). Elements refer to a size by \"@id\"; a scale change updates every element using it. Compiled as --ecco-size-* custom properties."
   }
 }
