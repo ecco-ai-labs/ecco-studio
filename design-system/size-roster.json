@@ -709,6 +709,27 @@
         "Models · Settings · Files"
       ],
       "area": "Header"
+    },
+    {
+      "id": "desk-summary-card",
+      "name": "Desk summary card",
+      "contractComponent": "text",
+      "font": null,
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".metric",
+        ".bottom-cards > button"
+      ],
+      "examples": [
+        "Active requests",
+        "In progress",
+        "Resolved",
+        "Urgent",
+        "Made for your team"
+      ],
+      "area": "Desk",
+      "note": "Tall cards built as buttons. Listed so the Button height (30 px) does not squash them; their own Desk styles size them."
     }
   ],
   "variants": [

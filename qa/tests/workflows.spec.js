@@ -1356,3 +1356,9 @@ test('THEME-02 switching between glass themes keeps each theme backdrop',async({
  await pick('ocean');await expect.poll(backdrop).toBe('linear-gradient(180deg,#d9edf7 0%,#e4f2f8 100%)');
  await pick('dark-sky');await expect.poll(backdrop).toContain('linear-gradient(145deg,#061c32,#020e1b)');
 });
+test('DESK-CARDS-01 Desk summary cards keep their full height (not squashed to button height)',async({page})=>{
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort('blockedbyclient'));
+ await page.goto('/desk/index.html?__qa=1');
+ await expect.poll(()=>page.evaluate(()=>{const out=[];const walk=r=>{for(const e of r.querySelectorAll('*')){if(e.shadowRoot)walk(e.shadowRoot);if(e.classList?.contains('metric'))out.push(e);}};walk(document);
+  return out.length===4&&out.every(m=>{const r=m.getBoundingClientRect(),strong=m.querySelector('strong').getBoundingClientRect(),small=m.querySelector('small').getBoundingClientRect();return r.height>80&&strong.bottom<=r.bottom&&small.bottom<=r.bottom;});})).toBe(true);
+});
