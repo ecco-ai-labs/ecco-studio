@@ -801,3 +801,7 @@ idea, drafts and saved selection — and opens the new tab). Empty tabs switch
 without asking. Write Story is now the same ✦ icon button as Improve with AI
 (owner choice: icon everywhere), and the title line inside the inline boxes is
 hidden because the tab already names the box.
+
+Next: Characters ignores any clarification question AI adds beside its character
+list and tells AI not to ask questions there (owner report 2026-11-08: a title
+question stopped the character tabs from appearing).

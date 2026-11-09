@@ -42,7 +42,7 @@
           if(failFirst)story.characters=[story.characters[0]];
           story.assignments=units.map(u=>({unit_id:u.id,character_id:failFirst?'n':u.label?story.characters.find(c=>c.name===u.label).id:u.dialogue?(u.text.includes('sesame')?'a':'m'):'n'}));delete story.segments;
         }
-        return {revisions:[{id,text:JSON.stringify(story)}]};
+        return {revisions:[{id,text:JSON.stringify(story)}],questions:window.__qaAsk?['Should the saved title be retained?']:[]};
       }
     }
     if(sourceFit==='fiction'&&path==='ai/enhance'&&body.fields?.[0]?.id==='story_workspace'){const units=JSON.parse(body.context.summary).source_units||[];return{revisions:[{id:'story_workspace',text:JSON.stringify({characters:[{id:'n',name:'Narrator'}],assignments:units.map(u=>({unit_id:u.id,character_id:'n'}))})}]};}
