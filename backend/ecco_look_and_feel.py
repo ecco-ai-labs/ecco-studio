@@ -148,7 +148,49 @@ def validate(roster):
         raise LookError('The roster needs at least one element type.')
     if len(types) + len(clean_variants) > 200:
         raise LookError('The roster is limited to 200 elements.')
-    return {'schemaVersion': 2, 'scale': scale, 'types': types, 'variants': clean_variants}
+    out = {'schemaVersion': 2, 'scale': scale, 'types': types, 'variants': clean_variants}
+    if roster.get('colors') is not None:
+        out['colors'] = validate_colors(roster['colors'])
+    return out
+
+
+COLOR = re.compile(r'^(#[0-9a-fA-F]{3,8}|rgba?\([0-9., %]{1,40}\))$')
+BACKDROP = re.compile(r'^[a-zA-Z0-9#%.,() -]{1,600}$')
+GLASS_KEYS = ('colorScheme', 'backdrop', 'solid', 'highlight', 'shadow')
+
+
+def validate_colors(colors):
+    """Theme colors: roles with a built-in color, and themes that set some roles, status colors and an optional backdrop."""
+    if not isinstance(colors, dict) or not isinstance(colors.get('roles'), dict) or not isinstance(colors.get('themes'), dict):
+        raise LookError('Theme colors need roles and themes.')
+    roles = {}
+    for key, info in colors['roles'].items():
+        if not re.fullmatch(r'[a-z][a-z-]{0,30}', str(key)) or not isinstance(info, dict) or not COLOR.match(str(info.get('builtIn', ''))):
+            raise LookError(f'The color role "{key}" needs a name and a built-in color.')
+        roles[key] = {'label': str(info.get('label', key))[:60], 'builtIn': info['builtIn']}
+    if 'default' not in colors['themes'] or len(colors['themes']) > 20:
+        raise LookError('Theme colors need a default theme and at most 20 themes.')
+    themes = {}
+    for tid, theme in colors['themes'].items():
+        if not re.fullmatch(r'[a-z][a-z-]{1,30}', str(tid)) or not isinstance(theme, dict):
+            raise LookError(f'The theme "{tid}" needs a lowercase id.')
+        clean = {'label': str(theme.get('label') or tid)[:40], 'status': {}, 'colors': {}}
+        for key in ('connected', 'disconnected'):
+            value = str((theme.get('status') or {}).get(key, ''))
+            if not COLOR.match(value):
+                raise LookError(f'{clean["label"]}: the {key} status needs a color like #1f6feb.')
+            clean['status'][key] = value
+        for key, value in (theme.get('colors') or {}).items():
+            if key not in roles or not COLOR.match(str(value)):
+                raise LookError(f'{clean["label"]}: "{value}" is not a color for {key}.')
+            clean['colors'][key] = value
+        glass = theme.get('glass')
+        if glass is not None:
+            if not isinstance(glass, dict) or any(not BACKDROP.match(str(glass.get(k, ''))) for k in GLASS_KEYS):
+                raise LookError(f'{clean["label"]}: the backdrop values are not valid.')
+            clean['glass'] = {k: str(glass[k]) for k in GLASS_KEYS}
+        themes[tid] = clean
+    return {'roles': roles, 'themes': themes}
 
 
 def current(db):

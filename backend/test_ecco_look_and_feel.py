@@ -51,6 +51,7 @@ class LookAndFeelTest(unittest.TestCase):
         self.assertEqual(data['roster']['scale'][0]['tokens'][0]['value'], 30)
         self.assertEqual(data['roster']['types'][1]['font'], ROSTER['types'][1]['font'])
         self.assertEqual(data['history'][0]['updatedBy'], 'Owner')
+        self.assertEqual(data['roster']['colors']['themes']['forest']['colors']['accent'], ROSTER['colors']['themes']['forest']['colors']['accent'])
         status, public = self.read()
         self.assertEqual(public['roster']['types'][0]['font'], 8)
         self.assertEqual(self.read('owner')[1]['canPublish'], True)
@@ -88,6 +89,8 @@ class LookAndFeelTest(unittest.TestCase):
             lambda r: r['types'][0].update(font='@no-such-size'),
             lambda r: r['scale'][0]['tokens'][0].update(value=500),
             lambda r: r['scale'][0]['tokens'].append(dict(r['scale'][0]['tokens'][0])),
+            lambda r: r['colors']['themes']['forest']['colors'].update(accent='red; background:url(x)'),
+            lambda r: r['colors']['themes']['default'].update(status={'connected': '#fff'}),
         ):
             roster = json.loads(json.dumps(ROSTER))
             change(roster)

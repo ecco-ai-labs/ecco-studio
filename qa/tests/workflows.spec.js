@@ -1289,15 +1289,42 @@ test('LOOK-02 Pick on page selects the clicked element and new elements join the
  await panel.getByRole('button',{name:'Discard changes',exact:true}).click();
  await expect(page.locator('#workspace-back')).toHaveCSS('font-size','15px');
 });
-test('LOOK-03 Look and Feel is for administrators, or anyone previewing with ?design',async({page})=>{
- await boot(page);await page.locator('[data-category="Activity"] > summary').click();
+test('LOOK-03 Look and Feel is only for administrators and listed admin accounts',async({page:first})=>{
+ let page=first;
+ // Not an administrator and not on the list: no entry, even with the old ?design link.
+ await bootAdmin(page,'design=1');await page.locator('[data-category="Activity"] > summary').click();
  await expect(page.locator('[data-category="Activity"] .workspace-menu-items')).toBeVisible();
  await expect(page.locator('#look-and-feel-open')).toHaveCount(0);
- await bootAdmin(page,'design=1');
- const panel=await openLookAndFeel(page);
+ expect(await page.evaluate(async()=>{await window.EccoLookAndFeel.open();return !!document.querySelector('#look-and-feel-panel:not([hidden])');})).toBe(false);
+ // On design-system/look-and-feel-admins.json: the panel opens and previews; Apply still needs the service to agree.
+ const listed=await page.context().newPage();
+ await listed.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort('blockedbyclient'));
+ await listed.route('**/design-system/look-and-feel-admins.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({admins:['QA@example.invalid']})}));
+ await listed.goto('/?__qa=1');await listed.waitForFunction(()=>window.__qaReady);
+ await listed.locator('#entry-tell-story').click();await listed.getByRole('button',{name:'New Story',exact:true}).click();await listed.locator('[data-story-destination="story-setup"]').click();
+ page=listed;const panel=await openLookAndFeel(page);
  await panel.getByLabel('Button text size',{exact:true}).selectOption('@text-small');
  await expect(page.locator('.story-details-next')).toHaveCSS('font-size','8.5px');
  await expect(panel.getByRole('button',{name:'Apply to everyone',exact:true})).toBeDisabled();
+});
+test('LOOK-04 theme colors are edited in Look and Feel and show on the screen',async({page})=>{
+ await bootAdmin(page);
+ const panel=await openLookAndFeel(page);
+ await panel.getByRole('tab',{name:'Colors',exact:true}).click();
+ await panel.getByLabel('Theme to edit',{exact:true}).selectOption('forest');
+ await expect(page.locator('html')).toHaveAttribute('data-ecco-theme','forest');
+ const accent=panel.getByLabel('Forest Accent and Selection',{exact:true});await expect(accent).toHaveValue('#ffffff');
+ await accent.fill('#ff8800');await accent.press('Tab');
+ await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ecco-theme-accent').trim())).toBe('#ff8800');
+ await accent.fill('not a color');await accent.press('Tab');
+ await expect(panel.locator('#msg')).toContainText('is not a color');
+ await panel.getByRole('button',{name:'Apply to everyone',exact:true}).click();
+ await expect(panel.locator('#msg')).toHaveText('Applied to everyone. Version 1 is live.');
+ // A new visit loads the published colors; choosing Forest shows them.
+ await page.reload();await page.waitForFunction(()=>window.EccoSizes?.state.version===1);
+ expect(await page.evaluate(()=>window.EccoSizes.state.roster.colors.themes.forest.colors.accent)).toBe('#ff8800');
+ await page.evaluate(()=>{const r=document.querySelector('#workspace-theme-drawer input[value="forest"]');r.checked=true;r.dispatchEvent(new Event('change'));});
+ await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ecco-theme-accent').trim())).toBe('#ff8800');
 });
 test('STORAGE-01 a locked or asleep computer does not raise a storage error; a lasting outage still does',async({page})=>{
  await boot(page);

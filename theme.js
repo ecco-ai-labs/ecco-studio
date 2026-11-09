@@ -13,7 +13,10 @@
  };
  const validPreset=value=>typeof value==='string'&&Object.hasOwn(PRESETS,value)?value:'default';
  let saved='default';try{saved=validPreset(localStorage.getItem(KEY));}catch{}
- function apply(name){document.documentElement.dataset.eccoTheme=validPreset(name);const colors=PRESETS[validPreset(name)].colors;for(const key of Object.keys(PALETTE)){const variable='--ecco-theme-'+key;if(colors[key])document.documentElement.style.setProperty(variable,colors[key]);else document.documentElement.style.removeProperty(variable);}for(const [state,color] of Object.entries(PRESETS[validPreset(name)].status))document.documentElement.style.setProperty('--ecco-theme-'+state,color);}
+ // Colors come from the Look and Feel roster once it is loaded (published or previewed), else from PRESETS.
+ const presetOf=name=>window.EccoSizes?.state?.roster?.colors?.themes?.[name]||PRESETS[name];
+ function apply(name){document.documentElement.dataset.eccoTheme=validPreset(name);const preset=presetOf(validPreset(name)),colors=preset.colors||{};
+  const glass=preset.glass;for(const k of ['backdrop','solid','highlight','shadow']){if(glass&&glass[k])document.documentElement.style.setProperty('--glass-'+k,glass[k]);else document.documentElement.style.removeProperty('--glass-'+k);}for(const key of Object.keys(PALETTE)){const variable='--ecco-theme-'+key;if(colors[key])document.documentElement.style.setProperty(variable,colors[key]);else document.documentElement.style.removeProperty(variable);}for(const [state,color] of Object.entries(preset.status||PRESETS[validPreset(name)].status))document.documentElement.style.setProperty('--ecco-theme-'+state,color);}
  apply(saved);
  const COLOR=/url\([^)]*\)|#[\da-f]{3,8}\b|rgba?\([^)]*\)|\b(?:white|black|red|yellow|gray|grey|orange|green|blue|purple)\b/gi;
  const NAMES={white:'#ffffff',black:'#000000',red:'#ff0000',yellow:'#ffff00',gray:'#808080',grey:'#808080',orange:'#ffa500',green:'#008000',blue:'#0000ff',purple:'#800080'};
@@ -61,6 +64,7 @@
  }
  let pending=false,styleDirty=false;const inlineRoots=new Set();function schedule(){if(pending)return;pending=true;queueMicrotask(()=>{pending=false;if(styleDirty){styleDirty=false;scanStyles();}for(const root of inlineRoots)inline(root);inlineRoots.clear();mount();});}
  function start(){scanStyles();inline(document.body);mount();new MutationObserver(records=>{for(const r of records){if(r.type==='attributes'){inlineRoots.add(r.target);}else{if(r.target.nodeName==='STYLE'||r.target.parentElement?.nodeName==='STYLE')styleDirty=true;for(const n of r.addedNodes){if(n.nodeType===1){inlineRoots.add(n);if(n.matches('style,link[rel="stylesheet"]')||n.querySelector('style,link[rel="stylesheet"]'))styleDirty=true;}}}}schedule();}).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['style']});document.addEventListener('load',e=>{if(e.target.matches?.('link[rel="stylesheet"]')){styleDirty=true;schedule();}},true);}
- window.EccoTheme={presets:PRESETS,validPreset,colorValue};
+ window.EccoTheme={presets:PRESETS,validPreset,colorValue,get current(){return saved;}};
+ document.addEventListener('ecco:look-and-feel',()=>apply(saved));
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

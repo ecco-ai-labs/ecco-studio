@@ -8,9 +8,12 @@
  const q=s=>document.querySelector(s);
  const S=()=>window.EccoSizes;
  const DRAFT='ecco-look-and-feel-draft';
- const designFlag=new URLSearchParams(location.search).has('design');
- try{if(designFlag)sessionStorage.setItem('ecco-design-mode','1');}catch{}
- const designMode=()=>{try{return sessionStorage.getItem('ecco-design-mode')==='1';}catch{return designFlag;}};
+ // Look and Feel is only for administrators: people the publishing service names as administrators, or the
+ // signed-in Google accounts listed in design-system/look-and-feel-admins.json (used while that service is not deployed).
+ let adminList=[];
+ fetch('design-system/look-and-feel-admins.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{admins:[]}).then(d=>{adminList=(d.admins||[]).map(e=>String(e).trim().toLowerCase());mountMenu();}).catch(()=>{});
+ const listedAdmin=()=>{const e=window.EccoAuth?.user?.email;return !!e&&adminList.includes(String(e).trim().toLowerCase());};
+ const isAdmin=()=>canPublish||listedAdmin();
  const token=()=>window.EccoAuth?.user?(sessionStorage.getItem('ecco-user-session')||localStorage.getItem('ecco-user-session')||''):'';
  let canPublish=false,serviceUp=false,live={version:0,roster:null,updatedAt:null,updatedBy:null};
  let draft=null,dirty=false,busy=false,tab='elements',area='screen',search='',picking=false,selected=null,message='',kind='';
@@ -33,7 +36,7 @@
   const menu=q('[data-category="Activity"] .workspace-menu-items');if(!menu)return;
   let b=q('#look-and-feel-open');
   // Menu buttons have an explicit display, so the entry is removed rather than hidden.
-  if(!canPublish&&!designMode()){b?.remove();return;}
+  if(!isAdmin()){b?.remove();if(host&&!host.hidden)close();return;}
   if(!b){b=document.createElement('button');b.type='button';b.id='look-and-feel-open';b.className='secondary';b.textContent='Look and Feel';
    b.onclick=e=>{e.preventDefault();b.closest('details')?.removeAttribute('open');open();};}
   const themes=q('#theme-colors-open');
@@ -111,6 +114,32 @@
     return `<div class="tok" data-tok="${esc(t.id)}"><input class="tname" data-tok="${esc(t.id)}" value="${esc(t.name)}" aria-label="${esc(g.name)} size name" maxlength="40"><input class="tval" type="number" step="${g.kind==='font'?'0.5':'1'}" min="${g.kind==='font'?4:g.kind==='icon'?6:10}" max="${g.kind==='font'?96:g.kind==='icon'?96:1200}" data-tok="${esc(t.id)}" value="${fmt(t.value)}" aria-label="${esc(g.name)} ${esc(t.name)} in pixels"><span class="px">px</span>${sample}${n?`<span class="muted small used">${n} element${n>1?'s':''}</span>`:`<button type="button" class="ghost del" data-del="${esc(t.id)}" aria-label="Delete ${esc(g.name)} ${esc(t.name)} (unused)">Delete</button>`}</div>`;}).join('')}
    <button type="button" class="ghost add" data-add="${esc(g.id)}">Add a ${esc(g.name.toLowerCase())} size</button></section>`).join('');
  }
+ /* ---------- theme colors ---------- */
+ const COLOR_RE=/^(#[0-9a-fA-F]{3,8}|rgba?\([0-9., %]{1,40}\))$/;
+ let colorTheme=null;
+ function renderColors(){
+  const c=draft.colors;if(!c)return '<p class="muted">Theme colors are not in this roster yet. Use repository default to load them.</p>';
+  colorTheme=colorTheme&&c.themes[colorTheme]?colorTheme:(window.EccoTheme?.current&&c.themes[window.EccoTheme.current]?window.EccoTheme.current:'default');
+  const th=c.themes[colorTheme];
+  const row=(group,key,lab,builtIn)=>{const v=(th[group]||{})[key];const shown=v||builtIn||'transparent';
+   return `<div class="crow"><span class="sw" style="background:${esc(shown)}"></span><span class="clab">${esc(lab)}${!v&&builtIn?'<span class="muted small"> · Studio built-in</span>':''}</span><input data-color="${group}:${key}" value="${esc(v||'')}" placeholder="${esc(builtIn||'')}" aria-label="${esc(th.label+' '+lab)}" spellcheck="false"></div>`;};
+  return `<p class="muted">Colors for each theme. Picking a theme here also shows it on your screen. Use a hex color like #1f6feb or rgba(…); leave a box empty for Studio's built-in color.</p>
+   <label class="themepick">Theme<select id="color-theme" aria-label="Theme to edit">${Object.entries(c.themes).map(([id,t])=>`<option value="${esc(id)}"${id===colorTheme?' selected':''}>${esc(t.label)}</option>`).join('')}</select></label>
+   <section class="cat"><h3>Colors</h3>${Object.entries(c.roles).map(([k,r])=>row('colors',k,r.label,r.builtIn)).join('')}</section>
+   <section class="cat"><h3>Connection status</h3>${row('status','connected','Connected')}${row('status','disconnected','Not connected')}</section>
+   ${th.glass?`<section class="cat"><h3>Backdrop</h3>${[['backdrop','Page backdrop'],['solid','Solid panels'],['highlight','Highlight'],['shadow','Shadow']].map(([k,l])=>row('glass',k,l)).join('')}</section>`:''}`;
+ }
+ function wireColors(){
+  const pick=root.getElementById('color-theme');
+  if(pick)pick.onchange=()=>{colorTheme=pick.value;const radio=document.querySelector(`#workspace-theme-drawer input[name=ecco-theme][value="${window.CSS.escape(colorTheme)}"]`);if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}render();};
+  for(const input of root.querySelectorAll('[data-color]'))input.onchange=()=>{
+   const [group,key]=input.dataset.color.split(':'),v=input.value.trim(),th=draft.colors.themes[colorTheme];
+   if(v&&group!=='glass'&&!COLOR_RE.test(v)){setMessage(`"${v}" is not a color. Use a hex color like #1f6feb or rgba(…).`,'error');return;}
+   if(!v&&group==='status'){setMessage('Connection status colors cannot be empty.','error');input.value=th.status[key];return;}
+   th[group]=th[group]||{};if(v)th[group][key]=v;else delete th[group][key];
+   preview();input.previousElementSibling.previousElementSibling.style.background=v||input.placeholder||'transparent';
+  };
+ }
  function updateFooter(){
   const apply=root?.getElementById('apply');if(!apply)return;
   apply.disabled=!canPublish||!dirty||busy;
@@ -129,9 +158,9 @@
    <div class="filters"><label>Show<select id="area" aria-label="Which elements to show">${areaOpts}</select></label>
    <input id="search" type="search" placeholder="Search elements" aria-label="Search elements" value="${esc(search)}"></div>
    <div id="list"></div><details class="addnew" id="addnew"><summary>Add a new element</summary>${addForm()}</details>`:
-   `<p class="muted">Each size has a name. Change a value here and every element using that name changes.</p>${renderScale()}`;
+   tab==='colors'?renderColors():`<p class="muted">Each size has a name. Change a value here and every element using that name changes.</p>${renderScale()}`;
   for(const t of root.querySelectorAll('[role=tab]'))t.setAttribute('aria-selected',String(t.dataset.tab===tab));
-  wire();if(tab==='elements'){screenCounts=onScreen();renderList();wireList();}
+  wire();if(tab==='elements'){screenCounts=onScreen();renderList();wireList();}if(tab==='colors')wireColors();
   updateFooter();setMessage(message,kind);
  }
  function addForm(sel=''){
@@ -250,14 +279,15 @@
  .box{position:fixed;outline:2px solid #ffdc24;background:#ffdc2422;border-radius:3px}
  .label{position:fixed;background:#ffdc24;color:#1d1b2b;font:600 12px/1 Inter,system-ui,sans-serif;padding:5px 7px;border-radius:5px;pointer-events:none;white-space:nowrap}
  .label[hidden]{display:none}
- @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}`;
+ @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+.crow{display:grid;grid-template-columns:20px minmax(0,1fr) 140px;gap:8px;align-items:center;margin:4px 0}.crow .sw{width:20px;height:20px;border-radius:5px;border:1px solid #8886}.crow input{width:100%;box-sizing:border-box;font:12px ui-monospace,Menlo,monospace;padding:4px 6px}.themepick{display:flex;gap:8px;align-items:center;margin:6px 0}`;
  function build(){
   host=document.createElement('div');host.id='look-and-feel-panel';
   root=S().attachPlain(host,{mode:'open'});
   root.innerHTML=`<style>${CSS}</style><div class="overlay" id="overlay"></div><div class="label" id="label" hidden></div>
    <div class="panel" role="complementary" aria-labelledby="laf-h">
     <header><h2 id="laf-h">Look and Feel</h2><button type="button" id="pick" aria-pressed="false">Pick on page</button><button type="button" id="close" aria-label="Close Look and Feel">Close</button></header>
-    <div class="tabs" role="tablist" aria-label="Look and Feel"><button type="button" role="tab" data-tab="elements" aria-selected="true">Elements</button><button type="button" role="tab" data-tab="scale" aria-selected="false">Sizes</button></div>
+    <div class="tabs" role="tablist" aria-label="Look and Feel"><button type="button" role="tab" data-tab="elements" aria-selected="true">Elements</button><button type="button" role="tab" data-tab="scale" aria-selected="false">Sizes</button><button type="button" role="tab" data-tab="colors" aria-selected="false">Colors</button></div>
     <div id="body"></div>
     <footer><p id="msg" role="status"></p><p class="muted small" id="liveline"></p>
      <div class="row"><button type="button" id="discard">Discard changes</button><button type="button" id="copy">Copy roster</button><button type="button" id="reset">Use repository default</button><button type="button" class="primary" id="apply">Apply to everyone</button></div></footer>
@@ -273,6 +303,7 @@
   document.body.append(host);
  }
  async function open(){
+  if(!isAdmin())return;
   if(!S().state.roster){await S().ready;if(!S().state.roster)await S().refresh();}
   if(!host)build();host.hidden=false;room(true);
   const restored=loadDraft();if(restored){draft=restored;dirty=true;try{S().apply(draft,{source:'preview'});}catch{}}

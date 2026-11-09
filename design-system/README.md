@@ -70,7 +70,7 @@ it. A plain number is allowed for a one-off size, but prefer a name.
 It is a panel beside the real screen: the Elements tab lists what is on the
 current screen, the Sizes tab edits the scale, and **Pick on page** selects an
 element by clicking it. Every change previews immediately; **Apply to everyone**
-publishes it. Anyone can preview with `?design=1` in the address; **Copy roster**
+publishes it. Only administrators see it: people the Look and Feel service names as administrators, or Google accounts listed in [look-and-feel-admins.json](look-and-feel-admins.json). A Colors tab edits each theme's colors. **Copy roster**
 exports the edited roster. Each Apply is a numbered
 version on the Desk service (`/api/look-and-feel`); every page loads the latest
 one and falls back to the repository roster. **Download roster** exports the

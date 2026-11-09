@@ -172,7 +172,7 @@
   {
     "area": "Master size roster and Look and Feel",
     "mode": "fixture",
-    "scope": "ROSTER-01 audits seven Studio and Desk screens: every control, heading, label and text element has its roster type's size or inherits it; unregistered sizes fail. ROSTER-02 checks the generated stylesheet matches the roster and that the Desk shadow root receives it. LOOK-01..03: administrators open the Look and Feel side panel from User Preferences, assign a size name to an element and change a size in the scale with both updating the live screen, Apply to everyone (persisting across reload) and restore the repository default; Pick on page selects the clicked element without running its action; a new variant is added and invalid selectors refused; non-administrators see no entry, while ?design=1 previews without publishing. The real publishing service and administrator-group verification are covered by backend/test_ecco_look_and_feel.py; live deployment remains blocked in the fixture."
+    "scope": "ROSTER-01 audits seven Studio and Desk screens: every control, heading, label and text element has its roster type's size or inherits it; unregistered sizes fail. ROSTER-02 checks the generated stylesheet matches the roster and that the Desk shadow root receives it. LOOK-01..Only administrators (service-confirmed or listed in design-system/look-and-feel-admins.json) see Look and Feel; a Colors tab edits theme colors (LOOK-04). The real publishing service and administrator-group verification are covered by backend/test_ecco_look_and_feel.py; live deployment remains blocked in the fixture."
   },
   {
     "area": "Six workflow steps",

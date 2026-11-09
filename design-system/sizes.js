@@ -43,8 +43,23 @@
  }
  function text(v,max,what){if(typeof v!=='string'||!v.trim()||v.length>max)throw new Error(`${what} needs a name of at most ${max} characters.`);return v.trim();}
  /* Returns a clean copy or throws a message a person can act on. */
+ const COLOR=/^(#[0-9a-fA-F]{3,8}|rgba?\([0-9., %]{1,40}\))$/,BACKDROP=/^[a-zA-Z0-9#%.,() -]{1,600}$/;
+ /* Theme colors: roles with a built-in color; each theme sets some roles, status colors and an optional backdrop. */
+ function colors(c){
+  if(!c||typeof c!=='object'||!c.roles||!c.themes||!c.themes.default)throw new Error('Theme colors need roles and a default theme.');
+  for(const [k,r] of Object.entries(c.roles))if(!/^[a-z][a-z-]{0,30}$/.test(k)||!COLOR.test(r?.builtIn||''))throw new Error(`The color role "${k}" needs a built-in color.`);
+  for(const [id,t] of Object.entries(c.themes)){
+   const name=t?.label||id;
+   if(!/^[a-z][a-z-]{1,30}$/.test(id))throw new Error(`The theme "${id}" needs a lowercase id.`);
+   for(const k of ['connected','disconnected'])if(!COLOR.test(t?.status?.[k]||''))throw new Error(`${name}: the ${k} status needs a color like #1f6feb.`);
+   for(const [k,v] of Object.entries(t.colors||{}))if(!c.roles[k]||!COLOR.test(v))throw new Error(`${name}: "${v}" is not a color. Use a hex color like #1f6feb or rgba(…).`);
+   if(t.glass)for(const k of ['colorScheme','backdrop','solid','highlight','shadow'])if(!BACKDROP.test(String(t.glass[k]||'')))throw new Error(`${name}: the backdrop values are not valid.`);
+  }
+  return c;
+ }
  function validate(roster){
   if(!roster||typeof roster!=='object'||!Array.isArray(roster.types))throw new Error('The roster needs a list of element types.');
+  if(roster.colors!==undefined)colors(roster.colors);
   const clean={...roster,scale:[],types:[],variants:[]},ids=new Set(),tids=new Set();
   if(roster.scale!==undefined&&!Array.isArray(roster.scale))throw new Error('The size scale must be a list of categories.');
   for(const g of roster.scale||[]){
