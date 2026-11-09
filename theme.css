@@ -38,6 +38,5 @@ html body>aside :is(#workspace-library-group,#workspace-production-group,nav) :i
 html body>aside>#workspace-trash:focus-visible{
  outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24))!important;outline-offset:3px;
 }
-/* Header menu items: text sits in the middle of the item, top to bottom; Themes is also centred across. */
-html main>header .workspace-menu-items>:is(button,a){align-items:center!important}
-html main>header .workspace-menu-items>#theme-colors-open{justify-content:center!important;text-align:center!important}
+/* Header menu items (Look and Feel, Themes, How to, …): left-aligned, in the middle of the item top to bottom. */
+html main>header .workspace-menu-items>:is(button,a){align-items:center!important;justify-content:flex-start!important;text-align:left!important}
