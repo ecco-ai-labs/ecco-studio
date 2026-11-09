@@ -761,3 +761,7 @@ the Generated Script popup no longer opens from Story (it remains only to resume
 a saved draft). Next: Characters carries the chosen story text to Script and asks
 AI for the characters.
 
+
+Resume Script is removed from the Story and Script steps, and a leftover Generated
+Script draft in a saved story is discarded on open so it no longer blocks Generate
+(owner request 2026-11-08).

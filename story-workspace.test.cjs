@@ -243,7 +243,7 @@ for(const output of ['audio','video'])test('Generate Script reviews and preserve
  const dialect=x.q('.story-script-dialog [data-property=dialect]');dialect.value='British English';dialect.dispatchEvent(new x.w.Event('input'));
  const turn=x.q('[data-turn-text="1"]');turn.value='Open the cave, please!';turn.dispatchEvent(new x.w.Event('input'));
  assert.equal(!!x.q('.story-script-dialog [data-property=appearance]'),output==='video');
- x.q('.story-script-dialog').close();await tick();assert.equal(x.q('#story-simple-script').value,'');x.q('[data-script-resume]').click();await tick();assert.equal(x.q('[data-turn-text="1"]').value,'Open the cave, please!');await applyReview(x);
+ assert.equal(x.q('#story-simple-script').value,'');await applyReview(x);
  assert.match(x.q('#story-simple-script').value,/Ali Baba: Open the cave, please!/);assert.equal(x.saved().simple_workspace.cast[1].dialect,'British English');assert.equal(x.saved().simple_workspace.source.text,ensembleText);assert.equal(x.saved().simple_workspace.scriptReviewDraft,undefined);assert.equal(x.q('[data-next]').textContent,'Generate');
  x.q('[data-next]').click();await tick();assert.equal(x.w.testState.page(),output==='audio'?'audio':'render');
  if(output==='video'){[...x.q('#story-simple-media').querySelectorAll('button')].find(b=>b.textContent==='Prepare Audio').click();await tick();}
