@@ -261,17 +261,12 @@
  }
  function characterTabs(){
   const list=inPage('[data-character-tabs]'),root=inPage('[data-characters]');if(!list||!root)return;
-  const selected=Math.max(0,data.cast.findIndex(c=>c.id===data.activeCharacter));data.activeCharacter=data.cast[selected]?.id;
-  list.replaceChildren();
-  data.cast.forEach((character,index)=>{
-   const tab=button(character.name?.trim()||'Character '+(index+1),()=>{data.activeCharacter=character.id;persist();characterTabs();inPage('[data-character-tabs] [aria-selected=true]')?.focus();},'story-character-tab');
-   tab.id='story-character-tab-'+index;tab.setAttribute('role','tab');tab.setAttribute('aria-controls','story-character-properties');tab.setAttribute('aria-selected',String(index===selected));tab.tabIndex=index===selected?0:-1;
-   tab.onkeydown=event=>{const next=event.key==='ArrowRight'?(index+1)%data.cast.length:event.key==='ArrowLeft'?(index+data.cast.length-1)%data.cast.length:event.key==='Home'?0:event.key==='End'?data.cast.length-1:null;if(next!==null){event.preventDefault();list.querySelectorAll('[role=tab]')[next].focus();}};
-   list.append(tab);
-  });
-  const add=button('+',()=>{if(data.cast.length>=20)return;const character={id:crypto.randomUUID(),name:'Character '+(data.cast.length+1)};data.cast.push(character);data.activeCharacter=character.id;data.castCustomized=true;epoch++;persist();characterTabs();q('[data-property=name]',root)?.focus();},'story-character-add');
-  add.setAttribute('aria-label','Add character');add.title='Add character';add.disabled=data.cast.length>=20;list.append(add);
-  root.setAttribute('aria-labelledby','story-character-tab-'+selected);characters(root,{selectedIndex:selected,showHeading:false,expanded:true});root.oninput=event=>{if(event.target.dataset?.property!=='name')return;const tab=list.querySelector('#story-character-tab-'+selected);if(tab)tab.textContent=event.target.value.trim()||'Character '+(selected+1);};paintCastStatus();
+  // Owner-approved Characters mock-up (8 November 2026): status tabs, From Story, Create and Test.
+  window.EccoStoryCharacters.render({data,list,root,languages,audioModel,persist,redraw:characterTabs,
+   changed:()=>{data.castCustomized=true;epoch++;persist();},
+   message,status:text=>aiStatus(text),
+   saveToLibrary:character=>{try{M.validateCast(data.cast);const key='ecco-audio-character-sets-v1',sets=read(key,[]),name=data.title+' · '+character.name;const entry={id:crypto.randomUUID(),name,output:data.output,cast:[clone(character)]};localStorage.setItem(key,JSON.stringify([...sets.filter(s=>s.name!==name),entry]));message('Character saved to your library in this browser');}catch(error){message(error.message,true);}}});
+  paintCastStatus();
  }
  function story(){
   page='story-properties';if(!data.cast.length)data.cast=defaultCast();
@@ -286,10 +281,10 @@
  }
  function charactersPage(){
   page='story-characters';if(!data.cast.length)data.cast=defaultCast();
-  q('#page').innerHTML='<div class="form"><section class="panel form" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><p class="help" data-cast-reason></p><div class="form" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions"><button type="button" data-next>Next: Script</button></div></div>';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-cast" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-cast-reason></p><div class="story-cast-bar"><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><div class="story-cast-legend help" aria-hidden="true"><span><span class="story-cast-status" data-status="none"></span>Not created</span><span><span class="story-cast-status" data-status="created"></span>Created</span><span><span class="story-cast-status" data-status="tested"><svg viewBox="0 0 16 16"><path d="M4.5 8.2l2.3 2.3 4.7-4.8"/></svg></span>Tested</span></div></div><div class="story-cast-body" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions story-cast-actions"><p class="help" id="story-cast-progress" data-cast-progress role="status" aria-live="polite"></p><button type="button" data-next>Next: Script</button></div></div>';
   inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
   inPage('[data-cast-reason]').textContent=data.castReason||'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.';
-  characterTabs();inPage('[data-next]').onclick=()=>select(SCRIPT);
+  characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
  }
  function scriptPage(){
   page='story-script';

@@ -211,3 +211,46 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .pdf-selected-label.pdf-preview-fullscreen textarea{flex:1 1 auto;min-height:0;font-size:calc(17px - 2pt);line-height:1.7}
 /* Step buttons sit on the right. */
 #page>.form>.story-simple-actions{justify-content:flex-end}
+/* Characters step: status tabs, From Story, Create and Test (owner-approved mock-up, 8 November 2026).
+   Sizes come from the master size roster; these rules only lay out and color. */
+.story-cast-bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--ecco-theme-border,#51496f)}
+.story-cast-bar .story-character-tabs{border-bottom:0;flex:1 1 auto;min-width:0}
+.story-character-tabs [role=tab]{display:inline-flex;align-items:center;gap:6px}
+.story-cast-legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--ecco-theme-muted,#b1acc9);padding:0 4px 6px}
+.story-cast-legend>span{display:inline-flex;align-items:center;gap:5px}
+.story-cast-status{display:inline-grid;place-items:center;flex:none;border-radius:50%;box-sizing:border-box}
+.story-cast-status[data-status=none]{border:1.5px solid var(--ecco-theme-muted,#8a84a8)}
+.story-cast-status[data-status=created]{background:#d8bd88}
+.story-cast-status[data-status=tested]{background:#5fd08a}
+.story-cast-status svg{width:8px;height:8px;fill:none;stroke:#17152f;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.story-cast-body{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2fr);gap:0;border:1px solid var(--ecco-theme-border,#51496f);border-top:0;border-radius:0 0 10px 10px}
+.story-cast-props{padding:18px;border-right:1px solid var(--ecco-theme-border,#51496f);min-width:0}
+.story-cast-create{padding:18px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.story-cast-props h3,.story-cast-step h3{margin:0}
+.story-cast-step+.story-cast-step{border-top:1px solid var(--ecco-theme-border,#51496f);padding-top:16px}
+.story-cast-step>button{align-self:flex-start}
+.story-cast-more summary{color:var(--ecco-theme-muted,#b1acc9)}
+.story-cast-more[open]>.story-character-fields{margin:10px 0}
+.story-cast-empty{margin:0;border:1px dashed var(--ecco-theme-border,#51496f);border-radius:8px;padding:20px;text-align:center;color:var(--ecco-theme-muted,#b1acc9)}
+.story-cast-ready{display:flex;align-items:center;gap:6px}
+.story-cast-step audio{width:100%;max-width:420px}
+.story-cast-line{display:flex;align-items:center;gap:10px}
+.story-cast-line input{flex:1 1 auto;min-width:0}
+.story-cast-line-text{line-height:1.45}
+.story-cast-play{display:inline-grid;place-items:center;flex:none;aspect-ratio:1;padding:0;border-radius:50%;color:var(--ecco-theme-accent,#ffdc24)}
+.story-cast-play svg{fill:currentColor}
+.story-cast-own{gap:6px}
+.story-cast-verdict{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.story-cast-tested{display:flex;align-items:center;gap:6px;margin:0;color:#5fd08a;font-weight:600}
+.story-cast-gallery{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.story-cast-avatar{flex:none;object-fit:cover;border-radius:10px;border:2px solid var(--ecco-theme-accent,#ffdc24);background:var(--ecco-theme-control,#1b1839)}
+.story-cast-pick{display:flex;flex-direction:column;gap:6px;flex:1 1 220px;min-width:0}
+.story-cast-pick p{margin:0}
+.story-cast-options{display:flex;gap:8px;flex-wrap:wrap}
+.story-cast-option{padding:0;overflow:hidden;border-radius:8px;border:1px solid var(--ecco-theme-border,#51496f);background:var(--ecco-theme-control,#1b1839)}
+.story-cast-option[aria-pressed=true]{border:2px solid var(--ecco-theme-accent,#ffdc24)}
+.story-cast-option img{display:block;width:100%;height:100%;object-fit:cover}
+.story-cast-option:focus-visible,.story-cast-play:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:2px}
+.story-cast-actions{align-items:center;gap:12px}
+.story-cast-actions .help{margin:0 auto 0 0}
+@media(max-width:860px){.story-cast-body{grid-template-columns:1fr}.story-cast-props{border-right:0;border-bottom:1px solid var(--ecco-theme-border,#51496f)}}

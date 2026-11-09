@@ -328,6 +328,23 @@
    if(d.querySelector('textarea').value)button.click();
   }
  }
+ // One voice sample for a character, used by the story Characters step (Create + Test).
+ // Returns {asset_id,url}. Reuses the connected audio service, compute checks and line controls.
+ async function sampleVoice(character,text,{title='Character voice'}={}){
+  if(!service)throw Error('Connect workspace storage from Connections → Storage to create voices.');
+  const current=service,model=characterModel(character);if(!model)throw Error('Choose an audio model first.');
+  await requireCompute(draft.compute,model.id,draft.worker_id);
+  const job=await current.generate({model:model.id,compute:draft.compute,worker_id:draft.worker_id,...(model.id==='chatterbox'?{exaggeration:Number(character.exaggeration??draft.exaggeration??0.5)}:{}),genre:draft.genre,pause:0,story_id:activeStory,title,performance_brief:performanceBrief(),lines:[{text:String(text).slice(0,300),voice:character.voice,language:character.language,...window.EccoAudioDirection.lineControls({},character,model)}]});
+  window.EccoGeneration?.trackJob('audio',activeStory,job);
+  const started=Date.now();
+  for(;;){
+   const result=await current.job(job.id);
+   if(['error','cancelled'].includes(result.status))throw Error(result.error||(result.status==='cancelled'?'Voice generation stopped.':'Voice generation failed.'));
+   if(result.status==='done'){const id=result.asset_id||result.asset_ids?.[0]||(Array.isArray(result.result)?result.result[0]:result.result);if(!id)throw Error('The voice finished without an audio file.');return {asset_id:id,url:await current.mediaURL(id)};}
+   if(Date.now()-started>300000)throw Error('The voice is still processing. Check Activity before generating another.');
+   await new Promise(resolve=>setTimeout(resolve,1500));
+  }
+ }
  function reviewScript(){
   const panel=q('#audio-final-script-panel'),prompt=q('#audio-form [data-section=prompt]');if(prompt)prompt.hidden=true;
   const controls=q('#generation-controls-dialog [data-body]');
@@ -371,7 +388,7 @@
  }
  // The independent application service supplies this adapter after authentication.
  // Never attach the legacy RunPod/Jupyter bridge here.
- window.EccoAudioStudio={generateScript,characters:drawCharacters,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
+ window.EccoAudioStudio={generateScript,sample:sampleVoice,characters:drawCharacters,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
   if(!adapter||adapter.storageIndependentOfGPU!==true||!['list','generate','job','mediaURL','download'].every(name=>typeof adapter[name]==='function'))throw Error('An authenticated, GPU-independent audio service is required.');
   service=adapter;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();poll();
  },disconnect(){clearPreview();q('#audio-voice-preview-dialog')?.close();service=null;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();}};

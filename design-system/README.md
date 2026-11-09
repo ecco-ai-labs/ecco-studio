@@ -740,6 +740,28 @@ reuse the existing generation and publishing pages. Details' button reads Next:
 Story. Saved three-tab drafts open their Generate & Publish tab as Generate, or
 Publish when publishing was open.
 
+## Characters step: Create and Test — 8 November 2026
+
+The owner reviewed the Characters mock-up and asked for it to be implemented. The
+step keeps its place before Script; the Script step is unchanged.
+
+- One tab per character with a status marker: Not created (ring), Created (gold
+  `#d8bd88`) or Tested (green `#5fd08a` with a check). The tab's accessible name
+  stays the character name; `aria-description` carries the status.
+- Left: **From Story** (name, role, age group, gender, personality, language,
+  dialect; More properties holds the rest and Save to Character Library).
+- Right, audio stories: **Create voice** (Suggested voice, Audio model, Voice,
+  Generate voice, sample player) and **Test** (the character's story lines or
+  your own line, Mark as tested). Samples run through `EccoAudioStudio.sample`.
+- Right, image and video stories: **Create avatar** (Suggested avatar prompt,
+  Image model, Generate avatar, avatar options and preview) and **Test** (review,
+  Mark as tested). Avatars run through the existing images job; the chosen avatar
+  becomes the character's `reference_id`.
+- Next: Script is disabled until every character is created. Changing voice
+  settings clears that character's voice; choosing another avatar clears Tested.
+- New roster entries: `character-avatar`, `status-marker` and the button variant
+  `button-avatar-option`.
+
 ## Story pane icons and AI character reading — 8 November 2026
 
 The owner approved the interactive prototype. Upload PDF and Full Screen are icon
