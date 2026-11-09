@@ -1362,3 +1362,10 @@ test('DESK-CARDS-01 Desk summary cards keep their full height (not squashed to b
  await expect.poll(()=>page.evaluate(()=>{const out=[];const walk=r=>{for(const e of r.querySelectorAll('*')){if(e.shadowRoot)walk(e.shadowRoot);if(e.classList?.contains('metric'))out.push(e);}};walk(document);
   return out.length===4&&out.every(m=>{const r=m.getBoundingClientRect(),strong=m.querySelector('strong').getBoundingClientRect(),small=m.querySelector('small').getBoundingClientRect();return r.height>80&&strong.bottom<=r.bottom&&small.bottom<=r.bottom;});})).toBe(true);
 });
+test('TOOLTIP-01 all header tooltips share the theme panel color; connection status shows as a dot',async({page})=>{
+ await boot(page);
+ const tip=async id=>{await page.hover(id);return page.evaluate(id=>{const e=document.querySelector(id),a=getComputedStyle(e,'::after'),b=getComputedStyle(e,'::before');return {bg:a.backgroundColor,dot:b.content==='none'?null:b.backgroundColor};},id);};
+ const storage=await tip('#studio-storage-indicator'),github=await tip('#workspace-github'),settings=await tip('#workspace-settings-controls [data-icon-tooltip]');
+ expect(storage.bg).toBe(github.bg);expect(settings.bg).toBe(github.bg);
+ expect(storage.dot).not.toBeNull();expect(github.dot).toBeNull();
+});
