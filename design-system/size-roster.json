@@ -450,7 +450,7 @@
       "id": "library-chip-text",
       "name": "Library section chip text",
       "contractComponent": "navigation",
-      "font": "@text-xl",
+      "font": "@text-medium",
       "height": null,
       "width": null,
       "selectors": [
@@ -690,6 +690,25 @@
         "© 2026 Ecco AI Labs India Pvt Ltd. All rights reserved."
       ],
       "area": "Left navigation"
+    },
+    {
+      "id": "header-group",
+      "name": "Header icon group",
+      "contractComponent": "text",
+      "font": null,
+      "height": "@control-large",
+      "width": null,
+      "selectors": [
+        "#connection-indicators",
+        "#workspace-community-controls",
+        "#workspace-settings-controls"
+      ],
+      "examples": [
+        "Storage · AI · Compute · YouTube",
+        "Discord · GitHub · Support · Notifications",
+        "Models · Settings · Files"
+      ],
+      "area": "Header"
     }
   ],
   "variants": [
@@ -885,7 +904,7 @@
       "of": "button",
       "name": "Header menus",
       "font": "@text-medium-large",
-      "height": "@control-small",
+      "height": "@control-large",
       "width": null,
       "selectors": [
         "#education-menu > summary",

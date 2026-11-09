@@ -55,6 +55,7 @@
   const holder=menu.closest('details');
   document.addEventListener('pointerdown',e=>{if(holder.open&&!holder.contains(e.target)){show(false);holder.open=false;}},true);
   holder.addEventListener('focusout',e=>{if(holder.open&&e.relatedTarget&&!holder.contains(e.relatedTarget)){show(false);holder.open=false;}});
+  let leaveTimer=0;holder.addEventListener('pointerleave',()=>{clearTimeout(leaveTimer);leaveTimer=setTimeout(()=>{if(holder.open&&!holder.matches(':hover')){show(false);holder.open=false;}},300);});holder.addEventListener('pointerenter',()=>clearTimeout(leaveTimer));
   holder.addEventListener('keydown',e=>{if(e.key==='Escape'&&holder.open){show(false);holder.open=false;holder.querySelector('summary')?.focus();}});
   menu.append(button,drawer);
  }

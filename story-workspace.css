@@ -265,3 +265,6 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 #page .story-cast-progress>span{position:absolute;inset:0 auto 0 0;width:35%;border-radius:2px;background:var(--ecco-theme-accent,#ffdc24);animation:story-cast-progress 1.3s ease-in-out infinite}
 @keyframes story-cast-progress{0%{left:-35%}100%{left:100%}}
 @media (prefers-reduced-motion:reduce){#page .story-cast-progress>span{animation-duration:3s}}
+
+/* The "Draft saved in this browser" note is not shown (owner direction 2026-11-08). */
+#story-simple-save{display:none!important}
