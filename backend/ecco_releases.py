@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 REPO = 'ecco-ai-labs/ecco-studio'
 DEV_URL = 'https://ecco-ai-labs.github.io/ecco-studio/'
-PROD_URL = 'https://eccoailabs.com/'
+PROD_URL = 'https://ecco-ai-labs.github.io/ecco-studio/'
 CHECK_WORKFLOW = 'release-checks.yml'
 PUBLISH_WORKFLOW = 'production-release.yml'
 SHA = re.compile(r'^[0-9a-f]{40}$')

@@ -48,7 +48,7 @@ def queue(db, t, recipient, subject, content, comment_id=None, parent=None, conf
     db.execute('''INSERT INTO desk_reply_outbox
         (id,ticketId,commentId,recipient,messageId,subject,body,replyTo,parentMessageId)
         VALUES (?,?,?,?,?,?,?,?,?)''', (uuid.uuid4().hex,t['id'],comment_id,recipient,
-        f'<ecco-reply-{uuid.uuid4().hex}@eccoailabs.com>',subject,content,
+        f'<ecco-reply-{uuid.uuid4().hex}@ecco-ai-labs.github.io>',subject,content,
         reply_address(db,t['id'],config),parent))
 
 

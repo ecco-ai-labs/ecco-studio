@@ -11,7 +11,7 @@ published build and also requires an explicit Publish action.
 | Environment | Source and behavior |
 |---|---|
 | Dev/Test | `main`, automated checks and version previews on GitHub Pages |
-| Production | Cloudflare Pages Direct Upload, `https://eccoailabs.com/`, manual artifact promotion only |
+| Production | GitHub Pages, `https://ecco-ai-labs.github.io/ecco-studio/` (the only site; there is no separate custom domain) |
 | Release service | Existing private CPU Desk service; verified administrator sessions |
 | Source control | `ecco-ai-labs/ecco-studio`; production remains separate from normal pushes |
 
@@ -26,8 +26,8 @@ Their compatibility must be verified before releasing a frontend that needs them
 The code does not claim these external settings are already configured.
 
 1. Create a Cloudflare Pages **Direct Upload** project with production branch
-   `production`. Do not connect automatic Git deployment. Set up `eccoailabs.com`
-   as its custom domain and follow Cloudflare's returned DNS records. For an apex
+   `production`. Do not connect automatic Git deployment. No custom domain is in use;
+   the site is `https://ecco-ai-labs.github.io/ecco-studio/`. If a custom domain is added later, follow Cloudflare's returned DNS records. For an apex
    Pages domain, Cloudflare requires the zone on Cloudflare nameservers; keep
    registration at Squarespace and copy/verify existing mail and verification
    records before a nameserver change. The separate marketing domain stays separate.
@@ -55,7 +55,7 @@ The code does not claim these external settings are already configured.
    can dispatch deployments; create it only with the owner's authorization.
 6. Configure the CPU service:
    ```text
-   ECCO_ALLOWED_ORIGINS=https://ecco-ai-labs.github.io,https://eccoailabs.com
+   ECCO_ALLOWED_ORIGINS=https://ecco-ai-labs.github.io
    ECCO_DEV_PREVIEWS_ENABLED=1
    ECCO_RELEASES_ENABLED=1
    ```
@@ -63,7 +63,7 @@ The code does not claim these external settings are already configured.
    The first deployment establishes the site for live checks in step 8; keep the
    existing customer entry point until those checks pass. Existing unconfigured services accept only the GitHub
    origin. Unknown origins are never reflected into CORS.
-7. Add `https://eccoailabs.com` to the existing Google web OAuth client's
+7. If a custom domain is added later, add it to the existing Google web OAuth client's
    authorized JavaScript origins. Verify actual sign-in/sign-out and authorized
    storage/Desk access after the first deployment. Existing browser-local connections and
    drafts do not move between domains automatically; reconnect and export any
@@ -112,7 +112,7 @@ References: [GitHub custom Pages workflows](https://docs.github.com/en/pages/get
 
 For rapid development, the owner removed the manual release gate. Every push to
 `main` whose **Release checks** run succeeds is published to
-`https://eccoailabs.com/` by `.github/workflows/auto-production.yml`, which runs
+the configured production host by `.github/workflows/auto-production.yml`, which runs
 `scripts/auto_release.py`. It reuses `publish_release.py`, so only the exact
 tested artifact from that run is uploaded, with the same provenance and hash
 checks, and a GitHub release receipt is recorded. Only the newest commit on

@@ -138,7 +138,7 @@ def main():
         raise ValueError('Hosting did not confirm the production version. Inspect Cloudflare before retrying.')
     receipt = {'schema': 'ecco-production-v1', 'id': rid, 'title': title, 'sha': sha,
                'previousSha': expected, 'checkRunId': run_id, 'kind': kind, 'actor': actor,
-               'deploymentId': deployed['id'], 'productionUrl': 'https://eccoailabs.com/'}
+               'deploymentId': deployed['id'], 'productionUrl': 'https://ecco-ai-labs.github.io/ecco-studio/'}
     # This is written only after the host confirms success; no optimistic UI result.
     gh('/releases', {'tag_name': 'prod-' + rid, 'target_commitish': sha, 'name': title,
                      'body': json.dumps(receipt, indent=2), 'draft': False, 'prerelease': False,

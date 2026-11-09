@@ -49,7 +49,7 @@ def initialize(db):
 def enqueue(db, ticket_id):
     # This insert commits or rolls back together with the new ticket.
     db.execute('INSERT INTO desk_mail_outbox(ticketId,messageId) VALUES (?,?)',
-               (ticket_id, f'<ecco-desk-{uuid.uuid4().hex}@eccoailabs.com>'))
+               (ticket_id, f'<ecco-desk-{uuid.uuid4().hex}@ecco-ai-labs.github.io>'))
     event(db, ticket_id, 'New-ticket notification queued')
 
 

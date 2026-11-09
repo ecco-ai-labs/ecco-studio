@@ -6,7 +6,7 @@ Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configu
 localStorage.setItem('ecco-desk-staff-session','fixture');
 const sha='a'.repeat(40),me={userId:'qa',name:'Admin',role:'admin',email:'qa@example.invalid',memberId:'m1'};
 const data={me,tickets:[],members:[],users:[],activity:[],needsSetup:false};
-const releases={releaseVersion:1,productionUrl:'https://eccoailabs.com/',devUrl:'https://ecco-ai-labs.github.io/ecco-studio/',previewEnabled:true,head:sha,checks:{state:'failure',label:'Failed'},changes:[{sha,title:'Library update',author:'Developer',url:'#'}],blockers:[],current:null,releases:[],history:[],active:null};
+const releases={releaseVersion:1,productionUrl:'https://ecco-ai-labs.github.io/ecco-studio/',devUrl:'https://ecco-ai-labs.github.io/ecco-studio/',previewEnabled:true,head:sha,checks:{state:'failure',label:'Failed'},changes:[{sha,title:'Library update',author:'Developer',url:'#'}],blockers:[],current:null,releases:[],history:[],active:null};
 let posts=[];
 globalThis.fetch=async(url,options)=>{if(options.method==='POST'){posts.push(JSON.parse(options.body));return new Response('{}');}return new Response(JSON.stringify(String(url).includes('releases=1')?releases:data));};
 const {mount}=await import('../desk/desk-app.mjs');const host=document.querySelector('#host'),cleanup=mount(host),tick=()=>new Promise(r=>setTimeout(r,45));await tick();await tick();
