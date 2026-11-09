@@ -39,7 +39,7 @@ test('unchanged scenes preserve existing images and camera edits',()=>{
 });
 test('six steps autosave all details, keep drafts isolated and reopen after refresh',async()=>{
  const x=await fixture();await x.start();x.script('Host: Welcome.\n\nGuest: Good morning.');
- assert.deepEqual([...x.q('#story-workspace-header').querySelectorAll('[role=tab]')].map(t=>t.textContent),['1. Details','2. Story','3. Characters','4. Script','5. Generate','6. Publish']);
+ assert.deepEqual([...x.q('#story-workspace-header').querySelectorAll('[role=tab]')].map(t=>t.textContent),['1. Story Details','2. Story Script','3. Story Characters','4. Story Screen Play','5. Story Generation','6. Story Publishing']);
  assert.equal(x.saved().simple_workspace.location,'India');
  await x.w.EccoStoryWorkspace.select(0);assert.equal(x.q('[name=genre]').value,'Business');await x.w.EccoStoryWorkspace.select(1);assert.match(x.q('#story-simple-script').value,/Good morning/);
  const localId=x.saved().localDraftId,storage=x.snapshot();x.close();const y=await fixture(storage);y.w.EccoStoryWorkspace.openSetup(localId);await tick();assert.match(y.q('#story-simple-script').value,/Good morning/);
