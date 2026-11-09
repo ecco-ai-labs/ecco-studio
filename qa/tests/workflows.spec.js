@@ -1340,3 +1340,11 @@ test('STORAGE-01 a locked or asleep computer does not raise a storage error; a l
  });
  expect(result).toEqual({whileHidden:[true,true,true,true],afterReturn:0,visible:[true,true,false,true]});
 });
+test('LOOK-05 the Look and Feel panel follows the theme and Close hides it',async({page})=>{
+ await bootAdmin(page,'lookAndFeelAdmin=1&theme=forest');
+ const panel=await openLookAndFeel(page);
+ expect(await page.evaluate(()=>getComputedStyle(document.querySelector('#look-and-feel-panel').shadowRoot.querySelector('.panel')).backgroundColor)).toBe('rgb(40, 90, 64)');
+ await panel.getByRole('button',{name:'Pick on page',exact:true}).click();
+ await panel.getByRole('button',{name:'Close Look and Feel',exact:true}).click();
+ await expect(page.locator('#look-and-feel-panel')).toBeHidden();
+});
