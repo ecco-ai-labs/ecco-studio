@@ -628,6 +628,36 @@
       "examples": [
         "Thumbnail in grid view"
       ]
+    },
+    {
+      "id": "character-avatar",
+      "name": "Character avatar preview",
+      "contractComponent": "image",
+      "area": "Story Characters",
+      "font": null,
+      "height": 168,
+      "width": 168,
+      "selectors": [
+        ".story-cast-avatar"
+      ],
+      "examples": [
+        "Chosen avatar on the Characters step"
+      ]
+    },
+    {
+      "id": "status-marker",
+      "name": "Status marker",
+      "contractComponent": "status-indicator",
+      "area": "Story Characters",
+      "font": null,
+      "height": 10,
+      "width": 10,
+      "selectors": [
+        ".story-cast-status"
+      ],
+      "examples": [
+        "Not created / Created / Tested dot on a character tab"
+      ]
     }
   ],
   "variants": [
@@ -864,6 +894,21 @@
         "Tell Your Story"
       ],
       "area": "Story pages"
+    },
+    {
+      "id": "button-avatar-option",
+      "of": "button",
+      "name": "Avatar option",
+      "font": null,
+      "height": 72,
+      "width": 72,
+      "selectors": [
+        ".story-cast-option"
+      ],
+      "examples": [
+        "Generated avatar choice on the Characters step"
+      ],
+      "area": "Story Characters"
     }
   ],
   "scale": [
