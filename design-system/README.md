@@ -739,3 +739,17 @@ ends with Generate; applying a reviewed script opens Script. Generate and Publis
 reuse the existing generation and publishing pages. Details' button reads Next:
 Story. Saved three-tab drafts open their Generate & Publish tab as Generate, or
 Publish when publishing was open.
+
+## Story pane icons and AI character reading — 8 November 2026
+
+The owner approved the interactive prototype. Upload PDF and Full Screen are icon
+buttons in each box header (aria-labels Upload PDF, Full Screen / Exit Full Screen,
+with tooltips); Full Screen is on the document box and on the story text box in
+all three tabs, and the same icon or Esc returns it. Before a file is chosen, the
+document box is one large Upload PDF target. Keep previous selection is removed.
+Next: Characters sits on the right. Clicking it sends the selected tab's story text
+to AI, which returns one character per speaker; each becomes a tab named after the
+character, with suggested gender, age group, accent, speaking style, personality
+and voice, and the properties open. The same text is not read twice. Personality
+is a new character property.
+

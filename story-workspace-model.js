@@ -40,7 +40,7 @@
  }
  function validateProposal(value,existing,castOnly=false){
   const cast=value?.characters;validateCast(cast);
-  const allowed=['id','name','role','gender','age_group','nationality','dialect','style','appearance','language','emotion','delivery','voice','reference_id'];
+  const allowed=['id','name','role','gender','age_group','nationality','dialect','style','personality','appearance','language','emotion','delivery','voice','reference_id'];
   const cleanCast=cast.map(c=>Object.fromEntries(allowed.filter(k=>typeof c[k]==='string').map(k=>[k,c[k].slice(0,k==='appearance'||k==='delivery'?1000:160)])));
   if(castOnly)return {cast:cleanCast,reason:String(value.reason||'').slice(0,1000)};
   const ids=new Set(cleanCast.map(c=>c.id)),segments=value.segments;

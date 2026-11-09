@@ -56,7 +56,8 @@
         ".eyebrow",
         ".lh-treehead",
         "#ecco-error-message",
-        "#story-simple-error"
+        "#story-simple-error",
+        ".textLayer"
       ],
       "examples": [
         "Draft saved in this browser",

@@ -178,5 +178,10 @@
     "area": "Six workflow steps",
     "mode": "fixture",
     "scope": "STORY-01 checks the six step names. STORY-05 checks the Story step has no Characters box, Next: Characters, character tabs on Characters, Next: Script and the empty-script error from Generate, with character edits kept. UPLOAD-06/07/09/10 and STORY-06 apply a reviewed script, check it on Script and the cast on Characters, then Generate from Script. AUDIO-01 and STORY-11 write the script on the Script step."
+  },
+  {
+    "area": "Story pane icons and AI character reading",
+    "mode": "fixture",
+    "scope": "STORY-16 checks that before upload the Upload PDF tab shows one large Upload PDF target and no header icons; after upload the document header holds Upload PDF and Full Screen icon buttons, Full Screen opens the pane over the page and Esc returns it; Next: Characters is right-aligned; clicking it sends the Write Yourself story text to AI, makes one tab per character labelled by name (Narrator, Ali, Morgiana) with Gender, Age group, Accent, Speaking style and Personality filled and the properties open; returning to Story and clicking Next: Characters again with unchanged text makes no new AI call. STORY-05 and UPLOAD-06 check character tabs carry character names. Real AI quality remains separate."
   }
 ]

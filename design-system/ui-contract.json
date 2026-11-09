@@ -228,7 +228,8 @@
       "variants": [
         "studio-support",
         "popup-minimize",
-        "desk-account"
+        "desk-account",
+        "story-pane-tools"
       ],
       "standardValues": {
         "sizes": "size-roster.json: icon-button"
@@ -799,7 +800,8 @@
         "three-tab-story-workspace",
         "story-source-tabs",
         "story-ai-drafts",
-        "six-step-story-workspace"
+        "six-step-story-workspace",
+        "named-character-tabs"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -824,7 +826,8 @@
         "three-tab-story-workspace",
         "story-source-tabs",
         "story-ai-drafts",
-        "six-step-story-workspace"
+        "six-step-story-workspace",
+        "named-character-tabs"
       ],
       "standardValues": {
         "sizes": "size-roster.json: tab"

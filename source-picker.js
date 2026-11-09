@@ -1,7 +1,7 @@
 'use strict';
 /* Shared local-only document preview. Only an explicit selection leaves this component. */
 (()=>{
- function create({onApply,onSave,reviewSelection=null,aiSettings=null,title='Select Story Text',selectedLabel='Selected Text',applyLabel='Apply Text',maxSelection=Infinity,inline=false,mode='document',idea=null,sourceName='',selectedPlaceholder='',onTextChange=null,drafts:draftCount=1}){
+ function create({onApply,onSave,reviewSelection=null,aiSettings=null,title='Select Story Text',selectedLabel='Selected Text',applyLabel='Apply Text',maxSelection=Infinity,inline=false,mode='document',idea=null,sourceName='',selectedPlaceholder='',onTextChange=null,drafts:draftCount=1,expandablePreview=false,expandableText=false}){
   const textMode=mode==='text',DRAFTS=Math.max(1,Math.min(3,draftCount|0||1));
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label',title);
   dialog.innerHTML=`
@@ -12,7 +12,7 @@
   <p class="help" data-document-info></p>
   <div class="pdf-page-scroll" tabindex="0" aria-label="Document preview"></div>
  </section>
- <label class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading"></span><span class="help">Only this text will be used in your story.</span><textarea data-selected rows="12" dir="auto" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></label>
+ <section class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading" data-selected-heading></span><span class="help">Only this text will be used in your story.</span><textarea data-selected rows="12" dir="auto" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></section>
  <section class="pdf-review-box pdf-ai-pane" aria-label="Improve with AI">
   <strong class="pdf-review-heading">Improve with AI</strong>
   <div class="pdf-ai-sections">
@@ -75,6 +75,25 @@
     input.oninput=()=>idea.onInput?.(input.value);
    }else dialog.classList.add('pdf-story-no-idea');
   }
+  // Pane tools are icon buttons in each pane's header (owner-approved prototype, 2026-11-08).
+  const ICONS={expand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>',collapse:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></svg>'};
+  function paneTools(pane,heading){
+   let tools=pane.querySelector(':scope > .pdf-pane-head > .pdf-pane-tools');if(tools)return tools;
+   const head=document.createElement('div');head.className='pdf-pane-head';heading.before(head);head.append(heading);
+   tools=document.createElement('div');tools.className='pdf-pane-tools';head.append(tools);return tools;
+  }
+  // Full Screen opens a pane over the page; the same icon (or Esc) returns it.
+  function fullScreenToggle(pane,heading,{hintText,onChange}){
+   const tools=paneTools(pane,heading),expand=document.createElement('button');expand.type='button';expand.className='pdf-icon-btn';
+   const hint=document.createElement('span');hint.className='pdf-preview-hint';hint.textContent=hintText;hint.hidden=true;
+   const paint=on=>{expand.innerHTML=on?ICONS.collapse:ICONS.expand;const label=on?'Exit Full Screen':'Full Screen';expand.setAttribute('aria-label',label);expand.title=on?label+' (Esc)':label;expand.setAttribute('aria-pressed',String(on));hint.hidden=!on;};
+   const setFull=on=>{pane.classList.toggle('pdf-preview-fullscreen',on);paint(on);onChange?.(on);};
+   paint(false);expand.onclick=()=>setFull(!pane.classList.contains('pdf-preview-fullscreen'));
+   pane.addEventListener('keydown',event=>{if(event.key==='Escape'&&pane.classList.contains('pdf-preview-fullscreen')){event.preventDefault();event.stopPropagation();setFull(false);expand.focus();}});
+   tools.append(hint,expand);return expand;
+  }
+  if(expandablePreview){const pane=dialog.querySelector('.pdf-document-pane');fullScreenToggle(pane,pane.querySelector('.pdf-review-heading'),{hintText:'Highlight text, then press Esc',onChange:()=>requestAnimationFrame(()=>shells.forEach(fitPage))}).dataset.expandPreview='';}
+  if(expandableText){const textPane=dialog.querySelector('.pdf-selected-label');fullScreenToggle(textPane,textPane.querySelector('.pdf-review-heading'),{hintText:'Press Esc to return'}).dataset.expandText='';}
   const scroll=dialog.querySelector('.pdf-page-scroll'),selected=dialog.querySelector('[data-selected]'),extract=dialog.querySelector('[data-extract]'),note=dialog.querySelector('[role=status]');
   const feedback=dialog.querySelector('[data-selection-feedback]');
   let task=null,doc=null,pdfjs=null,file=null,metadataTitle='',ready=false,busy=false,disposed=false,epoch=0,opener=null,observer=null,sizeObserver=null,shells=[],renderQueue=[],rendering=0,selectionMeta={},pageText=null,chapterEntries=[],selectionEpoch=0,lastCaptured=null,linePosition=0,previewErrorShown=false;
@@ -375,19 +394,24 @@
   const ideaRun=dialog.querySelector('[data-generate-idea]');
   if(ideaRun)ideaRun.onclick=async()=>{
    if(ideaRun.disabled)return;
-   const request=++aiRequest,label=ideaRun.textContent;ideaBusy=true;ideaRun.setAttribute('aria-busy','true');ideaRun.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Generating…';aiStatus.textContent='Writing your story…';controls();
+   const label=ideaRun.textContent;ideaBusy=true;ideaRun.setAttribute('aria-busy','true');ideaRun.innerHTML='<span class="generation-spinner" aria-hidden="true"></span>Generating…';controls();
    try{
-    const text=await idea.generate();if(disposed)return;
-    if(typeof text!=='string'||!text.trim())throw Error('AI returned no story text. Try again.');
     let context=aiContext;try{context?.valid();if(context&&(context.start!==0||context.end!==context.original.length))context=null;}catch{context=null;}
-    if(!context){aiRequest++;aiContext=null;drafts=[];activeDraft=0;context=aiContext=captureAIContext(0,selected.value.length);}
-    if(text.length>context.limit)throw Error('The story is longer than '+context.limit.toLocaleString()+' characters. Ask for a shorter story.');
-    aiStatus.textContent='';addDraft(text,context.limit);
+    // A new Write Story replaces earlier drafts with a fresh set of three.
+    aiRequest++;drafts=[];activeDraft=0;context=aiContext=captureAIContext(0,selected.value.length);paintDrafts();paintAIAction();
+    for(let i=0;i<DRAFTS;i++){
+     aiStatus.textContent='Writing draft '+(i+1)+' of '+DRAFTS+'…';
+     const text=await idea.generate(i);if(disposed)return;
+     if(typeof text!=='string'||!text.trim())throw Error('AI returned no story text for draft '+(i+1)+'. Try again.');
+     if(text.length>context.limit)throw Error('Draft '+(i+1)+' is longer than '+context.limit.toLocaleString()+' characters. Ask for a shorter story.');
+     drafts[i]=text;aiSuggestion.maxLength=context.limit;selectDraft(i===0?0:activeDraft);
+    }
+    aiStatus.textContent='Three drafts are ready. Choose one, then select Use AI Text.';
    }catch(error){if(!disposed)aiStatus.textContent=error.message;}
    finally{if(!disposed){ideaBusy=false;ideaRun.setAttribute('aria-busy','false');ideaRun.textContent=label;paintAIAction();controls();}}
   };
   paintDrafts();if(textMode){ready=true;controls();}
-  return {load,open,mount,clear,snapshot,restore,refreshSettings:()=>refreshAISettings(),setText(text){selected.value=text||'';reportSelection();updateReplace();},setIdea(text){const input=dialog.querySelector('[data-idea]');if(input)input.value=text||'';},get element(){return dialog;},get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
+  return {load,open,mount,clear,paneTools:()=>{const pane=dialog.querySelector('.pdf-document-pane');return paneTools(pane,pane.querySelector('.pdf-review-heading'));},snapshot,restore,refreshSettings:()=>refreshAISettings(),setText(text){selected.value=text||'';reportSelection();updateReplace();},setIdea(text){const input=dialog.querySelector('[data-idea]');if(input)input.value=text||'';},get element(){return dialog;},get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
  }
  window.EccoSourcePicker={create};
 })();

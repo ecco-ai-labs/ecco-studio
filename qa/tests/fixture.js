@@ -27,7 +27,7 @@
     if(['cast','castRetry'].includes(sourceFit)&&path==='ai/enhance'){
       const id=body.fields?.[0]?.id,story={characters:[
         {id:'n',name:'Narrator',role:'Narration',gender:'Female',age_group:'Adult',language:'English',dialect:'Indian English',style:'Warm',emotion:'neutral',delivery:'Clear and measured.'},
-        {id:'a',name:'Ali',role:'Woodcutter',gender:'Male',age_group:'Adult',language:'English',dialect:'Indian English',style:'Curious',emotion:'surprise',delivery:'Bright and expressive.',appearance:'A woodcutter wearing a blue tunic.'},
+        {id:'a',name:'Ali',role:'Woodcutter',gender:'Male',age_group:'Adult',language:'English',dialect:'Indian English',style:'Curious',personality:'Brave and kind',emotion:'surprise',delivery:'Bright and expressive.',appearance:'A woodcutter wearing a blue tunic.'},
         {id:'m',name:'Morgiana',role:'Resourceful helper',gender:'Female',age_group:'Adult',language:'English',dialect:'Indian English',style:'Confident',emotion:'neutral',delivery:'Calm and decisive.',appearance:'A woman carrying a lantern.'}
       ],segments:[{character_id:'n',text:'At the cave.'},{character_id:'a',text:'Open sesame!'},{character_id:'m',text:'I will help.'}],reason:'Narration and two distinct speaking roles.'};
       if(id==='source_excerpt')return {revisions:[{id,text:'Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.'}]};
