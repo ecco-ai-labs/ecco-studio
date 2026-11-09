@@ -836,3 +836,7 @@ time (checked after a PDF upload and on Next: Story Characters; headings are
 counted, and AI confirms before the warning for written or generated text).
 Story Generation and Story Publishing no longer show the Publishing schedule box:
 a recurring story shows a summary with Change in Story Script → Recurrence.
+
+The two Story type panes are equal width with one column each. When Recurring, the
+one-time warning also appears right after Use AI Text, and Generate With AI hints at
+a series ("a 5-part series…").

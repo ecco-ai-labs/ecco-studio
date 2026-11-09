@@ -976,6 +976,15 @@ test('STORY-17 switching story tabs asks before erasing, and every tab uses the 
  await write.locator('[data-selected]').fill('Second story.');await page.keyboard.press('Shift+Tab');await tab('Write Yourself').focus();await page.keyboard.press('ArrowLeft');await expect(warning).toBeVisible();await page.keyboard.press('Escape');await expect(warning).toHaveCount(0);await expect(tab('Write Yourself')).toHaveAttribute('aria-selected','true');await expect(write.locator('[data-selected]')).toHaveValue('Second story.');
  expect(page.qaErrors).toEqual([]);
 });
+test('STORY-19 Recurring: series hint in Generate With AI and the one-time warning right after Use AI Text',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Bakery series');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=storybook]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Generate With AI',exact:true}).click();const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true}),idea=ai.getByLabel('What should your story be about?',{exact:true});
+ await expect(idea).toHaveAttribute('placeholder','For example, a 5-part series about two friends who start a bakery');await idea.fill('Two friends open a bakery.');await ai.getByRole('button',{name:'Write Story',exact:true}).click();
+ await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();
+ const warning=page.locator('dialog.story-shape-warning');await expect(warning).toBeVisible();await warning.getByRole('button',{name:'Switch to One time',exact:true}).click();
+ await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await expect(idea).toHaveAttribute('placeholder','For example, two hosts discussing business news for Indian adults');
+});
 for(const tab of ['Upload PDF','Generate With AI','Write Yourself'])test(`STORY-15 ${tab} keeps three AI drafts and uses the chosen one`,async({page})=>{
  await boot(page,{sourceFit:'drafts'});await page.getByLabel('Story name (required)',{exact:true}).fill('Draft choices');
  for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
@@ -1090,10 +1099,10 @@ test('STORY-11 Story type sets One time or Recurring generation; Generation show
 test('STORY-18 Recurring generation: split Story type list, PDF tab name, one-time warning, Recurrence tab and Save as workflow',async({page})=>{
  await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Cave series');await fillStoryDetail(page,'output','audio');
  await page.locator('#story-detail-type-button').click();const panel=page.locator('#story-detail-type-panel');
- await expect(panel.locator('.story-choice-pane-title')).toHaveText(['One time generation','Recurring Generation']);await expect(panel.locator('[data-choice-mode=once] [data-choice-value]')).toHaveCount(12);
+ await expect(panel.locator('.story-choice-pane-title')).toHaveText(['One time generation','Recurring Generation']);await expect(panel.locator('[data-choice-mode=once] [data-choice-value]')).toHaveCount(12);const widths=await panel.locator('.story-choice-pane').evaluateAll(p=>p.map(e=>Math.round(e.getBoundingClientRect().width)));expect(Math.abs(widths[0]-widths[1])).toBeLessThanOrEqual(1);
  const recurringTypes=panel.locator('[data-choice-mode=recurring] [data-choice-value]');await expect(recurringTypes).toHaveCount(8);for(const id of ['presentation','marketing','ambient','custom'])await expect(panel.locator('[data-choice-mode=recurring] [data-choice-value='+id+']')).toHaveCount(0);
  await panel.locator('[data-choice-mode=recurring] [data-choice-value=audio-drama]').click();await expect(page.locator('#story-detail-type-button [data-generation-tag]')).toHaveText('Recurring');
- await fillStoryDetail(page,'genre','Adventure');await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
+ await fillStoryDetail(page,'genre','Adventure');await expect(page.locator('#story-detail-genre-button [data-generation-tag]')).toBeHidden();await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
  await expect(page.locator('[data-generation-pill]')).toHaveText('Recurring');await expect(page.getByRole('tab',{name:'PDF with multiple chapters/episodes',exact:true})).toBeVisible();
  const types=await page.locator('[data-story-settings] [name=story_type] option').evaluateAll(o=>o.map(x=>x.value));expect(types).not.toContain('marketing');
  const rec=page.getByRole('tab',{name:'Recurrence',exact:true});await expect(rec).toBeVisible();await rec.click();await expect(page.locator('[data-recurrence]')).toContainText('Add a story with chapters or parts');

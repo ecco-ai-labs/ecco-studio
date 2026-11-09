@@ -269,12 +269,12 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 /* The "Draft saved in this browser" note is not shown (owner direction 2026-11-08). */
 #story-simple-save{display:none!important}
 /* Recurring generation (owner-approved flow, 2026-11-09): split Story type list, ribbon pill, Recurrence tab, summary. */
-.story-choice-panel.story-choice-split{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);padding:0;width:min(1060px,calc(100vw - 48px))}
+.story-choice-panel.story-choice-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:0;width:min(760px,calc(100vw - 48px))}
 .story-choice-split>.story-choice-pane{padding:16px;min-width:0}
 .story-choice-split>.story-choice-pane+.story-choice-pane{border-left:1px solid var(--ecco-theme-border,#615799);background:var(--ecco-theme-control,#332d63)}
 .story-choice-split>.story-choice-pane>section+section{margin-top:16px}
 .story-choice-pane-title{margin:0 0 12px;padding:0 4px;font-weight:700}
-.story-choice-split>.story-choice-pane[data-choice-mode=recurring] .story-choice-options{grid-template-columns:minmax(0,1fr)}
+.story-choice-split .story-choice-options{grid-template-columns:minmax(0,1fr)}
 .story-choice-value{display:flex;align-items:center;gap:8px;min-width:0}
 .story-generation-tag,.story-generation-pill{display:inline-flex;align-items:center;border:1px solid var(--ecco-theme-border,#51496f);border-radius:999px;padding:1px 9px;white-space:nowrap}
 .story-generation-tag.recurring,.story-generation-pill.recurring{border-color:var(--ecco-theme-success,#7fd6a4);color:var(--ecco-theme-success,#7fd6a4)}
@@ -299,3 +299,4 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .story-recurrence-summary{max-width:640px;border-color:var(--ecco-theme-success,#7fd6a4)}
 .story-recurrence-summary>button{width:auto;align-self:flex-start}
 @media (max-width:900px){.story-choice-panel.story-choice-split,.story-recurrence-grid{grid-template-columns:minmax(0,1fr)}.story-choice-split>.story-choice-pane+.story-choice-pane{border-left:0;border-top:1px solid var(--ecco-theme-border,#615799)}}
+.story-generation-tag[hidden]{display:none}

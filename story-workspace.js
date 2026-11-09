@@ -50,7 +50,7 @@
  const genreGroups=[['Story genres',genres.slice(0,10).map(value=>[value,''])],['Real-world topics',genres.slice(10).map(value=>[value,''])]];
  let detailMenu=null;
  function closeDetailMenu(focus=false){if(!detailMenu)return;const {panel,trigger}=detailMenu;detailMenu=null;panel.hidden=true;trigger.setAttribute('aria-expanded','false');if(focus&&trigger.isConnected)trigger.focus();}
- function placeDetailMenu(){if(!detailMenu)return;const {panel,trigger}=detailMenu;if(!trigger.isConnected){closeDetailMenu();return;}const rect=trigger.getBoundingClientRect(),width=panel.classList.contains('story-choice-split')?Math.min(1060,innerWidth-32):Math.min(640,innerWidth-32,Math.max(rect.width,560));panel.style.width=width+'px';panel.style.top=(trigger.offsetTop+rect.height+6)+'px';panel.style.left=Math.min(0,innerWidth-16-rect.left-width)+'px';panel.style.maxHeight=Math.max(0,Math.min(470,innerHeight-rect.bottom-16))+'px';}
+ function placeDetailMenu(){if(!detailMenu)return;const {panel,trigger}=detailMenu;if(!trigger.isConnected){closeDetailMenu();return;}const rect=trigger.getBoundingClientRect(),width=panel.classList.contains('story-choice-split')?Math.min(760,innerWidth-32):Math.min(640,innerWidth-32,Math.max(rect.width,560));panel.style.width=width+'px';panel.style.top=(trigger.offsetTop+rect.height+6)+'px';panel.style.left=Math.min(0,innerWidth-16-rect.left-width)+'px';panel.style.maxHeight=Math.max(0,Math.min(470,innerHeight-rect.bottom-16))+'px';}
  document.addEventListener('pointerdown',event=>{if(detailMenu&&!detailMenu.panel.contains(event.target)&&!detailMenu.trigger.contains(event.target))closeDetailMenu();});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&detailMenu){event.preventDefault();event.stopPropagation();closeDetailMenu(true);}},true);
  window.addEventListener('resize',placeDetailMenu);window.addEventListener('scroll',placeDetailMenu,true);
@@ -191,6 +191,7 @@
   const tab=inPage('[data-source-tab=rec]'),pdf=inPage('[data-source-tab=pdf]'),upload=inPage('.story-upload-target');if(!tab)return;
   const label=isRecurring()?'PDF with multiple chapters/episodes':'Upload PDF';if(pdf&&pdf.textContent!==label)pdf.textContent=label;
   const text=upload&&[...upload.childNodes].find(n=>n.nodeType===3);if(text&&text.textContent!==label)text.textContent=label;
+  const idea=inPage('[data-source-host=ai] [data-idea]');if(idea)idea.placeholder=isRecurring()?'For example, a 5-part series about two friends who start a bakery':'For example, two hosts discussing business news for Indian adults';
   tab.hidden=!showRecurrence();if(tab.hidden&&data.sourceView==='rec')showSourceTab(data.sourceTab||'pdf');else if(data.sourceView==='rec')paintRecurrence();
  }
  const HEADING=/^\s*(?:chapter|part|episode|section|अध्याय|भाग)\s*(?:[0-9]+|[ivxlc]+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i;
@@ -268,7 +269,7 @@
   list.onkeydown=event=>{const tabs=[...list.querySelectorAll('[data-source-tab]:not([hidden])')],index=tabs.findIndex(tab=>tab.getAttribute('aria-selected')==='true'),step={ArrowRight:1,ArrowLeft:-1}[event.key];if(!step&&event.key!=='Home'&&event.key!=='End')return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+step+tabs.length)%tabs.length;switchSourceTab(tabs[next].dataset.sourceTab,true);};
   updateRecurrenceTab();showSourceTab(data.sourceView==='rec'?'rec':data.sourceTab||'pdf');
   if(!window.EccoSourcePicker)return;
-  if(picker&&pickerOwner===owner()){picker.mount?.(inPage('[data-source-host=pdf]'));placeUpload();}textPicker('ai').mount(inPage('[data-source-host=ai]'));textPicker('write').mount(inPage('[data-source-host=write]'));
+  if(picker&&pickerOwner===owner()){picker.mount?.(inPage('[data-source-host=pdf]'));placeUpload();}textPicker('ai').mount(inPage('[data-source-host=ai]'));textPicker('write').mount(inPage('[data-source-host=write]'));updateRecurrenceTab();
  }
  // The text in the selected Story tab, which AI reads on Next: Characters.
  function storyText(){const tab=data.sourceTab||'pdf',text=tab==='pdf'?picker?.element?.querySelector('[data-selected]')?.value:tab==='ai'?data.aiStoryDraft?.text:data.writtenStory;return String(text||data.script||'').trim();}
@@ -286,6 +287,8 @@
   const created=window.EccoSourcePicker.create({inline:true,drafts:3,expandableText:true,mode:'text',title:ai?'Generate With AI':'Write Yourself',selectedLabel:ai?'Story Text':'Your Story',
    selectedPlaceholder:ai?'Choose a draft and select Use AI Text to place it here.':'Write or paste your story here.',sourceName:name,applyLabel:null,
    aiSettings:{fields:[],getValues:settingValues,onChange:options=>{if(current!==owner()||!enabled)throw Error('Return to the story where you started.');syncStoryOptions(options);}},
+   // Recurring generation checks the story as soon as AI text is used (approved mock, 2026-11-09).
+   onUseAI:async()=>{if(current!==owner()||!data||!isRecurring())return;clearTimeout(shapeTimer);const shape=await readShape({confirm:true});if(current===owner()&&data?.tab===STORY&&isRecurring()&&!shape.multi)await oneTimeWarning(shape);},
    onTextChange:text=>{if(current!==owner()||!data)return;scheduleShape();if(ai)data.aiStoryDraft={...(data.aiStoryDraft||{}),text};else data.writtenStory=text;persist();},
    idea:ai?{label:'What should your story be about?',placeholder:'For example, two hosts discussing business news for Indian adults',value:data.brief||'',
     onInput:value=>{if(current!==owner()||!enabled)return;data.brief=value;epoch++;persist();},

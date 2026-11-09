@@ -1,7 +1,7 @@
 'use strict';
 /* Shared local-only document preview. Only an explicit selection leaves this component. */
 (()=>{
- function create({onApply,onSave,reviewSelection=null,aiSettings=null,title='Select Story Text',selectedLabel='Selected Text',applyLabel='Apply Text',maxSelection=Infinity,inline=false,mode='document',idea=null,sourceName='',selectedPlaceholder='',onTextChange=null,drafts:draftCount=1,expandablePreview=false,expandableText=false}){
+ function create({onApply,onSave,reviewSelection=null,aiSettings=null,title='Select Story Text',selectedLabel='Selected Text',applyLabel='Apply Text',maxSelection=Infinity,inline=false,mode='document',idea=null,sourceName='',selectedPlaceholder='',onTextChange=null,onUseAI=null,drafts:draftCount=1,expandablePreview=false,expandableText=false}){
   const textMode=mode==='text',DRAFTS=Math.max(1,Math.min(3,draftCount|0||1));
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label',title);
   dialog.innerHTML=`
@@ -232,7 +232,7 @@
     const value=aiSuggestion.value;if(value.length>context.limit)throw Error('Keep the replacement within '+context.limit+' characters.');
     selected.value=context.original.slice(0,context.start)+value+context.original.slice(context.end);selected.setSelectionRange(context.start,context.start+value.length);const kept=drafts,keptActive=activeDraft;edited();
     // With several drafts, keep them as alternatives for the same passage so the user can switch to another one.
-    if(DRAFTS>1){aiContext=captureAIContext(context.start,context.start+value.length);drafts=kept;activeDraft=keptActive;paintDrafts();paintAIAction();controls();}aiStatus.textContent='AI text copied to Selected Text.';selected.focus();
+    if(DRAFTS>1){aiContext=captureAIContext(context.start,context.start+value.length);drafts=kept;activeDraft=keptActive;paintDrafts();paintAIAction();controls();}aiStatus.textContent='AI text copied to Selected Text.';selected.focus();onUseAI?.(selected.value);
    }catch(error){aiStatus.textContent='';showAIMessage(error.message);applyImprovement.disabled=true;}
   };
   function appendSelection(text,meta={}){
