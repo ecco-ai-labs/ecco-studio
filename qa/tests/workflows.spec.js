@@ -1254,6 +1254,18 @@ test('STORY-26 Screen Play: each line has a speaker and delivery (Whisper), soun
  expect(page.qaErrors).toEqual([]);
 });
 
+// Real-run fix E3 (2026-11-09): the video's Visual style shapes the suggested avatar.
+test('STORY-27 Video characters: the avatar suggestion uses the Visual style',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Styled cast');await fillStoryDetail(page,'output','video');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.locator('#story-detail-videoStyle').selectOption('Clay stop-motion');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!');
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('[data-character-tabs] [role=tab]').first()).toBeVisible();
+ await expect(page.locator('.story-cast-create')).toContainText('Clay stop-motion');
+ expect(page.qaErrors).toEqual([]);
+});
+
 // Full first-screens workflow for every audited case with a mock PDF (owner request 2026-11-09): Details → Script (PDF) → Schedule when recurring → Characters.
 const PDF_CASES=[['news','once','Business',0],['news','recurring','Business',-1],['podcast','once','Science & Technology',0],['podcast','recurring','Science & Technology',3],['storybook','once','Fantasy',0],['storybook','recurring','Fantasy',4],['audio-drama','once','Adventure',0],['audio-drama','recurring','Adventure',3],['documentary','once','Nature',0],['documentary','recurring','Nature',4],['teaching','once','Science & Technology',0],['teaching','recurring','Science & Technology',3],['interview','once','Biography',0],['interview','recurring','Biography',3],['marketing','once','Business',0]];
 for(const output of ['audio','video'])for(const [type,mode,genre,parts] of PDF_CASES)test(`FLOW-PDF ${output} ${mode} ${type} reaches Story Characters`,async({page})=>{

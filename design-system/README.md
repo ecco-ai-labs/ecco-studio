@@ -901,3 +901,8 @@ Background Music at that line with a volume. ✦ Suggest delivery and sounds ask
 for both. Delivery is saved as the line's manual performance and sounds as the
 audio draft's Sound Design, so Story Generation records them; missing sounds are
 made at generation time.
+
+Real-run fixes (2026-11-09): a video's Visual style is added to the suggested
+avatar and its prompt; Story Publishing's status lists only this story's uploads
+("Nothing from this story has been uploaded yet."); Audio Studio's "Your newly
+generated recording will appear here." hides once the recording is saved.

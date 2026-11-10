@@ -408,8 +408,10 @@
   if(!submitting)window.EccoAudioTasks?.speech(activeStory,job);window.EccoAudioTasks?.render(q('[data-audio-task-progress]'),activeStory);
   showSpeechProgress(job,submitting,submissionError);
   const list=window.EccoGeneration?.results('audio',audioAssets(),activeStory,lastJob)||[],next=JSON.stringify(list);
+  // Real-run fix E5 (2026-11-09): the empty note goes away once a recording is saved.
+  {const empty=q('[data-audio-review-empty]');if(empty)empty.hidden=!!list.length||job?.status==='done';}
   if(next!==signature){
-   signature=next;const empty=q('[data-audio-review-empty]');if(empty)empty.hidden=!!list.length;
+   signature=next;
    q('#audio-gallery')?.remove();
    if(list.length){(q('#audio-review-panel')||q('.audio-workspace')).insertAdjacentHTML('beforeend',`<div class="cards" id="audio-gallery">${list.map(audioCard).join('')}</div>`);hydrateAudio();}
   }

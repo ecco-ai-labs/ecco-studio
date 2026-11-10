@@ -215,7 +215,9 @@
   const model=c.avatar_model||modelProfiles.selected.images;
   const gpu=localStorage.getItem('ecco-compute-image')||window.EccoGPUConnection?.selectedId||'';
   if(!gpu)throw Error('Connect a GPU from Compute to generate avatars.');
-  const prompt=[c.appearance?.trim(),'Character portrait of '+(c.name||'the character')+', head and shoulders, plain background.'].filter(Boolean).join(' ');
+  // Real-run fix E3 (2026-11-09): the video's Visual style shapes the avatar.
+  const style=ctx.data.output==='video'&&ctx.data.videoStyle?'Style: '+ctx.data.videoStyle+'.':'';
+  const prompt=[c.appearance?.trim(),'Character portrait of '+(c.name||'the character')+', head and shoulders, plain background.',style].filter(Boolean).join(' ');
   if(prompt.length>4000)throw Error('Shorten the avatar prompt to 4,000 characters.');
   await window.EccoCompute.validate(gpu,model);
   const job=await api('images',{...modelPayload('images',gpu,model),prompt,negative:'',story_id:activeStory});
@@ -225,7 +227,7 @@
   const models=AVATAR_MODELS.filter(id=>MODEL_CATALOG[id]&&!MODEL_CATALOG[id].pending);
   if(!models.includes(c.avatar_model))c.avatar_model=models.includes(modelProfiles.selected.images)?modelProfiles.selected.images:models[0];
   const create=element('section',{className:'story-cast-step form','aria-labelledby':'story-cast-create-title'},element('h3',{id:'story-cast-create-title',text:'Create avatar'}));
-  const brief=[ctx.data.genre,ctx.data.audience].filter(Boolean).join(' · ');
+  const brief=[ctx.data.genre,ctx.data.audience,ctx.data.output==='video'&&ctx.data.videoStyle].filter(Boolean).join(' · ');
   const prompt=field(c,index,'Suggested avatar prompt','appearance',{multiline:true});prompt.append(element('span',{className:'help',text:'Suggested from your story'+(brief?' · '+brief:'')+'. Edit before generating if needed.'}));
   const row=element('div',{className:'story-character-fields'},field(c,index,'Image model','avatar_model',{options:models.map(id=>[id,MODEL_CATALOG[id].name])}));
   const candidates=(c.avatar_candidates||[]).slice(-4),created=!!c.reference_id;

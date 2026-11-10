@@ -62,9 +62,11 @@
  function render(){
   renderActivity();
   const root=q('#publishing-status');if(!root)return;
-  const current=attempts.slice(-5).reverse(),signature=JSON.stringify(current);if(root.dataset.signature===signature)return;root.dataset.signature=signature;
+  // Real-run fix E4 (2026-11-09): inside a story, show only that story's uploads.
+  const story=typeof activeStory!=='undefined'&&activeStory&&document.querySelector('[role=tablist][aria-label="Create your story"]')?activeStory:'',mine=story?attempts.filter(a=>asset(a.asset_id)?.story_id===story):attempts;
+  const current=mine.slice(-5).reverse(),signature=JSON.stringify([story,current]);if(root.dataset.signature===signature)return;root.dataset.signature=signature;
   root.replaceChildren();const heading=document.createElement('h3');heading.textContent='Publishing status';root.append(heading);
-  if(!current.length){const p=document.createElement('p');p.className='help';p.textContent='No upload attempts recorded yet.';root.append(p);return;}
+  if(!current.length){const p=document.createElement('p');p.className='help';p.textContent=story?'Nothing from this story has been uploaded yet.':'No upload attempts recorded yet.';root.append(p);return;}
   for(const a of current){
    const row=document.createElement('div');row.className='publishing-status-row';row.setAttribute('role','status');
    if(busyStates.has(a.status)){const spinner=document.createElement('span');spinner.className='publishing-spinner';spinner.setAttribute('aria-hidden','true');row.append(spinner);}
