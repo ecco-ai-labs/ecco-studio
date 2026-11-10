@@ -317,3 +317,14 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .story-each-list li{display:flex;gap:6px;align-items:center}
 .story-each-list input{flex:1 1 auto;min-width:0}
 @media(max-width:900px){.story-each-layout{grid-template-columns:minmax(0,1fr)}}
+
+/* Screen Play lines and sounds (owner request 2026-11-09). Layout only; sizes come from the roster. */
+.story-script-views{margin-left:auto}
+.story-script-views [aria-pressed=true]{border-color:var(--accent,currentColor)}
+.story-script-lines{display:flex;flex-direction:column;gap:6px}
+.story-script-turn{display:grid;grid-template-columns:minmax(140px,180px) minmax(110px,130px) minmax(0,1fr) auto;gap:8px;align-items:start;border:1px solid var(--line,rgba(255,255,255,.15));border-radius:8px;padding:8px}
+.story-script-who{display:flex;flex-direction:column;gap:3px}
+.story-script-turn select[data-on=true]{border-color:var(--accent,currentColor)}
+.story-script-sound{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(130px,160px) minmax(0,1fr) minmax(90px,140px) auto;gap:8px;align-items:center;border:1px solid var(--line,rgba(255,255,255,.15));border-left:3px solid var(--good,#7fd6a4);border-radius:8px;padding:6px 8px;margin-left:24px}
+@media(max-width:900px){.story-script-turn,.story-script-sound{grid-template-columns:minmax(0,1fr);margin-left:0}}
+#page [data-script-text][hidden],#page .story-script-lines[hidden],#page [data-suggest-sounds][hidden],#page [data-script-view][hidden]{display:none}

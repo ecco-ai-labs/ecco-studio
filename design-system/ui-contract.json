@@ -805,7 +805,8 @@
         "named-character-tabs",
         "recurring-generation",
         "output-aware-steps",
-        "new-each-episode"
+        "new-each-episode",
+        "screenplay-lines-sounds"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -834,7 +835,8 @@
         "named-character-tabs",
         "recurring-generation",
         "output-aware-steps",
-        "new-each-episode"
+        "new-each-episode",
+        "screenplay-lines-sounds"
       ],
       "standardValues": {
         "sizes": "size-roster.json: tab"

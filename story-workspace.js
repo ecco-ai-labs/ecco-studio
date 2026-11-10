@@ -546,12 +546,77 @@
   inPage('[data-cast-reason]').textContent=isImage()?'No characters needed for a picture. Add a person only if you want them to look the same in every picture.':data.castReason||(data.castFrom?'':'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.');
   characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(isImage()){select(GENERATE);return;}if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
  }
+ // Screen Play (owner request 2026-11-09): lines with who speaks and how (e.g. Whisper), plus sounds such as a door, footsteps or birds. Edit as text keeps the plain script.
  function scriptPage(){
   page='story-script';
-  q('#page').innerHTML='<div class="form"><section class="panel form story-script-panel"><div class="section-head"><h2>Script</h2></div><label>Script<textarea id="story-simple-script" rows="18" placeholder="Generate Script in the Story Script step fills this in. You can also write it here."></textarea></label><p class="help" data-script-help></p></section><div class="story-simple-actions"><button type="button" data-next>Generate</button></div></div>';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-script-panel"><div class="section-head"><h2>Script</h2><div class="row story-script-views" role="group" aria-label="Script view"><button type="button" class="secondary" data-script-view="lines">Lines and sounds</button><button type="button" class="secondary" data-script-view="text">Edit as text</button></div><button type="button" data-suggest-sounds>✦ Suggest delivery and sounds</button></div>'
+   +'<p class="help" data-script-help></p><p class="help" data-sound-status role="status" aria-live="polite"></p><div class="story-script-lines" data-script-lines></div>'
+   +'<label data-script-text>Script<textarea id="story-simple-script" rows="18" placeholder="Generate Script in the Story Script step fills this in. You can also write it here."></textarea></label></section><div class="story-simple-actions"><span class="help" data-script-count></span><button type="button" data-next>Generate</button></div></div>';
   const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
-  inPage('[data-script-help]').textContent='For multiple speakers, write “Name: spoken words” for each turn, with a blank line between turns. Directions belong in character properties.';
-  inPage('[data-next]').onclick=()=>select(GENERATE);
+  for(const b of inPage('[data-script-view]')?.parentElement.querySelectorAll('[data-script-view]')||[])b.onclick=()=>{data.scriptView=b.dataset.scriptView;persist();paintScript();};
+  inPage('[data-suggest-sounds]').onclick=event=>void suggestSounds(event.currentTarget);
+  inPage('[data-next]').onclick=()=>select(GENERATE);paintScript();
+ }
+ function scriptPlan(){try{return M.parseScript(data.script,data.cast,data.plan);}catch{return null;}}
+ const soundLines=plan=>window.EccoSoundDesign?.planLines(plan)||[];
+ function savePlan(plan){
+  data.plan=plan;data.script=M.transcript(plan,data.cast);delete data.audioScript;data.scenes=[];
+  if(data.soundDesign?.cues?.length)data.soundDesign.speech_key=window.EccoSoundDesign.key(soundLines(plan));epoch++;persist();
+ }
+ function paintScript(){
+  const plan=data.output==='audio'?scriptPlan():null,view=plan&&data.scriptView!=='text'?'lines':'text',root=inPage('[data-script-lines]');if(!root)return;
+  for(const b of q('#page').querySelectorAll('[data-script-view]')){b.setAttribute('aria-pressed',String(b.dataset.scriptView===view));b.hidden=!plan;}
+  inPage('[data-suggest-sounds]').hidden=view!=='lines';inPage('[data-script-text]').hidden=view!=='text';root.hidden=view!=='lines';
+  inPage('[data-script-help]').textContent=view==='lines'?'Choose who speaks each line and how (for example Whisper), and add sounds such as a door opening, footsteps, wind or birds. AI can suggest both; change anything.':'For multiple speakers, write “Name: spoken words” for each turn, with a blank line between turns. Directions belong in character properties.';
+  if(view==='text'){inPage('#story-simple-script').value=data.script;inPage('[data-script-count]').textContent='';return;}
+  const model=audioModel(),emotions=window.EccoAudioDirection?.emotions||['neutral'],label=e=>e==='neutral'?'Normal':e[0].toUpperCase()+e.slice(1),turns=[...(plan.opening?[plan.opening]:[]),...plan.segments];
+  const cues=data.soundDesign?.cues||[],lines=soundLines(plan);let lineIndex=0;root.replaceChildren();
+  turns.forEach((turn,ti)=>{
+   const first=lineIndex;lineIndex+=window.EccoAudioScript.split(turn.text).length;
+   cues.forEach((cue,ci)=>{if(cue.start>=first&&cue.start<lineIndex)root.append(soundRow(cue,ci,lines));});
+   const row=document.createElement('div');row.className='story-script-turn';
+   const who=document.createElement('select');who.setAttribute('aria-label','Speaker for line '+(ti+1));for(const c of data.cast)who.add(new Option(c.name,c.id));who.value=turn.character_id;
+   const voice=document.createElement('span');voice.className='help';const c=data.cast.find(x=>x.id===turn.character_id);voice.textContent=(model?.voices||[]).find(v=>v.id===c?.voice)?.name||'';
+   const how=document.createElement('select');how.setAttribute('aria-label','Delivery for line '+(ti+1));for(const e of emotions)how.add(new Option(label(e),e));how.value=turn.performance?.manual?turn.performance.emotion||'neutral':turn.performance?.emotion||'neutral';if(how.value!=='neutral')how.dataset.on='true';
+   const words=document.createElement('textarea');words.rows=2;words.value=turn.text;words.setAttribute('aria-label','Line '+(ti+1));
+   const add=document.createElement('button');add.type='button';add.className='secondary';add.textContent='+ Sound';add.setAttribute('aria-label','Add a sound at line '+(ti+1));
+   const whoBox=document.createElement('div');whoBox.className='story-script-who';whoBox.append(who,voice);row.append(whoBox,how,words,add);root.append(row);
+   who.onchange=()=>{turn.character_id=who.value;savePlan(plan);paintScript();};
+   how.onchange=()=>{turn.performance={...(turn.performance||{}),emotion:how.value,manual:true};savePlan(plan);paintScript();};
+   words.onchange=()=>{if(!words.value.trim())return;turn.text=words.value.trim();savePlan(plan);paintScript();};
+   add.onclick=()=>{const sd=data.soundDesign||(data.soundDesign={enabled:true,cues:[]});sd.enabled=true;sd.cues.push({...window.EccoSoundDesign.defaults('effect'),name:'Sound '+(sd.cues.length+1),description:'',start:first,end:first});sd.speech_key=window.EccoSoundDesign.key(lines);epoch++;persist();paintScript();};
+  });
+  const n=cues.length,special=turns.filter(t=>t.performance?.emotion&&t.performance.emotion!=='neutral').length;
+  inPage('[data-script-count]').textContent=n+' sound'+(n===1?'':'s')+' · '+special+' line'+(special===1?'':'s')+' with special delivery'+(model&&!model.emotions?' · '+(model.name||'This model')+' reads every line in a normal voice':'');
+ }
+ function soundRow(cue,index,lines){
+  const KINDS={effect:'Sound Effect',ambience:'Ambience',music:'Background Music'},row=document.createElement('div');row.className='story-script-sound';row.dataset.kind=cue.kind;
+  const name=document.createElement('input');name.value=cue.name||'';name.setAttribute('aria-label','Sound');name.placeholder='For example, a heavy door creaks open';
+  const kind=document.createElement('select');kind.setAttribute('aria-label','Sound type');for(const [v,t] of Object.entries(KINDS))kind.add(new Option(t,v));kind.value=cue.kind;
+  const where=document.createElement('span');where.className='help';where.textContent=cue.phrase?'starts at “'+cue.phrase+'”':cue.kind==='effect'?'starts with this line':'plays until line '+(cue.end+1);
+  const level=document.createElement('input');level.type='range';level.min='-40';level.max='-3';level.value=String(cue.level_db);level.setAttribute('aria-label','Volume');
+  const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='×';remove.setAttribute('aria-label','Remove sound');
+  row.append(name,kind,where,level,remove);
+  const save=()=>{data.soundDesign.speech_key=window.EccoSoundDesign.key(lines);epoch++;persist();};
+  name.onchange=()=>{cue.name=name.value.trim()||cue.name;cue.description=cue.description||name.value.trim();save();};
+  kind.onchange=()=>{Object.assign(cue,{...window.EccoSoundDesign.defaults(kind.value),...cue,kind:kind.value,level_db:window.EccoSoundDesign.defaults(kind.value).level_db,duck:kind.value!=='effect',loop:kind.value!=='effect'});save();paintScript();};
+  level.onchange=()=>{cue.level_db=+level.value;save();};
+  remove.onclick=()=>{data.soundDesign.cues.splice(index,1);if(!data.soundDesign.cues.length)data.soundDesign.enabled=false;save();paintScript();};
+  return row;
+ }
+ async function suggestSounds(button){
+  const plan=scriptPlan(),status=inPage('[data-sound-status]'),origin=owner();if(!plan)return;button.disabled=true;button.setAttribute('aria-busy','true');status.textContent='Suggesting delivery and sounds…';
+  try{
+   const model=audioModel(),lines=soundLines(plan),brief={title:data.title,genre:data.genre,audience:data.audience,language:data.language,story_type:data.type};
+   const [directed,cues]=await Promise.all([
+    window.EccoAudioDirection.refine({plan,cast:data.cast,brief,model,request:api,directionOnly:true}).catch(()=>null),
+    window.EccoSoundDesign.suggest({lines,brief,assets:window.EccoAudioLibrary?.items()||[]}).catch(error=>{status.textContent='Sounds: '+error.message;return null;})]);
+   if(origin!==owner())return;
+   if(directed)savePlan(directed);
+   if(cues){data.soundDesign={enabled:!!cues.length,cues,speech_key:window.EccoSoundDesign.key(soundLines(directed||plan))};epoch++;persist();}
+   status.textContent=(directed?'Delivery suggested. ':'')+(cues?cues.length+' sounds suggested. Sounds not in your Audio Library are made when you generate.':'');
+  }catch(error){status.textContent='Could not suggest: '+error.message;}
+  finally{if(button.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');}paintScript();}
  }
  function showSources(){const root=inPage('[data-sources]');if(!root||!data.research?.items)return;root.replaceChildren();const h=document.createElement('h3');h.textContent='News sources';root.append(h);for(const item of data.research.items)for(const source of item.sources||[]){try{const url=new URL(source.url);if(url.protocol!=='https:')continue;const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title||url.hostname;root.append(a,document.createElement('br'));}catch{}}}
  function aiStatus(text,error=false){
@@ -628,10 +693,10 @@
  function audioModel(){return window.EccoAudioModels?.find(m=>m.id===(read('ecco-audio-draft:'+activeStory).model||modelProfiles.selected.voice))||window.EccoAudioModels?.[0];}
  function prepareAudio(){
   const previous=read('ecco-audio-draft:'+activeStory),model=audioModel(),plan=M.parseScript(data.audioScript||data.script,data.cast,data.plan);
-  const signature=M.signature(data,'audio');if(data.applied.audio===signature&&previous.speakers?.length)return;
+  const signature=M.signature(data,'audio')+JSON.stringify([data.soundDesign||null,(data.plan?.segments||[]).map(p=>p.performance?.emotion||'')]);if(data.applied.audio===signature&&previous.speakers?.length)return;
   const cast=data.cast.map((c,i)=>{const saved=previous.speakers?.find(s=>s.id===c.id)||{};return {...saved,...c,language:c.language||data.language,voice:c.voice||saved.voice||window.EccoAudioDirection.defaultVoice(model,data.language,i),emotion:c.emotion||saved.emotion||'neutral',delivery:[c.delivery,c.nationality&&'Nationality: '+c.nationality].filter(Boolean).join('. ')};});
-  const preparation={...previous.guided_preparation,title:data.title,genre:data.genre,audience:data.audience,language:data.language,tone:'Natural',language_style:'Everyday / Conversational',instructions:data.location?'Audience location: '+data.location:'',cast,plan,model:model.id,source_text:data.source?.text||'',source_name:data.source?.name||'',source_pages:data.source?.pages||[],sound_design:previous.sound_design};
-  const next={...previous,title:data.title,model:previous.model||model.id,compute:previous.compute||'cpu',genre:['Story Book Reading','Podcast','News','Movie','Theatre','Casual Conversation','Documentary','Interview','Educational'].includes(data.genre)?data.genre:({podcast:'Podcast',interview:'Interview',news:'News',documentary:'Documentary','audio-drama':'Theatre',teaching:'Educational',training:'Educational'}[data.type]||'Story Book Reading'),speakers:cast,character_count:cast.length,characters_configured:true,presentation:cast.length>1?'conversation':'single',lines:plan.segments.map(s=>({speaker_id:s.character_id,text:s.text,performance:s.performance})),single_text:plan.segments.map(s=>s.text).join('\n\n'),opening_text:plan.opening?.text||'',opening_speaker:plan.opening?.character_id||cast[0].id,opening_performance:plan.opening?.performance,script_brief:{...preparation,plan:undefined,cast:undefined},guided_preparation:preparation};
+  const preparation={...previous.guided_preparation,title:data.title,genre:data.genre,audience:data.audience,language:data.language,tone:'Natural',language_style:'Everyday / Conversational',instructions:data.location?'Audience location: '+data.location:'',cast,plan,model:model.id,source_text:data.source?.text||'',source_name:data.source?.name||'',source_pages:data.source?.pages||[],sound_design:data.soundDesign?.cues?.length?data.soundDesign:previous.sound_design};
+  const next={...previous,title:data.title,model:previous.model||model.id,compute:previous.compute||'cpu',genre:['Story Book Reading','Podcast','News','Movie','Theatre','Casual Conversation','Documentary','Interview','Educational'].includes(data.genre)?data.genre:({podcast:'Podcast',interview:'Interview',news:'News',documentary:'Documentary','audio-drama':'Theatre',teaching:'Educational',training:'Educational'}[data.type]||'Story Book Reading'),speakers:cast,character_count:cast.length,characters_configured:true,presentation:cast.length>1?'conversation':'single',lines:plan.segments.map(s=>({speaker_id:s.character_id,text:s.text,performance:s.performance})),single_text:plan.segments.map(s=>s.text).join('\n\n'),opening_text:plan.opening?.text||'',opening_speaker:plan.opening?.character_id||cast[0].id,opening_performance:plan.opening?.performance,script_brief:{...preparation,plan:undefined,cast:undefined},guided_preparation:preparation,...(data.soundDesign?.cues?.length?{sound_design:{...data.soundDesign,enabled:true,speech_key:window.EccoSoundDesign.key(window.EccoSoundDesign.planLines(plan))}}:{})};
   delete next.delivery_signature;localStorage.setItem('ecco-audio-draft:'+activeStory,JSON.stringify(next));data.plan=plan;data.applied.audio=signature;
  }
  function prepareVisual(kind){

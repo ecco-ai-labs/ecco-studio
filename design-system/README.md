@@ -892,3 +892,12 @@ speaker. Each character gets a voice that matches their gender (from the voice
 names: feminine / masculine) and no voice is reused in one story while the model
 has enough; otherwise a note says some characters share a voice. A voice picked
 by hand is kept.
+
+Screen Play lines and sounds (owner request 2026-11-09): for audio, Story Screen
+Play opens on Lines and sounds (Edit as text keeps the plain script). Each line
+shows who speaks (with their voice) and how (Delivery: Normal, Whisper, Happy…,
+from the audio direction emotions), and + Sound adds a Sound Effect, Ambience or
+Background Music at that line with a volume. ✦ Suggest delivery and sounds asks AI
+for both. Delivery is saved as the line's manual performance and sounds as the
+audio draft's Sound Design, so Story Generation records them; missing sounds are
+made at generation time.

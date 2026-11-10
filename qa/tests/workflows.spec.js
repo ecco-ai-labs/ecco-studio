@@ -27,8 +27,9 @@ async function fillStoryDetail(page,name,value){
  else if(['type','genre'].includes(name)){await page.locator('#story-detail-'+name+'-button').click();await page.locator('#story-detail-'+name+'-panel [data-choice-value='+JSON.stringify(value)+']:not([data-choice-mode=recurring])').click();}
  else await page.locator('#story-simple-details [name='+name+']').selectOption(value);
 }
-async function setScript(page,text){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await page.locator('#story-simple-script').fill(text);}
-async function scriptStep(page){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.locator('#story-simple-script')).toBeVisible();}
+async function textView(page){const b=page.getByRole('button',{name:'Edit as text',exact:true});if(await b.isVisible())await b.click();}
+async function setScript(page,text){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await page.locator('#story-simple-script').fill(text);}
+async function scriptStep(page){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await expect(page.locator('#story-simple-script')).toBeVisible();}
 async function charactersStep(page){await page.getByRole('tab',{name:'3. Story Characters',exact:true}).click();await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeVisible();}
 async function openLibrary(page,kind,{keepView=false}={}){
   const group=page.locator('#workspace-library-group');
@@ -1228,6 +1229,28 @@ test('STORY-24 Characters get different voices that match their gender',async({p
  const cast=await page.evaluate(()=>{const key=Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('simple_workspace')&&localStorage.getItem(k).includes('Cave voices'));const w=JSON.parse(localStorage.getItem(key)).simple_workspace;const voices=window.EccoAudioModels.flatMap(m=>m.voices);return w.cast.map(c=>({name:c.name,gender:c.gender,voice:voices.find(v=>v.id===c.voice)?.name||c.voice}));});
  expect(new Set(cast.map(c=>c.voice)).size).toBe(3);
  for(const c of cast)expect(c.voice,c.name).toMatch(c.gender==='Male'?/masculine/:/feminine/);
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Screen Play lines, delivery and sounds (owner request 2026-11-09).
+test('STORY-26 Screen Play: each line has a speaker and delivery (Whisper), sounds can be added, and Generation receives both',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Cave sounds');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
+ await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.getByRole('button',{name:'Lines and sounds',exact:true})).toHaveAttribute('aria-pressed','true');
+ const lines=page.locator('[data-script-lines]');await expect(lines.locator('.story-script-turn')).toHaveCount(3);
+ await lines.getByLabel('Delivery for line 3',{exact:true}).selectOption('whisper');await expect(lines.getByLabel('Delivery for line 3',{exact:true})).toHaveValue('whisper');
+ await lines.getByRole('button',{name:'Add a sound at line 2',exact:true}).click();const sound=lines.locator('.story-script-sound');await expect(sound).toHaveCount(1);
+ await sound.getByLabel('Sound',{exact:true}).fill('Heavy stone door rolls open');await sound.getByLabel('Sound',{exact:true}).blur();
+ await expect(page.locator('[data-script-count]')).toContainText('1 sound · 1 line with special delivery');
+ await page.getByRole('button',{name:'Edit as text',exact:true}).click();await expect(page.locator('#story-simple-script')).toHaveValue(/Morgiana: I will help\./);
+ await page.getByRole('button',{name:'Lines and sounds',exact:true}).click();await expect(lines.getByLabel('Delivery for line 3',{exact:true})).toHaveValue('whisper');
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('#audio-form')).toBeVisible();
+ const draft=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-audio-draft:'));return JSON.parse(localStorage.getItem(k));});
+ expect(draft.sound_design).toMatchObject({enabled:true});expect(draft.sound_design.cues[0]).toMatchObject({kind:'effect',name:'Heavy stone door rolls open',start:1});
+ expect(draft.lines[2].performance).toMatchObject({emotion:'whisper',manual:true});
  expect(page.qaErrors).toEqual([]);
 });
 
