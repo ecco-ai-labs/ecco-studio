@@ -48,7 +48,8 @@ def result(pod,rid):
         return {'status':'error','error':'GPU response was interrupted. Check Activity before retrying; this request will not be replayed.'}
     return {'status':'pending'}
 def worker():
-    pod=os.environ.get('RUNPOD_POD_ID','')
+    # ECCO_RELAY_WORKER_ID lets the serverless launcher answer for a stopped GPU instance.
+    pod=os.environ.get('ECCO_RELAY_WORKER_ID') or os.environ.get('RUNPOD_POD_ID','')
     if pod not in GPUS: raise SystemExit('Unknown GPU')
     base=ROOT/pod;base.mkdir(parents=True,exist_ok=True,mode=0o700)
     lock=(base/'worker.lock').open('a')
