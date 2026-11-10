@@ -925,3 +925,10 @@ model with the most voices that the worker can run is used. Starter characters
 picks a fitting, unused voice from it; models the worker can't run are marked
 "(not on this worker)". The Characters summary names characters that share a
 voice. Screen Play shows each character's own model and voice.
+
+Voice quality (owner report 2026-11-09): each language uses the best-sounding model
+the workers can run (English: Kokoro, VoxCPM2, Indic Parler, Chatterbox, Simple
+Audio Model; Urdu: Indic Parler, Simple Audio Model; Telugu: IndicF5, Indic
+Parler, Simple Audio Model). New audio drafts start on the ready CPU worker with
+the most models, and Generate moves to another ready CPU worker when the selected
+one lacks a character's model.

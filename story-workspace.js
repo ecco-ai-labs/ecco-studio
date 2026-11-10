@@ -441,7 +441,8 @@
     if(!window.EccoStorage?.ready)throw Error('Connect Storage in Connections, then retry Generate Script.');
     if(!window.EccoAI?.enabled)await window.EccoAI?.refresh();assertCurrent();
     if(!window.EccoAI?.enabled)throw Error('Connect AI and enable it in Connections, then retry Generate Script.');
-    const proposal=await window.EccoSourceCast.analyze({source:selection.text,details:{...clone(data),source:selection},model,request:api,assertCurrent,progress});
+    if(!window.EccoAudioCompute?.readyNow?.())await window.EccoAudioCompute?.refresh?.();
+  const proposal=await window.EccoSourceCast.analyze({source:selection.text,details:{...clone(data),source:selection},model,request:api,assertCurrent,progress});
     assertCurrent();return castDefaults(proposal,model);
    },
    onApply:review=>{
@@ -661,15 +662,17 @@
  }
  const voiceGender=v=>/\bmasculine\b/i.test(v.name||'')?'Male':/\bfeminine\b/i.test(v.name||'')?'Female':'';
  const genderOf=c=>/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
+ const VOICE_QUALITY={English:['kokoro','voxcpm2','indic-parler','chatterbox','indic-mio'],Urdu:['indic-parler','indic-mio'],Telugu:['indicf5','indic-parler','indic-mio'],Hindi:['indic-parler','indicf5','indic-mio'],other:['indic-parler','indicf5','voxcpm2','kokoro','chatterbox','indic-mio']};
  function voiceModels(language){
   const ready=window.EccoAudioCompute?.readyNow?.(),fits=(window.EccoAudioModels||[]).filter(m=>!m.pending&&(!m.languages||m.languages.includes(language)));
   return fits.filter(m=>!ready||ready.includes(m.id));
  }
  function assignVoices(cast,model){
   const need=cast.filter(c=>!c.voiceChosen).length,language=data.language;let short=0;
-  const options=voiceModels(language),current=options.find(m=>m.id===model.id)||model;
-  const best=[...options].sort((a,b)=>voicePool(b,language).length-voicePool(a,language).length)[0];
-  const chosen=voicePool(current,language).length>=Math.min(need,voicePool(best,language).length)?current:best||current;
+  // Voice quality (owner report 2026-11-09): use the best-sounding model the workers can run for this language.
+  const options=voiceModels(language),rank=VOICE_QUALITY[language]||VOICE_QUALITY.other,score=m=>{const i=rank.indexOf(m.id);return i<0?rank.length:i;};
+  const most=Math.max(0,...options.map(m=>voicePool(m,language).length)),enough=m=>voicePool(m,language).length>=Math.min(need,most);
+  const chosen=[...options].sort((a,b)=>score(a)-score(b)).find(enough)||options[0]||model;
   const used=new Set(cast.filter(c=>c.voiceChosen).map(c=>(c.model||chosen.id)+'|'+c.voice));let alternate=0;
   for(const c of cast){
    if(c.voiceChosen)continue;
@@ -689,6 +692,7 @@
  async function recommend(castOnly,{autoApply=false,returnProposal=false,ignoreSource=false,variation='',readStory=''}={}){
   if(aiRequest?.current===data){if(returnProposal)throw Error('AI is still working on this story.');aiStatus('AI is still working on this story…');return;}
   const token=epoch,current=data,identity=owner(),request={current,identity};aiRequest=request;if(autoApply||readStory){data.castPending=true;paintCastStatus();}
+  if(current.output==='audio'&&!window.EccoAudioCompute?.readyNow?.())await window.EccoAudioCompute?.refresh?.();
   const buttons=[inPage('[data-ai]'),inPage('[data-cast-ai]')],labels=buttons.map(b=>b?.textContent);buttons.forEach(b=>{if(b){b.disabled=true;b.setAttribute('aria-busy','true');}});if(buttons[castOnly?1:0])buttons[castOnly?1:0].textContent=castOnly?'Recommending…':'Generating…';if(inPage('[data-ai-connections]'))inPage('[data-ai-connections]').hidden=true;message('',true);aiStatus('Checking AI connection…');
   // Reading characters on Next: Characters survives moving between steps; only a different story cancels it.
   const valid=()=>{if(current!==data||(!readStory&&token!==epoch)||identity!==owner()||!enabled)throw Error('The story changed while AI was working. Your edits are preserved; request a new suggestion.');};
