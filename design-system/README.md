@@ -841,6 +841,16 @@ The two Story type panes are equal width with one column each. When Recurring, t
 one-time warning also appears right after Use AI Text, and Generate With AI hints at
 a series ("a 5-part series…").
 
+Audit fixes (owner-approved, 2026-11-09): the Recurrence tab is renamed Schedule
+(the summary button reads Change in Story Script → Schedule). For a recurring
+story, Next reads Next: Schedule and opens Schedule until it has been seen, then
+Next: Story Characters. Headings may follow a speaker label ("Narrator: Part 1");
+Schedule shows "Found N episodes/chapters/parts." using the headings' own word and
+lists each heading's title (falling back to "Chapter N" / "Part N"). AI series
+drafts start each episode with "Episode N: Title". After a PDF upload the whole
+document is selected (Select Pages can narrow it), so the one-time check runs on
+selected text.
+
 ## Output-aware steps — 9 November 2026
 
 Owner-approved mock. Image: Story Details shows Image style (the Image Studio

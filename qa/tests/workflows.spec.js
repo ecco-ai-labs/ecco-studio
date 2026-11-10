@@ -1110,11 +1110,11 @@ test('STORY-11 Story type sets One time or Recurring generation; Generation show
  await expect(page.locator('#story-simple-publishing')).toHaveCount(0);await expect(page.locator('[name=recurrence]')).toHaveCount(0);await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeHidden();
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=storybook]').click();
  await expect(page.locator('#story-detail-type-button [data-generation-tag]')).toHaveText('Recurring');expect(await page.evaluate(()=>JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('Publishing preference')&&localStorage.getItem(k).includes('simple_workspace')))).simple_workspace?.recurrence)).toBe('recurring');
- await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();const summary=page.locator('#story-simple-publishing');await expect(summary.getByRole('heading',{name:'Recurring'})).toBeVisible();await expect(summary).toContainText('Set the schedule in Story Script → Recurrence.');await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeVisible();
- await summary.getByRole('button',{name:'Change in Story Script → Recurrence',exact:true}).click();await expect(page.getByRole('tab',{name:'Recurrence',exact:true})).toHaveAttribute('aria-selected','true');
+ await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();const summary=page.locator('#story-simple-publishing');await expect(summary.getByRole('heading',{name:'Recurring'})).toBeVisible();await expect(summary).toContainText('Set the schedule in Story Script → Schedule.');await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeVisible();
+ await summary.getByRole('button',{name:'Change in Story Script → Schedule',exact:true}).click();await expect(page.getByRole('tab',{name:'Schedule',exact:true})).toHaveAttribute('aria-selected','true');
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>/generate|publish/.test(c.path)))).toEqual([]);
 });
-test('STORY-18 Recurring generation: split Story type list, PDF tab name, one-time warning, Recurrence tab and Save as workflow',async({page})=>{
+test('STORY-18 Recurring generation: split Story type list, PDF tab name, one-time warning, Schedule tab, Next: Schedule, episode titles and Save as workflow',async({page})=>{
  await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Cave series');await fillStoryDetail(page,'output','audio');
  await page.locator('#story-detail-type-button').click();const panel=page.locator('#story-detail-type-panel');
  await expect(panel.locator('.story-choice-pane-title')).toHaveText(['One time generation','Recurring Generation']);await expect(panel.locator('[data-choice-mode=once] [data-choice-value]')).toHaveCount(12);const widths=await panel.locator('.story-choice-pane').evaluateAll(p=>p.map(e=>Math.round(e.getBoundingClientRect().width)));expect(Math.abs(widths[0]-widths[1])).toBeLessThanOrEqual(1);
@@ -1123,26 +1123,39 @@ test('STORY-18 Recurring generation: split Story type list, PDF tab name, one-ti
  await fillStoryDetail(page,'genre','Adventure');await expect(page.locator('#story-detail-genre-button [data-generation-tag]')).toBeHidden();await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
  await expect(page.locator('[data-generation-pill]')).toHaveText('Recurring');await expect(page.getByRole('tab',{name:'PDF with multiple chapters/episodes',exact:true})).toBeVisible();
  const types=await page.locator('[data-story-settings] [name=story_type] option').evaluateAll(o=>o.map(x=>x.value));expect(types).not.toContain('marketing');
- const rec=page.getByRole('tab',{name:'Recurrence',exact:true});await expect(rec).toBeVisible();await rec.click();await expect(page.locator('[data-recurrence]')).toContainText('Add a story with chapters or parts');
+ const rec=page.getByRole('tab',{name:'Schedule',exact:true});await expect(rec).toBeVisible();await rec.click();await expect(page.locator('[data-recurrence]')).toContainText('Add a story with chapters or parts');
  // A single story is refused for Recurring generation.
  await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();const box=page.getByRole('dialog',{name:'Write Yourself',exact:true});await box.locator('[data-selected]').fill('Ali found a cave and went home.');
  await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();const warning=page.locator('dialog.story-shape-warning');await expect(warning).toBeVisible();await expect(warning.getByRole('heading')).toHaveText('This story is a one-time story');
  await warning.getByRole('button',{name:'Go back',exact:true}).click();await expect(warning).toHaveCount(0);await expect(page.getByRole('tab',{name:'Write Yourself',exact:true})).toHaveAttribute('aria-selected','true');
  // A story in parts gets a schedule.
  await box.locator('[data-selected]').fill('Part 1\nAli finds the cave.\n\nPart 2\nThe door opens.\n\nPart 3\nMorgiana helps.');await expect(page.locator('[data-source-tab=rec]')).toBeVisible();
- await rec.click();await expect(page.locator('dialog.story-tab-warning')).toHaveCount(0);const r=page.locator('[data-recurrence]');await expect(r).toContainText('3 parts → 3 episodes.');await expect(r.locator('[data-rec-episodes] tr')).toHaveCount(3);
+ await rec.click();await expect(page.locator('dialog.story-tab-warning')).toHaveCount(0);const r=page.locator('[data-recurrence]');await expect(r.locator('[data-rec-count]')).toHaveText('Found 3 parts.');await expect(r.locator('[data-rec-episodes] tr')).toHaveCount(3);await expect(r.locator('[data-rec-episodes] tr td:nth-child(2)')).toHaveText(['Part 1','Part 2','Part 3']);
  await r.locator('[data-rec=repeat]').selectOption('daily');await expect(r.locator('[data-rec-episodes] tr')).toHaveCount(3);await r.getByLabel('Workflow name').fill('Cave nights');await r.getByRole('button',{name:'Save as workflow',exact:true}).click();
  await expect(r.locator('[data-rec-saved]')).toHaveText('Saved as “Cave nights” · in Workflows');const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').find(w=>w.name==='Cave nights'));expect(saved).toMatchObject({source_mode:'chapters',total_chapters:3,repeat:'daily',status:'draft',schedule_requested:false});
  await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await expect(page.locator('dialog.story-tab-warning')).toHaveCount(0);await expect(box.locator('[data-selected]')).toHaveValue(/Part 3/);
  await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
  await setScript(page,'Narrator: Part 1.');await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();await expect(page.locator('#story-simple-publishing')).toContainText('3 episodes · every day');await expect(page.locator('#story-simple-publishing')).toContainText('saved as workflow “Cave nights”');
- // One time with parts: Recurrence appears on its own and offers to switch.
+ // One time with parts: Schedule appears on its own and offers to switch.
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();
  await page.getByRole('tab',{name:'2. Story Script',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await expect(page.getByRole('tab',{name:'Upload PDF',exact:true})).toBeVisible();
  await rec.click();await expect(page.locator('[data-recurrence]')).toContainText('You chose One time generation.');await page.getByRole('button',{name:'Make it recurring',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('Recurring');
  // Switch to One time from the warning.
  await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await box.locator('[data-selected]').fill('Just one short story.');await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();
  await warning.getByRole('button',{name:'Switch to One time',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await expect(page.locator('[data-source-tab=rec]')).toBeHidden();
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Owner fixes I4, I6, I7, I8 (2026-11-09).
+test('STORY-21 Recurring: Next opens Schedule first, headings with speaker labels count, episode titles and the heading word are shown',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Birds of Prey');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=documentary]').click();await fillStoryDetail(page,'genre','Nature');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ const box=page.getByRole('dialog',{name:'Write Yourself',exact:true});await box.locator('[data-selected]').fill('Episode 1: Peregrine Falcon\nThe fastest dive.\n\nEpisode 2: Golden Eagle\nMountain hunter.\n\nNarrator: Episode 3: Barn Owl\nHunts by sound.');
+ const next=page.locator('.story-simple-actions [data-next]');await expect(next).toHaveText('Next: Schedule');await next.click();
+ await expect(page.getByRole('tab',{name:'Schedule',exact:true})).toHaveAttribute('aria-selected','true');const r=page.locator('[data-recurrence]');
+ await expect(r.locator('[data-rec-count]')).toHaveText('Found 3 episodes.');await expect(r.locator('[data-rec-episodes] tr td:nth-child(2)')).toHaveText(['Peregrine Falcon','Golden Eagle','Barn Owl']);
+ await expect(next).toHaveText('Next: Story Characters');await next.click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
  expect(page.qaErrors).toEqual([]);
 });
 

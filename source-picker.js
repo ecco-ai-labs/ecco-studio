@@ -413,8 +413,17 @@
   };
   paintDrafts();if(textMode){ready=true;controls();}
   // Chapters for a recurring series: PDF bookmarks plus every text line, so headings can be counted.
-  async function structure(){let lines=[];try{if(doc)lines=(await pdfText()).flat();else if(file)lines=(await file.text()).split(/\r?\n/);}catch{lines=[];}return {bookmarks:chapterEntries.length,lines};}
-  return {load,open,mount,clear,structure,paneTools:()=>{const pane=dialog.querySelector('.pdf-document-pane');return paneTools(pane,pane.querySelector('.pdf-review-heading'));},snapshot,restore,refreshSettings:()=>refreshAISettings(),setText(text){selected.value=text||'';reportSelection();updateReplace();},hasDrafts:()=>drafts.some(d=>typeof d==='string'&&d.trim()),setIdea(text){const input=dialog.querySelector('[data-idea]');if(input)input.value=text||'';},get element(){return dialog;},get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
+  // Owner fix I9 (2026-11-09): after an upload the whole document is selected; Select Pages can narrow it.
+  async function selectAll(){
+   if(disposed||!ready||busy||selected.value.trim())return false;const generation=epoch;let text='',pages=[];
+   try{if(doc){const all=await pdfText();text=all.map(lines=>lines.join('\n')).join('\n\n').trim();pages=all.map((_,i)=>i+1);}else if(file)text=(await file.text()).replace(/\u0000/g,'').trim();}catch{return false;}
+   if(generation!==epoch||disposed||!text||selected.value.trim())return false;
+   if(text.length>maxSelection){feedback.textContent='This document is longer than '+maxSelection.toLocaleString()+' characters. Choose pages with Select Pages.';return false;}
+   appendSelection(text,{pages,selection_label:doc?'All '+doc.numPages+' pages':'Whole document'});if(doc)dialog.querySelector('[data-pages]').value='1–'+doc.numPages;
+   feedback.textContent=note.textContent=(doc?'All '+doc.numPages+' pages selected.':'Whole document selected.')+' Use Select Pages to narrow it down.';return true;
+  }
+  async function structure(){let lines=[];try{if(doc)lines=(await pdfText()).flat();else if(file)lines=(await file.text()).split(/\r?\n/);}catch{lines=[];}return {bookmarks:chapterEntries.length,titles:chapterEntries.map(entry=>entry.title),lines};}
+  return {load,open,mount,clear,structure,selectAll,paneTools:()=>{const pane=dialog.querySelector('.pdf-document-pane');return paneTools(pane,pane.querySelector('.pdf-review-heading'));},snapshot,restore,refreshSettings:()=>refreshAISettings(),setText(text){selected.value=text||'';reportSelection();updateReplace();},hasDrafts:()=>drafts.some(d=>typeof d==='string'&&d.trim()),setIdea(text){const input=dialog.querySelector('[data-idea]');if(input)input.value=text||'';},get element(){return dialog;},get ready(){return ready;},get name(){return file?.name||'';},destroy(){disposed=true;clear();dialog.remove();}};
  }
  window.EccoSourcePicker={create};
 })();
