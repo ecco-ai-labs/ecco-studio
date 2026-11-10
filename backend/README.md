@@ -314,3 +314,23 @@ finds each clip next to the job (the pod path; the coordinator copies `voice-ref
 there), else in a cache keyed by sha256 (`ECCO_VOICE_CACHE` or the temp folder), else
 downloads `url` (or `ECCO_STORAGE_PUBLIC_URL` + `path`), and checks the sha256 every time.
 Idempotent resubmits compare the request without the short-lived link fields.
+
+### Deploying character voice references
+
+`scripts/deploy_voice_references.py` ships the storage API and audio worker files changed
+in c43bf39 (same guarded steps as the other deploy scripts). On the storage API pod, when no
+audio is running:
+
+```
+cd /workspace
+for f in deploy_audio_delivery.py deploy_voice_references.py; do curl -fsSLO https://raw.githubusercontent.com/ecco-ai-labs/ecco-studio/main/scripts/$f; done
+API=$(pgrep -f storage_api.py | head -1); WORKER=$(pgrep -f queue_worker.py | head -1)
+python3 deploy_voice_references.py prepare --api-pid $API --worker-pid $WORKER
+python3 deploy_voice_references.py activate <directory printed after PREPARED>
+```
+
+If prepare lists modules that differ, pass `--with-deps` to both steps (it never ships
+`migration/legacy/studio.py`; if that one differs, update it first). Optionally set
+`ECCO_STORAGE_PUBLIC_URL=https://…` for the storage API so job payloads carry full clip
+URLs for workers that are not on this pod. Workers on other pods need the changed
+`audio/` files from the same commit (they advertise `voice_refs_version: 1`).
