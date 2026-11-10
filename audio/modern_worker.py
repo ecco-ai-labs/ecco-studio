@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from audio_schema import MODELS, validate, performance_direction
 from audio_worker import assemble, inference_device, speech_progress
+from voice_refs import fetch as fetch_voice_ref, ref_id
 
 
 def synthesize(request, output, runtime):
@@ -34,11 +35,17 @@ def synthesize(request, output, runtime):
         model = VoxCPM.from_pretrained(str(root), load_denoiser=False, local_files_only=True, optimize=False, device=device)
         rate = model.tts_model.sample_rate
         def render(line):
-            reference = runtime/'reference-voices'/voices[line['voice']]['file']
+            direction = (line.get('direction', '') if line.get('design') else performance_direction(request, line)).replace('(', '').replace(')', '')
+            text = (f'({direction})' if direction else '') + line['text']
+            if line.get('design'):
+                # Voice design: the description alone shapes a new voice (no reference clip).
+                return model.generate(text=text, normalize=False, denoise=False, seed=42)
+            if ref_id(line['voice']):
+                reference = fetch_voice_ref(request, line['voice'], output)[0]
+            else:
+                reference = runtime/'reference-voices'/voices[line['voice']]['file']
             if not reference.is_file():
                 raise RuntimeError('The selected reference voice is not installed.')
-            direction = performance_direction(request, line).replace('(', '').replace(')', '')
-            text = (f'({direction})' if direction else '') + line['text']
             return model.generate(text=text, reference_wav_path=str(reference), normalize=False, denoise=False, seed=42)
     elif model_id == 'indic-parler':
         from parler_tts import ParlerTTSForConditionalGeneration
@@ -48,8 +55,12 @@ def synthesize(request, output, runtime):
         description_tokenizer = AutoTokenizer.from_pretrained(root/'description-tokenizer', local_files_only=True)
         rate = model.config.sampling_rate
         def render(line):
-            identity = voices[line['voice']].get('speaker')
-            description = (identity + ' speaks' if identity else 'A speaker speaks') + ' in '+line['language']+'. Clear close-microphone recording with no background noise. '+performance_direction(request, line)
+            if line.get('design'):
+                # Voice design: the user's description of the character's voice and feeling.
+                description = line.get('direction', '') + ' Speaks in ' + line['language'] + '. Clear close-microphone recording with no background noise.'
+            else:
+                identity = voices[line['voice']].get('speaker')
+                description = (identity + ' speaks' if identity else 'A speaker speaks') + ' in '+line['language']+'. Clear close-microphone recording with no background noise. '+performance_direction(request, line)
             desc = description_tokenizer(description, return_tensors='pt').to(device)
             prompt = tokenizer(line['text'], return_tensors='pt').to(device)
             result = model.generate(input_ids=desc.input_ids, attention_mask=desc.attention_mask, prompt_input_ids=prompt.input_ids, prompt_attention_mask=prompt.attention_mask)

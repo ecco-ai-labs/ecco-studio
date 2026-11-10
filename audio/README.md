@@ -599,3 +599,15 @@ https://huggingface.co/kenpath/svara-tts-v1-openvino-int4,
 https://github.com/OpenMOSS/MOSS-TTS,
 https://recipes.vllm.ai/OpenMOSS-Team/MOSS-TTSD-v1.0,
 https://huggingface.co/niobures/MOSS-TTSD-v1.0 (mirror of the model card).
+
+## Character voice references — workers (2026-11-09)
+
+Chatterbox, IndicF5 and VoxCPM2 accept `voice: "ref:<asset id>"`. The request's
+`voice_refs` gives each clip's sha256, transcript (IndicF5 reference text) and a signed
+link; `voice_refs.fetch` uses the clip copied into the job folder, a sha256-keyed cache, or
+a download, and refuses any clip whose hash differs. Workers advertise
+`voice_refs_version: 1`. Voice design jobs (`voice_design` + one line with `design: true`)
+run on VoxCPM2 (the description in parentheses, no reference clip) or Indic Parler-TTS
+(the description replaces the speaker description). See backend/README.md for the full
+contract. Unverified: listening quality of copied and designed voices, and VoxCPM2's
+description-only generation, which has not been run on real weights here.

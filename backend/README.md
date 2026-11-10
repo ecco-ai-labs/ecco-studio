@@ -272,3 +272,45 @@ python3 deploy_series_workflows.py activate <directory printed after PREPARED>
 ```
 
 Pass the same `--with-deps` to both steps if prepare asked for it.
+
+## Character voice references (2026-11-09)
+
+A character can speak with a saved clip instead of a catalog voice: a trimmed upload or
+browser recording, or a designed voice. Each clip is an audio asset with a
+`voice_reference` block, stored under `audio-voices/` as mono 24 kHz WAV (3–30 s).
+All routes need the usual `Authorization: Bearer` key, except the signed clip link.
+
+| Route | Body | Returns |
+|---|---|---|
+| `POST /api/audio/voices/create` | `asset_id` (an uploaded audio asset), `character` (1–80), `character_id?` (≤64), `emotion?` (palette name, `^[a-z][a-z0-9-]{0,31}$`, default `default`), `language?`, `transcript?` (≤600; what the clip says — required before IndicF5 uses it), `start?`/`end?` (seconds), `clean?` (FFmpeg `highpass=f=80,afftdn=nf=-25,loudnorm=I=-20:TP=-2:LRA=11`), `source?` (`upload`\|`recording`), `consent: true` (required), `story_id?` | the reference |
+| `POST /api/audio/voices/list` | `story_id?`, `character?`, `character_id?` | `{references: [...]}` |
+| `POST /api/audio/voices/update` | `asset_id`, any of `transcript`, `emotion`, `character`, `character_id` | the reference |
+| `POST /api/audio/voices/design` | `model` (`voxcpm2`\|`indic-parler`), `character`, `character_id?`, `emotion?`, `language`, `text` (sample sentence, becomes the transcript), `description` (≤1200, e.g. "An old woman, warm and slow, smiling"), `compute`, `worker_id?`, `story_id?` | an audio job; when it finishes the job gains `voice_reference_id` and the clip is saved as a `designed` reference |
+| `GET /api/voice-refs/<id>?expires=&sig=` | — (HMAC-signed, 6 h) | the WAV, for workers |
+
+A reference: `{id, title, story_id, duration, sha256, created, character, character_id,
+emotion, language, transcript, source, consent, cleaned, trimmed_start, trimmed_end,
+source_asset_id}`. Errors: missing consent ("Confirm you have permission to use this
+person’s voice."), range outside 3–30 s, a design model that is not installed (the usual
+"selected worker must support every character model" 503), IndicF5 use without a
+transcript ("Type what the … clip says before using it with IndicF5."), and a worker
+without `voice_refs_version: 1` ("Update the selected audio worker before using saved
+character voices.").
+
+**Using clips in `/api/audio/generate`.** A line may set `voice: "ref:<asset id>"`, or
+`palette: {"default": id, "warm": id, "whispering": id, …}` with `delivery` (the line's
+feeling). The palette picks the matching clip, then a near match (`whisper` →
+`whispering`/`hushed`/`suspenseful`, `happy` → `warm`/`laughing`/`excited`, `fear` →
+`scared`/`suspenseful`, `sad` → `tender`, `angry` → `sulky`), then `default`. Only
+Chatterbox, IndicF5 and VoxCPM2 accept clips.
+
+**Self-contained job payload.** After validation the coordinator adds, for each clip,
+`voice_refs: {<asset id>: {sha256, transcript, language, emotion, character, path,
+expires, url?}}`. `path` is the signed `/api/voice-refs/...` link; `url` is the full link
+when `ECCO_STORAGE_PUBLIC_URL` (https) is set on the storage API. The queued
+`request.json` is the whole job: a stateless handler can call the existing worker
+(`synthesize(validate(payload), output, runtime)`) unchanged. `audio/voice_refs.py`
+finds each clip next to the job (the pod path; the coordinator copies `voice-ref-<id>.wav`
+there), else in a cache keyed by sha256 (`ECCO_VOICE_CACHE` or the temp folder), else
+downloads `url` (or `ECCO_STORAGE_PUBLIC_URL` + `path`), and checks the sha256 every time.
+Idempotent resubmits compare the request without the short-lived link fields.

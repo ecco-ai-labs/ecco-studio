@@ -16,6 +16,7 @@ import audio_queue as queue
 from audio_schema import validate
 from sound_schema import validate as validate_sound
 from audio_soundtrack import snapshot_assets
+import voice_references
 
 LOCK = threading.RLock()
 
@@ -25,6 +26,8 @@ def generate(body, env, *, job_id=None, sound=False):
     except ValueError as error:
         raise env['Problem'](str(error))
     sid = env['story_id'](body)
+    if not sound:
+        request = voice_references.attach(request, env)
     with LOCK:
         # Only trusted server callers supply this ID; the HTTP body cannot set it.
         if job_id is not None:
@@ -32,7 +35,7 @@ def generate(body, env, *, job_id=None, sound=False):
                 raise env['Problem']('Invalid internal audio job identity.')
             existing = next((j for j in env['records']('audio_job') if j['id'] == job_id), None)
             if existing:
-                if existing['request'] != request or existing['story_id'] != sid:
+                if voice_references.stable(existing['request']) != voice_references.stable(request) or existing['story_id'] != sid:
                     raise env['Problem']('This audio run already has a different request.', 409)
                 directory = queue.ROOT / job_id
                 if existing['status'] == 'queued' and not (directory / 'request.json').is_file():
@@ -48,6 +51,8 @@ def generate(body, env, *, job_id=None, sound=False):
             raise env['Problem']('This audio worker needs the full-recording update. Your complete script is saved.', 503)
         if request.get('character_controls_version') and target.get('character_controls_version') != 1:
             raise env['Problem']('Update the selected audio worker before using per-character pitch, speed or expressiveness.', 503)
+        if request.get('voice_refs_version') and target.get('voice_refs_version') != 1:
+            raise env['Problem']('Update the selected audio worker before using saved character voices.', 503)
         if request.get('sound_design_version') and target.get('sound_design_version') != 1:
             raise env['Problem']('Update the audio service before generating music and effects.', 503)
         if not sound and (not queue.required_models(request).issubset(target['models']) or (request.get('mixed_models_version') and not queue.request_ready(request))):
@@ -60,6 +65,7 @@ def generate(body, env, *, job_id=None, sound=False):
         directory = queue.ROOT / job['id']
         try:
             snapshot_assets(request, directory, env)
+            voice_references.copy_into(request, directory, env)
         except ValueError as error:
             raise env['Problem'](str(error))
         env['save'](job)
@@ -133,6 +139,14 @@ def job_status(jid, env):
             asset['id'] = hashlib.sha256(('audio-asset:' + jid).encode()).hexdigest()[:32]
             env['save'](asset)
             job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved', asset=asset if request.get('task') == 'sound' else None)
+            if request.get('voice_design'):
+                # A designed voice becomes the character's saved clip as soon as it exists.
+                try:
+                    ref = voice_references.from_design(job, asset, env)
+                    if ref:
+                        job.update(voice_reference_id=ref['id'], progress='Voice saved')
+                except Exception as error:
+                    job.update(progress='Audio saved; the voice could not be saved: ' + getattr(error, 'message', str(error)))
         elif status.get('status') in ('running', 'error', 'cancelled'):
             job.update(status=status['status'], progress=status.get('progress', ''), error=status.get('error', ''))
         job.pop('sound_progress', None)

@@ -146,7 +146,7 @@ def main():
         return
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'resources': preflight_resources(ROOT), 'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'long_form_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'sound_models': enabled_sounds()})
+        write(heartbeat, {'resources': preflight_resources(ROOT), 'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'long_form_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'voice_refs_version': 1, 'sound_models': enabled_sounds()})
     recover_jobs(compute, pod)
     while True:
         beat()
