@@ -253,3 +253,23 @@ Live acceptance still requires three playable outputs in Audio Library and an
 observed scheduled run with the browser closed; unit tests do not prove that.
 
 Session health checks preserve open Desk conversations and unsent ticket drafts when the verified Google subject is unchanged. Account changes and revoked sessions still clear the previous user’s work.
+
+### Deploying series schedules (2026-11-09)
+
+`scripts/deploy_series_workflows.py` ships `backend/audio_workflows.py` from
+commit ae20b1d (news, podcast, series and chapters modes; per-episode
+characters) with the same hash-checked, idle-only, roll-back-on-failure steps as
+`deploy_audio_delivery.py`. `prepare` first checks that the pod already runs the
+same `audio_jobs.py`, `audio_library.py`, `news_research.py` and
+`openai_assistant.py`; if not, it stops and lists them, and `--with-deps` ships
+them from the same commit. On the CPU pod, when no audio is running:
+
+```
+cd /workspace
+for f in deploy_audio_delivery.py deploy_series_workflows.py; do curl -fsSLO https://raw.githubusercontent.com/ecco-ai-labs/ecco-studio/main/scripts/$f; done
+API=$(pgrep -f storage_api.py | head -1); WORKER=$(pgrep -f queue_worker.py | head -1)
+python3 deploy_series_workflows.py prepare --api-pid $API --worker-pid $WORKER
+python3 deploy_series_workflows.py activate <directory printed after PREPARED>
+```
+
+Pass the same `--with-deps` to both steps if prepare asked for it.
