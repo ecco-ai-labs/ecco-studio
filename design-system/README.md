@@ -861,3 +861,12 @@ Photo (photo, What to make from it, Improve with AI) and Generate With AI (idea,
 three AI picture descriptions, Picture Description). The description becomes the
 picture prompt for Image Studio. Video adds Visual style (the existing film
 styles). Audio is unchanged.
+
+Audit fixes, 10 November 2026 (I11–I13): the picture prompt on Story Generation is
+only the picture description, with no speaker labels. Story Characters for a
+picture starts empty with “No characters needed for a picture.” and
+“+ Add a person” (`.story-cast-empty`, spacing only); added people are named
+Person 1, Person 2. The Image style fills the existing Visual style control in
+Additional Controls. With Upload a Photo, the photo is added to the image library
+on the way to Story Generation and becomes the first reference, so Qwen Image Edit
+is selected and the photo is the starting point.

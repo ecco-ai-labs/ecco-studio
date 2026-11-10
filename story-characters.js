@@ -64,7 +64,7 @@
   });
   const add=element('button',{type:'button',className:'story-character-add','aria-label':'Add character',title:'Add character',text:'+'});
   add.disabled=data.cast.length>=20;
-  add.onclick=()=>{if(data.cast.length>=20)return;const c={id:crypto.randomUUID(),name:'Character '+(data.cast.length+1)};data.cast.push(c);data.activeCharacter=c.id;ctx.changed();ctx.redraw();q('[data-property=name]',ctx.root)?.focus();};
+  add.onclick=()=>{if(data.cast.length>=20)return;const c={id:crypto.randomUUID(),name:(data.output==='image'?'Person ':'Character ')+(data.cast.length+1)};data.cast.push(c);data.activeCharacter=c.id;ctx.changed();ctx.redraw();q('[data-property=name]',ctx.root)?.focus();};
   list.append(add);
  }
  function refreshStatus(){
@@ -266,7 +266,12 @@
   const selected=Math.max(0,data.cast.findIndex(c=>c.id===data.activeCharacter));data.activeCharacter=data.cast[selected]?.id;
   drawTabs(selected);
   root.setAttribute('aria-labelledby','story-character-tab-'+selected);root.replaceChildren();
-  const c=data.cast[selected];if(!c)return;
+  const c=data.cast[selected];
+  if(!c){
+   // Pictures start with no characters (audit I12). A person is added only to keep them the same across pictures.
+   if(data.output==='image'){const empty=element('div',{className:'story-cast-empty'});empty.append(element('p',{className:'help',text:'No characters needed for a picture.'}));const add=element('button',{type:'button',className:'secondary',text:'+ Add a person',dataset:{addPerson:''}});add.onclick=()=>q('.story-character-add',ctx.list)?.click();empty.append(add);root.append(empty);}
+   refreshStatus();return;
+  }
   root.append(properties(c,selected),element('div',{className:'story-cast-create'}));
   drawCreate(c,selected);refreshStatus();
  }

@@ -13,7 +13,7 @@
  const languages=['English','Hindi','Urdu','Tamil','Punjabi','Arabic','Spanish','Portuguese','French','German','Italian','Japanese','Korean','Chinese','Bengali','Telugu','Marathi','Gujarati','Kannada','Malayalam'];
  let data=null,legacy={},enabled=false,rendering=false,epoch=0,picker=null,textPickers={},pickerOwner='',sourcePending=false,saving=null,aiRequest=null,queued=false,workspaceStory='';
  const owner=()=>activeStory||legacy.localDraftId;
- function defaultCast(){return ['podcast','interview'].includes(data.type)?[{id:crypto.randomUUID(),name:'Host',role:'Host'},{id:crypto.randomUUID(),name:'Guest',role:'Guest'}]:[{id:crypto.randomUUID(),name:'Narrator',role:'Narrator'}];}
+ function defaultCast(){if(isImage())return [];return ['podcast','interview'].includes(data.type)?[{id:crypto.randomUUID(),name:'Host',role:'Host'},{id:crypto.randomUUID(),name:'Guest',role:'Guest'}]:[{id:crypto.randomUUID(),name:'Narrator',role:'Narrator'}];}
  function message(text,error=false){if(error&&text)window.EccoErrors?.show(text,{title:'Story could not continue'});const el=q(error?'#story-simple-error':'#story-simple-save');if(el&&el.textContent!==text)el.textContent=text;}
  function persist(){
   if(!data)return false;
@@ -441,6 +441,18 @@
   if(data.photo?.name){const name=document.createElement('p');name.className='help';name.textContent=data.photo.name;pick.className='secondary';pick.textContent='Replace photo';box.append(name);if(url){const img=document.createElement('img');img.src=url;img.alt='Uploaded photo';box.append(img);}else{const note=document.createElement('p');note.className='help';note.textContent='Upload the photo again to see it here.';box.append(note);}box.append(pick);}
   else{pick.className='story-upload-target';pick.innerHTML='<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload a Photo';box.append(pick);}
  }
+ // An untouched starter Narrator from Audio or Video means nothing for a picture.
+ function imageCast(){if(isImage()&&!data.castCustomized&&data.cast.length===1&&data.cast[0].name==='Narrator'&&!data.cast[0].reference_id)data.cast=[];}
+ // Add the uploaded photo to the image library once, so Story Generation can use it as the starting point.
+ async function uploadPhoto(){
+  const url=data.photo?.url||photoUrl||'';if(data.pictureTab==='ai'||!data.photo?.name||!url.startsWith('data:image/'))return;
+  const tag=data.photo.name+':'+url.length;if(data.photoAsset?.tag===tag&&state.records.some(r=>r.id===data.photoAsset.id&&!r.deleted))return;
+  try{message('Adding your photo to the image library…');const record=await api('images/upload',{name:data.photo.name,data:url.split(',')[1],story_id:activeStory});if(!record?.id)throw Error('Storage did not confirm the photo.');
+   state.records=[...state.records.filter(r=>r.id!==record.id),{kind:'asset',media:'image',...record}];
+   if(data.photoAsset?.id)data.photoAssetsReplaced=[...new Set([...(data.photoAssetsReplaced||[]),data.photoAsset.id])];
+   data.photoAsset={id:record.id,tag};persist();message('',true);
+  }catch(error){const text='Your photo could not be added, so the picture will be made from the description only. '+error.message;message(text,true);if(typeof notice==='function')notice(text,true);}
+ }
  const pictureText=()=>String((data.pictureTab==='ai'?data.pictureAI:data.photoDesc)||'').trim();
  function picturePicker(kind){
   const key='picture-'+kind;ensurePickerOwner();if(textPickers[key])return textPickers[key];
@@ -462,10 +474,10 @@
   const value=result.revisions?.find(r=>r.id==='picture_description')?.text;if(typeof value!=='string'||!value.trim())throw Error('AI returned no picture description. Try again.');return value.trim();
  }
  function charactersPage(){
-  page='story-characters';if(!data.cast.length)data.cast=defaultCast();
+  page='story-characters';imageCast();if(!data.cast.length)data.cast=defaultCast();
   q('#page').innerHTML='<div class="form"><section class="panel form story-cast" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-cast-reason></p><div class="story-cast-bar"><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><div class="story-cast-legend help" aria-hidden="true"><span><span class="story-cast-status" data-status="none"></span>Not created</span><span><span class="story-cast-status" data-status="created"></span>Created</span><span><span class="story-cast-status" data-status="tested"><svg viewBox="0 0 16 16"><path d="M4.5 8.2l2.3 2.3 4.7-4.8"/></svg></span>Tested</span></div></div><div class="story-cast-body" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions story-cast-actions"><p class="help" id="story-cast-progress" data-cast-progress role="status" aria-live="polite"></p><button type="button" data-next>Next: Story Screen Play</button></div></div>';
   inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
-  inPage('[data-cast-reason]').textContent=data.castReason||(data.castFrom?'':'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.');
+  inPage('[data-cast-reason]').textContent=isImage()?'No characters needed for a picture. Add a person only if you want them to look the same in every picture.':data.castReason||(data.castFrom?'':'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.');
   characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(isImage()){select(GENERATE);return;}if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
  }
  function scriptPage(){
@@ -538,12 +550,18 @@
   delete next.delivery_signature;localStorage.setItem('ecco-audio-draft:'+activeStory,JSON.stringify(next));data.plan=plan;data.applied.audio=signature;
  }
  function prepareVisual(kind){
-  const signature=M.signature(data,kind);if(data.applied[kind]===signature)return;
+  const image=kind==='image'&&isImage(),signature=M.signature(data,kind)+(image?'|'+[data.imageStyle,data.photoAsset?.id||''].join('|'):'');if(data.applied[kind]===signature)return;
   const key='ecco-generation-v1:'+kind+':'+activeStory,previous=read(key);
-  const prompt=[data.script,...data.cast.map(c=>c.name+': '+[c.appearance,c.nationality].filter(Boolean).join(', '))].filter(Boolean).join('\n\n');
+  // A picture prompt is only the picture description: no speaker labels (audit I11).
+  const prompt=image?(pictureText()||data.script).trim():[data.script,...data.cast.map(c=>c.name+': '+[c.appearance,c.nationality].filter(Boolean).join(', '))].filter(Boolean).join('\n\n');
   if(kind==='image'&&prompt.length>4000)throw Error('Shorten the visual story to 4,000 characters before generating an image.');
   const characterReferences=data.cast.map(c=>c.reference_id).filter(id=>state.records.some(r=>r.id===id&&r.kind==='asset'&&r.media==='image'&&!r.deleted));
-  localStorage.setItem(key,JSON.stringify({...previous,prompt,reference_ids:[...new Set([...(previous.reference_ids||[]),...characterReferences])].slice(0,kind==='image'?3:8)}));
+  if(image){
+   // Image style and the uploaded photo carry into Story Generation (audit I13). A photo uses Qwen Image Edit.
+   const photo=data.pictureTab!=='ai'&&data.photoAsset?.id&&state.records.some(r=>r.id===data.photoAsset.id&&!r.deleted)?[data.photoAsset.id]:[],replaced=new Set(data.photoAssetsReplaced||[]);
+   const refs=[...new Set([...photo,...characterReferences,...(previous.reference_ids||[]).filter(id=>!replaced.has(id))])].slice(0,3);
+   localStorage.setItem(key,JSON.stringify({...previous,prompt,style:data.imageStyle||'',reference_ids:refs,...(photo.length?{model:'qwen-image-edit-2511'}:{})}));
+  }else localStorage.setItem(key,JSON.stringify({...previous,prompt,reference_ids:[...new Set([...(previous.reference_ids||[]),...characterReferences])].slice(0,kind==='image'?3:8)}));
   if(kind==='video'){
    const previousBoard=read('ecco-board-draft:'+activeStory);
    const scenes=data.scenes.length?data.scenes:data.script.split(/\n\s*\n/).filter(Boolean).slice(0,60).map((text,i)=>({title:'Scene '+(i+1),narration:text,motion:text,seconds:3,image_id:''}));
@@ -589,7 +607,7 @@
     let needsAssignment=!!data.sourceAssignmentPending;try{M.parseScript(data.audioScript||data.script,data.cast,data.plan);}catch{needsAssignment=true;}
     if(needsAssignment){await recommend(true,{autoApply:true});if(data.sourceAssignmentPending){message(data.castReason||'Character assignment could not finish. Retry Recommend with AI; your complete text is saved.',true);return;}}
    }
-   if(!data.cast.length)data.cast=defaultCast();try{M.validateCast(data.cast);if(data.output==='audio')M.parseScript(data.audioScript||data.script,data.cast,data.plan);const b=inPage('[data-next]');if(b)b.disabled=true;await ensureSaved();}catch(error){message(error.message,true);inPage('[data-next]')?.removeAttribute('disabled');return;}
+   imageCast();if(!data.cast.length)data.cast=defaultCast();try{if(data.cast.length||!isImage())M.validateCast(data.cast);if(data.output==='audio')M.parseScript(data.audioScript||data.script,data.cast,data.plan);const b=inPage('[data-next]');if(b)b.disabled=true;await ensureSaved();if(isImage())await uploadPhoto();}catch(error){message(error.message,true);inPage('[data-next]')?.removeAttribute('disabled');return;}
   }
   captureStudio();if(generating(tab))return generateView(tab===PUBLISH?'publish':view||(data.view!=='publish'&&data.view)||routes[data.output]);data.tab=tab;persist();render();
  }

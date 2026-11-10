@@ -1003,6 +1003,24 @@ test('STORY-20 Image and Video change Story Details fields, the Step 2 screen an
  await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Script','3. Story Characters','4. Story Screen Play','5. Story Generation','6. Story Publishing']);
  expect(page.qaErrors).toEqual([]);
 });
+for(const way of ['Upload a Photo','Generate With AI'])test(`STORY-21 ${way}: the picture reaches Story Generation with only its description, its style and the photo`,async({page})=>{
+ await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt picture '+way);await fillStoryDetail(page,'output','audio');await fillStoryDetail(page,'output','image');
+ await page.locator('#story-simple-details').getByLabel('Image style (required)').selectOption('Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});
+ if(way==='Upload a Photo'){const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
+  await page.getByRole('dialog',{name:'Upload a Photo',exact:true}).locator('[data-selected]').fill('Turn this photo into a picture for a storybook.');}
+ else{await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});await ai.getByLabel('What should your picture show?',{exact:true}).fill('A girl carrying salt');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();}
+ await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
+ // Pictures start with no characters; a person can be added.
+ await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(0);await expect(page.getByText('No characters needed for a picture.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'+ Add a person',exact:true})).toBeVisible();
+ if(way==='Generate With AI'){await page.getByRole('button',{name:'+ Add a person',exact:true}).click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveText(['Person 1']);}
+ const next=page.getByRole('button',{name:'Next: Story Generation',exact:true});await expect(next).toBeEnabled();await next.click();await expect(page.locator('#image-form')).toBeVisible();
+ const prompt=await page.locator('#image-form textarea[name=prompt]').inputValue();expect(prompt).not.toMatch(/Narrator|:\s*$/);expect(prompt).toMatch(way==='Upload a Photo'?/^Turn this photo into a picture for a storybook\.$/:/A girl carrying salt/);
+ const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});expect(saved.style).toBe('Watercolor');
+ if(way==='Upload a Photo'){const upload=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='images/upload'));expect(upload.body.name).toBe('girl.png');expect(saved.reference_ids[0]).toMatch(/^qa-photo-/);await expect(page.locator('#image-form #job-model')).toHaveValue('qwen-image-edit-2511');}
+ else{expect(await page.evaluate(()=>window.__qaCalls.some(c=>c.path==='images/upload'))).toBe(false);expect(saved.reference_ids||[]).toEqual([]);}
+ await expect(page.locator('#ecco-error-popup')).toBeHidden();expect(page.qaErrors).toEqual([]);
+});
 for(const tab of ['Upload PDF','Generate With AI','Write Yourself'])test(`STORY-15 ${tab} keeps three AI drafts and uses the chosen one`,async({page})=>{
  await boot(page,{sourceFit:'drafts'});await page.getByLabel('Story name (required)',{exact:true}).fill('Draft choices');
  for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
