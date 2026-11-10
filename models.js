@@ -15,7 +15,7 @@ const MODEL_CATALOG={
  'silent':{name:'Silent video / script only',defaults:{}},
  'cosyvoice':{name:'CosyVoice — planned',pending:true,defaults:{speed:1,language:'English'}}
 };
-let modelProfiles={selected:{images:'sdxl',assets3d:'trellis-2',video:'preview',story:'manual',voice:'silent'},settings:{}};
+let modelProfiles={selected:{images:'qwen-image-2512',assets3d:'trellis-2',video:'preview',story:'manual',voice:'silent'},settings:{}};
 let activeModelCategory=null;
 try{const saved=JSON.parse(localStorage.getItem('ecco-model-profiles-v1'));if(saved){for(const c of Object.keys(MODEL_CATEGORIES)){if(MODEL_CATEGORIES[c].models.includes(saved.selected?.[c]))modelProfiles.selected[c]=saved.selected[c];}modelProfiles.settings=saved.settings||{};}}catch{}
 // Carry the user's model choices from the GitHub entry page into the same-tab workspace.

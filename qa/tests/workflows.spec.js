@@ -410,6 +410,10 @@ test('NOTIFY-02 history opens an editable re-issue draft and retains the origina
   const posts=await page.evaluate(()=>window.__deskPosts);expect(posts[1].requestId).not.toBe(posts[0].requestId);expect(posts[1].durationDays).toBe(7);
 });
 
+test('MODEL-01 new users get Qwen-Image 2512 as the default image model, not SDXL',async({page})=>{
+  await boot(page);await page.getByRole('button',{name:'Model Garden',exact:true}).click();
+  await expect(page.locator('#models-form [data-category="images"]')).toHaveValue('qwen-image-2512');
+});
 test('NAV-01 Back restores library search/view and the unfinished story',async({page})=>{
   await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Navigation draft');
   const hub=await openLibrary(page,'image');await hub.getByRole('searchbox').fill('Alpha');
