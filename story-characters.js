@@ -17,8 +17,11 @@
   const created=visual()?!!c.reference_id:!!c.voice_sample;
   return created?(c.tested?'tested':'created'):'none';
  }
+ // Owner fix I5 (2026-11-09): in a series written fresh each episode, a character can change each episode (a guest); only fixed characters need a voice now.
+ const seriesOpen=()=>ctx.data.sourceTab==='each'&&ctx.data.recurrence==='recurring';
+ const perEpisode=c=>seriesOpen()&&!!c.perEpisode;
  function progress(){
-  const cast=ctx.data.cast,list=cast.map(status);
+  const cast=ctx.data.cast.filter(c=>!perEpisode(c)),list=cast.map(status);
   return {total:cast.length,created:list.filter(s=>s!=='none').length,tested:list.filter(s=>s==='tested').length};
  }
  async function mediaURL(id){
@@ -57,7 +60,7 @@
   data.cast.forEach((c,index)=>{
    const name=c.name?.trim()||'Character '+(index+1),state=status(c);
    const tab=element('button',{type:'button',className:'story-character-tab',role:'tab',id:'story-character-tab-'+index,'aria-controls':'story-character-properties','aria-selected':String(index===selected),tabindex:index===selected?'0':'-1',dataset:{status:state}});
-   tab.append(marker(state),element('span',{className:'story-cast-tab-name',text:name}));tab.setAttribute('aria-description',LABELS[state]);
+   tab.append(marker(state),element('span',{className:'story-cast-tab-name',text:name}));if(perEpisode(c))tab.append(element('span',{className:'story-generation-tag',text:'Changes each episode'}));tab.setAttribute('aria-description',LABELS[state]);
    tab.onclick=()=>{data.activeCharacter=c.id;ctx.persist();ctx.redraw();q('[data-character-tabs] [aria-selected=true]',q('#page'))?.focus();};
    tab.onkeydown=event=>{const n=data.cast.length,next=event.key==='ArrowRight'?(index+1)%n:event.key==='ArrowLeft'?(index+n-1)%n:event.key==='Home'?0:event.key==='End'?n-1:null;if(next!==null){event.preventDefault();list.querySelectorAll('[role=tab]')[next].focus();}};
    list.append(tab);
@@ -89,7 +92,7 @@
   }else{input.maxLength=key==='name'?60:key==='delivery'||key==='appearance'?1000:500;if(multiline)input.rows=3;}
   input.value=c[key]||'';
   input[options?'onchange':'oninput']=()=>{
-   c[key]=input.value;
+   c[key]=input.value;if(key==='voice')c.voiceChosen=true;
    if(!visual()&&AUDIO_RESET.includes(key)&&(c.voice_sample||c.tested)){delete c.voice_sample;c.tested=false;}
    ctx.changed();
    if(key==='name'){const name=q('#story-character-tab-'+index+' .story-cast-tab-name',ctx.list);if(name)name.textContent=input.value.trim()||'Character '+(index+1);}
@@ -101,6 +104,7 @@
   const {data,languages}=ctx;
   const section=element('section',{className:'story-cast-props form','aria-labelledby':'story-cast-props-title'});
   section.append(element('h3',{id:'story-cast-props-title',text:'From Story'}),element('p',{className:'help',text:'Filled in from your story. Edit anything that doesn’t fit.'}));
+  if(seriesOpen()){const box=element('input',{type:'checkbox'});box.checked=!!c.perEpisode;box.onchange=()=>{c.perEpisode=box.checked;ctx.persist();ctx.redraw();};const label=element('label',{className:'story-cast-each'},box,document.createTextNode(' Changes each episode'));section.append(label,element('p',{className:'help',text:'For a guest or anyone new each time. A voice that fits them is picked when each episode is written.'}));}
   const grid=element('div',{className:'story-character-fields'});
   grid.append(field(c,index,'Name','name'),field(c,index,'Role','role'),field(c,index,'Age group','age_group',{options:['Child','Teenager','Adult','Older adult']}),field(c,index,'Gender','gender',{options:['Female','Male','Non-binary','Unspecified']}));
   const personality=field(c,index,'Personality','personality',{multiline:true});personality.classList.add('story-simple-wide');grid.append(personality);
@@ -257,12 +261,14 @@
   const host=q('.story-cast-create',ctx.root);if(!host)return;
   const focused=document.activeElement?.closest?.('.story-cast-create')?document.activeElement.dataset?.property||document.activeElement.getAttribute('aria-label'):null;
   host.replaceChildren();
+  if(perEpisode(c)){host.append(element('h3',{text:'Picked for each episode'}),element('p',{className:'help',text:'Each episode has a different '+(c.role||c.name||'guest').toLowerCase()+'. A '+(visual()?'look':'voice')+' that fits them is chosen when the episode is written, and you can change it when you review the episode.'}));return;}
   if(visual())createAvatar(c,index,host);else createAudio(c,index,host);
   if(focused)(q('[data-property="'+focused+'"]',host)||q('[aria-label="'+focused+'"]',host))?.focus();
  }
 
  function render(context){
   ctx=context;const {data,root}=ctx;
+  if(seriesOpen())for(const c of data.cast)if(c.perEpisode===undefined)c.perEpisode=/guest|celebrit|interviewee/i.test((c.name||'')+' '+(c.role||''));
   const selected=Math.max(0,data.cast.findIndex(c=>c.id===data.activeCharacter));data.activeCharacter=data.cast[selected]?.id;
   drawTabs(selected);
   root.setAttribute('aria-labelledby','story-character-tab-'+selected);root.replaceChildren();

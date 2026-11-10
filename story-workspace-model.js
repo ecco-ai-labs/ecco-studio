@@ -26,7 +26,8 @@
  }
  function parseScript(text,cast,previous){
   validateCast(cast);const names=new Map(cast.map(c=>[c.name.trim().toLowerCase(),c.id]));
-  const parts=String(text||'').trim().split(/\n\s*\n/).filter(Boolean).map(paragraph=>{
+  const heading=/^\s*(?:chapter|part|episode|section)\s*(?:[0-9]+|[ivxlc]+)\s*(?:[:.\-–—][^\n]{0,70})?\s*(?:\n|$)/i;
+  const parts=String(text||'').trim().split(/\n\s*\n/).map(p=>p.replace(heading,'').trim()).filter(Boolean).map(paragraph=>{
    const i=paragraph.indexOf(':'),id=i>=0?names.get(paragraph.slice(0,i).trim().toLowerCase()):null;
    if(!id&&cast.length>1)throw Error('Start each spoken turn with a character name followed by a colon, and separate turns with a blank line.');
    const words=id?paragraph.slice(i+1).trim():paragraph.trim();if(!words)throw Error('Each spoken turn needs some text.');

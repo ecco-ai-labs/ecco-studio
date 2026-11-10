@@ -309,3 +309,11 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 @media (max-width:900px){.story-picture-photo-row{grid-template-columns:minmax(0,1fr)}}
 /* Pictures start with no characters (audit I12, 10 November 2026). Spacing only; sizes come from the roster. */
 .story-cast-empty{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:16px}
+
+/* New Each Episode (owner fixes I1–I3, 2026-11-09): reuses the Story Script boxes; three equal columns. */
+.story-each-layout{grid-template-columns:repeat(3,minmax(0,1fr))}
+.story-each-layout .pdf-review-box{display:flex;flex-direction:column;gap:8px}
+.story-each-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;overflow:auto}
+.story-each-list li{display:flex;gap:6px;align-items:center}
+.story-each-list input{flex:1 1 auto;min-width:0}
+@media(max-width:900px){.story-each-layout{grid-template-columns:minmax(0,1fr)}}

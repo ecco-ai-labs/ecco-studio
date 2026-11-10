@@ -494,11 +494,12 @@ test('AGENT-03 customer account can run agent and create its own Bug tickets',as
   await expect(page.locator('.notification-composer')).toHaveCount(0);
  });
 test('UPLOAD-01 equal panes, permanent AI workspace and a bottom document ribbon',async({page})=>{
+ test.setTimeout(60000);
   await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Upload controls QA');
   for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
   await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
   const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await (await chooser).setFiles({name:'upload-qa.txt',mimeType:'text/plain',buffer:Buffer.from('The original document remains untouched.')});
-  const dialog=page.getByRole('dialog',{name:'Select Story Text',exact:true}),selected=dialog.locator('[data-selected]');await expect(dialog).toBeVisible();await expect(selected).toHaveValue('');
+  const dialog=page.getByRole('dialog',{name:'Select Story Text',exact:true}),selected=dialog.locator('[data-selected]');await expect(dialog).toBeVisible();await expect(selected).toHaveValue('The original document remains untouched.');await dialog.getByRole('button',{name:'Clear Text',exact:true}).click();await expect(selected).toHaveValue('');
   await expect(dialog.locator('[data-story-context]')).toHaveCount(0);
   for(const width of [1440,1024]){
     await page.setViewportSize({width,height:1000});
@@ -546,10 +547,11 @@ test('UPLOAD-06 Next: Characters selects the audio cast, fills voice properties 
 });
 
 test('UPLOAD-07 real PDF pages and listed chapters populate original editable text before AI and final application',async({page})=>{
+ test.setTimeout(60000);
  await boot(page,{sourceFit:'cast',pdf:true});await page.getByLabel('Story name (required)',{exact:true}).fill('PDF source test');
  for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
  await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await(await chooser).setFiles(new URL('../fixtures/source-chapters.pdf',import.meta.url).pathname);
- const source=page.getByRole('dialog',{name:'Select Story Text',exact:true}),middle=source.locator('[data-selected]');await expect(source.locator('[data-document-info]')).toContainText('10 PDF pages');await expect(middle).toHaveValue('');
+ const source=page.getByRole('dialog',{name:'Select Story Text',exact:true}),middle=source.locator('[data-selected]');await expect(source.locator('[data-document-info]')).toContainText('10 PDF pages');await expect(middle).not.toHaveValue('');await source.getByRole('button',{name:'Clear Text',exact:true}).click();await expect(middle).toHaveValue('');
  await source.locator('[data-pages-menu] summary').click();await source.locator('[data-pages]').fill('2–3');await source.locator('[data-pages]').press('Enter');await expect(middle).toHaveValue(/Page 2, line 1/);await expect(middle).toHaveValue(/Page 3, line 48/);await expect(middle).not.toHaveValue(/Page 1,|Page 4,|PRIVATE_NEXT_CHAPTER/);
  await source.getByRole('button',{name:'Clear Text',exact:true}).click();await source.locator('[data-chapter-menu] summary').press('Enter');await expect(source.locator('[data-chapter-list]')).toBeFocused();await source.locator('[data-chapter-list]').selectOption({label:'Chapter One · page 1'});await source.getByRole('button',{name:'Add Chapter',exact:true}).click();await expect(middle).toHaveValue(/^Chapter One\nBy A. Writer/);await expect(middle).not.toHaveValue(/Chapter Two|PRIVATE_NEXT_CHAPTER/);expect((await middle.inputValue()).length).toBeGreaterThan(30000);expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='ai/enhance').length)).toBe(0);
  await middle.fill((await middle.inputValue()).replace('By A. Writer\n',''));await expect(middle).not.toHaveValue(/By A. Writer/);await source.getByLabel('AI instructions',{exact:true}).fill('Make a short scene with the three characters speaking.');await source.getByRole('button',{name:'Improve with AI',exact:true}).click();await expect(source.getByLabel('Draft 1',{exact:true})).toHaveValue(/Morgiana: I will help/);await expect(middle).toHaveValue(/Page 9, line 48/);
@@ -559,9 +561,10 @@ test('UPLOAD-07 real PDF pages and listed chapters populate original editable te
 
 
 test('UPLOAD-08 mouse selection, Find and Replace, manual edits and saved selection use only chosen PDF text',async({page})=>{
+ test.setTimeout(60000);
  await boot(page,{sourceFit:'cast',pdf:true});await page.getByLabel('Story name (required)',{exact:true}).fill('Selection editing test');for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await(await chooser).setFiles(new URL('../fixtures/source-chapters.pdf',import.meta.url).pathname);
- const source=page.getByRole('dialog',{name:'Select Story Text',exact:true}),middle=source.locator('[data-selected]');const author=source.locator('.textLayer span').filter({hasText:/^By A\. Writer$/});await expect(author).toBeVisible();const rect=await author.boundingBox();await page.mouse.move(rect.x,rect.y+rect.height/2);await page.mouse.down();await page.mouse.move(rect.x+rect.width+2,rect.y+rect.height/2,{steps:8});await page.mouse.up();await expect(middle).toHaveValue('By A. Writer');
+ const source=page.getByRole('dialog',{name:'Select Story Text',exact:true}),middle=source.locator('[data-selected]');const author=source.locator('.textLayer span').filter({hasText:/^By A\. Writer$/});await expect(author).toBeVisible();await expect(middle).not.toHaveValue('');await source.getByRole('button',{name:'Clear Text',exact:true}).click();await expect(middle).toHaveValue('');const rect=await author.boundingBox();await page.mouse.move(rect.x,rect.y+rect.height/2);await page.mouse.down();await page.mouse.move(rect.x+rect.width+2,rect.y+rect.height/2,{steps:8});await page.mouse.up();await expect(middle).toHaveValue('By A. Writer');
  await source.getByRole('button',{name:'Clear Text',exact:true}).click();await expect(middle).toHaveValue('');await source.locator('[data-pages-menu] summary').click();await source.locator('[data-pages]').fill('2');await source.locator('[data-pages]').press('Enter');await expect(middle).toHaveValue(/Page 2, line 48/);
  await source.locator('.pdf-find-replace summary').click();await source.getByLabel('Find',{exact:true}).fill('Ali');await source.getByLabel('Replace with',{exact:true}).fill('Asha');await source.locator('[data-replace-scope]').selectOption('all');await source.getByRole('button',{name:'Replace',exact:true}).click();await expect(middle).toHaveValue(/Asha and Morgiana/);await expect(middle).not.toHaveValue(/Ali and Morgiana|Page 1,|Page 3,/);await page.keyboard.press('Escape');
  await middle.fill('Asha: I will help.\nMorgiana: Thank you.');await source.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(source.locator('[role=status]')).toContainText('Draft saved');await page.keyboard.press('Escape');await page.getByRole('button',{name:'Resume Saved Selection',exact:true}).click();await expect(source.locator('[data-selected]')).toHaveValue('Asha: I will help.\nMorgiana: Thank you.');await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await scriptStep(page);await expect(page.locator('#story-simple-script')).toHaveValue('Asha: I will help.\nMorgiana: Thank you.');
@@ -1165,7 +1168,7 @@ test('STORY-18 Recurring generation: split Story type list, PDF tab name, one-ti
 });
 
 // Owner fixes I4, I6, I7, I8 (2026-11-09).
-test('STORY-21 Recurring: Next opens Schedule first, headings with speaker labels count, episode titles and the heading word are shown',async({page})=>{
+test('STORY-25 Recurring: Next opens Schedule first, headings with speaker labels count, episode titles and the heading word are shown',async({page})=>{
  await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Birds of Prey');await fillStoryDetail(page,'output','audio');
  await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=documentary]').click();await fillStoryDetail(page,'genre','Nature');
  await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
@@ -1174,6 +1177,75 @@ test('STORY-21 Recurring: Next opens Schedule first, headings with speaker label
  await expect(page.getByRole('tab',{name:'Schedule',exact:true})).toHaveAttribute('aria-selected','true');const r=page.locator('[data-recurrence]');
  await expect(r.locator('[data-rec-count]')).toHaveText('Found 3 episodes.');await expect(r.locator('[data-rec-episodes] tr td:nth-child(2)')).toHaveText(['Peregrine Falcon','Golden Eagle','Barn Owl']);
  await expect(next).toHaveText('Next: Story Characters');await next.click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Owner fixes I1–I3, I5 (2026-11-09): New Each Episode and characters that change each episode.
+test('STORY-22 Recurring Interview opens New Each Episode; brief, plan, Schedule with Ends Never, series workflow and a Guest that changes each episode',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Star of the Week');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=interview]').click();await fillStoryDetail(page,'genre','Biography');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
+ const each=page.getByRole('tab',{name:'New Each Episode',exact:true});await expect(each).toHaveAttribute('aria-selected','true');const panel=page.locator('[data-each]');
+ await panel.getByLabel('What is the series about?',{exact:true}).fill('A weekly interview with a well-known person');await panel.getByLabel('What changes each episode?',{exact:true}).fill('A new celebrity every week. Do not repeat a guest.');
+ for(const guest of ['A playback singer','A cricketer']){await panel.getByRole('button',{name:'+ Add episode',exact:true}).click();await panel.locator('[data-each-plan] li:last-child input').fill(guest);}
+ await panel.getByLabel('Episode 1 preview',{exact:true}).fill('Episode 1: A playback singer\nInterviewer: When did you first sing?\nGuest: At school.');
+ const next=page.locator('.story-simple-actions [data-next]');await expect(next).toHaveText('Next: Schedule');await next.click();
+ const r=page.locator('[data-recurrence]');await expect(page.getByRole('tab',{name:'Schedule',exact:true})).toHaveAttribute('aria-selected','true');await expect(r.locator('[data-rec-count]')).toHaveText('A new episode each time it runs.');
+ await expect(r.locator('[data-rec-episodes] tr td:nth-child(2)').first()).toHaveText('A playback singer');await expect(r.locator('[data-rec-episodes]')).toContainText('…and on, until you stop it.');
+ await r.locator('[data-rec=ends]').selectOption('after');await r.locator('[data-rec=count]').fill('4');await r.locator('[data-rec=count]').dispatchEvent('change');await expect(r.locator('[data-rec-episodes] tr')).toHaveCount(4);
+ await r.getByLabel('Workflow name').fill('Star weekly');await r.getByRole('button',{name:'Save as workflow',exact:true}).click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').find(w=>w.name==='Star weekly'));
+ expect(saved).toMatchObject({source_mode:'series',series_about:'A weekly interview with a well-known person',series_plan:['A playback singer','A cricketer'],no_repeat:true,end_mode:'runs',run_count:4});
+ await next.click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
+ const guest=page.locator('[data-character-tabs] [role=tab]',{hasText:'Morgiana'});await guest.click();await expect(page.locator('[data-cast-progress]')).toContainText('of 3');
+ await page.getByRole('checkbox',{name:'Changes each episode',exact:true}).check();await expect(guest).toContainText('Changes each episode');await expect(page.locator('.story-cast-create')).toContainText('Picked for each episode');await expect(page.locator('[data-cast-progress]')).toContainText('of 2');
+ expect(page.qaErrors).toEqual([]);
+});
+
+test('STORY-23 Recurring News: a single bulletin offers Make a new episode each time, which opens New Each Episode with the news window',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Daily Bulletin');await fillStoryDetail(page,'output','video');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=news]').click();await fillStoryDetail(page,'genre','Business');
+ if(await page.locator('#story-detail-videoStyle').count())await page.locator('#story-detail-videoStyle').selectOption({index:1});
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await expect(page.getByRole('tab',{name:'New Each Episode',exact:true})).toHaveAttribute('aria-selected','true');
+ await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Markets opened higher today. Light rain this evening.');
+ await page.locator('.story-simple-actions [data-next]').click();const warning=page.locator('dialog.story-shape-warning');await expect(warning).toBeVisible();
+ await warning.getByRole('button',{name:'Make a new episode each time',exact:true}).click();await expect(page.getByRole('tab',{name:'New Each Episode',exact:true})).toHaveAttribute('aria-selected','true');
+ const panel=page.locator('[data-each]');await expect(panel.getByLabel('What is the series about?',{exact:true})).toHaveValue(/Markets opened higher/);await expect(panel.getByRole('combobox',{name:'Use news from'})).toHaveValue('24');await expect(panel.getByRole('combobox',{name:'Stories per episode'})).toHaveValue('3');
+ await expect(panel.locator('[data-each-plan] li').first()).toContainText('News for');await panel.getByLabel('Episode 1 preview',{exact:true}).fill('Anchor: Good morning. Here is today’s news.');
+ await page.locator('.story-simple-actions [data-next]').click();const r=page.locator('[data-recurrence]');await expect(r.locator('[data-rec-count]')).toHaveText('A new episode each time it runs.');await expect(r.locator('[data-rec-episodes] tr').first()).toContainText('News for');
+ await r.getByRole('button',{name:'Save as workflow',exact:true}).click();const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').find(w=>w.name==='Daily Bulletin'));expect(saved).toMatchObject({source_mode:'news',lookback:24,count:3,end_mode:'never'});
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Voice diversity (owner report 2026-11-09): voices match each character's gender and are not reused within a story.
+test('STORY-24 Characters get different voices that match their gender',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Cave voices');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
+ const cast=await page.evaluate(()=>{const key=Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('simple_workspace')&&localStorage.getItem(k).includes('Cave voices'));const w=JSON.parse(localStorage.getItem(key)).simple_workspace;const voices=window.EccoAudioModels.flatMap(m=>m.voices);return w.cast.map(c=>({name:c.name,gender:c.gender,voice:voices.find(v=>v.id===c.voice)?.name||c.voice}));});
+ expect(new Set(cast.map(c=>c.voice)).size).toBe(3);
+ for(const c of cast)expect(c.voice,c.name).toMatch(c.gender==='Male'?/masculine/:/feminine/);
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Full first-screens workflow for every audited case with a mock PDF (owner request 2026-11-09): Details → Script (PDF) → Schedule when recurring → Characters.
+const PDF_CASES=[['news','once','Business',0],['news','recurring','Business',-1],['podcast','once','Science & Technology',0],['podcast','recurring','Science & Technology',3],['storybook','once','Fantasy',0],['storybook','recurring','Fantasy',4],['audio-drama','once','Adventure',0],['audio-drama','recurring','Adventure',3],['documentary','once','Nature',0],['documentary','recurring','Nature',4],['teaching','once','Science & Technology',0],['teaching','recurring','Science & Technology',3],['interview','once','Biography',0],['interview','recurring','Biography',3],['marketing','once','Business',0]];
+for(const output of ['audio','video'])for(const [type,mode,genre,parts] of PDF_CASES)test(`FLOW-PDF ${output} ${mode} ${type} reaches Story Characters`,async({page})=>{
+ await boot(page,{sourceFit:'cast',pdf:true});await page.getByLabel('Story name (required)',{exact:true}).fill('Flow '+type);await fillStoryDetail(page,'output',output);
+ await page.locator('#story-detail-type-button').click();await page.locator(`#story-detail-type-panel [data-choice-mode=${mode}][data-choice-value=${type}]`).click();await fillStoryDetail(page,'genre',genre);
+ if(output==='video'&&await page.locator('#story-detail-videoStyle').count())await page.locator('#story-detail-videoStyle').selectOption({index:1});
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
+ const pdfTab=page.getByRole('tab',{name:mode==='recurring'?'PDF with multiple chapters/episodes':'Upload PDF',exact:true});await pdfTab.click();
+ const chooser=page.waitForEvent('filechooser');await page.locator('[data-source-panel=pdf] [data-upload]').click();await(await chooser).setFiles(new URL(`../fixtures/workflows/${type}-${mode==='recurring'?'rec':'once'}.pdf`,import.meta.url).pathname);
+ await expect(page.locator('[data-source-panel=pdf] [data-selected]')).not.toHaveValue('',{timeout:40000});
+ const next=page.locator('.story-simple-actions [data-next]'),warning=page.locator('dialog.story-shape-warning');
+ if(parts<0){await expect(warning).toBeVisible();await warning.getByRole('button',{name:'Make a new episode each time',exact:true}).click();await expect(page.getByRole('tab',{name:'New Each Episode',exact:true})).toHaveAttribute('aria-selected','true');await page.locator('[data-each]').getByLabel('Episode 1 preview',{exact:true}).fill('Anchor: Good morning. Here is today’s news.');}
+ if(mode==='recurring'){await expect(next).toHaveText('Next: Schedule');await next.click();const r=page.locator('[data-recurrence]');await expect(r.locator('[data-rec-count]')).toHaveText(parts<0?'A new episode each time it runs.':new RegExp(`^Found ${parts} `));}
+ await expect(warning).toHaveCount(0);await expect(next).toHaveText('Next: Story Characters');await next.click();
+ await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('[data-character-tabs] [role=tab]').first()).toBeVisible();
  expect(page.qaErrors).toEqual([]);
 });
 

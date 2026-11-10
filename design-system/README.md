@@ -851,6 +851,20 @@ drafts start each episode with "Episode N: Title". After a PDF upload the whole
 document is selected (Select Pages can narrow it), so the one-time check runs on
 selected text.
 
+New Each Episode (owner fixes I1–I3, I5, 2026-11-09): recurring stories get a New
+Each Episode Story Script tab (between Write Yourself and Schedule; it opens first
+for recurring News, Podcast, Interview and Documentary). It reuses the Story Script
+boxes in three equal columns: series brief (What is the series about?, What changes
+each episode?, and for News: Use news from, Stories per episode), Episode 1 preview
+(✦ writes a sample) and Episode plan (editable list, + Add episode, ✦ Suggest more;
+News shows Coming up dates). Opening it never erases other tabs. Schedule for this
+source says "A new episode each time it runs.", Ends offers Never or After a number
+of episodes, and Save as workflow writes source_mode news or series (backend
+contract af73c97). The one-time warning adds Make a new episode each time. In Story
+Characters a series written each episode shows a Changes each episode checkbox
+(default on for guest roles); those characters show the tag on their tab, are
+picked per episode, and don't count toward Create every character.
+
 ## Output-aware steps — 9 November 2026
 
 Owner-approved mock. Image: Story Details shows Image style (the Image Studio
@@ -870,3 +884,11 @@ Person 1, Person 2. The Image style fills the existing Visual style control in
 Additional Controls. With Upload a Photo, the photo is added to the image library
 on the way to Story Generation and becomes the first reference, so Qwen Image Edit
 is selected and the photo is the starting point.
+Episodes and voices (owner reports 2026-11-09): for a series with chapters or
+episodes, Screen Play and Generation use one episode at a time without its
+heading line; Start next episode / chapter opens the next one with the same cast
+(at Story Characters). A heading line at the start of a turn is a title, not a
+speaker. Each character gets a voice that matches their gender (from the voice
+names: feminine / masculine) and no voice is reused in one story while the model
+has enough; otherwise a note says some characters share a voice. A voice picked
+by hand is kept.

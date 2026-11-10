@@ -168,10 +168,10 @@
   const help=document.createElement('p');help.className='help';help.textContent='Changes here also update Details.';root.append(help);
  }
  function showSourceTab(name,focus=false){
-  if(name==='rec'&&!showRecurrence())name=data.sourceTab||'pdf';if(!['pdf','ai','write','rec'].includes(name))name='pdf';if(name!=='rec')data.sourceTab=name;data.sourceView=name;
+  if(name==='rec'&&!showRecurrence())name=data.sourceTab||'pdf';if(name==='each'&&!isRecurring())name='pdf';if(!['pdf','ai','write','each','rec'].includes(name))name='pdf';if(name!=='rec')data.sourceTab=name;data.sourceView=name;
   for(const tab of q('#page').querySelectorAll('[data-source-tab]')){const on=tab.dataset.sourceTab===name;tab.setAttribute('aria-selected',String(on));tab.tabIndex=on?0:-1;if(on&&focus)tab.focus();}
   for(const panel of q('#page').querySelectorAll('[data-source-panel]'))panel.hidden=panel.dataset.sourcePanel!==name;
-  if(name==='rec'){data.scheduleSeen=true;paintRecurrence();}updateRecurrenceTab();
+  if(name==='rec'){data.scheduleSeen=true;paintRecurrence();}if(name==='each')paintEach();updateRecurrenceTab();
  }
  // One story at a time: leaving a tab that has work asks first, then erases it (owner request 2026-11-08).
  const SOURCE_NAMES={pdf:'Upload PDF',ai:'Generate With AI',write:'Write Yourself'};
@@ -190,7 +190,7 @@
  }
  function switchSourceTab(name,focus=false){
   // Opening Recurrence never erases anything; it only shows the schedule for the current story.
-  const from=data.sourceTab||'pdf';if(name===from||name==='rec'){showSourceTab(name,focus);persist();return;}
+  const from=data.sourceTab||'pdf';if(name===from||name==='rec'||name==='each'||from==='each'){showSourceTab(name,focus);persist();return;}
   if(!sourceHasContent(from)){showSourceTab(name,focus);persist();return;}
   const dialog=document.createElement('dialog');dialog.className='story-tab-warning';dialog.setAttribute('aria-labelledby','story-tab-warning-title');
   dialog.innerHTML='<h2 id="story-tab-warning-title"></h2><p></p><div class="row"><button type="button" class="secondary" data-go-back>Go back</button><button type="button" data-proceed>Proceed</button></div>';
@@ -207,6 +207,7 @@
   const text=upload&&[...upload.childNodes].find(n=>n.nodeType===3);if(text&&text.textContent!==label)text.textContent=label;
   const idea=inPage('[data-source-host=ai] [data-idea]');if(idea)idea.placeholder=isRecurring()?'For example, a 5-part series about two friends who start a bakery':'For example, two hosts discussing business news for Indian adults';
   const next=inPage('.story-simple-actions [data-next]');if(next){const label=isRecurring()&&!data.scheduleSeen&&data.sourceView!=='rec'?'Next: Schedule':'Next: Story Characters';if(next.textContent!==label)next.textContent=label;}
+  const each=inPage('[data-source-tab=each]');if(each){each.hidden=!isRecurring();if(each.hidden&&data.sourceView==='each')showSourceTab('pdf');}
   tab.hidden=!showRecurrence();if(tab.hidden&&data.sourceView==='rec')showSourceTab(data.sourceTab||'pdf');else if(data.sourceView==='rec')paintRecurrence();
  }
  // Owner fixes I6–I8 (2026-11-09): a speaker label may come first ("Narrator: Part 1"); keep each heading's title and word.
@@ -214,9 +215,18 @@
  const headingList=lines=>lines.map(line=>String(line).match(HEADING)).filter(Boolean).map(m=>{const rest=m[3].trim(),word=m[1].toLowerCase();return {word,title:rest&&rest.length<=60?rest:word[0].toUpperCase()+word.slice(1)+' '+m[2]};});
  const headings=lines=>headingList(lines).length;
  const UNIT={chapter:'chapters',part:'parts',episode:'episodes',section:'sections'};
- function tabText(){const tab=data.sourceTab||'pdf';return String((tab==='pdf'?picker?.element?.querySelector('[data-selected]')?.value:tab==='ai'?data.aiStoryDraft?.text:data.writtenStory)||'').trim();}
+ // Real-AI run fixes E1/E2 (2026-11-09): Screen Play and Generation make one episode at a time, without its heading line.
+ function episodeText(text,index){
+  const lines=String(text||'').split('\n'),starts=lines.map((line,i)=>HEADING.test(line)?i:-1).filter(i=>i>=0);if(starts.length<2)return String(text||'').trim();
+  const at=Math.min(Math.max(0,index|0),starts.length-1),head=lines[starts[at]],m=head.match(HEADING),cut=head.search(/(chapter|part|episode|section|अध्याय|भाग)/i),prefix=cut>0?head.slice(0,cut).trim():'';
+  const body=lines.slice(starts[at]+1,starts[at+1]??lines.length);if(prefix&&m[3].trim())body.unshift(prefix+' '+m[3].trim());
+  return body.join('\n').trim();
+ }
+ const seriesShape=()=>isRecurring()&&data.storyShape?.multi&&!data.storyShape?.open;
+ function tabText(){if(data.sourceTab==='each')return eachText();const tab=data.sourceTab||'pdf';return String((tab==='pdf'?picker?.element?.querySelector('[data-selected]')?.value:tab==='ai'?data.aiStoryDraft?.text:data.writtenStory)||'').trim();}
  // Recurring needs a story that splits into episodes: PDF chapters (bookmarks or headings) or Chapter/Part/Episode headings in the text; AI confirms before a warning.
  async function readShape({confirm=false}={}){
+  if(data.sourceTab==='each'&&isRecurring()){const shape=eachShape();data.storyShape=shape;persist();updateRecurrenceTab();return shape;}
   const tab=data.sourceTab||'pdf';let found=headingList(tabText().split('\n')),bookmarks=[];
   if(tab==='pdf'){const structure=await picker?.structure?.().catch(()=>null);if(structure){const fromPdf=headingList(structure.lines);if(fromPdf.length>found.length)found=fromPdf;bookmarks=structure.titles||[];}}
   if(bookmarks.length>found.length)found=bookmarks.map(title=>({word:'chapter',title}));
@@ -235,10 +245,10 @@
  function oneTimeWarning(shape){
   return new Promise(resolve=>{
    const dialog=document.createElement('dialog');dialog.className='story-tab-warning story-shape-warning';dialog.setAttribute('aria-labelledby','story-shape-warning-title');
-   dialog.innerHTML='<h2 id="story-shape-warning-title">This story is a one-time story</h2><p></p><p class="help">Upload a PDF with multiple chapters or episodes, ask AI for a story in parts, or switch to One time generation.</p><div class="row"><button type="button" class="secondary" data-go-back>Go back</button><button type="button" data-switch-once>Switch to One time</button></div>';
+   dialog.innerHTML='<h2 id="story-shape-warning-title">This story is a one-time story</h2><p></p><p class="help">AI can write a new episode each time, you can use a story with chapters or episodes, or you can make this one time.</p><div class="row"><button type="button" class="secondary" data-go-back>Go back</button><button type="button" class="secondary" data-switch-once>Switch to One time</button><button type="button" data-make-each>Make a new episode each time</button></div>';
    dialog.querySelector('p').textContent='You chose Recurring generation, but this story can only make one episode. '+shape.reason;
-   let choice='back';dialog.querySelector('[data-go-back]').onclick=()=>dialog.close();dialog.querySelector('[data-switch-once]').onclick=()=>{choice='once';dialog.close();};
-   dialog.addEventListener('close',()=>{dialog.remove();if(choice==='once'&&enabled&&data){data.recurrence='once';epoch++;persist();render();}resolve(choice);},{once:true});
+   let choice='back';dialog.querySelector('[data-go-back]').onclick=()=>dialog.close();dialog.querySelector('[data-switch-once]').onclick=()=>{choice='once';dialog.close();};dialog.querySelector('[data-make-each]').onclick=()=>{choice='each';dialog.close();};
+   dialog.addEventListener('close',()=>{dialog.remove();if(choice==='once'&&enabled&&data){data.recurrence='once';epoch++;persist();render();}if(choice==='each'&&enabled&&data){const s=series();if(!s.about.trim())s.about=String(data.brief||tabText()).trim().slice(0,300);data.sourceTab='each';data.storyShape=eachShape();persist();showSourceTab('each',true);}resolve(choice);},{once:true});
    document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-go-back]').focus();
   });
  }
@@ -252,22 +262,23 @@
  function recurrenceSummary(){const shape=data.storyShape,s=schedule();if(!shape?.multi)return 'Set the schedule in Story Script → Schedule.';const first=episodeDates(1)[0],zone=ZONES.find(([z])=>z===s.tz)?.[1]||s.tz;
   return shape.episodes+' episodes · '+({daily:'every day',weekdays:'weekdays',weekly:'every '+WEEKDAYS[+s.day]}[s.repeat])+' at '+timeLabel()+' '+zone+' · first '+dayLabel(first)+(data.workflowName?' · saved as workflow “'+data.workflowName+'”':'');}
  function paintRecurrence(){
-  const root=inPage('[data-recurrence]');if(!root)return;const shape=data.storyShape;root.replaceChildren();
-  if(!shape?.multi){const help=document.createElement('p');help.className='help';help.textContent='Add a story with chapters or parts in one of the other tabs. Each chapter or part becomes an episode, and you set the schedule here.';root.append(help);return;}
+  const root=inPage('[data-recurrence]');if(!root)return;if(data.sourceTab==='each'&&isRecurring())data.storyShape=eachShape();const shape=data.storyShape;root.replaceChildren();
+  if(!shape?.multi){const help=document.createElement('p');help.className='help';help.textContent='Add a story with chapters or parts in one of the other tabs'+(isRecurring()?', or set up New Each Episode':'')+'. Each chapter or part becomes an episode, and you set the schedule here.';root.append(help);return;}
   const s=schedule(),n=shape.episodes,unit=shape.unit||(shape.from==='pdf'?'chapters':'parts'),dates=episodeDates(n),opt=(v,t,cur)=>'<option value="'+v+'"'+(String(cur)===String(v)?' selected':'')+'>'+t+'</option>';
   root.innerHTML=(isRecurring()?'':'<div class="story-recurrence-observed"><p data-rec-observed></p><button type="button" data-make-recurring>Make it recurring</button></div>')
    +'<div class="story-recurrence-grid"><section class="story-recurrence-box" aria-labelledby="story-rec-schedule"><h3 id="story-rec-schedule">Schedule</h3><p class="help" data-rec-count></p>'
    +'<label>Repeats<select data-rec="repeat">'+opt('daily','Every day',s.repeat)+opt('weekdays','Weekdays (Mon–Fri)',s.repeat)+opt('weekly','Once a week',s.repeat)+'</select></label>'
    +(s.repeat==='weekly'?'<label>On<select data-rec="day">'+WEEKDAYS.map((d,i)=>opt(i,d,s.day)).join('')+'</select></label>':'')
    +'<div class="story-recurrence-pair"><label>At<input type="time" data-rec="time" value="'+s.time+'"></label><label>Time zone<select data-rec="tz">'+ZONES.map(([v,t])=>opt(v,t,s.tz)).join('')+'</select></label></div>'
-   +'<div class="story-recurrence-pair"><label>First episode<input type="date" data-rec="start" value="'+s.start+'"></label><label>Ends<select disabled><option data-rec-end></option></select></label></div>'
+   +'<div class="story-recurrence-pair"><label>First episode<input type="date" data-rec="start" value="'+s.start+'"></label><label>Ends'+(shape.open?'<select data-rec="ends">'+opt('never','Never',s.ends||'never')+opt('after','After a number of episodes',s.ends)+'</select>':'<select disabled><option data-rec-end></option></select>')+'</label></div>'+(shape.open&&s.ends==='after'?'<label>Number of episodes<input type="number" min="1" max="500" data-rec="count" value="'+(s.count||6)+'"></label>':'')
    +'<fieldset class="story-recurrence-review"><legend>Before each episode publishes</legend><label><input type="radio" name="story-rec-review" value="review"'+(s.review!=='auto'?' checked':'')+'> Review each episode before it publishes</label><label><input type="radio" name="story-rec-review" value="auto"'+(s.review==='auto'?' checked':'')+'> Publish automatically</label></fieldset></section>'
    +'<section class="story-recurrence-box" aria-labelledby="story-rec-episodes"><h3 id="story-rec-episodes">Episodes</h3><div class="story-recurrence-list"><table><tbody data-rec-episodes></tbody></table></div>'
    +'<h3>Save as workflow</h3><p class="help">Saves this story’s settings and schedule so it can run on its own. It appears in Workflows.</p><label>Workflow name<input data-rec-name maxlength="120"></label><p class="help" data-rec-saved role="status"></p><button type="button" data-rec-save>Save as workflow</button></section></div>';
   const observed=root.querySelector('[data-rec-observed]');if(observed)observed.textContent='This story has '+n+' '+unit+'. You chose One time generation. Setting a schedule here turns it into Recurring generation.';
-  root.querySelector('[data-rec-count]').textContent=(shape.titles?.length===n?'Found '+n+' '+unit+'.':n+' '+unit+' → '+n+' episodes. '+(shape.reason||'')).trim();
-  root.querySelector('[data-rec-end]').textContent='After episode '+n+(dates.length?' ('+dayLabel(dates[dates.length-1])+')':'');
-  const rows=root.querySelector('[data-rec-episodes]');for(const [i,d] of dates.entries()){const row=rows.insertRow();row.insertCell().textContent='Episode '+(i+1);row.insertCell().textContent=shape.titles?.[i]||(unit==='chapters'?'Chapter ':'Part ')+(i+1);row.insertCell().textContent=dayLabel(d)+' · '+timeLabel();}
+  root.querySelector('[data-rec-count]').textContent=shape.open?'A new episode each time it runs.':(shape.titles?.length===n?'Found '+n+' '+unit+'.':n+' '+unit+' → '+n+' episodes. '+(shape.reason||'')).trim();
+  if(!shape.open)root.querySelector('[data-rec-end]').textContent='After episode '+n+(dates.length?' ('+dayLabel(dates[dates.length-1])+')':'');
+  const rows=root.querySelector('[data-rec-episodes]');for(const [i,d] of dates.entries()){const row=rows.insertRow();row.insertCell().textContent='Episode '+(i+1);row.insertCell().textContent=shape.open?(isNews()?'News for '+dayLabel(d):shape.titles?.[i]||'Picked by AI when it runs'):shape.titles?.[i]||(unit==='chapters'?'Chapter ':'Part ')+(i+1);row.insertCell().textContent=dayLabel(d)+' · '+timeLabel();}
+  if(shape.open&&(s.ends||'never')==='never'){const row=rows.insertRow(),cell=row.insertCell();cell.colSpan=3;cell.className='help';cell.textContent='…and on, until you stop it.';}
   const name=root.querySelector('[data-rec-name]');name.value=data.workflowName||data.title||'';
   if(data.workflowName)root.querySelector('[data-rec-saved]').textContent='Saved as “'+data.workflowName+'” · in Workflows';
   root.querySelector('[data-make-recurring]')?.addEventListener('click',()=>{data.recurrence='recurring';epoch++;persist();render();});
@@ -275,10 +286,63 @@
   for(const radio of root.querySelectorAll('[name=story-rec-review]'))radio.onchange=()=>{data.schedule={...schedule(),review:radio.value};persist();};
   root.querySelector('[data-rec-save]').onclick=()=>{const label=name.value.trim()||data.title||'Story';saveWorkflow(label);paintRecurrence();};
  }
+
+ // ---- New Each Episode (owner fixes I1–I3, 2026-11-09): AI writes each episode when it runs ----
+ const EACH_FIRST=['news','podcast','interview','documentary'];
+ const isNews=()=>data?.type==='news';
+ function series(){const d={about:'',changes:'',plan:[],lookback:24,count:3,preview:''};if(!data.series)data.series={...d};for(const k in d)if(data.series[k]===undefined)data.series[k]=d[k];return data.series;}
+ const eachReady=()=>{const s=series();return !!(s.about.trim()||s.plan.some(t=>t.trim()));};
+ const eachText=()=>{const s=series();return s.preview.trim()||[s.about&&'Series: '+s.about,s.changes&&'Each episode: '+s.changes,s.plan.length&&'Episode plan: '+s.plan.filter(Boolean).join('; ')].filter(Boolean).join('\n');};
+ function eachShape(){const s=series(),sc=schedule(),n=sc.ends==='after'?Math.max(1,+sc.count||1):Math.max(6,s.plan.length);
+  return {multi:eachReady(),episodes:n,from:'each',open:true,unit:'episodes',titles:isNews()?[]:s.plan.filter(t=>t.trim()),reason:eachReady()?'A new episode each time it runs.':'Say what the series is about.'};}
+ function paintEach(){
+  const root=inPage('[data-each]');if(!root)return;const s=series(),news=isNews(),opt=(v,t,cur)=>'<option value="'+v+'"'+(String(cur)===String(v)?' selected':'')+'>'+t+'</option>';
+  root.innerHTML='<div class="pdf-selection-layout story-each-layout">'
+   +'<section class="pdf-review-box story-each-brief" aria-label="Series brief"><span class="pdf-review-heading" id="story-each-about-label">What is the series about?</span><textarea data-each-field="about" rows="4" aria-labelledby="story-each-about-label"></textarea>'
+   +'<label class="story-each-label" for="story-each-changes">What changes each episode?</label><textarea id="story-each-changes" data-each-field="changes" rows="4"></textarea>'
+   +(news?'<div class="story-recurrence-pair"><label>Use news from<select data-each-field="lookback">'+opt(24,'Past 24 hours',s.lookback)+opt(72,'Past 3 days',s.lookback)+opt(168,'Past week',s.lookback)+'</select></label><label>Stories per episode<select data-each-field="count">'+[1,2,3,4,5].map(n=>opt(n,n,s.count)).join('')+'</select></label></div><p class="help">Each episode lists the news sources it used.</p>':'')
+   +'<p class="help" data-each-when></p></section>'
+   +'<section class="pdf-review-box pdf-selected-label story-each-preview" aria-label="Preview"><div class="pdf-pane-head"><span class="pdf-review-heading" id="story-each-preview-label">Episode 1 preview</span><button type="button" class="pdf-icon-btn pdf-ai-icon" data-each-preview aria-label="Write a preview" title="Write a preview">✦</button></div><span class="help">A sample so you can check the tone. Later episodes are written fresh.</span><textarea data-each-field="preview" rows="10" aria-labelledby="story-each-preview-label" placeholder="Select ✦ to see what episode 1 could sound like."></textarea><p class="help" data-each-status role="status" aria-live="polite"></p></section>'
+   +'<section class="pdf-review-box story-each-plan" aria-label="Plan"><span class="pdf-review-heading" id="story-each-plan-label">'+(news?'Coming up':'Episode plan')+'</span><span class="help">'+(news?'Topics are picked from the news on the day each episode runs.':'Edit, remove or add topics. After the plan, AI picks new ones.')+'</span><ol class="story-each-list" data-each-plan></ol>'
+   +(news?'':'<div class="row"><button type="button" class="secondary" data-each-add>+ Add episode</button><button type="button" class="secondary" data-each-suggest>✦ Suggest more</button></div>')+'</section></div>';
+  for(const field of root.querySelectorAll('[data-each-field]')){const key=field.dataset.eachField;field.value=s[key]??'';
+   field.oninput=field.onchange=()=>{s[key]=field.tagName==='SELECT'?+field.value:field.value;persist();updateRecurrenceTab();};}
+  root.querySelector('[data-each-field=about]').placeholder=({news:'For example, today’s top business news for India',podcast:'For example, a weekly tech show for everyday people',interview:'For example, a weekly interview with a well-known person',documentary:'For example, birds of prey'})[data.type]||'For example, a weekly story for children';
+  root.querySelector('[data-each-field=changes]').placeholder=news?'For example, fresh news every episode':'For example, one bird each week. Do not repeat a bird.';
+  root.querySelector('[data-each-when]').textContent='Each episode is written when it runs. '+(schedule().review==='auto'?'It publishes on its own.':'You review it before it publishes.');
+  const list=root.querySelector('[data-each-plan]');
+  if(news){for(const [i,d] of episodeDates(5).entries()){const li=document.createElement('li');li.textContent='Episode '+(i+1)+' · News for '+dayLabel(d);list.append(li);}}
+  else s.plan.forEach((topic,i)=>{const li=document.createElement('li'),input=document.createElement('input'),remove=document.createElement('button');
+   input.value=topic;input.setAttribute('aria-label','Episode '+(i+1)+' topic');input.oninput=()=>{s.plan[i]=input.value;persist();};
+   remove.type='button';remove.className='secondary';remove.textContent='×';remove.setAttribute('aria-label','Remove episode '+(i+1));remove.onclick=()=>{s.plan.splice(i,1);persist();paintEach();};
+   li.append(input,remove);list.append(li);});
+  root.querySelector('[data-each-add]')?.addEventListener('click',()=>{s.plan.push('');persist();paintEach();root.querySelector('[data-each-plan] li:last-child input')?.focus();});
+  root.querySelector('[data-each-suggest]')?.addEventListener('click',event=>void suggestTopics(event.currentTarget));
+  root.querySelector('[data-each-preview]').onclick=event=>void writePreview(event.currentTarget);
+ }
+ async function suggestTopics(button){
+  const s=series(),status=inPage('[data-each-status]'),origin=owner();button.disabled=true;
+  try{const contract='Return JSON only: {"topics":[string]}. Suggest 5 new episode topics for this series, each under 8 words, none repeating the existing plan.';
+   const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,fields:[{id:'series_plan',text:'{"topics":[]}',max_length:2000}],context:{title:data.title,genre:data.genre,language:data.language,summary:JSON.stringify({story_type:data.type,about:s.about,changes:s.changes,plan:s.plan}),lines:[],instructions:contract},review_only:false});
+   if(origin!==owner())return;const text=result.revisions?.find(r=>r.id==='series_plan')?.text||'{}',topics=JSON.parse(String(text).trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')).topics||[];
+   s.plan.push(...topics.map(String).filter(t=>t.trim()&&!s.plan.includes(t)).slice(0,5));persist();paintEach();
+  }catch(error){if(status)status.textContent='Could not suggest topics: '+error.message;}finally{button.disabled=false;}
+ }
+ async function writePreview(button){
+  const s=series(),origin=owner(),target=data,status=inPage('[data-each-status]');if(!eachReady()){if(status)status.textContent='Say what the series is about first.';return;}
+  button.disabled=true;button.setAttribute('aria-busy','true');if(status)status.textContent='Writing a preview…';
+  try{const topic=isNews()?'':(s.plan.find(t=>t.trim())||'');
+   const variation='Write only episode 1 of an ongoing series. Series: '+s.about+'. What changes each episode: '+(s.changes||'a new topic')+'.'+(topic?' Episode 1 topic: '+topic+'.':'')+' Start with the line "Episode 1: '+(topic||'Title')+'".';
+   const saved=data.brief;data.brief=s.about;const result=await recommend(false,{returnProposal:true,ignoreSource:true,variation});data.brief=saved;
+   if(origin!==owner()||target!==data)return;s.preview=result.proposal.script||'';persist();paintEach();
+  }catch(error){if(status)status.textContent='Could not write a preview: '+error.message;}finally{if(button.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');}}
+ }
  // Saved where the Workflows screen keeps workflow drafts. Running on schedule still needs the workspace scheduling service.
  function saveWorkflow(label){
-  const key='ecco-workflow-drafts',list=read(key,[]),id=data.workflowId||(data.workflowId=crypto.randomUUID()),s=schedule(),n=data.storyShape.episodes;
-  const entry={...(list.find(w=>w.id===id)||{}),id,workflow_type:'audio',name:label,source_mode:'chapters',source_story_id:activeStory||'',next_chapter:1,total_chapters:n,repeat:s.repeat,weekday:+s.day,start_date:s.start,time:s.time,timezone:s.tz,end_mode:'count',run_count:n,review_before_publish:s.review!=='auto',status:'draft',schedule_requested:false,updated:Date.now()/1000,unsaved_changes:true};
+  const key='ecco-workflow-drafts',list=read(key,[]),id=data.workflowId||(data.workflowId=crypto.randomUUID()),s=schedule(),n=data.storyShape.episodes,open=!!data.storyShape.open,b=series();
+  const mode=open?(isNews()?{source_mode:'news',prompt:b.about,lookback:+b.lookback||24,count:+b.count||3}:{source_mode:'series',prompt:b.about,series_about:b.about,series_changes:b.changes,series_plan:b.plan.filter(t=>t.trim()),no_repeat:true}):{source_mode:'chapters',next_chapter:1,total_chapters:n};
+  const ends=open?((s.ends||'never')==='never'?{end_mode:'never'}:{end_mode:'runs',run_count:n}):{end_mode:'count',run_count:n};
+  const entry={...(list.find(w=>w.id===id)||{}),id,workflow_type:'audio',name:label,...mode,source_story_id:activeStory||'',repeat:s.repeat,weekday:+s.day,start_date:s.start,time:s.time,timezone:s.tz,...ends,speakers_per_episode:(data.cast||[]).filter(c=>c.perEpisode).map(c=>c.name),review_before_publish:s.review!=='auto',status:'draft',schedule_requested:false,updated:Date.now()/1000,unsaved_changes:true};
   try{localStorage.setItem(key,JSON.stringify([...list.filter(w=>w.id!==id),entry]));}catch(error){message('Could not save the workflow in this browser: '+error.message,true);return;}
   data.workflowName=label;epoch++;persist();
  }
@@ -286,12 +350,13 @@
   const list=inPage('.story-source-tabs');if(!list)return;const tabs=[...list.querySelectorAll('[data-source-tab]')];
   for(const tab of tabs)tab.onclick=()=>switchSourceTab(tab.dataset.sourceTab);
   list.onkeydown=event=>{const tabs=[...list.querySelectorAll('[data-source-tab]:not([hidden])')],index=tabs.findIndex(tab=>tab.getAttribute('aria-selected')==='true'),step={ArrowRight:1,ArrowLeft:-1}[event.key];if(!step&&event.key!=='Home'&&event.key!=='End')return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+step+tabs.length)%tabs.length;switchSourceTab(tabs[next].dataset.sourceTab,true);};
+  if(isRecurring()&&!data.sourceTab&&EACH_FIRST.includes(data.type))data.sourceTab='each';
   updateRecurrenceTab();showSourceTab(data.sourceView==='rec'?'rec':data.sourceTab||'pdf');
   if(!window.EccoSourcePicker)return;
   if(picker&&pickerOwner===owner()){picker.mount?.(inPage('[data-source-host=pdf]'));placeUpload();}textPicker('ai').mount(inPage('[data-source-host=ai]'));textPicker('write').mount(inPage('[data-source-host=write]'));updateRecurrenceTab();
  }
  // The text in the selected Story tab, which AI reads on Next: Characters.
- function storyText(){const tab=data.sourceTab||'pdf',text=tab==='pdf'?picker?.element?.querySelector('[data-selected]')?.value:tab==='ai'?data.aiStoryDraft?.text:data.writtenStory;return String(text||data.script||'').trim();}
+ function storyText(){if(data.sourceTab==='each'&&isRecurring())return eachText();const tab=data.sourceTab||'pdf',text=tab==='pdf'?picker?.element?.querySelector('[data-selected]')?.value:tab==='ai'?data.aiStoryDraft?.text:data.writtenStory;return String(text||data.script||'').trim();}
  function placeUpload(){
   const placeholder=inPage('[data-source-placeholder]'),upload=inPage('[data-upload]'),tools=picker?.paneTools?.();
   if(!placeholder||!upload||!tools||!tools.isConnected)return;
@@ -409,14 +474,15 @@
  }
  function story(){
   page='story-properties';if(!data.cast.length)data.cast=defaultCast();
-  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel"><div class="story-settings-bar" role="group" aria-label="Story settings" data-story-settings></div><div class="story-source-tabs" role="tablist" aria-label="Story source"><button type="button" role="tab" id="story-source-tab-pdf" aria-controls="story-source-panel-pdf" data-source-tab="pdf">Upload PDF</button><button type="button" role="tab" id="story-source-tab-ai" aria-controls="story-source-panel-ai" data-source-tab="ai">Generate With AI</button><button type="button" role="tab" id="story-source-tab-write" aria-controls="story-source-panel-write" data-source-tab="write">Write Yourself</button><button type="button" role="tab" id="story-source-tab-rec" aria-controls="story-source-panel-rec" data-source-tab="rec" hidden>Schedule</button></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-pdf" aria-labelledby="story-source-tab-pdf" data-source-panel="pdf"><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden><div class="pdf-selection-layout story-source-placeholder" data-source-placeholder><section class="pdf-review-box pdf-document-pane" aria-label="Document preview panel"><div class="story-upload-slot" data-upload-slot><button type="button" class="story-upload-target" data-upload><span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload PDF</button></div></section><section class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading">Selected Text</span><span class="help">Only this text will be used in your story.</span><textarea disabled rows="12" aria-label="Selected Text (upload a PDF first)" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></section><section class="pdf-review-box pdf-ai-pane"><strong class="pdf-review-heading">Improve with AI</strong><textarea disabled rows="6" aria-label="AI instructions (upload a PDF first)" placeholder="Describe how to improve the selected text…"></textarea><div class="pdf-ai-drafts" aria-hidden="true"><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 1</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 2</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 3</button></div><textarea disabled rows="8" aria-label="Draft (upload a PDF first)" placeholder="Your AI output will appear here."></textarea></section></div><div class="story-source-host" data-source-host="pdf"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-ai" aria-labelledby="story-source-tab-ai" data-source-panel="ai"><div class="story-source-host" data-source-host="ai"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-write" aria-labelledby="story-source-tab-write" data-source-panel="write"><div class="story-source-host" data-source-host="write"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-rec" aria-labelledby="story-source-tab-rec" data-source-panel="rec" hidden><div class="story-recurrence" data-recurrence></div></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="row story-source-resume"><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button></div><label class="story-final-script" hidden>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help hidden></p><div data-sources></div></section><div class="story-simple-actions"><button type="button" data-next>Next: Story Characters</button></div></div>';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel"><div class="story-settings-bar" role="group" aria-label="Story settings" data-story-settings></div><div class="story-source-tabs" role="tablist" aria-label="Story source"><button type="button" role="tab" id="story-source-tab-pdf" aria-controls="story-source-panel-pdf" data-source-tab="pdf">Upload PDF</button><button type="button" role="tab" id="story-source-tab-ai" aria-controls="story-source-panel-ai" data-source-tab="ai">Generate With AI</button><button type="button" role="tab" id="story-source-tab-write" aria-controls="story-source-panel-write" data-source-tab="write">Write Yourself</button><button type="button" role="tab" id="story-source-tab-each" aria-controls="story-source-panel-each" data-source-tab="each" hidden>New Each Episode</button><button type="button" role="tab" id="story-source-tab-rec" aria-controls="story-source-panel-rec" data-source-tab="rec" hidden>Schedule</button></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-pdf" aria-labelledby="story-source-tab-pdf" data-source-panel="pdf"><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden><div class="pdf-selection-layout story-source-placeholder" data-source-placeholder><section class="pdf-review-box pdf-document-pane" aria-label="Document preview panel"><div class="story-upload-slot" data-upload-slot><button type="button" class="story-upload-target" data-upload><span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload PDF</button></div></section><section class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading">Selected Text</span><span class="help">Only this text will be used in your story.</span><textarea disabled rows="12" aria-label="Selected Text (upload a PDF first)" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></section><section class="pdf-review-box pdf-ai-pane"><strong class="pdf-review-heading">Improve with AI</strong><textarea disabled rows="6" aria-label="AI instructions (upload a PDF first)" placeholder="Describe how to improve the selected text…"></textarea><div class="pdf-ai-drafts" aria-hidden="true"><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 1</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 2</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 3</button></div><textarea disabled rows="8" aria-label="Draft (upload a PDF first)" placeholder="Your AI output will appear here."></textarea></section></div><div class="story-source-host" data-source-host="pdf"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-ai" aria-labelledby="story-source-tab-ai" data-source-panel="ai"><div class="story-source-host" data-source-host="ai"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-write" aria-labelledby="story-source-tab-write" data-source-panel="write"><div class="story-source-host" data-source-host="write"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-each" aria-labelledby="story-source-tab-each" data-source-panel="each" hidden><div class="story-each" data-each></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-rec" aria-labelledby="story-source-tab-rec" data-source-panel="rec" hidden><div class="story-recurrence" data-recurrence></div></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="row story-source-resume"><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button></div><label class="story-final-script" hidden>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help hidden></p><div data-sources></div></section><div class="story-simple-actions"><button type="button" data-next>Next: Story Characters</button></div></div>';
   const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
   inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
   inPage('[data-upload]').onclick=()=>inPage('[data-file]').click();inPage('[data-file]').onchange=async e=>{const file=e.target.files[0];if(!file)return;const origin=owner();sourcePending=true;try{const chosen=sourcePicker();chosen.mount?.(inPage('[data-source-host=pdf]'));placeUpload();await chosen.load(file,inPage('[data-upload]'));if(origin===owner())await chosen.selectAll?.();if(origin===owner()&&data.tab===STORY){render();const shape=await readShape();if(origin===owner()&&data.tab===STORY&&isRecurring()&&!shape.multi)await oneTimeWarning(shape);}}catch(error){message(error.message,true);}};
   settingsBar();sourceTabs();
   void syncSourceResume().catch(error=>message(error.message,true));
   // The Story step only produces the story; Next: Characters carries it forward (owner direction 2026-11-08).
-  inPage('[data-next]').onclick=async()=>{if(isRecurring()){const origin=owner(),shape=await readShape({confirm:true});if(origin!==owner()||data.tab!==STORY)return;if(!shape.multi){await oneTimeWarning(shape);return;}if(!data.scheduleSeen&&data.sourceView!=='rec'){showSourceTab('rec',true);persist();return;}}const text=storyText();if(text&&text!==data.castFrom){data.script=text;delete data.audioScript;data.scenes=[];epoch++;persist();}select(CHARACTERS);if(text&&text!==data.castFrom)void recommend(true,{readStory:text});};showSources();
+  inPage('[data-next]').onclick=async()=>{if(isRecurring()){const origin=owner(),shape=await readShape({confirm:true});if(origin!==owner()||data.tab!==STORY)return;if(shape.from==='each'&&!shape.multi){showSourceTab('each',true);inPage('[data-each-status]')&&(inPage('[data-each-status]').textContent='Say what the series is about first.');return;}if(!shape.multi){await oneTimeWarning(shape);return;}if(!data.scheduleSeen&&data.sourceView!=='rec'){showSourceTab('rec',true);persist();return;}}if(data.sourceTab==='each'&&isRecurring()&&!series().preview.trim()){const button=inPage('[data-each-preview]');showSourceTab('each');await writePreview(button||document.createElement('button'));if(!series().preview.trim())return;}
+  const text=storyText(),inSeries=seriesShape(),episode=inSeries?episodeText(text,data.episode||0):text;if(inSeries)data.seriesText=text;else delete data.seriesText;if(text&&(text!==data.castFrom||episode!==data.script)){data.script=episode;delete data.audioScript;data.scenes=[];epoch++;persist();}select(CHARACTERS);if(text&&text!==data.castFrom)void recommend(true,{readStory:text});};showSources();
  }
  // ---- Story Picture (Image output) ----
  function picturePage(){
@@ -502,9 +568,28 @@
      const matched=data.castCustomized&&previous.find(old=>old.name.trim().toLowerCase()===c.name.trim().toLowerCase());
      const defaults=data.output==='image'?{}:{language:data.language,emotion:'neutral',voice:window.EccoAudioDirection?.defaultVoice(model,c.language||data.language,i)||''};
      const voice=(model?.voices||[]).some(v=>v.id===c.voice)?c.voice:defaults.voice;
-     return {...defaults,...c,...(data.output!=='image'?{voice,language:c.language||data.language,emotion:c.emotion||'neutral'}:{}),...(matched?Object.fromEntries(['voice','dialect','style','emotion','delivery','appearance','gender','age_group','nationality'].filter(k=>matched[k]).map(k=>[k,matched[k]])):{})};
+     return {...defaults,...c,...(data.output!=='image'?{voice,language:c.language||data.language,emotion:c.emotion||'neutral'}:{}),...(matched?Object.fromEntries(['voice','voiceChosen','dialect','style','emotion','delivery','appearance','gender','age_group','nationality'].filter(k=>matched[k]).map(k=>[k,matched[k]])):{})};
     });
+    if(data.output!=='image'&&model)assignVoices(proposal.cast,model);
     return proposal;
+ }
+ // Voice diversity fix (owner report 2026-11-09): match each character's gender and never reuse a voice in one story when the model has enough voices.
+ function voicePool(model,language){
+  const all=model?.voices||[];if(model?.id==='chatterbox'){const m=all.filter(v=>v.name.startsWith(language+' ·')||v.name.startsWith(language+' '));return m.length?m:all.filter(v=>v.id==='default');}
+  return all.filter(v=>!v.language||v.language===language);
+ }
+ const voiceGender=v=>/\bmasculine\b/i.test(v.name||'')?'Male':/\bfeminine\b/i.test(v.name||'')?'Female':'';
+ function assignVoices(cast,model){
+  const used=new Set(),kept=new Set(cast.filter(c=>c.voiceChosen).map(c=>c.voice));let short=0;
+  for(const c of cast){
+   if(c.voiceChosen){used.add(c.voice);continue;}
+   const pool=voicePool(model,c.language||data.language),free=pool.filter(v=>!used.has(v.id)&&!kept.has(v.id)),gender=/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
+   const suggested=free.find(v=>v.id===c.voice&&(!gender||!voiceGender(v)||voiceGender(v)===gender));
+   const pick=suggested||(gender&&free.find(v=>voiceGender(v)===gender))||free.find(v=>!voiceGender(v)||!gender)||free[0];
+   if(pick){c.voice=pick.id;used.add(pick.id);}else{short++;if(!pool.some(v=>v.id===c.voice))c.voice=pool[0]?.id||c.voice;}
+  }
+  data.voiceShortage=short?{model:model.name||model.id,count:cast.length}:null;
+  if(short)message(model.name+' doesn’t have a different '+data.language+' voice for every character, so some share a voice. Choose another audio model with more '+data.language+' voices for more variety.');
  }
  function applyDetectedCast(proposal,model,valid){
     castDefaults(proposal,model);valid();data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.cast.length+' '+(data.output==='audio'?'audio ':'')+'characters identified from applied text.'+(proposal.reason?' '+proposal.reason:'');data.plan=proposal.plan||null;if(proposal.plan){data.audioScript=M.transcript(proposal.plan,data.cast);if(data.output==='audio')data.script=data.audioScript;data.sourceAssignmentPending=false;}data.castPending=false;epoch++;persist();if(data.tab===CHARACTERS){render();aiStatus('Characters and properties are ready.');}
@@ -648,7 +733,9 @@
   if(q('[data-result-note]',review).textContent!==note)q('[data-result-note]',review).textContent=note;
   q('[data-next-episode]',review).hidden=data.recurrence!=='recurring';
  }
- function nextEpisode(){const seed={...clone(data),title:'',script:'',audioScript:'',brief:'',aiStoryDraft:null,scriptReviewDraft:null,source:{text:'',name:'',pages:[]},scenes:[],plan:null,tab:0,view:'',applied:{},research:null};window.EccoWorkspaceUI.startNewStory({id:data.type,format:data.output,seed:{simple_workspace:seed}});}
+ function nextEpisode(){const n=(data.episode||0)+1,chapter=data.seriesText&&data.storyShape?.multi&&!data.storyShape?.open&&n<data.storyShape.episodes;
+  if(chapter){const seed={...clone(data),episode:n,script:episodeText(data.seriesText,n),audioScript:'',scenes:[],plan:null,tab:CHARACTERS,view:'',applied:{},research:null,title:(data.title||'Story').replace(/ · Episode \d+$/,'')+' · Episode '+(n+1)};window.EccoWorkspaceUI.startNewStory({id:data.type,format:data.output,seed:{simple_workspace:seed}});return;}
+  const seed={...clone(data),title:'',script:'',audioScript:'',brief:'',aiStoryDraft:null,scriptReviewDraft:null,source:{text:'',name:'',pages:[]},scenes:[],plan:null,tab:0,view:'',applied:{},research:null};window.EccoWorkspaceUI.startNewStory({id:data.type,format:data.output,seed:{simple_workspace:seed}});}
  function open(){
   captureStudio();epoch++;sourcePending=false;message('',true);
   legacy=activeStory?storyDescription():read('ecco-new-story-draft');legacy={...legacy,localDraftId:legacy.localDraftId||crypto.randomUUID()};

@@ -804,7 +804,8 @@
         "six-step-story-workspace",
         "named-character-tabs",
         "recurring-generation",
-        "output-aware-steps"
+        "output-aware-steps",
+        "new-each-episode"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -832,7 +833,8 @@
         "six-step-story-workspace",
         "named-character-tabs",
         "recurring-generation",
-        "output-aware-steps"
+        "output-aware-steps",
+        "new-each-episode"
       ],
       "standardValues": {
         "sizes": "size-roster.json: tab"
