@@ -33,6 +33,8 @@
  window.EccoAudioCompute={target:computeTarget,choices:computeChoices,value:computeValue,parse:parseCompute,readiness:modelReadiness};
  // Voice fix (real run 2026-11-09): which speech models the selected (or any ready) worker can run now; null until checked.
  window.EccoAudioCompute.refresh=()=>checkCompute().catch(()=>null);
+ // Automatic episodes record on a GPU only: the first ready A100 or B200 and its speech models.
+ window.EccoAudioCompute.gpu=()=>{const found=['b200','a100'].find(id=>computeStatus?.compute?.[id]?.ready);return found?{compute:found,models:computeStatus.compute[found].models||[]}:null;};
  window.EccoAudioCompute.readyNow=()=>{if(!computeStatus)return null;const selected=draft?computeTarget(computeStatus,draft.compute,draft.worker_id):null;const targets=selected?.ready?[selected]:[...(computeStatus.instances||[]),...Object.values(computeStatus.compute||{})].filter(t=>t?.ready);const ids=[...new Set(targets.flatMap(t=>t.models||[]))];return ids.length?ids:null;};
  function showModelAvailability(){
   if(!draft)return;

@@ -948,3 +948,15 @@ audio character is ready once it has a voice; samples are optional (video still
 needs avatars). Story Screen Play suggests delivery and sounds once on arrival,
 keeping anything set by hand. Generate With AI writes the way people speak for
 each Story type.
+
+Automatic episodes (owner-approved mock 2026-11-09, story-auto.js): for a
+recurring story, Schedule shows an Automatic episodes box under the schedule.
+Make the pilot episode saves the workflow with automatic episodes on and makes
+episode 1 on the connected A100 or B200 (disabled with the reason when no GPU or
+voice model is ready; CPU is never used). The pilot shows progress stages, then
+the recording, the checks in plain words (✓ passed, ✗ failed, “not checked”
+when a check could not run), any question with two samples to pick from, and
+Tell us what to change (plain words; Apply and remake). Sounds good, approve the
+series applies the Before each episode publishes choice and starts the schedule;
+then each episode is listed with its status, the same change box and Publish
+when it waits for an OK. Layout only; sizes come from the roster.

@@ -339,3 +339,14 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .story-cast-row audio{grid-column:1/-1}
 .story-cast-row audio[hidden]{display:none}
 @media(max-width:900px){.story-cast-row{grid-template-columns:minmax(0,1fr)}}
+/* Automatic episodes (story-auto.js): layout only. */
+.story-auto{margin-top:14px}
+.story-auto .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.story-auto-episodes{display:flex;flex-direction:column;gap:12px}
+.story-auto-episode{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--ecco-theme-border,#51496f);padding-top:10px}
+.story-auto-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline}
+.story-auto-stages,.story-auto-checks{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.story-auto-change{display:flex;flex-direction:column;gap:6px}
+.story-auto-change textarea{width:100%}
+.story-auto-question{display:flex;flex-direction:column;gap:6px}
+.story-auto audio{width:100%;max-width:520px}

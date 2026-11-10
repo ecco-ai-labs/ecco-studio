@@ -1633,3 +1633,36 @@ test('LOOK-06 header tooltips are set in Look and Feel',async({page})=>{
  await panel.getByRole('button',{name:'Show a tooltip',exact:true}).click();
  await expect.poll(tip).toEqual({shown:true,bg:'rgb(255, 220, 36)',font:'14px',dot:'10px'});
 });
+
+// Automatic episodes (owner-approved mock, 2026-11-09): pilot on a GPU, plain-words change, approve; no voice or sound settings to choose.
+test('STORY-31 Schedule makes a pilot episode automatically, takes a plain-words change and approves the series',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Nights');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=storybook]').click();await fillStoryDetail(page,'genre','Fantasy');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Chapter 1: The Merchant\nNarrator: A merchant rested under a tree.\n\nChapter 2: The Fisherman\nNarrator: A fisherman cast his net.');
+ const next=page.locator('.story-simple-actions [data-next]');await expect(next).toHaveText('Next: Schedule');await next.click();
+ const panel=page.locator('[data-auto]');await expect(panel.getByRole('heading',{name:'Automatic episodes',exact:true})).toBeVisible();
+ const pilot=panel.getByRole('button',{name:'Make the pilot episode',exact:true});await expect(pilot).toBeDisabled();await expect(panel).toContainText('recorded on a GPU');
+ await page.evaluate(()=>{window.EccoAudioCompute.gpu=()=>({compute:'b200',models:['voxcpm2','indicf5']});let status='made';const prev=api;
+  const ep=()=>({id:'ep1',episode:1,title:'The Merchant',status,phase:'',progress:'',returning:[],new_voices:['Narrator','Merchant'],asset_id:'qa-audio-0',checks:{distinct_voices:{status:'passed'},listen_back:{status:'skipped'}},questions:[],changes:window.__qaChanges||[]});
+  api=async(path,body)=>{window.__qaCalls.push({path,body});
+   if(path==='audio/workflows/save')return {...body,id:body.id,name:body.name};
+   if(path==='audio/workflows/status')return {workflows:[{id:window.__qaCalls.find(c=>c.path==='audio/workflows/save').body.id,review_before_publish:true,name:'Nights'}],runs:[]};
+   if(path==='audio/auto/pilot')return {series:{},episode:null,run_id:'r1',episode_id:'ep1'};
+   if(path==='audio/auto/episodes')return {series:{approved:window.__qaApproved||false},episodes:[ep()]};
+   if(path==='audio/auto/change'){window.__qaChanges=[{instruction:body.instruction}];return {episode:ep()};}
+   if(path==='audio/auto/approve'){window.__qaApproved=true;return {series:{approved:true},workflow:{status:'active'}};}
+   return prev(path,body);};});
+ await page.locator('[data-rec=time]').fill('10:00');await page.locator('[data-rec=time]').dispatchEvent('change');
+ await expect(pilot).toBeEnabled();await page.locator('[data-rec=tz]').selectOption('Asia/Kolkata');await page.locator('[data-rec=time]').dispatchEvent('change');await pilot.click();
+ const saved=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='audio/workflows/save').body);
+ expect(saved).toMatchObject({auto:true,review_before_publish:true,source_mode:'chapters',total_chapters:2,audio_snapshot:{model:'voxcpm2',compute:'b200',genre:'Story Book Reading'},auto_options:{language:'English'}});expect(saved.chapters).toHaveLength(2);expect(saved.chapters[1]).toContain('fisherman');
+ await expect(panel).toContainText('Pilot · Episode 1 · The Merchant');await expect(panel).toContainText('✓ A different voice for each character');await expect(panel).toContainText('Every word was spoken (not checked)');
+ await panel.getByLabel('Tell us what to change',{exact:true}).fill('The narrator warmer and slower');await panel.getByRole('button',{name:'Apply and remake',exact:true}).click();
+ await expect(panel).toContainText('✓ Changed: “The narrator warmer and slower”');
+ await page.locator('[name=story-rec-review][value=auto]').check();
+ await panel.getByRole('button',{name:'Sounds good, approve the series',exact:true}).click();await expect(panel).toContainText('Series approved. Each episode publishes on its own');
+ const calls=await page.evaluate(()=>window.__qaCalls.map(c=>c.path));expect(calls).toContain('audio/auto/approve');
+ const resave=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/workflows/save').at(-1).body);expect(resave.review_before_publish).toBe(false);
+ expect(page.qaErrors).toEqual([]);
+});
