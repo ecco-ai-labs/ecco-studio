@@ -385,6 +385,30 @@ is saved as a rule), `script` (replace one line's words in this episode). The
 instruction is saved on the series and given to the AI in every later episode's cast,
 script, delivery and sound steps.
 
+### Deploying (one combined deploy, 2026-11-09)
+
+`scripts/deploy_auto_series.py` replaces running `deploy_series_workflows.py` and
+`deploy_voice_references.py` separately: it ships every storage API and audio worker
+file for series schedules, optional labels, character voice references and automatic
+episodes from commit 69cc552 with the same hash-checked, idle-only,
+roll-back-on-failure steps, and also refuses while an automatic episode is `working`.
+On the storage API pod, when no audio is running:
+
+```
+cd /workspace
+for f in deploy_audio_delivery.py deploy_auto_series.py; do curl -fsSLO https://raw.githubusercontent.com/ecco-ai-labs/ecco-studio/main/scripts/$f; done
+API=$(pgrep -f storage_api.py | head -1); WORKER=$(pgrep -f queue_worker.py | head -1)
+python3 deploy_auto_series.py prepare --api-pid $API --worker-pid $WORKER
+python3 deploy_auto_series.py activate <directory printed after PREPARED>
+```
+
+If prepare lists modules that differ, pass `--with-deps` to both steps (it never ships
+`migration/legacy/studio.py`; if that one differs, update it first). GPU workers on other
+pods design the voices, record and listen back: they need the `audio/` files from the same
+commit (`queue_worker.py`, `listen_worker.py`, `voice_refs.py`, `audio_schema.py`, …) and
+then advertise `voice_refs_version: 1` and, with Whisper cached, `listen_version: 1`.
+Optionally set `ECCO_STORAGE_PUBLIC_URL=https://…` so job payloads carry full links.
+
 ## Character voice references (2026-11-09)
 
 A character can speak with a saved clip instead of a catalog voice: a trimmed upload or
