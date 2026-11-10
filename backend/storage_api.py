@@ -34,6 +34,7 @@ import ecco_desk
 import web_origins
 import youtube_connection
 import voice_references
+import auto_series
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
@@ -49,6 +50,7 @@ WRITE_ROUTES = frozenset({
     '/api/ai/connect', '/api/ai/settings', '/api/ai/disconnect', '/api/ai/enhance',
     '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
     '/api/audio/voices/create', '/api/audio/voices/list', '/api/audio/voices/update', '/api/audio/voices/design',
+    *auto_series.ROUTES,
     '/api/images/upload', '/api/stories', '/api/stories/archive', '/api/boards',
     '/api/library/folders', '/api/library/save', '/api/trash', '/api/trash/board',
     '/api/library/labels/create', '/api/library/labels/assign', '/api/library/labels/remove',
@@ -117,6 +119,15 @@ class Handler(legacy.Handler):
                 return self.send({'error': exc.message}, exc.code)
             except Exception:
                 return self.send({'error': 'Invalid voice link.'}, 403)
+        if path.startswith('/api/audio/auto/listen-input/'):
+            # Signed, short-lived link: the listen-back worker reads one episode recording.
+            try:
+                file = auto_series.verify_listen_link(path.split('/')[-1], parse_qs(urlsplit(self.path).query), vars(legacy))
+                return self.send(file.read_bytes(), 200, mime='audio/wav')
+            except legacy.Problem as exc:
+                return self.send({'error': exc.message}, exc.code)
+            except Exception:
+                return self.send({'error': 'Invalid recording link.'}, 403)
         if path == '/healthz':
             return self.send({'ok': True, 'service': 'ecco-storage-api', 'gpu_required': False})
         if not self.authorized(): return
@@ -219,6 +230,8 @@ class Handler(legacy.Handler):
                 return self.send(audio_workflows.save(body, vars(legacy)))
             if path == '/api/audio/workflows/control':
                 return self.send(audio_workflows.control(body, vars(legacy)))
+            if path in auto_series.ROUTES:
+                return self.send(auto_series.handle(path, body, vars(legacy)))
             if path == '/api/stories':
                 return self.send(audio_stories.save(body, vars(legacy)))
             if path == '/api/stories/plan':
@@ -260,6 +273,7 @@ def main():
     audio_video_sequence.start(vars(legacy))
     audio_jobs.start(vars(legacy))
     audio_workflows.start(vars(legacy))
+    auto_series.start(vars(legacy))
     character_studio.start(vars(legacy))
     address = os.getenv('ECCO_STORAGE_BIND', '127.0.0.1')
     port = int(os.getenv('ECCO_STORAGE_PORT', '8888'))

@@ -32,8 +32,15 @@ def recover_jobs(compute, pod=''):
         if owns(request, compute, pod) and status.get('status') == 'running' and (not pod or status.get('worker_pod') == pod):
             write(directory / 'status.json', {'status': 'cancelled', 'progress': 'Stopped by user'} if (directory / 'cancel.json').exists() else {'status': 'error', 'error': 'Audio worker restarted. Please generate again.'})
 
+def listen_ready(compute, base=None):
+    """Listen-back runs Whisper in the IndicF5 GPU environment with weights already cached; never on CPU."""
+    base = Path(base or Path(__file__).parent)
+    venvs = Path(os.environ.get('ECCO_AUDIO_VENVS') or base)
+    return (compute != 'cpu' and (venvs / 'indicf5-venv/bin/python').is_file()
+            and (base / 'hf-cache' / 'hub' / 'models--openai--whisper-large-v3-turbo').is_dir())
+
 @contextmanager
-def claim_job(directory, compute, pod, models, sounds):
+def claim_job(directory, compute, pod, models, sounds, listen=False):
     """One owner per job across hosts; never consume a job for another instance."""
     with (directory / 'claim.lock').open('a') as lock:
         try:
@@ -43,9 +50,10 @@ def claim_job(directory, compute, pod, models, sounds):
             return
         request = read(directory / 'request.json', {})
         status = read(directory / 'status.json', {})
-        enabled = sounds if request.get('task') == 'sound' else models
-        needed = {request.get('model')} if request.get('task') == 'sound' else required_models(request)
-        if not request or not owns(request, compute, pod) or status.get('status') != 'queued' or not needed.issubset(enabled):
+        task = request.get('task')
+        enabled = sounds if task == 'sound' else models
+        needed = {request.get('model')} if task == 'sound' else set() if task == 'listen' else required_models(request)
+        if not request or not owns(request, compute, pod) or status.get('status') != 'queued' or not needed.issubset(enabled) or (task == 'listen' and not listen):
             yield None
             return
         if (directory / 'cancel.json').exists():
@@ -53,7 +61,7 @@ def claim_job(directory, compute, pod, models, sounds):
             yield None
             return
         write(directory / 'status.json', {'status': 'running', 'compute': compute, 'worker_pod': pod, 'started': time.time(),
-                                         'progress': 'Loading sound model' if request.get('task') == 'sound' else 'Generating speech'})
+                                         'progress': 'Loading sound model' if task == 'sound' else 'Listening back' if task == 'listen' else 'Generating speech'})
         yield request
 
 def cpu_threads():
@@ -74,6 +82,13 @@ def worker_command(request, directory):
             env['CUDA_VISIBLE_DEVICES'] = ''
         env.pop('PYTHONPATH', None)
         return [sys.executable, str(base / 'mixed_worker.py'), '--request', str(directory / 'request.json'), '--runtime', str(models_dir), '--output', str(directory / 'output.wav')], env
+    if request.get('task') == 'listen':
+        python = venvs / 'indicf5-venv/bin/python'
+        if request.get('compute') == 'cpu' or not python.is_file():
+            raise RuntimeError('Listen-back runs on a GPU worker with the IndicF5 environment.')
+        env = dict(os.environ, HF_HOME=str(base / 'hf-cache'), HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
+        env.pop('PYTHONPATH', None)
+        return [str(python), str(base / 'listen_worker.py'), '--request', str(directory / 'request.json'), '--output', str(directory / 'output.json')], env
     if request.get('task') == 'sound':
         if model not in SOUND_MODELS:
             raise ValueError('Unsupported sound model.')
@@ -146,12 +161,12 @@ def main():
         return
     heartbeat = ROOT / ('worker-' + pod + '.json')
     def beat():
-        write(heartbeat, {'resources': preflight_resources(ROOT), 'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'long_form_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'voice_refs_version': 1, 'sound_models': enabled_sounds()})
+        write(heartbeat, {'resources': preflight_resources(ROOT), 'updated': time.time(), 'pod': pod, 'name': config.get('name', pod), 'compute': compute, 'gpu': gpu, 'models': enabled_models(), 'instance_routing_version': 1, 'cpu_count': cpu_count(), 'memory_gb': round(memory_bytes()/1e9), 'mixed_models_version': 1, 'long_form_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1, 'cancellation_version': 1, 'voice_refs_version': 1, 'listen_version': 1 if listen_ready(compute) else 0, 'sound_models': enabled_sounds()})
     recover_jobs(compute, pod)
     while True:
         beat()
         for d in sorted(ROOT.glob('[a-f0-9]' * 32)):
-            with claim_job(d, compute, pod, enabled_models(), enabled_sounds()) as request:
+            with claim_job(d, compute, pod, enabled_models(), enabled_sounds(), listen_ready(compute)) as request:
                 if request is None:
                     continue
                 run_job(request, d, compute, pod, beat)
@@ -187,10 +202,10 @@ def run_job(request, d, compute, pod, beat):
             cancellation.check(d)
             if process.returncode:
                 phase = read(d / 'progress.json', {}).get('progress', '')
-                raise RuntimeError('Soundtrack mixing failed. Check the sound files and audio worker log.' if phase == 'Mixing music and effects' else 'Sound generation failed. Check the sound worker log and try again.' if request.get('task') == 'sound' else 'Speech inference failed. Check the audio worker log and try again.')
-        output = d / 'output.wav'
-        if not output.is_file() or output.stat().st_size <= 44:
-            raise RuntimeError('The audio model returned an empty recording.')
+                raise RuntimeError('Soundtrack mixing failed. Check the sound files and audio worker log.' if phase == 'Mixing music and effects' else 'Listen-back failed. Check the audio worker log.' if request.get('task') == 'listen' else 'Sound generation failed. Check the sound worker log and try again.' if request.get('task') == 'sound' else 'Speech inference failed. Check the audio worker log and try again.')
+        output = d / ('output.json' if request.get('task') == 'listen' else 'output.wav')
+        if not output.is_file() or output.stat().st_size <= (2 if request.get('task') == 'listen' else 44):
+            raise RuntimeError('Listen-back returned no transcript.' if request.get('task') == 'listen' else 'The audio model returned an empty recording.')
         cancellation.check(d)
         write(d / 'status.json', {'status': 'complete', 'compute': compute, 'worker_pod': pod,
             'provenance': read(d / 'provenance.json', {}), 'sha256': hashlib.sha256(output.read_bytes()).hexdigest()})

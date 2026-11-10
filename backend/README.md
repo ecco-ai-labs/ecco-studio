@@ -273,6 +273,118 @@ python3 deploy_series_workflows.py activate <directory printed after PREPARED>
 
 Pass the same `--with-deps` to both steps if prepare asked for it.
 
+## Automatic episodes (auto series)
+
+An automatic episode goes from a chapter, a series topic, news research or a story's text
+to a checked recording with a distinct voice per character, without the user choosing
+voices, feelings or sounds. It is used for a one-time story's pilot and for every run of
+a workflow saved with `auto: true`. Code: `backend/auto_series.py`; listen-back worker:
+`audio/listen_worker.py`. Workflows without `auto` behave exactly as before.
+
+**Phases** (saved after each; a restart resumes): `source` (scheduled runs: chapter text,
+series topic or news research) → `cast` (AI: characters with gender, age group,
+personality, voice brief, sample sentence, 2–4 feelings, `unusual`) → `voices` (match to
+the series cast by id, name or alias; each new character gets one designed-voice job,
+VoxCPM2 or Indic Parler-TTS by language; a brief too similar to an existing one gets a
+contrasting trait; an `unusual` character gets two candidate samples) → `script` (AI
+`audio_plan`; Podcast, Interview, News and Casual Conversation are rewritten as people
+speak, Documentary/Educational are written for listening, stories keep the author's words
+split by speaker) → `delivery` (AI `audio_directed_script`: per-line emotion, English
+direction, pause 0–2 s; text must come back unchanged or delivery is skipped) → `sounds`
+(AI cues, at most `max_cues`; each named sound is generated once with MOSS SoundEffect or
+ACE-Step and reused by name across the series) → `assets` (waits for those jobs;
+questions) → `record` (one `/api/audio/generate`-shaped request: `voice: "ref:<id>"`, or a
+`palette` + `delivery` when the character has saved feeling clips in the same story;
+`direction` for VoxCPM2; `speed` from a "slow"/"quick" direction or a saved
+rule; `pause_before`; `soundtrack` with `sound_design_version: 1`) → `recording` → `check`
+→ `listen` → done.
+
+Feeling clips are not designed: the design models here make a new timbre each time, so a
+designed "angry" clip would sound like another person. Feelings are carried by delivery
+and direction; saved clips with an emotion (from `/api/audio/voices/create`) are used as
+the palette. Automatic episodes need Chatterbox, IndicF5 or VoxCPM2 and an A100 or B200;
+CPU is refused. Every AI call marks the episode in flight; if the service stops during the
+call the episode errors ("No paid retry was made"). AI busy (429), four queued audio jobs
+(429) or a missing worker/model (503) wait and show the reason in `progress`.
+
+**Checks** (`checks.<name>.status`: `passed`, `failed`, `partial`, `skipped`; anything that
+could not run is `skipped`, never `passed`):
+- `distinct_voices` — each speaking character has a different clip (descriptions that are
+  very similar are listed). Acoustic similarity is not measured.
+- `gender_age` — the character's gender and age group against the words of its voice
+  brief (not the audio). Voices from recordings without a brief are not checked (`partial`
+  or `skipped`).
+- `listen_back` — Whisper large-v3-turbo transcript vs. the script; `score` = share of
+  script words heard in order, pass ≥ 0.8, `missing` = up to 5 missed passages. Runs as a
+  queue job (`task: "listen"`) on a GPU worker advertising `listen_version: 1` (IndicF5
+  environment present and Whisper weights cached by `prepare_reference_voices.py`).
+  Skipped when no such worker is live, the job fails, or it takes over 30 minutes.
+- `loudness` — FFmpeg `loudnorm` integrated loudness must be −26…−10 LUFS, and
+  `silencedetect` (−45 dB) must find no silence longer than max(4 s, longest planned pause
+  + 2 s). Skipped when FFmpeg is missing.
+- `sounds`, `delivery` — whether sound design and AI delivery were used.
+
+**Status:** `working` (with `phase`, `progress`), `question` (waiting for an answer),
+`made` (finished pilot, or a story episode), `held` (scheduled episode waiting for
+`publish`: the workflow's `review_before_publish` is true — the default — or a check
+failed, `held_reason` says which), `published` (scheduled episode, review off, no failed
+check; or published by hand), `error` (`error` says why). Published is a status on the
+episode only; nothing is posted anywhere.
+
+**Workflow fields** (`/api/audio/workflows/save`): `auto: true`, `review_before_publish`
+(bool, default true; stored for every workflow), `auto_options: {language, audience?,
+conversational? (default from genre), sounds? (true), listen_back? (true), max_cues? (0–6,
+default 4)}`, `audio_snapshot: {model, compute, genre, worker_id?, speed?, pitch?, pause?,
+script_brief?}`. Speakers are not needed and are not saved. Runs (`Run Now`, schedule)
+create the episode `uuid5(URL, "ecco-auto-episode:" + run_id)`; the run shows
+`waiting` + "Waiting for your answer: …" while a question is open and finishes `done`
+when the episode is made, held or published (chapters, series topics and labels advance
+as before).
+
+**The series cast** is one record per story (or per workflow without a story); a
+workflow with `source_story_id` shares its story's cast, so a story pilot and its
+schedule use the same voices. Returning characters keep their voice; one-off characters
+become `recurring` when they appear again.
+
+All routes need the usual `Authorization: Bearer` key, except the signed recording link.
+Errors are `{error}` with 400 (invalid input), 404 (unknown episode), 409 (wrong state),
+429 (busy), 503 (scheduler or worker missing).
+
+| Route | Body | Returns |
+|---|---|---|
+| `POST /api/audio/auto/pilot` | Story: `story_id`, `text` (1–20,000), `title?` (≤160), `brief?` (≤4,000), `audio_snapshot: {model, compute, genre, …}`, `auto_options` (as above). Workflow: `workflow_id`, `request_id` (UUID, for idempotency). | `{series, episode, episode_id}`; for a workflow `{series, episode: null, run_id, episode_id}` (the scheduler starts it within 15 s). 409 if this series already has an episode `working` or `question`; 429 beyond 3 active automatic episodes. |
+| `POST /api/audio/auto/episodes` | `story_id` or `workflow_id` | `{series, episodes: [note]}` |
+| `POST /api/audio/auto/change` | `episode_id`, or (`story_id`\|`workflow_id`) + `episode` (number; latest if omitted); `instruction` (1–1,000, plain words) | `{episode: note, changes: [{type, character?, summary}], remake_from: "assets"\|"record", series}`; the episode is remade in the background. 409 while `working`. |
+| `POST /api/audio/auto/answer` | `episode_id` (or owner + `episode`), `question_id`, `option` (index) | `{episode: note, series}`; the chosen sample becomes the character's voice. 409 if already answered. |
+| `POST /api/audio/auto/approve` | `workflow_id` | `{series, workflow: {id, status, next_run, review_before_publish}}`; needs a finished pilot (409), then enables the schedule (same rules as `control` `enable`). |
+| `POST /api/audio/auto/publish` | `episode_id` (or owner + `episode`) | `{episode: note}`; only `made` or `held`. |
+| `GET /api/audio/auto/listen-input/<asset id>?expires=&sig=` | — (HMAC, 6 h; only episode recordings) | the WAV, for listen-back workers |
+
+**Note** (one per episode):
+```
+{id, episode, title, status, phase, progress, error, held_reason, version,
+ new_voices: [name], returning: [name],
+ checks: {distinct_voices, gender_age, listen_back, loudness, sounds, delivery: {status, detail, …}},
+ questions: [{id, text, options: [{label, sample_ref}], answer: null | index}],
+ changes: [{instruction, applied: [{type, summary}], at, version}],
+ asset_id, story_id, workflow_id, published_at, created, updated}
+```
+`sample_ref` is a voice reference asset id (play it like any audio asset). `listen_back`
+adds `score`, `model`, `missing`; `loudness` adds `lufs`, `long_silences`.
+
+**Series:** `{id, story_id, workflow_id, approved, instructions: [{text, episode, at}],
+cast: [{id, name, role, gender, age_group, personality, voice_description, voice_ref,
+palette, feelings, recurring, episodes}]}`.
+
+**Plain-words changes.** AI turns the instruction into: `voice` (new brief → the old clip
+moves to `voice_history`, a new voice is designed and used from now on), `delivery`
+(speed 0.75–1.5, direction, pause; for named lines it applies to this episode only,
+otherwise it is saved as a rule for that character or everyone), `sound` (remove, quieter
+−6 dB, louder +4 dB; a cue index applies to this episode, `music`/`ambience`/`effect`/`all`
+is saved as a rule), `script` (replace one line's words in this episode). The
+instruction is saved on the series and given to the AI in every later episode's cast,
+script, delivery and sound steps.
+
 ## Character voice references (2026-11-09)
 
 A character can speak with a saved clip instead of a catalog voice: a trimmed upload or

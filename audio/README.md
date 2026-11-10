@@ -611,3 +611,16 @@ run on VoxCPM2 (the description in parentheses, no reference clip) or Indic Parl
 (the description replaces the speaker description). See backend/README.md for the full
 contract. Unverified: listening quality of copied and designed voices, and VoxCPM2's
 description-only generation, which has not been run on real weights here.
+
+## Listen-back for automatic episodes (2026-11-09)
+
+`listen_worker.py` transcribes a finished episode with Whisper large-v3-turbo for the
+automatic-episode listen-back check. A queue job with `task: "listen"` carries
+`{model: "whisper-large-v3-turbo", compute, language, input: {sha256, path, expires,
+url?}}`; on a pod the coordinator also copies the recording next to the job as
+`input.wav`, otherwise the worker downloads the signed link and checks the sha256. It
+writes `output.json` `{text, model, language}`. `queue_worker.py` runs it with the
+IndicF5 environment (`indicf5-venv`, offline, `HF_HOME=hf-cache`) and advertises
+`listen_version: 1` only on a GPU worker where that environment exists and the Whisper
+weights are cached (run `prepare_reference_voices.py` once). CPU workers never claim it.
+Unverified: a real transcription run on the GPU and its speed on hour-long episodes.

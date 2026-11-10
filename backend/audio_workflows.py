@@ -110,6 +110,11 @@ def clean(body, env):
     snapshot = copy.deepcopy(body.get('audio_snapshot'))
     if not isinstance(snapshot,dict):
         raise problem('Save an audio setup with model and character voices first.')
+    if not isinstance(body.get('review_before_publish',True),bool) or not isinstance(body.get('auto',False),bool):
+        raise problem('Invalid workflow publishing options.')
+    w['review_before_publish']=body.get('review_before_publish',True)
+    if body.get('auto') is True:
+        return clean_auto(body,w,snapshot,env)
     cast = snapshot.get('speakers',[])
     count = snapshot.get('character_count',len(cast)) if snapshot.get('presentation')=='conversation' else 1
     if type(count) is not int or not 1<=count<=20 or not isinstance(cast,list) or len(cast)<count:
@@ -145,6 +150,33 @@ def clean(body, env):
     snapshot['script_brief']=brief
     snapshot.pop('lines',None)  # Generate fresh scripts; never replay the saved sample.
     w['audio_snapshot']=snapshot
+    return clean_common(body,w,env)
+
+
+def clean_auto(body,w,snapshot,env):
+    """Automatic episodes: the cast, voices and sounds are found per episode, so no speakers are saved."""
+    import auto_series
+    problem=env['Problem']
+    brief=snapshot.get('script_brief',{})
+    if not isinstance(brief,dict) or not isinstance(brief.get('source_text',''),str) or len(brief.get('source_text',''))>20000:
+        raise problem('Use at most 20,000 source characters.')
+    if w['source_mode']=='series' and not (w['series_about'] or w['series_plan'] or w['prompt']):
+        raise problem('Describe the series before saving this workflow.')
+    if w['source_mode'] not in ('chapters','series') and not w['prompt'] and not brief.get('source_text','').strip():
+        raise problem('Add a topic or source before saving this workflow.')
+    w['auto_options']=auto_series.clean_options(body.get('auto_options'),snapshot,env)
+    try:
+        validate_audio({**snapshot,'lines':[{'text':'Validation','language':w['auto_options']['language'],'voice':'ref:'+'0'*32}]})
+    except ValueError as error:
+        raise problem(str(error)) from None
+    w['auto']=True
+    w['audio_snapshot']={**{k:snapshot[k] for k in ('model','compute','worker_id','genre','speed','pitch','pause','exaggeration') if k in snapshot},
+                         'presentation':'conversation','speakers':[],'character_count':0,'script_brief':brief}
+    return clean_common(body,w,env)
+
+
+def clean_common(body,w,env):
+    problem=env['Problem']
     for key, default in (('opening_pause',2),('scene_title_pause',2),('between_scenes',0.35)):
         value=body.get(key,default)
         if isinstance(value,bool) or not isinstance(value,(int,float)) or not 0<=value<=10:
@@ -368,6 +400,9 @@ def finish(run,env,outcome,error=''):
 
 def advance(run,env):
     w=run['snapshot']; setup=w['audio_snapshot']
+    if w.get('auto'):
+        import auto_series
+        return auto_series.advance_run(run,env)
     if run['status'] in ('researching','writing'):
         raise env['Problem']('The service restarted during AI generation. Review the run and use Run Now; no automatic paid retry was made.')
     jid=uuid.uuid5(uuid.NAMESPACE_URL,'ecco-audio-job:'+run['id']).hex
