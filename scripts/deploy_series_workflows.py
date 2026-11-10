@@ -1,10 +1,11 @@
 """Deploy the series and per-episode-character schedule modes to the CPU pod.
 
-Ships backend/audio_workflows.py from the reviewed commit using the same
+Ships backend/audio_workflows.py (series schedules) and backend/audio_library.py
+(optional labels) from the reviewed commit using the same
 hash-checked, idle-only, roll-back-on-failure steps as deploy_audio_delivery.py.
 No credential files are read or changed. No model downloads or GPU starts.
 
-audio_workflows.py depends on other modules. Before staging, this checks that
+These depend on other modules. Before staging, this checks that
 the pod already runs the same versions of them; if any differ it stops and lists
 them, and --with-deps ships them together from the same commit instead.
 """
@@ -14,11 +15,11 @@ from pathlib import Path
 
 import deploy_audio_delivery as base
 
-SOURCE_COMMIT = 'ae20b1d1c0460a39ecad0b8846480cf52c346450'
-MODULE = {'backend/audio_workflows.py': '9678d4664a3a08d22a2ad380adeacd2b941f8481b5af75c4ee8bddb271dd90f4'}
+SOURCE_COMMIT = '07f77619438dfe6ff89e881d12796723a84cb1b5'
+MODULE = {'backend/audio_workflows.py': '9678d4664a3a08d22a2ad380adeacd2b941f8481b5af75c4ee8bddb271dd90f4',
+          'backend/audio_library.py': '74e486be58f6dc1599557874039c280de3cbfaaece928f6d86c9af9ff2922124'}
 DEPENDENCIES = {
     'backend/audio_jobs.py': '8cb6bc14aba50787991a86d6d61bfec317c73ca4f7cf9d1ae1cc290ddc606e3b',
-    'backend/audio_library.py': 'e3ba4f8ff0f000a8c7e51eea93e3dce072beaa41fd98afe891a16a52e95714ab',
     'backend/news_research.py': '3f4f26a2f7b148173870f9338557af7dfda4a320921030cabdf1e4d6be39701c',
     'backend/openai_assistant.py': '5cfe04e957d2272bcf5f3105639072c09ffbbf2bbaa4af24a62c487fe189b028',
 }

@@ -256,12 +256,11 @@ Session health checks preserve open Desk conversations and unsent ticket drafts 
 
 ### Deploying series schedules (2026-11-09)
 
-`scripts/deploy_series_workflows.py` ships `backend/audio_workflows.py` from
-commit ae20b1d (news, podcast, series and chapters modes; per-episode
-characters) with the same hash-checked, idle-only, roll-back-on-failure steps as
+`scripts/deploy_series_workflows.py` ships `backend/audio_workflows.py` (news,
+podcast, series and chapters modes; per-episode characters) and
+`backend/audio_library.py` (optional Audio Library labels) from commit 07f7761 with the same hash-checked, idle-only, roll-back-on-failure steps as
 `deploy_audio_delivery.py`. `prepare` first checks that the pod already runs the
-same `audio_jobs.py`, `audio_library.py`, `news_research.py` and
-`openai_assistant.py`; if not, it stops and lists them, and `--with-deps` ships
+same `audio_jobs.py`, `news_research.py` and `openai_assistant.py`; if not, it stops and lists them, and `--with-deps` ships
 them from the same commit. On the CPU pod, when no audio is running:
 
 ```
