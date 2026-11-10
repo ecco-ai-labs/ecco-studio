@@ -77,10 +77,10 @@
   if(compute!=='cpu'&&!window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===compute))throw Error('Connect the selected audio GPU first.');
   if(!target?.ready)throw Error(target?.reason||compute.toUpperCase()+' audio worker is not connected.');
   const needed=[...new Set(lines?lines.map(l=>l.model||modelId):[modelId])];
-  let missing=needed.filter(id=>!target.models?.includes(id));
-  // Voice quality fix (2026-11-09): if another ready CPU worker has every model this recording needs, use it.
-  if(missing.length&&compute==='cpu'&&draft){const other=(result?.instances||[]).filter(w=>w.compute==='cpu'&&w.ready&&needed.every(id=>w.models?.includes(id))).sort((a,b)=>(b.models?.length||0)-(a.models?.length||0))[0];
-   if(other){draft.worker_id=other.id;save();showComputeStatus();missing=[];return requireCompute(compute,modelId,other.id,lines);}}
+  const missing=needed.filter(id=>!target.models?.includes(id));
+  // Voice quality fix (2026-11-09): compute never falls back to another machine on its own, so name the worker that can run it.
+  const other=missing.length&&compute==='cpu'?(result?.instances||[]).find(w=>w.compute==='cpu'&&w.ready&&needed.every(id=>w.models?.includes(id))):null;
+  if(other)throw Error('Not installed on this worker: '+missing.map(id=>audioModels.find(m=>m.id===id)?.name||id).join(', ')+'. Choose “CPU · '+other.name+'” in Compute, which has every model this recording needs.');
   if(missing.length)throw Error('Not installed and verified on this worker: '+missing.map(id=>audioModels.find(m=>m.id===id)?.name||id).join(', ')+'. Choose an available model or CPU instance.');
   if(needed.some(id=>id!==modelId)&&target.mixed_models_version!==1)throw Error('This worker needs the mixed-model runtime update. Your character choices are saved.');
   return workerId;

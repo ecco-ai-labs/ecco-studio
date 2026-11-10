@@ -930,5 +930,5 @@ Voice quality (owner report 2026-11-09): each language uses the best-sounding mo
 the workers can run (English: Kokoro, VoxCPM2, Indic Parler, Chatterbox, Simple
 Audio Model; Urdu: Indic Parler, Simple Audio Model; Telugu: IndicF5, Indic
 Parler, Simple Audio Model). New audio drafts start on the ready CPU worker with
-the most models, and Generate moves to another ready CPU worker when the selected
-one lacks a character's model.
+the most models, and when the selected worker lacks a character's model, Generate names
+the ready CPU worker that has them (compute never switches machines on its own).
