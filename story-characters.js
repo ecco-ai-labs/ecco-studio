@@ -155,7 +155,7 @@
  function fitVoice(c){
   const model=currentAudioModel(c),voices=(model?.voices||[]).filter(v=>!v.language||!c.language||v.language===c.language);
   if(!voices.length)return;const used=new Set(ctx.data.cast.filter(x=>x!==c&&(x.model||'')===model.id).map(x=>x.voice));
-  const want=/^f/i.test(c.gender||'')?'feminine':/^m/i.test(c.gender||'')?'masculine':'',free=voices.filter(v=>!used.has(v.id));
+  const want=/^f/i.test(c.gender||'')?'(feminine|female)':/^m/i.test(c.gender||'')?'(masculine|male)':'',free=voices.filter(v=>!used.has(v.id));
   const pick=(want&&free.find(v=>new RegExp('\\b'+want+'\\b','i').test(v.name||'')))||free[0]||voices[0];c.voice=pick.id;c.voiceChosen=false;
  }
  function sampleText(c){

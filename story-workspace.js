@@ -660,9 +660,10 @@
   const all=model?.voices||[];if(model?.id==='chatterbox'){const m=all.filter(v=>v.name.startsWith(language+' ·')||v.name.startsWith(language+' '));return m.length?m:all.filter(v=>v.id==='default');}
   return all.filter(v=>!v.language||v.language===language);
  }
- const voiceGender=v=>/\bmasculine\b/i.test(v.name||'')?'Male':/\bfeminine\b/i.test(v.name||'')?'Female':'';
+ const voiceGender=v=>/\b(masculine|male)\b/i.test(v.name||'')?'Male':/\b(feminine|female)\b/i.test(v.name||'')?'Female':'';
  const genderOf=c=>/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
- const VOICE_QUALITY={English:['kokoro','voxcpm2','indic-parler','chatterbox','indic-mio'],Urdu:['indic-parler','indic-mio'],Telugu:['indicf5','indic-parler','indic-mio'],Hindi:['indic-parler','indicf5','indic-mio'],other:['indic-parler','indicf5','voxcpm2','kokoro','chatterbox','indic-mio']};
+ // svara-TTS (GPU) has native male and female voices per Indian language plus emotion tags, so it leads where a worker offers it.
+ const VOICE_QUALITY={English:['kokoro','voxcpm2','indic-parler','chatterbox','svara-tts','indic-mio'],Urdu:['indic-parler','indic-mio'],Telugu:['svara-tts','indicf5','indic-parler','indic-mio'],Hindi:['svara-tts','indic-parler','indicf5','indic-mio'],other:['svara-tts','indic-parler','indicf5','voxcpm2','kokoro','chatterbox','indic-mio']};
  function voiceModels(language){
   const ready=window.EccoAudioCompute?.readyNow?.(),fits=(window.EccoAudioModels||[]).filter(m=>!m.pending&&(!m.languages||m.languages.includes(language)));
   return fits.filter(m=>!ready||ready.includes(m.id));
