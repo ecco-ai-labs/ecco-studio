@@ -932,3 +932,8 @@ Audio Model; Urdu: Indic Parler, Simple Audio Model; Telugu: IndicF5, Indic
 Parler, Simple Audio Model). New audio drafts start on the ready CPU worker with
 the most models, and when the selected worker lacks a character's model, Generate names
 the ready CPU worker that has them (compute never switches machines on its own).
+
+Audio Library labels (owner-approved 2026-11-09): Add labels offers one-click
+suggested labels (Podcasts, Documentaries, Interviews, News Audio, Storybooks,
+Lessons, Advertisements, Music) and says "Labels are optional."; saving with no
+label saves only the name (needs the backend update).

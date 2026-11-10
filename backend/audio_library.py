@@ -80,8 +80,9 @@ def save_labels(body, env):
     ids = body.get('folder_ids')
     if not isinstance(title, str) or not 1 <= len(title.strip()) <= 160:
         raise env['Problem']('Audio name must contain 1–160 characters.')
-    if not isinstance(ids, list) or not ids or len(ids) > 100 or any(not isinstance(fid, str) for fid in ids):
-        raise env['Problem']('Choose at least one audio label.')
+    # Labels are optional (owner-approved 2026-11-09): an empty list saves only the name.
+    if not isinstance(ids, list) or len(ids) > 100 or any(not isinstance(fid, str) for fid in ids):
+        raise env['Problem']('Choose up to 100 audio labels.')
     with env['LOCK']:
         asset = env['get'](body.get('asset_id', ''), 'asset')
         folders = [env['get'](fid, 'audio_folder') for fid in set(ids)]
