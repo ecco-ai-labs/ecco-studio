@@ -9,7 +9,8 @@ src=${ECCO_SOURCE:-/workspace}
 dst=${ECCO_GLOBAL:-/workspace-global}
 [[ -d "$src/ComfyUI/models" ]] || { echo "Network volume not found at $src"; exit 1; }
 [[ -d "$dst" ]] || { echo "Global volume not found at $dst"; exit 1; }
-opts=(-a --info=progress2 --no-perms --no-owner --no-group "$@")
+# The global volume does not support setting folder times or permission bits.
+opts=(-a --info=progress2 --no-perms --no-owner --no-group --omit-dir-times "$@")
 mkdir -p "$dst/ComfyUI" "$dst/ecco-models" "$dst/ecco-video/longcat"
 # ComfyUI models (image + video), skipping files that are not model weights.
 rsync "${opts[@]}" --exclude '*.tmp' --exclude 'put_*_here' "$src/ComfyUI/models" "$dst/ComfyUI/"
