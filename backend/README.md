@@ -185,7 +185,7 @@ YouTube ID/visibility; queued is not treated as uploaded. Older successful uploa
 assets recover their result/link; an unmatched reserved asset remains explicitly
 unknown. This UI change requires no API restart and never retries an upload.
 
-## Audio schedules: news, podcasts and storybooks
+## Audio schedules: news, podcasts, series and storybooks
 
 Deploy `audio_workflows.py` with the updated `storage_api.py` and `audio_jobs.py`
 to the **existing CPU storage service**, alongside its existing dependencies.
@@ -202,6 +202,24 @@ Authenticated routes:
 - `POST /api/audio/workflows/save`: validate and persist a paused definition.
 - `POST /api/audio/workflows/control`: `run` with a unique request_id, `enable`, or `pause`.
 - `GET /api/audio/workflows/status`: availability, definitions and run history.
+
+Save payload (`POST /api/audio/workflows/save`), beyond the schedule fields
+(`name`, `timezone`, `time`, `start_date`, `repeat`, `end_mode`, `end_date`, `run_count`):
+- `source_mode`: `news`, `podcast`, `series` or `chapters`.
+- News: `prompt` (topic, ≤12,000), `lookback` (hours, 1–168), `count` (stories/turns, 1–20).
+  Each run researches fresh cited news.
+- Podcast: `prompt` or `audio_snapshot.script_brief.source_text`; a fresh script each run.
+- Series (open-ended, written fresh each run): `series_about` (≤2,000), `series_changes`
+  (≤2,000, e.g. "One bird each week. Do not repeat a bird."), `series_plan` (≤100 topics,
+  each ≤200), `no_repeat` (bool, default true). A run takes the next plan topic not in
+  `used_topics`; when the plan is used up it asks AI for a new topic and rejects a repeat.
+  Completed runs append their topic to `used_topics` (kept when the definition is saved
+  again without it). `output_title` may use `{topic}`.
+- Chapters: `chapters` (texts), `next_chapter`, `total_chapters`.
+- Characters: `audio_snapshot.speakers[]`. A speaker with `per_episode: true` (a weekly
+  guest) needs no `id` or `voice`; it keeps `name`, `language`, `emotion`. Each run picks a
+  voice of that language that the fixed speakers don't use, rotating by episode, and records
+  it on the run as `episode_voices`.
 
 Definitions and run checkpoints use the existing SQLite records table. No schema
 migration or secret is stored in a definition. The existing private OpenAI config

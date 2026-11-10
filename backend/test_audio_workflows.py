@@ -170,4 +170,61 @@ class AudioWorkflowsTest(unittest.TestCase):
         self.rows[self.base['id']]={'id':self.base['id'],'kind':'asset'}
         with self.assertRaises(Problem): self.workflow()
 
+    def series(self,**changes):
+        setup=copy.deepcopy(self.base['audio_snapshot'])
+        body=dict(source_mode='series',prompt='',series_about='Birds of prey',series_changes='One bird each week. Do not repeat a bird.',
+            series_plan=['Peregrine Falcon','Golden Eagle'],audio_snapshot=setup);body.update(changes)
+        return self.workflow(**body)
+    def run_once(self,w):
+        self.trigger(self.record('workflow') if w is None else w);workflows.tick(self.env)
+        self.audio_done=True;workflows.tick(self.env);self.audio_done=False
+        return self.env['records']('audio_workflow_run')[-1]
+
+    def test_series_validation(self):
+        with self.assertRaisesRegex(Problem,'Describe the series'):
+            self.series(series_about='',series_plan=[])
+        with self.assertRaises(Problem): self.series(series_plan=['x'*201])
+        with self.assertRaises(Problem): self.series(no_repeat='yes')
+        with self.assertRaisesRegex(Problem,'Series'): self.workflow(source_mode='weekly')
+        w=self.series();self.assertEqual(w['series_plan'],['Peregrine Falcon','Golden Eagle']);self.assertTrue(w['no_repeat'])
+
+    def test_series_follows_plan_then_asks_ai_for_unused_topic(self):
+        w=self.series()
+        self.assertEqual(self.run_once(w)['topic'],'Peregrine Falcon')
+        brief=self.writer.call_args.args[0]['context']['instructions']
+        self.assertIn('This episode: Peregrine Falcon',brief);self.assertIn('One bird each week',brief)
+        self.assertEqual(self.run_once(None)['topic'],'Golden Eagle')
+        self.assertEqual(self.record('workflow')['used_topics'],['Peregrine Falcon','Golden Eagle'])
+        def writer(body,env):
+            if body['fields'][0]['id']=='series_topic':
+                self.assertIn('Earlier episodes: Peregrine Falcon; Golden Eagle',body['context']['instructions'])
+                return {'questions':[],'revisions':[{'id':'series_topic','text':'Barn Owl'}]}
+            return self.plan(body,env)
+        self.writer.side_effect=writer
+        self.assertEqual(self.run_once(None)['topic'],'Barn Owl')
+        self.assertEqual(self.record('workflow')['used_topics'],['Peregrine Falcon','Golden Eagle','Barn Owl'])
+        # Saving the definition again keeps the history.
+        saved=self.workflow(**{k:self.record('workflow')[k] for k in ('source_mode','series_about','series_changes','series_plan')},prompt='')
+        self.assertEqual(saved['used_topics'],['Peregrine Falcon','Golden Eagle','Barn Owl'])
+
+    def test_series_rejects_a_repeated_ai_topic(self):
+        w=self.series(series_plan=[],used_topics=['Osprey'])
+        self.writer.side_effect=lambda body,env:{'questions':[],'revisions':[{'id':'series_topic','text':'osprey'}]} if body['fields'][0]['id']=='series_topic' else self.plan(body,env)
+        self.trigger(w);workflows.tick(self.env)
+        r=self.record('audio_workflow_run');self.assertEqual(r['status'],'error');self.assertIn('repeated',r['error'])
+        self.assertFalse(self.env['records']('audio_job'))
+
+    def test_per_episode_guest_needs_no_voice_and_gets_one_each_run(self):
+        setup=copy.deepcopy(self.base['audio_snapshot']);setup.update(presentation='conversation',character_count=2)
+        setup['speakers'][0].update(language='English',emotion='neutral')
+        setup['speakers'].append({'name':'Guest','language':'English','per_episode':True})
+        w=self.series(audio_snapshot=setup,count=2)
+        guest=w['audio_snapshot']['speakers'][1];self.assertTrue(guest['per_episode']);self.assertEqual(guest['voice'],'');self.assertEqual(guest['id'],'episode-2')
+        first=self.run_once(w)['episode_voices']['episode-2'];second=self.run_once(None)['episode_voices']['episode-2']
+        self.assertNotIn('en_female',(first,second));self.assertNotEqual(first,second)
+        voices=[l['voice'] for l in self.env['records']('audio_job')[0]['request']['lines']]
+        self.assertEqual(voices,['en_female',first])
+        bad=copy.deepcopy(setup);bad['speakers'][1]['per_episode']='yes'
+        with self.assertRaises(Problem): self.series(audio_snapshot=bad,count=2)
+
 if __name__=='__main__': unittest.main()
