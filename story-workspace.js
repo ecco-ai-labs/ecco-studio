@@ -395,7 +395,9 @@
      if(current!==owner()||!enabled)throw Error('Return to the story where you started.');
      const variation=index?'Write version '+(index+1)+' of 3: keep the same plot, characters, length and settings, but vary the wording and a few small details so it reads slightly differently from the other versions.':'';
      const series=isRecurring()?'This is a series. Start each episode on its own line as "Episode N: Title", with no speaker name on that line, then write the episode.':'';
-     const target=data,result=await recommend(false,{returnProposal:true,ignoreSource:true,variation:[series,variation].filter(Boolean).join(' ')});
+     // Sound human (owner request 2026-11-09): write the way people really speak for this kind of audio.
+     const human=({podcast:'Write it as a real conversation: short turns, contractions, people reacting to each other ("right", "hm", a laugh), the odd interruption or false start, varied sentence length. Never sound like reading an article.',interview:'Write it as a real interview: natural questions, follow-ups that react to the answer, the guest thinking aloud, short and long answers, contractions.',news:'Write it as spoken news: crisp sentences, a natural hand-over between presenters by name, conversational links between stories.',storybook:'Write it to be told aloud by a storyteller: rhythm, suspense, pauses for effect, vivid but simple words; characters speak with feeling.','audio-drama':'Write it to be performed: characters speak with clear feeling and personality, short lively exchanges, a narrator who builds suspense.',documentary:'Write it to be narrated: rich, measured, vivid, with room to breathe between ideas.',teaching:'Write it to be taught aloud: warm, clear, short steps, friendly asides and questions to the listener.'})[data.type]||'';
+     const target=data,result=await recommend(false,{returnProposal:true,ignoreSource:true,variation:[human,series,variation].filter(Boolean).join(' ')});
      if(current!==owner()||target!==data)throw Error('The story changed while AI was working. Your edits are preserved; generate again.');
      data.aiStoryDraft={...(data.aiStoryDraft||{}),research:result.research,proposal:result.proposal};persist();return result.proposal.script;
     }}:null,
@@ -571,6 +573,8 @@
   for(const b of inPage('[data-script-view]')?.parentElement.querySelectorAll('[data-script-view]')||[])b.onclick=()=>{data.scriptView=b.dataset.scriptView;persist();paintScript();};
   inPage('[data-suggest-sounds]').onclick=event=>void suggestSounds(event.currentTarget);
   inPage('[data-next]').onclick=()=>select(GENERATE);paintScript();
+  // Automatic flow: delivery and sounds are suggested once, without a click; anything changed by hand is kept.
+  if(data.output==='audio'&&!data.autoDirected&&scriptPlan()&&window.EccoAudioDirection&&window.EccoSoundDesign){data.autoDirected=true;persist();void suggestSounds(inPage('[data-suggest-sounds]'));}
  }
  function scriptPlan(){try{return M.parseScript(data.script,data.cast,data.plan);}catch{return null;}}
  const soundLines=plan=>window.EccoSoundDesign?.planLines(plan)||[];
@@ -622,13 +626,14 @@
  async function suggestSounds(button){
   const plan=scriptPlan(),status=inPage('[data-sound-status]'),origin=owner();if(!plan)return;button.disabled=true;button.setAttribute('aria-busy','true');status.textContent='Suggesting delivery and sounds…';
   try{
-   const model=audioModel(),lines=soundLines(plan),brief={title:data.title,genre:data.genre,audience:data.audience,language:data.language,story_type:data.type};
+   const model=audioModel(),lines=soundLines(plan),brief={title:data.title,genre:data.genre,audience:data.audience,language:data.language,story_type:data.type,narration_style:data.narrationStyle||''};
    const [directed,cues]=await Promise.all([
     window.EccoAudioDirection.refine({plan,cast:data.cast,brief,model,request:api,directionOnly:true}).catch(()=>null),
     window.EccoSoundDesign.suggest({lines,brief,assets:window.EccoAudioLibrary?.items()||[]}).catch(error=>{status.textContent='Sounds: '+error.message;return null;})]);
    if(origin!==owner())return;
-   if(directed)savePlan(directed);
-   if(cues){data.soundDesign={enabled:!!cues.length,cues,speech_key:window.EccoSoundDesign.key(soundLines(directed||plan))};epoch++;persist();}
+   if(directed){const now=scriptPlan();if(now)directed.segments?.forEach((seg,i)=>{const cur=now.segments?.[i];if(cur?.performance?.manual&&cur.text===seg.text)seg.performance=cur.performance;});savePlan(directed);}
+   // Sounds added by hand stay; earlier suggestions are replaced.
+   if(cues){const all=[...(data.soundDesign?.cues||[]).filter(c=>!c.suggested),...cues.map(c=>({...c,suggested:true}))];data.soundDesign={enabled:!!all.length,cues:all,speech_key:window.EccoSoundDesign.key(soundLines(directed||plan))};epoch++;persist();}
    status.textContent=(directed?'Delivery suggested. ':'')+(cues?cues.length+' sounds suggested. Sounds not in your Audio Library are made when you generate.':'');
   }catch(error){status.textContent='Could not suggest: '+error.message;}
   finally{if(button.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');}paintScript();}
@@ -725,9 +730,9 @@
  function audioModel(){return window.EccoAudioModels?.find(m=>m.id===(read('ecco-audio-draft:'+activeStory).model||modelProfiles.selected.voice))||window.EccoAudioModels?.[0];}
  function prepareAudio(){
   const previous=read('ecco-audio-draft:'+activeStory),model=audioModel(),plan=M.parseScript(data.audioScript||data.script,data.cast,data.plan);
-  const signature=M.signature(data,'audio')+JSON.stringify([data.soundDesign||null,(data.plan?.segments||[]).map(p=>p.performance?.emotion||'')]);if(data.applied.audio===signature&&previous.speakers?.length)return;
+  const signature=M.signature(data,'audio')+JSON.stringify([data.narrationStyle||'',data.soundDesign||null,(data.plan?.segments||[]).map(p=>p.performance?.emotion||'')]);if(data.applied.audio===signature&&previous.speakers?.length)return;
   const cast=data.cast.map((c,i)=>{const saved=previous.speakers?.find(s=>s.id===c.id)||{};return {...saved,...c,language:c.language||data.language,voice:c.voice||saved.voice||window.EccoAudioDirection.defaultVoice(model,data.language,i),emotion:c.emotion||saved.emotion||'neutral',delivery:[c.delivery,c.nationality&&'Nationality: '+c.nationality].filter(Boolean).join('. ')};});
-  const preparation={...previous.guided_preparation,title:data.title,genre:data.genre,audience:data.audience,language:data.language,tone:'Natural',language_style:'Everyday / Conversational',instructions:data.location?'Audience location: '+data.location:'',cast,plan,model:model.id,source_text:data.source?.text||'',source_name:data.source?.name||'',source_pages:data.source?.pages||[],sound_design:data.soundDesign?.cues?.length?data.soundDesign:previous.sound_design};
+  const preparation={...previous.guided_preparation,title:data.title,genre:data.genre,audience:data.audience,language:data.language,tone:'Natural',narration_style:data.narrationStyle||'',language_style:'Everyday / Conversational',instructions:data.location?'Audience location: '+data.location:'',cast,plan,model:model.id,source_text:data.source?.text||'',source_name:data.source?.name||'',source_pages:data.source?.pages||[],sound_design:data.soundDesign?.cues?.length?data.soundDesign:previous.sound_design};
   const next={...previous,title:data.title,model:previous.model||model.id,compute:previous.compute||'cpu',genre:['Story Book Reading','Podcast','News','Movie','Theatre','Casual Conversation','Documentary','Interview','Educational'].includes(data.genre)?data.genre:({podcast:'Podcast',interview:'Interview',news:'News',documentary:'Documentary','audio-drama':'Theatre',teaching:'Educational',training:'Educational'}[data.type]||'Story Book Reading'),speakers:cast,character_count:cast.length,characters_configured:true,presentation:cast.length>1?'conversation':'single',lines:plan.segments.map(s=>({speaker_id:s.character_id,text:s.text,performance:s.performance})),single_text:plan.segments.map(s=>s.text).join('\n\n'),opening_text:plan.opening?.text||'',opening_speaker:plan.opening?.character_id||cast[0].id,opening_performance:plan.opening?.performance,script_brief:{...preparation,plan:undefined,cast:undefined},guided_preparation:preparation,...(data.soundDesign?.cues?.length?{sound_design:{...data.soundDesign,enabled:true,speech_key:window.EccoSoundDesign.key(window.EccoSoundDesign.planLines(plan))}}:{})};
   delete next.delivery_signature;localStorage.setItem('ecco-audio-draft:'+activeStory,JSON.stringify(next));data.plan=plan;data.applied.audio=signature;
  }

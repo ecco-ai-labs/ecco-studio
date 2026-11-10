@@ -806,7 +806,8 @@
         "recurring-generation",
         "output-aware-steps",
         "new-each-episode",
-        "screenplay-lines-sounds"
+        "screenplay-lines-sounds",
+        "cast-list-automatic"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"
@@ -836,7 +837,8 @@
         "recurring-generation",
         "output-aware-steps",
         "new-each-episode",
-        "screenplay-lines-sounds"
+        "screenplay-lines-sounds",
+        "cast-list-automatic"
       ],
       "standardValues": {
         "sizes": "size-roster.json: tab"

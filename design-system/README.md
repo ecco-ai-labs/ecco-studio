@@ -937,3 +937,14 @@ Audio Library labels (owner-approved 2026-11-09): Add labels offers one-click
 suggested labels (Podcasts, Documentaries, Interviews, News Audio, Storybooks,
 Lessons, Advertisements, Music) and says "Labels are optional."; saving with no
 label saves only the name (needs the backend update).
+
+Automatic flow, first part (owner-approved mock 2026-11-09): for audio, Story
+Characters opens on a short cast list: each character with the voice picked for
+them, Hear (makes a sample on demand) and Change, which opens the full editor
+(with ← Back to cast list). The narrator row has Narration style (Expressive
+storyteller, Rich and measured, Clear and warm, Bright and brisk, Intimate and
+quiet; default from Story type), sent to delivery suggestions and generation. An
+audio character is ready once it has a voice; samples are optional (video still
+needs avatars). Story Screen Play suggests delivery and sounds once on arrival,
+keeping anything set by hand. Generate With AI writes the way people speak for
+each Story type.

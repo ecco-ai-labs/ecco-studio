@@ -27,6 +27,8 @@
  }
  function progress(){
   const cast=ctx.data.cast.filter(c=>!perEpisode(c)),list=cast.map(status);
+  // Automatic flow (owner-approved 2026-11-09): an audio character is ready once it has a voice; samples are optional.
+  if(!visual())return {total:cast.length,created:cast.filter(c=>!!c.voice).length,tested:list.filter(s=>s==='tested').length};
   return {total:cast.length,created:list.filter(s=>s!=='none').length,tested:list.filter(s=>s==='tested').length};
  }
  async function mediaURL(id){
@@ -83,7 +85,7 @@
   });
   // Pictures do not need every character created first (owner-approved mock, 2026-11-09).
   const p=progress(),optional=ctx.data.output==='image',ready=optional||(p.created===p.total&&p.total>0);
-  const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent=optional?'Optional for pictures: create a look to keep the same person across images.':'Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue')+sharedNote();
+  const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent=optional?'Optional for pictures: create a look to keep the same person across images.':!visual()?(p.created===p.total?'Every character has a voice':p.created+' of '+p.total+' characters have a voice · Choose a voice for the rest to continue')+sharedNote():'Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue')+sharedNote();
   const next=q('[data-next]',q('#page'));if(next){if(optional&&next.textContent!=='Next: Story Generation')next.textContent='Next: Story Generation';next.disabled=!ready;next.setAttribute('aria-describedby','story-cast-progress');}
  }
 
@@ -281,6 +283,29 @@
   if(focused)(q('[data-property="'+focused+'"]',host)||q('[aria-label="'+focused+'"]',host))?.focus();
  }
 
+ // Automatic flow (owner-approved mock 2026-11-09): audio opens on a short cast list; the full editor opens from Change.
+ const STYLES=[['Expressive storyteller','Big changes in pace and feeling, pauses for effect.'],['Rich and measured','Steady, deep, unhurried.'],['Clear and warm','Even pace, friendly, easy to follow.'],['Bright and brisk','Crisp, confident, quick.'],['Intimate and quiet','Close, soft, slow.']];
+ const defaultStyle=d=>['news'].includes(d.type)?'Bright and brisk':['documentary'].includes(d.type)?'Rich and measured':['teaching','training','presentation'].includes(d.type)?'Clear and warm':['storybook','audio-drama'].includes(d.type)?'Expressive storyteller':'Clear and warm';
+ const isNarrator=c=>/narrat|storyteller/i.test((c.role||'')+' '+(c.name||''));
+ function voiceLabel(c){const m=currentAudioModel(c),v=(m?.voices||[]).find(x=>x.id===c.voice);return (v?.name||c.voice||'No voice yet')+(m?' · '+m.name:'');}
+ function roster(){
+  const {data,root}=ctx,list=element('div',{className:'story-cast-roster',role:'list','aria-label':'Cast'});
+  if(!data.narrationStyle)data.narrationStyle=defaultStyle(data);
+  data.cast.forEach((c,index)=>{
+   const row=element('div',{className:'story-cast-row',role:'listitem'});
+   const who=element('div',{className:'story-cast-who'},element('b',{text:c.name||'Character '+(index+1)}),element('span',{className:'help',text:[c.role,c.gender&&c.gender!=='Unspecified'?c.gender:'',c.age_group].filter(Boolean).join(' · ')}));
+   const voice=element('span',{className:'help story-cast-voice',text:perEpisode(c)?'Picked for each episode':voiceLabel(c)});
+   const player=element('audio',{preload:'none',hidden:true,'aria-label':'Voice sample for '+(c.name||'character')});
+   const hear=playButton('Hear '+(c.name||'this voice'),async()=>{const done=setBusy(hear);try{let url=c.voice_sample?await mediaURL(c.voice_sample):voiceTests.get('roster|'+c.id+'|'+c.model+'|'+c.voice);if(!url){url=(await voiceSample(c,sampleText(c),'Character voice · '+(c.name||'Character'))).url;voiceTests.set('roster|'+c.id+'|'+c.model+'|'+c.voice,url);}player.src=url;player.hidden=false;await player.play().catch(()=>{});}catch(error){ctx.message(error.message,true);}finally{done();}});
+   hear.disabled=perEpisode(c)||!c.voice;
+   const change=button('Change',()=>{data.activeCharacter=c.id;data.castDetail=true;ctx.persist();ctx.redraw();});change.classList.add('secondary');change.setAttribute('aria-label','Change '+(c.name||'character')+'’s voice');
+   row.append(who,voice,hear,change,player);
+   if(isNarrator(c)){const style=element('select',{'aria-label':'Narration style'});for(const [n] of STYLES)style.add(new Option(n,n));style.value=data.narrationStyle;style.onchange=()=>{data.narrationStyle=style.value;ctx.changed();};
+    row.append(element('label',{className:'story-cast-style help'},document.createTextNode('Narration style'),style));}
+   list.append(row);
+  });
+  root.append(element('p',{className:'help',text:'Each character has a voice picked for them. Hear any of them, and use Change only if one isn’t right.'}),list);
+ }
  function render(context){
   ctx=context;const {data,root}=ctx;
   // Characters without a voice yet (the starter Host/Guest or Narrator) get their own voices too.
@@ -288,6 +313,8 @@
   if(seriesOpen())for(const c of data.cast)if(c.perEpisode===undefined)c.perEpisode=/guest|celebrit|interviewee/i.test((c.name||'')+' '+(c.role||''));
   const selected=Math.max(0,data.cast.findIndex(c=>c.id===data.activeCharacter));data.activeCharacter=data.cast[selected]?.id;
   drawTabs(selected);
+  const compact=!visual()&&!data.castDetail&&data.cast.length>0,tabs=q('[data-character-tabs]',q('#page'));if(tabs)(tabs.closest('.story-cast-bar')||tabs).hidden=compact;
+  if(compact){root.removeAttribute('aria-labelledby');root.replaceChildren();roster();refreshStatus();return;}
   root.setAttribute('aria-labelledby','story-character-tab-'+selected);root.replaceChildren();
   const c=data.cast[selected];
   if(!c){
@@ -295,6 +322,7 @@
    if(data.output==='image'){const empty=element('div',{className:'story-cast-empty'});empty.append(element('p',{className:'help',text:'No characters needed for a picture.'}));const add=element('button',{type:'button',className:'secondary',text:'+ Add a person',dataset:{addPerson:''}});add.onclick=()=>q('.story-character-add',ctx.list)?.click();empty.append(add);root.append(empty);}
    refreshStatus();return;
   }
+  if(!visual()){const back=button('← Back to cast list',()=>{data.castDetail=false;ctx.persist();ctx.redraw();});back.classList.add('secondary');back.dataset.castBack='';root.append(back);}
   root.append(properties(c,selected),element('div',{className:'story-cast-create'}));
   drawCreate(c,selected);refreshStatus();
  }
