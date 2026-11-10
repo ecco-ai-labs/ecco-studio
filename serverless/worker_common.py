@@ -55,9 +55,12 @@ def volume_configured():
                                       'ECCO_S3_ACCESS_KEY_ID', 'ECCO_S3_SECRET_ACCESS_KEY'))
 
 
-def deliver(data, name):
-    """Return {'volume_key': path on the volume} or {'inline': base64} when small."""
-    if volume_configured():
+def deliver(data, name, inline=False):
+    """Return {'volume_key': path on the volume} or {'inline': base64} when small.
+
+    inline=True (a test job's "return_inline") skips the volume for small results.
+    """
+    if volume_configured() and not (inline and len(data) <= MAX_INLINE_BYTES):
         import boto3
         from boto3.s3.transfer import TransferConfig
         client = boto3.client('s3', endpoint_url=os.environ['ECCO_S3_ENDPOINT_URL'],
