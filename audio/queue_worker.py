@@ -65,12 +65,15 @@ def cpu_threads():
 def worker_command(request, directory):
     model = request.get('model', 'indic-mio')
     base = Path(__file__).parent
+    # Defaults are the pod layout; ECCO_AUDIO_MODELS / ECCO_AUDIO_VENVS let weights and GPU venvs live elsewhere.
+    models_dir = Path(os.environ.get('ECCO_AUDIO_MODELS') or base / 'models')
+    venvs = Path(os.environ.get('ECCO_AUDIO_VENVS') or base)
     if request.get('mixed_models_version') == 1 or request.get('long_form_version') == 1:
         env = dict(os.environ, HF_HUB_OFFLINE='1')
         if request.get('compute') == 'cpu':
             env['CUDA_VISIBLE_DEVICES'] = ''
         env.pop('PYTHONPATH', None)
-        return [sys.executable, str(base / 'mixed_worker.py'), '--request', str(directory / 'request.json'), '--runtime', str(base / 'models'), '--output', str(directory / 'output.wav')], env
+        return [sys.executable, str(base / 'mixed_worker.py'), '--request', str(directory / 'request.json'), '--runtime', str(models_dir), '--output', str(directory / 'output.wav')], env
     if request.get('task') == 'sound':
         if model not in SOUND_MODELS:
             raise ValueError('Unsupported sound model.')
@@ -96,11 +99,11 @@ def worker_command(request, directory):
     elif model == 'indic-mio':
         python, script = sys.executable, base / 'audio_worker.py'
     elif model in ('chatterbox', 'indicf5'):
-        python, script = str(base / (model + '-venv/bin/python')), base / 'extra_worker.py'
+        python, script = str(venvs / (model + '-venv/bin/python')), base / 'extra_worker.py'
         if not Path(python).is_file():
             raise RuntimeError('The selected audio model runtime is not installed on this worker.')
     else:
-        python, script = str(base / (model + '-venv/bin/python')), base / 'modern_worker.py'
+        python, script = str(venvs / (model + '-venv/bin/python')), base / 'modern_worker.py'
         if not Path(python).is_file():
             raise RuntimeError('Install and verify the selected model runtime on this worker.')
     env = dict(os.environ)
@@ -115,7 +118,7 @@ def worker_command(request, directory):
             env[key] = env['ECCO_AUDIO_CPU_THREADS']
         env['MALLOC_ARENA_MAX'] = '2'
     return [python, str(script), '--request', str(directory / 'request.json'),
-            '--runtime', str(base / 'models'), '--output', str(directory / 'output.wav')], env
+            '--runtime', str(models_dir), '--output', str(directory / 'output.wav')], env
 
 def main():
     ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)

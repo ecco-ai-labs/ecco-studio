@@ -1104,5 +1104,227 @@ window.EccoAudioModels = [
     ],
     "emotions": false,
     "voice_direction": true
+  },
+  {
+    "id": "svara-tts",
+    "name": "Svara TTS",
+    "license": "Apache-2.0",
+    "languages": [
+      "Hindi",
+      "English",
+      "Tamil",
+      "Punjabi",
+      "Assamese",
+      "Bengali",
+      "Bodo",
+      "Dogri",
+      "Gujarati",
+      "Kannada",
+      "Maithili",
+      "Malayalam",
+      "Marathi",
+      "Nepali",
+      "Sanskrit",
+      "Telugu"
+    ],
+    "voices": [
+      {
+        "id": "hindi-female",
+        "name": "Hindi · feminine",
+        "language": "Hindi",
+        "speaker": "Hindi (Female)"
+      },
+      {
+        "id": "hindi-male",
+        "name": "Hindi · masculine",
+        "language": "Hindi",
+        "speaker": "Hindi (Male)"
+      },
+      {
+        "id": "english-female",
+        "name": "English · feminine",
+        "language": "English",
+        "speaker": "English (Female)"
+      },
+      {
+        "id": "english-male",
+        "name": "English · masculine",
+        "language": "English",
+        "speaker": "English (Male)"
+      },
+      {
+        "id": "tamil-female",
+        "name": "Tamil · feminine",
+        "language": "Tamil",
+        "speaker": "Tamil (Female)"
+      },
+      {
+        "id": "tamil-male",
+        "name": "Tamil · masculine",
+        "language": "Tamil",
+        "speaker": "Tamil (Male)"
+      },
+      {
+        "id": "punjabi-female",
+        "name": "Punjabi · feminine",
+        "language": "Punjabi",
+        "speaker": "Punjabi (Female)"
+      },
+      {
+        "id": "punjabi-male",
+        "name": "Punjabi · masculine",
+        "language": "Punjabi",
+        "speaker": "Punjabi (Male)"
+      },
+      {
+        "id": "assamese-female",
+        "name": "Assamese · feminine",
+        "language": "Assamese",
+        "speaker": "Assamese (Female)"
+      },
+      {
+        "id": "assamese-male",
+        "name": "Assamese · masculine",
+        "language": "Assamese",
+        "speaker": "Assamese (Male)"
+      },
+      {
+        "id": "bengali-female",
+        "name": "Bengali · feminine",
+        "language": "Bengali",
+        "speaker": "Bengali (Female)"
+      },
+      {
+        "id": "bengali-male",
+        "name": "Bengali · masculine",
+        "language": "Bengali",
+        "speaker": "Bengali (Male)"
+      },
+      {
+        "id": "bodo-female",
+        "name": "Bodo · feminine",
+        "language": "Bodo",
+        "speaker": "Bodo (Female)"
+      },
+      {
+        "id": "bodo-male",
+        "name": "Bodo · masculine",
+        "language": "Bodo",
+        "speaker": "Bodo (Male)"
+      },
+      {
+        "id": "dogri-female",
+        "name": "Dogri · feminine",
+        "language": "Dogri",
+        "speaker": "Dogri (Female)"
+      },
+      {
+        "id": "dogri-male",
+        "name": "Dogri · masculine",
+        "language": "Dogri",
+        "speaker": "Dogri (Male)"
+      },
+      {
+        "id": "gujarati-female",
+        "name": "Gujarati · feminine",
+        "language": "Gujarati",
+        "speaker": "Gujarati (Female)"
+      },
+      {
+        "id": "gujarati-male",
+        "name": "Gujarati · masculine",
+        "language": "Gujarati",
+        "speaker": "Gujarati (Male)"
+      },
+      {
+        "id": "kannada-female",
+        "name": "Kannada · feminine",
+        "language": "Kannada",
+        "speaker": "Kannada (Female)"
+      },
+      {
+        "id": "kannada-male",
+        "name": "Kannada · masculine",
+        "language": "Kannada",
+        "speaker": "Kannada (Male)"
+      },
+      {
+        "id": "maithili-female",
+        "name": "Maithili · feminine",
+        "language": "Maithili",
+        "speaker": "Maithili (Female)"
+      },
+      {
+        "id": "maithili-male",
+        "name": "Maithili · masculine",
+        "language": "Maithili",
+        "speaker": "Maithili (Male)"
+      },
+      {
+        "id": "malayalam-female",
+        "name": "Malayalam · feminine",
+        "language": "Malayalam",
+        "speaker": "Malayalam (Female)"
+      },
+      {
+        "id": "malayalam-male",
+        "name": "Malayalam · masculine",
+        "language": "Malayalam",
+        "speaker": "Malayalam (Male)"
+      },
+      {
+        "id": "marathi-female",
+        "name": "Marathi · feminine",
+        "language": "Marathi",
+        "speaker": "Marathi (Female)"
+      },
+      {
+        "id": "marathi-male",
+        "name": "Marathi · masculine",
+        "language": "Marathi",
+        "speaker": "Marathi (Male)"
+      },
+      {
+        "id": "nepali-female",
+        "name": "Nepali · feminine",
+        "language": "Nepali",
+        "speaker": "Nepali (Female)"
+      },
+      {
+        "id": "nepali-male",
+        "name": "Nepali · masculine",
+        "language": "Nepali",
+        "speaker": "Nepali (Male)"
+      },
+      {
+        "id": "sanskrit-female",
+        "name": "Sanskrit · feminine",
+        "language": "Sanskrit",
+        "speaker": "Sanskrit (Female)"
+      },
+      {
+        "id": "sanskrit-male",
+        "name": "Sanskrit · masculine",
+        "language": "Sanskrit",
+        "speaker": "Sanskrit (Male)"
+      },
+      {
+        "id": "telugu-female",
+        "name": "Telugu · feminine",
+        "language": "Telugu",
+        "speaker": "Telugu (Female)"
+      },
+      {
+        "id": "telugu-male",
+        "name": "Telugu · masculine",
+        "language": "Telugu",
+        "speaker": "Telugu (Male)"
+      }
+    ],
+    "emotions": true,
+    "compute": [
+      "a100",
+      "b200"
+    ]
   }
 ];

@@ -1,4 +1,4 @@
-"""CPU inference for Kokoro, VoxCPM2 and Indic Parler in isolated environments."""
+"""Inference for Kokoro, VoxCPM2, Indic Parler (CPU or GPU) and svara-TTS (GPU) in isolated environments."""
 import argparse
 import json
 from pathlib import Path
@@ -54,6 +54,29 @@ def synthesize(request, output, runtime):
             prompt = tokenizer(line['text'], return_tensors='pt').to(device)
             result = model.generate(input_ids=desc.input_ids, attention_mask=desc.attention_mask, prompt_input_ids=prompt.input_ids, prompt_attention_mask=prompt.attention_mask)
             return result.squeeze().float().cpu().numpy()
+    elif model_id == 'svara-tts':
+        # GPU only. Weights: <runtime>/svara-tts (svara-TTS) and <runtime>/svara-tts/snac (SNAC 24 kHz decoder).
+        import json as _json
+        from snac import SNAC
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        import svara_codec
+        if device != 'cuda':
+            raise RuntimeError('svara-TTS runs on a GPU worker only.')
+        tokenizer = AutoTokenizer.from_pretrained(root, local_files_only=True)
+        model = AutoModelForCausalLM.from_pretrained(root, local_files_only=True, torch_dtype=torch.bfloat16).to(device).eval()
+        snac = SNAC(**_json.loads((root/'snac'/'config.json').read_text()))
+        snac.load_state_dict(torch.load(root/'snac'/'pytorch_model.bin', map_location='cpu'))
+        snac = snac.to(device).eval()
+        rate = svara_codec.SAMPLE_RATE
+        def render(line):
+            speaker = voices[line['voice']]['speaker']
+            ids = svara_codec.prompt_ids(lambda t: tokenizer.encode(t, add_special_tokens=False), speaker, svara_codec.tagged_text(line['text'], line.get('emotion')))
+            prompt = torch.tensor([ids], device=device)
+            out = model.generate(prompt, attention_mask=torch.ones_like(prompt), max_new_tokens=4096, do_sample=True, temperature=0.7,
+                                 top_p=0.95, repetition_penalty=1.1, eos_token_id=svara_codec.END_OF_SPEECH)
+            codes = svara_codec.snac_codes(out[0, prompt.shape[1]:].tolist())
+            audio = snac.decode([torch.tensor([c], device=device) for c in codes])
+            return audio.squeeze().float().cpu().numpy()
     else:
         raise ValueError('Unsupported model.')
     with torch.inference_mode():
