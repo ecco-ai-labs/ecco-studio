@@ -31,6 +31,8 @@
   return {ready,reason:ready?'':'Not installed and verified on the selected worker.'};
  }
  window.EccoAudioCompute={target:computeTarget,choices:computeChoices,value:computeValue,parse:parseCompute,readiness:modelReadiness};
+ // Voice fix (real run 2026-11-09): which speech models the selected (or any ready) worker can run now; null until checked.
+ window.EccoAudioCompute.readyNow=()=>{if(!computeStatus)return null;const selected=draft?computeTarget(computeStatus,draft.compute,draft.worker_id):null;const targets=selected?.ready?[selected]:[...(computeStatus.instances||[]),...Object.values(computeStatus.compute||{})].filter(t=>t?.ready);const ids=[...new Set(targets.flatMap(t=>t.models||[]))];return ids.length?ids:null;};
  function showModelAvailability(){
   if(!draft)return;
   const available=id=>modelReadiness(computeStatus,draft.compute,draft.worker_id,id);

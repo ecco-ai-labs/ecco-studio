@@ -590,7 +590,7 @@
    cues.forEach((cue,ci)=>{if(cue.start>=first&&cue.start<lineIndex)root.append(soundRow(cue,ci,lines));});
    const row=document.createElement('div');row.className='story-script-turn';
    const who=document.createElement('select');who.setAttribute('aria-label','Speaker for line '+(ti+1));for(const c of data.cast)who.add(new Option(c.name,c.id));who.value=turn.character_id;
-   const voice=document.createElement('span');voice.className='help';const c=data.cast.find(x=>x.id===turn.character_id);voice.textContent=(model?.voices||[]).find(v=>v.id===c?.voice)?.name||'';
+   const voice=document.createElement('span');voice.className='help';const c=data.cast.find(x=>x.id===turn.character_id),cm=(window.EccoAudioModels||[]).find(m=>m.id===c?.model)||model;voice.textContent=(cm?.voices||[]).find(v=>v.id===c?.voice)?.name||'';
    const how=document.createElement('select');how.setAttribute('aria-label','Delivery for line '+(ti+1));for(const e of emotions)how.add(new Option(label(e),e));how.value=turn.performance?.manual?turn.performance.emotion||'neutral':turn.performance?.emotion||'neutral';if(how.value!=='neutral')how.dataset.on='true';
    const words=document.createElement('textarea');words.rows=2;words.value=turn.text;words.setAttribute('aria-label','Line '+(ti+1));
    const add=document.createElement('button');add.type='button';add.className='secondary';add.textContent='+ Sound';add.setAttribute('aria-label','Add a sound at line '+(ti+1));
@@ -601,7 +601,7 @@
    add.onclick=()=>{const sd=data.soundDesign||(data.soundDesign={enabled:true,cues:[]});sd.enabled=true;sd.cues.push({...window.EccoSoundDesign.defaults('effect'),name:'Sound '+(sd.cues.length+1),description:'',start:first,end:first});sd.speech_key=window.EccoSoundDesign.key(lines);epoch++;persist();paintScript();};
   });
   const n=cues.length,special=turns.filter(t=>t.performance?.emotion&&t.performance.emotion!=='neutral').length;
-  inPage('[data-script-count]').textContent=n+' sound'+(n===1?'':'s')+' · '+special+' line'+(special===1?'':'s')+' with special delivery'+(model&&!model.emotions?' · '+(model.name||'This model')+' reads every line in a normal voice':'');
+  inPage('[data-script-count]').textContent=n+' sound'+(n===1?'':'s')+' · '+special+' line'+(special===1?'':'s')+' with special delivery'+(()=>{const flat=[...new Set(data.cast.map(c=>(window.EccoAudioModels||[]).find(m=>m.id===c.model)||model).filter(m=>m&&!m.emotions).map(m=>m.name||m.id))];return flat.length?' · '+flat.join(', ')+' reads every line in a normal voice':'';})();
  }
  function soundRow(cue,index,lines){
   const KINDS={effect:'Sound Effect',ambience:'Ambience',music:'Background Music'},row=document.createElement('div');row.className='story-script-sound';row.dataset.kind=cue.kind;
@@ -647,29 +647,42 @@
      const matched=data.castCustomized&&previous.find(old=>old.name.trim().toLowerCase()===c.name.trim().toLowerCase());
      const defaults=data.output==='image'?{}:{language:data.language,emotion:'neutral',voice:window.EccoAudioDirection?.defaultVoice(model,c.language||data.language,i)||''};
      const voice=(model?.voices||[]).some(v=>v.id===c.voice)?c.voice:defaults.voice;
-     return {...defaults,...c,...(data.output!=='image'?{voice,language:c.language||data.language,emotion:c.emotion||'neutral'}:{}),...(matched?Object.fromEntries(['voice','voiceChosen','dialect','style','emotion','delivery','appearance','gender','age_group','nationality'].filter(k=>matched[k]).map(k=>[k,matched[k]])):{})};
+     return {...defaults,...c,...(data.output!=='image'?{voice,language:c.language||data.language,emotion:c.emotion||'neutral'}:{}),...(matched?Object.fromEntries(['voice','voiceChosen','model','modelChosen','dialect','style','emotion','delivery','appearance','gender','age_group','nationality'].filter(k=>matched[k]).map(k=>[k,matched[k]])):{})};
     });
     if(data.output!=='image'&&model)assignVoices(proposal.cast,model);
     return proposal;
  }
- // Voice diversity fix (owner report 2026-11-09): match each character's gender and never reuse a voice in one story when the model has enough voices.
+ // Voice diversity (owner report and real run 2026-11-09): each character gets its own voice. Gender comes from the
+ // character when known; otherwise voices alternate feminine/masculine. If the story's model has too few voices in the
+ // language, the model with the most voices that this worker can run is used instead. A model or voice picked by hand is kept.
  function voicePool(model,language){
   const all=model?.voices||[];if(model?.id==='chatterbox'){const m=all.filter(v=>v.name.startsWith(language+' ·')||v.name.startsWith(language+' '));return m.length?m:all.filter(v=>v.id==='default');}
   return all.filter(v=>!v.language||v.language===language);
  }
  const voiceGender=v=>/\bmasculine\b/i.test(v.name||'')?'Male':/\bfeminine\b/i.test(v.name||'')?'Female':'';
- function assignVoices(cast,model){
-  const used=new Set(),kept=new Set(cast.filter(c=>c.voiceChosen).map(c=>c.voice));let short=0;
-  for(const c of cast){
-   if(c.voiceChosen){used.add(c.voice);continue;}
-   const pool=voicePool(model,c.language||data.language),free=pool.filter(v=>!used.has(v.id)&&!kept.has(v.id)),gender=/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
-   const suggested=free.find(v=>v.id===c.voice&&(!gender||!voiceGender(v)||voiceGender(v)===gender));
-   const pick=suggested||(gender&&free.find(v=>voiceGender(v)===gender))||free.find(v=>!voiceGender(v)||!gender)||free[0];
-   if(pick){c.voice=pick.id;used.add(pick.id);}else{short++;if(!pool.some(v=>v.id===c.voice))c.voice=pool[0]?.id||c.voice;}
-  }
-  data.voiceShortage=short?{model:model.name||model.id,count:cast.length}:null;
-  if(short)message(model.name+' doesn’t have a different '+data.language+' voice for every character, so some share a voice. Choose another audio model with more '+data.language+' voices for more variety.');
+ const genderOf=c=>/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
+ function voiceModels(language){
+  const ready=window.EccoAudioCompute?.readyNow?.(),fits=(window.EccoAudioModels||[]).filter(m=>!m.pending&&(!m.languages||m.languages.includes(language)));
+  return fits.filter(m=>!ready||ready.includes(m.id));
  }
+ function assignVoices(cast,model){
+  const need=cast.filter(c=>!c.voiceChosen).length,language=data.language;let short=0;
+  const options=voiceModels(language),current=options.find(m=>m.id===model.id)||model;
+  const best=[...options].sort((a,b)=>voicePool(b,language).length-voicePool(a,language).length)[0];
+  const chosen=voicePool(current,language).length>=Math.min(need,voicePool(best,language).length)?current:best||current;
+  const used=new Set(cast.filter(c=>c.voiceChosen).map(c=>(c.model||chosen.id)+'|'+c.voice));let alternate=0;
+  for(const c of cast){
+   if(c.voiceChosen)continue;
+   const m=c.modelChosen?(window.EccoAudioModels||[]).find(x=>x.id===c.model)||chosen:chosen;if(!c.modelChosen)c.model=m.id;
+   const pool=voicePool(m,c.language||language),free=pool.filter(v=>!used.has(m.id+'|'+v.id)),known=genderOf(c);
+   const want=known||(free.some(voiceGender)?(alternate++%2?'Male':'Female'):'');
+   const pick=free.find(v=>v.id===c.voice&&(!want||!voiceGender(v)||voiceGender(v)===want))||(want&&free.find(v=>voiceGender(v)===want))||free[0];
+   if(pick){c.voice=pick.id;used.add(m.id+'|'+pick.id);}else{short++;c.voice=pool[0]?.id||c.voice;}
+  }
+  data.voiceShortage=short?{model:chosen.name||chosen.id,language,count:cast.length}:null;
+  if(short)message(chosen.name+' doesn’t have a different '+language+' voice for every character, so some share a voice.');
+ }
+ window.EccoStoryVoices={assign:(cast,model)=>{if(data&&model)assignVoices(cast,model);}};
  function applyDetectedCast(proposal,model,valid){
     castDefaults(proposal,model);valid();data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.cast.length+' '+(data.output==='audio'?'audio ':'')+'characters identified from applied text.'+(proposal.reason?' '+proposal.reason:'');data.plan=proposal.plan||null;if(proposal.plan){data.audioScript=M.transcript(proposal.plan,data.cast);if(data.output==='audio')data.script=data.audioScript;data.sourceAssignmentPending=false;}data.castPending=false;epoch++;persist();if(data.tab===CHARACTERS){render();aiStatus('Characters and properties are ready.');}
  }

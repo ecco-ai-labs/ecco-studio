@@ -917,3 +917,11 @@ Lesson/Training/Presentation: Science & Technology, History, Nature, Business,
 Biography, Sports, Other; Advertisement: Comedy, Drama, Business, Science &
 Technology, Sports, Nature, Other; Music / Ambient and Other: all). Changing the
 type clears a genre that no longer fits; a saved genre is otherwise kept.
+
+Voices, second pass (real run 2026-11-09): unknown genders alternate feminine and
+masculine; if the story's audio model has too few voices in the language, the
+model with the most voices that the worker can run is used. Starter characters
+(Host/Guest, Narrator) get voices the same way. Changing a character's Audio model
+picks a fitting, unused voice from it; models the worker can't run are marked
+"(not on this worker)". The Characters summary names characters that share a
+voice. Screen Play shows each character's own model and voice.

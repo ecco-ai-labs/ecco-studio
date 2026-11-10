@@ -1281,6 +1281,22 @@ test('STORY-28 Genre / Topic offers only the genres that fit the Story type, in 
  expect(page.qaErrors).toEqual([]);
 });
 
+// Voice fix (real run 2026-11-09): changing a character's Audio model picks a voice from that model, and shared voices are named.
+test('STORY-29 Changing a character’s Audio model picks a fitting voice from that model; shared voices are called out',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Model voices');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
+ await expect(page.locator('[data-cast-progress]')).not.toContainText('Same voice');
+ await page.locator('[data-character-tabs] [role=tab]',{hasText:'Ali'}).click();const model=page.getByRole('combobox',{name:'Character 2 Audio model',exact:true});
+ const other=await model.locator('option').evaluateAll((o,cur)=>o.map(x=>x.value).find(v=>v&&v!==cur&&(window.EccoAudioModels.find(m=>m.id===v)?.voices||[]).some(x=>/masculine/.test(x.name)&&(!x.language||x.language==='English'))),await model.inputValue());
+ await model.selectOption(other);const voice=page.getByRole('combobox',{name:'Character 2 Voice',exact:true});
+ const picked=await voice.inputValue(),info=await page.evaluate(([m,v])=>window.EccoAudioModels.find(x=>x.id===m).voices.find(x=>x.id===v)?.name,[other,picked]);
+ expect(info).toMatch(/masculine/);
+ expect(page.qaErrors).toEqual([]);
+});
+
 // Full first-screens workflow for every audited case with a mock PDF (owner request 2026-11-09): Details → Script (PDF) → Schedule when recurring → Characters.
 const PDF_CASES=[['news','once','Business',0],['news','recurring','Business',-1],['podcast','once','Science & Technology',0],['podcast','recurring','Science & Technology',3],['storybook','once','Fantasy',0],['storybook','recurring','Fantasy',4],['audio-drama','once','Adventure',0],['audio-drama','recurring','Adventure',3],['documentary','once','Nature',0],['documentary','recurring','Nature',4],['teaching','once','Science & Technology',0],['teaching','recurring','Science & Technology',3],['interview','once','Biography',0],['interview','recurring','Biography',3],['marketing','once','Business',0]];
 for(const output of ['audio','video'])for(const [type,mode,genre,parts] of PDF_CASES)test(`FLOW-PDF ${output} ${mode} ${type} reaches Story Characters`,async({page})=>{
@@ -1400,7 +1416,7 @@ for(const output of ['audio','video'])test(`STORY-07 Characters step creates and
  await expect(page.getByRole('heading',{name:'From Story',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:output==='audio'?'Create voice':'Create avatar',exact:true})).toBeVisible();await expect(page.locator('.story-cast-empty').first()).toBeVisible();
  for(const [index,name] of [[1,'Host'],[2,'Guest']]){
   await tabs.getByRole('tab',{name,exact:true}).click();
-  if(output==='audio'){await page.getByLabel('Character '+index+' Suggested voice',{exact:true}).fill('Warm, unhurried, a little playful.');const voice=page.getByLabel('Character '+index+' Voice',{exact:true});await voice.selectOption({index:1});await page.getByRole('button',{name:'Generate voice',exact:true}).click();await expect(page.getByRole('button',{name:'Generate again',exact:true})).toBeVisible();await page.getByLabel('Try your own line',{exact:true}).fill('Welcome to the show.');await page.getByRole('button',{name:'Play your line',exact:true}).click();await expect(page.getByLabel('Voice test playback',{exact:true})).toBeVisible();}
+  if(output==='audio'){await page.getByLabel('Character '+index+' Suggested voice',{exact:true}).fill('Warm, unhurried, a little playful.');const voice=page.getByLabel('Character '+index+' Voice',{exact:true});await voice.selectOption({index});await page.getByRole('button',{name:'Generate voice',exact:true}).click();await expect(page.getByRole('button',{name:'Generate again',exact:true})).toBeVisible();await page.getByLabel('Try your own line',{exact:true}).fill('Welcome to the show.');await page.getByRole('button',{name:'Play your line',exact:true}).click();await expect(page.getByLabel('Voice test playback',{exact:true})).toBeVisible();}
   else{await page.getByLabel('Character '+index+' Suggested avatar prompt',{exact:true}).fill('Short silver hair, green scarf, friendly smile.');await page.getByRole('button',{name:'Generate avatar',exact:true}).click();await expect(page.getByRole('button',{name:'Avatar option 1',exact:true})).toHaveAttribute('aria-pressed','true');await page.getByRole('button',{name:'Generate again',exact:true}).click();await page.getByRole('button',{name:'Avatar option 2',exact:true}).click();await expect(page.getByRole('button',{name:'Avatar option 2',exact:true})).toHaveAttribute('aria-pressed','true');}
   await expect(tabs.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-description','Created');
   if(index===1){await expect(next).toBeDisabled();await page.locator('[data-cast-tested]').click();await expect(tabs.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-description','Tested');await expect(page.locator('.story-cast-tested')).toBeVisible();}
