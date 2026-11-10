@@ -53,6 +53,15 @@
  const isImage=()=>data?.output==='image',outputFields=[['imageStyle','Image style','Choose an image style.'],['videoStyle','Visual style','Choose a visual style.']];
  function requiredDetails(){const image=isImage();return [...detailFields.filter(([n])=>!(image&&['type','genre','language'].includes(n))),...(image?[outputFields[0]]:[]),...(data.output==='video'?[outputFields[1]]:[])];}
  const genreGroups=[['Story genres',genres.slice(0,10).map(value=>[value,''])],['Real-world topics',genres.slice(10).map(value=>[value,''])]];
+ // Owner-approved I14 (2026-11-09): each Story type offers only the genres that fit it.
+ const STORY_GENRES=['Comedy','Adventure','Action','Drama','Fantasy','Mystery','Thriller','Horror','Romance','Science Fiction','History','Other'];
+ const TALK_GENRES=['Comedy','History','Biography','Business','Science & Technology','Sports','Nature','Other'];
+ const LEARN_GENRES=['Science & Technology','History','Nature','Business','Biography','Sports','Other'];
+ const TYPE_GENRES={storybook:STORY_GENRES,'audio-drama':STORY_GENRES,podcast:TALK_GENRES,interview:TALK_GENRES,news:['Business','Science & Technology','Sports','Nature','History','Other'],documentary:['History','Biography','Nature','Science & Technology','Sports','Business','Other'],teaching:LEARN_GENRES,training:LEARN_GENRES,presentation:LEARN_GENRES,marketing:['Comedy','Drama','Business','Science & Technology','Sports','Nature','Other']};
+ const genresFor=type=>genres.filter(g=>!TYPE_GENRES[type]||TYPE_GENRES[type].includes(g));
+ // Only a type change clears a genre that doesn't fit; a saved genre is otherwise kept and still listed.
+ function fitGenre(){if(data.genre&&genres.includes(data.genre)&&!genresFor(data.type).includes(data.genre))data.genre='';}
+ const genreOptions=()=>{const list=genresFor(data.type);return data.genre&&!list.includes(data.genre)?[...list,data.genre]:list;};
  let detailMenu=null;
  function closeDetailMenu(focus=false){if(!detailMenu)return;const {panel,trigger}=detailMenu;detailMenu=null;panel.hidden=true;trigger.setAttribute('aria-expanded','false');if(focus&&trigger.isConnected)trigger.focus();}
  function placeDetailMenu(){if(!detailMenu)return;const {panel,trigger}=detailMenu;if(!trigger.isConnected){closeDetailMenu();return;}const rect=trigger.getBoundingClientRect(),width=panel.classList.contains('story-choice-split')?Math.min(760,innerWidth-32):Math.min(640,innerWidth-32,Math.max(rect.width,560));panel.style.width=width+'px';panel.style.top=(trigger.offsetTop+rect.height+6)+'px';panel.style.left=Math.min(0,innerWidth-16-rect.left-width)+'px';panel.style.maxHeight=Math.max(0,Math.min(470,innerHeight-rect.bottom-16))+'px';}
@@ -61,6 +70,11 @@
  window.addEventListener('resize',placeDetailMenu);window.addEventListener('scroll',placeDetailMenu,true);
  function updateDetailDefaults(){for(const [name,value]of Object.entries(detailDefaults)){const badge=inPage('[data-default="'+name+'"]');if(badge)badge.hidden=data[name]!==value||!!data.defaultEdited?.[name];}}
  function updateDetailChoices(){
+  {const allowed=genresFor(inPage('#story-detail-type')?.value||data.type),select=inPage('#story-detail-genre');
+   const keep=v=>allowed.includes(v)||v===data.genre||!genres.includes(v);
+   if(select){for(const o of select.options)if(o.value)o.hidden=o.disabled=!keep(o.value);}
+   for(const b of q('#page').querySelectorAll('#story-detail-genre-panel [data-choice-value]'))b.hidden=!keep(b.dataset.choiceValue);
+   for(const g of q('#page').querySelectorAll('#story-detail-genre-panel section'))g.hidden=![...g.querySelectorAll('[data-choice-value]')].some(b=>!b.hidden);}
   for(const name of ['type','genre']){const select=inPage('#story-detail-'+name),trigger=inPage('#story-detail-'+name+'-button');if(!select||!trigger)continue;
    q('[data-choice-label]',trigger).textContent=select.selectedOptions[0]?.textContent||select.options[0].textContent;
    if(name==='type'){const tag=q('[data-generation-tag]',trigger);if(tag){tag.hidden=!data.type;tag.textContent=isRecurring()?'Recurring':'One time';tag.classList.toggle('recurring',isRecurring());}}
@@ -68,7 +82,7 @@
    const description=inPage('#story-detail-'+name+'Description'),show=data[name]===(name==='type'?'custom':'Other');description.closest('.story-detail-field').hidden=!show;description.required=show;
   }
  }
- function detailChanged(name,value){if(name==='output'&&data.output!==value){data.view='';if(value==='image')data.recurrence='once';}if(name in detailDefaults&&data[name]!==value)data.defaultEdited={...data.defaultEdited,[name]:true};data[name]=value;epoch++;persist();updateDetailDefaults();updateDetailChoices();if(name==='output'){window.EccoWorkspaceUI?.refreshJourney();updateOutputFields();updateDetailChoices();header();}if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();}
+ function detailChanged(name,value){if(name==='output'&&data.output!==value){data.view='';if(value==='image')data.recurrence='once';}if(name in detailDefaults&&data[name]!==value)data.defaultEdited={...data.defaultEdited,[name]:true};data[name]=value;if(name==='type'){fitGenre();const g=inPage('#story-detail-genre');if(g&&g.value!==(data.genre||''))g.value=data.genre||'';}epoch++;persist();updateDetailDefaults();updateDetailChoices();if(name==='output'){window.EccoWorkspaceUI?.refreshJourney();updateOutputFields();updateDetailChoices();header();}if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();}
  function choiceDropdown(select,groups){
   const name=select.name,wrap=select.closest('.story-detail-field'),label=q('label',wrap),trigger=document.createElement('button'),panel=document.createElement('div');wrap.classList.add('story-choice-field');select.hidden=true;select.tabIndex=-1;
   trigger.type='button';trigger.id=select.id+'-button';trigger.className='story-choice-trigger';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');label.htmlFor=trigger.id;label.id=select.id+'-label';trigger.setAttribute('aria-labelledby',label.id+' '+trigger.id);trigger.innerHTML='<span class="story-choice-value"><span data-choice-label></span><span class="story-generation-tag" data-generation-tag hidden></span></span><span aria-hidden="true">⌄</span>';
@@ -157,12 +171,12 @@
  function settingsBar(){
   const root=inPage('[data-story-settings]');if(!root)return;root.replaceChildren();const values=settingValues();
   const pill=document.createElement('span');pill.className='story-generation-pill'+(isRecurring()?' recurring':'');pill.dataset.generationPill='';pill.textContent=isRecurring()?'Recurring':'One time';root.append(pill);
-  for(const field of [{name:'story_type',label:'Story Type',options:M.typeOptions(data.type).filter(([id])=>!isRecurring()||!ONE_TIME_ONLY.includes(id))},{name:'genre',label:'Genre / Topic',options:genres},{name:'age_group',label:'Audience',options:audiences},{name:'language',label:'Language',options:languages}]){
+  for(const field of [{name:'story_type',label:'Story Type',options:M.typeOptions(data.type).filter(([id])=>!isRecurring()||!ONE_TIME_ONLY.includes(id))},{name:'genre',label:'Genre / Topic',options:genreOptions()},{name:'age_group',label:'Audience',options:audiences},{name:'language',label:'Language',options:languages}]){
    const label=document.createElement('label');label.className='story-setting';label.textContent=field.label;
    const select=document.createElement('select');select.name=field.name;select.dataset.storySetting=field.name;select.setAttribute('aria-label',field.label);select.add(new Option('Choose…',''));
    for(const entry of field.options){const [value,text]=Array.isArray(entry)?entry:[entry,entry];select.add(new Option(text,value));}
    const value=values[field.name]||'';if(value&&![...select.options].some(o=>o.value===value))select.add(new Option(value,value));select.value=value;
-   select.onchange=()=>{if(!enabled||data.tab!==1)return;syncStoryOptions({[field.name]:select.value});refreshPickerSettings();if(field.name==='story_type')settingsBar();};
+   select.onchange=()=>{if(!enabled||data.tab!==1)return;syncStoryOptions({[field.name]:select.value});refreshPickerSettings();if(field.name==='story_type'){fitGenre();persist();settingsBar();}};
    label.append(select);root.append(label);
   }
   const help=document.createElement('p');help.className='help';help.textContent='Changes here also update Details.';root.append(help);

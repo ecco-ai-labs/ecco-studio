@@ -923,7 +923,7 @@ async function applyScriptReview(page){const review=page.getByRole('dialog',{nam
 
 
 test('STORY-05 compact control panels and character tabs preserve edits, keyboard focus and popup errors',async({page},info)=>{
- await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Character tab test');for(const [name,value]of Object.entries({output:'audio',type:'podcast',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
+ await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Character tab test');for(const [name,value]of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
  await expect(page.getByLabel('Number of characters',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Choose from Library',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Create Character',exact:true})).toHaveCount(0);await expect(page.locator('[data-source]')).toHaveCount(0);
  await expect(page.getByRole('tablist',{name:'Story source',exact:true}).getByRole('tab')).toHaveCount(3);await expect(page.locator('[data-cast-panel]')).toHaveCount(0);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();
  const tabs=page.getByRole('tablist',{name:'Story characters',exact:true});await expect(tabs.getByRole('tab')).toHaveCount(2);await tabs.getByRole('button',{name:'Add character',exact:true}).click();await expect(tabs.getByRole('tab')).toHaveCount(3);await expect(page.getByLabel('Character 3 Name',{exact:true})).toBeFocused();await page.getByLabel('Character 3 Name',{exact:true}).fill('Morgiana');await tabs.getByRole('tab',{name:'Host',exact:true}).click();await tabs.getByRole('tab',{name:'Host',exact:true}).press('End');await expect(tabs.getByRole('tab',{name:'Morgiana',exact:true})).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');
@@ -1072,7 +1072,8 @@ test('STORY-07 presentation types and genres/topics stay distinct across onboard
  for(const [name,value] of Object.entries({output:'audio',type:'interview',genre:'History',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
  await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await charactersStep(page);await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(2);await page.getByRole('tab',{name:'2. Story Script',exact:true}).click();
  const settings=page.getByRole('group',{name:'Story settings',exact:true});
- expect(await choices(settings.locator('[name=story_type]'))).toEqual(types);expect(await choices(settings.locator('[name=genre]'))).toEqual(genres);
+ expect(await choices(settings.locator('[name=story_type]'))).toEqual(types);// Owner-approved I14: an Interview offers the talk genres only.
+ expect(await choices(settings.locator('[name=genre]'))).toEqual(genres.filter(g=>['Comedy','History','Biography','Business','Science & Technology','Sports','Nature','Other'].includes(g)));
  await expect(settings.locator('[name=story_type]')).toHaveValue('interview');await settings.locator('[name=story_type]').selectOption('documentary');await settings.locator('[name=genre]').selectOption('Nature');
  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await (await chooser).setFiles({name:'Nature.txt',mimeType:'text/plain',buffer:Buffer.from('A forest shelters many animals.')});
  const source=page.getByRole('dialog',{name:'Select Story Text',exact:true});
@@ -1266,6 +1267,20 @@ test('STORY-27 Video characters: the avatar suggestion uses the Visual style',as
  expect(page.qaErrors).toEqual([]);
 });
 
+// Owner-approved I14 (2026-11-09): genres follow the Story type.
+test('STORY-28 Genre / Topic offers only the genres that fit the Story type, in Details and on the ribbon',async({page})=>{
+ await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Genres');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=storybook]').click();
+ await fillStoryDetail(page,'genre','Horror');await expect(page.locator('#story-detail-genre')).toHaveValue('Horror');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=news]').click();
+ await expect(page.locator('#story-detail-genre')).toHaveValue('');
+ await page.locator('#story-detail-genre-button').click();const shown=await page.locator('#story-detail-genre-panel [data-choice-value]:visible').evaluateAll(b=>b.map(x=>x.dataset.choiceValue));
+ expect(shown).toEqual(['History','Business','Science & Technology','Sports','Nature','Other']);
+ await page.locator('#story-detail-genre-panel [data-choice-value=Business]').click();await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
+ const ribbon=await page.locator('[data-story-settings] [name=genre] option').evaluateAll(o=>o.map(x=>x.value).filter(Boolean));expect(ribbon.sort()).toEqual(['Business','History','Nature','Other','Science & Technology','Sports']);
+ expect(page.qaErrors).toEqual([]);
+});
+
 // Full first-screens workflow for every audited case with a mock PDF (owner request 2026-11-09): Details → Script (PDF) → Schedule when recurring → Characters.
 const PDF_CASES=[['news','once','Business',0],['news','recurring','Business',-1],['podcast','once','Science & Technology',0],['podcast','recurring','Science & Technology',3],['storybook','once','Fantasy',0],['storybook','recurring','Fantasy',4],['audio-drama','once','Adventure',0],['audio-drama','recurring','Adventure',3],['documentary','once','Nature',0],['documentary','recurring','Nature',4],['teaching','once','Science & Technology',0],['teaching','recurring','Science & Technology',3],['interview','once','Biography',0],['interview','recurring','Biography',3],['marketing','once','Business',0]];
 for(const output of ['audio','video'])for(const [type,mode,genre,parts] of PDF_CASES)test(`FLOW-PDF ${output} ${mode} ${type} reaches Story Characters`,async({page})=>{
@@ -1286,8 +1301,9 @@ for(const output of ['audio','video'])for(const [type,mode,genre,parts] of PDF_C
 
 for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`STORY-12 grouped menus stay on screen and support keyboard at ${viewport.width}px`,async({page},info)=>{
  await page.setViewportSize(viewport);await boot(page);
- for(const [name,groups,count,selected]of [['type',['Stories','Talk and news','Teaching and business','Other','Stories','Talk and news','Teaching and business'],20,'audio-drama'],['genre',['Story genres','Real-world topics'],17,'Adventure']]){
-  const trigger=page.locator('#story-detail-'+name+'-button'),panel=page.locator('#story-detail-'+name+'-panel'),options=panel.locator('[data-choice-value]');
+ for(const [name,groups,count,selected]of [['type',['Stories','Talk and news','Teaching and business','Other','Stories','Talk and news','Teaching and business'],20,'audio-drama'],['genre',['Story genres','Real-world topics'],12,'Adventure']]){
+  // Owner-approved I14: after choosing Dramatized Story, Genre / Topic lists the 12 story genres.
+  const trigger=page.locator('#story-detail-'+name+'-button'),panel=page.locator('#story-detail-'+name+'-panel'),options=panel.locator('[data-choice-value]:not([hidden])');
   await expect(trigger).toHaveAttribute('aria-haspopup','dialog');await expect(trigger).toHaveAttribute('aria-expanded','false');await trigger.press('Enter');await expect(panel).toBeVisible();await expect(trigger).toHaveAttribute('aria-expanded','true');await expect(panel.locator('h3')).toHaveText(groups);await expect(options).toHaveCount(count);await expect(options.first()).toBeFocused();
   const bounds=await panel.evaluate(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height,width:innerWidth,viewportHeight:innerHeight,overflow:e.scrollWidth>e.clientWidth};});expect(bounds.left).toBeGreaterThanOrEqual(0);expect(bounds.right).toBeLessThanOrEqual(viewport.width);expect(bounds.top).toBeGreaterThanOrEqual(0);expect(bounds.bottom).toBeLessThanOrEqual(viewport.height);expect(bounds.height).toBeLessThanOrEqual(470);expect(bounds.overflow).toBe(false);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await expect(panel.locator('.story-choice-description')).toHaveCount(name==='type'?20:0);if(name==='type')await expect(panel.locator('.story-choice-pane-title')).toHaveText(['One time generation','Recurring Generation']);expect(await options.first().evaluate(e=>getComputedStyle(e).outlineStyle)).toBe('solid');
@@ -1376,7 +1392,7 @@ async function stubCharacterJobs(page){await page.evaluate(()=>{
  window.EccoStorage.mediaURL=async id=>id.startsWith('qa-image-')?image:sound;localStorage.setItem('ecco-compute-image','qa-gpu');window.EccoCompute.validate=async()=>({});window.modelPayload=(kind,gpu,model)=>({gpu,model});
  const real=window.api;window.qaImageRequests=[];window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);job++;return {id:'qa-job-'+job};}if(path==='state')return {records:[{kind:'job',id:'qa-job-'+job,status:'done',result:['qa-image-'+job]},{kind:'asset',media:'image',id:'qa-image-'+job,job_id:'qa-job-'+job}]};return real(path,body);};
 });}
-async function openCharacters(page,output){await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Characters create and test');for(const [name,value] of Object.entries({output,type:'podcast',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeVisible();}
+async function openCharacters(page,output){await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Characters create and test');for(const [name,value] of Object.entries({output,type:'podcast',genre:'Comedy',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeVisible();}
 for(const output of ['audio','video'])test(`STORY-07 Characters step creates and tests each ${output} character before Next: Story Screen Play`,async({page},info)=>{
  await openCharacters(page,output);await stubCharacterJobs(page);
  const tabs=page.getByRole('tablist',{name:'Story characters',exact:true}),next=page.getByRole('button',{name:'Next: Story Screen Play',exact:true}),progress=page.locator('[data-cast-progress]');

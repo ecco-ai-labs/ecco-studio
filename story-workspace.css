@@ -328,3 +328,4 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .story-script-sound{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(130px,160px) minmax(0,1fr) minmax(90px,140px) auto;gap:8px;align-items:center;border:1px solid var(--line,rgba(255,255,255,.15));border-left:3px solid var(--good,#7fd6a4);border-radius:8px;padding:6px 8px;margin-left:24px}
 @media(max-width:900px){.story-script-turn,.story-script-sound{grid-template-columns:minmax(0,1fr);margin-left:0}}
 #page [data-script-text][hidden],#page .story-script-lines[hidden],#page [data-suggest-sounds][hidden],#page [data-script-view][hidden]{display:none}
+.story-choice-panel .story-choice-option[hidden],.story-choice-panel section[hidden]{display:none!important}

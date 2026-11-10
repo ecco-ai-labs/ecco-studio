@@ -906,3 +906,14 @@ Real-run fixes (2026-11-09): a video's Visual style is added to the suggested
 avatar and its prompt; Story Publishing's status lists only this story's uploads
 ("Nothing from this story has been uploaded yet."); Audio Studio's "Your newly
 generated recording will appear here." hides once the recording is saved.
+
+Genres per Story type (owner-approved I14, 2026-11-09): Genre / Topic in Details
+and on the Story Script ribbon lists only the genres that fit the Story type
+(Stories: Comedy … Science Fiction, History, Other; Podcast/Interview: Comedy,
+History, Biography, Business, Science & Technology, Sports, Nature, Other; News:
+Business, Science & Technology, Sports, Nature, History, Other; Documentary:
+History, Biography, Nature, Science & Technology, Sports, Business, Other;
+Lesson/Training/Presentation: Science & Technology, History, Nature, Business,
+Biography, Sports, Other; Advertisement: Comedy, Drama, Business, Science &
+Technology, Sports, Nature, Other; Music / Ambient and Other: all). Changing the
+type clears a genre that no longer fits; a saved genre is otherwise kept.
