@@ -1,11 +1,15 @@
 """Helpers shared by the serverless GPU workers (runs inside the worker containers).
 
-Inputs arrive as base64 files in the job input. Outputs leave as one tar archive:
-uploaded to an S3-compatible bucket when one is configured (needed for video
-frames), otherwise returned inline when small enough.
+Inputs arrive as base64 files in the job input. Outputs leave as one tar archive,
+uploaded through RunPod's S3-compatible API onto the shared network volume, so
+the CPU pod finds it on its own disk under /workspace/<key>. Small results are
+returned inline when the volume API is not configured.
 
-Bucket settings (RunPod endpoint secrets):
-  ECCO_S3_BUCKET, ECCO_S3_ENDPOINT_URL, ECCO_S3_ACCESS_KEY_ID, ECCO_S3_SECRET_ACCESS_KEY
+Endpoint secrets (RunPod S3 API key for the network volume):
+  ECCO_S3_ENDPOINT_URL      e.g. https://s3api-eu-ro-1.runpod.io/
+  ECCO_S3_REGION            e.g. eu-ro-1
+  ECCO_S3_BUCKET            the network volume ID, e.g. b3qo8lps92
+  ECCO_S3_ACCESS_KEY_ID, ECCO_S3_SECRET_ACCESS_KEY
 """
 import base64
 import io
@@ -14,6 +18,7 @@ import tarfile
 from pathlib import Path, PurePosixPath
 
 MAX_INLINE_BYTES = int(os.getenv('ECCO_MAX_INLINE_BYTES', str(7 * 1024 * 1024)))
+RESULTS_PREFIX = 'ecco-serverless/results/'
 
 
 def safe_name(name):
@@ -45,23 +50,25 @@ def pack(paths, base):
     return buffer.getvalue()
 
 
-def bucket_configured():
+def volume_configured():
     return all(os.getenv(k) for k in ('ECCO_S3_BUCKET', 'ECCO_S3_ENDPOINT_URL',
                                       'ECCO_S3_ACCESS_KEY_ID', 'ECCO_S3_SECRET_ACCESS_KEY'))
 
 
-def deliver(data, key):
-    """Return {'url': presigned GET} via the bucket, or {'inline': base64} when small."""
-    if bucket_configured():
+def deliver(data, name):
+    """Return {'volume_key': path on the volume} or {'inline': base64} when small."""
+    if volume_configured():
         import boto3
+        from boto3.s3.transfer import TransferConfig
         client = boto3.client('s3', endpoint_url=os.environ['ECCO_S3_ENDPOINT_URL'],
                               aws_access_key_id=os.environ['ECCO_S3_ACCESS_KEY_ID'],
                               aws_secret_access_key=os.environ['ECCO_S3_SECRET_ACCESS_KEY'],
-                              region_name=os.getenv('ECCO_S3_REGION', 'auto'))
-        bucket = os.environ['ECCO_S3_BUCKET']
-        client.put_object(Bucket=bucket, Key=key, Body=data)
-        url = client.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': key}, ExpiresIn=6 * 3600)
-        return {'url': url, 'bytes': len(data)}
+                              region_name=os.getenv('ECCO_S3_REGION', 'eu-ro-1'))
+        key = RESULTS_PREFIX + safe_name(name)
+        # The volume API takes single uploads under 500 MB; larger ones go in parts.
+        config = TransferConfig(multipart_threshold=256 * 1024 * 1024, multipart_chunksize=256 * 1024 * 1024)
+        client.upload_fileobj(io.BytesIO(data), os.environ['ECCO_S3_BUCKET'], key, Config=config)
+        return {'volume_key': key, 'bytes': len(data)}
     if len(data) > MAX_INLINE_BYTES:
-        raise RuntimeError('Result is too large to return inline. Configure the ECCO_S3_* bucket secrets on this endpoint.')
+        raise RuntimeError('Result is too large to return inline. Add the ECCO_S3_* volume secrets to this endpoint.')
     return {'inline': base64.b64encode(data).decode(), 'bytes': len(data)}

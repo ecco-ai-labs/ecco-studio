@@ -1,7 +1,7 @@
-# Image endpoint: SDXL, Qwen-Image-2512, Qwen Image Edit 2511, FLUX.2 klein, Z-Image.
-# Build context: repository root.
+# Image endpoint: SDXL, Qwen-Image-2512, Qwen Image Edit 2511, FLUX.2 klein 4B, Z-Image.
+# Build context: repository root. Models are read from the global volume (/runpod-volume).
 FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
-ENV PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 COMFY_DIR=/comfyui ZIMAGE_DIR=/weights/z-image
-COPY serverless/weights-url.txt serverless/download_weights.py serverless/worker_common.py serverless/comfy-worker/ /opt/ecco/
+ENV PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 COMFY_DIR=/comfyui ZIMAGE_DIR=/runpod-volume/ecco-models/z-image
+COPY serverless/worker_common.py serverless/comfy-worker/ /opt/ecco/
 RUN bash /opt/ecco/build.sh images
 CMD ["python", "-u", "/opt/ecco/handler.py"]

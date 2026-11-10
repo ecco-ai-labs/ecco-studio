@@ -24,7 +24,7 @@ import worker_common  # noqa: E402
 
 COMFY_DIR = Path(os.getenv('COMFY_DIR', '/comfyui'))
 COMFY = 'http://127.0.0.1:8188'
-ZIMAGE_DIR = Path(os.getenv('ZIMAGE_DIR', '/models/z-image'))
+ZIMAGE_DIR = Path(os.getenv('ZIMAGE_DIR', '/runpod-volume/ecco-models/z-image'))
 _zimage = None
 
 
@@ -105,7 +105,7 @@ def run_comfy(job, data):
         return {'error': 'ComfyUI returned no outputs.'}
     runpod.serverless.progress_update(job, 'Uploading result')
     archive = worker_common.pack(paths, COMFY_DIR / 'output')
-    return {'archive': worker_common.deliver(archive, f'results/{data.get("key") or uuid.uuid4().hex}.tar'), 'outputs': outputs}
+    return {'archive': worker_common.deliver(archive, f'{data.get("key") or uuid.uuid4().hex}.tar'), 'outputs': outputs}
 
 
 def run_zimage(job, data):
@@ -131,7 +131,7 @@ def run_zimage(job, data):
     out = COMFY_DIR / 'output' / 'zimage.png'
     image.save(out)
     archive = worker_common.pack([out], COMFY_DIR / 'output')
-    return {'archive': worker_common.deliver(archive, f'results/{data.get("key") or uuid.uuid4().hex}.tar'),
+    return {'archive': worker_common.deliver(archive, f'{data.get("key") or uuid.uuid4().hex}.tar'),
             'outputs': [{'filename': 'zimage.png', 'subfolder': '', 'kind': 'images'}]}
 
 

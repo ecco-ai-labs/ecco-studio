@@ -1,3 +1,0 @@
-# Public HTTPS address of the bucket's weights/ folder, written by publish_weights.py.
-# Example for Cloudflare R2 with public access: https://pub-xxxxxxxx.r2.dev/weights
-REPLACE_ME

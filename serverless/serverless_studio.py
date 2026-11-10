@@ -9,8 +9,8 @@ Off unless started. Start it on the CPU storage pod (shared volume at /workspace
 
 What it does
   1. Starts a local ComfyUI stand-in (comfy_proxy.py) on 127.0.0.1:8188.
-  2. Creates empty placeholder model files so Studio's "model ready" checks pass
-     for the models the configured endpoints carry (from the weights manifest).
+  2. Points Studio's "model ready" checks at the volume's ComfyUI/models folder
+     (the same files the endpoints read from their global-volume copy).
   3. Sends Z-Image to the image endpoint (zimage_client.py) and reports the
      accelerator as "RunPod Serverless".
   4. Answers the GPU relay and the LongCat queue for ECCO_SERVERLESS_POD, so
@@ -47,24 +47,20 @@ def say(message):
     print('[serverless] ' + message, flush=True)
 
 
-def placeholders(manifest_path=BASE / 'manifest.json', comfy_root=COMFY_ROOT):
-    """Create empty files named like each model the configured endpoints carry."""
-    try:
-        groups = json.loads(Path(manifest_path).read_text())['groups']
-    except (OSError, ValueError, KeyError):
-        say('No weights manifest yet; run publish_weights.py first. Model checks will report "not ready".')
-        return 0
-    count = 0
-    for group in ('images', 'video'):
-        if not rp.configured(group):
-            continue
-        for item in groups.get(group, []):
-            if item['path'].startswith('comfy/'):
-                target = Path(comfy_root) / 'models' / item['path'][len('comfy/'):]
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.touch(exist_ok=True)
-                count += 1
-    return count
+def link_models(models=WORKSPACE / 'ComfyUI/models', comfy_root=COMFY_ROOT):
+    """Point the stand-in ComfyUI folder at the volume's model folder (read-only use).
+
+    Studio checks model files exist before offering a model; the endpoints read the
+    same files from their copy on the global volume.
+    """
+    link = Path(comfy_root) / 'models'
+    link.parent.mkdir(parents=True, exist_ok=True)
+    if link.is_symlink():
+        link.unlink()
+    elif link.exists():
+        return link
+    link.symlink_to(models, target_is_directory=True)
+    return link
 
 
 def zimage_runtime(runtime=BASE / 'zimage-runtime'):
@@ -137,7 +133,7 @@ def main():
     os.environ.setdefault('ECCO_PUBLIC_URL', 'http://127.0.0.1:8765')
     os.environ.setdefault('STUDIO_ORIGIN', os.environ['ECCO_PUBLIC_URL'])
     os.environ.setdefault('ECCO_HOURLY_RATE', str(RATE))
-    say(f'{placeholders()} model placeholders ready.')
+    say(f'Model checks use {link_models()}.')
     import comfy_proxy
     threading.Thread(target=comfy_proxy.serve, daemon=True, name='comfy-proxy').start()
     sys.path.insert(0, str(STUDIO_DIR))

@@ -95,8 +95,31 @@ def wait(name, job_id, should_cancel=lambda: False, on_status=lambda s: None,
     raise ServerlessError('Serverless job timed out and was cancelled.')
 
 
-def unpack(archive_ref, destination, opener=urllib.request.urlopen):
-    """Extract a worker's result archive ({'url'} or {'inline'}) into destination.
+VOLUME = os.getenv('ECCO_WORKSPACE', '/workspace')
+
+
+def read_volume_result(key, volume=None, wait_seconds=60, sleep=time.sleep):
+    """Read (then delete) a result the worker uploaded onto the shared network volume."""
+    from pathlib import Path
+    root = Path(volume or VOLUME).resolve()
+    path = (root / key).resolve()
+    if not path.is_relative_to(root / 'ecco-serverless' / 'results'):
+        raise ServerlessError('The worker returned an unsafe result location.')
+    deadline = time.monotonic() + wait_seconds
+    while not path.is_file():  # the volume API write can take a moment to appear on the mount
+        if time.monotonic() > deadline:
+            raise ServerlessError('The result did not appear on the volume.')
+        sleep(1)
+    data = path.read_bytes()
+    try:
+        path.unlink()
+    except OSError:
+        pass
+    return data
+
+
+def unpack(archive_ref, destination, opener=urllib.request.urlopen, volume=None):
+    """Extract a worker's result archive ({'volume_key'}, {'url'} or {'inline'}) into destination.
 
     Returns the extracted file paths. Rejects absolute paths, '..' and links.
     """
@@ -104,7 +127,9 @@ def unpack(archive_ref, destination, opener=urllib.request.urlopen):
     import io
     import tarfile
     from pathlib import Path
-    if archive_ref.get('url'):
+    if archive_ref.get('volume_key'):
+        data = read_volume_result(archive_ref['volume_key'], volume)
+    elif archive_ref.get('url'):
         data = fetch(archive_ref['url'], opener=opener)
     elif archive_ref.get('inline'):
         data = base64.b64decode(archive_ref['inline'])

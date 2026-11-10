@@ -112,7 +112,7 @@ class WorkerCommon(unittest.TestCase):
             ref = worker_common.deliver(worker_common.pack([path], temp), 'k')
             with tempfile.TemporaryDirectory() as dest:
                 self.assertEqual(rp.unpack(ref, dest)[0].read_bytes(), b'data')
-            with patch.object(worker_common, 'MAX_INLINE_BYTES', 1), self.assertRaisesRegex(RuntimeError, 'bucket'):
+            with patch.object(worker_common, 'MAX_INLINE_BYTES', 1), self.assertRaisesRegex(RuntimeError, 'secrets'):
                 worker_common.deliver(b'too big', 'k')
 
 
@@ -145,8 +145,7 @@ class ComfyProxy(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)
-        env = {'COMFY_ROOT': str(root / 'comfy'), 'ECCO_SERVERLESS_MANIFEST': str(root / 'manifest.json'),
-               'ECCO_SERVERLESS_LOG': str(root / 'proxy.log')}
+        env = {'COMFY_ROOT': str(root / 'comfy'), 'ECCO_SERVERLESS_LOG': str(root / 'proxy.log')}
         with patch.dict(os.environ, env):
             spec = importlib.util.spec_from_file_location('comfy_proxy_test', HERE / 'comfy_proxy.py')
             self.proxy = importlib.util.module_from_spec(spec)
@@ -158,13 +157,11 @@ class ComfyProxy(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def test_routes_by_manifest_then_by_name(self):
+    def test_routes_wan_to_video_and_everything_else_to_images(self):
         wan = {'1': {'class_type': 'UNETLoader', 'inputs': {'unet_name': 'wan2.2_ti2v_5B_fp16.safetensors'}}}
         sdxl = {'1': {'class_type': 'CheckpointLoaderSimple', 'inputs': {'ckpt_name': 'sd_xl_base_1.0.safetensors'}}}
         self.assertEqual(self.proxy.route(wan), 'video')
         self.assertEqual(self.proxy.route(sdxl), 'images')
-        (self.root / 'manifest.json').write_text(json.dumps({'groups': {'video': [{'path': 'comfy/checkpoints/sd_xl_base_1.0.safetensors'}]}}))
-        self.assertEqual(self.proxy.route(sdxl), 'video')
 
     def serve(self):
         from http.server import ThreadingHTTPServer
@@ -310,18 +307,57 @@ class ZImageClient(unittest.TestCase):
 
 
 class Launcher(unittest.TestCase):
-    def test_placeholders_only_for_configured_endpoints(self):
+    def test_model_checks_point_at_volume_models(self):
         import serverless_studio
         with tempfile.TemporaryDirectory() as temp:
-            manifest = Path(temp, 'manifest.json')
-            manifest.write_text(json.dumps({'groups': {
-                'images': [{'path': 'comfy/checkpoints/sd_xl_base_1.0.safetensors'}, {'path': 'z-image/model_index.json'}],
-                'video': [{'path': 'comfy/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors'}]}}))
-            with patch.dict(os.environ, {'RUNPOD_API_KEY': 'k', 'ECCO_ENDPOINT_IMAGES': 'i', 'ECCO_ENDPOINT_VIDEO': ''}):
-                count = serverless_studio.placeholders(manifest, Path(temp, 'root'))
-            self.assertEqual(count, 1)
-            self.assertTrue(Path(temp, 'root/models/checkpoints/sd_xl_base_1.0.safetensors').is_file())
-            self.assertFalse(Path(temp, 'root/models/diffusion_models').exists())
+            models = Path(temp, 'ComfyUI/models/checkpoints')
+            models.mkdir(parents=True)
+            (models / 'sd_xl_base_1.0.safetensors').write_bytes(b'')
+            link = serverless_studio.link_models(Path(temp, 'ComfyUI/models'), Path(temp, 'root'))
+            self.assertTrue((link / 'checkpoints/sd_xl_base_1.0.safetensors').is_file())
+            serverless_studio.link_models(Path(temp, 'ComfyUI/models'), Path(temp, 'root'))  # idempotent
+
+
+class VolumeResults(unittest.TestCase):
+    def test_result_written_through_volume_api_is_read_and_removed(self):
+        with tempfile.TemporaryDirectory() as volume, tempfile.TemporaryDirectory() as dest:
+            key = 'ecco-serverless/results/job.tar'
+            Path(volume, key).parent.mkdir(parents=True)
+            Path(volume, key).write_bytes(tar_of({'output.mp4': b'video'}))
+            files = rp.unpack({'volume_key': key}, dest, volume=volume)
+            self.assertEqual(files[0].read_bytes(), b'video')
+            self.assertFalse(Path(volume, key).exists())
+
+    def test_volume_key_outside_results_folder_is_refused(self):
+        with tempfile.TemporaryDirectory() as volume, tempfile.TemporaryDirectory() as dest:
+            with self.assertRaisesRegex(rp.ServerlessError, 'unsafe'):
+                rp.unpack({'volume_key': 'ecco-studio-data/studio.sqlite'}, dest, volume=volume)
+            with self.assertRaisesRegex(rp.ServerlessError, 'unsafe'):
+                rp.unpack({'volume_key': 'ecco-serverless/results/../../etc/passwd'}, dest, volume=volume)
+
+    def test_worker_uploads_large_results_to_the_volume_in_parts(self):
+        calls = {}
+
+        class Client:
+            def upload_fileobj(self, fileobj, bucket, key, Config):
+                calls.update(bucket=bucket, key=key, data=fileobj.read(), chunk=Config.multipart_chunksize)
+
+        boto3 = type(sys)('boto3')
+        boto3.client = lambda *a, **kw: Client()
+        transfer = type(sys)('boto3.s3.transfer')
+
+        class TransferConfig:
+            def __init__(self, **kw):
+                self.__dict__.update(kw)
+        transfer.TransferConfig = TransferConfig
+        env = {'ECCO_S3_BUCKET': 'b3qo8lps92', 'ECCO_S3_ENDPOINT_URL': 'https://s3api-eu-ro-1.runpod.io/',
+               'ECCO_S3_ACCESS_KEY_ID': 'a', 'ECCO_S3_SECRET_ACCESS_KEY': 's'}
+        with patch.dict(os.environ, env), patch.dict(sys.modules, {'boto3': boto3, 'boto3.s3': type(sys)('boto3.s3'),
+                                                                   'boto3.s3.transfer': transfer}):
+            ref = worker_common.deliver(b'tar', 'job.tar')
+        self.assertEqual(ref['volume_key'], 'ecco-serverless/results/job.tar')
+        self.assertEqual((calls['bucket'], calls['key'], calls['data']), ('b3qo8lps92', 'ecco-serverless/results/job.tar', b'tar'))
+        self.assertLess(calls['chunk'], 500 * 1024 * 1024)
 
 
 if __name__ == '__main__':

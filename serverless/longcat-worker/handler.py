@@ -33,7 +33,7 @@ def handler(job):
             longcat_jobs.run_shot(d, request)
             result = json.loads((d / 'status.json').read_text())
             archive = worker_common.pack([d / 'output.mp4'], d)
-            return {'archive': worker_common.deliver(archive, f'results/{data.get("key", "longcat")}.tar'),
+            return {'archive': worker_common.deliver(archive, f'{data.get("key", "longcat")}.tar'),
                     'duration': result['duration'], 'sha256': result['sha256']}
         except Exception as exc:
             log = (d / 'worker.log').read_text(errors='replace')[-4000:] if (d / 'worker.log').is_file() else ''

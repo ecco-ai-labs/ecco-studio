@@ -21,7 +21,6 @@ from pathlib import Path
 import runpod_client as rp
 
 COMFY_ROOT = Path(os.getenv('COMFY_ROOT', '/workspace/ecco-serverless/comfy-root')).resolve()
-MANIFEST = Path(os.getenv('ECCO_SERVERLESS_MANIFEST', '/workspace/ecco-serverless/manifest.json'))
 LOG = Path(os.getenv('ECCO_SERVERLESS_LOG', '/workspace/ecco-serverless/proxy.log'))
 MODEL_KEYS = ('unet_name', 'ckpt_name', 'clip_name', 'clip_name1', 'clip_name2', 'vae_name', 'lora_name', 'model_name')
 LOCK = threading.Lock()
@@ -37,22 +36,14 @@ def log(message):
         pass
 
 
-def manifest_files(group):
-    try:
-        items = json.loads(MANIFEST.read_text())['groups'][group]
-    except (OSError, ValueError, KeyError):
-        return set()
-    return {Path(i['path']).name for i in items if i['path'].startswith('comfy/')}
+VIDEO_MODELS = re.compile(os.getenv('ECCO_VIDEO_MODEL_PATTERN', r'wan|umt5'), re.I)
 
 
 def route(graph):
-    """'video' when the workflow loads any video-endpoint model, otherwise 'images'."""
+    """'video' when the workflow loads a Wan video model, otherwise 'images'."""
     names = {str(node.get('inputs', {}).get(k)) for node in graph.values() if isinstance(node, dict) for k in MODEL_KEYS}
     names.discard('None')
-    video = manifest_files('video')
-    if video:
-        return 'video' if names & video else 'images'
-    return 'video' if any(re.search(r'wan|umt5', n, re.I) for n in names) else 'images'
+    return 'video' if any(VIDEO_MODELS.search(n) for n in names) else 'images'
 
 
 def input_files(graph):
