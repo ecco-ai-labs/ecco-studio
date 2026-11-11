@@ -390,6 +390,30 @@ class WaitTimeouts(unittest.TestCase):
         self.assertEqual(seen, ['Running Generation'])
         self.assertFalse(self.cancelled)
 
+    def test_brief_runpod_api_errors_do_not_abandon_a_running_job(self):
+        import urllib.error
+        replies = iter([{'status': 'IN_PROGRESS'}, 500, 502, {'status': 'COMPLETED', 'output': {'ok': 2}}])
+        now = [0.0]
+
+        def opener(request, timeout):
+            reply = next(replies)
+            if isinstance(reply, int):
+                raise urllib.error.HTTPError(request.full_url, reply, 'error', {}, io.BytesIO(b'internal server error'))
+            return FakeResponse(json.dumps(reply).encode())
+        with patch.dict(os.environ, {'RUNPOD_API_KEY': 'k', 'ECCO_ENDPOINT_IMAGES': 'img'}):
+            out = rp.wait('images', 'j', opener=opener, sleep=lambda s: now.__setitem__(0, now[0] + s), clock=lambda: now[0])
+        self.assertEqual(out, {'ok': 2})
+
+    def test_long_runpod_api_outage_still_fails(self):
+        import urllib.error
+
+        def opener(request, timeout):
+            raise urllib.error.HTTPError(request.full_url, 503, 'error', {}, io.BytesIO(b'down'))
+        now = [0.0]
+        with patch.dict(os.environ, {'RUNPOD_API_KEY': 'k', 'ECCO_ENDPOINT_IMAGES': 'img'}):
+            with self.assertRaises(rp.TransientError):
+                rp.wait('images', 'j', opener=opener, sleep=lambda s: now.__setitem__(0, now[0] + 60), clock=lambda: now[0], status_outage=300)
+
     def test_running_too_long_is_cancelled(self):
         states = [{'status': 'IN_PROGRESS'}] * 10
         with self.assertRaisesRegex(rp.ServerlessError, 'ran longer than 20 minutes'):

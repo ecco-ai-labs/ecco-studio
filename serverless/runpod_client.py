@@ -21,6 +21,10 @@ class ServerlessError(Exception):
     pass
 
 
+class TransientError(ServerlessError):
+    """RunPod's API was briefly unreachable or returned 429/5xx; worth retrying."""
+
+
 def endpoint(name):
     """Endpoint ID for 'images', 'video' or 'longcat', or None when not configured."""
     value = os.getenv('ECCO_ENDPOINT_' + name.upper(), '').strip()
@@ -43,9 +47,10 @@ def _call(path, payload=None, timeout=30, opener=urllib.request.urlopen):
             return json.load(response)
     except urllib.error.HTTPError as exc:
         detail = exc.read()[:500].decode('utf-8', 'replace')
-        raise ServerlessError(f'RunPod returned HTTP {exc.code}: {detail}') from None
+        kind = TransientError if exc.code == 429 or exc.code >= 500 else ServerlessError
+        raise kind(f'RunPod returned HTTP {exc.code}: {detail}') from None
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise ServerlessError(f'Could not reach RunPod: {exc}') from None
+        raise TransientError(f'Could not reach RunPod: {exc}') from None
 
 
 def submit(name, job_input, opener=urllib.request.urlopen):
@@ -74,7 +79,7 @@ def cancel(name, job_id, opener=urllib.request.urlopen):
 
 def wait(name, job_id, should_cancel=lambda: False, on_status=lambda s: None,
          timeout=3600, poll=2.0, opener=urllib.request.urlopen, sleep=time.sleep,
-         queue_timeout=None, on_progress=lambda text: None, clock=time.monotonic):
+         queue_timeout=None, on_progress=lambda text: None, clock=time.monotonic, status_outage=600):
     """Poll until the job finishes. Returns the job output or raises ServerlessError.
 
     `timeout` limits running time only, counted from when a worker picks the job up;
@@ -82,12 +87,21 @@ def wait(name, job_id, should_cancel=lambda: False, on_status=lambda s: None,
     `on_progress` receives the worker's progress_update() text while it runs.
     """
     queue_timeout = float(os.getenv('ECCO_SERVERLESS_QUEUE_TIMEOUT', 6 * 3600)) if queue_timeout is None else queue_timeout
-    submitted, started, last_progress = clock(), None, None
+    submitted, started, last_progress, outage = clock(), None, None, None
     while True:
         if should_cancel():
             cancel(name, job_id, opener=opener)
             raise ServerlessError('Stopped by user')
-        reply = status(name, job_id, opener=opener)
+        try:
+            reply = status(name, job_id, opener=opener)
+            outage = None
+        except TransientError:
+            # A brief RunPod API outage must not abandon a job that is still running on a GPU.
+            outage = outage or clock()
+            if clock() - outage > status_outage:
+                raise
+            sleep(max(poll, 5))
+            continue
         state = reply.get('status', '')
         on_status(state)
         if state in DONE:
