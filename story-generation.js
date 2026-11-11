@@ -14,6 +14,9 @@
  const write=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
  const session=(key,fallback)=>{try{return JSON.parse(sessionStorage.getItem(key))??fallback;}catch{return fallback;}};
  const sessionWrite=(key,value)=>{try{sessionStorage.setItem(key,JSON.stringify(value));}catch{}};
+ // Errors already announced are remembered across reloads and tabs, so an old failed run never pops up again.
+ const shownErrors=story=>{try{return JSON.parse(localStorage.getItem('ecco-gen-errors-shown:'+story))??[];}catch{return [];}};
+ const rememberShown=(story,keys)=>{try{localStorage.setItem('ecco-gen-errors-shown:'+story,JSON.stringify(keys.slice(-20)));}catch{}};
  const records=()=>typeof state!=='undefined'&&state?.records||[];
  const legacy=()=>typeof LEGACY_STORY==='undefined'?'':LEGACY_STORY;
  const ofStory=(r,story)=>(r.story_id||legacy())===story;
@@ -146,7 +149,7 @@
   const button=generateButton();
   if(!button){window.EccoErrors?.show('The '+NOUN[ctx.kind]+' studio is still loading. Try again in a moment.',{title:'Generation could not start'});return false;}
   if(button.disabled||button.getAttribute('aria-busy')==='true'){window.EccoErrors?.show(busyText()||'Generation is already running.',{title:'Generation could not start'});return false;}
-  sessionWrite('ecco-gen-errors-shown:'+ctx.story,[]);autoStartUntil=0;button.click();setTimeout(update,300);return true;
+  const previous=snapshot(ctx.kind,ctx.story)?.key;if(previous)rememberShown(ctx.story,[...shownErrors(ctx.story).filter(k=>k!==previous),previous]);autoStartUntil=0;button.click();setTimeout(update,300);return true;
  }
  async function download(){const asset=current().asset;if(!asset)return;try{if(ctx.kind==='audio'){q('[data-download-audio="'+(window.CSS?.escape?CSS.escape(asset.id):asset.id)+'"]')?.click();return;}const url=typeof media==='function'?media(asset):'';if(!url)throw Error('The file is still loading. Try again in a moment.');const a=document.createElement('a');a.href=url;a.download=(asset.title||'ecco-'+ctx.kind).replace(/[\\/:*?"<>|]+/g,'-');a.click();}catch(error){window.EccoErrors?.show(error,{title:'Download failed'});}}
  async function publish(){const button=q('[data-publish]',root),asset=current().asset;button.disabled=true;try{await ctx.publish?.(asset);}catch(error){window.EccoErrors?.show(error,{title:'Publish could not start'});}finally{if(button.isConnected)button.disabled=!current().asset;}}
@@ -189,7 +192,7 @@
  function drawProgress(snap,mode){
   const host=q('[data-gen-progress]',root);
   if(!snap||mode==='review'||mode==='idle'){if(host.childElementCount){host.replaceChildren();progressSig='';}return;}
-  const items=track(snap,ctx.story),elapsed=snap.started?clock()-snap.started:0;
+  const items=track(snap,ctx.story),ended=mode==='running'?clock():(items.at(-1)?.t||clock()),elapsed=snap.started?Math.max(0,ended-snap.started):0;
   const eta=mode==='running'?(snap.eta??(snap.overall>4&&elapsed>20?elapsed*(100-snap.overall)/snap.overall:null)):0;
   const sig=JSON.stringify([mode,Math.round(snap.overall),snap.units.map(u=>[u.status,Math.round(u.pct??-1),u.detail,u.worker]),items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),snap.counts]);
   if(sig===progressSig)return;progressSig=sig;
@@ -209,7 +212,7 @@
    +'<section class="panel story-gen-log" aria-label="Activity"><h3>Activity</h3><ol>'+items.slice().reverse().map(i=>'<li><time class="help">'+esc(new Date(i.t*1000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}))+'</time><span>'+esc(i.m)+'</span></li>').join('')+'</ol><p class="help">You can leave this tab. Generation keeps going and this screen catches up when you return.</p></section></div>';
  }
  function announceError(snap){
-  const key='ecco-gen-errors-shown:'+ctx.story,shown=session(key,[]);if(shown.includes(snap.key))return;shown.push(snap.key);sessionWrite(key,shown.slice(-20));
+  const shown=shownErrors(ctx.story);if(shown.includes(snap.key))return;rememberShown(ctx.story,[...shown,snap.key]);
   const help=advice(snap.error,snap.kind),failed=snap.units.find(u=>u.status==='failed');
   const message=(failed?failed.name+' stopped. ':'')+(snap.error||'Generation stopped.')+(help.cause?'\n\n'+help.cause:'');
   const steps=[...help.steps,...(snap.units.some(u=>u.status==='done')?['Finished parts are kept.']:[])];
