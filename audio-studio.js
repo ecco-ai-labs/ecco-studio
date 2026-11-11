@@ -31,6 +31,11 @@
   return {ready,reason:ready?'':'Not installed and verified on the selected worker.'};
  }
  window.EccoAudioCompute={target:computeTarget,choices:computeChoices,value:computeValue,parse:parseCompute,readiness:modelReadiness};
+ // Voice fix (real run 2026-11-09): which speech models the selected (or any ready) worker can run now; null until checked.
+ window.EccoAudioCompute.refresh=()=>checkCompute().catch(()=>null);
+ // Automatic episodes record on a GPU only: the first ready A100 or B200 and its speech models.
+ window.EccoAudioCompute.gpu=()=>{const found=['b200','a100'].find(id=>computeStatus?.compute?.[id]?.ready);return found?{compute:found,models:computeStatus.compute[found].models||[]}:null;};
+ window.EccoAudioCompute.readyNow=()=>{if(!computeStatus)return null;const selected=draft?computeTarget(computeStatus,draft.compute,draft.worker_id):null;const targets=selected?.ready?[selected]:[...(computeStatus.instances||[]),...Object.values(computeStatus.compute||{})].filter(t=>t?.ready);const ids=[...new Set(targets.flatMap(t=>t.models||[]))];return ids.length?ids:null;};
  function showModelAvailability(){
   if(!draft)return;
   const available=id=>modelReadiness(computeStatus,draft.compute,draft.worker_id,id);
@@ -47,7 +52,7 @@
   const note=q('[data-audio-compute-status]');if(!note||!draft)return;
   const select=q('#audio-form [name=compute]');
   const choices=computeChoices(computeStatus);
-  if(draft.compute==='cpu'&&!draft.worker_id){const preferred=choices.find(c=>c.compute==='cpu'&&c.ready)||choices.find(c=>c.compute==='cpu');if(preferred?.worker_id){draft.worker_id=preferred.worker_id;save();}}
+  if(draft.compute==='cpu'&&!draft.worker_id){const models=c=>(computeStatus?.instances||[]).find(w=>w.id===c.worker_id)?.models?.length||0;const preferred=choices.filter(c=>c.compute==='cpu'&&c.ready).sort((a,b)=>models(b)-models(a))[0]||choices.find(c=>c.compute==='cpu');if(preferred?.worker_id){draft.worker_id=preferred.worker_id;save();}}
   if(select){
    const signature=JSON.stringify(choices);
    if(select.dataset.options!==signature){select.replaceChildren(new Option('Select connected compute',''),...choices.map(c=>new Option(c.label,c.value)));select.dataset.options=signature;}
@@ -75,8 +80,12 @@
   if(!target?.ready)throw Error(target?.reason||compute.toUpperCase()+' audio worker is not connected.');
   const needed=[...new Set(lines?lines.map(l=>l.model||modelId):[modelId])];
   const missing=needed.filter(id=>!target.models?.includes(id));
+  // Voice quality fix (2026-11-09): compute never falls back to another machine on its own, so name the worker that can run it.
+  const other=missing.length&&compute==='cpu'?(result?.instances||[]).find(w=>w.compute==='cpu'&&w.ready&&needed.every(id=>w.models?.includes(id))):null;
+  if(other)throw Error('Not installed on this worker: '+missing.map(id=>audioModels.find(m=>m.id===id)?.name||id).join(', ')+'. Choose “CPU · '+other.name+'” in Compute, which has every model this recording needs.');
   if(missing.length)throw Error('Not installed and verified on this worker: '+missing.map(id=>audioModels.find(m=>m.id===id)?.name||id).join(', ')+'. Choose an available model or CPU instance.');
   if(needed.some(id=>id!==modelId)&&target.mixed_models_version!==1)throw Error('This worker needs the mixed-model runtime update. Your character choices are saved.');
+  return workerId;
  }
  for(const model of audioModels){
   MODEL_CATALOG[model.id]={name:model.name,license:model.license,defaults:{}};
@@ -307,7 +316,7 @@
    try{
     if(cached?.asset_id){try{await showSample(cached.asset_id);}catch(error){forget(sampleKey);throw error;}return;}
     if(cached?.submitting)throw Error('The previous sample submission is unconfirmed. Check Activity before requesting it again.');
-    if(!cached?.job_id)await requireCompute(settings.compute,settings.model,settings.worker_id);window.EccoGenerationStop?.assert(stopToken);if(!valid()||current!==service)return;
+    if(!cached?.job_id)settings.worker_id=await requireCompute(settings.compute,settings.model,settings.worker_id)??settings.worker_id;window.EccoGenerationStop?.assert(stopToken);if(!valid()||current!==service)return;
     let previewLine={text,...voice};if(!cached?.job_id&&!previewModel.voice_direction&&(settings.performance_brief.audience||settings.performance_brief.tone||character.delivery||character.style||character.delivery_style&&character.delivery_style!=='Voice Default'||!previewModel.emotions&&character.emotion!=='neutral')){if(!window.EccoAI?.enabled)throw Error('Connect OpenAI to preview the character’s speaking instructions.');status.textContent='Preparing Delivery…';const plan=await window.EccoAudioDirection.refine({plan:{opening:null,segments:[{character_id:character.id,text}]},cast:[character],brief:{...draft.script_brief,genre:settings.genre,language:character.language},model:previewModel,directionOnly:true,request:api,assertCurrent:()=>{window.EccoGenerationStop?.assert(stopToken);if(!valid()||current!==service)throw Error('The preview changed. Try again.');}});previewLine={text,...voice,...window.EccoAudioDirection.lineControls(plan.segments[0],character,previewModel)};if(settings.model==='chatterbox'&&character.exaggeration===undefined&&draft.exaggeration===undefined&&plan.expressiveness!==null)settings.exaggeration=plan.expressiveness;}if(settings.model==='chatterbox'&&(character.exaggeration!==undefined||draft.exaggeration!==undefined))previewLine.exaggeration=Number(character.exaggeration??draft.exaggeration);let job;if(cached?.job_id)job={id:cached.job_id};else{remember(sampleKey,{submitting:true});try{window.EccoGenerationStop?.assert(stopToken);job=await current.generate({...settings,lines:[previewLine]});}catch(error){if(error.job?.id)remember(sampleKey,{job_id:error.job.id});else if(error.name==='GenerationStopped'||error.status&&error.status<500)forget(sampleKey);throw error;}remember(sampleKey,{job_id:job.id});}await window.EccoGenerationStop?.track('audio',token.story,{status:'queued',...job},stopToken);if(!valid()||current!==service)return;
     const check=async()=>{if(!valid()||current!==service)return;try{
      const result=await current.job(job.id);window.EccoGenerationStop?.remember({id:job.id,...result});if(!valid()||current!==service)return;

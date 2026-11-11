@@ -543,3 +543,84 @@ Expanded the existing character Emotion menu to 29 choices. Each Final Script tu
 Direction-capable models receive the turn emotion and concrete English acting instructions through the existing direction field. Indic-Mio receives the closest supported language-specific native tag. Chatterbox receives per-line exaggeration even without AI preparation; this approximates intensity, not semantic emotional acting. Explicit numeric overrides remain authoritative. Unsupported model emotion selectors are disabled with an explanation. Existing worker protocols are used; no runtime restart or model replacement is required.
 
 Twelve local binding/storytelling tests passed, including distinct anxious/ecstatic submissions after AI refinement, backend direction validation, unchanged dialogue, turn cue persistence and existing selected-text editing. Listening-quality acceptance has not been established by these tests.
+
+## GPU voice models: svara-TTS and MOSS-TTSD (2026-11-10)
+
+`install_gpu_voice_models.py` installs these in two separate steps so packages and
+weights can be handled independently later. Defaults follow the GPU pod layout
+(`/workspace/ecco-audio`): venvs beside `queue_worker.py`, weights in `models/`,
+readiness in `gpu-ready-models.json`. `ECCO_AUDIO_MODELS` and `ECCO_AUDIO_VENVS`
+move weights and venvs (the queue worker reads both); `ECCO_AUDIO_READY_FILE`
+moves the readiness file. Existing installers are unchanged. Neither model has a
+CPU path. A model is offered in the app only after `smoke` passes on that worker.
+
+On a GPU pod, when no audio job is running:
+
+```
+cd /workspace/ecco-audio
+python3 install_gpu_voice_models.py packages svara-tts
+python3 install_gpu_voice_models.py weights svara-tts      # ~13 GB to models/svara-tts
+python3 install_gpu_voice_models.py smoke svara-tts        # one Telugu + one Hindi line on the GPU
+```
+
+Pin revisions for a reproducible install with `SVARA_REVISION=<commit>` and
+`SNAC_REVISION=<commit>`; otherwise the current commits are resolved and recorded
+in `models/svara-tts/ecco-install.json`.
+
+| Model | What it is for | Languages | Weights | GPU |
+| --- | --- | --- | --- | --- |
+| svara-TTS (`kenpath/svara-tts-v1`) | 38 preset voices (male/female per language), `<happy>` `<sad>` `<anger>` `<fear>` `<clear>` tags | Hindi, Bengali, Telugu, Tamil, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Assamese, Bodo, Dogri, Maithili, Nepali, Sanskrit, Indian English (+ Bhojpuri, Magahi, Chhattisgarhi, not in our language list). **No Urdu.** | ~13 GB (3B parameters stored as F32; estimate) + SNAC 24 kHz decoder (~80 MB) | ~7 GB for bf16 weights; a 16–24 GB GPU (L4, A10) should be enough. Not measured. |
+| MOSS-TTSD v1.0 (`OpenMOSS-Team/MOSS-TTSD-v1.0`) | Multi-speaker dialogue (`[S1]` `[S2]` …, up to 5 speakers), per-speaker voice cloning from 3–10 s clips | 20: Chinese, English, German, Spanish, French, Japanese, Italian, Hebrew, Korean, Russian, Persian, Arabic, Polish, Portuguese, Czech, Danish, Swedish, Hungarian, Greek, Turkish. **No Hindi, Urdu, Bengali or Telugu.** | ~16 GB (8B, BF16) + MOSS-Audio-Tokenizer codec ~7 GB | vLLM recipe: ~18 GB model + ~8 GB codec; use a 48 GB GPU, or 80 GB for long dialogues |
+
+svara-TTS adapter: `modern_worker.py` (`svara-tts` branch) builds the prompt
+`<Language> (<Gender>): <text> <emotion tag>`, generates with the published
+settings (temperature 0.7, top-p 0.95, repetition penalty 1.1) and decodes the
+7-token frames with SNAC at 24 kHz (`svara_codec.py`). Our line emotions map to
+tags: happy, sad, angry → anger, fear, enunciated → clear; others are untagged.
+
+MOSS-TTSD: `packages` and `weights` work, but there is no worker adapter yet, so
+`smoke` refuses and the app never lists it. Before writing one, decide:
+(1) it needs `trust_remote_code` model code from the weights repo, which the
+existing workers avoid; (2) upstream pins torch 2.9.1 (CUDA 12.8) and
+transformers 5.0.0, while this installer keeps the pod's torch; (3) it renders a
+whole dialogue at once, unlike the per-line pipeline; (4) it does not cover the
+Indian languages. Useful for English podcasts and interviews only.
+
+Not verified here (no network or GPU in the development sandbox): any install,
+download, generation or listening quality; the exact svara speaker strings for
+Indian English (the cards differ: `Hindi (Female)` vs `hi_female`); SNAC loading
+from `config.json` + `pytorch_model.bin`; the weight sizes above, which are
+estimates from parameter counts and published recipes. svara-TTS is published
+under Apache-2.0 but is fine-tuned from Llama 3.2 3B, so Llama 3.2 Community
+License terms may also apply to commercial use; check before release.
+Sources: https://huggingface.co/kenpath/svara-tts-v1,
+https://huggingface.co/shreyask/svara-tts-v1-ONNX,
+https://huggingface.co/kenpath/svara-tts-v1-openvino-int4,
+https://github.com/OpenMOSS/MOSS-TTS,
+https://recipes.vllm.ai/OpenMOSS-Team/MOSS-TTSD-v1.0,
+https://huggingface.co/niobures/MOSS-TTSD-v1.0 (mirror of the model card).
+
+## Character voice references — workers (2026-11-09)
+
+Chatterbox, IndicF5 and VoxCPM2 accept `voice: "ref:<asset id>"`. The request's
+`voice_refs` gives each clip's sha256, transcript (IndicF5 reference text) and a signed
+link; `voice_refs.fetch` uses the clip copied into the job folder, a sha256-keyed cache, or
+a download, and refuses any clip whose hash differs. Workers advertise
+`voice_refs_version: 1`. Voice design jobs (`voice_design` + one line with `design: true`)
+run on VoxCPM2 (the description in parentheses, no reference clip) or Indic Parler-TTS
+(the description replaces the speaker description). See backend/README.md for the full
+contract. Unverified: listening quality of copied and designed voices, and VoxCPM2's
+description-only generation, which has not been run on real weights here.
+
+## Listen-back for automatic episodes (2026-11-09)
+
+`listen_worker.py` transcribes a finished episode with Whisper large-v3-turbo for the
+automatic-episode listen-back check. A queue job with `task: "listen"` carries
+`{model: "whisper-large-v3-turbo", compute, language, input: {sha256, path, expires,
+url?}}`; on a pod the coordinator also copies the recording next to the job as
+`input.wav`, otherwise the worker downloads the signed link and checks the sha256. It
+writes `output.json` `{text, model, language}`. `queue_worker.py` runs it with the
+IndicF5 environment (`indicf5-venv`, offline, `HF_HOME=hf-cache`) and advertises
+`listen_version: 1` only on a GPU worker where that environment exists and the Whisper
+weights are cached (run `prepare_reference_voices.py` once). CPU workers never claim it.
+Unverified: a real transcription run on the GPU and its speed on hour-long episodes.

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from audio_schema import MODELS, validate
 from audio_worker import assemble, inference_device, speech_progress
+from voice_refs import fetch as fetch_voice_ref, ref_id
 
 
 def reference(runtime, voice):
@@ -22,6 +23,11 @@ def chatterbox_controls(request, line):
     # Upstream recommends lower guidance for expressive delivery and zero for
     # cross-language reference clips. Never change the user's selected voice.
     cfg = .3 if exaggeration > .5 else .5
+    if ref_id(line['voice']):
+        # A saved character clip: keep its accent unless the clip's language differs from the line.
+        item = (request.get('voice_refs') or {}).get(ref_id(line['voice']), {})
+        cfg = cfg if item.get('language', line['language']) == line['language'] else 0
+        return {'exaggeration': exaggeration, 'cfg_weight': line.get('cfg_weight', cfg)}
     item = next((v for v in MODELS['chatterbox']['voices'] if v['id'] == line['voice']), None)
     if item and item.get('file') and not item['name'].startswith(line['language'] + ' '):
         cfg = 0
@@ -44,7 +50,10 @@ def synthesize(request, output, runtime):
         for index, line in enumerate(request['lines']):
             # Reset between speakers; the default must never inherit another voice.
             model.conds = copy.deepcopy(original)
-            ref = None if line['voice'] == 'default' else str(reference(runtime, line['voice']))
+            if ref_id(line['voice']):
+                ref = str(fetch_voice_ref(request, line['voice'], output)[0])
+            else:
+                ref = None if line['voice'] == 'default' else str(reference(runtime, line['voice']))
             clip = model.generate(line['text'], language_id=MODELS['chatterbox']['language_codes'][line['language']],
                                   audio_prompt_path=ref, **chatterbox_controls(request, line))
             clips.append(clip.squeeze().float().cpu().numpy())
@@ -64,8 +73,12 @@ def synthesize(request, output, runtime):
         transcripts = json.loads((runtime / 'reference-voices/transcripts.json').read_text())
         rate = 24000
         for index, line in enumerate(request['lines']):
-            ref = reference(runtime, line['voice'])
-            text = transcripts.get(line['voice'], '').strip()
+            if ref_id(line['voice']):
+                ref, item = fetch_voice_ref(request, line['voice'], output)
+                text = item.get('transcript', '').strip()
+            else:
+                ref = reference(runtime, line['voice'])
+                text = transcripts.get(line['voice'], '').strip()
             if not text:
                 raise RuntimeError('This reference voice needs a transcript.')
             clip, returned_rate, _ = infer_process(str(ref), text, line['text'], model, vocoder, device=device)

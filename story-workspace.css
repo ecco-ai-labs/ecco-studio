@@ -329,3 +329,24 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 @media(max-width:900px){.story-script-turn,.story-script-sound{grid-template-columns:minmax(0,1fr);margin-left:0}}
 #page [data-script-text][hidden],#page .story-script-lines[hidden],#page [data-suggest-sounds][hidden],#page [data-script-view][hidden]{display:none}
 .story-choice-panel .story-choice-option[hidden],.story-choice-panel section[hidden]{display:none!important}
+
+/* Short cast list (automatic flow, owner-approved 2026-11-09). Layout only; sizes come from the roster. */
+#page .story-cast-bar[hidden]{display:none}
+.story-cast-roster{display:flex;flex-direction:column;gap:6px}
+.story-cast-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,2fr) auto auto;gap:10px;align-items:center;border:1px solid var(--line,rgba(255,255,255,.15));border-radius:8px;padding:8px 10px}
+.story-cast-who{display:flex;flex-direction:column;gap:2px}
+.story-cast-style{grid-column:1/-1;display:flex;gap:8px;align-items:center}
+.story-cast-row audio{grid-column:1/-1}
+.story-cast-row audio[hidden]{display:none}
+@media(max-width:900px){.story-cast-row{grid-template-columns:minmax(0,1fr)}}
+/* Automatic episodes (story-auto.js): layout only. */
+.story-auto{margin-top:14px}
+.story-auto .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.story-auto-episodes{display:flex;flex-direction:column;gap:12px}
+.story-auto-episode{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--ecco-theme-border,#51496f);padding-top:10px}
+.story-auto-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline}
+.story-auto-stages,.story-auto-checks{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.story-auto-change{display:flex;flex-direction:column;gap:6px}
+.story-auto-change textarea{width:100%}
+.story-auto-question{display:flex;flex-direction:column;gap:6px}
+.story-auto audio{width:100%;max-width:520px}

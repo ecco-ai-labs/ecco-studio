@@ -22,17 +22,23 @@
    }catch(error){window.EccoErrors?.show(error);form.querySelector('[role=status]').textContent=error.message;}finally{b.disabled=false;}
   };d.showModal();d.querySelector('input').focus();
  }
+ // Real-run fix E10 (2026-11-09): one-click labels for each kind of story; labels are optional.
+ const SUGGESTED=['Podcasts','Documentaries','Interviews','News Audio','Storybooks','Lessons','Advertisements','Music'];
+ function suggestions(){const have=new Set(folders().map(f=>f.name.toLowerCase())),left=SUGGESTED.filter(n=>!have.has(n.toLowerCase()));
+  return left.length?'<div class="row" aria-label="Suggested labels">'+left.map(n=>'<button type="button" class="secondary small" data-suggest-label="'+esc(n)+'">+ '+esc(n)+'</button>').join('')+'</div>':'';}
  function labelDialog(id,pending){
   const asset=audio().find(a=>a.id===id);if(!asset)return;
   let d=q('#audio-label-dialog');if(!d){d=document.createElement('dialog');d.id='audio-label-dialog';document.body.append(d);}
   const existing=new Set(labelsFor(id).map(f=>f.id)),chosen=new Set(pending?.labels||existing);
-  d.innerHTML='<form class="form"><div class="section-head"><h2>Add labels</h2><button type="button" class="secondary small" data-create>Create new label</button></div><label>Audio name<input name="title" maxlength="160" required value="'+esc(pending?.title??asset.title??'')+'" placeholder="e.g. Opening narration"></label><div class="workspace-label-options">'+(folders().map(f=>'<label class="workspace-label-option"><input type="checkbox" name="labels" value="'+f.id+'" '+(chosen.has(f.id)?'checked ':'')+(existing.has(f.id)?'disabled':'')+'><span>'+esc(f.name)+'</span>'+(existing.has(f.id)?'<small>Added</small>':'')+'</label>').join('')||'<p>Create your first label.</p>')+'</div><p role="status"></p><div class="row"><button type="submit">Save name & labels</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';
+  d.innerHTML='<form class="form"><div class="section-head"><h2>Add labels</h2><button type="button" class="secondary small" data-create>Create new label</button></div><label>Audio name<input name="title" maxlength="160" required value="'+esc(pending?.title??asset.title??'')+'" placeholder="e.g. Opening narration"></label><div class="workspace-label-options">'+(folders().map(f=>'<label class="workspace-label-option"><input type="checkbox" name="labels" value="'+f.id+'" '+(chosen.has(f.id)?'checked ':'')+(existing.has(f.id)?'disabled':'')+'><span>'+esc(f.name)+'</span>'+(existing.has(f.id)?'<small>Added</small>':'')+'</label>').join('')||'<p>Create your first label.</p>')+'</div>'+suggestions()+'<p class="help">Labels are optional.</p><p role="status"></p><div class="row"><button type="submit">Save name & labels</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';
   d.querySelector('[data-close]').onclick=()=>d.close();
+  for(const chip of d.querySelectorAll('[data-suggest-label]'))chip.onclick=async()=>{const form=d.querySelector('form'),keep={title:form.elements.title.value,labels:[...new Set([...existing,...new FormData(form).getAll('labels')])]};chip.disabled=true;
+   try{const folder=await api('audio/folders',{name:chip.dataset.suggestLabel});await refresh();keep.labels.push(folder.id);labelDialog(id,keep);}catch(error){window.EccoErrors?.show(error);chip.disabled=false;}};
   d.querySelector('[data-create]').onclick=()=>{const form=d.querySelector('form'),pending={title:form.elements.title.value,labels:[...new Set([...existing,...new FormData(form).getAll('labels')])]};createLabel(folder=>{pending.labels.push(folder.id);d.close();labelDialog(id,pending);});};
   d.querySelector('form').onsubmit=async e=>{
    e.preventDefault();const form=e.target,b=form.querySelector('[type=submit]'),originPage=page;b.disabled=true;
    try{const title=form.elements.title.value.trim(),folder_ids=[...new Set([...existing,...new FormData(form).getAll('labels')])];
-    if(!title)throw Error('Enter an audio name.');if(!folder_ids.length)throw Error('Choose at least one label.');
+    if(!title)throw Error('Enter an audio name.');
     await api('audio/labels',{asset_id:id,title,folder_ids});await refresh();d.close();sync();if(page===originPage)notice('Audio name and labels saved.');
    }catch(error){window.EccoErrors?.show(error);form.querySelector('[role=status]').textContent=error.message;}finally{b.disabled=false;}
   };d.showModal();

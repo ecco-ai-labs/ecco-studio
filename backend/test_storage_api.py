@@ -223,6 +223,8 @@ class StorageTest(unittest.TestCase):
   self.assertNotIn(image_folder['id'],folder_ids)
   with self.assertRaises(HTTPError):self.call('/api/audio/labels',{**body,'title':'Must not save','folder_ids':[image_folder['id']]})
   self.assertEqual(api.legacy.get(asset['id'])['title'],'Opening narration')
+  # Labels are optional: an empty list saves only the name.
+  with self.call('/api/audio/labels',{**body,'folder_ids':[],'title':'Renamed only'}) as response:self.assertEqual(json.load(response)['title'],'Renamed only')
  def test_audio_label_trash_and_restore(self):
   with self.call('/api/audio/folders',{'name':'Test audio'}) as response:folder=json.load(response)
   with self.call('/api/trash/folder',{'id':folder['id']}) as response:self.assertTrue(json.load(response)['deleted'])

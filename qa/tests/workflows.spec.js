@@ -30,7 +30,9 @@ async function fillStoryDetail(page,name,value){
 async function textView(page){const b=page.getByRole('button',{name:'Edit as text',exact:true});if(await b.isVisible())await b.click();}
 async function setScript(page,text){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await page.locator('#story-simple-script').fill(text);}
 async function scriptStep(page){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await expect(page.locator('#story-simple-script')).toBeVisible();}
-async function charactersStep(page){await page.getByRole('tab',{name:'3. Story Characters',exact:true}).click();await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeVisible();}
+// Audio opens on the short cast list (automatic flow); tests of the full editor open it with Change.
+async function castEditor(page){const row=page.locator('.story-cast-row').first();if(await row.isVisible().catch(()=>false))await row.getByRole('button',{name:/^Change /}).click();}
+async function charactersStep(page){await page.getByRole('tab',{name:'3. Story Characters',exact:true}).click();await castEditor(page);await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeVisible();}
 async function openLibrary(page,kind,{keepView=false}={}){
   const group=page.locator('#workspace-library-group');
   if(await group.getAttribute('open')===null)await group.locator(':scope > summary').click();
@@ -537,7 +539,7 @@ test('UPLOAD-06 Next: Characters selects the audio cast, fills voice properties 
   const source=page.getByRole('dialog',{name:'Select Story Text',exact:true});const settings=page.getByRole('group',{name:'Story settings',exact:true});await settings.getByLabel('Story Type',{exact:true}).selectOption('storybook');await settings.getByLabel('Genre / Topic',{exact:true}).selectOption('Adventure');
   await source.locator('[data-selected]').fill('Ali and Morgiana found a cave.');await source.getByLabel('AI instructions',{exact:true}).fill('Make this a scene with the characters speaking.');await source.getByRole('button',{name:'Improve with AI',exact:true}).click();await source.getByRole('button',{name:'Use AI Text',exact:true}).click();
   expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='story_workspace').length)).toBe(0);
-  await expect(source.getByRole('button',{name:'Generate Script',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
+  await expect(source.getByRole('button',{name:'Generate Script',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await castEditor(page);await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
   await expect(page.locator('[data-cast-reason]')).toBeHidden();await expect(page.locator('#story-simple-candidate')).toBeHidden();await scriptStep(page);await expect(page.locator('#story-simple-script')).toHaveValue('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');await charactersStep(page);
   await page.getByRole('tab',{name:'Ali',exact:true}).click();await expect(page.getByLabel('Character 2 Name',{exact:true})).toHaveValue('Ali');await page.getByRole('tab',{name:'Morgiana',exact:true}).click();await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');await page.getByRole('tab',{name:'Ali',exact:true}).click();
   await expect(page.locator('#story-character-properties details')).toHaveAttribute('open','');await expect(page.getByLabel('Character 2 Dialect',{exact:true})).toHaveValue('Indian English');await expect(page.getByLabel('Character 2 Speaking style',{exact:true})).toHaveValue('Curious');await expect(page.getByLabel('Character 2 Emotion',{exact:true})).toHaveValue('surprise');await expect(page.getByLabel('Character 2 Voice',{exact:true})).not.toHaveValue('');await expect(page.locator('[data-property=appearance]')).toHaveCount(0);
@@ -910,7 +912,9 @@ test('UPLOAD-09 a full chapter carried by Next: Characters reaches audio generat
  const text='Ali: Open sesame!\n\nMorgiana: I will help.\n\n'+Array.from({length:85},(_,i)=>'Narrator: Passage '+i+'. The woodcutter carried the logs through the forest and returned home before nightfall.').join('\n\n');
  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await(await chooser).setFiles({name:'complete-chapter.txt',mimeType:'text/plain',buffer:Buffer.from(text)});
  const source=page.getByRole('dialog',{name:'Select Story Text',exact:true});await source.locator('[data-selected]').fill(text);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();
-await expect(page.locator('[data-cast-panel]')).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);await scriptStep(page);await expect(page.locator('#story-simple-script')).toHaveValue(text);
+await expect(page.locator('[data-cast-panel]')).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);await scriptStep(page);
+ // Screen Play adds [directions] on arrival (owner request 2026-11-10); every spoken word stays as written.
+ await expect.poll(()=>page.locator('#story-simple-script').inputValue().then(v=>v.replace(/ \[[^\]]*\]/g,''))).toBe(text);
  await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();await expect(page.locator('#audio-lines textarea[data-field=text]')).toHaveCount(87);
  await page.locator('#generate-audio').click();await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(1);
  const request=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='audio/generate').body);
@@ -926,8 +930,8 @@ test('STORY-05 compact control panels and character tabs preserve edits, keyboar
  await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Character tab test');for(const [name,value]of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
  await expect(page.getByLabel('Number of characters',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Choose from Library',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Create Character',exact:true})).toHaveCount(0);await expect(page.locator('[data-source]')).toHaveCount(0);
  await expect(page.getByRole('tablist',{name:'Story source',exact:true}).getByRole('tab')).toHaveCount(3);await expect(page.locator('[data-cast-panel]')).toHaveCount(0);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();
- const tabs=page.getByRole('tablist',{name:'Story characters',exact:true});await expect(tabs.getByRole('tab')).toHaveCount(2);await tabs.getByRole('button',{name:'Add character',exact:true}).click();await expect(tabs.getByRole('tab')).toHaveCount(3);await expect(page.getByLabel('Character 3 Name',{exact:true})).toBeFocused();await page.getByLabel('Character 3 Name',{exact:true}).fill('Morgiana');await tabs.getByRole('tab',{name:'Host',exact:true}).click();await tabs.getByRole('tab',{name:'Host',exact:true}).press('End');await expect(tabs.getByRole('tab',{name:'Morgiana',exact:true})).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');
- await page.screenshot({path:info.outputPath('character-tabs.png'),fullPage:true});await expect(page.getByRole('button',{name:'Next: Story Screen Play',exact:true})).toBeDisabled();await expect(page.locator('[data-cast-progress]')).toContainText('Create every character to continue');await scriptStep(page);await page.getByRole('button',{name:'Generate',exact:true}).click();const error=page.locator('#ecco-error-popup');await expect(error).toBeVisible();await popupControls(error);await expect(error).toContainText(/story|script/i);await error.getByRole('button',{name:'Close popup',exact:true}).click();await charactersStep(page);await page.getByRole('tab',{name:'Morgiana',exact:true}).click();await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('character-tabs-mobile.png'),fullPage:true});
+ await castEditor(page);const tabs=page.getByRole('tablist',{name:'Story characters',exact:true});await expect(tabs.getByRole('tab')).toHaveCount(2);await tabs.getByRole('button',{name:'Add character',exact:true}).click();await expect(tabs.getByRole('tab')).toHaveCount(3);await expect(page.getByLabel('Character 3 Name',{exact:true})).toBeFocused();await page.getByLabel('Character 3 Name',{exact:true}).fill('Morgiana');await tabs.getByRole('tab',{name:'Host',exact:true}).click();await tabs.getByRole('tab',{name:'Host',exact:true}).press('End');await expect(tabs.getByRole('tab',{name:'Morgiana',exact:true})).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');
+ await page.screenshot({path:info.outputPath('character-tabs.png'),fullPage:true});await expect(page.getByRole('button',{name:'Next: Story Screen Play',exact:true})).toBeEnabled();await expect(page.locator('[data-cast-progress]')).toHaveText('Every character has a voice');await scriptStep(page);await page.getByRole('button',{name:'Generate',exact:true}).click();const error=page.locator('#ecco-error-popup');await expect(error).toBeVisible();await popupControls(error);await expect(error).toContainText(/story|script/i);await error.getByRole('button',{name:'Close popup',exact:true}).click();await charactersStep(page);await page.getByRole('tab',{name:'Morgiana',exact:true}).click();await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('character-tabs-mobile.png'),fullPage:true});
 });
 for(const output of ['audio','video'])test(`STORY-06 Generate With AI tab writes drafts and Next: Characters carries the story for ${output}`,async({page},info)=>{
  await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('AI cave adventure');for(const [name,value]of Object.entries({output,type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();
@@ -951,7 +955,7 @@ test('STORY-16 Next: Characters reads the story and makes one tab per character 
  await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await page.locator('dialog.story-tab-warning').getByRole('button',{name:'Proceed',exact:true}).click();const box=page.getByRole('dialog',{name:'Write Yourself',exact:true});await box.locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
  // Real AI sometimes adds a question beside the characters; Next: Characters still uses the characters.
  await page.evaluate(()=>{window.__qaAsk=true;}); const next=page.getByRole('button',{name:'Next: Story Characters',exact:true});expect(await next.evaluate(b=>getComputedStyle(b.parentElement).justifyContent)).toBe('flex-end');await next.click();await expect(page.locator('#ecco-error-popup')).toBeHidden();
- const tabs=page.getByRole('tablist',{name:'Story characters',exact:true});await expect(tabs.getByRole('tab')).toHaveText(['Narrator','Ali','Morgiana']);await tabs.getByRole('tab',{name:'Ali',exact:true}).click();
+ await castEditor(page);const tabs=page.getByRole('tablist',{name:'Story characters',exact:true});await expect(tabs.getByRole('tab')).toHaveText(['Narrator','Ali','Morgiana']);await tabs.getByRole('tab',{name:'Ali',exact:true}).click();
  await expect(page.locator('#story-character-properties details')).toHaveAttribute('open','');for(const [label,value] of [['Gender','Male'],['Age group','Adult'],['Dialect','Indian English'],['Speaking style','Curious'],['Personality','Brave and kind']])await expect(page.getByLabel('Character 2 '+label,{exact:true})).toHaveValue(value);
  await expect(page.locator('[data-cast-reason]')).toBeHidden();
  const reads=()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='story_workspace').length);expect(await reads()).toBe(1);
@@ -1199,8 +1203,8 @@ test('STORY-22 Recurring Interview opens New Each Episode; brief, plan, Schedule
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').find(w=>w.name==='Star weekly'));
  expect(saved).toMatchObject({source_mode:'series',series_about:'A weekly interview with a well-known person',series_plan:['A playback singer','A cricketer'],no_repeat:true,end_mode:'runs',run_count:4});
  await next.click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
- const guest=page.locator('[data-character-tabs] [role=tab]',{hasText:'Morgiana'});await guest.click();await expect(page.locator('[data-cast-progress]')).toContainText('of 3');
- await page.getByRole('checkbox',{name:'Changes each episode',exact:true}).check();await expect(guest).toContainText('Changes each episode');await expect(page.locator('.story-cast-create')).toContainText('Picked for each episode');await expect(page.locator('[data-cast-progress]')).toContainText('of 2');
+ await castEditor(page);const guest=page.locator('[data-character-tabs] [role=tab]',{hasText:'Morgiana'});await guest.click();await expect(page.locator('[data-cast-progress]')).toHaveText('Every character has a voice');
+ await page.getByRole('checkbox',{name:'Changes each episode',exact:true}).check();await expect(guest).toContainText('Changes each episode');await expect(page.locator('.story-cast-create')).toContainText('Picked for each episode');await expect(page.locator('[data-cast-progress]')).toHaveText('Every character has a voice');
  expect(page.qaErrors).toEqual([]);
 });
 
@@ -1281,6 +1285,40 @@ test('STORY-28 Genre / Topic offers only the genres that fit the Story type, in 
  expect(page.qaErrors).toEqual([]);
 });
 
+// Voice fix (real run 2026-11-09): changing a character's Audio model picks a voice from that model, and shared voices are named.
+test('STORY-29 Changing a character’s Audio model picks a fitting voice from that model; shared voices are called out',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Model voices');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
+ await page.locator('.story-simple-actions [data-next]').click();await castEditor(page);await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
+ await expect(page.locator('[data-cast-progress]')).not.toContainText('Same voice');
+ await page.locator('[data-character-tabs] [role=tab]',{hasText:'Ali'}).click();const model=page.getByRole('combobox',{name:'Character 2 Audio model',exact:true});
+ const other=await model.locator('option').evaluateAll((o,cur)=>o.map(x=>x.value).find(v=>v&&v!==cur&&(window.EccoAudioModels.find(m=>m.id===v)?.voices||[]).some(x=>/masculine/.test(x.name)&&(!x.language||x.language==='English'))),await model.inputValue());
+ await model.selectOption(other);const voice=page.getByRole('combobox',{name:'Character 2 Voice',exact:true});
+ const picked=await voice.inputValue(),info=await page.evaluate(([m,v])=>window.EccoAudioModels.find(x=>x.id===m).voices.find(x=>x.id===v)?.name,[other,picked]);
+ expect(info).toMatch(/masculine/);
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Automatic flow (owner-approved mock 2026-11-09): a short cast list with Hear and Change; narration style for the narrator.
+test('STORY-30 Characters opens on a short cast list: voices picked, Hear and Change, narration style, Next without creating samples',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Lantern');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: On the edge of the world stood a lighthouse.\n\nAli: What is this?\n\nMorgiana: A map!');
+ await page.locator('.story-simple-actions [data-next]').click();
+ const rows=page.locator('.story-cast-row');await expect(rows).toHaveCount(3);await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeHidden();
+ for(const name of ['Narrator','Ali','Morgiana']){const row=rows.filter({hasText:name});await expect(row.getByRole('button',{name:'Hear '+name,exact:true})).toBeEnabled();await expect(row.locator('.story-cast-voice')).not.toHaveText('No voice yet');}
+ await expect(page.getByRole('combobox',{name:'Narration style',exact:true})).toHaveValue('Expressive storyteller');await page.getByRole('combobox',{name:'Narration style',exact:true}).selectOption('Intimate and quiet');
+ await expect(page.locator('[data-cast-progress]')).toHaveText('Every character has a voice');await expect(page.getByRole('button',{name:'Next: Story Screen Play',exact:true})).toBeEnabled();
+ await rows.filter({hasText:'Ali'}).getByRole('button',{name:'Change Ali’s voice',exact:true}).click();await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeVisible();await expect(page.getByRole('tab',{name:'Ali',exact:true})).toHaveAttribute('aria-selected','true');
+ await page.getByRole('button',{name:'← Back to cast list',exact:true}).click();await expect(rows).toHaveCount(3);
+ await page.getByRole('button',{name:'Next: Story Screen Play',exact:true}).click();await expect(page.getByRole('tab',{name:'4. Story Screen Play',exact:true})).toHaveAttribute('aria-selected','true');
+ const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('simple_workspace')&&localStorage.getItem(k).includes('Lantern'));return JSON.parse(localStorage.getItem(k)).simple_workspace.narrationStyle;});expect(saved).toBe('Intimate and quiet');
+ expect(page.qaErrors).toEqual([]);
+});
+
 // Full first-screens workflow for every audited case with a mock PDF (owner request 2026-11-09): Details → Script (PDF) → Schedule when recurring → Characters.
 const PDF_CASES=[['news','once','Business',0],['news','recurring','Business',-1],['podcast','once','Science & Technology',0],['podcast','recurring','Science & Technology',3],['storybook','once','Fantasy',0],['storybook','recurring','Fantasy',4],['audio-drama','once','Adventure',0],['audio-drama','recurring','Adventure',3],['documentary','once','Nature',0],['documentary','recurring','Nature',4],['teaching','once','Science & Technology',0],['teaching','recurring','Science & Technology',3],['interview','once','Biography',0],['interview','recurring','Biography',3],['marketing','once','Business',0]];
 for(const output of ['audio','video'])for(const [type,mode,genre,parts] of PDF_CASES)test(`FLOW-PDF ${output} ${mode} ${type} reaches Story Characters`,async({page})=>{
@@ -1295,7 +1333,7 @@ for(const output of ['audio','video'])for(const [type,mode,genre,parts] of PDF_C
  if(parts<0){await expect(warning).toBeVisible();await warning.getByRole('button',{name:'Make a new episode each time',exact:true}).click();await expect(page.getByRole('tab',{name:'New Each Episode',exact:true})).toHaveAttribute('aria-selected','true');await page.locator('[data-each]').getByLabel('Episode 1 preview',{exact:true}).fill('Anchor: Good morning. Here is today’s news.');}
  if(mode==='recurring'){await expect(next).toHaveText('Next: Schedule');await next.click();const r=page.locator('[data-recurrence]');await expect(r.locator('[data-rec-count]')).toHaveText(parts<0?'A new episode each time it runs.':new RegExp(`^Found ${parts} `));}
  await expect(warning).toHaveCount(0);await expect(next).toHaveText('Next: Story Characters');await next.click();
- await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('[data-character-tabs] [role=tab]').first()).toBeVisible();
+ await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('[data-character-tabs] [role=tab]:visible, .story-cast-row').first()).toBeVisible();
  expect(page.qaErrors).toEqual([]);
 });
 
@@ -1392,22 +1430,23 @@ async function stubCharacterJobs(page){await page.evaluate(()=>{
  window.EccoStorage.mediaURL=async id=>id.startsWith('qa-image-')?image:sound;localStorage.setItem('ecco-compute-image','qa-gpu');window.EccoCompute.validate=async()=>({});window.modelPayload=(kind,gpu,model)=>({gpu,model});
  const real=window.api;window.qaImageRequests=[];window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);job++;return {id:'qa-job-'+job};}if(path==='state')return {records:[{kind:'job',id:'qa-job-'+job,status:'done',result:['qa-image-'+job]},{kind:'asset',media:'image',id:'qa-image-'+job,job_id:'qa-job-'+job}]};return real(path,body);};
 });}
-async function openCharacters(page,output){await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Characters create and test');for(const [name,value] of Object.entries({output,type:'podcast',genre:'Comedy',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeVisible();}
+async function openCharacters(page,output){await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Characters create and test');for(const [name,value] of Object.entries({output,type:'podcast',genre:'Comedy',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.locator('[data-character-tabs]:visible, .story-cast-row').first()).toBeVisible();}
 for(const output of ['audio','video'])test(`STORY-07 Characters step creates and tests each ${output} character before Next: Story Screen Play`,async({page},info)=>{
  await openCharacters(page,output);await stubCharacterJobs(page);
- const tabs=page.getByRole('tablist',{name:'Story characters',exact:true}),next=page.getByRole('button',{name:'Next: Story Screen Play',exact:true}),progress=page.locator('[data-cast-progress]');
- await expect(tabs.getByRole('tab',{name:'Host',exact:true})).toHaveAttribute('aria-description','Not created');await expect(next).toBeDisabled();await expect(progress).toHaveText('Created 0 of 2 · Tested 0 of 2 · Create every character to continue');
+ await castEditor(page);const tabs=page.getByRole('tablist',{name:'Story characters',exact:true}),next=page.getByRole('button',{name:'Next: Story Screen Play',exact:true}),progress=page.locator('[data-cast-progress]');
+ await expect(tabs.getByRole('tab',{name:'Host',exact:true})).toHaveAttribute('aria-description','Not created');// Automatic flow (owner-approved 2026-11-09): audio characters are ready once each has a voice; samples are optional.
+ if(output==='audio'){await expect(next).toBeEnabled();await expect(progress).toHaveText('Every character has a voice');}else{await expect(next).toBeDisabled();await expect(progress).toHaveText('Created 0 of 2 · Tested 0 of 2 · Create every character to continue');}
  await expect(page.getByRole('heading',{name:'From Story',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:output==='audio'?'Create voice':'Create avatar',exact:true})).toBeVisible();await expect(page.locator('.story-cast-empty').first()).toBeVisible();
  for(const [index,name] of [[1,'Host'],[2,'Guest']]){
   await tabs.getByRole('tab',{name,exact:true}).click();
-  if(output==='audio'){await page.getByLabel('Character '+index+' Suggested voice',{exact:true}).fill('Warm, unhurried, a little playful.');const voice=page.getByLabel('Character '+index+' Voice',{exact:true});await voice.selectOption({index:1});await page.getByRole('button',{name:'Generate voice',exact:true}).click();await expect(page.getByRole('button',{name:'Generate again',exact:true})).toBeVisible();await page.getByLabel('Try your own line',{exact:true}).fill('Welcome to the show.');await page.getByRole('button',{name:'Play your line',exact:true}).click();await expect(page.getByLabel('Voice test playback',{exact:true})).toBeVisible();}
+  if(output==='audio'){await page.getByLabel('Character '+index+' Suggested voice',{exact:true}).fill('Warm, unhurried, a little playful.');const voice=page.getByLabel('Character '+index+' Voice',{exact:true});await voice.selectOption({index});await page.getByRole('button',{name:'Generate voice',exact:true}).click();await expect(page.getByRole('button',{name:'Generate again',exact:true})).toBeVisible();await page.getByLabel('Try your own line',{exact:true}).fill('Welcome to the show.');await page.getByRole('button',{name:'Play your line',exact:true}).click();await expect(page.getByLabel('Voice test playback',{exact:true})).toBeVisible();}
   else{await page.getByLabel('Character '+index+' Suggested avatar prompt',{exact:true}).fill('Short silver hair, green scarf, friendly smile.');await page.getByRole('button',{name:'Generate avatar',exact:true}).click();await expect(page.getByRole('button',{name:'Avatar option 1',exact:true})).toHaveAttribute('aria-pressed','true');await page.getByRole('button',{name:'Generate again',exact:true}).click();await page.getByRole('button',{name:'Avatar option 2',exact:true}).click();await expect(page.getByRole('button',{name:'Avatar option 2',exact:true})).toHaveAttribute('aria-pressed','true');}
   await expect(tabs.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-description','Created');
-  if(index===1){await expect(next).toBeDisabled();await page.locator('[data-cast-tested]').click();await expect(tabs.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-description','Tested');await expect(page.locator('.story-cast-tested')).toBeVisible();}
+  if(index===1){if(output!=='audio')await expect(next).toBeDisabled();await page.locator('[data-cast-tested]').click();await expect(tabs.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-description','Tested');await expect(page.locator('.story-cast-tested')).toBeVisible();}
  }
  if(output==='audio'){const requests=await page.evaluate(()=>window.qaVoiceRequests);expect(requests.length).toBe(4);expect(requests.every(r=>r.voice&&r.model)).toBe(true);}
  else{const requests=await page.evaluate(()=>window.qaImageRequests);expect(requests.length).toBe(4);expect(requests[0].prompt).toContain('Short silver hair, green scarf');}
- await expect(progress).toHaveText('Created 2 of 2 · Tested 1 of 2');await expect(next).toBeEnabled();
+ await expect(progress).toHaveText(output==='audio'?'Every character has a voice':'Created 2 of 2 · Tested 1 of 2');await expect(next).toBeEnabled();
  const audit=await page.evaluate(rosterAudit);expect(audit.problems).toEqual([]);
  await page.screenshot({path:info.outputPath('characters-'+output+'.png'),fullPage:true});
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await charactersStep(page);await expect(tabs.getByRole('tab',{name:'Host',exact:true})).toHaveAttribute('aria-description','Tested');await expect(tabs.getByRole('tab',{name:'Guest',exact:true})).toHaveAttribute('aria-description','Created');
@@ -1595,4 +1634,59 @@ test('LOOK-06 header tooltips are set in Look and Feel',async({page})=>{
  const tip=()=>page.evaluate(()=>{const e=document.querySelector('#studio-storage-indicator'),a=getComputedStyle(e,'::after'),b=getComputedStyle(e,'::before');return {shown:a.content!=='none',bg:a.backgroundColor,font:a.fontSize,dot:b.width};});
  await panel.getByRole('button',{name:'Show a tooltip',exact:true}).click();
  await expect.poll(tip).toEqual({shown:true,bg:'rgb(255, 220, 36)',font:'14px',dot:'10px'});
+});
+
+// Automatic episodes (owner-approved mock, 2026-11-09): pilot on a GPU, plain-words change, approve; no voice or sound settings to choose.
+test('STORY-31 Schedule makes a pilot episode automatically, takes a plain-words change and approves the series',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Nights');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=storybook]').click();await fillStoryDetail(page,'genre','Fantasy');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Chapter 1: The Merchant\nNarrator: A merchant rested under a tree.\n\nChapter 2: The Fisherman\nNarrator: A fisherman cast his net.');
+ const next=page.locator('.story-simple-actions [data-next]');await expect(next).toHaveText('Next: Schedule');await next.click();
+ const panel=page.locator('[data-auto]');await expect(panel.getByRole('heading',{name:'Automatic episodes',exact:true})).toBeVisible();
+ const pilot=panel.getByRole('button',{name:'Make the pilot episode',exact:true});await expect(pilot).toBeDisabled();await expect(panel).toContainText('recorded on a GPU');
+ await page.evaluate(()=>{window.EccoAudioCompute.gpu=()=>({compute:'b200',models:['voxcpm2','indicf5']});let status='made';const prev=api;
+  const ep=()=>({id:'ep1',episode:1,title:'The Merchant',status,phase:'',progress:'',returning:[],new_voices:['Narrator','Merchant'],asset_id:'qa-audio-0',checks:{distinct_voices:{status:'passed'},listen_back:{status:'skipped'}},questions:[],changes:window.__qaChanges||[]});
+  api=async(path,body)=>{window.__qaCalls.push({path,body});
+   if(path==='audio/workflows/save')return {...body,id:body.id,name:body.name};
+   if(path==='audio/workflows/status')return {workflows:[{id:window.__qaCalls.find(c=>c.path==='audio/workflows/save').body.id,review_before_publish:true,name:'Nights'}],runs:[]};
+   if(path==='audio/auto/pilot')return {series:{},episode:null,run_id:'r1',episode_id:'ep1'};
+   if(path==='audio/auto/episodes')return {series:{approved:window.__qaApproved||false},episodes:[ep()]};
+   if(path==='audio/auto/change'){window.__qaChanges=[{instruction:body.instruction}];return {episode:ep()};}
+   if(path==='audio/auto/approve'){window.__qaApproved=true;return {series:{approved:true},workflow:{status:'active'}};}
+   return prev(path,body);};});
+ await page.locator('[data-rec=time]').fill('10:00');await page.locator('[data-rec=time]').dispatchEvent('change');
+ await expect(pilot).toBeEnabled();await page.locator('[data-rec=tz]').selectOption('Asia/Kolkata');await page.locator('[data-rec=time]').dispatchEvent('change');await pilot.click();
+ const saved=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='audio/workflows/save').body);
+ expect(saved).toMatchObject({auto:true,review_before_publish:true,source_mode:'chapters',total_chapters:2,audio_snapshot:{model:'voxcpm2',compute:'b200',genre:'Story Book Reading'},auto_options:{language:'English'}});expect(saved.chapters).toHaveLength(2);expect(saved.chapters[1]).toContain('fisherman');
+ await expect(panel).toContainText('Pilot · Episode 1 · The Merchant');await expect(panel).toContainText('✓ A different voice for each character');await expect(panel).toContainText('Every word was spoken (not checked)');
+ await panel.getByLabel('Tell us what to change',{exact:true}).fill('The narrator warmer and slower');await panel.getByRole('button',{name:'Apply and remake',exact:true}).click();
+ await expect(panel).toContainText('✓ Changed: “The narrator warmer and slower”');
+ await page.locator('[name=story-rec-review][value=auto]').check();
+ await panel.getByRole('button',{name:'Sounds good, approve the series',exact:true}).click();await expect(panel).toContainText('Series approved. Each episode publishes on its own');
+ const calls=await page.evaluate(()=>window.__qaCalls.map(c=>c.path));expect(calls).toContain('audio/auto/approve');
+ const resave=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/workflows/save').at(-1).body);expect(resave.review_before_publish).toBe(false);
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Owner request 2026-11-10: a paragraph without a name continues the same speaker; [directions] are never spoken. (The fixture cast is Narrator, Ali and Morgiana.)
+test('STORY-32 Screen Play: unnamed paragraphs continue the speaker and [directions] stay out of the spoken words',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Quantum Talk');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=podcast]').click();await fillStoryDetail(page,'genre','Science & Technology');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Host: Hi, how are you.\n\nGuest: Thank you for having me.\n\nHost: Oh how fascinating.');
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('.story-cast-row').first()).toBeVisible();
+ await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);
+ await expect(page.locator('[data-script-help]')).toContainText('never read aloud');
+ await page.locator('#story-simple-script').fill('[Sound: soft intro music]\n\nAli [warm, welcoming]: Hi, how are you (and welcome).\n\nMorgiana [warm, grateful]: Thank you for having me. [professional, rising excitement] Quantum mechanics is fascinating.\n\nLike now we know that electrons vibrate like strings.\n\nAli [amazed]: Oh how fascinating! [slight laugh]');await page.locator('#story-simple-script').blur();
+ await page.getByRole('button',{name:'Lines and sounds',exact:true}).click();
+ const lines=page.locator('[data-script-lines]'),turns=lines.locator('.story-script-turn');await expect(turns).toHaveCount(5);
+ await expect(lines.getByLabel('Speaker for line 4',{exact:true}).locator('option:checked')).toHaveText('Morgiana');
+ for(let i=1;i<=5;i++)await expect(lines.getByLabel('Line '+i,{exact:true})).not.toHaveValue(/[\[\]()]/);
+ await expect(lines.getByLabel('Line 1',{exact:true})).toHaveValue('Hi, how are you, and welcome.');
+ await page.getByRole('button',{name:'Edit as text',exact:true}).click();
+ await expect(page.locator('#story-simple-script')).toHaveValue('[Sound: soft intro music]\n\nAli [warm, welcoming]: Hi, how are you (and welcome).\n\nMorgiana [warm, grateful]: Thank you for having me. [professional, rising excitement] Quantum mechanics is fascinating.\n\nLike now we know that electrons vibrate like strings.\n\nAli [amazed]: Oh how fascinating! [slight laugh]');
+ // Only the very first paragraph needs a name.
+ await page.locator('#story-simple-script').fill('Thank you for having me.\n\nAli: Hi.');await page.locator('#story-simple-script').blur();await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.getByRole('button',{name:'Lines and sounds',exact:true})).toBeHidden();
+ expect(page.qaErrors).toEqual([]);
 });

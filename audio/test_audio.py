@@ -4,6 +4,12 @@ import unittest
 from audio_schema import validate, LANGUAGES
 
 class AudioRequests(unittest.TestCase):
+    def test_bracketed_directions_are_never_sent_as_words(self):
+        with self.assertRaisesRegex(ValueError, 'never spoken'):
+            validate({'model': 'indic-mio', 'lines': [{'text': '[warm] Hello there', 'language': 'English'}]})
+        with self.assertRaisesRegex(ValueError, 'never spoken'):
+            validate({'model': 'indic-mio', 'lines': [{'text': 'Hello there [slight laugh]', 'language': 'English'}]})
+
     def setUp(self):
         self.body = {'model': 'indic-mio', 'lines': [
             {'text': 'नमस्ते! Welcome to Ecco.', 'language': 'Hindi', 'emotion': 'happy', 'voice': 'en_female'},

@@ -1,6 +1,7 @@
 """Portable audio request validation. No storage, API or GPU ownership."""
 import math
 import json
+import re
 from audio_routing import worker_id
 from pathlib import Path
 
@@ -13,6 +14,62 @@ GENRES = ["Story Book Reading","Podcast","Movie","Theatre","Casual Conversation"
 MODEL = 'SPRINGLab/Indic-Mio'
 def required_models(request):
     return {line.get('model', request.get('model', 'indic-mio')) for line in request.get('lines', [])} or {request.get('model', 'indic-mio')}
+
+# Character voice references (2026-11-09): copying models can speak with a saved clip.
+REF_MODELS = ('chatterbox', 'indicf5', 'voxcpm2')
+DESIGN_MODELS = ('voxcpm2', 'indic-parler')
+SLUG = re.compile(r'^[a-z][a-z0-9-]{0,31}$')
+HEX32 = re.compile(r'^[0-9a-f]{32}$')
+# A line's delivery picks the palette clip; these are the nearest palette names for each delivery.
+DELIVERY_ALIASES = {'neutral': ['default', 'calm'], 'happy': ['warm', 'happy', 'laughing', 'excited'],
+                    'whisper': ['whispering', 'whisper', 'hushed', 'suspenseful'], 'fear': ['scared', 'fear', 'suspenseful'],
+                    'sad': ['sad', 'tender'], 'angry': ['angry', 'sulky'], 'surprise': ['excited', 'surprised'],
+                    'disgust': ['angry'], 'confused': ['confused'], 'enunciated': ['default', 'calm']}
+
+
+def pick_from_palette(palette, delivery):
+    for key in [delivery, *DELIVERY_ALIASES.get(delivery, []), 'default']:
+        if key in palette:
+            return palette[key]
+    return next(iter(palette.values()))
+
+
+def clean_palette(value):
+    if not isinstance(value, dict) or not 1 <= len(value) <= 12:
+        raise ValueError('A character voice palette needs 1–12 clips.')
+    for key, aid in value.items():
+        if not isinstance(key, str) or not SLUG.match(key) or not isinstance(aid, str) or not HEX32.match(aid):
+            raise ValueError('Invalid character voice palette.')
+    return dict(value)
+
+
+def clean_voice_refs(value):
+    if not isinstance(value, dict) or len(value) > 200:
+        raise ValueError('Invalid character voice references.')
+    out = {}
+    for rid, item in value.items():
+        if not isinstance(rid, str) or not HEX32.match(rid) or not isinstance(item, dict):
+            raise ValueError('Invalid character voice reference.')
+        sha = item.get('sha256')
+        if not isinstance(sha, str) or not re.fullmatch(r'[0-9a-f]{64}', sha):
+            raise ValueError('Invalid character voice checksum.')
+        clean = {'sha256': sha}
+        for key, limit in (('transcript', 600), ('language', 40), ('emotion', 32), ('character', 80), ('path', 300), ('url', 1200)):
+            if key in item:
+                if not isinstance(item[key], str) or len(item[key]) > limit:
+                    raise ValueError('Invalid character voice reference field: ' + key)
+                clean[key] = item[key]
+        if 'path' in clean and not clean['path'].startswith('/api/voice-refs/' + rid):
+            raise ValueError('Invalid character voice reference path.')
+        if 'url' in clean and not clean['url'].startswith('https://'):
+            raise ValueError('Character voice clips must be fetched over HTTPS.')
+        if 'expires' in item:
+            if isinstance(item['expires'], bool) or not isinstance(item['expires'], int):
+                raise ValueError('Invalid character voice link expiry.')
+            clean['expires'] = item['expires']
+        out[rid] = clean
+    return out
+
 
 BRIEF_FIELDS = ('audience', 'genre', 'tone', 'narration_style', 'language_style', 'language_style_instructions', 'purpose')
 
@@ -50,19 +107,34 @@ def validate(body):
         emotion = line.get('emotion', 'neutral')
         voices = [v for v in model['voices'] if not v.get('language') or v['language'] == language]
         voice = line.get('voice', voices[0]['id'] if voices else '')
+        if 'palette' in line:
+            delivery = line.get('delivery', 'neutral')
+            if not isinstance(delivery, str) or not SLUG.match(delivery):
+                raise ValueError('Invalid line delivery.')
+            voice = 'ref:' + pick_from_palette(clean_palette(line['palette']), delivery)
+        custom = isinstance(voice, str) and bool(re.fullmatch(r'ref:[0-9a-f]{32}', voice))
+        if custom and line_model not in REF_MODELS:
+            raise ValueError(model['name'] + ' cannot speak with a saved character voice. Choose Chatterbox, IndicF5 or VoxCPM2.')
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 500:
             raise ValueError('Each line needs 1–500 characters.')
+        # [Directions] are instructions, never words: a line that still contains one is refused so it can't be read aloud.
+        if '[' in text or ']' in text:
+            raise ValueError('A line still contains a [direction] in its spoken words. Directions must be sent separately, never spoken.')
         if language not in model['languages']:
             raise ValueError('Choose a language supported by ' + model['name'] + '.')
         allowed_emotions = (ENGLISH_EMOTIONS if language == 'English' else INDIC_EMOTIONS) if model['emotions'] else ['neutral']
         if emotion not in allowed_emotions:
             raise ValueError('This emotion is not supported for the selected language.')
-        if voice not in [v['id'] for v in voices]:
+        if not custom and voice not in [v['id'] for v in voices]:
             raise ValueError('Choose an available voice for this model and language.')
         clean.append(dict(text=text.strip(), language=language, emotion=emotion, voice=voice))
+        if line.get('design') is True:
+            if line_model not in DESIGN_MODELS or not isinstance(body.get('voice_design'), dict):
+                raise ValueError('Only a voice design request can describe a new voice.')
+            clean[-1]['design'] = True
         if 'model' in line:
             clean[-1]['model'] = line_model
-        if model.get('voice_direction') and 'direction' in line:
+        if (model.get('voice_direction') or clean[-1].get('design')) and 'direction' in line:
             direction = line['direction']
             if not isinstance(direction, str) or len(direction) > 1200:
                 raise ValueError('Keep character speaking direction within 1,200 characters.')
@@ -113,6 +185,28 @@ def validate(body):
         result['long_form_version'] = 1
     if required_models(result) != {model_id}:
         result['mixed_models_version'] = 1
+    refs = sorted({line['voice'][4:] for line in clean if line['voice'].startswith('ref:')})
+    if refs:
+        result['voice_refs_version'] = 1
+        if 'voice_refs' in body:
+            result['voice_refs'] = clean_voice_refs(body['voice_refs'])
+            if any(r not in result['voice_refs'] for r in refs):
+                raise ValueError('A character voice is missing from the request.')
+    if 'voice_design' in body:
+        design = body['voice_design']
+        if not isinstance(design, dict) or len(clean) != 1 or not clean[0].get('design'):
+            raise ValueError('A voice design request has exactly one described line.')
+        result['voice_design'] = {}
+        for key, limit in (('character', 80), ('character_id', 64), ('emotion', 32), ('description', 1200), ('transcript', 600), ('language', 40)):
+            value = design.get(key, '')
+            if not isinstance(value, str) or len(value) > limit:
+                raise ValueError('Invalid voice design field: ' + key)
+            result['voice_design'][key] = value.strip()
+        if not result['voice_design']['character'] or not result['voice_design']['description']:
+            raise ValueError('Name the character and describe the voice.')
+        if not SLUG.match(result['voice_design']['emotion'] or 'default'):
+            raise ValueError('Invalid voice palette name.')
+        result['voice_design']['emotion'] = result['voice_design']['emotion'] or 'default'
     if body.get('soundtrack') or body.get('sound_design_version'):
         from audio_soundtrack import validate_tracks
         if body.get('sound_design_version') != 1:

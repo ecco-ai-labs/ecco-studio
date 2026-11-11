@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import sys
 from http.server import ThreadingHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'migration' / 'legacy'))
 import studio as legacy
@@ -33,6 +33,8 @@ import google_signin
 import ecco_desk
 import web_origins
 import youtube_connection
+import voice_references
+import auto_series
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
@@ -47,6 +49,8 @@ WRITE_ROUTES = frozenset({
     '/api/ai/news/research', '/api/ai/news/storyboard',
     '/api/ai/connect', '/api/ai/settings', '/api/ai/disconnect', '/api/ai/enhance',
     '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
+    '/api/audio/voices/create', '/api/audio/voices/list', '/api/audio/voices/update', '/api/audio/voices/design',
+    *auto_series.ROUTES,
     '/api/images/upload', '/api/stories', '/api/stories/archive', '/api/boards',
     '/api/library/folders', '/api/library/save', '/api/trash', '/api/trash/board',
     '/api/library/labels/create', '/api/library/labels/assign', '/api/library/labels/remove',
@@ -106,6 +110,24 @@ class Handler(legacy.Handler):
         if ecco_desk.handle(self, path, self.allowed_origin, legacy.DATA / 'studio.sqlite', self.access_key): return
         if path == '/api/youtube/callback':
             return youtube_connection.callback(self)
+        if path.startswith('/api/voice-refs/'):
+            # Signed, short-lived links let stateless (serverless) workers fetch one character voice clip.
+            try:
+                file = voice_references.verify_link(path.split('/')[-1], parse_qs(urlsplit(self.path).query), vars(legacy))
+                return self.send(file.read_bytes(), 200, mime='audio/wav')
+            except legacy.Problem as exc:
+                return self.send({'error': exc.message}, exc.code)
+            except Exception:
+                return self.send({'error': 'Invalid voice link.'}, 403)
+        if path.startswith('/api/audio/auto/listen-input/'):
+            # Signed, short-lived link: the listen-back worker reads one episode recording.
+            try:
+                file = auto_series.verify_listen_link(path.split('/')[-1], parse_qs(urlsplit(self.path).query), vars(legacy))
+                return self.send(file.read_bytes(), 200, mime='audio/wav')
+            except legacy.Problem as exc:
+                return self.send({'error': exc.message}, exc.code)
+            except Exception:
+                return self.send({'error': 'Invalid recording link.'}, 403)
         if path == '/healthz':
             return self.send({'ok': True, 'service': 'ecco-storage-api', 'gpu_required': False})
         if not self.authorized(): return
@@ -208,6 +230,8 @@ class Handler(legacy.Handler):
                 return self.send(audio_workflows.save(body, vars(legacy)))
             if path == '/api/audio/workflows/control':
                 return self.send(audio_workflows.control(body, vars(legacy)))
+            if path in auto_series.ROUTES:
+                return self.send(auto_series.handle(path, body, vars(legacy)))
             if path == '/api/stories':
                 return self.send(audio_stories.save(body, vars(legacy)))
             if path == '/api/stories/plan':
@@ -217,7 +241,12 @@ class Handler(legacy.Handler):
                             '/api/library/labels/remove': library_labels.remove}
             if path in label_routes:
                 return self.send(label_routes[path](body, vars(legacy)))
-            audio_routes = {'/api/audio/upload': audio_library.upload,
+            if path == '/api/audio/voices/design':
+                return self.send(voice_references.design(body, vars(legacy), audio_jobs.generate))
+            audio_routes = {'/api/audio/voices/create': voice_references.create,
+                            '/api/audio/voices/list': voice_references.list_references,
+                            '/api/audio/voices/update': voice_references.update,
+                            '/api/audio/upload': audio_library.upload,
                             '/api/audio/folders': audio_library.create_folder,
                             '/api/audio/labels': audio_library.save_labels}
             if path in audio_routes:
@@ -232,6 +261,7 @@ class Handler(legacy.Handler):
 
 def main():
     Handler.access_key = TOKEN_FILE.read_text().strip()
+    voice_references.SECRET = Handler.access_key
     if len(Handler.access_key) < 32: raise SystemExit('A private access key of at least 32 characters is required')
     if not (legacy.DATA / 'studio.sqlite').is_file():
         raise SystemExit('Existing workspace database is missing; refusing to create an empty workspace')
@@ -243,6 +273,7 @@ def main():
     audio_video_sequence.start(vars(legacy))
     audio_jobs.start(vars(legacy))
     audio_workflows.start(vars(legacy))
+    auto_series.start(vars(legacy))
     character_studio.start(vars(legacy))
     address = os.getenv('ECCO_STORAGE_BIND', '127.0.0.1')
     port = int(os.getenv('ECCO_STORAGE_PORT', '8888'))

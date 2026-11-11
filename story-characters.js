@@ -20,8 +20,15 @@
  // Owner fix I5 (2026-11-09): in a series written fresh each episode, a character can change each episode (a guest); only fixed characters need a voice now.
  const seriesOpen=()=>ctx.data.sourceTab==='each'&&ctx.data.recurrence==='recurring';
  const perEpisode=c=>seriesOpen()&&!!c.perEpisode;
+ // Voice fix (2026-11-09): say plainly when characters share a voice.
+ function sharedNote(){
+  if(visual())return '';const seen=new Map();for(const c of ctx.data.cast.filter(c=>!perEpisode(c))){const k=(c.model||'')+'|'+c.voice;seen.set(k,[...(seen.get(k)||[]),c.name]);}
+  const groups=[...seen.values()].filter(n=>n.length>1);return groups.length?' · Same voice: '+groups.map(n=>n.join(' and ')).join('; ')+'. Choose another voice or audio model for more variety.':'';
+ }
  function progress(){
   const cast=ctx.data.cast.filter(c=>!perEpisode(c)),list=cast.map(status);
+  // Automatic flow (owner-approved 2026-11-09): an audio character is ready once it has a voice; samples are optional.
+  if(!visual())return {total:cast.length,created:cast.filter(c=>!!c.voice).length,tested:list.filter(s=>s==='tested').length};
   return {total:cast.length,created:list.filter(s=>s!=='none').length,tested:list.filter(s=>s==='tested').length};
  }
  async function mediaURL(id){
@@ -78,7 +85,7 @@
   });
   // Pictures do not need every character created first (owner-approved mock, 2026-11-09).
   const p=progress(),optional=ctx.data.output==='image',ready=optional||(p.created===p.total&&p.total>0);
-  const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent=optional?'Optional for pictures: create a look to keep the same person across images.':'Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue');
+  const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent=optional?'Optional for pictures: create a look to keep the same person across images.':!visual()?(p.created===p.total?'Every character has a voice':p.created+' of '+p.total+' characters have a voice · Choose a voice for the rest to continue')+sharedNote():'Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue')+sharedNote();
   const next=q('[data-next]',q('#page'));if(next){if(optional&&next.textContent!=='Next: Story Generation')next.textContent='Next: Story Generation';next.disabled=!ready;next.setAttribute('aria-describedby','story-cast-progress');}
  }
 
@@ -146,6 +153,13 @@
   const model=currentAudioModel(c);
   return window.EccoAudioStudio.sample({...c,model:model?.id},text,{title});
  }
+ // After a model change, choose a voice from that model that fits the character and isn't used by anyone else.
+ function fitVoice(c){
+  const model=currentAudioModel(c),voices=(model?.voices||[]).filter(v=>!v.language||!c.language||v.language===c.language);
+  if(!voices.length)return;const used=new Set(ctx.data.cast.filter(x=>x!==c&&(x.model||'')===model.id).map(x=>x.voice));
+  const want=/^f/i.test(c.gender||'')?'(feminine|female)':/^m/i.test(c.gender||'')?'(masculine|male)':'',free=voices.filter(v=>!used.has(v.id));
+  const pick=(want&&free.find(v=>new RegExp('\\b'+want+'\\b','i').test(v.name||'')))||free[0]||voices[0];c.voice=pick.id;c.voiceChosen=false;
+ }
  function sampleText(c){
   return storyLines(c)[0]||(c.name?'Hello, I am '+c.name+'.':'Hello, this is my voice.')+' Welcome to our story.';
  }
@@ -158,7 +172,8 @@
   create.append(element('h3',{id:'story-cast-create-title',text:'Create voice'}));
   const suggestion=field(c,index,'Suggested voice','delivery',{multiline:true});suggestion.append(element('span',{className:'help',text:'Suggested from your story'+(brief?' · '+brief:'')+'. Edit before generating if needed.'}));
   const row=element('div',{className:'story-character-fields'});
-  row.append(field(c,index,'Audio model','model',{options:audioModels(c).map(m=>[m.id,m.name]),onchange:()=>drawCreate(c,index)}),field(c,index,'Voice','voice',{options:voices.map(v=>[v.id,v.name||v.label||v.id])}));
+  const ready=window.EccoAudioCompute?.readyNow?.();
+  row.append(field(c,index,'Audio model','model',{options:audioModels(c).map(m=>[m.id,m.name+(ready&&!ready.includes(m.id)?' (not on this worker)':'')]),onchange:()=>{c.modelChosen=true;fitVoice(c);ctx.persist();drawCreate(c,index);}}),field(c,index,'Voice','voice',{options:voices.map(v=>[v.id,v.name||v.label||v.id])}));
   const created=!!c.voice_sample;
   const go=button(created?'Generate again':'Generate voice',async()=>{
    const done=setBusy(go,'Generating voice…');
@@ -268,11 +283,38 @@
   if(focused)(q('[data-property="'+focused+'"]',host)||q('[aria-label="'+focused+'"]',host))?.focus();
  }
 
+ // Automatic flow (owner-approved mock 2026-11-09): audio opens on a short cast list; the full editor opens from Change.
+ const STYLES=[['Expressive storyteller','Big changes in pace and feeling, pauses for effect.'],['Rich and measured','Steady, deep, unhurried.'],['Clear and warm','Even pace, friendly, easy to follow.'],['Bright and brisk','Crisp, confident, quick.'],['Intimate and quiet','Close, soft, slow.']];
+ const defaultStyle=d=>['news'].includes(d.type)?'Bright and brisk':['documentary'].includes(d.type)?'Rich and measured':['teaching','training','presentation'].includes(d.type)?'Clear and warm':['storybook','audio-drama'].includes(d.type)?'Expressive storyteller':'Clear and warm';
+ const isNarrator=c=>/narrat|storyteller/i.test((c.role||'')+' '+(c.name||''));
+ function voiceLabel(c){const m=currentAudioModel(c),v=(m?.voices||[]).find(x=>x.id===c.voice);return (v?.name||c.voice||'No voice yet')+(m?' · '+m.name:'');}
+ function roster(){
+  const {data,root}=ctx,list=element('div',{className:'story-cast-roster',role:'list','aria-label':'Cast'});
+  if(!data.narrationStyle)data.narrationStyle=defaultStyle(data);
+  data.cast.forEach((c,index)=>{
+   const row=element('div',{className:'story-cast-row',role:'listitem'});
+   const who=element('div',{className:'story-cast-who'},element('b',{text:c.name||'Character '+(index+1)}),element('span',{className:'help',text:[c.role,c.gender&&c.gender!=='Unspecified'?c.gender:'',c.age_group].filter(Boolean).join(' · ')}));
+   const voice=element('span',{className:'help story-cast-voice',text:perEpisode(c)?'Picked for each episode':voiceLabel(c)});
+   const player=element('audio',{preload:'none',hidden:true,'aria-label':'Voice sample for '+(c.name||'character')});
+   const hear=playButton('Hear '+(c.name||'this voice'),async()=>{const done=setBusy(hear);try{let url=c.voice_sample?await mediaURL(c.voice_sample):voiceTests.get('roster|'+c.id+'|'+c.model+'|'+c.voice);if(!url){url=(await voiceSample(c,sampleText(c),'Character voice · '+(c.name||'Character'))).url;voiceTests.set('roster|'+c.id+'|'+c.model+'|'+c.voice,url);}player.src=url;player.hidden=false;await player.play().catch(()=>{});}catch(error){ctx.message(error.message,true);}finally{done();}});
+   hear.disabled=perEpisode(c)||!c.voice;
+   const change=button('Change',()=>{data.activeCharacter=c.id;data.castDetail=true;ctx.persist();ctx.redraw();});change.classList.add('secondary');change.setAttribute('aria-label','Change '+(c.name||'character')+'’s voice');
+   row.append(who,voice,hear,change,player);
+   if(isNarrator(c)){const style=element('select',{'aria-label':'Narration style'});for(const [n] of STYLES)style.add(new Option(n,n));style.value=data.narrationStyle;style.onchange=()=>{data.narrationStyle=style.value;ctx.changed();};
+    row.append(element('label',{className:'story-cast-style help'},document.createTextNode('Narration style'),style));}
+   list.append(row);
+  });
+  root.append(element('p',{className:'help',text:'Each character has a voice picked for them. Hear any of them, and use Change only if one isn’t right.'}),list);
+ }
  function render(context){
   ctx=context;const {data,root}=ctx;
+  // Characters without a voice yet (the starter Host/Guest or Narrator) get their own voices too.
+  if(!visual()&&data.cast.some(c=>!c.voice)){window.EccoStoryVoices?.assign(data.cast,ctx.audioModel());ctx.persist();}
   if(seriesOpen())for(const c of data.cast)if(c.perEpisode===undefined)c.perEpisode=/guest|celebrit|interviewee/i.test((c.name||'')+' '+(c.role||''));
   const selected=Math.max(0,data.cast.findIndex(c=>c.id===data.activeCharacter));data.activeCharacter=data.cast[selected]?.id;
   drawTabs(selected);
+  const compact=!visual()&&!data.castDetail&&data.cast.length>0,tabs=q('[data-character-tabs]',q('#page'));if(tabs)(tabs.closest('.story-cast-bar')||tabs).hidden=compact;
+  if(compact){root.removeAttribute('aria-labelledby');root.replaceChildren();roster();refreshStatus();return;}
   root.setAttribute('aria-labelledby','story-character-tab-'+selected);root.replaceChildren();
   const c=data.cast[selected];
   if(!c){
@@ -280,6 +322,7 @@
    if(data.output==='image'){const empty=element('div',{className:'story-cast-empty'});empty.append(element('p',{className:'help',text:'No characters needed for a picture.'}));const add=element('button',{type:'button',className:'secondary',text:'+ Add a person',dataset:{addPerson:''}});add.onclick=()=>q('.story-character-add',ctx.list)?.click();empty.append(add);root.append(empty);}
    refreshStatus();return;
   }
+  if(!visual()){const back=button('← Back to cast list',()=>{data.castDetail=false;ctx.persist();ctx.redraw();});back.classList.add('secondary');back.dataset.castBack='';root.append(back);}
   root.append(properties(c,selected),element('div',{className:'story-cast-create'}));
   drawCreate(c,selected);refreshStatus();
  }

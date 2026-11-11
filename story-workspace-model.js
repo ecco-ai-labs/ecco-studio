@@ -18,7 +18,20 @@
   const script=plan?.segments?.length?transcript(plan,cast):board.story||saved.sourceText||saved.summary||'';
   return {version:1,title:saved.title||board.title||'',output:saved.story_format||board.story_format||'',type:saved.workflow_id||'',genre:saved.genre||'',audience:saved.audio_audience||p.audience||'All ages',language:saved.audio_language||p.language||'English',location:'',recurrence:'once',script,brief:'',cast:copy(cast),castCustomized:!!cast.length,scenes:copy(board.scenes||[]),source:{text:saved.sourceText||p.source_text||'',name:p.source_name||'',pages:p.source_pages||[]},tab:0,view:'',applied:{},plan:plan||null};
  }
- function transcript(plan,cast){return [...(plan.opening?[plan.opening]:[]),...(plan.segments||[])].map(p=>(cast.find(c=>c.id===p.character_id)?.name||'Narrator')+': '+p.text.trim()).join('\n\n');}
+ // Script text ⇄ plan. Square brackets are directions: they are kept apart from the spoken words and never read aloud.
+ // A paragraph without a name continues the same speaker; [Sound: …] on its own line is a background sound.
+ function transcript(plan,cast){
+  const name=id=>cast.find(c=>c.id===id)?.name||'Narrator',tag=d=>d?'['+d+'] ':'',out=[],sounds=[...(plan.sounds||[])].sort((a,b)=>a.at-b.at);
+  [...(plan.opening?[plan.opening]:[]),...(plan.segments||[])].forEach((p,i)=>{
+   while(sounds.length&&sounds[0].at<=i)out.push('[Sound: '+sounds.shift().name+']');
+   const dir=p.performance?.direction||'',after=p.performance?.after?' ['+p.performance.after+']':'',words=p.text.trim()+after;
+   if(p.join==='inline'&&out.length)out[out.length-1]+=' '+tag(dir)+words;
+   else if(p.join==='para'&&out.length)out.push(tag(dir)+words);
+   else out.push(name(p.character_id)+(dir?' ['+dir+']':'')+': '+words);
+  });
+  for(const sound of sounds)out.push('[Sound: '+sound.name+']');
+  return out.join('\n\n');
+ }
  function validateCast(cast){
   if(!Array.isArray(cast)||cast.length<1||cast.length>20)throw Error('Choose between 1 and 20 characters.');
   if(cast.some(c=>!c.id||!c.name?.trim()||c.name.length>60))throw Error('Give every character a name, up to 60 characters.');
@@ -27,17 +40,29 @@
  function parseScript(text,cast,previous){
   validateCast(cast);const names=new Map(cast.map(c=>[c.name.trim().toLowerCase(),c.id]));
   const heading=/^\s*(?:chapter|part|episode|section)\s*(?:[0-9]+|[ivxlc]+)\s*(?:[:.\-–—][^\n]{0,70})?\s*(?:\n|$)/i;
-  const parts=String(text||'').trim().split(/\n\s*\n/).map(p=>p.replace(heading,'').trim()).filter(Boolean).map(paragraph=>{
-   const i=paragraph.indexOf(':'),id=i>=0?names.get(paragraph.slice(0,i).trim().toLowerCase()):null;
-   if(!id&&cast.length>1)throw Error('Start each spoken turn with a character name followed by a colon, and separate turns with a blank line.');
-   const words=id?paragraph.slice(i+1).trim():paragraph.trim();if(!words)throw Error('Each spoken turn needs some text.');
-   const part={character_id:id||cast[0].id,text:words};
-   const old=[...(previous?.opening?[previous.opening]:[]),...(previous?.segments||[])].find(p=>p.character_id===part.character_id&&p.text===part.text);
-   if(old?.performance)part.performance=copy(old.performance);return part;
-  });
+  const old=[...(previous?.opening?[previous.opening]:[]),...(previous?.segments||[])],parts=[],sounds=[];let who=null;
+  for(const paragraph of String(text||'').trim().split(/\n\s*\n/).map(p=>p.replace(heading,'').trim()).filter(Boolean)){
+   const sound=paragraph.match(/^\[\s*sound\s*:\s*([^\]]+)\]$/i);if(sound){sounds.push({at:parts.length,name:sound[1].trim().slice(0,160)});continue;}
+   const head=paragraph.match(/^([^:\[\]\n]{1,60}?)\s*(\[[^\]]*\])?\s*:\s*/),id=head?names.get(head[1].trim().toLowerCase()):null;
+   // “Bob: …” where Bob isn't in the cast is a typo, not words for the previous speaker.
+   if(head&&!id&&(head[2]||/^\p{Lu}[\p{L}'’.\-]*(?: \p{Lu}[\p{L}'’.\-]*){0,2}$/u.test(head[1].trim())))throw Error('“'+head[1].trim()+'” is not in your cast. Add the character, or fix the name.');
+   if(id)who=id;else if(!who){if(cast.length>1)throw Error('Start the first paragraph with a character name followed by a colon, for example “'+cast[0].name+': …”.');who=cast[0].id;}
+   let direction=id&&head[2]?head[2].slice(1,-1).trim():'',fresh=!!direction,join=id?'':'para',body=id?paragraph.slice(head[0].length):paragraph;
+   for(const piece of body.split(/(\[[^\]]*\])/)){
+    if(/^\[[^\]]*\]$/.test(piece)){const d=piece.slice(1,-1).trim();direction=fresh&&direction?direction+', '+d:d;fresh=true;continue;}
+    // Words only: stray brackets are dropped and parentheses become pauses, so nothing can be read as an instruction.
+    const words=piece.replace(/[\[\]]/g,'').replace(/([.!?])\s*\(\s*/g,'$1 ').replace(/^\s*\(\s*/,'').replace(/\s*\(\s*/g,', ').replace(/\s*\)\s*(?=[.!?,;:]|$)/g,'').replace(/\s*\)\s*/g,', ').replace(/,\s*([.!?,;:])/g,'$1').replace(/^,\s*|,\s*$/g,'').replace(/\s+/g,' ').trim();if(!words)continue;
+    const part={character_id:who,text:words};if(join)part.join=join;if(direction)part.performance={direction:direction.slice(0,300)};
+    const match=old.find(p=>p.character_id===part.character_id&&p.text===part.text);
+    if(match?.performance){const keep=copy(match.performance);delete keep.after;part.performance={...keep,...(direction?{direction:direction.slice(0,300)}:{})};}
+    parts.push(part);join='inline';fresh=false;direction='';
+   }
+   const trailing=body.match(/\[([^\]]*)\]\s*$/);if(trailing&&parts.length&&fresh){const last=parts[parts.length-1];last.performance={direction:'natural',...(last.performance||{}),after:trailing[1].trim().slice(0,120)};}
+  }
   if(!parts.length)throw Error('Write a story or generate one with AI first.');
   const keepOpening=previous?.opening&&parts[0].character_id===previous.opening.character_id&&parts[0].text===previous.opening.text;
-  return {opening:keepOpening?parts.shift():null,segments:parts};
+  const plan={opening:keepOpening?parts.shift():null,segments:parts};if(keepOpening)for(const s of sounds)s.at=Math.max(0,s.at-1);
+  if(sounds.length)plan.sounds=sounds;return plan;
  }
  function validateProposal(value,existing,castOnly=false){
   const cast=value?.characters;validateCast(cast);

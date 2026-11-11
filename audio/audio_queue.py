@@ -52,6 +52,7 @@ def request_ready(request):
                and needed.issubset(supported(w))
                and (not request.get('long_form_version') or w.get('long_form_version') == 1)
                and (not request.get('mixed_models_version') or w.get('mixed_models_version') == 1)
+               and (not request.get('voice_refs_version') or w.get('voice_refs_version') == 1)
                for w in workers())
 
 def sound_models(worker):
@@ -79,6 +80,7 @@ def availability():
                            'sound_generation_version': 1 if sounds else 0,
                            'character_controls_version': 1 if models and all(w.get('character_controls_version') == 1 for w in live if w['compute'] == target) else 0,
                            'sound_design_version': 1 if models and all(w.get('sound_design_version') == 1 for w in live if w['compute'] == target) else 0,
+                           'voice_refs_version': 1 if models and all(w.get('voice_refs_version') == 1 for w in live if w['compute'] == target) else 0,
                            'reason': '' if models else target.upper() + ' audio worker is not connected.'}
     # Keep registered/offline CPU instances visible instead of silently switching a selection.
     known = {}
@@ -105,6 +107,7 @@ def availability():
                           'long_form_version': w.get('long_form_version', 0), 'mixed_models_version': w.get('mixed_models_version', 0) if routable else 0,
                           'sound_design_version': w.get('sound_design_version', 0) if routable else 0,
                           'sound_generation_version': w.get('sound_generation_version', 0) if routable else 0,
+                          'voice_refs_version': w.get('voice_refs_version', 0) if routable else 0,
                           'reason': '' if available else 'Audio worker update required.' if w and not routable else 'Audio worker is unavailable or still starting.'})
     return {'routing_version': 1, 'instance_routing_version': 1, 'ready': any(v['ready'] for v in compute.values()), 'compute': compute, 'instances': instances}
 

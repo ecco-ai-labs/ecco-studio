@@ -287,7 +287,7 @@
    +'<div class="story-recurrence-pair"><label>First episode<input type="date" data-rec="start" value="'+s.start+'"></label><label>Ends'+(shape.open?'<select data-rec="ends">'+opt('never','Never',s.ends||'never')+opt('after','After a number of episodes',s.ends)+'</select>':'<select disabled><option data-rec-end></option></select>')+'</label></div>'+(shape.open&&s.ends==='after'?'<label>Number of episodes<input type="number" min="1" max="500" data-rec="count" value="'+(s.count||6)+'"></label>':'')
    +'<fieldset class="story-recurrence-review"><legend>Before each episode publishes</legend><label><input type="radio" name="story-rec-review" value="review"'+(s.review!=='auto'?' checked':'')+'> Review each episode before it publishes</label><label><input type="radio" name="story-rec-review" value="auto"'+(s.review==='auto'?' checked':'')+'> Publish automatically</label></fieldset></section>'
    +'<section class="story-recurrence-box" aria-labelledby="story-rec-episodes"><h3 id="story-rec-episodes">Episodes</h3><div class="story-recurrence-list"><table><tbody data-rec-episodes></tbody></table></div>'
-   +'<h3>Save as workflow</h3><p class="help">Saves this story’s settings and schedule so it can run on its own. It appears in Workflows.</p><label>Workflow name<input data-rec-name maxlength="120"></label><p class="help" data-rec-saved role="status"></p><button type="button" data-rec-save>Save as workflow</button></section></div>';
+   +'<h3>Save as workflow</h3><p class="help">Saves this story’s settings and schedule so it can run on its own. It appears in Workflows.</p><label>Workflow name<input data-rec-name maxlength="120"></label><p class="help" data-rec-saved role="status"></p><button type="button" data-rec-save>Save as workflow</button></section></div>'+(isRecurring()&&window.EccoStoryAuto?'<section class="story-recurrence-box story-auto" data-auto aria-labelledby="story-auto-heading"></section>':'');
   const observed=root.querySelector('[data-rec-observed]');if(observed)observed.textContent='This story has '+n+' '+unit+'. You chose One time generation. Setting a schedule here turns it into Recurring generation.';
   root.querySelector('[data-rec-count]').textContent=shape.open?'A new episode each time it runs.':(shape.titles?.length===n?'Found '+n+' '+unit+'.':n+' '+unit+' → '+n+' episodes. '+(shape.reason||'')).trim();
   if(!shape.open)root.querySelector('[data-rec-end]').textContent='After episode '+n+(dates.length?' ('+dayLabel(dates[dates.length-1])+')':'');
@@ -299,7 +299,10 @@
   for(const control of root.querySelectorAll('[data-rec]'))control.onchange=()=>{data.schedule={...schedule(),[control.dataset.rec]:control.value};persist();paintRecurrence();};
   for(const radio of root.querySelectorAll('[name=story-rec-review]'))radio.onchange=()=>{data.schedule={...schedule(),review:radio.value};persist();};
   root.querySelector('[data-rec-save]').onclick=()=>{const label=name.value.trim()||data.title||'Story';saveWorkflow(label);paintRecurrence();};
+  const autoBox=root.querySelector('[data-auto]');if(autoBox)window.EccoStoryAuto.mount(autoBox,autoContext());
  }
+ // What the automatic-episodes panel (story-auto.js) needs from this story.
+ function autoContext(){const text=data.seriesText||storyText();return {data,api:(path,body)=>api(path,body),persist,schedule,series,isNews,genre:audioGenre,storyId:()=>activeStory||'',ensureSaved,episodeText:i=>episodeText(text,i),message};}
 
  // ---- New Each Episode (owner fixes I1–I3, 2026-11-09): AI writes each episode when it runs ----
  const EACH_FIRST=['news','podcast','interview','documentary'];
@@ -352,6 +355,7 @@
   }catch(error){if(status)status.textContent='Could not write a preview: '+error.message;}finally{if(button.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');}}
  }
  // Saved where the Workflows screen keeps workflow drafts. Running on schedule still needs the workspace scheduling service.
+ function audioGenre(){return ['Story Book Reading','Podcast','News','Movie','Theatre','Casual Conversation','Documentary','Interview','Educational'].includes(data.genre)?data.genre:({podcast:'Podcast',interview:'Interview',news:'News',documentary:'Documentary','audio-drama':'Theatre',teaching:'Educational',training:'Educational'}[data.type]||'Story Book Reading');}
  function saveWorkflow(label){
   const key='ecco-workflow-drafts',list=read(key,[]),id=data.workflowId||(data.workflowId=crypto.randomUUID()),s=schedule(),n=data.storyShape.episodes,open=!!data.storyShape.open,b=series();
   const mode=open?(isNews()?{source_mode:'news',prompt:b.about,lookback:+b.lookback||24,count:+b.count||3}:{source_mode:'series',prompt:b.about,series_about:b.about,series_changes:b.changes,series_plan:b.plan.filter(t=>t.trim()),no_repeat:true}):{source_mode:'chapters',next_chapter:1,total_chapters:n};
@@ -395,7 +399,9 @@
      if(current!==owner()||!enabled)throw Error('Return to the story where you started.');
      const variation=index?'Write version '+(index+1)+' of 3: keep the same plot, characters, length and settings, but vary the wording and a few small details so it reads slightly differently from the other versions.':'';
      const series=isRecurring()?'This is a series. Start each episode on its own line as "Episode N: Title", with no speaker name on that line, then write the episode.':'';
-     const target=data,result=await recommend(false,{returnProposal:true,ignoreSource:true,variation:[series,variation].filter(Boolean).join(' ')});
+     // Sound human (owner request 2026-11-09): write the way people really speak for this kind of audio.
+     const human=({podcast:'Write it as a real conversation: short turns, contractions, people reacting to each other ("right", "hm", a laugh), the odd interruption or false start, varied sentence length. Never sound like reading an article.',interview:'Write it as a real interview: natural questions, follow-ups that react to the answer, the guest thinking aloud, short and long answers, contractions.',news:'Write it as spoken news: crisp sentences, a natural hand-over between presenters by name, conversational links between stories.',storybook:'Write it to be told aloud by a storyteller: rhythm, suspense, pauses for effect, vivid but simple words; characters speak with feeling.','audio-drama':'Write it to be performed: characters speak with clear feeling and personality, short lively exchanges, a narrator who builds suspense.',documentary:'Write it to be narrated: rich, measured, vivid, with room to breathe between ideas.',teaching:'Write it to be taught aloud: warm, clear, short steps, friendly asides and questions to the listener.'})[data.type]||'';
+     const target=data,result=await recommend(false,{returnProposal:true,ignoreSource:true,variation:[human,series,variation].filter(Boolean).join(' ')});
      if(current!==owner()||target!==data)throw Error('The story changed while AI was working. Your edits are preserved; generate again.');
      data.aiStoryDraft={...(data.aiStoryDraft||{}),research:result.research,proposal:result.proposal};persist();return result.proposal.script;
     }}:null,
@@ -441,7 +447,8 @@
     if(!window.EccoStorage?.ready)throw Error('Connect Storage in Connections, then retry Generate Script.');
     if(!window.EccoAI?.enabled)await window.EccoAI?.refresh();assertCurrent();
     if(!window.EccoAI?.enabled)throw Error('Connect AI and enable it in Connections, then retry Generate Script.');
-    const proposal=await window.EccoSourceCast.analyze({source:selection.text,details:{...clone(data),source:selection},model,request:api,assertCurrent,progress});
+    if(!window.EccoAudioCompute?.readyNow?.())await window.EccoAudioCompute?.refresh?.();
+  const proposal=await window.EccoSourceCast.analyze({source:selection.text,details:{...clone(data),source:selection},model,request:api,assertCurrent,progress});
     assertCurrent();return castDefaults(proposal,model);
    },
    onApply:review=>{
@@ -489,7 +496,9 @@
  function story(){
   page='story-properties';if(!data.cast.length)data.cast=defaultCast();
   q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel"><div class="story-settings-bar" role="group" aria-label="Story settings" data-story-settings></div><div class="story-source-tabs" role="tablist" aria-label="Story source"><button type="button" role="tab" id="story-source-tab-pdf" aria-controls="story-source-panel-pdf" data-source-tab="pdf">Upload PDF</button><button type="button" role="tab" id="story-source-tab-ai" aria-controls="story-source-panel-ai" data-source-tab="ai">Generate With AI</button><button type="button" role="tab" id="story-source-tab-write" aria-controls="story-source-panel-write" data-source-tab="write">Write Yourself</button><button type="button" role="tab" id="story-source-tab-each" aria-controls="story-source-panel-each" data-source-tab="each" hidden>New Each Episode</button><button type="button" role="tab" id="story-source-tab-rec" aria-controls="story-source-panel-rec" data-source-tab="rec" hidden>Schedule</button></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-pdf" aria-labelledby="story-source-tab-pdf" data-source-panel="pdf"><input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" data-file hidden><div class="pdf-selection-layout story-source-placeholder" data-source-placeholder><section class="pdf-review-box pdf-document-pane" aria-label="Document preview panel"><div class="story-upload-slot" data-upload-slot><button type="button" class="story-upload-target" data-upload><span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload PDF</button></div></section><section class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading">Selected Text</span><span class="help">Only this text will be used in your story.</span><textarea disabled rows="12" aria-label="Selected Text (upload a PDF first)" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></section><section class="pdf-review-box pdf-ai-pane"><strong class="pdf-review-heading">Improve with AI</strong><textarea disabled rows="6" aria-label="AI instructions (upload a PDF first)" placeholder="Describe how to improve the selected text…"></textarea><div class="pdf-ai-drafts" aria-hidden="true"><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 1</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 2</button><button type="button" class="pdf-ai-draft-tab" disabled tabindex="-1">Draft 3</button></div><textarea disabled rows="8" aria-label="Draft (upload a PDF first)" placeholder="Your AI output will appear here."></textarea></section></div><div class="story-source-host" data-source-host="pdf"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-ai" aria-labelledby="story-source-tab-ai" data-source-panel="ai"><div class="story-source-host" data-source-host="ai"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-write" aria-labelledby="story-source-tab-write" data-source-panel="write"><div class="story-source-host" data-source-host="write"></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-each" aria-labelledby="story-source-tab-each" data-source-panel="each" hidden><div class="story-each" data-each></div></div><div class="story-source-panel" role="tabpanel" id="story-source-panel-rec" aria-labelledby="story-source-tab-rec" data-source-panel="rec" hidden><div class="story-recurrence" data-recurrence></div></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><div class="row story-source-resume"><button type="button" class="secondary" data-resume hidden>Resume Saved Selection</button></div><label class="story-final-script" hidden>Story / Script<textarea id="story-simple-script" rows="12" placeholder="Write your story here, upload a source, or generate with AI."></textarea></label><p class="help" data-script-help hidden></p><div data-sources></div></section><div class="story-simple-actions"><button type="button" data-next>Next: Story Characters</button></div></div>';
-  const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
+  const text=q('#story-simple-script');text.value=data.script;let viewTimer;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();clearTimeout(viewTimer);viewTimer=setTimeout(syncViews,300);};
+  // While typing, show Lines and sounds as soon as the script is valid; stay in the text view so nothing moves under the pointer.
+  const syncViews=()=>{const ok=!!(data.output==='audio'&&scriptPlan());for(const b of q('#page').querySelectorAll('[data-script-view]')){b.hidden=!ok;b.setAttribute('aria-pressed',String(b.dataset.scriptView==='text'));}if(ok)data.scriptView='text';};
   inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
   inPage('[data-upload]').onclick=()=>inPage('[data-file]').click();inPage('[data-file]').onchange=async e=>{const file=e.target.files[0];if(!file)return;const origin=owner();sourcePending=true;try{const chosen=sourcePicker();chosen.mount?.(inPage('[data-source-host=pdf]'));placeUpload();await chosen.load(file,inPage('[data-upload]'));if(origin===owner())await chosen.selectAll?.();if(origin===owner()&&data.tab===STORY){render();const shape=await readShape();if(origin===owner()&&data.tab===STORY&&isRecurring()&&!shape.multi)await oneTimeWarning(shape);}}catch(error){message(error.message,true);}};
   settingsBar();sourceTabs();
@@ -566,10 +575,14 @@
   q('#page').innerHTML='<div class="form"><section class="panel form story-script-panel"><div class="section-head"><h2>Script</h2><div class="row story-script-views" role="group" aria-label="Script view"><button type="button" class="secondary" data-script-view="lines">Lines and sounds</button><button type="button" class="secondary" data-script-view="text">Edit as text</button></div><button type="button" data-suggest-sounds>✦ Suggest delivery and sounds</button></div>'
    +'<p class="help" data-script-help></p><p class="help" data-sound-status role="status" aria-live="polite"></p><div class="story-script-lines" data-script-lines></div>'
    +'<label data-script-text>Script<textarea id="story-simple-script" rows="18" placeholder="Generate Script in the Story Script step fills this in. You can also write it here."></textarea></label></section><div class="story-simple-actions"><span class="help" data-script-count></span><button type="button" data-next>Generate</button></div></div>';
-  const text=q('#story-simple-script');text.value=data.script;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();};
+  const text=q('#story-simple-script');text.value=data.script;let viewTimer;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();clearTimeout(viewTimer);viewTimer=setTimeout(syncViews,300);};
+  // While typing, show Lines and sounds as soon as the script is valid; stay in the text view so nothing moves under the pointer.
+  const syncViews=()=>{const ok=!!(data.output==='audio'&&scriptPlan());for(const b of q('#page').querySelectorAll('[data-script-view]')){b.hidden=!ok;b.setAttribute('aria-pressed',String(b.dataset.scriptView==='text'));}if(ok)data.scriptView='text';};
   for(const b of inPage('[data-script-view]')?.parentElement.querySelectorAll('[data-script-view]')||[])b.onclick=()=>{data.scriptView=b.dataset.scriptView;persist();paintScript();};
   inPage('[data-suggest-sounds]').onclick=event=>void suggestSounds(event.currentTarget);
   inPage('[data-next]').onclick=()=>select(GENERATE);paintScript();
+  // Automatic flow: delivery and sounds are suggested once, without a click; anything changed by hand is kept.
+  if(data.output==='audio'&&!data.autoDirected&&scriptPlan()&&window.EccoAudioDirection&&window.EccoSoundDesign){data.autoDirected=true;persist();void suggestSounds(inPage('[data-suggest-sounds]'));}
  }
  function scriptPlan(){try{return M.parseScript(data.script,data.cast,data.plan);}catch{return null;}}
  const soundLines=plan=>window.EccoSoundDesign?.planLines(plan)||[];
@@ -581,7 +594,7 @@
   const plan=data.output==='audio'?scriptPlan():null,view=plan&&data.scriptView!=='text'?'lines':'text',root=inPage('[data-script-lines]');if(!root)return;
   for(const b of q('#page').querySelectorAll('[data-script-view]')){b.setAttribute('aria-pressed',String(b.dataset.scriptView===view));b.hidden=!plan;}
   inPage('[data-suggest-sounds]').hidden=view!=='lines';inPage('[data-script-text]').hidden=view!=='text';root.hidden=view!=='lines';
-  inPage('[data-script-help]').textContent=view==='lines'?'Choose who speaks each line and how (for example Whisper), and add sounds such as a door opening, footsteps, wind or birds. AI can suggest both; change anything.':'For multiple speakers, write “Name: spoken words” for each turn, with a blank line between turns. Directions belong in character properties.';
+  inPage('[data-script-help]').textContent=view==='lines'?'Choose who speaks each line and how (for example Whisper), and add sounds such as a door opening, footsteps, wind or birds. AI can suggest both; change anything.':'Write “Name: words” to change speaker; a paragraph without a name continues the same speaker. Words in [square brackets] tell the voice how to speak and are never read aloud. [Sound: …] on its own line adds a background sound.';
   if(view==='text'){inPage('#story-simple-script').value=data.script;inPage('[data-script-count]').textContent='';return;}
   const model=audioModel(),emotions=window.EccoAudioDirection?.emotions||['neutral'],label=e=>e==='neutral'?'Normal':e[0].toUpperCase()+e.slice(1),turns=[...(plan.opening?[plan.opening]:[]),...plan.segments];
   const cues=data.soundDesign?.cues||[],lines=soundLines(plan);let lineIndex=0;root.replaceChildren();
@@ -590,7 +603,7 @@
    cues.forEach((cue,ci)=>{if(cue.start>=first&&cue.start<lineIndex)root.append(soundRow(cue,ci,lines));});
    const row=document.createElement('div');row.className='story-script-turn';
    const who=document.createElement('select');who.setAttribute('aria-label','Speaker for line '+(ti+1));for(const c of data.cast)who.add(new Option(c.name,c.id));who.value=turn.character_id;
-   const voice=document.createElement('span');voice.className='help';const c=data.cast.find(x=>x.id===turn.character_id);voice.textContent=(model?.voices||[]).find(v=>v.id===c?.voice)?.name||'';
+   const voice=document.createElement('span');voice.className='help';const c=data.cast.find(x=>x.id===turn.character_id),cm=(window.EccoAudioModels||[]).find(m=>m.id===c?.model)||model;voice.textContent=(cm?.voices||[]).find(v=>v.id===c?.voice)?.name||'';
    const how=document.createElement('select');how.setAttribute('aria-label','Delivery for line '+(ti+1));for(const e of emotions)how.add(new Option(label(e),e));how.value=turn.performance?.manual?turn.performance.emotion||'neutral':turn.performance?.emotion||'neutral';if(how.value!=='neutral')how.dataset.on='true';
    const words=document.createElement('textarea');words.rows=2;words.value=turn.text;words.setAttribute('aria-label','Line '+(ti+1));
    const add=document.createElement('button');add.type='button';add.className='secondary';add.textContent='+ Sound';add.setAttribute('aria-label','Add a sound at line '+(ti+1));
@@ -601,7 +614,7 @@
    add.onclick=()=>{const sd=data.soundDesign||(data.soundDesign={enabled:true,cues:[]});sd.enabled=true;sd.cues.push({...window.EccoSoundDesign.defaults('effect'),name:'Sound '+(sd.cues.length+1),description:'',start:first,end:first});sd.speech_key=window.EccoSoundDesign.key(lines);epoch++;persist();paintScript();};
   });
   const n=cues.length,special=turns.filter(t=>t.performance?.emotion&&t.performance.emotion!=='neutral').length;
-  inPage('[data-script-count]').textContent=n+' sound'+(n===1?'':'s')+' · '+special+' line'+(special===1?'':'s')+' with special delivery'+(model&&!model.emotions?' · '+(model.name||'This model')+' reads every line in a normal voice':'');
+  inPage('[data-script-count]').textContent=n+' sound'+(n===1?'':'s')+' · '+special+' line'+(special===1?'':'s')+' with special delivery'+(()=>{const flat=[...new Set(data.cast.map(c=>(window.EccoAudioModels||[]).find(m=>m.id===c.model)||model).filter(m=>m&&!m.emotions).map(m=>m.name||m.id))];return flat.length?' · '+flat.join(', ')+' reads every line in a normal voice':'';})();
  }
  function soundRow(cue,index,lines){
   const KINDS={effect:'Sound Effect',ambience:'Ambience',music:'Background Music'},row=document.createElement('div');row.className='story-script-sound';row.dataset.kind=cue.kind;
@@ -621,13 +634,14 @@
  async function suggestSounds(button){
   const plan=scriptPlan(),status=inPage('[data-sound-status]'),origin=owner();if(!plan)return;button.disabled=true;button.setAttribute('aria-busy','true');status.textContent='Suggesting delivery and sounds…';
   try{
-   const model=audioModel(),lines=soundLines(plan),brief={title:data.title,genre:data.genre,audience:data.audience,language:data.language,story_type:data.type};
+   const model=audioModel(),lines=soundLines(plan),brief={title:data.title,genre:data.genre,audience:data.audience,language:data.language,story_type:data.type,narration_style:data.narrationStyle||''};
    const [directed,cues]=await Promise.all([
     window.EccoAudioDirection.refine({plan,cast:data.cast,brief,model,request:api,directionOnly:true}).catch(()=>null),
     window.EccoSoundDesign.suggest({lines,brief,assets:window.EccoAudioLibrary?.items()||[]}).catch(error=>{status.textContent='Sounds: '+error.message;return null;})]);
    if(origin!==owner())return;
-   if(directed)savePlan(directed);
-   if(cues){data.soundDesign={enabled:!!cues.length,cues,speech_key:window.EccoSoundDesign.key(soundLines(directed||plan))};epoch++;persist();}
+   if(directed){const now=scriptPlan();if(now)directed.segments?.forEach((seg,i)=>{const cur=now.segments?.[i];if(cur?.performance?.manual&&cur.text===seg.text)seg.performance=cur.performance;});savePlan(directed);}
+   // Sounds added by hand stay; earlier suggestions are replaced.
+   if(cues){const all=[...(data.soundDesign?.cues||[]).filter(c=>!c.suggested),...cues.map(c=>({...c,suggested:true}))];data.soundDesign={enabled:!!all.length,cues:all,speech_key:window.EccoSoundDesign.key(soundLines(directed||plan))};epoch++;persist();}
    status.textContent=(directed?'Delivery suggested. ':'')+(cues?cues.length+' sounds suggested. Sounds not in your Audio Library are made when you generate.':'');
   }catch(error){status.textContent='Could not suggest: '+error.message;}
   finally{if(button.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');}paintScript();}
@@ -647,35 +661,52 @@
      const matched=data.castCustomized&&previous.find(old=>old.name.trim().toLowerCase()===c.name.trim().toLowerCase());
      const defaults=data.output==='image'?{}:{language:data.language,emotion:'neutral',voice:window.EccoAudioDirection?.defaultVoice(model,c.language||data.language,i)||''};
      const voice=(model?.voices||[]).some(v=>v.id===c.voice)?c.voice:defaults.voice;
-     return {...defaults,...c,...(data.output!=='image'?{voice,language:c.language||data.language,emotion:c.emotion||'neutral'}:{}),...(matched?Object.fromEntries(['voice','voiceChosen','dialect','style','emotion','delivery','appearance','gender','age_group','nationality'].filter(k=>matched[k]).map(k=>[k,matched[k]])):{})};
+     return {...defaults,...c,...(data.output!=='image'?{voice,language:c.language||data.language,emotion:c.emotion||'neutral'}:{}),...(matched?Object.fromEntries(['voice','voiceChosen','model','modelChosen','dialect','style','emotion','delivery','appearance','gender','age_group','nationality'].filter(k=>matched[k]).map(k=>[k,matched[k]])):{})};
     });
     if(data.output!=='image'&&model)assignVoices(proposal.cast,model);
     return proposal;
  }
- // Voice diversity fix (owner report 2026-11-09): match each character's gender and never reuse a voice in one story when the model has enough voices.
+ // Voice diversity (owner report and real run 2026-11-09): each character gets its own voice. Gender comes from the
+ // character when known; otherwise voices alternate feminine/masculine. If the story's model has too few voices in the
+ // language, the model with the most voices that this worker can run is used instead. A model or voice picked by hand is kept.
  function voicePool(model,language){
   const all=model?.voices||[];if(model?.id==='chatterbox'){const m=all.filter(v=>v.name.startsWith(language+' ·')||v.name.startsWith(language+' '));return m.length?m:all.filter(v=>v.id==='default');}
   return all.filter(v=>!v.language||v.language===language);
  }
- const voiceGender=v=>/\bmasculine\b/i.test(v.name||'')?'Male':/\bfeminine\b/i.test(v.name||'')?'Female':'';
- function assignVoices(cast,model){
-  const used=new Set(),kept=new Set(cast.filter(c=>c.voiceChosen).map(c=>c.voice));let short=0;
-  for(const c of cast){
-   if(c.voiceChosen){used.add(c.voice);continue;}
-   const pool=voicePool(model,c.language||data.language),free=pool.filter(v=>!used.has(v.id)&&!kept.has(v.id)),gender=/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
-   const suggested=free.find(v=>v.id===c.voice&&(!gender||!voiceGender(v)||voiceGender(v)===gender));
-   const pick=suggested||(gender&&free.find(v=>voiceGender(v)===gender))||free.find(v=>!voiceGender(v)||!gender)||free[0];
-   if(pick){c.voice=pick.id;used.add(pick.id);}else{short++;if(!pool.some(v=>v.id===c.voice))c.voice=pool[0]?.id||c.voice;}
-  }
-  data.voiceShortage=short?{model:model.name||model.id,count:cast.length}:null;
-  if(short)message(model.name+' doesn’t have a different '+data.language+' voice for every character, so some share a voice. Choose another audio model with more '+data.language+' voices for more variety.');
+ const voiceGender=v=>/\b(masculine|male)\b/i.test(v.name||'')?'Male':/\b(feminine|female)\b/i.test(v.name||'')?'Female':'';
+ const genderOf=c=>/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
+ // svara-TTS (GPU) has native male and female voices per Indian language plus emotion tags, so it leads where a worker offers it.
+ const VOICE_QUALITY={English:['kokoro','voxcpm2','indic-parler','chatterbox','svara-tts','indic-mio'],Urdu:['indic-parler','indic-mio'],Telugu:['svara-tts','indicf5','indic-parler','indic-mio'],Hindi:['svara-tts','indic-parler','indicf5','indic-mio'],other:['svara-tts','indic-parler','indicf5','voxcpm2','kokoro','chatterbox','indic-mio']};
+ function voiceModels(language){
+  const ready=window.EccoAudioCompute?.readyNow?.(),fits=(window.EccoAudioModels||[]).filter(m=>!m.pending&&(!m.languages||m.languages.includes(language)));
+  return fits.filter(m=>!ready||ready.includes(m.id));
  }
+ function assignVoices(cast,model){
+  const need=cast.filter(c=>!c.voiceChosen).length,language=data.language;let short=0;
+  // Voice quality (owner report 2026-11-09): use the best-sounding model the workers can run for this language.
+  const options=voiceModels(language),rank=VOICE_QUALITY[language]||VOICE_QUALITY.other,score=m=>{const i=rank.indexOf(m.id);return i<0?rank.length:i;};
+  const most=Math.max(0,...options.map(m=>voicePool(m,language).length)),enough=m=>voicePool(m,language).length>=Math.min(need,most);
+  const chosen=[...options].sort((a,b)=>score(a)-score(b)).find(enough)||options[0]||model;
+  const used=new Set(cast.filter(c=>c.voiceChosen).map(c=>(c.model||chosen.id)+'|'+c.voice));let alternate=0;
+  for(const c of cast){
+   if(c.voiceChosen)continue;
+   const m=c.modelChosen?(window.EccoAudioModels||[]).find(x=>x.id===c.model)||chosen:chosen;if(!c.modelChosen)c.model=m.id;
+   const pool=voicePool(m,c.language||language),free=pool.filter(v=>!used.has(m.id+'|'+v.id)),known=genderOf(c);
+   const want=known||(free.some(voiceGender)?(alternate++%2?'Male':'Female'):'');
+   const pick=free.find(v=>v.id===c.voice&&(!want||!voiceGender(v)||voiceGender(v)===want))||(want&&free.find(v=>voiceGender(v)===want))||free[0];
+   if(pick){c.voice=pick.id;used.add(m.id+'|'+pick.id);}else{short++;c.voice=pool[0]?.id||c.voice;}
+  }
+  data.voiceShortage=short?{model:chosen.name||chosen.id,language,count:cast.length}:null;
+  if(short)message(chosen.name+' doesn’t have a different '+language+' voice for every character, so some share a voice.');
+ }
+ window.EccoStoryVoices={assign:(cast,model)=>{if(data&&model)assignVoices(cast,model);}};
  function applyDetectedCast(proposal,model,valid){
     castDefaults(proposal,model);valid();data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.cast.length+' '+(data.output==='audio'?'audio ':'')+'characters identified from applied text.'+(proposal.reason?' '+proposal.reason:'');data.plan=proposal.plan||null;if(proposal.plan){data.audioScript=M.transcript(proposal.plan,data.cast);if(data.output==='audio')data.script=data.audioScript;data.sourceAssignmentPending=false;}data.castPending=false;epoch++;persist();if(data.tab===CHARACTERS){render();aiStatus('Characters and properties are ready.');}
  }
  async function recommend(castOnly,{autoApply=false,returnProposal=false,ignoreSource=false,variation='',readStory=''}={}){
   if(aiRequest?.current===data){if(returnProposal)throw Error('AI is still working on this story.');aiStatus('AI is still working on this story…');return;}
   const token=epoch,current=data,identity=owner(),request={current,identity};aiRequest=request;if(autoApply||readStory){data.castPending=true;paintCastStatus();}
+  if(current.output==='audio'&&!window.EccoAudioCompute?.readyNow?.())await window.EccoAudioCompute?.refresh?.();
   const buttons=[inPage('[data-ai]'),inPage('[data-cast-ai]')],labels=buttons.map(b=>b?.textContent);buttons.forEach(b=>{if(b){b.disabled=true;b.setAttribute('aria-busy','true');}});if(buttons[castOnly?1:0])buttons[castOnly?1:0].textContent=castOnly?'Recommending…':'Generating…';if(inPage('[data-ai-connections]'))inPage('[data-ai-connections]').hidden=true;message('',true);aiStatus('Checking AI connection…');
   // Reading characters on Next: Characters survives moving between steps; only a different story cancels it.
   const valid=()=>{if(current!==data||(!readStory&&token!==epoch)||identity!==owner()||!enabled)throw Error('The story changed while AI was working. Your edits are preserved; request a new suggestion.');};
@@ -707,10 +738,10 @@
  function audioModel(){return window.EccoAudioModels?.find(m=>m.id===(read('ecco-audio-draft:'+activeStory).model||modelProfiles.selected.voice))||window.EccoAudioModels?.[0];}
  function prepareAudio(){
   const previous=read('ecco-audio-draft:'+activeStory),model=audioModel(),plan=M.parseScript(data.audioScript||data.script,data.cast,data.plan);
-  const signature=M.signature(data,'audio')+JSON.stringify([data.soundDesign||null,(data.plan?.segments||[]).map(p=>p.performance?.emotion||'')]);if(data.applied.audio===signature&&previous.speakers?.length)return;
+  const signature=M.signature(data,'audio')+JSON.stringify([data.narrationStyle||'',data.soundDesign||null,(data.plan?.segments||[]).map(p=>p.performance?.emotion||'')]);if(data.applied.audio===signature&&previous.speakers?.length)return;
   const cast=data.cast.map((c,i)=>{const saved=previous.speakers?.find(s=>s.id===c.id)||{};return {...saved,...c,language:c.language||data.language,voice:c.voice||saved.voice||window.EccoAudioDirection.defaultVoice(model,data.language,i),emotion:c.emotion||saved.emotion||'neutral',delivery:[c.delivery,c.nationality&&'Nationality: '+c.nationality].filter(Boolean).join('. ')};});
-  const preparation={...previous.guided_preparation,title:data.title,genre:data.genre,audience:data.audience,language:data.language,tone:'Natural',language_style:'Everyday / Conversational',instructions:data.location?'Audience location: '+data.location:'',cast,plan,model:model.id,source_text:data.source?.text||'',source_name:data.source?.name||'',source_pages:data.source?.pages||[],sound_design:data.soundDesign?.cues?.length?data.soundDesign:previous.sound_design};
-  const next={...previous,title:data.title,model:previous.model||model.id,compute:previous.compute||'cpu',genre:['Story Book Reading','Podcast','News','Movie','Theatre','Casual Conversation','Documentary','Interview','Educational'].includes(data.genre)?data.genre:({podcast:'Podcast',interview:'Interview',news:'News',documentary:'Documentary','audio-drama':'Theatre',teaching:'Educational',training:'Educational'}[data.type]||'Story Book Reading'),speakers:cast,character_count:cast.length,characters_configured:true,presentation:cast.length>1?'conversation':'single',lines:plan.segments.map(s=>({speaker_id:s.character_id,text:s.text,performance:s.performance})),single_text:plan.segments.map(s=>s.text).join('\n\n'),opening_text:plan.opening?.text||'',opening_speaker:plan.opening?.character_id||cast[0].id,opening_performance:plan.opening?.performance,script_brief:{...preparation,plan:undefined,cast:undefined},guided_preparation:preparation,...(data.soundDesign?.cues?.length?{sound_design:{...data.soundDesign,enabled:true,speech_key:window.EccoSoundDesign.key(window.EccoSoundDesign.planLines(plan))}}:{})};
+  const preparation={...previous.guided_preparation,title:data.title,genre:data.genre,audience:data.audience,language:data.language,tone:'Natural',narration_style:data.narrationStyle||'',language_style:'Everyday / Conversational',instructions:data.location?'Audience location: '+data.location:'',cast,plan,model:model.id,source_text:data.source?.text||'',source_name:data.source?.name||'',source_pages:data.source?.pages||[],sound_design:data.soundDesign?.cues?.length?data.soundDesign:previous.sound_design};
+  const next={...previous,title:data.title,model:previous.model||model.id,compute:previous.compute||'cpu',genre:audioGenre(),speakers:cast,character_count:cast.length,characters_configured:true,presentation:cast.length>1?'conversation':'single',lines:plan.segments.map(s=>({speaker_id:s.character_id,text:s.text,performance:s.performance})),single_text:plan.segments.map(s=>s.text).join('\n\n'),opening_text:plan.opening?.text||'',opening_speaker:plan.opening?.character_id||cast[0].id,opening_performance:plan.opening?.performance,script_brief:{...preparation,plan:undefined,cast:undefined},guided_preparation:preparation,...(data.soundDesign?.cues?.length?{sound_design:{...data.soundDesign,enabled:true,speech_key:window.EccoSoundDesign.key(window.EccoSoundDesign.planLines(plan))}}:{})};
   delete next.delivery_signature;localStorage.setItem('ecco-audio-draft:'+activeStory,JSON.stringify(next));data.plan=plan;data.applied.audio=signature;
  }
  function prepareVisual(kind){

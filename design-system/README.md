@@ -917,3 +917,54 @@ Lesson/Training/Presentation: Science & Technology, History, Nature, Business,
 Biography, Sports, Other; Advertisement: Comedy, Drama, Business, Science &
 Technology, Sports, Nature, Other; Music / Ambient and Other: all). Changing the
 type clears a genre that no longer fits; a saved genre is otherwise kept.
+
+Voices, second pass (real run 2026-11-09): unknown genders alternate feminine and
+masculine; if the story's audio model has too few voices in the language, the
+model with the most voices that the worker can run is used. Starter characters
+(Host/Guest, Narrator) get voices the same way. Changing a character's Audio model
+picks a fitting, unused voice from it; models the worker can't run are marked
+"(not on this worker)". The Characters summary names characters that share a
+voice. Screen Play shows each character's own model and voice.
+
+Voice quality (owner report 2026-11-09): each language uses the best-sounding model
+the workers can run (English: Kokoro, VoxCPM2, Indic Parler, Chatterbox, Simple
+Audio Model; Urdu: Indic Parler, Simple Audio Model; Telugu: IndicF5, Indic
+Parler, Simple Audio Model). New audio drafts start on the ready CPU worker with
+the most models, and when the selected worker lacks a character's model, Generate names
+the ready CPU worker that has them (compute never switches machines on its own).
+
+Audio Library labels (owner-approved 2026-11-09): Add labels offers one-click
+suggested labels (Podcasts, Documentaries, Interviews, News Audio, Storybooks,
+Lessons, Advertisements, Music) and says "Labels are optional."; saving with no
+label saves only the name (needs the backend update).
+
+Automatic flow, first part (owner-approved mock 2026-11-09): for audio, Story
+Characters opens on a short cast list: each character with the voice picked for
+them, Hear (makes a sample on demand) and Change, which opens the full editor
+(with ← Back to cast list). The narrator row has Narration style (Expressive
+storyteller, Rich and measured, Clear and warm, Bright and brisk, Intimate and
+quiet; default from Story type), sent to delivery suggestions and generation. An
+audio character is ready once it has a voice; samples are optional (video still
+needs avatars). Story Screen Play suggests delivery and sounds once on arrival,
+keeping anything set by hand. Generate With AI writes the way people speak for
+each Story type.
+
+Screen Play script rules (owner request 2026-11-10): a paragraph without a name
+continues the same speaker (only the first paragraph needs one); text in
+[square brackets] is a direction sent to the voice model separately and never
+spoken; [Sound: …] on its own line is a background sound; parentheses in spoken
+words become a pause. The storage server refuses any line whose spoken words
+still contain a bracket. While you type, Lines and sounds appears as soon as
+the script is valid; the text view stays open.
+
+Automatic episodes (owner-approved mock 2026-11-09, story-auto.js): for a
+recurring story, Schedule shows an Automatic episodes box under the schedule.
+Make the pilot episode saves the workflow with automatic episodes on and makes
+episode 1 on the connected A100 or B200 (disabled with the reason when no GPU or
+voice model is ready; CPU is never used). The pilot shows progress stages, then
+the recording, the checks in plain words (✓ passed, ✗ failed, “not checked”
+when a check could not run), any question with two samples to pick from, and
+Tell us what to change (plain words; Apply and remake). Sounds good, approve the
+series applies the Before each episode publishes choice and starts the schedule;
+then each episode is listed with its status, the same change box and Publish
+when it waits for an OK. Layout only; sizes come from the roster.
