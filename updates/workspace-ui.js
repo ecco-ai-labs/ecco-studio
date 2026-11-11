@@ -333,7 +333,7 @@
  function storyHome(){
   homePage('story-home','Tell Your Story');sessionStorage.setItem('ecco-guided-mode','off');productionGroup();
   const icons={'story-setup':'story',board:'workflow',audio:'audio',images:'image',render:'video','journey-preview':'video'};
-  homeList('story-home',currentJourneySteps().map(([target,title],i)=>({key:target,title:(i+1)+'. '+(journeyLabels[target]||title),icon:icons[target],destination:'storyDestination',run:()=>{
+  homeList('story-home',listedJourneySteps().map(([target,title],i)=>({key:target,title:(i+1)+'. '+(journeyLabels[target]||title),icon:icons[target],destination:'storyDestination',run:()=>{
    const group=q('#workspace-production-group'),button=group?.querySelector('[data-page="'+target+'"]');if(!button)return;if(target==='board'&&!activeStory)newStoryStarted=true;group.open=true;button.click();button.focus({preventScroll:true});
   }})));
   journeyGuide();librarySelection();
@@ -503,13 +503,13 @@
   const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
   return ['audio','video'].includes(value)?value:activeStory?'video':'';
  }
- // StoryBoard Your Story opened the old full Studio editor, and publishing is now part of the Describe Your Story workspace, so neither is a separate step.
- const hiddenJourneySteps=['board','journey-preview'];
- function currentJourneySteps(){return allJourneySteps().filter(([target])=>!hiddenJourneySteps.includes(target));}
- function allJourneySteps(){const saved=readStory(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');if(saved.simple_workspace&&(!saved.cloudId||saved.cloudId===activeStory)){const output=saved.simple_workspace.output;return journeySteps.filter(([target])=>output==='audio'?!['images','render'].includes(target):output==='image'?!['audio','render'].includes(target):true);}if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
+ // StoryBoard Your Story opened the old full Studio editor, and publishing is now part of the Describe Your Story workspace,
+ // so neither is listed on the Tell Your Story page or in its sidebar group.
+ function listedJourneySteps(){return currentJourneySteps().filter(([target])=>!['board','journey-preview'].includes(target));}
+ function currentJourneySteps(){const saved=readStory(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');if(saved.simple_workspace&&(!saved.cloudId||saved.cloudId===activeStory)){const output=saved.simple_workspace.output;return journeySteps.filter(([target])=>output==='audio'?!['images','render'].includes(target):output==='image'?!['audio','render'].includes(target):true);}if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
  function journeyPreview(){navigate('publish');}
  function productionGroup(){
-  const steps=currentJourneySteps();
+  const steps=listedJourneySteps();
   const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
   let group=q('#workspace-production-group');
   if(!group){group=disclosure('Tell Your Story','ecco-production-expanded');group.id='workspace-production-group';group.classList.add('story-journey');nav.append(group);}
