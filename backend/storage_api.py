@@ -29,6 +29,7 @@ import longcat_progress
 import audio_video_sequence
 import generation_controls
 import gpu_relay
+import runpod_pods
 import openai_assistant
 import scene_planner
 import google_signin
@@ -53,6 +54,7 @@ WRITE_ROUTES = frozenset({
     '/api/stories/plan', '/api/audio/upload', '/api/audio/folders', '/api/audio/labels',
     '/api/audio/voices/create', '/api/audio/voices/list', '/api/audio/voices/update', '/api/audio/voices/design',
     *auto_series.ROUTES,
+    *runpod_pods.ROUTES,
     '/api/images/upload', '/api/stories', '/api/stories/archive', '/api/boards',
     '/api/library/folders', '/api/library/save', '/api/trash', '/api/trash/board',
     '/api/library/labels/create', '/api/library/labels/assign', '/api/library/labels/remove',
@@ -187,6 +189,9 @@ class Handler(legacy.Handler):
             if path == '/api/character-studio/status': return self.send(character_studio.status())
             if path.startswith('/api/frame-editor/'): return self.send(frame_editor.handle_get(path, vars(legacy)))
             if path == '/api/gpu/status': return self.send(gpu_relay.status())
+            if path == '/api/gpu/pods':
+                try: return self.send(runpod_pods.pods())
+                except runpod_pods.PodError as exc: raise legacy.Problem(exc.message, exc.code)
             if path.startswith('/api/gpu/requests/'):
                 parts = path.split('/')
                 return self.send(gpu_relay.result(parts[-2], parts[-1]))
@@ -268,6 +273,9 @@ class Handler(legacy.Handler):
             if path == '/api/library/rename': return self.send(library_rename.rename(body, vars(legacy)))
             if path == '/api/generation/stop': return self.send(generation_controls.stop(body, vars(legacy)))
             if path == '/api/gpu/request': return self.send(gpu_relay.submit(body))
+            if path in runpod_pods.ROUTES:
+                try: return self.send(runpod_pods.handle(path, body))
+                except runpod_pods.PodError as exc: raise legacy.Problem(exc.message, exc.code)
             if path == '/api/longcat/control':
                 return self.send(audio_video_sequence.control(body, vars(legacy)))
             if path == '/api/longcat/sequence':

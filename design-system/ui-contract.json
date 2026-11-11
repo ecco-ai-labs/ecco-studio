@@ -1811,8 +1811,8 @@
     "layout": "Three existing GPU cards: B200, A100 and Serverless (owner-approved 2026-11-10)",
     "defaultSelection": "Each card opens with its connected instance selected (in disconnect mode, its remembered instance), or its only instance when it has one, so the card shows Connected/Available without opening the menu (owner-approved 2026-11-10).",
     "serverless": "Serverless card has one instance, RunPod Serverless. It is always on: connected automatically whenever its relay is healthy, unless the user disconnects it; Connect re-enables automatic connection. Help text says it is billed per second and that jobs queue when RunPod has no free GPU.",
-    "selection": "Each card contains a RunPod instance dropdown; no instance selected by default",
-    "status": "Fresh relay health controls availability. Distinguish No heartbeat, Heartbeat lost, Service not ready and Available; do not infer RunPod power state. Visible existing help-text paragraph explains failed check.",
+    "selection": "Each card contains a RunPod instance dropdown; see defaultSelection for which instance it opens on",
+    "status": "Fresh relay health controls availability. Distinguish No heartbeat, Heartbeat lost, Service not ready and Available. RunPod power state comes only from RunPod's API (podPower), never inferred from the relay.",
     "connection": "Explicit Connect adds that instance without removing any existing connection, including another instance in the same class",
     "persistence": "Saved instance choices survive refresh, new tabs and outages until explicit Disconnect. Health gates new generation; stale heartbeat means Reconnecting, never forgets selection.",
     "refreshSeconds": 20,
@@ -1826,6 +1826,16 @@
       },
       "themes": "Uses the existing connected/disconnected theme colors, with the unavailable text at 55% opacity",
       "buttonOpacity": 1
+    },
+    "podPower": {
+      "approved": "Owner-approved 2026-11-11 from the GPU Pod Start/Stop mocks",
+      "tag": "Pod cards show a status tag beside the class name: Stopped, Starting, Running \u00b7 N min, Could not start; the Serverless card shows Always on",
+      "start": "A stopped pod shows a primary Start pod button in place of Connect, with help text giving its RunPod hourly rate. Studio's server asks RunPod to resume it; the browser never holds the RunPod key",
+      "starting": "While starting: three steps (RunPod accepted \u00b7 Pod booting \u00b7 Ready \u2192 connects automatically), a disabled Starting\u2026 m:ss button, and Cancel start (stops the pod). When RunPod reports it running and its relay is healthy, Studio connects automatically",
+      "refused": "If RunPod refuses, its message is shown word for word under 'RunPod says:' with 'Nothing was started and nothing was charged', plus Try again and Use Serverless instead",
+      "running": "A running pod shows Connect/Connected and a Stop pod button. Stop asks for confirmation in the card, warns how many jobs on that pod would be interrupted, and says files are kept",
+      "console": "A Studio console section under the cards logs each start/stop step and RunPod's refusals (errors in red); the same events go to the Connections log",
+      "scope": "Only the Ecco pods in the relay list; never the serverless bridge. Not shown in disconnect mode"
     }
   },
   "settingsMenu": {

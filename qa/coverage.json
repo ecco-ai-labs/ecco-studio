@@ -248,5 +248,10 @@
     "area": "Story Generation",
     "mode": "fixture",
     "scope": "Generate on Screen Play starts generation at once; overall progress equals the sum of worker progress with per-worker rows, passage map and Activity; finished audio opens review with transcript, Download and one Publish button (no Finish your story panel); a pronunciation fix changes only the words sent to the voice model and regenerates; a GPU memory error pops up with next steps and opens Model Settings; Model Settings side panel closes with Escape; video review redraws only selected frames (stubbed image edits) and exports them with the frame editor. Real GPU image edits, frame export and audio generation blocked"
+  },
+  {
+    "area": "GPU connection box: Start/Stop pod",
+    "mode": "synthetic",
+    "scope": "GPU-POD-01 checks a stopped pod shows a Stopped tag, Start pod with its hourly rate and the Serverless card Always on; when RunPod refuses, its message appears word for word with 'Nothing was started and nothing was charged', Try again, Use Serverless instead and a red Studio console line. GPU-POD-02 checks a running pod's uptime tag, the in-card stop confirmation with its running-jobs warning, Keep running, and that Stop pod calls RunPod. Live RunPod start/stop needs the storage server's RunPod key and real pods, so it is checked live, not here."
   }
 ]

@@ -59,6 +59,14 @@
    return gpus.map(gpuStatus);
   },
   async check(gpu){return (await this.checkAll([gpu]))[0];},
+  // RunPod power state for the Ecco pods, and Start/Stop. RunPod's own message comes back on refusal.
+  async pods(){return (await storageRequest('gpu/pods')).pods||[];},
+  async startPod(id){connectionLog('Starting pod on RunPod',{gpu:id});
+   try{const reply=await storageRequest('gpu/pods/start',{gpu:id});connectionLog(reply.already?'Pod already running':'RunPod is starting the pod',{gpu:id,state:reply.pod?.state});return reply;}
+   catch(error){connectionLog('RunPod refused to start the pod',{level:'error',gpu:id,message:error.message});throw error;}},
+  async stopPod(id){connectionLog('Stopping pod on RunPod',{gpu:id});
+   try{const reply=await storageRequest('gpu/pods/stop',{gpu:id});connectionLog('Pod stopped on RunPod',{gpu:id});if(connectedGPUs.has(id))this.disconnect(id);return reply;}
+   catch(error){connectionLog('RunPod refused to stop the pod',{level:'error',gpu:id,message:error.message});throw error;}},
   async select(gpu){
    connectionLog('Connect requested',{gpu:gpu.id});
    try{
@@ -132,7 +140,7 @@
   if(!accessKey)throw Error('Connect your saved workspace from Connections → Storage. No GPU is needed.');
   let response;
   try{
-   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:path.startsWith('thumb/')?60000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
+   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:path.startsWith('thumb/')?60000:path.startsWith('gpu/pods')?45000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
    if(!response.ok){
     let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
     try{message=(await response.json()).error||message;}catch{}

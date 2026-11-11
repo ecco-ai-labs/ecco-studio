@@ -1921,3 +1921,53 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  const body=await page.evaluate(()=>window.qaImageRequests[0]);expect(body.prompt.startsWith('Mosaic artwork')).toBe(true);expect(body.negative).toContain('smooth painting');
  expect(page.qaErrors).toEqual([]);
 });
+test('GPU-POD-01 a stopped pod shows Start pod, and RunPod\'s refusal appears word for word',async({page})=>{
+ await boot(page,{enter:false});
+ const message='There are not enough free GPUs on the host machine to start this pod.';
+ await page.evaluate(msg=>{
+  if(!window.EccoStorage?.ready)Object.defineProperty(window.EccoStorage,'ready',{get:()=>true,configurable:true});
+  const c=window.EccoGPUConnection;
+  c.checkAll=async gpus=>gpus.map(g=>g.id==='serverless'?{kind:'ready',title:'Available',detail:'Always on.'}:{kind:'unknown',title:'No heartbeat',detail:'No relay heartbeat received.'});
+  c.pods=async()=>[{id:'io8sphjo10kbuy',name:'ecco-b200-benchmark',state:'stopped',rate_per_hour:5.98,gpu_count:1,active_jobs:0}];
+  c.startPod=async()=>{throw Error(msg);};
+  const box=document.createElement('div');box.id='qa-pod-box';document.body.append(box);
+  window.EccoGPUPicker.mount(box,async()=>{});
+ },message);
+ const card=page.locator('#qa-pod-box [data-gpu-class="B200"]');
+ await card.locator('select').selectOption('io8sphjo10kbuy');
+ await expect(card.locator('.gpu-pod-tag')).toHaveText('Stopped');
+ await expect(card.locator('.gpu-pod-start')).toHaveText('Start pod');
+ await expect(card.locator('.gpu-open')).toBeHidden();
+ await expect(card.locator('.gpu-health-detail')).toContainText('$5.98/hr');
+ await expect(page.locator('#qa-pod-box [data-gpu-class="Serverless"] .gpu-pod-tag')).toHaveText('Always on');
+ await card.locator('.gpu-pod-start').click();
+ await expect(card.locator('.gpu-pod-alert')).toContainText(message);
+ await expect(card.locator('.gpu-pod-alert')).toContainText('Nothing was started and nothing was charged.');
+ await expect(card.locator('.gpu-pod-tag')).toHaveText('Could not start');
+ await expect(card.locator('.gpu-pod-start')).toHaveText('Try again');
+ await expect(card.locator('.gpu-pod-serverless')).toBeVisible();
+ await expect(page.locator('#qa-pod-box .gpu-pod-console li[data-error="true"]')).toContainText(message);
+});
+test('GPU-POD-02 a running pod asks before stopping and warns about running jobs',async({page})=>{
+ await boot(page,{enter:false});
+ await page.evaluate(()=>{
+  if(!window.EccoStorage?.ready)Object.defineProperty(window.EccoStorage,'ready',{get:()=>true,configurable:true});
+  const c=window.EccoGPUConnection;window.__stopped=[];
+  c.checkAll=async gpus=>gpus.map(()=>({kind:'ready',title:'Available',detail:'Generation service and relay are responding.'}));
+  c.pods=async()=>[{id:'1muqctw9bxvguu',name:'ecco-demo-a100',state:'running',uptime_seconds:2520,rate_per_hour:1.39,gpu_count:1,active_jobs:2}];
+  c.stopPod=async id=>{window.__stopped.push(id);return {pod:{id,state:'stopped'}};};
+  const box=document.createElement('div');box.id='qa-pod-box';document.body.append(box);
+  window.EccoGPUPicker.mount(box,async()=>{});
+ });
+ const card=page.locator('#qa-pod-box [data-gpu-class="A100"]');
+ await card.locator('select').selectOption('1muqctw9bxvguu');
+ await expect(card.locator('.gpu-pod-tag')).toHaveText('Running · 42 min');
+ await card.locator('.gpu-pod-stop').click();
+ await expect(card.locator('.gpu-pod-confirm')).toContainText('2 jobs are still running on this pod and would be interrupted.');
+ await card.locator('.gpu-pod-keep').click();
+ await expect(card.locator('.gpu-pod-confirm')).toBeHidden();
+ expect(await page.evaluate(()=>window.__stopped)).toEqual([]);
+ await card.locator('.gpu-pod-stop').click();
+ await card.locator('.gpu-pod-stop-confirm').click();
+ await expect.poll(()=>page.evaluate(()=>window.__stopped)).toEqual(['1muqctw9bxvguu']);
+});

@@ -730,6 +730,40 @@
       ],
       "area": "Desk",
       "note": "Tall cards built as buttons. Listed so the Button height (30 px) does not squash them; their own Desk styles size them."
+    },
+    {
+      "id": "gpu-pod-tag",
+      "name": "GPU pod status tag",
+      "contractComponent": "badge",
+      "font": "@text-xs",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".gpu-pod-tag"
+      ],
+      "examples": [
+        "Stopped",
+        "Starting",
+        "Running · 42 min",
+        "Could not start",
+        "Always on"
+      ],
+      "area": "GPU connections"
+    },
+    {
+      "id": "gpu-pod-console",
+      "name": "GPU Studio console line",
+      "contractComponent": "code-log",
+      "font": "@text-small",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".gpu-pod-console li"
+      ],
+      "examples": [
+        "00:21:14 · RunPod refused to start ecco-b200-benchmark: …"
+      ],
+      "area": "GPU connections"
     }
   ],
   "variants": [
