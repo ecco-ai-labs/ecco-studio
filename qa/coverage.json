@@ -218,5 +218,10 @@
     "area": "Default image model",
     "mode": "fixture",
     "scope": "MODEL-01 checks a new browser with no saved model choices opens Model Garden with Qwen-Image 2512 selected for images instead of SDXL; saved choices are unchanged; real generation quality is not checked"
+  },
+  {
+    "area": "Image full-size viewer arrows",
+    "mode": "fixture",
+    "scope": "Library image viewer: Previous and Next image buttons, 'n of total' count, Left and Right arrow keys, disabled at the first and last image, order follows the Library's current filters, search and sort, focus returns to the last viewed image on close. The Images screen full-size view has the same arrows over the images shown on the page."
   }
 ]

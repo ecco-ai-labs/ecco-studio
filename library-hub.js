@@ -118,11 +118,33 @@
   }
  }
  const primaryLabel={image:'Open full size',story:'Open story',workflow:'Open workflow',video:'Publish video'};
+ // Full-size viewer with back and forward arrows (owner request, 10 November 2026). The order is the
+ // Library grid's current order, filters and search; Left and Right arrow keys step too.
+ const ARROW={prev:'M15 5l-7 7 7 7',next:'M9 5l7 7-7 7'};
+ function arrow(dir,label,disabled){
+  return '<button type="button" class="lh-viewer-step" data-step="'+dir+'" aria-label="'+label+'"'+(disabled?' disabled':'')+'><svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+ARROW[dir]+'"/></svg></button>';
+ }
  function lightbox(item){
   let d=q('#library-hub-viewer');if(!d){d=document.createElement('dialog');d.id='library-hub-viewer';d.className='lh-viewer';document.body.append(d);}
-  d.innerHTML='<div class="lh-viewer-head"><strong>'+esc(item.name)+'</strong></div><div class="lh-viewer-body"><img data-asset="'+esc(item.id)+'" alt="'+esc(item.name)+'" src="'+esc(media(item.asset))+'"></div>';
-  d.onclose=()=>{const opener=q('.lh [data-pick="'+cssq(item.id)+'"]');opener?.focus();};
-  d.showModal();hydrate();
+  const list=visible('image').out.slice(),ids=list.map(it=>it.id);let index=Math.max(0,ids.indexOf(item.id));if(!ids.includes(item.id)){list.unshift(item);ids.unshift(item.id);index=0;}
+  const show=i=>{
+   index=i;const it=list[index],first=index===0,last=index===list.length-1;d.dataset.current=it.id;
+   const head=d.querySelector('.lh-viewer-head');
+   const title='<strong>'+esc(it.name)+'</strong>'+(list.length>1?'<span class="help lh-viewer-count" aria-live="polite">'+(index+1)+' of '+list.length+'</span>':'');
+   if(head){head.querySelector('.lh-viewer-title').innerHTML=title;}
+   const body='<img data-asset="'+esc(it.id)+'" alt="'+esc(it.name)+'" src="'+esc(media(it.asset))+'">';
+   if(!head)d.innerHTML='<div class="lh-viewer-head"><div class="lh-viewer-title">'+title+'</div></div><div class="lh-viewer-body">'+(list.length>1?arrow('prev','Previous image',first):'')+'<div class="lh-viewer-frame">'+body+'</div>'+(list.length>1?arrow('next','Next image',last):'')+'</div>';
+   else d.querySelector('.lh-viewer-frame').innerHTML=body;
+   const prev=d.querySelector('[data-step=prev]'),next=d.querySelector('[data-step=next]');
+   if(prev){prev.disabled=first;prev.onclick=()=>{if(index>0)show(index-1);};}
+   if(next){next.disabled=last;next.onclick=()=>{if(index<list.length-1)show(index+1);};}
+   const focused=document.activeElement;if(focused?.disabled)(first?next:prev)?.focus();
+   hydrate();
+  };
+  d.innerHTML='';show(index);
+  d.onkeydown=e=>{if(e.target.closest('input,select,textarea'))return;if(e.key==='ArrowLeft'&&index>0){e.preventDefault();show(index-1);}else if(e.key==='ArrowRight'&&index<list.length-1){e.preventDefault();show(index+1);}};
+  d.onclose=()=>{const opener=q('.lh [data-pick="'+cssq(d.dataset.current||item.id)+'"]')||q('.lh [data-pick="'+cssq(item.id)+'"]');opener?.focus();};
+  d.showModal();
  }
  function renameLabelDialog(kind,folder){
   const d=document.createElement('dialog');d.className='lh-dialog';

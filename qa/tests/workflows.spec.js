@@ -242,6 +242,20 @@ test('LIB-image-preview opens full size and closing restores focus to the picked
   await viewer.getByRole('button',{name:'Close popup',exact:true}).click();
   await expect(viewer).toBeHidden();await expect(card).toBeFocused();
 });
+// Full-size viewer arrows (owner request, 10 November 2026): back and forward step through the Library's current order.
+test('LIB-image-steps full-size viewer steps back and forward through the images',async({page})=>{
+  await boot(page);const hub=await openLibrary(page,'image');
+  const cards=hub.locator('[data-pick]'),n=await cards.count();expect(n).toBeGreaterThan(1);
+  await cards.first().click();await hub.getByRole('button',{name:'Open full size'}).click();
+  const viewer=page.locator('#library-hub-viewer'),prev=viewer.getByRole('button',{name:'Previous image',exact:true}),next=viewer.getByRole('button',{name:'Next image',exact:true}),count=viewer.locator('.lh-viewer-count');
+  await expect(count).toHaveText('1 of '+n);await expect(prev).toBeDisabled();const first=await viewer.locator('img').getAttribute('data-asset');
+  await next.click();await expect(count).toHaveText('2 of '+n);expect(await viewer.locator('img').getAttribute('data-asset')).not.toBe(first);
+  await page.keyboard.press('ArrowLeft');await expect(count).toHaveText('1 of '+n);
+  for(let i=1;i<n;i++)await page.keyboard.press('ArrowRight');await expect(count).toHaveText(n+' of '+n);await expect(next).toBeDisabled();
+  const last=await viewer.locator('img').getAttribute('data-asset');expect((await page.evaluate(rosterAudit)).problems.filter(p=>/viewer/.test(p.element||''))).toEqual([]);
+  await viewer.getByRole('button',{name:'Close popup',exact:true}).click();await expect(viewer).toBeHidden();await expect(hub.locator('[data-pick="'+last+'"]')).toBeFocused();
+  expect(page.qaErrors).toEqual([]);
+});
 async function seedLabels(page){
   await page.evaluate(async()=>{
     state.config.storage.library_labels=1;state.config.storage.rename_available=true;
