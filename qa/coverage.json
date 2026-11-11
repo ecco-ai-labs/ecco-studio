@@ -263,5 +263,10 @@
     "area": "Sound compute fallback",
     "mode": "fixture",
     "scope": "When speech uses Serverless (no sound models), each sound cue is generated on a ready CPU instance that has its sound model (ACE-Step / MOSS) instead of failing; the request sent carries compute cpu and that worker_id (audio-sound-design.test.cjs). Live generation needs compute and is verified in the browser."
+  },
+  {
+    "area": "Create Images",
+    "mode": "fixture",
+    "scope": "IMG-create: journey step 4 opens the three-step workspace (no old image form), step header text, hidden Model settings with Qwen and Serverless defaults and no Image Library button; library selection, × remove, Generate with AI, Improve with AI drafts; Enhance Image animal vs person controls with ✦ suggestions, choices sent without a prompt and with a prompt, Image N references, Use Draft; Publish shows images and one Publish button, approves and labels with the story name; fallback type choice when AI is off; direct navigation keeps the old image form; roster audit clean. Real GPU generation, OpenAI image analysis and library writes remain blocked (synthetic jobs and responses)."
   }
 ]

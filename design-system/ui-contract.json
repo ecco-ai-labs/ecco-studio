@@ -3114,5 +3114,27 @@
     ],
     "verification": "node scripts/size_roster.mjs --check; qa ROSTER-01, ROSTER-02, LOOK-01..03; backend/test_ecco_look_and_feel.py.",
     "scale": "Sizes are named and grouped (Title, Heading, Text, Control height, Icon, Image). Elements refer to a size by \"@id\"; a scale change updates every element using it. Compiled as --ecco-size-* custom properties."
+  },
+  "imageWorkspace": {
+    "approval": "2026-11-10: Owner approved the clickable Create Images prototype after review rounds: Story Script look and feel; model settings hidden behind one button (Qwen, Serverless default; no Image Library button, no Story Character tab); steps 1. Image (Upload an Image, Select from Image Library, Generate with AI; Selected Images box; Improve with AI with Draft 1-3; \u00d7 removes an image), 2. Enhance Image (one tab per image; AI picks controls for a person, animal, scenery, object or vehicle without announcing what it found; \u2726 marks suggestions; choices are sent with or without a prompt; prompt and choices are sent together), 3. Publish Images (images only, one Publish button outside the box). Step header Option 1: Choose scene images, description updated.",
+    "types": [
+      "tabs",
+      "tab",
+      "panel",
+      "button",
+      "image",
+      "textarea",
+      "dropdown",
+      "search-input",
+      "number-input",
+      "file-upload",
+      "popup",
+      "help-text",
+      "badge",
+      "color-input"
+    ],
+    "entry": "Tell Your Story > Create Images for Your Story: the left-nav step, the Story home list and the journey guide's Back/Next. Flows that open the image page directly (refine, instruction edits, uploads, character handoff) and the Story workspace Story Generation tab keep the existing image form.",
+    "appearance": "image-workspace.css reuses the Story Script panes (story-source-tabs, story-source-panel, pdf-selection-layout, pdf-review-box, pdf-selected-label, pdf-ai-draft-tab, story-upload-target) and theme tokens. Step tabs follow the Story workspace header style. New roster variants: image-tile, image-tile-remove, image-choice-chip, image-color-swatch.",
+    "behavior": "Generation uses Qwen-Image-2512 (or the chosen image model) for new images and Qwen Image Edit for changes to selected images, on the selected compute (Serverless when connected). Enhance Image asks AI (stage image, field image_enhancement) for the image type and catalog suggestions; when AI is off or fails, the user chooses the type. Publish approves each final image and files it under an Image Library label named after the story."
   }
 }

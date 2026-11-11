@@ -492,7 +492,7 @@
   ['story-setup','Describe your story','Give your story a name and a short description.'],
   ['board','Review the storyboard','Split your story into scenes, then review the action and dialogue.'],
   ['audio','Create voices and sound','Prepare dialogue or narration for each scene and preview the audio.'],
-  ['images','Choose scene images','Generate images or choose existing images, then assign them in the storyboard.'],
+  ['images','Choose scene images','Choose or make images, enhance them, then publish them.'],
   ['render','Animate and sync','Animate your scene images. For dialogue, select LongCat, one image and a recording from Audio Library.'],
   ['journey-preview','Publish Your Story','Review generated clips, download them, or open publishing. Full-film assembly and audio mixing are not connected yet.']
  ];

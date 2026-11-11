@@ -188,6 +188,23 @@ def _context(body, env):
     content.extend(video_content(body.get("video_reference_ids", []), env, AssistantError))
     return context, content
 
+def _enhancement_catalog(text):
+    # Image Studio sends {type: {control key: [option names]}}; suggestions must come from it.
+    try: catalog = json.loads(text)
+    except ValueError: catalog = None
+    if not isinstance(catalog, dict) or not 1 <= len(catalog) <= 12: raise AssistantError('Invalid image enhancement controls.')
+    clean = {}
+    for kind, controls in catalog.items():
+        if not isinstance(kind, str) or not re.fullmatch(r'[a-z]{2,20}', kind) or not isinstance(controls, dict) or not 1 <= len(controls) <= 30:
+            raise AssistantError('Invalid image enhancement controls.')
+        clean[kind] = {}
+        for key, values in controls.items():
+            if not isinstance(key, str) or not re.fullmatch(r'[a-z_]{2,30}', key) or not isinstance(values, list) or not 1 <= len(values) <= 30 \
+               or any(not isinstance(v, str) or not 1 <= len(v) <= 60 for v in values):
+                raise AssistantError('Invalid image enhancement controls.')
+            clean[kind][key] = values
+    return clean
+
 def enhance(body, env):
     with LOCK: config = _config()
     if not config.get('verified') or not config.get('api_key'):
@@ -243,6 +260,24 @@ def enhance(body, env):
                   'required': ['plan', 'notes', 'questions']}
         instructions += '\nThe '+fields[0]['id']+' field is structured assembly data. Return the required plan object, with speech only inside text properties. Use the supplied character IDs, requested turn count and language. The plain narration rule does not apply to this structured field.'
         instructions += (' For a delivery-only request preserve every supplied spoken text and character assignment exactly, and add the requested performance cues. Do not request chapter source material for a voice preview. Performance directions are English and are never spoken.' if directed_plan else ' Use an empty title when none is requested.')
+    image_analysis = mode == 'generate' and stage == 'image' and len(fields) == 1 and fields[0]['id'] == 'image_enhancement'
+    if image_analysis:
+        catalog = _enhancement_catalog(fields[0]['text'])
+        if len(images) != 2: raise AssistantError('Choose one image to analyze.')
+        schema = {'type': 'object', 'additionalProperties': False,
+                  'properties': {'analysis': {'type': 'object', 'additionalProperties': False,
+                      'properties': {'type': {'type': 'string', 'enum': sorted(catalog)},
+                                     'suggestions': {'type': 'array', 'items': {'type': 'object', 'additionalProperties': False,
+                                         'properties': {'key': {'type': 'string'}, 'value': {'type': 'string'}},
+                                         'required': ['key', 'value']}}},
+                      'required': ['type', 'suggestions']},
+                      'notes': {'type': 'array', 'items': {'type': 'string'}},
+                      'questions': {'type': 'array', 'items': {'type': 'string'}}},
+                  'required': ['analysis', 'notes', 'questions']}
+        instructions += ('\nThe image_enhancement field is a catalog of enhancement controls, not text to rewrite. Look at the one selected image. '
+                         'Set type to the catalog type that best describes its main subject: person for people, animal for animals, vehicle for cars and other vehicles, '
+                         'object for a single thing, scenery for places, landscapes and backgrounds. Then suggest at most six choices that would make the image work better '
+                         'in the saved story, each as a key and a value copied exactly from that type\'s catalog. Suggest nothing that already matches the image.')
     payload = {'model': config['model'], 'instructions': instructions, 'store': False,
                'input': [{'role': 'user', 'content': [{'type': 'input_text', 'text': json.dumps(user, ensure_ascii=False)}, *images]}],
                'reasoning': {'effort': 'low'}, 'max_output_tokens': 16000,
@@ -253,7 +288,18 @@ def enhance(body, env):
         response = _request(config['api_key'], payload)
         try:
             result = json.loads(_output(response))
-            if audio_plan or directed_plan:
+            if image_analysis:
+                analysis = result['analysis']
+                options = catalog[analysis['type']]
+                # Keep only choices the catalog offers, one per control.
+                suggestions, seen = [], set()
+                for item in analysis['suggestions']:
+                    key, value = item['key'], item['value']
+                    if key in options and value in options[key] and key not in seen:
+                        seen.add(key); suggestions.append({'key': key, 'value': value})
+                result = {'revisions': [{'id': fields[0]['id'], 'text': json.dumps({'type': analysis['type'], 'suggestions': suggestions[:6]})}],
+                          'notes': result['notes'], 'questions': result['questions']}
+            elif audio_plan or directed_plan:
                 if not isinstance(result.get('plan'), dict): raise ValueError()
                 result = {'revisions': [{'id': fields[0]['id'], 'text': json.dumps(result['plan'], ensure_ascii=False)}],
                           'notes': result['notes'], 'questions': result['questions']}

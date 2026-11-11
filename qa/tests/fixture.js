@@ -19,6 +19,18 @@
     window.__qaCalls.push({path,body});
     if(window.__qaHold&&path==='ai/enhance')await window.__qaHold;
     if(path==='state')return state;
+    // Create Images: synthetic jobs finish at once; nothing reaches a GPU.
+    if((path==='images'||path==='image-edits')&&!window.qaImageRequests){
+      const n=window.__qaCalls.length,asset={id:'qa-made-'+n,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:(path==='images'?'Generated ':'Edited ')+n,prompt:body.prompt,path:'qa/fixtures/sample.svg',job_id:'qa-job-'+n,created:1700001000+n};
+      state.records.push(asset,{id:'qa-job-'+n,kind:'job',status:'done',result:asset.id,created:1700001000+n});mediaCache.set(asset.id,'/'+asset.path);return {id:'qa-job-'+n,status:'queued'};
+    }
+    if(path==='ai/enhance'&&body.fields?.[0]?.id==='image_enhancement'){
+      const ref=state.records.find(r=>r.id===body.reference_ids?.[0]),type=/zebra/i.test(ref?.title||'')?'animal':'person';
+      return {revisions:[{id:'image_enhancement',text:JSON.stringify({type,suggestions:type==='animal'?[{key:'fur_color',value:'Silver'}]:[{key:'hair_color',value:'Auburn'},{key:'age',value:'Younger'}]})}],notes:[],questions:[]};
+    }
+    if(path==='approve'){const r=state.records.find(x=>x.id===body.asset_id);if(r)r.stage='prod';return r;}
+    if(path==='library/folders'){const f={id:'qa-folder-'+window.__qaCalls.length,kind:'image_folder',name:body.name,created:1700000000};state.records.push(f);return f;}
+    if(path==='library/save'){const l={id:'qa-item-'+window.__qaCalls.length,kind:'library_item',asset_id:body.asset_id,folder_id:body.folder_id};state.records.push(l);return l;}
     if(['audioPreview','castRetry','audioDone'].includes(sourceFit)&&path==='ai/enhance'&&body.fields?.[0]?.id==='audio_directed_script'){
       const draft=JSON.parse(body.context.summary).draft,part=p=>({...p,performance:{emotion:'neutral',direction:'Clear speech.',pause_before:0}});
       return {revisions:[{id:'audio_directed_script',text:JSON.stringify({...draft,opening:draft.opening?part(draft.opening):null,segments:draft.segments.map(part),expressiveness:null})}]};

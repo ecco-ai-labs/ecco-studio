@@ -1141,6 +1141,69 @@
         "Generated image"
       ],
       "area": "Story Generation"
+    },
+    {
+      "id": "image-tile",
+      "of": "button",
+      "name": "Image tile",
+      "font": "@text-regular",
+      "height": 74,
+      "width": null,
+      "selectors": [
+        "#image-workspace button.iw-tile"
+      ],
+      "examples": [
+        "Image Library thumbnail",
+        "Selected image"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "image-tile-remove",
+      "of": "button",
+      "name": "Remove image (×)",
+      "font": "@text-large",
+      "height": "@control-small",
+      "width": "@control-small",
+      "selectors": [
+        "#image-workspace button.iw-remove"
+      ],
+      "examples": [
+        "×"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "image-choice-chip",
+      "of": "button",
+      "name": "Enhancement choice",
+      "font": "@text-medium",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "#image-workspace button.iw-chip"
+      ],
+      "examples": [
+        "Younger",
+        "Fog",
+        "Image 1"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "image-color-swatch",
+      "of": "button",
+      "name": "Color choice",
+      "font": null,
+      "height": "@control-small",
+      "width": "@control-small",
+      "selectors": [
+        "#image-workspace button.iw-swatch"
+      ],
+      "examples": [
+        "Hair color: Auburn"
+      ],
+      "area": "Create Images"
     }
   ],
   "scale": [
