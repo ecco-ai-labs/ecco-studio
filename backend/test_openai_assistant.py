@@ -103,6 +103,27 @@ class AssistantTest(unittest.TestCase):
         body['context']['lines']=[{'character_id':'reader'}]
         with patch.object(ai,'_request',return_value=response(json.dumps({'plan':plan,'notes':[],'questions':[]}))):
             self.assertEqual(ai.enhance(body,self.env)['revisions'][0]['id'],'audio_plan')
+    def test_image_enhancement_returns_a_type_and_catalog_choices_only(self):
+        self.connect()
+        catalog = {'person': {'hair_color': ['Black', 'Auburn'], 'age': ['Younger', 'Older']}, 'animal': {'fur_color': ['Red', 'Silver']}}
+        body = {'stage': 'image', 'mode': 'generate', 'reference_ids': ['img-1'],
+                'fields': [{'id': 'image_enhancement', 'text': json.dumps(catalog), 'max_length': 12000}], 'context': {}}
+        records = [{'id': 'img-1', 'kind': 'asset', 'media': 'image', 'title': 'Mara'}]
+        from PIL import Image
+        picture = Path(self.temp.name)/'mara.png'; Image.new('RGB', (8, 8)).save(picture)
+        env = {'records': lambda: records, 'asset_path': lambda asset: picture}
+        answer = {'analysis': {'type': 'person', 'suggestions': [{'key': 'hair_color', 'value': 'Auburn'}, {'key': 'hair_color', 'value': 'Black'},
+                  {'key': 'age', 'value': 'Teen'}, {'key': 'fur_color', 'value': 'Red'}]}, 'notes': [], 'questions': []}
+        with patch.object(ai, '_request', return_value=response(json.dumps(answer))) as request:
+            result = ai.enhance(body, env)
+        sent = request.call_args.args[1]
+        self.assertEqual(sent['text']['format']['schema']['properties']['analysis']['properties']['type']['enum'], ['animal', 'person'])
+        self.assertTrue(any(part.get('type') == 'input_image' for part in sent['input'][0]['content']))
+        self.assertEqual(json.loads(result['revisions'][0]['text']), {'type': 'person', 'suggestions': [{'key': 'hair_color', 'value': 'Auburn'}]})
+        with self.assertRaises(ai.AssistantError):
+            ai.enhance({**body, 'reference_ids': []}, env)
+        with self.assertRaises(ai.AssistantError):
+            ai.enhance({**body, 'fields': [{'id': 'image_enhancement', 'text': 'not a catalog', 'max_length': 12000}]}, env)
     def test_review_only_cannot_mutate_approved_video_prompts(self):
         self.connect()
         with patch.object(ai, '_request', return_value=self.result()):

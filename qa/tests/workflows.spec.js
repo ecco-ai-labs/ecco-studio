@@ -108,7 +108,7 @@ test('STORY-home sidebar and Back preserve edited drafts and open the existing t
   await page.locator('#workspace-production-group > summary').click();await expect(page.locator('#story-home-list')).toBeVisible();
   await expect(page.locator('#workspace-production-group > summary')).toHaveAttribute('aria-current','page');await expect(page.locator('#story-workspace-header')).toBeHidden();
   await page.locator('#workspace-back').click();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('Keep this story');
-  for(const [target,selector]of [['story-setup','#story-simple-details'],['audio','#audio-form'],['images','#image-form'],['render','#video-form']]){
+  for(const [target,selector]of [['story-setup','#story-simple-details'],['audio','#audio-form'],['images','#image-workspace, #image-form'],['render','#video-form']]){
     await page.locator('#workspace-production-group > summary').click();await page.locator('[data-story-destination="'+target+'"]').click();
     await expect(page.locator('#story-home-list')).toHaveCount(0);
     await expect(page.locator(selector).first()).toBeVisible();
@@ -248,6 +248,89 @@ test('LIB-image-preview opens full size and closing restores focus to the picked
   await expect(viewer).toBeHidden();await expect(card).toBeFocused();
 });
 // Full-size viewer arrows (owner request, 10 November 2026): back and forward step through the Library's current order.
+async function openCreateImages(page,story){
+  await boot(page,{landing:true});
+  await page.evaluate(story=>{
+    if(story)activeStory=story;
+    const ready={model_settings_version:1,generation_controls_version:1,models_ready:{}};
+    window.EccoCompute={...window.EccoCompute,choices:()=>[{id:'serverless',name:'Serverless'}],requireReady:()=>ready,validate:async()=>ready};
+    Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
+  },story);
+  await page.locator('[data-story-destination="images"]').click();
+  const ws=page.locator('#image-workspace');await expect(ws).toBeVisible();return ws;
+}
+const imageCalls=(page,path)=>page.evaluate(p=>window.__qaCalls.filter(c=>c.path===p).map(c=>c.body),path);
+test('IMG-create three steps: choose, enhance with type-specific controls, publish',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await expect(page.locator('#image-form')).toHaveCount(0);
+  await expect(page.locator('#journey-guide')).toContainText('STEP 4 OF 6');await expect(page.locator('#journey-guide')).toContainText('Choose or make images, enhance them, then publish them.');
+  await expect(ws.getByRole('tab',{name:'1. Image',exact:true})).toHaveAttribute('aria-selected','true');
+  // Model settings are hidden until asked for; Qwen and Serverless are the defaults.
+  await expect(ws.locator('.iw-settings')).toContainText('Serverless');await expect(ws.getByRole('dialog',{name:'Model settings'})).toHaveCount(0);
+  await ws.getByRole('button',{name:'Model settings',exact:true}).click();const settings=ws.getByRole('dialog',{name:'Model settings'});
+  await expect(settings.getByLabel('Image model')).toHaveValue('qwen-image-2512');await expect(settings.getByLabel('Compute')).toHaveValue('serverless');
+  await expect(ws.getByRole('button',{name:'Image Library',exact:true})).toHaveCount(0);
+  await settings.getByRole('button',{name:'Done',exact:true}).click();await expect(settings).toHaveCount(0);
+
+  // Step 1: library selection, the × remove, Generate with AI and Improve with AI drafts.
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Zebra image sample',exact:true}).click();await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  const selected=ws.locator('.pdf-selected-label');await expect(selected).toContainText('2 of 3');
+  await selected.getByRole('button',{name:'Remove image 2',exact:true}).click();await expect(selected).toContainText('1 of 3');
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();await expect(selected).toContainText('2 of 3');
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await expect(ws.getByRole('button',{name:'Generate image',exact:true})).toBeDisabled();
+  await ws.locator('[data-input=genPrompt]').fill('A lighthouse at night');await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect(selected).toContainText('3 of 3');expect((await imageCalls(page,'images'))[0].prompt).toContain('A lighthouse at night');
+  await ws.getByLabel('AI instructions').fill('Add rain on the water');await ws.getByRole('button',{name:'Improve with AI',exact:true}).click();
+  await expect(ws.getByRole('tab',{name:'Draft 1',exact:true})).toHaveAttribute('data-filled','true');
+  const improve=(await imageCalls(page,'image-edits'))[0];expect(improve.prompt).toBe('Add rain on the water');expect(improve.gpu).toBe('serverless');
+  await ws.getByRole('button',{name:'Use AI Image',exact:true}).click();await expect(selected.locator('.iw-preview img')).toHaveAttribute('data-asset',/^qa-made-/);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+
+  // Step 2: an animal and a person get different controls; choices go with or without a prompt.
+  await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();
+  await expect(ws.getByRole('tab',{name:/^Image 1 · Zebra image sample/})).toHaveAttribute('aria-selected','true');
+  const controls=ws.locator('.iw-controls');await expect(controls).toContainText('Fur or feather color');await expect(controls).not.toContainText('Skin tone');
+  await expect(ws).not.toContainText(/AI (found|looked)/);
+  await expect(controls.getByRole('button',{name:'Silver, suggested',exact:true})).toBeVisible();
+  const go=ws.getByRole('button',{name:'Generate Draft 1',exact:true});await expect(go).toBeDisabled();
+  await controls.getByRole('button',{name:'Playful',exact:true}).click();await expect(ws.locator('[data-sent]')).toContainText('Mood: Playful');
+  await expect(ws.locator('[data-sent]')).toContainText('No prompt: your choices are sent on their own.');
+  await go.click();let edits=await imageCalls(page,'image-edits');
+  expect(edits.at(-1).prompt).toBe('Change Image 1: Mood: Playful.');expect(edits.at(-1).asset_ids).toEqual(['qa-image-1']);
+  await ws.getByRole('button',{name:'Use Draft 1 for Image 1',exact:true}).click();const image1=edits.length;
+  await ws.getByRole('tab',{name:/^Image 2 · Alpha image sample/}).click();
+  await expect(controls).toContainText('Skin tone');await expect(controls).not.toContainText('Fur or feather color');
+  await ws.getByRole('button',{name:'✦ Use suggestions',exact:true}).click();await expect(controls.getByRole('button',{name:'Auburn, suggested',exact:true})).toHaveAttribute('aria-pressed','true');
+  await ws.locator('[data-input=enhPrompt]').fill('Put her in');await ws.getByRole('button',{name:'Image 1',exact:true}).click();
+  await expect(ws.locator('[data-input=enhPrompt]')).toHaveValue('Put her in Image 1 ');await expect(ws.locator('[data-sent]')).toContainText('Your prompt and your choices are sent together.');
+  await ws.getByRole('button',{name:'Generate Draft 1',exact:true}).click();edits=await imageCalls(page,'image-edits');
+  expect(edits.at(-1).prompt).toBe('Put her in Image 1\nChange Image 2: Hair color: Auburn; Age: Younger.');
+  expect(edits.at(-1).asset_ids).toEqual(['qa-image-0',await page.evaluate(()=>window.EccoImageWorkspace.state.final['qa-image-1'])]);
+  expect(edits.length).toBe(image1+1);expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+
+  // Step 3: only a Publish button; images are approved and labelled with the story name.
+  await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
+  await expect(ws.locator('.iw-publish figure')).toHaveCount(3);await expect(ws.locator('.iw-publish').locator('input,select,textarea')).toHaveCount(0);
+  await ws.getByRole('button',{name:'Publish',exact:true}).click();
+  await expect(ws.getByRole('heading',{name:'3 images published to Image Library'})).toBeVisible();
+  expect((await imageCalls(page,'approve')).length).toBe(2);expect((await imageCalls(page,'library/save')).length).toBe(3);
+  expect(await imageCalls(page,'library/folders')).toEqual([{name:'QA Sample Story'}]);
+  expect(page.qaErrors).toEqual([]);
+});
+test('IMG-create falls back to choosing the image type when AI is off',async({page})=>{
+  const ws=await openCreateImages(page);
+  await page.evaluate(()=>Object.defineProperty(window.EccoAI,'enabled',{get:()=>false}));
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();
+  await ws.getByRole('button',{name:'Scenery',exact:true}).click();await expect(ws.locator('.iw-controls')).toContainText('Weather');
+  expect((await imageCalls(page,'ai/enhance')).length).toBe(0);
+  // Flows that open the image page directly (refine, instruction edits, uploads) keep the existing image form.
+  await page.evaluate(()=>{navigate('audio');navigate('images');});
+  await expect(page.locator('#image-form')).toBeVisible();await expect(page.locator('#image-workspace')).toHaveCount(0);
+  expect(page.qaErrors).toEqual([]);
+});
 test('LIB-image-steps full-size viewer steps back and forward through the images',async({page})=>{
   await boot(page);const hub=await openLibrary(page,'image');
   const cards=hub.locator('[data-pick]'),n=await cards.count();expect(n).toBeGreaterThan(1);
