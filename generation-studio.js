@@ -84,7 +84,7 @@
    const has=refs.length>0;
    for(const opt of c.model.options)opt.disabled=has?opt.value!=='qwen-image-edit-2511':opt.value==='qwen-image-edit-2511';
    if(has&&c.model.value!=='qwen-image-edit-2511'){c.data.newImageModel=c.model.value;c.model.value='qwen-image-edit-2511';c.model.dispatchEvent(new Event('change'));}
-   if(!has&&c.model.value==='qwen-image-edit-2511'){c.model.value=c.data.newImageModel||'sdxl';c.model.dispatchEvent(new Event('change'));}
+   if(!has&&c.model.value==='qwen-image-edit-2511'){c.model.value=c.data.newImageModel||'qwen-image-2512';c.model.dispatchEvent(new Event('change'));}
   }
  }
  function setReferences(c,ids,kind=referenceKind(c)){
