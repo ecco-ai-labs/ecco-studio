@@ -1815,7 +1815,9 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  await panel.getByLabel('Search image styles',{exact:true}).fill('indian');await expect(panel.locator('.image-style-list .story-choice-name')).toHaveText(['Indian miniature','Madhubani','Warli']);
  await panel.getByLabel('Search image styles',{exact:true}).fill('zzz');await expect(panel).toContainText('No style matches. Try another word.');
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();
- await pickImageStyle(page,'Mosaic');await expect(trigger).toContainText('Mosaic');await expect(page.locator('[data-image-style-hint]')).toHaveText('Small tiles');
+ await pickImageStyle(page,'Mosaic');await expect(trigger).toContainText('Mosaic');await expect(page.locator('[data-image-style-hint]')).toHaveText(' · Small tiles');
+ // Reopened, nothing is covered: the hint is inside the field and the search box is the first thing in view.
+ await trigger.click();const box=await panel.boundingBox(),field=await trigger.boundingBox(),searchBox=await panel.getByLabel('Search image styles',{exact:true}).boundingBox();expect(box.y).toBeGreaterThanOrEqual(field.y+field.height);expect(searchBox.y).toBeGreaterThanOrEqual(box.y);await page.keyboard.press('Escape');
  await page.getByRole('button',{name:/Next: Story Picture/}).click();await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
  const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});await ai.getByLabel('What should your picture show?',{exact:true}).fill('A fox walking on ice');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();
  await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await page.getByRole('button',{name:'Next: Story Generation',exact:true}).click();await expect(page.locator('#image-form')).toBeVisible();
