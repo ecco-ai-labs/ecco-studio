@@ -559,7 +559,7 @@
  // AI writes picture descriptions; the pictures themselves are made in Story Generation (Image Studio).
  async function describePicture(index){
   const idea=String(data.pictureIdea||'').trim()||'a picture that suits the story';
-  const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,fields:[{id:'picture_description',text:idea,max_length:2000}],context:{title:data.title,genre:'',language:'English',summary:JSON.stringify({output:'image',image_style:data.imageStyle,audience:data.audience}),lines:[],instructions:'Rewrite the idea as one vivid picture description of 1–3 sentences in the '+(data.imageStyle||'chosen')+' style for '+(data.audience||'all ages')+'. Return only the description. Do not ask questions.'+(index?' Make version '+(index+1)+' of 3 slightly different in composition.':'')},review_only:false});
+  const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,fields:[{id:'picture_description',text:idea,max_length:2000}],context:{title:data.title,genre:'',language:'English',summary:JSON.stringify({output:'image',image_style:data.imageStyle,audience:data.audience}),lines:[],instructions:'Rewrite the idea as one vivid picture description of 1–3 sentences for '+(data.audience||'all ages')+': who is in it, what they are doing, their expressions, the setting and the light. Do not name or describe any art style, medium or technique (the '+(data.imageStyle||'chosen')+' style is added separately). Return only the description. Do not ask questions.'+(index?' Make version '+(index+1)+' of 3 slightly different in composition.':'')},review_only:false});
   const value=result.revisions?.find(r=>r.id==='picture_description')?.text;if(typeof value!=='string'||!value.trim())throw Error('AI returned no picture description. Try again.');return value.trim();
  }
  function charactersPage(){
@@ -748,7 +748,9 @@
   const image=kind==='image'&&isImage(),signature=M.signature(data,kind)+(image?'|'+[data.imageStyle,data.photoAsset?.id||''].join('|'):'');if(data.applied[kind]===signature)return;
   const key='ecco-generation-v1:'+kind+':'+activeStory,previous=read(key);
   // A picture prompt is only the picture description: no speaker labels (audit I11).
-  const prompt=image?(pictureText()||data.script).trim():[data.script,...data.cast.map(c=>c.name+': '+[c.appearance,c.nationality].filter(Boolean).join(', '))].filter(Boolean).join('\n\n');
+  // Pictures keep each person exactly as described in Characters, so they look the same in every image.
+  const looks=image?data.cast.filter(c=>c.appearance?.trim()).map(c=>c.name+': '+[c.appearance.trim(),c.nationality].filter(Boolean).join(', ')):[];
+  const prompt=image?[(pictureText()||data.script).trim(),looks.length?'Characters, keep exactly as described:\n'+looks.join('\n'):''].filter(Boolean).join('\n\n'):[data.script,...data.cast.map(c=>c.name+': '+[c.appearance,c.nationality].filter(Boolean).join(', '))].filter(Boolean).join('\n\n');
   if(kind==='image'&&prompt.length>4000)throw Error('Shorten the visual story to 4,000 characters before generating an image.');
   const characterReferences=data.cast.map(c=>c.reference_id).filter(id=>state.records.some(r=>r.id===id&&r.kind==='asset'&&r.media==='image'&&!r.deleted));
   if(image){

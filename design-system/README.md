@@ -949,6 +949,14 @@ needs avatars). Story Screen Play suggests delivery and sounds once on arrival,
 keeping anything set by hand. Generate With AI writes the way people speak for
 each Story type.
 
+Image styles (owner request 2026-11-10, image-styles.js): each Image style is
+written first in the picture prompt as a detailed description, with the other
+looks sent as things to avoid, so the chosen style always wins (checked on
+Serverless with Qwen-Image 2512). AI picture descriptions name no art style and
+include expressions. A picture repeats each person's look from Characters
+("keep exactly as described"); a person's avatar is drawn in the same Image
+style and used as the reference. No new controls.
+
 Screen Play script rules (owner request 2026-11-10): a paragraph without a name
 continues the same speaker (only the first paragraph needs one); text in
 [square brackets] is a direction sent to the voice model separately and never

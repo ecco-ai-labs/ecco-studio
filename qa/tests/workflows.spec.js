@@ -1704,3 +1704,27 @@ test('GPU-SERVERLESS-01 the GPU connection box has an always-on Serverless card'
  // The existing classes stay in place.
  await expect(page.locator('#qa-gpu-box [data-gpu-class]')).toHaveCount(3);
 });
+
+// Owner request 2026-11-10: the chosen Image style always wins; people keep their described look.
+test('STORY-33 Picture: the Image style is described first with what to avoid, AI descriptions name no style, and people keep their look',async({page})=>{
+ await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox picnic');await fillStoryDetail(page,'output','image');
+ await page.locator('#story-simple-details').getByLabel('Image style (required)').selectOption('3D animation');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});
+ await ai.getByLabel('What should your picture show?',{exact:true}).fill('A girl and a fox at a picnic');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');
+ const instruction=await page.evaluate(()=>window.__qaCalls.find(c=>c.body?.fields?.[0]?.id==='picture_description').body.context.instructions);expect(instruction).toContain('Do not name or describe any art style');expect(instruction).toContain('expressions');
+ await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();
+ await page.getByRole('button',{name:'+ Add a person',exact:true}).click();await page.getByLabel('Character 1 Suggested avatar prompt',{exact:true}).fill('8-year-old girl, long dark brown hair, yellow raincoat, blue jeans');await page.getByLabel('Character 1 Suggested avatar prompt',{exact:true}).blur();
+ await page.getByRole('button',{name:'Next: Story Generation',exact:true}).click();await expect(page.locator('#image-form')).toBeVisible();
+ const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});
+ expect(saved.style).toBe('3D animation');expect(saved.prompt).toContain('Characters, keep exactly as described:\nPerson 1: 8-year-old girl, long dark brown hair, yellow raincoat, blue jeans');
+ // Submit with a stand-in GPU and capture the request.
+ await page.evaluate(()=>{window.qaImageRequests=[];const real=window.api;window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-style-job'};}return real(path,body);};
+  const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});
+  window.gpuConnected=()=>true;const select=[...document.querySelectorAll('#image-form select')].find(x=>[...x.options].some(o=>o.text==='Select connected GPU'));if(select){select.add(new Option('Serverless','serverless'));select.value='serverless';}
+  const model=document.querySelector('#image-form #job-model');if(model){model.value='qwen-image-2512';model.dispatchEvent(new Event('change'));}});
+ await page.locator('#image-form').evaluate(form=>form.requestSubmit());await expect.poll(()=>page.evaluate(()=>window.qaImageRequests.length)).toBe(1);
+ const body=await page.evaluate(()=>window.qaImageRequests[0]);
+ expect(body.prompt.startsWith('3D animated feature film still')).toBe(true);expect(body.prompt).toContain('The whole image is in this style.');expect(body.prompt).not.toContain('Style: 3D animation.');
+ expect(body.negative).toContain('watercolor');expect(body.prompt).toContain('yellow raincoat');
+ expect(page.qaErrors).toEqual([]);
+});

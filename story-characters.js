@@ -232,10 +232,12 @@
   if(!gpu)throw Error('Connect a GPU from Compute to generate avatars.');
   // Real-run fix E3 (2026-11-09): the video's Visual style shapes the avatar.
   const style=ctx.data.output==='video'&&ctx.data.videoStyle?'Style: '+ctx.data.videoStyle+'.':'';
-  const prompt=[c.appearance?.trim(),'Character portrait of '+(c.name||'the character')+', head and shoulders, plain background.',style].filter(Boolean).join(' ');
+  const base=[c.appearance?.trim(),'Character portrait of '+(c.name||'the character')+', head and shoulders, plain background.',style].filter(Boolean).join(' ');
+  // A picture's avatar is drawn in the picture's Image style, so the reference and the picture match.
+  const imageStyle=ctx.data.output==='image'&&window.EccoImageStyles?.get(ctx.data.imageStyle)?ctx.data.imageStyle:'',prompt=imageStyle?window.EccoImageStyles.prompt(base,imageStyle):base;
   if(prompt.length>4000)throw Error('Shorten the avatar prompt to 4,000 characters.');
   await window.EccoCompute.validate(gpu,model);
-  const job=await api('images',{...modelPayload('images',gpu,model),prompt,negative:'',story_id:activeStory});
+  const job=await api('images',{...modelPayload('images',gpu,model),prompt,negative:imageStyle?window.EccoImageStyles.negative('',imageStyle):'',story_id:activeStory});
   return waitForImages(job);
  }
  function createAvatar(c,index,host){

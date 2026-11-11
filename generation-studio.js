@@ -124,8 +124,10 @@
   return lines.join('\n');
  }
  function compose(c,prompt,onlyId){
-  const parts=[prompt.trim()],attrs=objectInstructions(c,onlyId),style=c.data.style;
-  if(style)parts.push('Style: '+style+'.');if(attrs)parts.push(attrs);
+  const attrs=objectInstructions(c,onlyId),style=c.data.style;
+  // Pictures: a known image style is described first (image-styles.js); video motion keeps the short style line.
+  const parts=c.kind==='image'&&window.EccoImageStyles?.get(style)?[window.EccoImageStyles.prompt(prompt,style)]:[prompt.trim(),style?'Style: '+style+'.':''];
+  if(attrs)parts.push(attrs);
   if(referenceIds(c).length)parts.push('Preserve the identity and unspecified details of each referenced subject. Apply each attribute only to the named object in its specified reference.');
   return parts.filter(Boolean).join('\n\n');
  }
@@ -228,7 +230,7 @@
      const settings=modelSettings('qwen-image-edit-2511');
      if(!computeConfig.generation_controls_version&&(refs.length>1||settings.steps!==40||settings.cfg!==3||settings.seed!==42))throw Error('The connected GPU needs the multi-reference generation update. Your selections and prompt are saved.');
      job=await api('image-edits',{gpu,asset_id:refs[0],asset_ids:refs,prompt,story_id:c.story,...settings,reference_controls:clone(c.data.objects)});
-    }else job=await api('images',{...modelPayload('images',gpu,c.model.value),prompt,negative:c.form.elements.negative?.value||'',story_id:c.story});
+    }else job=await api('images',{...modelPayload('images',gpu,c.model.value),prompt,negative:window.EccoImageStyles?window.EccoImageStyles.negative(c.form.elements.negative?.value,c.data.style):c.form.elements.negative?.value||'',story_id:c.story});
    }else{
     const settings=modelPayload('video',gpu,c.model.value),limit=settings.model==='wan-a14b'?6:settings.model==='wan-5b'?5:30;
     const savedRefs=[...new Set((c.data.scenes||[]).map(s=>s.image_id))];
