@@ -32,11 +32,49 @@ RUNTIME = Path('/opt/ecco-runtime-venv')
 SPEECH_STAGES = ('Mixing music and effects', 'Loading sound model', 'Generating sound effect', 'Generating instrumental music')
 
 
+LOCAL_VENVS = Path('/opt/ecco-audio-venvs')
+
+
+def build_audio_folder(source=None, audio=None, venvs=None):
+    """A local /workspace/ecco-audio whose entries point at the volume.
+
+    The serverless mount will not execute anything stored on it, not even a symlink to
+    /usr/bin/python3.12, so each voice environment (*-venv) is copied to local disk and its
+    bin/ launcher symlinks are recreated there. Everything else (scripts, weights, caches)
+    is read in place through symlinks.
+    """
+    source, audio, venvs = Path(source or VOLUME / 'ecco-audio'), Path(audio or AUDIO), Path(venvs or LOCAL_VENVS)
+    if audio.is_symlink():
+        audio.unlink()
+    audio.mkdir(parents=True, exist_ok=True)
+    for entry in sorted(source.iterdir()):
+        target = audio / entry.name
+        if target.exists() or target.is_symlink():
+            continue
+        if entry.name.endswith('-venv') and (entry / 'pyvenv.cfg').is_file():
+            local = venvs / entry.name
+            if not (local / 'pyvenv.cfg').is_file():
+                local.parent.mkdir(parents=True, exist_ok=True)
+                temporary = venvs / (entry.name + '.partial')
+                subprocess.run(['rm', '-rf', str(temporary)], check=True)
+                subprocess.run(['cp', '-r', '--no-dereference', '--no-preserve=mode,ownership,timestamps',
+                                str(entry), str(temporary)], check=True)
+                # Recreate the launchers locally; console scripts are not used by the workers.
+                subprocess.run(['rm', '-rf', str(temporary / 'bin')], check=True)
+                (temporary / 'bin').mkdir()
+                for link in (entry / 'bin').iterdir():
+                    if link.is_symlink():
+                        (temporary / 'bin' / link.name).symlink_to(os.readlink(link))
+                temporary.rename(local)
+            target.symlink_to(local)
+        else:
+            target.symlink_to(entry)
+
+
 def prepare():
-    """Link the shared audio folder and unpack the pods' Python runtime (verified by sha256)."""
-    if not AUDIO.exists():
-        AUDIO.parent.mkdir(parents=True, exist_ok=True)
-        AUDIO.symlink_to(VOLUME / 'ecco-audio')
+    """Build the local audio folder and unpack the pods' Python runtime (verified by sha256)."""
+    if not (AUDIO / 'queue_worker.py').exists():
+        build_audio_folder()
     if not (RUNTIME / 'bin' / 'python').exists():
         archive = VOLUME / 'ecco-runtime' / 'runtime.tar'
         expected = (VOLUME / 'ecco-runtime' / 'runtime.sha256').read_text().split()[0]

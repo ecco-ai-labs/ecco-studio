@@ -539,6 +539,30 @@ class AudioWorkerHandler(unittest.TestCase):
         with self.assertRaises(ValueError):
             worker_common.unpack_inputs(buffer.getvalue(), self.temp.name)
 
+    def test_audio_folder_copies_venvs_locally_and_links_the_rest(self):
+        root = Path(self.temp.name)
+        source, audio, venvs = root / 'volume' / 'ecco-audio', root / 'workspace' / 'ecco-audio', root / 'opt' / 'venvs'
+        venv = source / 'chatterbox-venv'
+        (venv / 'bin').mkdir(parents=True)
+        (venv / 'lib' / 'python3.12' / 'site-packages').mkdir(parents=True)
+        (venv / 'lib' / 'python3.12' / 'site-packages' / 'pkg.py').write_text('x = 1')
+        (venv / 'pyvenv.cfg').write_text('home = /usr/bin\n')
+        (venv / 'bin' / 'python3.12').symlink_to('/usr/bin/python3.12')
+        (venv / 'bin' / 'python').symlink_to('python3.12')
+        (venv / 'bin' / 'pip').write_text('#!/bin/sh')
+        (source / 'queue_worker.py').write_text('# worker')
+        (source / 'models').mkdir()
+        self.handler.build_audio_folder(source, audio, venvs)
+        self.assertEqual((audio / 'queue_worker.py').resolve(), (source / 'queue_worker.py').resolve())
+        self.assertEqual((audio / 'models').resolve(), (source / 'models').resolve())
+        local = (audio / 'chatterbox-venv').resolve()
+        self.assertEqual(local, (venvs / 'chatterbox-venv').resolve())
+        self.assertEqual(os.readlink(local / 'bin' / 'python'), 'python3.12')
+        self.assertEqual(os.readlink(local / 'bin' / 'python3.12'), '/usr/bin/python3.12')
+        self.assertFalse((local / 'bin' / 'pip').exists())
+        self.assertEqual((local / 'lib' / 'python3.12' / 'site-packages' / 'pkg.py').read_text(), 'x = 1')
+        self.handler.build_audio_folder(source, audio, venvs)  # second call is a no-op
+
     def test_fetch_only_reads_the_inputs_folder(self):
         with self.assertRaises(ValueError):
             worker_common.fetch({'volume_key': 'ecco-serverless/results/x.tar'})
