@@ -1,7 +1,9 @@
 """Start, stop and report Ecco's RunPod GPU pods for Studio's GPU connection box.
 
-Runs inside the storage API. The RunPod key stays on the server (RUNPOD_API_KEY,
-which RunPod sets in every pod); the browser never sees it. Only the pods listed
+Runs inside the storage API. The RunPod key stays on the server; the browser never
+sees it. The key RunPod puts inside each pod (RUNPOD_API_KEY) can run serverless jobs
+but cannot read or manage pods, so this uses an account API key with pod access from
+ECCO_RUNPOD_MANAGE_KEY or the private file /workspace/ecco-storage-private/runpod-api.key. Only the pods listed
 in gpu_relay.GPUS can be touched. RunPod's own error text (for example "There are
 not enough free GPUs on the host machine to start this pod.") is returned
 word for word so Studio can show exactly what RunPod said.
@@ -34,10 +36,23 @@ def managed():
     return [pod for pod in gpu_relay.GPUS if pod != 'serverless']
 
 
-def _graphql(query, variables=None, opener=urllib.request.urlopen):
-    key = os.getenv('RUNPOD_API_KEY')
+KEY_FILE = os.getenv('ECCO_RUNPOD_KEY_FILE', '/workspace/ecco-storage-private/runpod-api.key')
+
+
+def _key():
+    key = os.getenv('ECCO_RUNPOD_MANAGE_KEY', '').strip()
     if not key:
-        raise PodError('Starting pods from Studio is not set up on the storage server (no RunPod API key).', 503)
+        try:
+            key = open(KEY_FILE, encoding='utf-8').read().strip()
+        except OSError:
+            key = ''
+    return key
+
+
+def _graphql(query, variables=None, opener=urllib.request.urlopen):
+    key = _key()
+    if not key:
+        raise PodError('Starting pods from Studio is not set up yet: add a RunPod API key with pod access to the storage server.', 503)
     request = urllib.request.Request(API, data=json.dumps({'query': query, 'variables': variables or {}}).encode(),
                                      headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
     try:
@@ -52,7 +67,10 @@ def _graphql(query, variables=None, opener=urllib.request.urlopen):
         raise PodError(f'Could not reach RunPod: {exc}', 502) from None
     errors = reply.get('errors') or []
     if errors:
-        raise PodError('; '.join(str(e.get('message') or e) for e in errors)[:600])
+        message = '; '.join(str(e.get('message') or e) for e in errors)[:600]
+        if message == 'Unauthorized':
+            raise PodError('RunPod did not accept the storage server\'s API key for pods (Unauthorized). It needs a RunPod API key with pod access.', 502)
+        raise PodError(message)
     return reply.get('data') or {}
 
 

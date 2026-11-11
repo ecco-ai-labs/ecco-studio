@@ -45,7 +45,7 @@ class FakeRunPod:
 class PodsTest(unittest.TestCase):
     def setUp(self):
         runpod_pods._cache.update(at=0.0, pods=None)
-        self.env = patch.dict(os.environ, {'RUNPOD_API_KEY': 'secret-key'})
+        self.env = patch.dict(os.environ, {'ECCO_RUNPOD_MANAGE_KEY': 'secret-key', 'ECCO_RUNPOD_KEY_FILE': '/nonexistent'})
         self.env.start()
         self.temp = tempfile.TemporaryDirectory()
         self.relay = patch.object(gpu_relay, 'ROOT', Path(self.temp.name) / 'relay')
@@ -117,10 +117,24 @@ class PodsTest(unittest.TestCase):
                 runpod_pods.stop({'gpu': gpu}, opener=FakeRunPod())
 
     def test_missing_key_is_a_clear_setup_error(self):
-        with patch.dict(os.environ, {'RUNPOD_API_KEY': ''}):
+        with patch.dict(os.environ, {'ECCO_RUNPOD_MANAGE_KEY': ''}):
             with self.assertRaises(runpod_pods.PodError) as raised:
                 runpod_pods.pods(opener=FakeRunPod())
         self.assertEqual(raised.exception.code, 503)
+
+    def test_key_can_come_from_the_private_file(self):
+        key_file = Path(self.temp.name) / 'runpod-api.key'
+        key_file.write_text('file-key\n')
+        api = FakeRunPod({'data': {'myself': {'pods': []}}})
+        with patch.dict(os.environ, {'ECCO_RUNPOD_MANAGE_KEY': ''}), patch.object(runpod_pods, 'KEY_FILE', str(key_file)):
+            runpod_pods.pods(opener=api)
+        self.assertEqual(api.calls[0][2]['Authorization'], 'Bearer file-key')
+
+    def test_pod_scoped_key_rejection_is_explained(self):
+        api = FakeRunPod({'errors': [{'message': 'Unauthorized'}], 'data': {'myself': None}})
+        with self.assertRaises(runpod_pods.PodError) as raised:
+            runpod_pods.pods(opener=api)
+        self.assertIn('needs a RunPod API key with pod access', raised.exception.message)
 
     def test_unreachable_runpod(self):
         with self.assertRaises(runpod_pods.PodError) as raised:
