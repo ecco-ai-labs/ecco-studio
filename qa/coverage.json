@@ -253,5 +253,10 @@
     "area": "GPU connection box: Start/Stop pod",
     "mode": "synthetic",
     "scope": "GPU-POD-01 checks a stopped pod shows a Stopped tag, Start pod with its hourly rate and the Serverless card Always on; when RunPod refuses, its message appears word for word with 'Nothing was started and nothing was charged', Try again, Use Serverless instead and a red Studio console line. GPU-POD-02 checks a running pod's uptime tag, the in-card stop confirmation with its running-jobs warning, Keep running, and that Stop pod calls RunPod. Live RunPod start/stop needs the storage server's RunPod key and real pods, so it is checked live, not here."
+  },
+  {
+    "area": "Audio compute default",
+    "mode": "fixture",
+    "scope": "Serverless is the default audio compute: when the Serverless GPU is connected and the A100 audio worker (serverless/audio_dispatch.py) is ready, Compute lists 'Serverless · A100' first and selects it, generation sends compute a100 with no worker_id; CPU instances follow as fallbacks and are chosen automatically only when Serverless cannot run the recording, while an explicit choice is kept (audio-instance-routing.test.cjs). Sound models (ACE-Step, MOSS) live only on CPU, so sound cues still use a CPU worker. Real Serverless generation needs compute and is verified live, not by fixtures."
   }
 ]

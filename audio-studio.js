@@ -18,10 +18,25 @@
  const computeTarget=(status,compute,workerId='')=>workerId?status?.instances?.find(w=>w.compute===compute&&w.id===workerId):status?.compute?.[compute];
  const computeValue=(compute,workerId='')=>workerId?compute+':'+workerId:compute;
  const parseCompute=value=>{const [compute,worker_id='']=value.split(':');return {compute,worker_id};};
+ // Serverless is the default compute (owner, 11 Nov 2026); CPU workers are fallbacks.
+ // The Serverless bridge (serverless/audio_dispatch.py) registers as the A100 audio worker, so a connected
+ // "Serverless" GPU makes the A100 class selectable even though no GPU named A100 is connected.
+ const serverlessConnected=()=>!!window.EccoCompute?.choices().some(g=>g.id==='serverless');
+ const gpuConnected=id=>id==='cpu'||!!window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===id)||(id==='a100'&&serverlessConnected());
+ const gpuLabel=id=>id==='a100'&&serverlessConnected()&&!window.EccoCompute?.choices().some(g=>g.name.toLowerCase()==='a100')?'Serverless · A100':id.toUpperCase();
  function computeChoices(status){
   const cpus=(status?.instances||[]).filter(w=>w.compute==='cpu').map(w=>({value:computeValue('cpu',w.id),compute:'cpu',worker_id:w.id,ready:w.ready,label:'CPU · '+w.name+(w.cpu_count&&w.memory_gb?' · '+w.cpu_count+' vCPU / '+w.memory_gb+' GB':'')+' · '+(w.ready?'Ready':'Unavailable')}));
-  const classes=Object.entries(status?.compute||{}).filter(([id,target])=>(id!=='cpu'||!cpus.length)&&target.ready&&(id==='cpu'||window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===id))).map(([id,target])=>({value:id,compute:id,worker_id:'',ready:target.ready,label:id.toUpperCase()}));
-  return [...cpus,...classes];
+  const classes=Object.entries(status?.compute||{}).filter(([id,target])=>(id!=='cpu'||!cpus.length)&&target.ready&&gpuConnected(id)).map(([id,target])=>({value:id,compute:id,worker_id:'',ready:target.ready,label:gpuLabel(id)}));
+  // Serverless first; every other choice keeps its usual order (CPU instances, then GPU classes).
+  const isServerless=c=>c.compute==='a100'&&c.label==='Serverless · A100';
+  return [...classes.filter(isServerless),...cpus,...classes.filter(c=>!isServerless(c))];
+ }
+ // Preferred compute: Serverless when it is connected and can run every needed model, otherwise a ready CPU (most models first).
+ // GPU pods are never picked automatically; they are used only after an explicit choice.
+ function preferredCompute(status,needed=[]){
+  const choices=computeChoices(status),fits=c=>{const t=computeTarget(status,c.compute,c.worker_id);return c.ready&&needed.every(id=>t?.models?.includes(id));};
+  const models=c=>(computeTarget(status,c.compute,c.worker_id)?.models||[]).length,cpus=choices.filter(c=>c.compute==='cpu'&&c.ready).sort((a,b)=>models(b)-models(a));
+  return choices.find(c=>c.label==='Serverless · A100'&&fits(c))||cpus.find(fits)||cpus[0]||null;
  }
  function modelReadiness(status,compute,workerId,modelId,sound=false){
   if(!status)return {ready:false,reason:'Connect workspace storage and wait for the worker availability check.'};
@@ -30,7 +45,7 @@
   const ready=!!target[sound?'sound_models':'models']?.includes(modelId);
   return {ready,reason:ready?'':'Not installed and verified on the selected worker.'};
  }
- window.EccoAudioCompute={target:computeTarget,choices:computeChoices,value:computeValue,parse:parseCompute,readiness:modelReadiness};
+ window.EccoAudioCompute={target:computeTarget,choices:computeChoices,preferred:preferredCompute,value:computeValue,parse:parseCompute,readiness:modelReadiness};
  // Voice fix (real run 2026-11-09): which speech models the selected (or any ready) worker can run now; null until checked.
  window.EccoAudioCompute.refresh=()=>checkCompute().catch(()=>null);
  // Automatic episodes record on a GPU only: the first ready A100 or B200 and its speech models.
@@ -52,7 +67,10 @@
   const note=q('[data-audio-compute-status]');if(!note||!draft)return;
   const select=q('#audio-form [name=compute]');
   const choices=computeChoices(computeStatus);
-  if(draft.compute==='cpu'&&!draft.worker_id){const models=c=>(computeStatus?.instances||[]).find(w=>w.id===c.worker_id)?.models?.length||0;const preferred=choices.filter(c=>c.compute==='cpu'&&c.ready).sort((a,b)=>models(b)-models(a))[0]||choices.find(c=>c.compute==='cpu');if(preferred?.worker_id){draft.worker_id=preferred.worker_id;save();}}
+  // Default and fallback: Serverless first, then a CPU, unless the person chose a compute that is still available.
+  const needed=[...new Set([draft.model,...(draft.speakers||[]).map(sp=>sp.model).filter(Boolean)])];
+  const current=choices.find(c=>c.value===computeValue(draft.compute,draft.worker_id));
+  if(computeStatus&&draft.compute_auto!==false){const best=preferredCompute(computeStatus,needed);if(best&&best.value!==current?.value){draft.compute=best.compute;if(best.worker_id)draft.worker_id=best.worker_id;else delete draft.worker_id;save();}}
   if(select){
    const signature=JSON.stringify(choices);
    if(select.dataset.options!==signature){select.replaceChildren(new Option('Select connected compute',''),...choices.map(c=>new Option(c.label,c.value)));select.dataset.options=signature;}
@@ -76,7 +94,7 @@
   if(!compute)throw Error('Select connected compute first.');
   const result=await checkCompute();
   const target=computeTarget(result,compute,workerId);
-  if(compute!=='cpu'&&!window.EccoCompute?.choices().some(g=>g.name.toLowerCase()===compute))throw Error('Connect the selected audio GPU first.');
+  if(!gpuConnected(compute))throw Error('Connect the selected audio GPU first.');
   if(!target?.ready)throw Error(target?.reason||compute.toUpperCase()+' audio worker is not connected.');
   const needed=[...new Set(lines?lines.map(l=>l.model||modelId):[modelId])];
   const missing=needed.filter(id=>!target.models?.includes(id));
@@ -114,8 +132,8 @@
   if(!draft){const saved=state?.records.find(r=>r.kind==='story'&&r.id===activeStory);if(saved?.audio_preparation){window.EccoAudioJourney.handoff({audio_preparation:JSON.stringify(saved.audio_preparation),summary:saved.summary,title:saved.title,story_format:'audio'},activeStory,{});draft=JSON.parse(localStorage.getItem(key()));}}
   if(!draft||!Array.isArray(draft.lines)||!draft.lines.length)draft={title:'',speed:1,pitch:0,pause:0.35,lines:[blank()]};
   draft={title:'',speed:1,pitch:0,pause:0.35,...draft};
-  // Each visit starts on CPU; a GPU is used only after an explicit selection.
-  if(draft.compute!=='cpu')delete draft.worker_id;draft.compute='cpu';
+  // Each visit starts on the default compute (Serverless when connected); an explicit choice is kept only for this visit.
+  draft.compute_auto=true;if(serverlessConnected()){draft.compute='a100';delete draft.worker_id;}else{if(draft.compute!=='cpu')delete draft.worker_id;draft.compute='cpu';}
   if(!audioModels.some(m=>m.id===draft.model))draft.model=audioModels[0].id;
   if(!readAudioModelSaved()&&audioModels.some(m=>m.id===modelProfiles.selected.voice))draft.model=modelProfiles.selected.voice;
   if(!genres.includes(draft.genre))draft.genre=genres[0];
@@ -477,7 +495,7 @@
   drawLines();
   q('#add-audio-line').onclick=()=>{if(draft.presentation==='conversation'){const previous=draft.lines.at(-1).speaker_id,cast=activeSpeakers(),next=cast[(cast.findIndex(s=>s.id===previous)+1)%cast.length];draft.lines.push({text:'',speaker_id:next.id});save();drawLines();drawControls();}};
   q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'&&e.target.name!=='compute'){draft[e.target.name]=['title','model','genre','compute'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
-  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='genre'){draft.genre=e.target.value;genreDefaults(e.target.value);reviewScript();}if(e.target.name==='compute'){Object.assign(draft,parseCompute(e.target.value));save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
+  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='genre'){draft.genre=e.target.value;genreDefaults(e.target.value);reviewScript();}if(e.target.name==='compute'){Object.assign(draft,parseCompute(e.target.value));draft.compute_auto=false;save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
   q('#audio-form').onsubmit=async e=>{
    e.preventDefault();save();
    if(submitting||verification?.running||q('#generate-audio').disabled)return;

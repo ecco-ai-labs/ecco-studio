@@ -15,3 +15,14 @@ test('Voice preview delivery does not inherit chapter reconstruction instruction
  const result=await x.w.EccoAudioDirection.refine({plan,cast:[{id:'n',name:'Narrator',voice:'default',language:'Hindi'}],brief:{genre:'Story Book Reading',language:'Hindi',instructions:'ADAPT FULL CHAPTER FROM THE PDF',opening_instructions:'Welcome to a new chapter'},model:{id:'chatterbox'},directionOnly:true,request:async(path,body)=>{sent=body;return{questions:[],revisions:[{id:'audio_directed_script',text:JSON.stringify({...plan,segments:plan.segments.map(p=>({...p,performance:{emotion:'surprise',direction:'Quiet anticipation',pause_before:.4}})),expressiveness:.5})}]};}});
  assert.ok(!JSON.stringify(sent).includes('ADAPT FULL CHAPTER'));assert.ok(!JSON.stringify(sent).includes('Welcome to a new chapter'));assert.match(sent.context.instructions,/delivery-only/);assert.equal(result.segments[0].text,plan.segments[0].text);
 });
+test('Serverless is the default audio compute and CPUs are fallbacks',async t=>{
+ const draft={model:'chatterbox',compute:'cpu',title:'Serverless default',genre:'Podcast',presentation:'single',character_count:1,characters_configured:true,speakers:[{id:'n',name:'Host',voice:'default',language:'English',emotion:'neutral'}],lines:[{speaker_id:'n',text:'Welcome to the show.'}],single_text:'Welcome to the show.'};
+ const x=await setup({'ecco-active-story':'s','ecco-audio-draft:s':JSON.stringify(draft)});t.after(x.close);x.w.EccoStorage={ready:true};
+ x.w.EccoCompute={...(x.w.EccoCompute||{}),choices:()=>[{id:'serverless',name:'Serverless',label:'RunPod Serverless'}]};
+ await x.go('audio');const state={routing_version:1,instance_routing_version:1,compute:{a100:{ready:true,models:['chatterbox']},cpu:{ready:true,models:['chatterbox']}},instances:[{id:'large',name:'smiling_sapphire_mandrill',compute:'cpu',ready:true,models:['chatterbox'],cpu_count:16,memory_gb:64}]};const requests=[];
+ x.w.EccoAudioStudio.connect({storageIndependentOfGPU:true,status:async()=>state,list:async()=>[],generate:async body=>{requests.push(body);return{id:'j'};},job:async()=>({id:'j',status:'done'}),mediaURL:async()=>'',download:async()=>{}});await tick();
+ const selector='#audio-form [name=compute]',labels=[...x.q(selector).options].map(o=>o.textContent);
+ assert.equal(labels[1],'Serverless · A100');assert.match(labels[2],/CPU · smiling_sapphire_mandrill/);assert.equal(x.q(selector).value,'a100');
+ x.q('#audio-form').requestSubmit();await tick();await tick();assert.equal(requests.length,1);assert.equal(requests[0].compute,'a100');assert.ok(!requests[0].worker_id);
+ state.compute.a100={ready:false,models:[],reason:'Serverless unavailable'};await x.w.EccoAudioCompute.refresh();await tick();assert.equal(x.q(selector).value,'cpu:large');assert.deepEqual(x.errors,[]);
+});
