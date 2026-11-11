@@ -362,3 +362,183 @@ class VolumeResults(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class WaitTimeouts(unittest.TestCase):
+    """Queue time must not count against the running-time limit (the LongCat B200 failure)."""
+
+    def run_wait(self, states, **kw):
+        replies = iter(states)
+        now = [0.0]
+
+        def opener(request, timeout):
+            if '/cancel/' in request.full_url:
+                self.cancelled = True
+                return FakeResponse(b'{}')
+            return FakeResponse(json.dumps(next(replies)).encode())
+
+        def sleep(seconds):
+            now[0] += 600  # each poll advances ten minutes
+        self.cancelled = False
+        with patch.dict(os.environ, {'RUNPOD_API_KEY': 'k', 'ECCO_ENDPOINT_LONGCAT': 'lc'}):
+            return rp.wait('longcat', 'j', opener=opener, sleep=sleep, clock=lambda: now[0], **kw)
+
+    def test_long_queue_then_run_completes(self):
+        states = [{'status': 'IN_QUEUE'}] * 5 + [{'status': 'IN_PROGRESS', 'output': 'Running Generation'}] * 3 + [{'status': 'COMPLETED', 'output': {'ok': 1}}]
+        seen = []
+        self.assertEqual(self.run_wait(states, timeout=2700, on_progress=seen.append), {'ok': 1})
+        self.assertEqual(seen, ['Running Generation'])
+        self.assertFalse(self.cancelled)
+
+    def test_running_too_long_is_cancelled(self):
+        states = [{'status': 'IN_PROGRESS'}] * 10
+        with self.assertRaisesRegex(rp.ServerlessError, 'ran longer than 20 minutes'):
+            self.run_wait(states, timeout=1200)
+        self.assertTrue(self.cancelled)
+
+    def test_no_gpu_within_queue_limit_is_cancelled(self):
+        with self.assertRaisesRegex(rp.ServerlessError, 'No serverless GPU became free'):
+            self.run_wait([{'status': 'IN_QUEUE'}] * 10, timeout=60, queue_timeout=1800)
+        self.assertTrue(self.cancelled)
+
+
+def load_audio_queue_worker(root):
+    """Import audio/queue_worker.py with its queue rooted in a temporary folder."""
+    sys.path.insert(0, str(REPO / 'audio'))
+    with patch.dict(os.environ, {'ECCO_AUDIO_QUEUE': str(root)}):
+        for name in ('audio_queue', 'queue_worker'):
+            sys.modules.pop(name, None)
+        import queue_worker
+    return queue_worker
+
+
+class AudioDispatch(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name) / 'queue'
+        self.root.mkdir()
+        self.qw = load_audio_queue_worker(self.root)
+        import audio_dispatch
+        self.dispatch = audio_dispatch
+        self.job = self.root / ('a' * 32)
+        self.job.mkdir()
+        request = {'model': 'chatterbox', 'compute': 'a100', 'genre': 'News', 'title': 'Intro',
+                   'lines': [{'text': 'Welcome to the world news.', 'language': 'English', 'emotion': 'neutral', 'voice': 'default'}]}
+        self.qw.write(self.job / 'request.json', request)
+        self.qw.write(self.job / 'status.json', {'status': 'queued'})
+        (self.job / ('voice-ref-' + 'b' * 32 + '.wav')).write_bytes(b'RIFF-ref')
+        (self.job / 'worker.log').write_bytes(b'old log')
+        self.request = request
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_pack_job_sends_inputs_only(self):
+        with tarfile.open(fileobj=io.BytesIO(self.dispatch.pack_job(self.job))) as archive:
+            names = sorted(archive.getnames())
+        self.assertEqual(names, ['request.json', 'voice-ref-' + 'b' * 32 + '.wav'])
+
+    def test_completed_job_writes_pod_worker_results(self):
+        wav = b'RIFF' + b'\0' * 100
+        import hashlib
+        client = FakeClient({'output.wav': wav, 'provenance.json': b'{"models": ["chatterbox"]}'}, configured=('audio',),
+                            extra={'output': 'output.wav', 'sha256': hashlib.sha256(wav).hexdigest()})
+        self.dispatch.run_job(self.qw, self.request, self.job, 'serverless', client, volume=self.temp.name)
+        status = self.qw.read(self.job / 'status.json', {})
+        self.assertEqual(status['status'], 'complete')
+        self.assertEqual((status['compute'], status['worker_pod']), ('a100', 'serverless'))
+        self.assertEqual((self.job / 'output.wav').read_bytes(), wav)
+        self.assertEqual(status['provenance'], {'models': ['chatterbox']})
+        name, job_input = client.submitted[0]
+        self.assertEqual((name, job_input['key']), ('audio', 'a' * 32))
+        with tarfile.open(fileobj=io.BytesIO(base64.b64decode(job_input['archive']['inline']))) as archive:
+            self.assertIn('request.json', archive.getnames())
+
+    def test_integrity_mismatch_is_an_error(self):
+        client = FakeClient({'output.wav': b'RIFF' + b'\0' * 100}, configured=('audio',), extra={'output': 'output.wav', 'sha256': '0' * 64})
+        self.dispatch.run_job(self.qw, self.request, self.job, 'serverless', client, volume=self.temp.name)
+        status = self.qw.read(self.job / 'status.json', {})
+        self.assertEqual(status['status'], 'error')
+        self.assertIn('integrity', status['error'])
+        self.assertFalse((self.job / 'output.wav').exists())
+
+    def test_cancel_marker_stops_before_submit(self):
+        self.qw.write(self.job / 'cancel.json', {})
+        client = FakeClient({}, configured=('audio',))
+        self.dispatch.run_job(self.qw, self.request, self.job, 'serverless', client, volume=self.temp.name)
+        self.assertEqual(self.qw.read(self.job / 'status.json', {})['status'], 'cancelled')
+        self.assertEqual(client.submitted, [])
+
+    def test_large_inputs_go_through_the_volume(self):
+        ref, path = self.dispatch.stage_inputs(b'x' * rp.MAX_INLINE_BYTES, 'job.tar', volume=self.temp.name)
+        self.assertEqual(ref, {'volume_key': 'ecco-serverless/inputs/job.tar'})
+        self.assertTrue(path.is_file())
+
+    def test_heartbeat_registers_as_a100_worker_and_claims_a100_jobs(self):
+        # Chatterbox needs its GPU environment on the volume; Indic-Mio runs on the shared runtime.
+        self.qw.write(self.job / 'request.json', {**self.request, 'model': 'indic-mio',
+                                                  'lines': [{**self.request['lines'][0], 'voice': 'en_female'}]})
+        stop = threading.Event()
+        client = FakeClient({}, configured=('audio',))
+        client.wait = lambda *a, **kw: stop.wait(5) or {}
+        thread = threading.Thread(target=self.dispatch.dispatcher, args=(self.qw, 'serverless', stop, client, self.temp.name), daemon=True)
+        thread.start()
+        try:
+            deadline = time.time() + 5
+            while time.time() < deadline and not client.submitted:
+                time.sleep(0.05)
+            beat = self.qw.read(self.root / 'worker-serverless.json', {})
+            self.assertEqual((beat['compute'], beat['pod'], beat['serverless']), ('a100', 'serverless', True))
+            self.assertIn('indic-mio', beat['models'])
+            self.assertEqual(len(client.submitted), 1)
+            self.assertEqual(self.qw.read(self.job / 'status.json', {})['worker_pod'], 'serverless')
+        finally:
+            stop.set()
+            thread.join(3)
+            deadline = time.time() + 3  # let the job thread write its final status
+            while time.time() < deadline and self.qw.read(self.job / 'status.json', {}).get('status') == 'running':
+                time.sleep(0.05)
+            time.sleep(0.1)
+
+    def test_unconfigured_endpoint_advertises_no_models(self):
+        beat = self.dispatch.heartbeat(self.qw, 'serverless', FakeClient({}, configured=()))
+        self.assertEqual(beat['models'], [])
+
+
+class AudioWorkerHandler(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        sys.modules.setdefault('runpod', type(sys)('runpod'))
+        sys.modules['runpod'].serverless = type('S', (), {'progress_update': staticmethod(lambda job, text: self.progress.append(text))})
+        self.progress = []
+        spec = importlib.util.spec_from_file_location('audio_handler_test', HERE / 'audio-worker' / 'handler.py')
+        self.handler = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.handler)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_progress_text_matches_pod_worker(self):
+        request = {'lines': [{}, {}, {}]}
+        self.assertEqual(self.handler.progress_text({'phase': 'speech', 'completed': 1, 'total': 3}, request),
+                         'Generating speech · 1 of 3 passages complete')
+        self.assertEqual(self.handler.progress_text({'progress': 'Mixing music and effects'}, request), 'Mixing music and effects')
+        self.assertIsNone(self.handler.progress_text({'progress': 'something internal'}, request))
+
+    def test_failure_returns_error_and_log(self):
+        with patch.object(self.handler, 'prepare', side_effect=RuntimeError('runtime missing')):
+            result = self.handler.handler({'input': {'key': 'k', 'archive': {'inline': ''}}})
+        self.assertIn('runtime missing', result['error'])
+
+    def test_unpack_inputs_rejects_links_and_escapes(self):
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode='w') as archive:
+            info = tarfile.TarInfo('../escape')
+            info.size = 1
+            archive.addfile(info, io.BytesIO(b'x'))
+        with self.assertRaises(ValueError):
+            worker_common.unpack_inputs(buffer.getvalue(), self.temp.name)
+
+    def test_fetch_only_reads_the_inputs_folder(self):
+        with self.assertRaises(ValueError):
+            worker_common.fetch({'volume_key': 'ecco-serverless/results/x.tar'})

@@ -58,7 +58,7 @@ account balance reaches $0.
 Storage → **Create S3 API key**. Workers use it to save results onto
 `b3qo8lps92` (EU-RO-1, which supports the storage API).
 
-### 3. Three endpoints
+### 3. Four endpoints
 
 Serverless → New Endpoint → **GitHub repo** `ecco-ai-labs/ecco-studio`, branch
 `serverless-migration`.
@@ -68,8 +68,9 @@ Serverless → New Endpoint → **GitHub repo** `ecco-ai-labs/ecco-studio`, bran
 | Images | `serverless/comfy-worker/Dockerfile.images` | 48 GB (L40S), A100 80 GB, H100 | 10 min |
 | Video | `serverless/comfy-worker/Dockerfile.video` | B200, H200, H100 | 60 min |
 | LongCat | `serverless/longcat-worker/Dockerfile` | B200 only (the only validated GPU) | 45 min |
+| Audio | `serverless/audio-worker/Dockerfile` | A100 80 GB, A100 40 GB | 30 min |
 
-For all three: attach the **global volume**, queue-based, active workers 0, max
+For all four: attach the **global volume**, queue-based, active workers 0, max
 workers 3–5, idle timeout 60 s, FlashBoot on, all data centers. Add these
 environment variables, with the key from step 2 stored as RunPod secrets:
 
@@ -83,17 +84,25 @@ ECCO_S3_SECRET_ACCESS_KEY=<from step 2>
 
 The first start of each worker is slow while models load from the global volume.
 
-### 4. Turn it on (CPU pod)
+The Audio endpoint uses the same base image as the GPU pods and runs their exact speech
+environments (Indic-Mio, Chatterbox, IndicF5) from the global volume; the pods' runtime
+archive is unpacked onto each worker's local disk at start-up.
 
-Pick a stopped GPU instance for Studio's picker to stand in for. Then:
+### 4. Turn it on (always-on storage pod)
+
+Run the bridge on the storage pod, which is always on:
 
 ```sh
-export RUNPOD_API_KEY=... ECCO_ENDPOINT_IMAGES=... ECCO_ENDPOINT_VIDEO=... ECCO_ENDPOINT_LONGCAT=...
-export ECCO_SERVERLESS_POD=<stopped instance ID>
+export RUNPOD_API_KEY=... ECCO_ENDPOINT_IMAGES=... ECCO_ENDPOINT_VIDEO=... ECCO_ENDPOINT_LONGCAT=... ECCO_ENDPOINT_AUDIO=...
+export ECCO_SERVERLESS_POD=serverless
 python serverless/serverless_studio.py
 ```
 
-In Studio, select that instance and generate an image, an edit, a Wan clip, a
+Studio's GPU connection box shows **Serverless** beside B200 and A100. It connects
+automatically whenever the bridge is healthy (unless you disconnect it) and is billed
+per second of generation. Audio Studio sees it as an A100 audio worker named
+*Serverless A100*, so choosing A100 compute for speech runs on the serverless endpoint.
+In Studio, generate an image, an edit, a Wan clip, a
 Z-Image image and a LongCat shot. Activity and errors go to
 `/workspace/ecco-serverless/proxy.log`. If that GPU pod gets started, its own
 workers take their locks back and the launcher stays out of the way.

@@ -122,6 +122,18 @@ def start_longcat(pod):
     threading.Thread(target=run, daemon=True, name='serverless-longcat').start()
 
 
+def start_audio(pod):
+    live = WORKSPACE / 'ecco-audio/queue_worker.py'
+    sys.path.insert(0, str(live.parent if live.is_file() else REPO / 'audio'))
+    qw = importlib.import_module('queue_worker')
+    dispatch = importlib.import_module('audio_dispatch')
+
+    def run():
+        if not dispatch.dispatcher(qw, pod):
+            say(f'Serverless A100 audio worker {pod} is already running elsewhere; this one stays idle.')
+    threading.Thread(target=run, daemon=True, name='serverless-audio').start()
+
+
 def main():
     pod = os.getenv('ECCO_SERVERLESS_POD', '')
     if not os.getenv('RUNPOD_API_KEY'):
@@ -144,7 +156,9 @@ def main():
             start_longcat(pod)
     else:
         say('ECCO_SERVERLESS_POD not set: Studio runs locally only, not reachable through the GPU picker.')
-    for name in ('images', 'video', 'longcat'):
+    if rp.configured('audio'):
+        start_audio(pod or 'serverless')
+    for name in ('images', 'video', 'longcat', 'audio'):
         say(f'{name} endpoint: {"configured" if rp.configured(name) else "not configured"}')
     runpy.run_path(str(STUDIO_DIR / 'studio.py'), run_name='__main__')
 

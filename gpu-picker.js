@@ -5,7 +5,9 @@ window.EccoGPUPicker = (() => {
     {id:'io8sphjo10kbuy',name:'B200',label:'ecco-b200-benchmark'},
     {id:'p7lc6fqjuosti3',name:'B200',label:'severe_crimson_kingfisher'},
     {id:'1muqctw9bxvguu',name:'A100',label:'ecco-demo-a100'},
-    {id:'sup07jsgh2evnf',name:'A100',label:'ecco-demo-a100-migration'}
+    {id:'sup07jsgh2evnf',name:'A100',label:'ecco-demo-a100-migration'},
+    // Always-on bridge to RunPod Serverless; no pod to start. It connects automatically while healthy.
+    {id:'serverless',name:'Serverless',label:'RunPod Serverless'}
   ].map(gpu => ({...gpu, origin:`https://${gpu.id}-8888.proxy.runpod.net`,
     url:`https://${gpu.id}-8888.proxy.runpod.net/proxy/8765/`}));
   let dispose = () => {};
@@ -40,7 +42,7 @@ window.EccoGPUPicker = (() => {
     const disconnectMode=!!options.disconnect;
     dispose();
     let active=true,busy=false,statuses=new Map();
-    const connecting=new Set(),classes=['B200','A100'];
+    const connecting=new Set(),classes=['B200','A100','Serverless'];
     container.innerHTML=`<section class="gpu-picker panel" aria-label="Accelerator classes">
       <div class="section-head"><h2>Class of Accelerators</h2><button type="button" class="secondary" id="gpu-refresh">Refresh status</button></div>
       <div class="gpu-grid">${classes.map(name=>`<article class="gpu-card" data-gpu-class="${name}" aria-labelledby="gpu-class-${name}">

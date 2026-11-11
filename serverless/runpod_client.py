@@ -73,10 +73,17 @@ def cancel(name, job_id, opener=urllib.request.urlopen):
 
 
 def wait(name, job_id, should_cancel=lambda: False, on_status=lambda s: None,
-         timeout=3600, poll=2.0, opener=urllib.request.urlopen, sleep=time.sleep):
-    """Poll until the job finishes. Returns the job output or raises ServerlessError."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+         timeout=3600, poll=2.0, opener=urllib.request.urlopen, sleep=time.sleep,
+         queue_timeout=None, on_progress=lambda text: None, clock=time.monotonic):
+    """Poll until the job finishes. Returns the job output or raises ServerlessError.
+
+    `timeout` limits running time only, counted from when a worker picks the job up;
+    waiting for a free GPU is limited separately by `queue_timeout` (default 6 hours).
+    `on_progress` receives the worker's progress_update() text while it runs.
+    """
+    queue_timeout = float(os.getenv('ECCO_SERVERLESS_QUEUE_TIMEOUT', 6 * 3600)) if queue_timeout is None else queue_timeout
+    submitted, started, last_progress = clock(), None, None
+    while True:
         if should_cancel():
             cancel(name, job_id, opener=opener)
             raise ServerlessError('Stopped by user')
@@ -90,9 +97,20 @@ def wait(name, job_id, should_cancel=lambda: False, on_status=lambda s: None,
             return output
         if state in FAILED:
             raise ServerlessError(f'Serverless job {state.lower()}: {reply.get("error") or "no details"}')
+        if state == 'IN_PROGRESS':
+            started = started or clock()
+            text = reply.get('output')
+            if isinstance(text, str) and text != last_progress:
+                last_progress = text
+                on_progress(text)
+        now = clock()
+        if started is not None and now - started > timeout:
+            cancel(name, job_id, opener=opener)
+            raise ServerlessError(f'Serverless job ran longer than {round(timeout / 60)} minutes and was cancelled.')
+        if started is None and now - submitted > queue_timeout:
+            cancel(name, job_id, opener=opener)
+            raise ServerlessError(f'No serverless GPU became free within {round(queue_timeout / 60)} minutes. The job was cancelled before it started; nothing was charged for generation.')
         sleep(poll)
-    cancel(name, job_id, opener=opener)
-    raise ServerlessError('Serverless job timed out and was cancelled.')
 
 
 VOLUME = os.getenv('ECCO_WORKSPACE', '/workspace')

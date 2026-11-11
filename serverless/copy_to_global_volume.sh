@@ -20,6 +20,12 @@ rsync "${opts[@]}" "$src/ecco-models/z-image" "$dst/ecco-models/"
 for part in source weights runner.py; do
   rsync "${opts[@]}" "$src/ecco-video/longcat/$part" "$dst/ecco-video/longcat/"
 done
+# Speech (A100): the pods' runtime archive (kept as a tar so file modes survive; the global
+# volume cannot store executable bits) and the audio folder with its voice environments and weights.
+mkdir -p "$dst/ecco-runtime"
+rsync "${opts[@]}" "$src/ecco-runtime/runtime.tar" "$src/ecco-runtime/runtime.sha256" "$dst/ecco-runtime/"
+rsync "${opts[@]}" --exclude queue --exclude 'cpu-*' --exclude '*.log' --exclude 'backup-*' --exclude 'staging-*' \
+  --exclude 'compute-stage-*' --exclude download-venv --exclude '*.lock' --exclude __pycache__ "$src/ecco-audio" "$dst/"
 echo "ComfyUI commit on the pods: $(git -c safe.directory="$src/ComfyUI" -C "$src/ComfyUI" rev-parse HEAD 2>/dev/null || echo unknown)"
-du -sh "$dst/ComfyUI/models" "$dst/ecco-models/z-image" "$dst/ecco-video/longcat"
+du -sh "$dst/ComfyUI/models" "$dst/ecco-models/z-image" "$dst/ecco-video/longcat" "$dst/ecco-audio" "$dst/ecco-runtime"
 echo "Copy complete."

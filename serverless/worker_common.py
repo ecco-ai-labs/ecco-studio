@@ -55,18 +55,50 @@ def volume_configured():
                                       'ECCO_S3_ACCESS_KEY_ID', 'ECCO_S3_SECRET_ACCESS_KEY'))
 
 
+def _s3_client():
+    import boto3
+    return boto3.client('s3', endpoint_url=os.environ['ECCO_S3_ENDPOINT_URL'],
+                        aws_access_key_id=os.environ['ECCO_S3_ACCESS_KEY_ID'],
+                        aws_secret_access_key=os.environ['ECCO_S3_SECRET_ACCESS_KEY'],
+                        region_name=os.getenv('ECCO_S3_REGION', 'eu-ro-1'))
+
+
+INPUTS_PREFIX = 'ecco-serverless/inputs/'
+
+
+def fetch(ref):
+    """Bytes of a job input given as {'volume_key': key on the network volume} or {'inline': base64}."""
+    if ref.get('inline'):
+        return base64.b64decode(ref['inline'], validate=True)
+    key = safe_name(ref.get('volume_key', ''))
+    if not key.startswith(INPUTS_PREFIX):
+        raise ValueError('Job inputs must come from the serverless inputs folder.')
+    buffer = io.BytesIO()
+    _s3_client().download_fileobj(os.environ['ECCO_S3_BUCKET'], key, buffer)
+    return buffer.getvalue()
+
+
+def unpack_inputs(data, directory):
+    """Extract a tar of plain files into directory, rejecting links and paths outside it."""
+    directory = Path(directory).resolve()
+    with tarfile.open(fileobj=io.BytesIO(data), mode='r') as archive:
+        for member in archive.getmembers():
+            target = (directory / safe_name(member.name)).resolve()
+            if not member.isfile() or not target.is_relative_to(directory):
+                raise ValueError(f'Unsafe input file: {member.name!r}')
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.extractfile(member) as source:
+                target.write_bytes(source.read())
+
+
 def deliver(data, name, inline=False):
     """Return {'volume_key': path on the volume} or {'inline': base64} when small.
 
     inline=True (a test job's "return_inline") skips the volume for small results.
     """
     if volume_configured() and not (inline and len(data) <= MAX_INLINE_BYTES):
-        import boto3
         from boto3.s3.transfer import TransferConfig
-        client = boto3.client('s3', endpoint_url=os.environ['ECCO_S3_ENDPOINT_URL'],
-                              aws_access_key_id=os.environ['ECCO_S3_ACCESS_KEY_ID'],
-                              aws_secret_access_key=os.environ['ECCO_S3_SECRET_ACCESS_KEY'],
-                              region_name=os.getenv('ECCO_S3_REGION', 'eu-ro-1'))
+        client = _s3_client()
         key = RESULTS_PREFIX + safe_name(name)
         # The volume API takes single uploads under 500 MB; larger ones go in parts.
         config = TransferConfig(multipart_threshold=256 * 1024 * 1024, multipart_chunksize=256 * 1024 * 1024)
