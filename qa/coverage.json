@@ -238,5 +238,10 @@
     "area": "Library tiles at scale",
     "mode": "fixture + local storage service",
     "scope": "With storage thumbnails, picture tiles load small thumbnails first and video tiles load poster frames, never the full video; tiles shimmer until ready. Without them, pictures fall back to the full file and videos keep the frame preview. Checked end to end against a local copy of the storage service: thumbnails, posters, ETag revalidation and changes-only state (a new record arrives and a deleted one disappears)."
+  },
+  {
+    "area": "Library preloading",
+    "mode": "fixture + local storage service",
+    "scope": "From the moment Studio opens, the first page of Images and Video loads in the background as small thumbnails; in a library the next and previous pages load ahead; in the full-size view the next and previous pictures load ahead. Only when storage offers thumbnails; whole libraries are never preloaded. End to end: first pages ready 1.5 s after opening, Library tiles in 0.25 s, page 2 in 0.15 s, next picture instant."
   }
 ]

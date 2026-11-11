@@ -316,6 +316,20 @@ test('THUMB-scale tiles load thumbnails and poster frames, never full files, whe
   expect(fetched.some(p=>p.startsWith('thumb/qa-image'))).toBe(true);expect(fetched.some(p=>p.startsWith('thumb/qa-video'))).toBe(true);
   expect(page.qaErrors).toEqual([]);
 });
+// Preloading (owner request, 11 November 2026): from the moment Studio opens, the first page of Images and Video is
+// fetched as small thumbnails, so the Library shows them instantly; whole libraries are never preloaded.
+test('PRELOAD-01 first library pages load in the background before the Library is opened',async({page})=>{
+  await boot(page);await seedMany(page,{image:100});
+  await page.evaluate(()=>{state.config.storage.thumbnails=1;state.config.storage.video_thumbnails=true;
+    const png=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='),c=>c.charCodeAt(0)).buffer;
+    const real=window.api;window.qaThumbs=[];window.api=async(path,body)=>{if(path.startsWith('thumb/')){window.qaThumbs.push(path.slice(6));return {buffer:png,mime:'image/png'};}return real(path,body);};
+    hydrateMedia();});
+  await expect.poll(()=>page.evaluate(()=>{const w=EccoLibraryHub.warmList().filter(x=>x.type==='thumb');return w.length>0&&w.every(x=>thumbCache.has(x.id));}),{timeout:15000}).toBe(true);
+  const preloaded=await page.evaluate(()=>window.qaThumbs.length);expect(preloaded).toBeGreaterThanOrEqual(60);expect(preloaded).toBeLessThan(102+2+10);
+  const hub=await openLibrary(page,'image');
+  expect(await hub.locator('.lh-card img[data-thumb]').evaluateAll(els=>els.length===60&&els.every(e=>e.getAttribute('src')))).toBe(true);
+  expect(page.qaErrors).toEqual([]);
+});
 async function seedLabels(page){
   await page.evaluate(async()=>{
     state.config.storage.library_labels=1;state.config.storage.rename_available=true;
