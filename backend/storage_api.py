@@ -5,6 +5,7 @@ import hmac
 import json
 import mimetypes
 import os
+import subprocess
 from pathlib import Path
 import sys
 from http.server import ThreadingHTTPServer
@@ -16,6 +17,7 @@ import audio_library
 import audio_stories
 import library_rename
 import library_labels
+import library_scale
 import audio_jobs
 import audio_preflight
 import audio_workflows
@@ -59,12 +61,26 @@ WRITE_ROUTES = frozenset({
     '/api/training-requests', '/api/approve', '/api/director/update',
 })
 
-def storage_state():
-    return {'records': [frame_editor.public_record(character_studio.job_view({**r, 'kind': 'job', 'source_kind': r['kind'], 'model': r.get('model') or longcat_jobs.MODEL, 'label': r.get('label') or 'Video · LongCat sequence'} if r['kind']=='audio_video_job' else r)) for r in longcat_progress.enrich(legacy.records())], 'storage_pending': False, 'config': {
+def public_records(rows):
+    return [frame_editor.public_record(character_studio.job_view({**r, 'kind': 'job', 'source_kind': r['kind'], 'model': r.get('model') or longcat_jobs.MODEL, 'label': r.get('label') or 'Video · LongCat sequence'} if r['kind']=='audio_video_job' else r)) for r in longcat_progress.enrich(rows)]
+
+def storage_state(since=None):
+    # Library at scale (10 November 2026): with ?since=<cursor> only changed records are sent.
+    # The cursor is read before the records, so a write in between is sent again, never lost.
+    library_scale.prune(legacy.DATA)
+    delta = library_scale.changes_since(legacy.DATA, since) if since is not None else None
+    if delta is not None:
+        rows, deleted, cursor = delta
+        records, extra = public_records(rows), {'delta': True, 'deleted': deleted, 'cursor': cursor}
+    else:
+        cursor = library_scale.cursor(legacy.DATA)
+        records, extra = public_records(legacy.records()), {'delta': False, 'cursor': cursor}
+    return {'records': records, **extra, 'storage_pending': False, 'config': {
         'character_studio': character_studio.status(),
         'frame_editor': frame_editor.status(),
         'storage': {'provider': 'RunPod network volume', 'volume': 'b3qo8lps92',
-                    'rename_available': True, 'library_labels': 1, 'gpu_independent': True, 'service': 'ecco-storage-api'},
+                    'rename_available': True, 'library_labels': 1, 'gpu_independent': True, 'service': 'ecco-storage-api',
+                    'state_changes': 1, 'thumbnails': 1, 'video_thumbnails': library_scale.video_thumbnails_available(), 'media_revalidation': 1},
         'longcat': {**longcat_jobs.status(), 'sequence_available': True, 'sequence_controls': True}, 'gpu_relay': gpu_relay.status(), 'models_ready': {}, 'video_gpus': [], 'runtime': {}, 'ai': openai_assistant.status(),
         'ai_story_planner': {'ready': scene_planner.ready()}, 'audio_workflows': audio_workflows.status(),
         'hourly_rate': 0.081, 'github_connected': False,
@@ -74,6 +90,25 @@ def storage_state():
 
 class Handler(legacy.Handler):
     access_key = ''
+    def send_not_modified(self, tag, cache):
+        self.send_response(304)
+        self.send_header('ETag', tag)
+        self.send_header('Cache-Control', cache)
+        self.end_headers()
+    def send_cached(self, file, mime, cache):
+        """A whole file the browser may keep: ETag, Cache-Control and 304 on a match."""
+        tag = library_scale.etag(file)
+        if library_scale.matches(self.headers.get('If-None-Match'), tag):
+            return self.send_not_modified(tag, cache)
+        data = Path(file).read_bytes()
+        self.send_response(200)
+        self.send_header('Content-Type', mime)
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Cache-Control', cache)
+        self.send_header('ETag', tag)
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.end_headers()
+        self.wfile.write(data)
     @property
     def allowed_origin(self):
         return web_origins.request_origin(self.headers)
@@ -133,7 +168,22 @@ class Handler(legacy.Handler):
         if not self.authorized(): return
         try:
             if path == '/api/youtube/playlists': return self.send(youtube_connection.playlists())
-            if path == '/api/state': return self.send(storage_state())
+            if path == '/api/state':
+                since = parse_qs(urlsplit(self.path).query).get('since', [None])[0]
+                if since is not None and not since.isdigit(): raise legacy.Problem('Invalid change cursor', 400)
+                return self.send(storage_state(int(since) if since is not None else None))
+            if path.startswith('/api/thumb/'):
+                asset = legacy.get(path.split('/')[-1], 'asset')
+                if asset.get('media') not in ('image', 'video') or asset.get('deleted'): raise legacy.Problem('Thumbnails are available for images and videos only', 404)
+                source = legacy.asset_path(asset)
+                if asset['media'] == 'video':
+                    try: file, mime = library_scale.video_thumbnail(legacy.DATA, asset, source), 'image/webp'
+                    except (OSError, ValueError, subprocess.SubprocessError): raise legacy.Problem('No poster frame for this video', 404)
+                else:
+                    try: file = library_scale.thumbnail(legacy.DATA, asset, source)
+                    except (OSError, ValueError): file, mime = source, mimetypes.guess_type(source.name)[0] or 'application/octet-stream'
+                    else: mime = 'image/webp'
+                return self.send_cached(file, mime, 'private, max-age=604800, stale-while-revalidate=86400')
             if path == '/api/character-studio/status': return self.send(character_studio.status())
             if path.startswith('/api/frame-editor/'): return self.send(frame_editor.handle_get(path, vars(legacy)))
             if path == '/api/gpu/status': return self.send(gpu_relay.status())
@@ -149,6 +199,9 @@ class Handler(legacy.Handler):
             if path.startswith('/api/media/'):
                 asset = legacy.get(path.split('/')[-1], 'asset')
                 file = legacy.asset_path(asset)
+                tag = library_scale.etag(file)
+                if not self.headers.get('Range') and library_scale.matches(self.headers.get('If-None-Match'), tag):
+                    return self.send_not_modified(tag, 'private, no-cache')
                 size = file.stat().st_size
                 start, end, status = 0, size - 1, 200
                 headers = {'Accept-Ranges': 'bytes'}
@@ -165,7 +218,8 @@ class Handler(legacy.Handler):
                 self.send_response(status)
                 self.send_header('Content-Type', mimetypes.guess_type(file.name)[0] or 'application/octet-stream')
                 self.send_header('Content-Length', str(end-start+1))
-                self.send_header('Cache-Control', 'private, no-store')
+                self.send_header('Cache-Control', 'private, no-cache')
+                self.send_header('ETag', tag)
                 self.send_header('X-Content-Type-Options', 'nosniff')
                 for key, value in headers.items(): self.send_header(key, value)
                 self.end_headers()

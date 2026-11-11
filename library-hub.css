@@ -131,3 +131,29 @@ body:not(.workspace-entry-mode) #page#page .lh .lh-seg button{min-height:0!impor
 .lh-viewer-step svg{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .lh-viewer-step:disabled{opacity:.35;cursor:default}
 .lh-viewer-step:focus-visible{outline:2px solid var(--accent,#ffdc24);outline-offset:2px}
+/* Library at scale (10 November 2026): page bar, loading tiles and video poster frames, in every library.
+   Sizes come from the master roster (buttons and inputs); these rules only lay out and color. */
+.lh-pager{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;padding:8px 10px;border:1px solid var(--ecco-theme-border,#3a3568);border-radius:8px;background:var(--panel,#1d1a3b)}
+.lh-pager-bottom{justify-content:center;margin:14px 0 0;border:0;background:transparent}
+.lh-pager-status{margin-right:auto;color:var(--ecco-theme-muted,#c9c5ea)}
+.lh-page-step{display:inline-flex;align-items:center;gap:4px}
+.lh-page-step svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.lh-page-step:disabled{opacity:.4;cursor:default}
+.lh-page-num{min-width:32px}
+.lh-page-num[aria-current=page]{background:var(--accent,#ffdc24);color:#1a1633;border-color:var(--accent,#ffdc24);font-weight:600}
+.lh-pager-gap{padding:0 4px;color:var(--ecco-theme-muted,#c9c5ea)}
+.lh-pager-jump{display:inline-flex;align-items:center;gap:6px;margin-left:6px}
+.lh-pager-jump input{width:84px}
+.lh-thumb,.lh-mini{position:relative}
+.lh-thumb img[src=""],.lh-mini img[src=""],.lh-thumb img:not([src]),.lh-mini img:not([src]),[data-thumb][data-media-failed]{visibility:hidden}
+.lh-poster{position:absolute;inset:0}
+@keyframes lhShimmer{0%{background-position:-180px 0}100%{background-position:180px 0}}
+.lh-thumb.media-loading,.lh-mini.media-loading{background:linear-gradient(90deg,var(--panel,#242147) 0,#332d5c 60px,var(--panel,#242147) 120px)!important;background-size:360px 100%!important;animation:lhShimmer 1.2s linear infinite}
+.lh-thumb.media-loading>svg,.lh-mini.media-loading>svg{visibility:hidden}
+@media(prefers-reduced-motion:reduce){.lh-thumb.media-loading,.lh-mini.media-loading{animation:none}}
+@media(max-width:640px){.lh-pager-status{flex-basis:100%}}
+/* Page bar buttons: beat the shared compact-button rule the same way the other Library buttons do. */
+body:not(.workspace-entry-mode) #page#page .lh .lh-pager button{display:inline-flex!important;align-items:center;justify-content:center;gap:4px;min-height:0!important;padding:6px 10px!important;line-height:1.2!important;font-weight:400!important;border:1px solid var(--ecco-theme-border,#4a4580);border-radius:6px;background:var(--ecco-theme-control,#302a54);color:var(--ecco-theme-text,#f2f0ff)}
+body:not(.workspace-entry-mode) #page#page .lh .lh-pager button[aria-current=page]{background:var(--accent,#ffdc24);border-color:var(--accent,#ffdc24);color:#1a1633;font-weight:600!important}
+body:not(.workspace-entry-mode) #page#page .lh .lh-pager button:disabled{opacity:.4;cursor:default}
+body:not(.workspace-entry-mode) #page#page .lh .lh-pager-bottom button{padding:6px 14px!important}

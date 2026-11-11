@@ -92,42 +92,62 @@ function welcome(){
  $('#heading').textContent='';$('#wan-badge').textContent='GPU not connected';$('#page').replaceChildren();
  let entry=$('#workspace-entry');if(!entry){entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Welcome to Ecco AI Labs Studio');entry.innerHTML='<img class="entry-logo" src="logo-transparent.png" alt="Ecco AI Labs logo"><h1>Ecco AI Labs<span class="entry-subtitle">Studios</span></h1><button type="button" id="entry-tell-story" disabled>Tell Your Story</button><p class="entry-copyright">© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.</p>';document.body.append(entry);entry.querySelector('button').onclick=()=>{if(!window.EccoAuth?.user)return;document.body.classList.remove('workspace-entry-mode');page='empty';$('#heading').textContent='';$('#page').replaceChildren();document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));};}
 }
-// Media loading (10 November 2026, owner asked why picture tiles took a minute): files used to download one at a
-// time, every saved file in record order, before tiles further down the list. Now up to MEDIA_WORKERS download at once,
-// files shown on screen go first, then the rest of what is on the page, then remaining pictures in the background.
-// Audio and video download only when something on the page shows them.
-const MEDIA_WORKERS=4,mediaFailed=new Map();let mediaWorkers=0;
-function mediaElements(id){return document.querySelectorAll('[data-asset="'+(window.CSS?.escape?CSS.escape(id):id)+'"]');}
-function mediaPriority(a){
- const els=mediaElements(a.id);
- if(els.length){
-  const h=innerHeight||800,w=innerWidth||1200;
-  for(const el of els){const r=el.getBoundingClientRect();if((r.width||r.height)&&r.bottom>=-200&&r.top<=h+200&&r.right>=0&&r.left<=w)return 0;}
-  return 1;
- }
- return a.media==='image'?2:-1;
+// Media loading. 10 November 2026: on-screen files first, four at a time. Library at scale (same day, 250,000
+// pictures): work comes from what the page shows, never a scan of every record, so each pick stays cheap.
+// [data-thumb] elements get a small thumbnail when the storage service offers them (images, and video poster
+// frames); [data-asset] elements get the full file. With 300 pictures or fewer, the rest are prefetched in the
+// background as before; beyond that only what a page shows is downloaded.
+const MEDIA_WORKERS=4,MEDIA_PREFETCH_LIMIT=300,mediaFailed=new Map(),thumbCache=new Map(),thumbLoading=new Set();
+let mediaWorkers=0,mediaIndex=null,mediaIndexFor=null,mediaIndexSize=-1;
+function mediaRecord(id){
+ const list=state?.records||[];
+ if(mediaIndexFor!==list||mediaIndexSize!==list.length){mediaIndexFor=list;mediaIndexSize=list.length;mediaIndex=new Map();for(const r of list)if(r.kind==='asset')mediaIndex.set(r.id,r);}
+ return mediaIndex.get(id);
+}
+function thumbsFor(a){const s=state?.config?.storage||{};return a?.media==='image'?!!s.thumbnails:a?.media==='video'?!!s.video_thumbnails:false;}
+function mediaElements(id,attr='data-asset'){return document.querySelectorAll('['+attr+'="'+(window.CSS?.escape?CSS.escape(id):id)+'"]');}
+function onScreen(el){const r=el.getBoundingClientRect();return (r.width||r.height)&&r.bottom>=-200&&r.top<=(innerHeight||800)+200&&r.right>=0&&r.left<=(innerWidth||1200);}
+function wanted(id,type){
+ if(Date.now()-(mediaFailed.get(type+id)||0)<30000)return false;
+ return type==='thumb'?!(thumbCache.has(id)||thumbLoading.has(id)):!(mediaCache.has(id)||mediaLoading.has(id));
 }
 function nextMedia(){
- let best=null,rank=9;
- for(const a of state?.records||[]){
-  if(a.kind!=='asset'||a.deleted||mediaCache.has(a.id)||mediaLoading.has(a.id)||Date.now()-(mediaFailed.get(a.id)||0)<30000)continue;
-  const p=mediaPriority(a);if(p<0||p>=rank)continue;best=a;rank=p;if(p===0)break;
+ let later=null;
+ for(const el of document.querySelectorAll('[data-thumb],[data-asset]')){
+  const id=el.dataset.thumb||el.dataset.asset,a=mediaRecord(id);if(!a||a.deleted)continue;
+  let type=el.dataset.thumb?'thumb':'media';
+  if(type==='thumb'&&!thumbsFor(a)){if(a.media!=='image')continue;type='media';}
+  if(!wanted(id,type))continue;
+  if(onScreen(el))return {id,type};
+  if(!later)later={id,type};
  }
- return best;
+ if(later)return later;
+ let images=0;for(const a of mediaIndex?.values()||[])if(a.media==='image'&&!a.deleted&&++images>MEDIA_PREFETCH_LIMIT)return null;
+ for(const a of mediaIndex?.values()||[])if(a.media==='image'&&!a.deleted&&wanted(a.id,'media'))return {id:a.id,type:'media'};
+ return null;
 }
+function paintMedia(id,type,url){
+ if(type==='thumb')mediaElements(id,'data-thumb').forEach(el=>{el.src=url;el.closest('.media-loading')?.classList.remove('media-loading');});
+ else mediaElements(id).forEach(el=>{if(el.tagName==='A')el.href=url;else el.src=url;if(el.tagName==='IMG')el.closest('.media-loading')?.classList.remove('media-loading');});
+ if(type==='media')mediaElements(id,'data-thumb').forEach(el=>{if(!thumbsFor(mediaRecord(id))&&el.tagName==='IMG'){el.src=url;el.closest('.media-loading')?.classList.remove('media-loading');}});
+}
+function mediaFailedFor(id,type){mediaFailed.set(type+id,Date.now());(type==='thumb'?mediaElements(id,'data-thumb'):mediaElements(id)).forEach(el=>{el.dataset.mediaFailed='';el.closest('.media-loading')?.classList.remove('media-loading');});}
 async function mediaWorker(){
  mediaWorkers++;
  try{
-  for(let a=nextMedia();a;a=nextMedia()){
-   mediaLoading.add(a.id);
-   try{const r=await api('media/'+a.id);mediaCache.set(a.id,URL.createObjectURL(new Blob([r.buffer],{type:r.mime})));mediaElements(a.id).forEach(el=>{if(el.tagName==='A')el.href=mediaCache.get(a.id);else el.src=mediaCache.get(a.id);});}
-   catch(e){mediaFailed.set(a.id,Date.now());notice(e.message,true);}finally{mediaLoading.delete(a.id);}
+  for(let job=nextMedia();job;job=nextMedia()){
+   const {id,type}=job,busy=type==='thumb'?thumbLoading:mediaLoading,cache=type==='thumb'?thumbCache:mediaCache;
+   busy.add(id);
+   try{const r=await api((type==='thumb'?'thumb/':'media/')+id);cache.set(id,URL.createObjectURL(new Blob([r.buffer],{type:r.mime})));paintMedia(id,type,cache.get(id));}
+   catch(e){mediaFailedFor(id,type);if(type!=='thumb')notice(e.message,true);}finally{busy.delete(id);}
   }
  }finally{mediaWorkers--;}
 }
+function thumbURL(a){return thumbCache.get(a.id)||(!thumbsFor(a)&&a.media==='image'?mediaCache.get(a.id):'')||'';}
 async function hydrateMedia(){
  if(!state)return;
- const starts=[];while(mediaWorkers<MEDIA_WORKERS&&nextMedia()&&starts.length<MEDIA_WORKERS)starts.push(mediaWorker());
+ mediaRecord('');
+ const starts=[];while(mediaWorkers<MEDIA_WORKERS&&starts.length<MEDIA_WORKERS&&nextMedia())starts.push(mediaWorker());
  await Promise.all(starts);
 }
 
