@@ -132,17 +132,19 @@
   if(!accessKey)throw Error('Connect your saved workspace from Connections → Storage. No GPU is needed.');
   let response;
   try{
-   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
+   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:path.startsWith('thumb/')?60000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
    if(!response.ok){
     let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
     try{message=(await response.json()).error||message;}catch{}
     const error=Error(message);error.status=response.status;throw error;
    }
+   if(path.startsWith('thumb/')){const buffer=await response.arrayBuffer();return {buffer,mime:response.headers.get('Content-Type')};}
    if(path.startsWith('media/')){const buffer=await response.arrayBuffer();(window.EccoMediaMetadata||(window.EccoMediaMetadata=new Map())).set(decodeURIComponent(path.slice(6)),{size:buffer.byteLength});window.dispatchEvent(new Event('ecco:media-metadata'));return {buffer,mime:response.headers.get('Content-Type')};}
    const data=await response.json();
    if(accessKey!==key&&accessKey!==options.connectingKey)throw Error('Workspace connection changed; stale response ignored.');
-   if(path==='state'&&(!Array.isArray(data.records)||!data.config))throw Error('Storage returned an invalid workspace response.');
-   if(path==='state')data.records=data.records.map(audioJobView);
+   const isState=path==='state'||path.startsWith('state?');
+   if(isState&&(!Array.isArray(data.records)||!data.config))throw Error('Storage returned an invalid workspace response.');
+   if(isState)data.records=data.records.map(audioJobView);
    if(path==='audio/generate'||path.startsWith('audio/jobs/'))return audioJobView(data);
    return data;
   }catch(error){
@@ -151,10 +153,31 @@
    throw error;
   }
  }
+ // Changes-only updates (library at scale, 10 November 2026). After one full state, a storage service that offers
+ // state_changes is asked only for what changed since its cursor; the full record list is rebuilt here, so the rest
+ // of Studio still sees a complete state. Any doubt (new key, no cursor, server asks) falls back to a full state.
+ const stateSync={key:'',cursor:null,records:null,order:null};
+ function resetStateSync(){stateSync.key='';stateSync.cursor=null;stateSync.records=null;stateSync.order=null;}
+ async function syncedState(accessKey,options){
+  const usable=stateSync.key===accessKey&&stateSync.cursor!==null&&stateSync.records;
+  let data;
+  try{data=await storageRequest(usable?'state?since='+stateSync.cursor:'state',undefined,accessKey,options);}
+  catch(error){if(!usable||error.status!==400)throw error;resetStateSync();data=await storageRequest('state',undefined,accessKey,options);}
+  if(data.delta&&usable){
+   for(const id of data.deleted||[]){stateSync.records.delete(id);}
+   for(const record of data.records){if(!stateSync.records.has(record.id))stateSync.order.push(record.id);stateSync.records.set(record.id,record);}
+   if((data.deleted||[]).length)stateSync.order=stateSync.order.filter(id=>stateSync.records.has(id));
+   data.records=stateSync.order.map(id=>stateSync.records.get(id));
+  }else if(data.config?.storage?.state_changes&&Number.isFinite(data.cursor)){
+   stateSync.records=new Map(data.records.map(r=>[r.id,r]));stateSync.order=data.records.map(r=>r.id);
+  }else{resetStateSync();return data;}
+  stateSync.key=accessKey;stateSync.cursor=data.cursor;
+  return data;
+ }
  api=async function(path,body,options={}){
   if(inference.has(path))return inferenceRequest(path,body);
   if(generation.has(path))return gpuAPI(path,body);
-  const data=await storageRequest(path,body,key,options);
+  const data=path==='state'&&body===undefined?await syncedState(key,options):await storageRequest(path,body,key,options);
   if(path==='state'){
    verified=true;errorShown=false;connectAudio();
    acceptGPUHealth(data.config.gpu_relay);
@@ -168,7 +191,7 @@
   window.EccoErrors.show(error,{title:'Workspace storage error',retryLabel:'Reconnect storage',retry:dialog});
  }
  function counts(){const active=state.records.filter(r=>!r.deleted);return active.filter(r=>r.kind==='asset'&&r.media==='image').length+' images · '+active.filter(r=>r.kind==='story').length+' stories';}
- function disconnect(){connectionLog('Storage disconnected',{reason:'User requested'});key='';notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();localStorage.removeItem('ecco-storage-access');sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');window.EccoYouTube?.update();}
+ function disconnect(){connectionLog('Storage disconnected',{reason:'User requested'});key='';resetStateSync();notifyGPUConnection();verified=false;audioConnected=false;window.EccoAudioStudio?.disconnect();for(const url of audioMedia.values())URL.revokeObjectURL(url);audioMedia.clear();localStorage.removeItem('ecco-storage-access');sessionStorage.removeItem('ecco-storage-access');for(const url of mediaCache.values())URL.revokeObjectURL(url);mediaCache.clear();if(typeof thumbCache!=='undefined'){for(const url of thumbCache.values())URL.revokeObjectURL(url);thumbCache.clear();}state={records:[],config:{models_ready:{}},storage_pending:true};storyControls();navigate('empty');window.EccoYouTube?.update();}
  function dialog(options={}){
   let modal=document.querySelector('#storage-access-dialog');
   if(!modal){modal=document.createElement('dialog');modal.id='storage-access-dialog';document.body.append(modal);}

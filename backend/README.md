@@ -470,3 +470,26 @@ If prepare lists modules that differ, pass `--with-deps` to both steps (it never
 `ECCO_STORAGE_PUBLIC_URL=https://…` for the storage API so job payloads carry full clip
 URLs for workers that are not on this pod. Workers on other pods need the changed
 `audio/` files from the same commit (they advertise `voice_refs_version: 1`).
+
+## Library at scale (10 November 2026)
+
+For libraries of hundreds of thousands of items. Deploy `library_scale.py` beside
+`storage_api.py`, then restart the CPU storage process. Nothing else is required;
+the website switches each piece on when `/api/state` reports it.
+
+- **Changes-only state.** On first use the service adds a `record_changes` table,
+  three triggers on `records` and a status index to `studio.sqlite`. The triggers
+  live in the database, so writes from the GPU service are tracked too.
+  `/api/state?since=<cursor>` returns only changed records, `deleted` ids and a new
+  `cursor`; records still queued or running are always included. The log keeps the
+  latest 200,000 changes; an older cursor gets a full state.
+- **Thumbnails.** `/api/thumb/<id>` returns a 384 px WebP of an image, made once
+  and stored under `/workspace/ecco-studio-data/thumbs/`. Videos get a poster
+  frame when `ffmpeg` is on the path (`video_thumbnails` in state says whether).
+  Thumbnails take roughly 20 to 40 KB each.
+- **Revalidation.** `/api/media/<id>` and thumbnails send an ETag; the browser keeps
+  its copy and gets `304 Not Modified` instead of the file again.
+
+Validation: `python3.11 -m unittest backend.test_library_scale -v` (or run it from
+`backend/` with pytest). Rollback: restore the previous `storage_api.py`; the extra
+table, triggers and thumbnails are harmless to older code and can be left in place.

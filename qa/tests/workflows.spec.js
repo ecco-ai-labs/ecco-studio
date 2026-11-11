@@ -269,10 +269,51 @@ test('MEDIA-01 picture tiles load on-screen files first, in parallel, without un
     const real=window.api;window.qaMedia={fetched:[],active:0,peak:0};
     window.api=async(path,body)=>{if(!path.startsWith('media/'))return real(path,body);const m=window.qaMedia;m.fetched.push(path.slice(6));m.active++;m.peak=Math.max(m.peak,m.active);await new Promise(r=>setTimeout(r,150));m.active--;return {buffer:png,mime:path.includes('video')?'video/mp4':'image/png'};};});
   const hub=await openLibrary(page,'image');
-  await expect.poll(()=>page.evaluate(()=>[...document.querySelectorAll('#page .lh [data-asset^="qa-media-tile-"]')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.top<innerHeight&&r.bottom>0;}).every(e=>e.getAttribute('src')))).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>[...document.querySelectorAll('#page .lh [data-thumb^="qa-media-tile-"]')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.top<innerHeight&&r.bottom>0;}).every(e=>e.getAttribute('src')))).toBe(true);
   const m=await page.evaluate(()=>window.qaMedia);
   expect(m.peak).toBeGreaterThan(1);expect(m.peak).toBeLessThanOrEqual(4);
   expect(m.fetched.some(id=>id.startsWith('qa-media-video-'))).toBe(false);
+  expect(page.qaErrors).toEqual([]);
+});
+// Library at scale (owner-approved mock-up, 10 November 2026): every library pages 60 items at a time with the same
+// page bar; tiles use small thumbnails and video poster frames when storage offers them.
+async function seedMany(page,counts){await page.evaluate(counts=>{const now=Date.now()/1000;
+  for(const [media,n] of Object.entries(counts))for(let i=0;i<n;i++){
+    if(media==='story')state.records.push({kind:'story',id:'qa-many-story-'+i,title:'Story '+(i+1),created:now-i});
+    else state.records.push({kind:'asset',media,id:'qa-many-'+media+'-'+i,title:media+' '+(i+1),prompt:'p',path:'qa/fixtures/sample.'+(media==='image'?'svg':media==='audio'?'wav':'mp4'),stage:'prod',created:now-i,settings:{}});
+    if(media!=='story')mediaCache.set('qa-many-'+media+'-'+i,'/qa/fixtures/sample.'+(media==='image'?'svg':media==='audio'?'wav':'mp4'));
+  }},counts);}
+for(const [kind,extra,total] of [['image',128,130],['audio',68,70],['video',63,65],['story',60,61]])test(`PAGES-${kind} library pages back and forth with one page bar`,async({page})=>{
+  await boot(page);await seedMany(page,{[kind]:extra});const hub=await openLibrary(page,kind);
+  const status=hub.locator('.lh-pager-status'),pages=Math.ceil(total/60);
+  await expect(status).toHaveText('Showing 1–60 of '+total);await expect(hub.locator('[data-pick]')).toHaveCount(60);
+  await expect(hub.getByRole('button',{name:'Previous page',exact:true})).toBeDisabled();
+  await hub.getByRole('button',{name:'Next page',exact:true}).click();await expect(status).toHaveText('Showing 61–'+Math.min(120,total)+' of '+total);
+  await expect(hub.locator('.lh-pager [aria-current=page]')).toHaveText('2');
+  await hub.locator('#lh-page-input').fill(String(pages));await hub.locator('#lh-page-input').press('Enter');
+  await expect(status).toHaveText('Showing '+((pages-1)*60+1)+'–'+total+' of '+total);await expect(hub.getByRole('button',{name:'Next page',exact:true})).toBeDisabled();
+  await hub.locator('.lh-pager-bottom').getByRole('button',{name:'Previous',exact:true}).click();await expect(status).toHaveText(new RegExp('^Showing '+((pages-2)*60+1)+'–'));
+  await hub.locator('[data-act=view][data-view=list]').click();await expect(status).toHaveText(new RegExp('^Showing '+((pages-2)*60+1)+'–'));
+  await page.locator('#lh-search').fill(kind==='story'?'Story':kind);await expect(status).toHaveText(/^Showing 1–60 of /);
+  expect((await page.evaluate(rosterAudit)).problems.filter(p=>/lh-pager|lh-page/.test(p.element+p.parent))).toEqual([]);
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(page.qaErrors).toEqual([]);
+});
+test('THUMB-scale tiles load thumbnails and poster frames, never full files, when storage offers them',async({page})=>{
+  await boot(page);
+  await page.evaluate(()=>{state.config.storage.thumbnails=1;state.config.storage.video_thumbnails=true;mediaCache.clear();
+    const png=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='),c=>c.charCodeAt(0)).buffer;
+    const real=window.api;window.qaFetch=[];window.api=async(path,body)=>{if(/^(thumb|media)\//.test(path)){window.qaFetch.push(path);await new Promise(r=>setTimeout(r,80));return {buffer:png,mime:'image/png'};}return real(path,body);};});
+  let hub=await openLibrary(page,'image');
+  await expect.poll(()=>hub.locator('.lh-card img[data-thumb]').evaluateAll(els=>els.every(e=>e.getAttribute('src')))).toBe(true);
+  await expect(hub.locator('.lh-thumb.media-loading')).toHaveCount(0);
+  hub=await openLibrary(page,'video');
+  await expect.poll(()=>hub.locator('.lh-card img.lh-poster').evaluateAll(els=>els.length>0&&els.every(e=>e.getAttribute('src')))).toBe(true);
+  const fetched=await page.evaluate(()=>window.qaFetch);
+  // Small libraries (300 pictures or fewer) still prefetch full pictures in the background, after the tiles.
+  expect(fetched.filter(p=>p.startsWith('media/qa-video'))).toEqual([]);
+  const firstFull=fetched.findIndex(p=>p.startsWith('media/qa-image'));expect(firstFull===-1||fetched.findIndex(p=>p.startsWith('thumb/qa-image'))<firstFull).toBe(true);
+  expect(fetched.some(p=>p.startsWith('thumb/qa-image'))).toBe(true);expect(fetched.some(p=>p.startsWith('thumb/qa-video'))).toBe(true);
   expect(page.qaErrors).toEqual([]);
 });
 async function seedLabels(page){
