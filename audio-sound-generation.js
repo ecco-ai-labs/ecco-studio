@@ -25,7 +25,9 @@
    if(record?.status==='done'&&!replace){window.EccoAudioLibrary?.remember(record.asset);return record.asset;}
    if(!record?.id||['done','error','cancelled'].includes(record.status)){
     progress('Checking sound worker…');const available=await api('audio/status');valid();
-    const target=window.EccoAudioCompute?.target(available,request.compute,request.worker_id)||(!request.worker_id?available.compute?.[request.compute]:null);
+    let target=window.EccoAudioCompute?.target(available,request.compute,request.worker_id)||(!request.worker_id?available.compute?.[request.compute]:null);
+    // Speech defaults to Serverless, which has no sound models; fall back to a ready CPU that has this one.
+    if(!target?.ready||!target.sound_models?.includes(request.model)){const cpu=(available.instances||[]).find(w=>w.compute==='cpu'&&w.ready&&w.sound_models?.includes(request.model));if(cpu){request.compute='cpu';request.worker_id=cpu.id;target=cpu;progress('Using CPU · '+(cpu.name||cpu.id)+' for this sound…');}}
     if(!target?.ready||!target.sound_models?.includes(request.model))throw Error(models[request.model]+' is not installed and verified on the selected '+request.compute.toUpperCase()+' worker. Choose a CPU with this sound model.');
     rememberJob(id,{status:'submitting'});
     let job;try{job=await api('audio/sounds/generate',request);}catch(error){if(error.job?.id)rememberJob(id,{id:error.job.id,status:error.job.status==='cancelled'?'cancelled':'queued'});throw error;}
