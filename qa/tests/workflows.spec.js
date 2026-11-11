@@ -256,6 +256,24 @@ test('LIB-image-steps full-size viewer steps back and forward through the images
   await viewer.getByRole('button',{name:'Close popup',exact:true}).click();await expect(viewer).toBeHidden();await expect(hub.locator('[data-pick="'+last+'"]')).toBeFocused();
   expect(page.qaErrors).toEqual([]);
 });
+// Faster tiles (owner request, 10 November 2026): on-screen pictures download first, several at once, and the picture
+// library does not download audio or video it does not show.
+test('MEDIA-01 picture tiles load on-screen files first, in parallel, without unseen video',async({page})=>{
+  await boot(page);
+  await page.evaluate(()=>{mediaCache.clear();const now=Date.now()/1000;
+    for(let i=0;i<3;i++)state.records.unshift({kind:'asset',media:'video',id:'qa-media-video-'+i,title:'Video '+i,path:'v/'+i+'.mp4',created:now+50+i});
+    for(let i=0;i<24;i++)state.records.push({kind:'asset',media:'image',id:'qa-media-tile-'+i,title:'Tile '+i,path:'t/'+i+'.png',created:now-i});
+    const png=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='),c=>c.charCodeAt(0)).buffer;
+    const real=window.api;window.qaMedia={fetched:[],active:0,peak:0};
+    window.api=async(path,body)=>{if(!path.startsWith('media/'))return real(path,body);const m=window.qaMedia;m.fetched.push(path.slice(6));m.active++;m.peak=Math.max(m.peak,m.active);await new Promise(r=>setTimeout(r,150));m.active--;return {buffer:png,mime:path.includes('video')?'video/mp4':'image/png'};};});
+  const hub=await openLibrary(page,'image');
+  await expect.poll(()=>page.evaluate(()=>[...document.querySelectorAll('#page .lh [data-asset^="qa-media-tile-"]')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.top<innerHeight&&r.bottom>0;}).every(e=>e.getAttribute('src')))).toBe(true);
+  const m=await page.evaluate(()=>window.qaMedia);
+  expect(m.fetched.slice(0,4).every(id=>id.startsWith('qa-media-tile-'))).toBe(true);
+  expect(m.peak).toBeGreaterThan(1);expect(m.peak).toBeLessThanOrEqual(4);
+  expect(m.fetched.some(id=>id.startsWith('qa-media-video-'))).toBe(false);
+  expect(page.qaErrors).toEqual([]);
+});
 async function seedLabels(page){
   await page.evaluate(async()=>{
     state.config.storage.library_labels=1;state.config.storage.rename_available=true;

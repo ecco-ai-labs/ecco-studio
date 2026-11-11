@@ -223,5 +223,10 @@
     "area": "Image full-size viewer arrows",
     "mode": "fixture",
     "scope": "Library image viewer: Previous and Next image buttons, 'n of total' count, Left and Right arrow keys, disabled at the first and last image, order follows the Library's current filters, search and sort, focus returns to the last viewed image on close. The Images screen full-size view has the same arrows over the images shown on the page."
+  },
+  {
+    "area": "Media loading speed",
+    "mode": "fixture",
+    "scope": "Saved files download up to four at a time; files shown on screen go first, then the rest of the page, then remaining pictures in the background; audio and video download only when something on the page shows them; a failed file waits 30 seconds before retrying. Checked in the picture library with simulated download delays."
   }
 ]
