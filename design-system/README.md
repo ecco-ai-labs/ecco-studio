@@ -965,7 +965,10 @@ groups (Popular, Illustration, Painting, 3D and craft, Photo, Digital and retro,
 Cultural). The chosen style's one-line hint shows under the field. Story
 Generation → Additional Controls uses the same list (Change / No style) instead
 of a free-text Visual style box for pictures, so every picture prompt is bound
-to a described style. Layout only; options reuse .story-choice-option sizes.
+to a described style. The open panel is roomy (up to 900 × 620, fixed to the
+window: below the field when it fits, otherwise the page scrolls or the panel
+moves up so it is fully visible); the groups and list scroll on their own.
+Layout only; options reuse .story-choice-option sizes.
 
 Screen Play script rules (owner request 2026-11-10): a paragraph without a name
 continues the same speaker (only the first paragraph needs one); text in

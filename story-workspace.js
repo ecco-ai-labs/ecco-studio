@@ -64,7 +64,14 @@
  const genreOptions=()=>{const list=genresFor(data.type);return data.genre&&!list.includes(data.genre)?[...list,data.genre]:list;};
  let detailMenu=null;
  function closeDetailMenu(focus=false){if(!detailMenu)return;const {panel,trigger}=detailMenu;detailMenu=null;panel.hidden=true;trigger.setAttribute('aria-expanded','false');if(focus&&trigger.isConnected)trigger.focus();}
- function placeDetailMenu(){if(!detailMenu)return;const {panel,trigger}=detailMenu;if(!trigger.isConnected){closeDetailMenu();return;}const rect=trigger.getBoundingClientRect(),width=panel.classList.contains('story-choice-split')?Math.min(760,innerWidth-32):Math.min(640,innerWidth-32,Math.max(rect.width,560));panel.style.width=width+'px';panel.style.top=(trigger.offsetTop+rect.height+6)+'px';panel.style.left=Math.min(0,innerWidth-16-rect.left-width)+'px';panel.style.maxHeight=Math.max(0,Math.min(470,innerHeight-rect.bottom-16))+'px';}
+ function placeDetailMenu(){if(!detailMenu)return;const {panel,trigger}=detailMenu;if(!trigger.isConnected){closeDetailMenu();return;}
+  // The Image style picker gets a roomy panel (up to 900 × 620): the field scrolls to the top once if there isn't room below.
+  if(panel.classList.contains('image-style-picker')){const height=Math.min(620,innerHeight-32),width=Math.min(900,innerWidth-32);let r=trigger.getBoundingClientRect();
+   // First try scrolling the page so the panel fits under the field; only then let it move up over the field.
+   if(!panel.dataset.placed&&r.bottom+6+height>innerHeight-16){panel.dataset.placed='1';trigger.scrollIntoView({block:'start'});r=trigger.getBoundingClientRect();}panel.dataset.placed='1';
+   // Fixed to the window: below the field when it fits, otherwise moved up so the whole panel is visible.
+   panel.style.position='fixed';panel.style.width=width+'px';panel.style.height=panel.style.maxHeight=height+'px';panel.style.top=Math.max(16,Math.min(r.bottom+6,innerHeight-16-height))+'px';panel.style.left=Math.max(16,Math.min(r.left,innerWidth-16-width))+'px';return;}
+  const rect=trigger.getBoundingClientRect(),width=panel.classList.contains('story-choice-split')?Math.min(760,innerWidth-32):Math.min(640,innerWidth-32,Math.max(rect.width,560));panel.style.width=width+'px';panel.style.top=(trigger.offsetTop+rect.height+6)+'px';panel.style.left=Math.min(0,innerWidth-16-rect.left-width)+'px';panel.style.maxHeight=Math.max(0,Math.min(470,innerHeight-rect.bottom-16))+'px';}
  document.addEventListener('pointerdown',event=>{if(detailMenu&&!detailMenu.panel.contains(event.target)&&!detailMenu.trigger.contains(event.target))closeDetailMenu();});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&detailMenu){event.preventDefault();event.stopPropagation();closeDetailMenu(true);}},true);
  window.addEventListener('resize',placeDetailMenu);window.addEventListener('scroll',placeDetailMenu,true);
@@ -92,7 +99,7 @@
   const hint=document.createElement('span');hint.className='story-choice-description';hint.dataset.imageStyleHint='';q('.story-choice-value',trigger).append(hint);
   const show=()=>{q('[data-choice-label]',trigger).textContent=select.value||'Choose an image style';const h=window.EccoImageStyles.get(select.value)?.hint||'';hint.textContent=h?' · '+h:'';hint.hidden=!h;};
   const pick=value=>{select.value=value;select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));show();closeDetailMenu(true);};
-  trigger.onclick=()=>{if(detailMenu?.trigger===trigger){closeDetailMenu();return;}closeDetailMenu();const {search}=window.EccoImageStyles.fill(panel,{value:select.value,audience:data.audience,onPick:pick});panel.hidden=false;trigger.setAttribute('aria-expanded','true');detailMenu={panel,trigger};if(innerHeight-trigger.getBoundingClientRect().bottom<Math.min(320,innerHeight/2))trigger.scrollIntoView({block:'start'});placeDetailMenu();panel.scrollTop=0;search.focus({preventScroll:true});};
+  trigger.onclick=()=>{if(detailMenu?.trigger===trigger){closeDetailMenu();return;}closeDetailMenu();const {search}=window.EccoImageStyles.fill(panel,{value:select.value,audience:data.audience,onPick:pick});delete panel.dataset.placed;panel.hidden=false;trigger.setAttribute('aria-expanded','true');detailMenu={panel,trigger};placeDetailMenu();panel.scrollTop=0;search.focus({preventScroll:true});};
   select.addEventListener('change',show);show();
  }
  function choiceDropdown(select,groups){

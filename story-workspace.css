@@ -353,7 +353,8 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 /* Image style picker (image-styles.js): layout only; sizes come from the roster classes it reuses. */
 .image-style-picker,.image-style-inline{display:flex;flex-direction:column;gap:10px}
 /* Search and suggestions stay in view; only the style list scrolls. */
-#page .story-choice-panel.image-style-picker{overflow:hidden}
+#page .story-choice-panel.image-style-picker{overflow:hidden;box-sizing:border-box}
+#page .story-choice-panel.image-style-picker .image-style-list{max-height:none}
 .image-style-body{min-height:0;flex:1 1 auto;overflow:hidden}
 /* The groups and the list each scroll on their own when the panel is short. */
 .image-style-groups{overflow:auto;min-height:0}

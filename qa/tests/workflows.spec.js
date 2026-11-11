@@ -1823,6 +1823,8 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox on ice');await fillStoryDetail(page,'output','image');
  const trigger=page.locator('#story-detail-imageStyle-button'),panel=page.locator('#story-detail-imageStyle-panel');await trigger.click();await expect(panel).toBeVisible();
  await expect(panel.getByLabel('Search image styles',{exact:true})).toBeFocused();
+ // Roomy: wide enough for two full columns and tall enough to show a whole group.
+ const size=await panel.boundingBox(),view=page.viewportSize();expect(size.width).toBeGreaterThanOrEqual(860);expect(size.height).toBeGreaterThanOrEqual(Math.min(620,view.height-32)-1);expect(size.y+size.height).toBeLessThanOrEqual(view.height);
  await expect(panel.locator('.image-style-list [data-image-style]')).toHaveCount(8);await expect(panel.getByRole('tab',{name:/^Popular/})).toHaveAttribute('aria-selected','true');
  await expect(panel.locator('.image-style-suggest')).toContainText('Suggested for All ages:');
  await panel.getByRole('tab',{name:/^Cultural/}).click();await expect(panel.locator('.image-style-list [data-image-style]')).toHaveCount(5);
@@ -1830,12 +1832,13 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  await panel.getByLabel('Search image styles',{exact:true}).fill('zzz');await expect(panel).toContainText('No style matches. Try another word.');
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();
  await pickImageStyle(page,'Mosaic');await expect(trigger).toContainText('Mosaic');await expect(page.locator('[data-image-style-hint]')).toHaveText(' · Small tiles');
- // A short window: the long Digital and retro list still scrolls with the mouse wheel.
- await page.setViewportSize({width:1280,height:640});await trigger.click();await panel.getByRole('tab',{name:/^Digital and retro/}).click();const list=panel.locator('.image-style-list');
- expect(await list.evaluate(l=>l.scrollHeight>l.clientHeight)).toBe(true);await list.hover();await page.mouse.wheel(0,400);await expect.poll(()=>list.evaluate(l=>l.scrollTop)).toBeGreaterThan(0);await expect(panel.locator('[data-image-style=Infographic]')).toBeInViewport();
+ // A short window: the search results and the groups still scroll with the mouse wheel.
+ await page.setViewportSize({width:1280,height:340});await trigger.click();await panel.getByLabel('Search image styles',{exact:true}).fill('e');const list=panel.locator('.image-style-list');
+ expect(await list.evaluate(l=>l.scrollHeight>l.clientHeight)).toBe(true);await list.hover();await page.mouse.wheel(0,2000);await expect.poll(()=>list.evaluate(l=>l.scrollTop)).toBeGreaterThan(0);await expect(list.locator('[data-image-style]').last()).toBeInViewport();
+ const groups=panel.locator('.image-style-groups');await panel.getByLabel('Search image styles',{exact:true}).fill('');await groups.hover();await page.mouse.wheel(0,400);await expect(panel.getByRole('tab',{name:/^Cultural/})).toBeInViewport();
  await page.keyboard.press('Escape');await page.setViewportSize({width:1440,height:1000});
  // Reopened, nothing is covered: the hint is inside the field and the search box is the first thing in view.
- await trigger.click();const box=await panel.boundingBox(),field=await trigger.boundingBox(),searchBox=await panel.getByLabel('Search image styles',{exact:true}).boundingBox();expect(box.y).toBeGreaterThanOrEqual(field.y+field.height);expect(searchBox.y).toBeGreaterThanOrEqual(box.y);await page.keyboard.press('Escape');
+ await trigger.click();await expect(panel.getByLabel('Search image styles',{exact:true})).toBeInViewport();await expect(panel.locator('.image-style-list [data-image-style]').last()).toBeInViewport();await page.keyboard.press('Escape');
  await page.getByRole('button',{name:/Next: Story Picture/}).click();await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
  const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});await ai.getByLabel('What should your picture show?',{exact:true}).fill('A fox walking on ice');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();
  await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await page.getByRole('button',{name:'Next: Story Generation',exact:true}).click();await expect(page.locator('#image-form')).toBeVisible();
