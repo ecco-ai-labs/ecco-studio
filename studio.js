@@ -92,13 +92,43 @@ function welcome(){
  $('#heading').textContent='';$('#wan-badge').textContent='GPU not connected';$('#page').replaceChildren();
  let entry=$('#workspace-entry');if(!entry){entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Welcome to Ecco AI Labs Studio');entry.innerHTML='<img class="entry-logo" src="logo-transparent.png" alt="Ecco AI Labs logo"><h1>Ecco AI Labs<span class="entry-subtitle">Studios</span></h1><button type="button" id="entry-tell-story" disabled>Tell Your Story</button><p class="entry-copyright">© '+new Date().getFullYear()+' Ecco Labs AI India Pvt Ltd. All rights reserved.</p>';document.body.append(entry);entry.querySelector('button').onclick=()=>{if(!window.EccoAuth?.user)return;document.body.classList.remove('workspace-entry-mode');page='empty';$('#heading').textContent='';$('#page').replaceChildren();document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));};}
 }
+// Media loading (10 November 2026, owner asked why picture tiles took a minute): files used to download one at a
+// time, every saved file in record order, before tiles further down the list. Now up to MEDIA_WORKERS download at once,
+// files shown on screen go first, then the rest of what is on the page, then remaining pictures in the background.
+// Audio and video download only when something on the page shows them.
+const MEDIA_WORKERS=4,mediaFailed=new Map();let mediaWorkers=0;
+function mediaElements(id){return document.querySelectorAll('[data-asset="'+(window.CSS?.escape?CSS.escape(id):id)+'"]');}
+function mediaPriority(a){
+ const els=mediaElements(a.id);
+ if(els.length){
+  const h=innerHeight||800,w=innerWidth||1200;
+  for(const el of els){const r=el.getBoundingClientRect();if((r.width||r.height)&&r.bottom>=-200&&r.top<=h+200&&r.right>=0&&r.left<=w)return 0;}
+  return 1;
+ }
+ return a.media==='image'?2:-1;
+}
+function nextMedia(){
+ let best=null,rank=9;
+ for(const a of state?.records||[]){
+  if(a.kind!=='asset'||a.deleted||mediaCache.has(a.id)||mediaLoading.has(a.id)||Date.now()-(mediaFailed.get(a.id)||0)<30000)continue;
+  const p=mediaPriority(a);if(p<0||p>=rank)continue;best=a;rank=p;if(p===0)break;
+ }
+ return best;
+}
+async function mediaWorker(){
+ mediaWorkers++;
+ try{
+  for(let a=nextMedia();a;a=nextMedia()){
+   mediaLoading.add(a.id);
+   try{const r=await api('media/'+a.id);mediaCache.set(a.id,URL.createObjectURL(new Blob([r.buffer],{type:r.mime})));mediaElements(a.id).forEach(el=>{if(el.tagName==='A')el.href=mediaCache.get(a.id);else el.src=mediaCache.get(a.id);});}
+   catch(e){mediaFailed.set(a.id,Date.now());notice(e.message,true);}finally{mediaLoading.delete(a.id);}
+  }
+ }finally{mediaWorkers--;}
+}
 async function hydrateMedia(){
  if(!state)return;
- for(const a of state.records.filter(r=>r.kind==='asset'&&!r.deleted)){
-  if(mediaCache.has(a.id)||mediaLoading.has(a.id))continue;mediaLoading.add(a.id);
-  try{const r=await api('media/'+a.id);mediaCache.set(a.id,URL.createObjectURL(new Blob([r.buffer],{type:r.mime})));document.querySelectorAll('[data-asset="'+a.id+'"]').forEach(el=>{if(el.tagName==='A')el.href=mediaCache.get(a.id);else el.src=mediaCache.get(a.id);});}
-  catch(e){notice(e.message,true);}finally{mediaLoading.delete(a.id);}
- }
+ const starts=[];while(mediaWorkers<MEDIA_WORKERS&&nextMedia()&&starts.length<MEDIA_WORKERS)starts.push(mediaWorker());
+ await Promise.all(starts);
 }
 
 async function action(fn){try{await fn();await refresh();}catch(e){document.querySelectorAll('[data-trash]').forEach(b=>b.disabled=false);notice(e.message,true);}}
