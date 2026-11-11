@@ -243,5 +243,10 @@
     "area": "Library preloading",
     "mode": "fixture + local storage service",
     "scope": "From the moment Studio opens, the first page of Images and Video loads in the background as small thumbnails; in a library the next and previous pages load ahead; in the full-size view the next and previous pictures load ahead. Only when storage offers thumbnails; whole libraries are never preloaded. End to end: first pages ready 1.5 s after opening, Library tiles in 0.25 s, page 2 in 0.15 s, next picture instant."
+  },
+  {
+    "area": "Story Generation",
+    "mode": "fixture",
+    "scope": "Generate on Screen Play starts generation at once; overall progress equals the sum of worker progress with per-worker rows, passage map and Activity; finished audio opens review with transcript, Download and one Publish button (no Finish your story panel); a pronunciation fix changes only the words sent to the voice model and regenerates; a GPU memory error pops up with next steps and opens Model Settings; Model Settings side panel closes with Escape; video review redraws only selected frames (stubbed image edits) and exports them with the frame editor. Real GPU image edits, frame export and audio generation blocked"
   }
 ]

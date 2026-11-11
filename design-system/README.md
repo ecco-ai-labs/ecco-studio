@@ -989,3 +989,18 @@ Tell us what to change (plain words; Apply and remake). Sounds good, approve the
 series applies the Before each episode publishes choice and starts the schedule;
 then each episode is listed with its status, the same change box and Publish
 when it waits for an OK. Layout only; sizes come from the roster.
+
+## Story Generation: progress, fixes and Publish — 10 November 2026
+
+Owner-approved mocks (Design canvas "Ecco Story Generation Mocks"). Generate on
+Story Screen Play opens Story Generation and starts the story's audio, image or
+video generation once. The tab shows one overall bar (the sum of every worker's
+progress), a clip or passage map, stats, one row per worker or task, and an
+Activity log. A failure opens the shared error popup with the cause, a list of
+next steps and one action. When the result is ready the tab becomes review:
+video frames can be selected and redrawn in place, audio words can be given a
+pronunciation or new wording and regenerated, images can be redrawn from
+themselves. Download and one Publish button replace the old Finish your story
+panel. Model Settings is a side panel holding the studio form for the media
+type. New roster variants: Generation overall percent, Generation frame tile,
+Generation image tile. Code: story-generation.js and story-generation.css.

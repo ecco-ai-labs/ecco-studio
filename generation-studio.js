@@ -274,7 +274,19 @@
   const text=q('textarea[name=prompt]',form);text.value=prompt.slice(0,text.maxLength);text.dispatchEvent(new Event('input',{bubbles:true}));
   if(c.kind==='video'&&seconds){c.data.seconds=seconds;q('[data-video-seconds]',form).value=seconds;save(c);}
  }
- window.EccoGeneration={jobId,results,trackJob,mount,audioLines,aiContext,compose,types,useCharacterFrame,context:form=>contexts.get(form)};
+ // Redraw existing images with Qwen Image Edit (Story Generation fixes: a video frame or a generated image).
+ // The first asset is the image to change; any others are references it should match.
+ async function editImage({assetIds,prompt,story=activeStory}){
+  if(!assetIds?.length)throw Error('Choose an image to fix.');
+  if(String(prompt||'').length>4000)throw Error('Keep the fix description within 4,000 characters.');
+  const gpu=localStorage.getItem('ecco-compute-image')||localStorage.getItem('ecco-compute-video')||window.EccoGPUConnection?.selectedId||'';
+  const model='qwen-image-edit-2511',config=await window.EccoCompute.validate(gpu,model),settings=modelSettings(model);
+  if(!config.models_ready?.[model])throw Error('Qwen Image Edit is not ready on the connected GPU.');
+  if(!config.generation_controls_version&&(settings.steps!==40||settings.cfg!==3||settings.seed!==42))throw Error('The connected GPU needs the multi-reference generation update before fixes can run.');
+  const ids=config.generation_controls_version?assetIds.slice(0,3):assetIds.slice(0,1);
+  return api('image-edits',{gpu,asset_id:ids[0],asset_ids:ids,prompt,story_id:story,...settings,reference_controls:{}});
+ }
+ window.EccoGeneration={jobId,results,trackJob,mount,editImage,audioLines,aiContext,compose,types,useCharacterFrame,context:form=>contexts.get(form)};
 })();
 
 
