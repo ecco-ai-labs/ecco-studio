@@ -18,6 +18,12 @@
  function acceptGPUHealth(value){
   for(const item of value?.gpus||[]){const previous=gpuHealth.find(g=>g.id===item.id);if(!previous||previous.ready!==item.ready){connectionLog(item.ready?'Generation service ready':'Generation service unavailable',{gpu:item.id,level:item.ready?'info':'error',message:item.detail||(item.ready?'Fresh relay heartbeat received.':'No healthy generation service heartbeat. RunPod power state is not verified.'),last_seen:item.last_seen,stage:item.stage||'relay heartbeat'});}}
   gpuHealth=value?.gpus||[];gpuChecked=Date.now();
+  // Serverless is always on: connect it whenever its bridge is healthy, unless the user disconnected it.
+  if(gpuHealth.some(g=>g.id==='serverless'&&g.ready)&&localStorage.getItem('ecco-serverless-auto')!=='off'&&!connectedGPUs.has('serverless')){
+   connectedGPUs.add('serverless');localStorage.setItem('ecco-connected-gpus',JSON.stringify([...connectedGPUs]));
+   if(!selectedGPU){selectedGPU='serverless';localStorage.setItem('ecco-selected-gpu','serverless');}
+   connectionLog('Serverless connected automatically',{gpu:'serverless'});
+  }
   notifyGPUConnection();
  }
  const selectedHealth=()=>gpuHealth.find(g=>g.id===selectedGPU);
@@ -26,7 +32,7 @@
   if(!key)return {kind:'unchecked',title:'Not checked',detail:'Connect workspace storage to check GPU availability.'};
   if(!gpuChecked||Date.now()-gpuChecked>=60000)return {kind:'unknown',title:connectedGPUs.has(gpu.id)?'Reconnecting':'Not checked',detail:'GPU availability could not be verified. Saved connections are retained and will recover automatically.'};
   const health=gpuHealth.find(g=>g.id===gpu.id);
-  if(health?.ready)return {kind:'ready',title:'Available',detail:'Generation service and relay are responding.'};
+  if(health?.ready)return {kind:'ready',title:'Available',detail:gpu.id==='serverless'?'Always on. Billed per second of generation; a job waits in the queue if RunPod has no free GPU.':'Generation service and relay are responding.'};
   if(!health?.last_seen)return {kind:'unknown',title:'No heartbeat',detail:'No relay heartbeat received. RunPod power state is not verified.'};
   if(Date.now()/1000-health.last_seen>=45)return {kind:'unknown',title:connectedGPUs.has(gpu.id)?'Reconnecting':'Heartbeat lost',detail:'Generation relay last seen '+new Date(health.last_seen*1000).toLocaleString()+'. The pod may be running without Studios services.'};
   return {kind:'unknown',title:'Service not ready',detail:health.detail||'Relay is running, but the generation service is not responding.'};
@@ -41,6 +47,7 @@
   isRemembered:id=>connectedGPUs.has(id),
   disconnect(id){
    const removed=id?[id]:[...connectedGPUs];for(const gpu of removed)connectedGPUs.delete(gpu);
+   if(removed.includes('serverless'))localStorage.setItem('ecco-serverless-auto','off');
    localStorage.setItem('ecco-connected-gpus',JSON.stringify([...connectedGPUs]));
    if(!id||selectedGPU===id){selectedGPU='';localStorage.removeItem('ecco-selected-gpu');}
    notifyGPUConnection();connectionLog('GPU disconnected',{gpus:removed,reason:'User requested'});
@@ -57,6 +64,7 @@
    try{
    const status=await this.check(gpu);if(status.kind!=='ready')throw Error(status.detail);
    connectedGPUs.add(gpu.id);localStorage.setItem('ecco-connected-gpus',JSON.stringify([...connectedGPUs]));
+   if(gpu.id==='serverless')localStorage.removeItem('ecco-serverless-auto');
    selectedGPU=gpu.id;localStorage.setItem('ecco-selected-gpu',gpu.id);notifyGPUConnection();await refresh();
    connectionLog('GPU connected',{gpu:gpu.id});
    }catch(error){connectionLog('GPU connection failed',{gpu:gpu.id,level:'error',message:error.message,stack:error.stack});throw error;}

@@ -1,0 +1,7 @@
+# Video endpoint: Wan 2.2 TI2V 5B and Wan 2.2 I2V A14B.
+# Build context: repository root. Models are read from the global volume (/runpod-volume).
+FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
+ENV PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 COMFY_DIR=/comfyui
+COPY serverless/worker_common.py serverless/comfy-worker/ /opt/ecco/
+RUN bash /opt/ecco/build.sh video
+CMD ["python", "-u", "/opt/ecco/handler.py"]
