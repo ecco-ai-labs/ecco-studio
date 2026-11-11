@@ -1830,6 +1830,10 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  await panel.getByLabel('Search image styles',{exact:true}).fill('zzz');await expect(panel).toContainText('No style matches. Try another word.');
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();
  await pickImageStyle(page,'Mosaic');await expect(trigger).toContainText('Mosaic');await expect(page.locator('[data-image-style-hint]')).toHaveText(' · Small tiles');
+ // A short window: the long Digital and retro list still scrolls with the mouse wheel.
+ await page.setViewportSize({width:1280,height:640});await trigger.click();await panel.getByRole('tab',{name:/^Digital and retro/}).click();const list=panel.locator('.image-style-list');
+ expect(await list.evaluate(l=>l.scrollHeight>l.clientHeight)).toBe(true);await list.hover();await page.mouse.wheel(0,400);await expect.poll(()=>list.evaluate(l=>l.scrollTop)).toBeGreaterThan(0);await expect(panel.locator('[data-image-style=Infographic]')).toBeInViewport();
+ await page.keyboard.press('Escape');await page.setViewportSize({width:1440,height:1000});
  // Reopened, nothing is covered: the hint is inside the field and the search box is the first thing in view.
  await trigger.click();const box=await panel.boundingBox(),field=await trigger.boundingBox(),searchBox=await panel.getByLabel('Search image styles',{exact:true}).boundingBox();expect(box.y).toBeGreaterThanOrEqual(field.y+field.height);expect(searchBox.y).toBeGreaterThanOrEqual(box.y);await page.keyboard.press('Escape');
  await page.getByRole('button',{name:/Next: Story Picture/}).click();await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();

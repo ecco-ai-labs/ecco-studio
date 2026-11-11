@@ -354,16 +354,18 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .image-style-picker,.image-style-inline{display:flex;flex-direction:column;gap:10px}
 /* Search and suggestions stay in view; only the style list scrolls. */
 #page .story-choice-panel.image-style-picker{overflow:hidden}
-.image-style-body{min-height:0;flex:1 1 auto}
+.image-style-body{min-height:0;flex:1 1 auto;overflow:hidden}
+/* The groups and the list each scroll on their own when the panel is short. */
+.image-style-groups{overflow:auto;min-height:0}
 .image-style-search{width:100%}
 .image-style-suggest{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .image-style-suggest[hidden],.image-style-groups[hidden]{display:none}
-.image-style-body{display:grid;grid-template-columns:minmax(140px,170px) minmax(0,1fr);gap:10px;align-items:start}
+.image-style-body{display:grid;grid-template-columns:minmax(140px,170px) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:10px;align-items:stretch}
 .image-style-groups{display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--ecco-theme-border,rgba(255,255,255,.15));padding-right:8px}
 #page .image-style-group{display:flex;justify-content:space-between;gap:8px;text-align:left;background:transparent;border:0;color:var(--ecco-theme-text,#f1edff)}
 #page .image-style-group small{opacity:.7}
 #page .image-style-group[aria-selected=true]{color:var(--ecco-theme-accent,#ffdc24);background:var(--ecco-theme-control,#383160)}
-.image-style-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;align-content:start;max-height:min(52vh,420px);overflow:auto}
+.image-style-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;align-content:start;max-height:min(52vh,420px);min-height:0;overflow:auto;overscroll-behavior:contain}
 .image-style-list.image-style-wide{grid-column:1/-1}
 #page .image-style-list .story-choice-option{grid-template-columns:minmax(0,1fr);row-gap:2px;padding:6px 8px;border-radius:6px;text-align:left}
 #page .image-style-list .story-choice-option[aria-pressed=true]{background:var(--ecco-theme-control,#383160);color:var(--ecco-theme-accent,#ffdc24)}
