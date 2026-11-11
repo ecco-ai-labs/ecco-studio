@@ -122,6 +122,8 @@ function nextMedia(){
   if(!later)later={id,type};
  }
  if(later)return later;
+ // Then likely-next items (preloading, 11 November 2026): first library pages, adjacent pages, viewer neighbours.
+ for(const w of window.EccoLibraryHub?.warmList?.()||[]){const a=mediaRecord(w.id);if(!a||a.deleted||(w.type==='thumb'&&!thumbsFor(a)))continue;if(wanted(w.id,w.type))return w;}
  let images=0;for(const a of mediaIndex?.values()||[])if(a.media==='image'&&!a.deleted&&++images>MEDIA_PREFETCH_LIMIT)return null;
  for(const a of mediaIndex?.values()||[])if(a.media==='image'&&!a.deleted&&wanted(a.id,'media'))return {id:a.id,type:'media'};
  return null;
