@@ -189,11 +189,15 @@ for(const kind of ['story','image','audio','video','workflow']){
     const card=hub.locator('.lh-row[data-pick]').first();await expect(card).toBeVisible();
     await expect(hub.locator('.lh-details')).toBeHidden();
     await card.click();
-    const details=hub.locator('.lh-details');await expect(details).toBeVisible();
+    // Images open full size with the details beside the picture (owner-approved mock, 11 November 2026).
+    if(kind==='image'){const side=page.locator('#library-hub-viewer .lh-viewer-side');await expect(side).toBeVisible();await expect(side.locator('#lh-viewer-name')).toBeVisible();
+     await expect(side.getByRole('button',{name:'+ Add label'})).toBeVisible();await expect(side.locator('.lh-danger')).toBeVisible();
+     await page.locator('#library-hub-viewer').getByRole('button',{name:'Close popup',exact:true}).click();await expect(side).toBeHidden();}
+    else{const details=hub.locator('.lh-details');await expect(details).toBeVisible();
     await expect(details.locator('#lh-name')).toBeVisible();
     await expect(details.getByRole('button',{name:'+ Add label'})).toBeVisible();
     await expect(details.locator('.lh-danger')).toBeVisible();
-    await details.getByRole('button',{name:'Close details'}).click();await expect(details).toBeHidden();
+    await details.getByRole('button',{name:'Close details'}).click();await expect(details).toBeHidden();}
     await expect(page.locator('#library-hub-nav [data-lib="'+kind+'"]')).toHaveAttribute('aria-current','page');
   });
   test(`LIB-${kind}-list list view shows Name, Labels, Type and Created`,async({page})=>{
@@ -241,11 +245,28 @@ for(const kind of ['image','video'])for(const view of ['grid','list']){
 }
 test('LIB-image-preview opens full size and closing restores focus to the picked file',async({page})=>{
   await boot(page);const hub=await openLibrary(page,'image');
+  // Owner-approved mock (11 November 2026): one click opens full size.
   const card=hub.locator('.lh-card').first();await card.click();
-  await hub.getByRole('button',{name:'Open full size'}).click();
   const viewer=page.locator('#library-hub-viewer');await expect(viewer).toBeVisible();
   await viewer.getByRole('button',{name:'Close popup',exact:true}).click();
   await expect(viewer).toBeHidden();await expect(card).toBeFocused();
+});
+// Owner-approved mock (11 November 2026): full size opens at once with details, labels and Delete on the right.
+test('LIB-image-details full size shows details, labels and Delete beside the picture',async({page})=>{
+  await boot(page);const hub=await openLibrary(page,'image');const cards=hub.locator('[data-pick]'),n=await cards.count();
+  await cards.first().click();const viewer=page.locator('#library-hub-viewer'),side=viewer.locator('.lh-viewer-side');await expect(viewer).toBeVisible();
+  await expect(hub.locator('.lh-details')).toBeHidden();await expect(side.getByRole('heading',{name:'Details',exact:true})).toBeVisible();
+  await expect(side.getByLabel('Name',{exact:true})).toBeVisible();await expect(side.locator('.lh-viewer-facts')).toContainText('Type');await expect(side.locator('.lh-viewer-facts')).toContainText('Created');
+  const img=await viewer.locator('.lh-viewer-frame img').boundingBox(),panel=await side.boundingBox();expect(img.x+img.width).toBeLessThanOrEqual(panel.x+1);
+  // Download and Delete are on screen without scrolling.
+  await expect(side.getByRole('link',{name:'Download',exact:true})).toBeInViewport();await expect(side.getByRole('button',{name:'Delete image',exact:true})).toBeInViewport();const vbox=await viewer.boundingBox(),sbox=await side.boundingBox();expect(sbox.y+sbox.height).toBeLessThanOrEqual(vbox.y+vbox.height+1);
+  await side.getByRole('button',{name:'+ Add label',exact:true}).click();await expect(side.getByRole('group',{name:'Choose labels',exact:true})).toBeVisible();
+  await side.getByRole('button',{name:'Delete image',exact:true}).click();await expect(side.getByRole('alert')).toContainText('Move this image to Trash?');
+  await side.getByRole('button',{name:'Keep it',exact:true}).click();await expect(side.getByRole('button',{name:'Delete image',exact:true})).toBeVisible();
+  if(n>1){const before=await viewer.locator('.lh-viewer-frame img').getAttribute('data-asset');await page.keyboard.press('ArrowRight');await expect(viewer.locator('.lh-viewer-frame img')).not.toHaveAttribute('data-asset',before);await expect(side.getByLabel('Name',{exact:true})).toBeVisible();}
+  await side.getByRole('button',{name:'Delete image',exact:true}).click();const shown=await viewer.locator('.lh-viewer-frame img').getAttribute('data-asset');await side.getByRole('button',{name:'Move to Trash',exact:true}).click();
+  await expect.poll(()=>page.evaluate(id=>(window.__qaCalls||[]).some(c=>c.path==='trash'&&c.body?.asset_id===id),shown)).toBe(true);
+  expect(page.qaErrors).toEqual([]);
 });
 // Full-size viewer arrows (owner request, 10 November 2026): back and forward step through the Library's current order.
 async function openCreateImages(page,story){
@@ -334,7 +355,7 @@ test('IMG-create falls back to choosing the image type when AI is off',async({pa
 test('LIB-image-steps full-size viewer steps back and forward through the images',async({page})=>{
   await boot(page);const hub=await openLibrary(page,'image');
   const cards=hub.locator('[data-pick]'),n=await cards.count();expect(n).toBeGreaterThan(1);
-  await cards.first().click();await hub.getByRole('button',{name:'Open full size'}).click();
+  await cards.first().click();
   const viewer=page.locator('#library-hub-viewer'),prev=viewer.getByRole('button',{name:'Previous image',exact:true}),next=viewer.getByRole('button',{name:'Next image',exact:true}),count=viewer.locator('.lh-viewer-count');
   await expect(count).toHaveText('1 of '+n);await expect(prev).toBeDisabled();const first=await viewer.locator('img').getAttribute('data-asset');
   await next.click();await expect(count).toHaveText('2 of '+n);expect(await viewer.locator('img').getAttribute('data-asset')).not.toBe(first);
@@ -458,7 +479,7 @@ test('LIB-filter multiple labels use AND, show chips, and clearing restores ever
   await hub.getByRole('button',{name:'Clear all'}).click();await expect(hub.locator('.lh-chips')).toBeHidden();
   await expect(hub.locator('.lh-title')).toHaveText('All images');
 });
-test('LIB-label-edit details panel adds, removes and renames; each item can carry several labels',async({page})=>{
+test('LIB-label-edit image details add, remove and rename; each item can carry several labels — details panel adds, removes and renames; each item can carry several labels',async({page})=>{
   await boot(page);await seedLabels(page);const hub=await openLibrary(page,'image');
   await page.evaluate(()=>{
     window.__calls=[];const original=api;
@@ -469,7 +490,8 @@ test('LIB-label-edit details panel adds, removes and renames; each item can carr
       return original(path,body);};
   });
   await hub.locator('.lh-card',{hasText:'Alpha'}).click();
-  const details=hub.locator('.lh-details');
+  // Images: the details sit beside the full-size picture (owner-approved mock, 11 November 2026).
+  const details=page.locator('#library-hub-viewer .lh-viewer-side');
   await details.getByRole('button',{name:'+ Add label'}).click();
   await details.getByRole('button',{name:'Pets'}).click();
   await expect(details.locator('.lh-chip',{hasText:'Pets'})).toBeVisible();
@@ -477,7 +499,7 @@ test('LIB-label-edit details panel adds, removes and renames; each item can carr
   expect((await page.evaluate(()=>window.__qaCalls)).some(c=>c.path==='library/save'&&c.body.asset_id==='qa-image-0'&&c.body.folder_id==='qa-f-pets')).toBe(true);
   await details.getByRole('button',{name:'Remove label Pets'}).click();
   await expect(details.locator('.lh-chip',{hasText:'Pets'})).toHaveCount(0);
-  await details.locator('#lh-name').fill('Alpha renamed');await details.locator('#lh-name').press('Tab');
+  await details.locator('#lh-viewer-name').fill('Alpha renamed');await details.locator('#lh-viewer-name').press('Tab');
   await expect.poll(()=>page.evaluate(()=>window.__qaCalls.some(c=>c.path==='library/rename'&&c.body.name==='Alpha renamed'))).toBe(true);
 });
 test('LIB-label-new sidebar creates a nested label through the inline form',async({page})=>{

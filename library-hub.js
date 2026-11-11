@@ -139,26 +139,64 @@
   for(const k of ['image','video'])for(const it of visible(k).out.slice(0,PAGE_SIZE))list.push({id:it.id,type:'thumb'});
   warmMemo={key,list};return list;
  }
+ // Full-size view (owner-approved mock, 11 November 2026): clicking an image opens it full size at once, with its
+ // details on the right: name, type and size, created, image style, model, generation time and cost, seed, prompt,
+ // labels (add or remove), Download and Delete (asks once, then Trash). Arrows and Left/Right keys step; Esc closes.
+ function imageFacts(it){
+  const a=it.asset||{},st=a.settings||{},job=records().find(r=>r.kind==='job'&&r.result===it.id),prompt=st.source_prompt||st.prompt||a.prompt||'';
+  const styles=window.EccoImageStyles,style=st.image_style&&st.image_style!=='default'?st.image_style:(styles?.names.find(n=>prompt.startsWith(styles.get(n).lead))||'');
+  const size=st.width&&st.height?st.width+' × '+st.height:'',model=st.model==='uploaded-image'?'Uploaded':[window.EccoModelLabel?.(st.model)||st.model,a.gpu==='serverless'||job?.gpu==='serverless'?'Serverless':''].filter(Boolean).join(' · ');
+  const cost=Number(job?.estimated_compute_usd),secs=Number(job?.seconds);
+  return {rows:[['Type',[it.type,size].filter(Boolean).join(' · ')],['Created',stamp(it.created)],['Image style',style],['Model',model],['Generation',[Number.isFinite(secs)&&secs>0?Math.round(secs)+' s':'',Number.isFinite(cost)&&cost>0?'about $'+cost.toFixed(2):''].filter(Boolean).join(' · ')],['Seed',st.seed!=null?String(st.seed):'']].filter(([,v])=>v),prompt:styles&&style?prompt.replace(styles.get(style)?.lead||'','').replace('The whole image is in this style.','').trim():prompt};
+ }
+ function viewerSide(it,state2){
+  const list=folders('image'),can=it.cloud&&labelsReady('image'),own=it.labels.map(id=>list.find(f=>f.id===id)).filter(Boolean),facts=imageFacts(it);
+  const rows=[];const walk=(p,d)=>{list.filter(f=>(parentOf(f,list)?.id||'')===p).forEach(f=>{rows.push({f,d});walk(f.id,d+1);});};walk('',0);
+  return '<div class="lh-dhead"><h3>Details</h3></div>'
+   +'<div class="lh-field"><label for="lh-viewer-name">Name</label><input id="lh-viewer-name" type="text" maxlength="160" value="'+esc(it.raw||it.name)+'"'+(it.cloud?'':' readonly')+'></div>'
+   +'<dl class="lh-facts lh-viewer-facts">'+facts.rows.map(([k,v])=>'<div><dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>'
+   +(facts.prompt?'<details class="lh-viewer-prompt"><summary>Prompt</summary><p class="help">'+esc(facts.prompt)+'</p></details>':'')
+   +'<div class="lh-labels"><div class="lh-flabel">Labels</div><div class="lh-chips-row">'
+   +own.map(f=>'<span class="lh-chip">'+esc(path(f))+(can&&removeReady()?'<button type="button" data-vact="label-remove" data-id="'+esc(f.id)+'" aria-label="Remove label '+esc(path(f))+'"><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>':'')+'</span>').join('')
+   +(can?'<button type="button" class="lh-addlabel" data-vact="label-menu" aria-expanded="'+state2.menu+'">+ Add label</button>':'')
+   +(!can&&!own.length?'<span class="lh-muted">'+(it.cloud?'Labels need the storage service update.':'Labels are available once it is saved.')+'</span>':'')+'</div>'
+   +(can&&state2.menu?'<div class="lh-menu" role="group" aria-label="Choose labels">'+(rows.length?rows.map(({f,d})=>{const on=it.labels.includes(f.id),locked=on&&!removeReady();return '<button type="button" aria-pressed="'+on+'" data-vact="label-toggle" data-id="'+esc(f.id)+'"'+(locked?' disabled':'')+' style="padding-left:'+(10+d*18)+'px"><span class="lh-box" aria-hidden="true">'+(on?'✓':'')+'</span>'+esc(leaf(f))+'</button>';}).join(''):'<p class="lh-muted">Create your first label in the sidebar.</p>')+'</div>':'')
+   +'</div><div class="lh-actions lh-viewer-actions"><a class="lh-btn" data-asset="'+esc(it.id)+'" href="'+esc(media(it.asset))+'" download="'+esc((it.name||'image')+(it.type&&it.type.length<=5&&/^[A-Z0-9]+$/.test(it.type)?'.'+it.type.toLowerCase():''))+'">Download</a>'
+   +(state2.confirm?'<div class="lh-viewer-confirm" role="alert"><span>Move this image to Trash? You can restore it.</span><button type="button" class="lh-danger" data-vact="delete-yes">Move to Trash</button><button type="button" class="secondary" data-vact="delete-no">Keep it</button></div>':'<button type="button" class="lh-danger" data-vact="delete">Delete image</button>')+'</div>';
+ }
  function lightbox(item){
-  let d=q('#library-hub-viewer');if(!d){d=document.createElement('dialog');d.id='library-hub-viewer';d.className='lh-viewer';document.body.append(d);}
-  const list=visible('image').out.slice(),ids=list.map(it=>it.id);let index=Math.max(0,ids.indexOf(item.id));if(!ids.includes(item.id)){list.unshift(item);ids.unshift(item.id);index=0;}
+  let d=q('#library-hub-viewer');if(!d){d=document.createElement('dialog');d.id='library-hub-viewer';document.body.append(d);}d.className='lh-viewer lh-viewer-full';
+  let list=visible('image').out.slice(),index=Math.max(0,list.findIndex(it=>it.id===item.id));if(!list.some(it=>it.id===item.id)){list.unshift(item);index=0;}
+  const ui2={menu:false,confirm:false};
+  d.innerHTML='<div class="lh-viewer-main"><div class="lh-viewer-body"><span data-prev></span><div class="lh-viewer-frame"></div><span data-next></span></div><p class="help lh-viewer-count" aria-live="polite"></p></div><aside class="lh-viewer-side lh-details" aria-label="Details"></aside>';
+  const frame=d.querySelector('.lh-viewer-frame'),side=d.querySelector('.lh-viewer-side'),count=d.querySelector('.lh-viewer-count');
+  // Repainting the details can remove the focused button; focus then returns to the view so arrow keys keep working.
+  const paintSide=()=>{const it=list[index],had=side.contains(document.activeElement);side.innerHTML=viewerSide(it,ui2);if(had&&!d.contains(document.activeElement)){d.tabIndex=-1;d.focus({preventScroll:true});}};
   const show=i=>{
-   index=i;const it=list[index],first=index===0,last=index===list.length-1;d.dataset.current=it.id;viewerNeighbours=[list[index+1]?.id,list[index-1]?.id].filter(Boolean);
-   const head=d.querySelector('.lh-viewer-head');
-   const title='<strong>'+esc(it.name)+'</strong>'+(list.length>1?'<span class="help lh-viewer-count" aria-live="polite">'+(index+1)+' of '+list.length+'</span>':'');
-   if(head){head.querySelector('.lh-viewer-title').innerHTML=title;}
-   const body='<img data-asset="'+esc(it.id)+'" alt="'+esc(it.name)+'" src="'+esc(media(it.asset))+'">';
-   if(!head)d.innerHTML='<div class="lh-viewer-head"><div class="lh-viewer-title">'+title+'</div></div><div class="lh-viewer-body">'+(list.length>1?arrow('prev','Previous image',first):'')+'<div class="lh-viewer-frame">'+body+'</div>'+(list.length>1?arrow('next','Next image',last):'')+'</div>';
-   else d.querySelector('.lh-viewer-frame').innerHTML=body;
-   const prev=d.querySelector('[data-step=prev]'),next=d.querySelector('[data-step=next]');
-   if(prev){prev.disabled=first;prev.onclick=()=>{if(index>0)show(index-1);};}
-   if(next){next.disabled=last;next.onclick=()=>{if(index<list.length-1)show(index+1);};}
-   const focused=document.activeElement;if(focused?.disabled)(first?next:prev)?.focus();
-   hydrate();
+   index=i;const it=list[index],first=index===0,last=index===list.length-1;d.dataset.current=it.id;viewerNeighbours=[list[index+1]?.id,list[index-1]?.id].filter(Boolean);ui2.menu=ui2.confirm=false;
+   d.setAttribute('aria-label',it.name);frame.innerHTML='<img data-asset="'+esc(it.id)+'" alt="'+esc(it.name)+'" src="'+esc(media(it.asset))+'">';
+   count.textContent=list.length>1?(index+1)+' of '+list.length:'';
+   // The arrows are made once and only switch on and off, so focus (and the arrow keys) stay in the view.
+   const holder=(at,dir,label)=>{const box=d.querySelector(at);if(list.length<2){box.innerHTML='';return null;}if(!box.firstChild)box.innerHTML=arrow(dir,label,false);return box.firstChild;};
+   const prev=holder('[data-prev]','prev','Previous image'),next=holder('[data-next]','next','Next image');
+   if(prev){prev.disabled=first;prev.onclick=()=>{if(index>0)show(index-1);};}if(next){next.disabled=last;next.onclick=()=>{if(index<list.length-1)show(index+1);};}
+   if(document.activeElement?.disabled)(first?next:prev)?.focus();
+   paintSide();hydrate();
   };
-  d.innerHTML='';show(index);
+  // After a change, take the fresh copy of the same image (labels, name) and keep the place in the list.
+  const refresh=()=>{const fresh=items('image').find(x=>x.id===list[index].id);if(fresh)list[index]=fresh;paintSide();};
+  side.onclick=e=>{const b=e.target.closest('[data-vact]');if(!b)return;const it=list[index],act=b.dataset.vact;
+   if(act==='label-menu'){ui2.menu=!ui2.menu;paintSide();}
+   else if(act==='label-toggle'){const id=b.dataset.id,has=it.labels.includes(id);guard(async()=>{if(has)await api('library/labels/remove',{library:'image',item_id:it.id,folder_id:id});else await assign('image',it,id);await reload();refresh();toast(has?'Label removed':'Label added');});}
+   else if(act==='label-remove')guard(async()=>{await api('library/labels/remove',{library:'image',item_id:it.id,folder_id:b.dataset.id});await reload();refresh();toast('Label removed');});
+   else if(act==='delete'){ui2.confirm=true;paintSide();side.querySelector('[data-vact=delete-yes]')?.focus();}
+   else if(act==='delete-no'){ui2.confirm=false;paintSide();side.querySelector('[data-vact=delete]')?.focus();}
+   else if(act==='delete-yes')guard(async()=>{await removeItem('image',it);list.splice(index,1);if(!list.length){d.close();return;}show(Math.min(index,list.length-1));});
+  };
+  side.onchange=e=>{if(e.target.id==='lh-viewer-name'){const it=list[index];if(it.cloud)guard(async()=>{await renameItem(it,e.target.value);refresh();});}};
+  show(index);
   d.onkeydown=e=>{if(e.target.closest('input,select,textarea'))return;if(e.key==='ArrowLeft'&&index>0){e.preventDefault();show(index-1);}else if(e.key==='ArrowRight'&&index<list.length-1){e.preventDefault();show(index+1);}};
-  d.onclose=()=>{viewerNeighbours=[];const last=d.dataset.current||item.id,n=pageOf('image',last);if(n&&n!==ui.image.page&&current==='image'){ui.image.page=n;results();}const opener=q('.lh [data-pick="'+cssq(last)+'"]')||q('.lh [data-pick="'+cssq(item.id)+'"]');opener?.focus();};
+  d.onclose=()=>{viewerNeighbours=[];const last=d.dataset.current||item.id,n=pageOf('image',last);if(current==='image'){if(n&&n!==ui.image.page)ui.image.page=n;results();}const opener=q('.lh [data-pick="'+cssq(last)+'"]')||q('.lh [data-pick="'+cssq(item.id)+'"]');opener?.focus();};
   d.showModal();
  }
  function renameLabelDialog(kind,folder){
@@ -337,7 +375,9 @@
   const root=event.target.closest('#page .lh');if(!root)return;
   const b=event.target.closest('[data-act]');if(!b)return;
   const kind=root.dataset.kind,s=ui[kind],act=b.dataset.act;
-  if(act==='pick'){s.sel=s.sel===b.dataset.pick?'':b.dataset.pick;menu=false;results();root.querySelector('[data-pick="'+cssq(b.dataset.pick)+'"]')?.focus();}
+  // Images open full size with their details (owner-approved mock, 11 November 2026); other kinds use the side panel.
+  if(act==='pick'&&kind==='image'){const item=items('image').find(it=>it.id===b.dataset.pick);if(item){s.sel='';menu=false;lightbox(item);}}
+  else if(act==='pick'){s.sel=s.sel===b.dataset.pick?'':b.dataset.pick;menu=false;results();root.querySelector('[data-pick="'+cssq(b.dataset.pick)+'"]')?.focus();}
   else if(act==='view'){s.view=b.dataset.view;localStorage.setItem('ecco-library-view-'+kind,s.view);results();}
   else if(act==='clear'){s.filters=[];s.sel='';s.page=1;results();renderNav();}
   else if(act==='chip-x'){s.filters=s.filters.filter(x=>x!==b.dataset.id);s.sel='';s.page=1;results();renderNav();}

@@ -809,7 +809,8 @@
         "screenplay-lines-sounds",
         "cast-list-automatic",
         "automatic-episodes",
-        "image-style-picker"
+        "image-style-picker",
+        "library-image-full-view"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"

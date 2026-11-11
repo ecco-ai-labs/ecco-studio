@@ -958,6 +958,14 @@ include expressions. A picture repeats each person's look from Characters
 ("keep exactly as described"); a person's avatar is drawn in the same Image
 style and used as the reference. No new controls.
 
+Library image view (owner-approved mock 2026-11-11): clicking an image in the
+Images library opens it full size at once (no side panel first). The details
+sit on the right: Name (editable), Type and size, Created, Image style, Model,
+Generation time and cost, Seed, Prompt (collapsed), Labels (add or remove),
+Download and Delete image, which asks once ("Move to Trash" / "Keep it").
+Arrows and Left/Right keys step through the Library's current order; the
+popup's own close button or Esc closes. Other libraries keep the side panel.
+
 Image style picker (owner-approved mock 2026-11-10): Story Details → Image
 style lists 50 styles (image-styles.js) without a long list: one dropdown that
 opens on Popular (8), 2–3 suggestions for the audience, a search box and seven
