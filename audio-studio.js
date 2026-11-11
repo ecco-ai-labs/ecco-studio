@@ -27,13 +27,16 @@
  function computeChoices(status){
   const cpus=(status?.instances||[]).filter(w=>w.compute==='cpu').map(w=>({value:computeValue('cpu',w.id),compute:'cpu',worker_id:w.id,ready:w.ready,label:'CPU · '+w.name+(w.cpu_count&&w.memory_gb?' · '+w.cpu_count+' vCPU / '+w.memory_gb+' GB':'')+' · '+(w.ready?'Ready':'Unavailable')}));
   const classes=Object.entries(status?.compute||{}).filter(([id,target])=>(id!=='cpu'||!cpus.length)&&target.ready&&gpuConnected(id)).map(([id,target])=>({value:id,compute:id,worker_id:'',ready:target.ready,label:gpuLabel(id)}));
-  return [...classes.filter(c=>c.compute!=='cpu'),...cpus,...classes.filter(c=>c.compute==='cpu')];
+  // Serverless first; every other choice keeps its usual order (CPU instances, then GPU classes).
+  const isServerless=c=>c.compute==='a100'&&c.label==='Serverless · A100';
+  return [...classes.filter(isServerless),...cpus,...classes.filter(c=>!isServerless(c))];
  }
- // Preferred compute: Serverless when it is connected and can run every needed model, otherwise the CPU with the most models.
+ // Preferred compute: Serverless when it is connected and can run every needed model, otherwise a ready CPU (most models first).
+ // GPU pods are never picked automatically; they are used only after an explicit choice.
  function preferredCompute(status,needed=[]){
   const choices=computeChoices(status),fits=c=>{const t=computeTarget(status,c.compute,c.worker_id);return c.ready&&needed.every(id=>t?.models?.includes(id));};
-  const models=c=>(computeTarget(status,c.compute,c.worker_id)?.models||[]).length;
-  return choices.find(c=>c.compute!=='cpu'&&fits(c))||choices.filter(c=>c.compute==='cpu'&&fits(c)).sort((a,b)=>models(b)-models(a))[0]||choices.filter(c=>c.compute==='cpu'&&c.ready).sort((a,b)=>models(b)-models(a))[0]||choices[0]||null;
+  const models=c=>(computeTarget(status,c.compute,c.worker_id)?.models||[]).length,cpus=choices.filter(c=>c.compute==='cpu'&&c.ready).sort((a,b)=>models(b)-models(a));
+  return choices.find(c=>c.label==='Serverless · A100'&&fits(c))||cpus.find(fits)||cpus[0]||null;
  }
  function modelReadiness(status,compute,workerId,modelId,sound=false){
   if(!status)return {ready:false,reason:'Connect workspace storage and wait for the worker availability check.'};
@@ -492,7 +495,7 @@
   drawLines();
   q('#add-audio-line').onclick=()=>{if(draft.presentation==='conversation'){const previous=draft.lines.at(-1).speaker_id,cast=activeSpeakers(),next=cast[(cast.findIndex(s=>s.id===previous)+1)%cast.length];draft.lines.push({text:'',speaker_id:next.id});save();drawLines();drawControls();}};
   q('#audio-form').addEventListener('input',e=>{if(e.target.name&&e.target.name!=='model'&&e.target.name!=='compute'){draft[e.target.name]=['title','model','genre','compute'].includes(e.target.name)?e.target.value:Number(e.target.value);save();}});
-  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='genre'){draft.genre=e.target.value;genreDefaults(e.target.value);reviewScript();}if(e.target.name==='compute'){Object.assign(draft,parseCompute(e.target.value));if(!draft.worker_id)delete draft.worker_id;draft.compute_auto=!e.target.value;save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
+  q('#audio-form').addEventListener('change',e=>{if(e.target.name==='model')changeModel(e.target.value);if(e.target.name==='genre'){draft.genre=e.target.value;genreDefaults(e.target.value);reviewScript();}if(e.target.name==='compute'){Object.assign(draft,parseCompute(e.target.value));draft.compute_auto=false;save();showComputeStatus();clearPreview();q('#audio-voice-preview-dialog')?.close();}});
   q('#audio-form').onsubmit=async e=>{
    e.preventDefault();save();
    if(submitting||verification?.running||q('#generate-audio').disabled)return;
