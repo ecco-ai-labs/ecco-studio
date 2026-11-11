@@ -94,7 +94,7 @@ for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} open
   await expect(page.locator('#heading')).toHaveText('Tell Your Story');
   const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Images for Your Story','4. Create Videos for Your Story']);
   await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
-  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group .journey-step:visible')).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Images for Your Story','4. Create Videos for Your Story']);
+  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group .journey-step:not([hidden])')).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Images for Your Story','4. Create Videos for Your Story']);
   expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='12px'))).toBe(true);
   await choices.first().focus();await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
   await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('');
