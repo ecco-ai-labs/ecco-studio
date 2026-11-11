@@ -268,5 +268,10 @@
     "area": "Create Images",
     "mode": "fixture",
     "scope": "IMG-create: journey step 4 opens the three-step workspace (no old image form), step header text, hidden Model settings with Qwen and Serverless defaults and no Image Library button; library selection, × remove, Generate with AI, Improve with AI drafts; Enhance Image animal vs person controls with ✦ suggestions, choices sent without a prompt and with a prompt, Image N references, Use Draft; Publish shows images and one Publish button, approves and labels with the story name; fallback type choice when AI is off; direct navigation keeps the old image form; roster audit clean. Real GPU generation, OpenAI image analysis and library writes remain blocked (synthetic jobs and responses)."
+  },
+  {
+    "area": "Generation error popup and timer",
+    "mode": "live",
+    "scope": "Starting a new run (Generate on Screen Play or Generate again) marks the previous failed run's error as seen, so its popup does not reappear while the new run starts; the seen list is kept in localStorage so reloading or opening a new tab does not re-announce old failures; Elapsed stops at the last activity of a failed, stopped or finished run instead of counting up from its start forever. Verified live on The Jet That Starves Itself (11 Nov 2026)."
   }
 ]
