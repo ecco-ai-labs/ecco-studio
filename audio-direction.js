@@ -182,8 +182,10 @@
  const parts=plan=>[...(plan.opening?[plan.opening]:[]),...plan.segments];
  function clean(value){
   if(value==null)return undefined;
-  if(typeof value!=='object'||!emotions.includes(value.emotion)||typeof value.direction!=='string'||!value.direction.trim()||value.direction.length>400||!Number.isFinite(value.pause_before)||value.pause_before<0||value.pause_before>2)throw Error('AI returned invalid delivery cues. Your script was preserved.');
-  return {emotion:value.emotion,direction:value.direction.trim(),pause_before:value.pause_before,...(value.manual?{manual:true}:{})};
+  // Directions written in the script as [brackets] may carry only words; emotion and pause then default.
+  const v={emotion:'neutral',pause_before:0,...value};
+  if(typeof value!=='object'||!emotions.includes(v.emotion)||typeof v.direction!=='string'||!v.direction.trim()||v.direction.length>400||!Number.isFinite(v.pause_before)||v.pause_before<0||v.pause_before>2||(v.after!=null&&(typeof v.after!=='string'||v.after.length>120)))throw Error('AI returned invalid delivery cues. Your script was preserved.');
+  return {emotion:v.emotion,direction:v.direction.trim(),pause_before:v.pause_before,...(v.after?{after:v.after.trim()}:{}),...(v.manual?{manual:true}:{})};
  }
  function guidance(brief={}){
   const genre=brief.genre||'Story Book Reading',audience=brief.audience||'the selected audience',style=brief.language_style||'Everyday / Conversational';
@@ -243,7 +245,7 @@
  function lineControls(turn,speaker,model){
   const cue=clean(turn.performance),chosen=(turn.performance?.manual?cue?.emotion:speaker.emotion_override?speaker.emotion:cue?.emotion)||speaker.emotion||'neutral',profile=profiles[chosen]||profiles.neutral;
   const emotion=model.emotions?profile[speaker.language==='English'?2:3]:'neutral';
-  const direction=model.voice_direction?[chosen+' emotion: '+profile[0],speaker.delivery_style&&speaker.delivery_style!=='Voice Default'?speaker.delivery_style:'',speaker.delivery||speaker.style||'',(turn.performance?.manual||!speaker.emotion_override?cue?.direction:'')||''].filter(Boolean).join('. ').slice(0,1200):'';
+  const direction=model.voice_direction?[chosen+' emotion: '+profile[0],speaker.delivery_style&&speaker.delivery_style!=='Voice Default'?speaker.delivery_style:'',speaker.delivery||speaker.style||'',(turn.performance?.manual||!speaker.emotion_override?cue?.direction:'')||'',cue?.after?'End the line with '+cue.after:''].filter(Boolean).join('. ').slice(0,1200):'';
   const expressiveness=model.expressiveness&&(cue||chosen!=='neutral')?{exaggeration:profile[1]}:{};
   return {emotion,...expressiveness,...(direction?{direction}:{}),...(cue?{pause_before:cue.pause_before}:{})};
  }

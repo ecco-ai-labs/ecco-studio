@@ -117,6 +117,9 @@ def validate(body):
             raise ValueError(model['name'] + ' cannot speak with a saved character voice. Choose Chatterbox, IndicF5 or VoxCPM2.')
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 500:
             raise ValueError('Each line needs 1–500 characters.')
+        # [Directions] are instructions, never words: a line that still contains one is refused so it can't be read aloud.
+        if '[' in text or ']' in text:
+            raise ValueError('A line still contains a [direction] in its spoken words. Directions must be sent separately, never spoken.')
         if language not in model['languages']:
             raise ValueError('Choose a language supported by ' + model['name'] + '.')
         allowed_emotions = (ENGLISH_EMOTIONS if language == 'English' else INDIC_EMOTIONS) if model['emotions'] else ['neutral']
