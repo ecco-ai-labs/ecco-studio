@@ -195,6 +195,15 @@
   c.controls=pop(c,'generation-controls-dialog','Additional Controls');q('[data-close]',c.controls).textContent='Apply';
   q('[data-body]',c.controls).innerHTML=kind==='audio'?'<div data-delivery-controls></div>':'<div data-object-controls></div>'+field('Visual style','<input data-generation-style maxlength="160" value="'+esc(c.data.style)+'" placeholder="Keep original / unspecified">');
   const styleControl=q('[data-generation-style]',c.controls);if(styleControl)styleControl.oninput=e=>{c.data.style=e.target.value;save(c);};
+  // Pictures pick from the same Image style list as Story Details, so the style is always bound to the prompt (image-styles.js).
+  if(kind==='image'&&window.EccoImageStyles&&styleControl){
+   const holder=styleControl.closest('label'),box=document.createElement('div'),title=document.createElement('span'),current=document.createElement('span'),change=document.createElement('button'),clear=document.createElement('button'),panel=document.createElement('div');
+   box.className='generation-image-style';title.textContent='Image style';current.className='help';current.dataset.generationStyleCurrent='';change.type=clear.type='button';change.className=clear.className='secondary';change.textContent='Change';clear.textContent='No style';panel.className='image-style-inline';panel.hidden=true;
+   const show=()=>{const s=window.EccoImageStyles.get(c.data.style);current.textContent=c.data.style?(c.data.style+(s?' · '+s.hint:'')):'Keep original / unspecified';clear.hidden=!c.data.style;};
+   const pick=value=>{c.data.style=value;save(c);panel.hidden=true;change.setAttribute('aria-expanded','false');show();};
+   change.setAttribute('aria-expanded','false');change.onclick=()=>{const open=panel.hidden;panel.hidden=!open;change.setAttribute('aria-expanded',String(open));if(open){const {search}=window.EccoImageStyles.fill(panel,{value:c.data.style,audience:'',onPick:pick});search.focus();}};
+   clear.onclick=()=>pick('');const row=document.createElement('div');row.className='generation-image-style-row';row.append(current,change,clear);box.append(title,row,panel);holder.replaceWith(box);show();
+  }
   form.append(footer);form.noValidate=true;
   const librarySelect=q('[data-reference-library]',form);if(librarySelect){librarySelect.value=referenceKind(c);librarySelect.onchange=()=>{c.data.reference_library=librarySelect.value;c.activeReference=null;save(c);document.dispatchEvent(new Event('ecco-reference-change'));};}
   const libraryButton=q('[data-open-library]',form);if(libraryButton)libraryButton.onclick=()=>referencePicker(c);q('[data-open-prompt]',form).onclick=()=>{c.prompt.showModal();fitPrompt(c);q('textarea',c.prompt)?.focus();};q('[data-open-controls]',form).onclick=()=>openControls(c);

@@ -957,6 +957,15 @@ include expressions. A picture repeats each person's look from Characters
 ("keep exactly as described"); a person's avatar is drawn in the same Image
 style and used as the reference. No new controls.
 
+Image style picker (owner-approved mock 2026-11-10): Story Details → Image
+style lists 50 styles (image-styles.js) without a long list: one dropdown that
+opens on Popular (8), 2–3 suggestions for the audience, a search box and seven
+groups (Popular, Illustration, Painting, 3D and craft, Photo, Digital and retro,
+Cultural). The chosen style's one-line hint shows under the field. Story
+Generation → Additional Controls uses the same list (Change / No style) instead
+of a free-text Visual style box for pictures, so every picture prompt is bound
+to a described style. Layout only; options reuse .story-choice-option sizes.
+
 Screen Play script rules (owner request 2026-11-10): a paragraph without a name
 continues the same speaker (only the first paragraph needs one); text in
 [square brackets] is a direction sent to the voice model separately and never

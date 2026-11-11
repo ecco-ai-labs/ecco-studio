@@ -49,7 +49,7 @@
  // Story type is chosen as One time or Recurring generation; these four types are one-time only (owner decision 2026-11-09).
  const ONE_TIME_ONLY=['presentation','marketing','ambient','custom'],isRecurring=()=>data?.recurrence==='recurring'&&data?.output!=='image';
  // Output-aware fields (owner-approved mock, 2026-11-09): Image uses Image style and no Genre or Language; Video adds Visual style.
- const IMAGE_STYLES=['Cartoon','3D animation','Origami','Clay / claymation','Human / realistic portrait','Photographic','Anime','Watercolor','Oil painting','Pixel art'],VIDEO_STYLES=['Cinematic realistic film','Cartoon animation','Clay stop-motion','Origami animation','Vintage hand-drawn animation'];
+ const IMAGE_STYLES=window.EccoImageStyles?.names||['Cartoon','3D animation','Origami','Clay / claymation','Human / realistic portrait','Photographic','Anime','Watercolor','Oil painting','Pixel art'],VIDEO_STYLES=['Cinematic realistic film','Cartoon animation','Clay stop-motion','Origami animation','Vintage hand-drawn animation'];
  const isImage=()=>data?.output==='image',outputFields=[['imageStyle','Image style','Choose an image style.'],['videoStyle','Visual style','Choose a visual style.']];
  function requiredDetails(){const image=isImage();return [...detailFields.filter(([n])=>!(image&&['type','genre','language'].includes(n))),...(image?[outputFields[0]]:[]),...(data.output==='video'?[outputFields[1]]:[])];}
  const genreGroups=[['Story genres',genres.slice(0,10).map(value=>[value,''])],['Real-world topics',genres.slice(10).map(value=>[value,''])]];
@@ -83,6 +83,17 @@
   }
  }
  function detailChanged(name,value){if(name==='output'&&data.output!==value){data.view='';if(value==='image')data.recurrence='once';}if(name in detailDefaults&&data[name]!==value)data.defaultEdited={...data.defaultEdited,[name]:true};data[name]=value;if(name==='type'){fitGenre();const g=inPage('#story-detail-genre');if(g&&g.value!==(data.genre||''))g.value=data.genre||'';}epoch++;persist();updateDetailDefaults();updateDetailChoices();if(name==='output'){window.EccoWorkspaceUI?.refreshJourney();updateOutputFields();updateDetailChoices();header();}if(inPage('#story-simple-details')?.dataset.validated)showDetailErrors();}
+ // Image style picker (owner-approved mock 2026-11-10): Popular first, suggestions for the audience, search and groups.
+ function styleDropdown(select){
+  const wrap=select.closest('.story-detail-field'),label=q('label',wrap),trigger=document.createElement('button'),panel=document.createElement('div');wrap.classList.add('story-choice-field');select.hidden=true;select.tabIndex=-1;
+  trigger.type='button';trigger.id=select.id+'-button';trigger.className='story-choice-trigger';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');label.htmlFor=trigger.id;label.id=select.id+'-label';trigger.setAttribute('aria-labelledby',label.id+' '+trigger.id);trigger.innerHTML='<span class="story-choice-value"><span data-choice-label></span></span><span aria-hidden="true">⌄</span>';
+  panel.id=select.id+'-panel';panel.className='story-choice-panel';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','false');panel.setAttribute('aria-labelledby',label.id);trigger.setAttribute('aria-controls',panel.id);select.after(trigger,panel);
+  const hint=document.createElement('p');hint.className='help';hint.dataset.imageStyleHint='';panel.after(hint);
+  const show=()=>{q('[data-choice-label]',trigger).textContent=select.value||'Choose an image style';hint.textContent=window.EccoImageStyles.get(select.value)?.hint||'';hint.hidden=!hint.textContent;};
+  const pick=value=>{select.value=value;select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));show();closeDetailMenu(true);};
+  trigger.onclick=()=>{if(detailMenu?.trigger===trigger){closeDetailMenu();return;}closeDetailMenu();const {search}=window.EccoImageStyles.fill(panel,{value:select.value,audience:data.audience,onPick:pick});panel.hidden=false;trigger.setAttribute('aria-expanded','true');detailMenu={panel,trigger};if(innerHeight-trigger.getBoundingClientRect().bottom<Math.min(320,innerHeight/2))trigger.scrollIntoView({block:'start'});placeDetailMenu();search.focus({preventScroll:true});};
+  select.addEventListener('change',show);show();
+ }
  function choiceDropdown(select,groups){
   const name=select.name,wrap=select.closest('.story-detail-field'),label=q('label',wrap),trigger=document.createElement('button'),panel=document.createElement('div');wrap.classList.add('story-choice-field');select.hidden=true;select.tabIndex=-1;
   trigger.type='button';trigger.id=select.id+'-button';trigger.className='story-choice-trigger';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');label.htmlFor=trigger.id;label.id=select.id+'-label';trigger.setAttribute('aria-labelledby',label.id+' '+trigger.id);trigger.innerHTML='<span class="story-choice-value"><span data-choice-label></span><span class="story-generation-tag" data-generation-tag hidden></span></span><span aria-hidden="true">⌄</span>';
@@ -123,7 +134,7 @@
   field(storyFields,'Describe your genre or topic','genreDescription',null,{required:true});
   choiceDropdown(type,typeGroups);choiceDropdown(genre,genreGroups);
   if(!data.videoStyle)data.videoStyle=VIDEO_STYLES[0];
-  const imageStyle=field(storyFields,'Image style','imageStyle',IMAGE_STYLES,{required:true}),videoStyle=field(storyFields,'Visual style','videoStyle',VIDEO_STYLES,{required:true});output.after(imageStyle.closest('.story-detail-field'));
+  const imageStyle=field(storyFields,'Image style','imageStyle',IMAGE_STYLES,{required:true}),videoStyle=field(storyFields,'Visual style','videoStyle',VIDEO_STYLES,{required:true});output.after(imageStyle.closest('.story-detail-field'));if(window.EccoImageStyles)styleDropdown(imageStyle);
   field(audienceFields,'Audience age group','audience',audiences,{required:true});
   field(audienceFields,'Language','language',languages,{required:true});
   field(audienceFields,'Audience location','location',null,{placeholder:'For example, India or worldwide'});

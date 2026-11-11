@@ -350,3 +350,22 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .story-auto-change textarea{width:100%}
 .story-auto-question{display:flex;flex-direction:column;gap:6px}
 .story-auto audio{width:100%;max-width:520px}
+/* Image style picker (image-styles.js): layout only; sizes come from the roster classes it reuses. */
+.image-style-picker,.image-style-inline{display:flex;flex-direction:column;gap:10px}
+.image-style-search{width:100%}
+.image-style-suggest{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.image-style-suggest[hidden],.image-style-groups[hidden]{display:none}
+.image-style-body{display:grid;grid-template-columns:minmax(140px,170px) minmax(0,1fr);gap:10px;align-items:start}
+.image-style-groups{display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--ecco-theme-border,rgba(255,255,255,.15));padding-right:8px}
+#page .image-style-group{display:flex;justify-content:space-between;gap:8px;text-align:left;background:transparent;border:0;color:var(--ecco-theme-text,#f1edff)}
+#page .image-style-group small{opacity:.7}
+#page .image-style-group[aria-selected=true]{color:var(--ecco-theme-accent,#ffdc24);background:var(--ecco-theme-control,#383160)}
+.image-style-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;align-content:start;max-height:min(52vh,420px);overflow:auto}
+.image-style-list.image-style-wide{grid-column:1/-1}
+#page .image-style-list .story-choice-option{grid-template-columns:minmax(0,1fr);text-align:left}
+#page .image-style-list .story-choice-option[aria-pressed=true]{outline:1px solid var(--ecco-theme-accent,#ffdc24)}
+/* One line each, so long hints never run into the next style. */
+.image-style-list .story-choice-name,.image-style-list .story-choice-description{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.generation-image-style{display:flex;flex-direction:column;gap:6px}
+.generation-image-style-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+@media(max-width:700px){.image-style-body{grid-template-columns:1fr}.image-style-groups{flex-direction:row;flex-wrap:wrap;border-right:0;padding-right:0}.image-style-list{grid-template-columns:1fr}}

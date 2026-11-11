@@ -808,7 +808,8 @@
         "new-each-episode",
         "screenplay-lines-sounds",
         "cast-list-automatic",
-        "automatic-episodes"
+        "automatic-episodes",
+        "image-style-picker"
       ],
       "standardValues": {},
       "implementationStatus": "Existing instances indexed by source; shared implementation migration pending"

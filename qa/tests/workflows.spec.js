@@ -22,6 +22,8 @@ async function boot(page,options={}){
     if(!options.landing)await page.locator('[data-story-destination="story-setup"]').click();
   }
 }
+// Image style picker (2026-11-10): open it, search and pick.
+async function pickImageStyle(page,name){await page.locator('#story-detail-imageStyle-button').click();const panel=page.locator('#story-detail-imageStyle-panel');await panel.getByLabel('Search image styles',{exact:true}).fill(name);await panel.locator('[data-image-style]').filter({has:page.locator('.story-choice-name',{hasText:new RegExp('^'+name.replace(/[.*+?^${}()|[\]\\/]/g,'\\$&')+'$')})}).first().click();await expect(page.locator('#story-detail-imageStyle')).toHaveValue(name);}
 async function fillStoryDetail(page,name,value){
  if(name==='output')await page.locator('#story-simple-details input[name=output][value="'+value+'"]').check();
  else if(['type','genre'].includes(name)){await page.locator('#story-detail-'+name+'-button').click();await page.locator('#story-detail-'+name+'-panel [data-choice-value='+JSON.stringify(value)+']:not([data-choice-mode=recurring])').click();}
@@ -1030,9 +1032,9 @@ test('STORY-19 Recurring: series hint in Generate With AI and the one-time warni
 });
 test('STORY-20 Image and Video change Story Details fields, the Step 2 screen and the steps',async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt hill');await fillStoryDetail(page,'output','image');
- const form=page.locator('#story-simple-details');await expect(form.getByLabel('Image style (required)')).toBeVisible();for(const id of ['#story-detail-type-button','#story-detail-genre-button','#story-detail-language'])await expect(form.locator(id)).toBeHidden();await expect(form.getByLabel('Visual style (required)')).toBeHidden();
+ const form=page.locator('#story-simple-details');await expect(form.locator('#story-detail-imageStyle-button')).toBeVisible();for(const id of ['#story-detail-type-button','#story-detail-genre-button','#story-detail-language'])await expect(form.locator(id)).toBeHidden();await expect(form.getByLabel('Visual style (required)')).toBeHidden();
  const tabs=page.getByRole('tablist',{name:'Create your story',exact:true});await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Picture','3. Story Characters','4. Story Generation','5. Story Publishing']);
- await page.getByRole('button',{name:/Next: Story Picture/}).click();await expect(form.locator('#story-detail-imageStyle-error')).toHaveText('Choose an image style.');await form.getByLabel('Image style (required)').selectOption('Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ await page.getByRole('button',{name:/Next: Story Picture/}).click();await expect(form.locator('#story-detail-imageStyle-error')).toHaveText('Choose an image style.');await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
  await expect(page.getByRole('tab',{name:'2. Story Picture',exact:true})).toHaveAttribute('aria-selected','true');const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});await expect(ptabs.getByRole('tab')).toHaveText(['Upload a Photo','Generate With AI']);
  await expect(page.getByRole('group',{name:'Picture settings',exact:true}).getByLabel('Image Style',{exact:true})).toHaveValue('Watercolor');await expect(page.getByRole('group',{name:'Picture settings'}).getByLabel('Language')).toHaveCount(0);
  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
@@ -1042,13 +1044,13 @@ test('STORY-20 Image and Video change Story Details fields, the Step 2 screen an
  await expect(ai.getByLabel('Picture Description',{exact:true})).toHaveValue(/Picture 1: A girl carrying salt/);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();
  await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');await page.getByRole('button',{name:/Next: Story/}).click();await expect(page.locator('#image-form')).toBeVisible();
  expect(await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('Salt hill')&&localStorage.getItem(k).includes('simple_workspace'));return JSON.parse(localStorage.getItem(k)).simple_workspace.script;})).toMatch(/A girl carrying salt/);
- await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await fillStoryDetail(page,'output','video');await expect(form.getByLabel('Visual style (required)')).toHaveValue('Cinematic realistic film');await expect(form.locator('#story-detail-language')).toBeVisible();await expect(form.getByLabel('Image style (required)')).toBeHidden();
+ await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await fillStoryDetail(page,'output','video');await expect(form.getByLabel('Visual style (required)')).toHaveValue('Cinematic realistic film');await expect(form.locator('#story-detail-language')).toBeVisible();await expect(form.locator('#story-detail-imageStyle-button')).toBeHidden();
  await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Script','3. Story Characters','4. Story Screen Play','5. Story Generation','6. Story Publishing']);
  expect(page.qaErrors).toEqual([]);
 });
 for(const way of ['Upload a Photo','Generate With AI'])test(`STORY-21 ${way}: the picture reaches Story Generation with only its description, its style and the photo`,async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt picture '+way);await fillStoryDetail(page,'output','audio');await fillStoryDetail(page,'output','image');
- await page.locator('#story-simple-details').getByLabel('Image style (required)').selectOption('Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
  const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});
  if(way==='Upload a Photo'){const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
   await page.getByRole('dialog',{name:'Upload a Photo',exact:true}).locator('[data-selected]').fill('Turn this photo into a picture for a storybook.');}
@@ -1739,7 +1741,7 @@ test('GPU-SERVERLESS-01 the GPU connection box has an always-on Serverless card'
 // Owner request 2026-11-10: the chosen Image style always wins; people keep their described look.
 test('STORY-33 Picture: the Image style is described first with what to avoid, AI descriptions name no style, and people keep their look',async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox picnic');await fillStoryDetail(page,'output','image');
- await page.locator('#story-simple-details').getByLabel('Image style (required)').selectOption('3D animation');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ await pickImageStyle(page,'3D animation');await page.getByRole('button',{name:/Next: Story Picture/}).click();
  await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});
  await ai.getByLabel('What should your picture show?',{exact:true}).fill('A girl and a fox at a picnic');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');
  const instruction=await page.evaluate(()=>window.__qaCalls.find(c=>c.body?.fields?.[0]?.id==='picture_description').body.context.instructions);expect(instruction).toContain('Do not name or describe any art style');expect(instruction).toContain('expressions');
@@ -1757,5 +1759,30 @@ test('STORY-33 Picture: the Image style is described first with what to avoid, A
  const body=await page.evaluate(()=>window.qaImageRequests[0]);
  expect(body.prompt.startsWith('3D animated feature film still')).toBe(true);expect(body.prompt).toContain('The whole image is in this style.');expect(body.prompt).not.toContain('Style: 3D animation.');
  expect(body.negative).toContain('watercolor');expect(body.prompt).toContain('yellow raincoat');
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Owner-approved mock 2026-11-10: Image style picker with Popular, suggestions, search and groups; bound to the prompt everywhere.
+test('STORY-34 Image style picker: Popular first, audience suggestions, search, groups; Mosaic reaches the prompt and the Generation controls',async({page})=>{
+ await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox on ice');await fillStoryDetail(page,'output','image');
+ const trigger=page.locator('#story-detail-imageStyle-button'),panel=page.locator('#story-detail-imageStyle-panel');await trigger.click();await expect(panel).toBeVisible();
+ await expect(panel.getByLabel('Search image styles',{exact:true})).toBeFocused();
+ await expect(panel.locator('.image-style-list [data-image-style]')).toHaveCount(8);await expect(panel.getByRole('tab',{name:/^Popular/})).toHaveAttribute('aria-selected','true');
+ await expect(panel.locator('.image-style-suggest')).toContainText('Suggested for All ages:');
+ await panel.getByRole('tab',{name:/^Cultural/}).click();await expect(panel.locator('.image-style-list [data-image-style]')).toHaveCount(5);
+ await panel.getByLabel('Search image styles',{exact:true}).fill('indian');await expect(panel.locator('.image-style-list .story-choice-name')).toHaveText(['Indian miniature','Madhubani','Warli']);
+ await panel.getByLabel('Search image styles',{exact:true}).fill('zzz');await expect(panel).toContainText('No style matches. Try another word.');
+ await page.keyboard.press('Escape');await expect(panel).toBeHidden();
+ await pickImageStyle(page,'Mosaic');await expect(trigger).toContainText('Mosaic');await expect(page.locator('[data-image-style-hint]')).toHaveText('Small tiles');
+ await page.getByRole('button',{name:/Next: Story Picture/}).click();await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
+ const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});await ai.getByLabel('What should your picture show?',{exact:true}).fill('A fox walking on ice');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();
+ await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await page.getByRole('button',{name:'Next: Story Generation',exact:true}).click();await expect(page.locator('#image-form')).toBeVisible();
+ await expect(page.locator('[data-generation-style-current]')).toHaveText('Mosaic · Small tiles');
+ await page.evaluate(()=>{window.qaImageRequests=[];const real=window.api;window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-mosaic-job'};}return real(path,body);};
+  const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;
+  const select=[...document.querySelectorAll('#image-form select')].find(x=>[...x.options].some(o=>o.text==='Select connected GPU'));if(select){select.add(new Option('Serverless','serverless'));select.value='serverless';}
+  const model=document.querySelector('#image-form #job-model');if(model){model.value='qwen-image-2512';model.dispatchEvent(new Event('change'));}});
+ await page.locator('#image-form').evaluate(form=>form.requestSubmit());await expect.poll(()=>page.evaluate(()=>window.qaImageRequests.length)).toBe(1);
+ const body=await page.evaluate(()=>window.qaImageRequests[0]);expect(body.prompt.startsWith('Mosaic artwork')).toBe(true);expect(body.negative).toContain('smooth painting');
  expect(page.qaErrors).toEqual([]);
 });
