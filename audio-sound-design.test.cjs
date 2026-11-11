@@ -53,3 +53,9 @@ test('Completing one sound retains sibling progress and attaches both results to
  x.q('#audio-sound-design form').requestSubmit();
  assert.deepEqual(JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:audio-story')).sound_design.cues.map(c=>c.asset_id),['wind-file','spring-file']);assert.deepEqual(x.errors,[]);
 });
+test('Sounds fall back to a CPU with the sound model when speech uses Serverless',async t=>{
+ const x=await fixture(t),calls=[];x.w.EccoStorage={ready:true};x.w.testUI.setAPI(async(path,body)=>{calls.push({path,body});if(path==='audio/status')return{compute:{a100:{ready:true,models:['chatterbox'],sound_models:[]},cpu:{ready:true,sound_models:['moss-soundeffect-v2']}},instances:[{id:'small',name:'ecco-storage-api',compute:'cpu',ready:true,sound_models:[]},{id:'large',name:'smiling_sapphire_mandrill',compute:'cpu',ready:true,sound_models:['moss-soundeffect-v2']}]};if(path==='audio/sounds/generate')return{id:'fallback-sound'};if(path==='audio/jobs/fallback-sound')return{status:'done',asset:{id:'fallback',kind:'asset',media:'audio',title:'Wind',created:3}};throw Error(path);});
+ const sounds=x.w.EccoSoundGeneration,request=sounds.soundRequest({kind:'effect',name:'Wind',description:'A soft gust of wind.',duration:4},{compute:'a100',worker_id:''});
+ const asset=await sounds.generate(request,{valid:()=>{},task:()=>{},progress:()=>{}});assert.equal(asset.id,'fallback');
+ const sent=calls.find(c=>c.path==='audio/sounds/generate').body;assert.equal(sent.compute,'cpu');assert.equal(sent.worker_id,'large');
+});

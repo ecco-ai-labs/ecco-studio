@@ -258,5 +258,10 @@
     "area": "Audio compute default",
     "mode": "fixture",
     "scope": "Serverless is the default audio compute: when the Serverless GPU is connected and the A100 audio worker (serverless/audio_dispatch.py) is ready, Compute lists 'Serverless · A100' first and selects it, generation sends compute a100 with no worker_id; CPU instances follow as fallbacks and are chosen automatically only when Serverless cannot run the recording, while an explicit choice is kept (audio-instance-routing.test.cjs). Sound models (ACE-Step, MOSS) live only on CPU, so sound cues still use a CPU worker. Real Serverless generation needs compute and is verified live, not by fixtures."
+  },
+  {
+    "area": "Sound compute fallback",
+    "mode": "fixture",
+    "scope": "When speech uses Serverless (no sound models), each sound cue is generated on a ready CPU instance that has its sound model (ACE-Step / MOSS) instead of failing; the request sent carries compute cpu and that worker_id (audio-sound-design.test.cjs). Live generation needs compute and is verified in the browser."
   }
 ]
