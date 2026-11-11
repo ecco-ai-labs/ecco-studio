@@ -265,7 +265,7 @@
    dialog.innerHTML='<div class="form"><div class="section-head"><h2>Select Scenes</h2><button type="button" class="secondary" data-close>Close</button></div><div data-scenes></div><button type="button" data-apply>Apply</button></div>';
    const list=dialog.querySelector('[data-scenes]');
    scenes.forEach((s,i)=>{const label=document.createElement('label');label.style.cssText='display:flex;flex-direction:row;gap:6px;margin:12px 0;color:var(--accent)';const input=document.createElement('input');input.type='checkbox';input.value=String(i);input.style.width='auto';input.checked=selectedScenes().some(ref=>ref.scene_number===i+1);const text=document.createElement('span');text.textContent='Scene '+(i+1)+' · '+(s.title||s.narration||'Untitled');label.append(input,text);list.append(label);});
-   if(!scenes.length)list.textContent='Add scenes in StoryBoard Your Story first.';
+   if(!scenes.length)list.textContent='Add scenes to your story first.';
    dialog.querySelector('[data-close]').onclick=()=>dialog.close();
    dialog.querySelector('[data-apply]').onclick=()=>{if(target!==activeStory||JSON.stringify(boardScenes())!==snapshot){notice('The storyboard changed. Reopen Select Scenes.',true);return;}draft.source_scenes=[...dialog.querySelectorAll('input:checked')].map(el=>{const index=Number(el.value),s=scenes[index];return {index,fingerprint:JSON.stringify([s.title||'',s.narration||''])};});save();summary();dialog.close();};
    dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();

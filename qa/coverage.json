@@ -137,7 +137,7 @@
   {
     "area": "Library and Tell Your Story landing pages",
     "mode": "fixture",
-    "scope": "Only five library icons/names, no secondary heading, descriptions or chevrons. New Story and Go to Studio both open six story workflow options. Sidebar entry, all destinations, keyboard activation, Back, preserved drafts and matching mobile styles in all six themes. Subtitles render at 14px despite the shared compact button rule; both landing lists have no borders/dividers and 24px top spacing. Publish Your Story appears in the sidebar and the main list. No live generation or service writes."
+    "scope": "Only five library icons/names, no secondary heading, descriptions or chevrons. New Story and Go to Studio both open four story workflow options (no StoryBoard Your Story or Publish Your Story). Sidebar entry, all destinations, keyboard activation, Back, preserved drafts and matching mobile styles in all six themes. Subtitles render at 14px despite the shared compact button rule; both landing lists have no borders/dividers and 24px top spacing. StoryBoard Your Story and Publish Your Story do not appear in the sidebar or the main list. No live generation or service writes."
   },
   {
     "area": "Story Type and Genre / Topic",

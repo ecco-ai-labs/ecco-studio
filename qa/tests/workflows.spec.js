@@ -89,12 +89,12 @@ test('ENTRY-01 welcome has one enabled Tell Your Story action',async({page})=>{
   await expect(page.locator('#workspace-entry button:visible')).toHaveCount(1);
   await expect(page.locator('dialog[open]')).toHaveCount(0);
 });
-for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} opens the same six-option Tell Your Story page`,async({page})=>{
+for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} opens the same four-option Tell Your Story page`,async({page})=>{
   await boot(page,{enter:false});await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:action,exact:true}).click();
   await expect(page.locator('#heading')).toHaveText('Tell Your Story');
-  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. StoryBoard Your Story','3. Create Audio for Your Story','4. Create Images for Your Story','5. Create Videos for Your Story','6. Publish Your Story']);
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Images for Your Story','4. Create Videos for Your Story']);
   await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
-  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group [data-page=journey-preview]')).toHaveText('6. Publish Your Story');
+  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group .journey-step:visible')).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Images for Your Story','4. Create Videos for Your Story']);
   expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='12px'))).toBe(true);
   await choices.first().focus();await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
   await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('');
@@ -105,16 +105,16 @@ test('STORY-home sidebar and Back preserve edited drafts and open the existing t
   await page.locator('#workspace-production-group > summary').click();await expect(page.locator('#story-home-list')).toBeVisible();
   await expect(page.locator('#workspace-production-group > summary')).toHaveAttribute('aria-current','page');await expect(page.locator('#story-workspace-header')).toBeHidden();
   await page.locator('#workspace-back').click();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('Keep this story');
-  for(const [target,selector]of [['story-setup','#story-simple-details'],['board','#page form'],['audio','#audio-form'],['images','#image-form'],['render','#video-form'],['journey-preview','#page [data-platform]']]){
+  for(const [target,selector]of [['story-setup','#story-simple-details'],['audio','#audio-form'],['images','#image-form'],['render','#video-form']]){
     await page.locator('#workspace-production-group > summary').click();await page.locator('[data-story-destination="'+target+'"]').click();
     await expect(page.locator('#story-home-list')).toHaveCount(0);
-    if(target==='journey-preview')await expect(page.locator('#heading')).toHaveText(/Publish/);else if(target==='board')await expect(page.locator('#heading')).toHaveText('Storyboard');else await expect(page.locator(selector).first()).toBeVisible();
+    await expect(page.locator(selector).first()).toBeVisible();
   }
   expect((await page.evaluate(()=>window.__qaCalls||[])).some(call=>/^(images|videos|audio\/generate|publish)$/.test(call.path))).toBe(false);
 });
 for(const theme of ['default','dark','forest','desert','ocean','dark-sky'])test(`LAYOUT-story-home matches Library at mobile width in ${theme}`,async({page})=>{
   await page.setViewportSize({width:390,height:900});await boot(page,{landing:true,theme});
-  const choices=page.locator('#story-home-list button');await expect(choices).toHaveCount(6);
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveCount(4);
   for(const choice of await choices.all())expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
   const landingStyle=async()=>page.locator('#page .workspace-home').evaluate(el=>({padding:getComputedStyle(el).paddingTop,font:getComputedStyle(el.querySelector('button')).fontSize,borders:[...el.querySelectorAll('ul,li,button')].every(row=>{const s=getComputedStyle(row);return ['borderTopWidth','borderBottomWidth','borderLeftWidth','borderRightWidth'].every(p=>s[p]==='0px');})}));
   expect(await landingStyle()).toEqual({padding:'22px',font:'14px',borders:true});
@@ -1389,9 +1389,9 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`ST
   await page.screenshot({path:info.outputPath('story-'+name+'-menu-'+viewport.width+'.png')});await page.locator('#story-details-story-title').click();await expect(panel).toBeHidden();
  }
 });
-test('STORY-13 every output filters and renumbers the sidebar and journey list with Publish retained',async({page})=>{
- await boot(page);const all=['story-setup','board','audio','images','render','journey-preview'],sidebar=page.locator('#workspace-production-group .journey-step:visible');expect(await sidebar.evaluateAll(els=>els.map(e=>e.dataset.page))).toEqual(all);
- for(const [output,expected]of [['audio',['story-setup','board','audio','journey-preview']],['image',['story-setup','board','images','journey-preview']],['video',all]]){
+test('STORY-13 every output filters and renumbers the sidebar and journey list without StoryBoard or Publish',async({page})=>{
+ await boot(page);const all=['story-setup','audio','images','render'],sidebar=page.locator('#workspace-production-group .journey-step:visible');expect(await sidebar.evaluateAll(els=>els.map(e=>e.dataset.page))).toEqual(all);
+ for(const [output,expected]of [['audio',['story-setup','audio']],['image',['story-setup','images']],['video',all]]){
   await fillStoryDetail(page,'output',output);expect(await sidebar.evaluateAll(els=>els.map(e=>e.dataset.page))).toEqual(expected);expect(await sidebar.evaluateAll(els=>els.map(e=>Number(e.textContent.split('.')[0])))).toEqual(expected.map((_,i)=>i+1));
   await page.locator('#workspace-production-group > summary').click();const rows=page.locator('#story-home-list button');expect(await rows.evaluateAll(els=>els.map(e=>e.dataset.storyDestination))).toEqual(expected);expect(await rows.evaluateAll(els=>els.map(e=>Number(e.textContent.split('.')[0])))).toEqual(expected.map((_,i)=>i+1));await rows.first().click();await expect(page.getByRole('radio',{name:output[0].toUpperCase()+output.slice(1),exact:true})).toBeChecked();
  }
