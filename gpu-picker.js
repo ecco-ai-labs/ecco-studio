@@ -83,6 +83,12 @@ window.EccoGPUPicker = (() => {
         card.button.title=gpu&&!connected&&status?.kind!=='ready'?status?.detail||'This instance is unavailable.':'';
       }
     }
+    // Open on the instance that is already connected (or the only one, e.g. Serverless), so the card shows its state.
+    for(const card of cards){
+      const own=gpus.filter(g=>g.name===card.name);
+      const pick=own.find(g=>disconnectMode?window.EccoGPUConnection?.isRemembered(g.id):isConnected(g.id))||(own.length===1?own[0]:null);
+      if(pick&&!card.select.value)card.select.value=pick.id;
+    }
     for(const card of cards){
       card.select.onchange=draw;
       card.button.onclick=async()=>{

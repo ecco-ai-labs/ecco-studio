@@ -212,7 +212,7 @@
   {
     "area": "GPU connection box: Serverless",
     "mode": "synthetic",
-    "scope": "GPU-SERVERLESS-01 checks the GPU connection box shows a third Serverless card with one instance (RunPod Serverless) beside B200 and A100. Automatic connection while the relay is healthy and the live serverless relay heartbeat need workspace storage and the storage-pod bridge, so they are checked live, not here."
+    "scope": "GPU-SERVERLESS-01 checks the GPU connection box shows a third Serverless card with one instance (RunPod Serverless) beside B200 and A100, opening with that instance selected so its status shows. Automatic connection while the relay is healthy and the live serverless relay heartbeat need workspace storage and the storage-pod bridge, so they are checked live, not here."
   },
   {
     "area": "Default image model",

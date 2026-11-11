@@ -1772,8 +1772,9 @@ test('GPU-SERVERLESS-01 the GPU connection box has an always-on Serverless card'
  await boot(page,{enter:false});
  const card=await page.evaluate(()=>{const box=document.createElement('div');box.id='qa-gpu-box';document.body.append(box);
   window.EccoGPUPicker.mount(box,async()=>{});const c=box.querySelector('[data-gpu-class="Serverless"]');
-  return c&&{title:c.querySelector('h3').textContent,options:[...c.querySelectorAll('option')].map(o=>o.value)};});
- expect(card).toEqual({title:'Serverless',options:['','serverless']});
+  return c&&{title:c.querySelector('h3').textContent,options:[...c.querySelectorAll('option')].map(o=>o.value),selected:c.querySelector('select').value};});
+ // A card with a single instance opens with it selected, so its status shows without opening the menu.
+ expect(card).toEqual({title:'Serverless',options:['','serverless'],selected:'serverless'});
  expect(await page.evaluate(()=>window.EccoGPUPicker.gpus.find(g=>g.id==='serverless')?.label)).toBe('RunPod Serverless');
  // The existing classes stay in place.
  await expect(page.locator('#qa-gpu-box [data-gpu-class]')).toHaveCount(3);
