@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# One-time copy of the generation models from the network volume to the global volume.
+# Run on a pod with the network volume at /workspace and the global volume at /workspace-global:
+#   bash serverless/copy_to_global_volume.sh            # copy
+#   bash serverless/copy_to_global_volume.sh --dry-run  # list what would be copied
+# Safe to re-run: rsync only copies what changed.
+set -euo pipefail
+src=${ECCO_SOURCE:-/workspace}
+dst=${ECCO_GLOBAL:-/workspace-global}
+[[ -d "$src/ComfyUI/models" ]] || { echo "Network volume not found at $src"; exit 1; }
+[[ -d "$dst" ]] || { echo "Global volume not found at $dst"; exit 1; }
+# The global volume cannot set file or folder times or permission bits, so -a
+# fails with exit 23. Copy contents and links only, and compare by size so a
+# re-run skips files that are already there.
+opts=(-rl --size-only --info=progress2 "$@")
+mkdir -p "$dst/ComfyUI" "$dst/ecco-models" "$dst/ecco-video/longcat"
+# ComfyUI models (image + video), skipping files that are not model weights.
+rsync "${opts[@]}" --exclude '*.tmp' --exclude 'put_*_here' "$src/ComfyUI/models" "$dst/ComfyUI/"
+rsync "${opts[@]}" "$src/ecco-models/z-image" "$dst/ecco-models/"
+for part in source weights runner.py; do
+  rsync "${opts[@]}" "$src/ecco-video/longcat/$part" "$dst/ecco-video/longcat/"
+done
+# Speech (A100): the pods' runtime archive (kept as a tar so file modes survive; the global
+# volume cannot store executable bits) and the audio folder with its voice environments and weights.
+mkdir -p "$dst/ecco-runtime"
+rsync "${opts[@]}" "$src/ecco-runtime/runtime.tar" "$src/ecco-runtime/runtime.sha256" "$dst/ecco-runtime/"
+rsync "${opts[@]}" --exclude queue --exclude 'cpu-*' --exclude '*.log' --exclude 'backup-*' --exclude 'staging-*' \
+  --exclude 'compute-stage-*' --exclude download-venv --exclude '*.lock' --exclude __pycache__ "$src/ecco-audio" "$dst/"
+echo "ComfyUI commit on the pods: $(git -c safe.directory="$src/ComfyUI" -C "$src/ComfyUI" rev-parse HEAD 2>/dev/null || echo unknown)"
+du -sh "$dst/ComfyUI/models" "$dst/ecco-models/z-image" "$dst/ecco-video/longcat" "$dst/ecco-audio" "$dst/ecco-runtime"
+echo "Copy complete."

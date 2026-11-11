@@ -4,7 +4,8 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 ROOT = Path(os.getenv('ECCO_GPU_RELAY_ROOT', '/workspace/ecco-gpu-relay'))
-GPUS = ('p7lc6fqjuosti3', 'io8sphjo10kbuy', '1muqctw9bxvguu', 'sup07jsgh2evnf')
+# 'serverless' is the always-on RunPod Serverless bridge (serverless/serverless_studio.py on the storage pod).
+GPUS = ('p7lc6fqjuosti3', 'io8sphjo10kbuy', '1muqctw9bxvguu', 'sup07jsgh2evnf', 'serverless')
 ROUTES = frozenset(('images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel'))
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -48,7 +49,8 @@ def result(pod,rid):
         return {'status':'error','error':'GPU response was interrupted. Check Activity before retrying; this request will not be replayed.'}
     return {'status':'pending'}
 def worker():
-    pod=os.environ.get('RUNPOD_POD_ID','')
+    # ECCO_RELAY_WORKER_ID lets the serverless launcher answer for a stopped GPU instance.
+    pod=os.environ.get('ECCO_RELAY_WORKER_ID') or os.environ.get('RUNPOD_POD_ID','')
     if pod not in GPUS: raise SystemExit('Unknown GPU')
     base=ROOT/pod;base.mkdir(parents=True,exist_ok=True,mode=0o700)
     lock=(base/'worker.lock').open('a')

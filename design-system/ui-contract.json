@@ -1807,7 +1807,8 @@
     "audioStatus": "Preserve the exact worker progress instead of replacing it with Running Generation. Audio Generation Debugging shows job ID, status, progress, model, compute, creation time, output ID and submitted speech; no image-reference fields for audio. Waiting for worker reconnect is shown explicitly and is never described as active synthesis."
   },
   "acceleratorConnections": {
-    "layout": "Two existing GPU cards, one for B200 and one for A100",
+    "layout": "Three existing GPU cards: B200, A100 and Serverless (owner-approved 2026-11-10)",
+    "serverless": "Serverless card has one instance, RunPod Serverless. It is always on: connected automatically whenever its relay is healthy, unless the user disconnects it; Connect re-enables automatic connection. Help text says it is billed per second and that jobs queue when RunPod has no free GPU.",
     "selection": "Each card contains a RunPod instance dropdown; no instance selected by default",
     "status": "Fresh relay health controls availability. Distinguish No heartbeat, Heartbeat lost, Service not ready and Available; do not infer RunPod power state. Visible existing help-text paragraph explains failed check.",
     "connection": "Explicit Connect adds that instance without removing any existing connection, including another instance in the same class",
