@@ -542,3 +542,23 @@ class AudioWorkerHandler(unittest.TestCase):
     def test_fetch_only_reads_the_inputs_folder(self):
         with self.assertRaises(ValueError):
             worker_common.fetch({'volume_key': 'ecco-serverless/results/x.tar'})
+
+
+class AudioDispatchOlderWorkerCode(unittest.TestCase):
+    """The volume can hold an older queue_worker without listen-back; the dispatcher must still run."""
+
+    def test_claim_without_listen_argument(self):
+        import contextlib
+        import types
+        import audio_dispatch
+        calls = []
+
+        @contextlib.contextmanager
+        def claim_job(directory, compute, pod, models, sounds):
+            calls.append((compute, pod))
+            yield None
+        old = types.SimpleNamespace(claim_job=claim_job)
+        with audio_dispatch.claim(old, Path('.'), 'serverless', ['indic-mio']) as request:
+            self.assertIsNone(request)
+        self.assertEqual(calls, [('a100', 'serverless')])
+        self.assertFalse(audio_dispatch.listen_ready(old))

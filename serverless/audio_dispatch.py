@@ -114,8 +114,22 @@ def heartbeat(qw, pod, client=rp):
             'gpu': 'NVIDIA A100 (serverless)', 'serverless': True, 'models': enabled_models(qw) if ready else [],
             'instance_routing_version': 1, 'cpu_count': 8, 'memory_gb': round(memory / 1e9), 'mixed_models_version': 1,
             'long_form_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1,
-            'cancellation_version': 1, 'voice_refs_version': 1, 'listen_version': 1 if ready and qw.listen_ready(COMPUTE) else 0,
+            'cancellation_version': 1, 'voice_refs_version': 1, 'listen_version': 1 if ready and listen_ready(qw) else 0,
             'sound_models': []}
+
+
+def listen_ready(qw):
+    """Listen-back support, when the live audio worker code on the volume has it."""
+    check = getattr(qw, 'listen_ready', None)
+    return bool(check and check(COMPUTE))
+
+
+def claim(qw, d, pod, models):
+    """queue_worker.claim_job, with or without the newer listen-back argument."""
+    import inspect
+    if 'listen' in inspect.signature(qw.claim_job).parameters:
+        return qw.claim_job(d, COMPUTE, pod, models, [], listen_ready(qw))
+    return qw.claim_job(d, COMPUTE, pod, models, [])
 
 
 def enabled_models(qw):
@@ -153,7 +167,7 @@ def dispatcher(qw, pod=None, stop=None, client=rp, volume=None):
         for d in sorted(qw.ROOT.glob('[a-f0-9]' * 32)):
             if stop.is_set():
                 break
-            with qw.claim_job(d, COMPUTE, pod, models, [], qw.listen_ready(COMPUTE)) as request:
+            with claim(qw, d, pod, models) as request:
                 if request is None:
                     continue
                 # Each job runs in its own thread so a long recording does not hold up the queue.
