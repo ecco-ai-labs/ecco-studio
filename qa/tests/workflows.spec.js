@@ -1893,8 +1893,8 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox on ice');await fillStoryDetail(page,'output','image');
  const trigger=page.locator('#story-detail-imageStyle-button'),panel=page.locator('#story-detail-imageStyle-panel');await trigger.click();await expect(panel).toBeVisible();
  await expect(panel.getByLabel('Search image styles',{exact:true})).toBeFocused();
- // Roomy: wide enough for two full columns and tall enough to show a whole group.
- const size=await panel.boundingBox(),view=page.viewportSize();expect(size.width).toBeGreaterThanOrEqual(860);expect(size.height).toBeGreaterThanOrEqual(Math.min(620,view.height-32)-1);expect(size.y+size.height).toBeLessThanOrEqual(view.height);
+ // Owner-approved size: a box directly below the field, 800 × 520.
+ const size=await panel.boundingBox(),field=await trigger.boundingBox();expect(Math.round(size.width)).toBe(800);expect(Math.round(size.height)).toBe(520);expect(size.y).toBeGreaterThanOrEqual(field.y+field.height);expect(size.y-(field.y+field.height)).toBeLessThan(12);
  await expect(panel.locator('.image-style-list [data-image-style]')).toHaveCount(8);await expect(panel.getByRole('tab',{name:/^Popular/})).toHaveAttribute('aria-selected','true');
  await expect(panel.locator('.image-style-suggest')).toContainText('Suggested for All ages:');
  await panel.getByRole('tab',{name:/^Cultural/}).click();await expect(panel.locator('.image-style-list [data-image-style]')).toHaveCount(5);
