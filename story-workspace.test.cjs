@@ -266,12 +266,12 @@ test('AI story review retains edited text on close, then opens the same screenpl
 test('main New Story and Go to Studio share the story landing while preserving draft isolation',async()=>{
  const x=await fixture();await x.start();x.script('Host: Keep this draft.\n\nGuest: Keep this too.');const prior=x.saved().localDraftId;
  const mount=()=>{const actions=x.w.document.createElement('div');x.q('#page').append(actions);x.w.EccoStoryWorkspace.mountEntry(actions,{start:x.w.EccoWorkspaceUI.startNewStory,studio:()=>x.w.testState.navigate('story-home'),rows:()=>[],open:()=>{}});return actions;};
- mount().lastElementChild.click();await tick();assert.equal(x.w.testState.page(),'story-home');assert.equal(x.q('#story-home-list').querySelectorAll('button').length,4);assert.equal(x.q('#story-workspace-header').hidden,true);assert.match(x.saved().simple_workspace.script,/Keep this draft/);
+ mount().lastElementChild.click();await tick();assert.equal(x.w.testState.page(),'story-home');assert.equal(x.q('#story-home-list').querySelectorAll('button').length,2);assert.equal(x.q('#story-workspace-header').hidden,true);assert.match(x.saved().simple_workspace.script,/Keep this draft/);
  mount().firstElementChild.click();await tick();assert.equal(x.w.testState.page(),'story-home');assert.notEqual(x.saved().localDraftId,prior);assert.equal(x.saved().simple_workspace.script,'');assert.match(JSON.parse(x.w.localStorage.getItem('ecco-story-setup:'+prior)).simple_workspace.script,/Keep this draft/);
  x.q('[data-story-destination="story-setup"]').click();await tick();assert.equal(x.q('[name=title]').value,'');assert.equal(x.q('#story-workspace-header').hidden,false);assert.deepEqual(x.errors,[]);
 });
-test('Go to Studio storyboard destination opens the editor without returning to story choices',async()=>{
- const x=await fixture();x.w.testState.navigate('story-home');await tick();x.q('[data-story-destination="board"]').click();await tick();assert.equal(x.w.testState.page(),'board');assert.ok(x.q('#story-text'));assert.equal(x.q('#story-choice-screen'),null);assert.equal(x.w.testCalls.some(c=>/generate|^images$|^videos$|^stories$/.test(c.path)),false);assert.deepEqual(x.errors,[]);
+test('Tell Your Story no longer offers StoryBoard Your Story or Publish Your Story',async()=>{
+ const x=await fixture();x.w.testState.navigate('story-home');await tick();assert.equal(x.q('[data-story-destination="board"]'),null);assert.equal(x.q('[data-story-destination="journey-preview"]'),null);assert.deepEqual(x.errors,[]);
 });
 
 test('Interview starts with Host and Guest and keeps its delivery type in Audio Studio',async()=>{
@@ -349,11 +349,11 @@ test('Other descriptions participate in linked validation and survive reload wit
  x.fill('typeDescription','A guided tour');x.fill('genreDescription','Architecture');assert.equal(x.q('#story-details-errors').hidden,true);x.fill('type','podcast');assert.equal(x.q('[name=typeDescription]').required,false);assert.equal(x.q('[name=typeDescription]').closest('.story-detail-field').hidden,true);x.fill('type','custom');assert.equal(x.q('[name=typeDescription]').value,'A guided tour');
  const id=x.saved().localDraftId,storage=x.snapshot();x.close();const y=await fixture(storage);y.w.EccoStoryWorkspace.openSetup(id);await tick();assert.equal(y.saved().simple_workspace.type,'custom');assert.equal(y.saved().simple_workspace.genre,'Other');assert.equal(y.q('[name=typeDescription]').value,'A guided tour');assert.equal(y.q('[name=genreDescription]').value,'Architecture');assert.deepEqual(y.errors,[]);
 });
-test('output filters and renumbers both journey surfaces while preserving Publish',async()=>{
- const x=await fixture();x.w.EccoWorkspaceUI.startNewStory(null);await tick();const all=['story-setup','board','audio','images','render','journey-preview'];
+test('output filters and renumbers both journey surfaces without StoryBoard or Publish',async()=>{
+ const x=await fixture();x.w.EccoWorkspaceUI.startNewStory(null);await tick();const all=['story-setup','audio','images','render'];
  const visible=()=>[...x.q('#workspace-production-group').querySelectorAll('.journey-step')].filter(b=>!b.hidden);
  assert.deepEqual(visible().map(b=>b.dataset.page),all);
- for(const [output,expected]of [['audio',['story-setup','board','audio','journey-preview']],['image',['story-setup','board','images','journey-preview']],['video',all]]){
+ for(const [output,expected]of [['audio',['story-setup','audio']],['image',['story-setup','images']],['video',all]]){
   x.fill('output',output);await tick();assert.deepEqual(visible().map(b=>b.dataset.page),expected);assert.deepEqual(visible().map(b=>Number(b.textContent.split('.')[0])),expected.map((_,i)=>i+1));
   x.q('#workspace-production-group > summary').click();await tick();const rows=[...x.q('#story-home-list').querySelectorAll('button')];assert.deepEqual(rows.map(b=>b.dataset.storyDestination),expected);assert.deepEqual(rows.map(b=>Number(b.textContent.split('.')[0])),expected.map((_,i)=>i+1));x.q('[data-story-destination="story-setup"]').click();await tick();assert.equal(x.q('[name=output]:checked').value,output);
  }

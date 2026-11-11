@@ -646,7 +646,8 @@ Library and Tell Your Story headings are 3px larger: the top-level sidebar
 labels are 16px (previously 13px), and both landing-page titles are 21px
 (previously 18px). Subtitles in the two landing lists and their matching sidebar
 entries are 14px. Both landing lists start 24px lower and have no outer border
-or row dividers. The final story entry is Publish Your Story in both locations.
+or row dividers. 2026-11-10: StoryBoard Your Story and Publish Your Story are removed
+from both locations; publishing is part of the Describe Your Story workspace.
 Existing row dimensions, theme styles and keyboard focus remain.
 
 ## Story Type and Genre / Topic — 8 November 2026
