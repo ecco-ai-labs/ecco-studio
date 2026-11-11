@@ -223,7 +223,8 @@
  function requestLines(){
   if(turns().some(t=>!activeSpeakers().some(s=>s.id===t.speaker_id)))throw Error('Assign every script turn to an active character before generating.');
   if(turns().some(t=>!t.text?.trim()))throw Error('Add the script for each speaker turn in Prompt.');
-  const lines=turns().flatMap(t=>{const s=speaker(t.speaker_id);return splitText(t.text).map((text,i)=>({text,...(s.model?{model:s.model}:{}),voice:s.voice,language:s.language,...window.EccoAudioDirection.lineControls(t,s,characterModel(s)),...(characterModel(s).expressiveness&&draft.exaggeration!==undefined?{exaggeration:draft.exaggeration}:{}),...Object.fromEntries(['speed','pitch','exaggeration'].filter(k=>s[k]!==undefined&&(k!=='exaggeration'||characterModel(s).expressiveness)).map(k=>[k,s[k]])),...(s.pause!==undefined?{pause_before:s.pause}:{}),...(i?{pause_before:0}:{})}));});
+  const pronounce=(text,turn)=>window.EccoStoryGeneration?window.EccoStoryGeneration.applyPronunciations(text,draft.pronunciations,turn):text;
+  const lines=turns().flatMap((t,turn)=>{const s=speaker(t.speaker_id);return splitText(pronounce(t.text,turn)).map((text,i)=>({text,...(s.model?{model:s.model}:{}),voice:s.voice,language:s.language,...window.EccoAudioDirection.lineControls(t,s,characterModel(s)),...(characterModel(s).expressiveness&&draft.exaggeration!==undefined?{exaggeration:draft.exaggeration}:{}),...Object.fromEntries(['speed','pitch','exaggeration'].filter(k=>s[k]!==undefined&&(k!=='exaggeration'||characterModel(s).expressiveness)).map(k=>[k,s[k]])),...(s.pause!==undefined?{pause_before:s.pause}:{}),...(i?{pause_before:0}:{})}));});
   if(draft.opening_text?.trim()){
    const s=draft.presentation==='single'?draft.speakers[0]:speaker(draft.opening_speaker),pause=Number(draft.opening_pause??2);if(!Number.isFinite(pause)||pause<0||pause>10)throw Error('Choose a title pause between 0 and 10 seconds.');
    lines[0].pause_before=pause;lines.unshift({text:draft.opening_text.trim(),...(s.model?{model:s.model}:{}),voice:s.voice,language:s.language,...window.EccoAudioDirection.lineControls({performance:draft.opening_performance},s,characterModel(s)),...(characterModel(s).expressiveness&&draft.exaggeration!==undefined?{exaggeration:draft.exaggeration}:{}),...Object.fromEntries(['speed','pitch','exaggeration'].filter(k=>s[k]!==undefined&&(k!=='exaggeration'||characterModel(s).expressiveness)).map(k=>[k,s[k]]))});
@@ -399,7 +400,15 @@
  }
  // The independent application service supplies this adapter after authentication.
  // Never attach the legacy RunPod/Jupyter bridge here.
- window.EccoAudioStudio={generateScript,sample:sampleVoice,characters:drawCharacters,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
+ window.EccoAudioStudio={
+  // Story Generation review (2026-11-10): the transcript, saved recordings and pronunciation fixes for the open story.
+  recordings:()=>audioAssets(),mediaURL:id=>service?service.mediaURL(id):Promise.reject(Error('Connect the audio service to play this recording.')),
+  lines:()=>draft&&story===activeStory?turns().map(t=>({speaker_id:t.speaker_id,text:t.text})):[],speakers:()=>draft?.speakers?.map(s=>({id:s.id,name:s.name}))||[],
+  pronunciations:()=>(draft?.pronunciations||[]).map(p=>({...p})),
+  setPronunciation({word,sayAs,line=null}){if(!draft||story!==activeStory)throw Error('Open this story before changing its pronunciations.');const list=(draft.pronunciations||[]).filter(p=>!(p.word.toLowerCase()===word.toLowerCase()&&p.line===line));list.push({word,sayAs,line});draft.pronunciations=list;save();},
+  removePronunciation(index){if(!draft?.pronunciations)return;draft.pronunciations=draft.pronunciations.filter((_,i)=>i!==index);save();},
+  editLine(index,text){if(!draft||story!==activeStory)throw Error('Open this story before changing its script.');const list=turns();if(!list[index])throw Error('That passage is no longer in the script.');if(list===draft.lines)draft.lines[index]={...draft.lines[index],text};else{draft.single_text=text;}save();},
+  generateScript,sample:sampleVoice,characters:drawCharacters,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
   if(!adapter||adapter.storageIndependentOfGPU!==true||!['list','generate','job','mediaURL','download'].every(name=>typeof adapter[name]==='function'))throw Error('An authenticated, GPU-independent audio service is required.');
   service=adapter;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();poll();
  },disconnect(){clearPreview();q('#audio-voice-preview-dialog')?.close();service=null;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();}};

@@ -29,6 +29,9 @@ async function fillStoryDetail(page,name,value){
  else if(['type','genre'].includes(name)){await page.locator('#story-detail-'+name+'-button').click();await page.locator('#story-detail-'+name+'-panel [data-choice-value='+JSON.stringify(value)+']:not([data-choice-mode=recurring])').click();}
  else await page.locator('#story-simple-details [name='+name+']').selectOption(value);
 }
+// Story Generation (2026-11-10): the tab shows progress and review; the studio form sits in Model Settings.
+async function generationTab(page){await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();}
+async function modelSettings(page){await page.locator('[data-gen-settings]').click();await expect(page.locator('#story-gen-settings')).toBeVisible();}
 async function textView(page){const b=page.getByRole('button',{name:'Edit as text',exact:true});if(await b.isVisible())await b.click();}
 async function setScript(page,text){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await page.locator('#story-simple-script').fill(text);}
 async function scriptStep(page){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await expect(page.locator('#story-simple-script')).toBeVisible();}
@@ -986,17 +989,84 @@ test('AGENT-07 saved agents run only selected steps and tests',async({page})=>{
  expect(await page.evaluate(()=>window.__deskPosts.length)).toBe(0);
 });
 
-test('AUDIO-01 delayed voice preview restores Generate and never enables a duplicate active recording',async({page})=>{
+test('AUDIO-01 Generate starts the recording and a voice preview during it never enables a duplicate',async({page})=>{
  await boot(page,{sourceFit:'audioPreview'});await page.getByLabel('Story name (required)',{exact:true}).fill('Audio preview regression');
  for(const [name,value] of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
  await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await setScript(page,'Narrator: Welcome to the story.');await page.getByRole('button',{name:'Generate',exact:true}).click();
- const generate=page.locator('#generate-audio');await expect(generate).toBeEnabled();await page.locator('.story-simple-advanced > summary').click();await expect(page.locator('#audio-form [name=compute]')).toHaveValue('cpu');
- await page.locator('#audio-form [data-open-controls]').click();await page.getByRole('button',{name:'Listen to selected voice',exact:true}).click();const preview=page.locator('#audio-voice-preview-dialog');await expect(preview.getByLabel('Voice preview playback',{exact:true})).toBeVisible();expect(await generate.isEnabled()).toBe(true);
- await preview.getByRole('button',{name:'Close popup',exact:true}).click();await page.locator('#generation-controls-dialog').getByRole('button',{name:'Close popup',exact:true}).click();await generate.click();await expect(generate).toBeDisabled();await expect(page.locator('#audio-job-status')).toContainText(/running|Generating/);
- await page.locator('#audio-form [data-open-controls]').click();await page.getByRole('button',{name:'Listen to selected voice',exact:true}).click();await expect(preview.getByLabel('Voice preview playback',{exact:true})).toBeVisible();expect(await generate.isEnabled()).toBe(false);
- const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate'));expect(calls).toHaveLength(2);expect(calls[0].body.title).toContain('Voice preview');expect(calls[1].body.lines[0].text).toBe('Welcome to the story.');
+ await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(1);const generate=page.locator('#generate-audio');await expect(generate).toBeDisabled();
+ await expect(page.locator('[data-gen-chip]')).toHaveText('Generating');await modelSettings(page);await expect(page.locator('#audio-form [name=compute]')).toHaveValue('cpu');
+ await page.locator('#audio-form [data-open-controls]').click();await page.getByRole('button',{name:'Listen to selected voice',exact:true}).click();const preview=page.locator('#audio-voice-preview-dialog');await expect(preview.getByLabel('Voice preview playback',{exact:true})).toBeVisible();expect(await generate.isEnabled()).toBe(false);
+ const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate'));expect(calls).toHaveLength(2);expect(calls[0].body.lines[0].text).toBe('Welcome to the story.');expect(calls[1].body.title).toContain('Voice preview');
 });
 
+// Story Generation (owner-approved mocks, 2026-11-10): progress, error popups, review with fixes, Model Settings, Publish.
+async function audioToGeneration(page,{fail=''}={}){
+ await boot(page,{sourceFit:'audioDone'});await page.getByLabel('Story name (required)',{exact:true}).fill('Generation review');
+ for(const [name,value] of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await setScript(page,'Narrator: Welcome to the story.\n\nNarrator: Lahore was bright that morning.');
+ if(fail)await page.evaluate(message=>{window.__qaAudioFail=message;},fail);
+ await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();
+}
+test('GEN-01 Generate starts at once and shows overall and per-worker progress, then review with one Publish button',async({page},info)=>{
+ await audioToGeneration(page);
+ await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(1);
+ const overall=page.getByRole('progressbar',{name:'Overall progress',exact:true});await expect(overall).toBeVisible();
+ await expect(page.locator('.story-gen-unit')).toHaveCount(3);await expect(page.locator('.story-gen-unit').nth(1)).toContainText('1 of 2 passages');
+ await expect(page.locator('.story-gen-map .story-gen-block')).toHaveCount(2);await expect(page.locator('.story-gen-log li').first()).toBeVisible();
+ await page.screenshot({path:info.outputPath('generation-progress.png'),fullPage:true});
+ await expect(page.locator('[data-gen-chip]')).toHaveText('Ready to review',{timeout:15000});
+ await expect(page.locator('[data-gen-review] audio')).toBeVisible();await expect(page.locator('[data-transcript] [data-word="Lahore"]')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Publish',exact:true})).toBeEnabled();await expect(page.getByRole('button',{name:'Download',exact:true})).toBeVisible();
+ await expect(page.getByText('Finish your story')).toHaveCount(0);await expect(page.locator('#audio-form')).toBeHidden();
+ await page.screenshot({path:info.outputPath('generation-review.png'),fullPage:true});
+});
+test('GEN-02 a mispronounced word is fixed for every place it is said and the recording is made again',async({page})=>{
+ await audioToGeneration(page);await expect(page.locator('[data-gen-chip]')).toHaveText('Ready to review',{timeout:15000});
+ await page.locator('[data-transcript] [data-word="Lahore"]').click();await expect(page.getByLabel('Word',{exact:true})).toHaveValue('Lahore');
+ await page.getByLabel('Say it as',{exact:true}).fill('la-HOR');await page.getByRole('button',{name:'Save fix and regenerate',exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(2);
+ const lines=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate')[1].body.lines.map(l=>l.text));expect(lines).toEqual(['Welcome to the story.','la-HOR was bright that morning.']);
+ await expect(page.locator('[data-gen-chip]')).toHaveText('Generating');
+});
+test('GEN-03 a generation error pops up with what to do next and opens Model Settings',async({page})=>{
+ await audioToGeneration(page,{fail:'CUDA out of memory: tried to allocate 3.2 GiB'});
+ const popup=page.locator('#ecco-error-popup');await expect(popup).toBeVisible({timeout:15000});await expect(popup).toContainText('What you can do next');await expect(popup).toContainText(/ran out of memory/);
+ await popup.getByRole('button',{name:'Open Model Settings',exact:true}).click();await expect(page.locator('#story-gen-settings')).toBeVisible();await expect(page.locator('#story-gen-settings #audio-form')).toBeAttached();
+ await expect(page.locator('[data-gen-chip]')).toHaveText('Needs attention');await expect(page.getByRole('button',{name:'Generate again',exact:true})).toBeVisible();
+});
+test('GEN-04 Model Settings opens as a side panel for the media type and closes with Escape',async({page})=>{
+ await audioToGeneration(page);await modelSettings(page);await expect(page.getByRole('heading',{name:'Model Settings · Audio',exact:true})).toBeVisible();
+ await expect(page.locator('#story-gen-settings .story-simple-advanced')).toHaveAttribute('open','');
+ await page.locator('#story-gen-settings [data-close]').focus();await page.keyboard.press('Escape');await expect(page.locator('#story-gen-settings')).toBeHidden();await expect(page.locator('[data-gen-settings]')).toBeFocused();
+});
+test('GEN-05 video review redraws only the selected frames and puts them back as a new version',async({page})=>{
+ await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Frame fixes');
+ for(const [name,value] of Object.entries({output:'video',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
+ const style=page.locator('#story-detail-videoStyle-button');if(await style.count())await style.click().then(()=>page.locator('#story-detail-videoStyle-panel [data-choice-value]').first().click());
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await setScript(page,'Narrator: A child walks into the garden.');
+ await page.evaluate(async()=>{
+  const sample=await(await fetch('/qa/fixtures/sample.mp4')).arrayBuffer(),png=await new Promise(r=>{const c=document.createElement('canvas');c.width=64;c.height=36;c.getContext('2d').fillRect(0,0,64,36);c.toBlob(b=>b.arrayBuffer().then(r),'image/png');});
+  const original=api;window.__fix=[];let n=0;window.EccoCompute.validate=async()=>({models_ready:{'qwen-image-edit-2511':true},generation_controls_version:1});
+  api=async(path,body)=>{
+   if(path.startsWith('media/qa-video'))return {buffer:sample.slice(0),mime:'video/mp4'};
+   if(path.startsWith('media/qa-'))return {buffer:png.slice(0),mime:'image/png'};
+   if(path==='images/upload'){window.__fix.push(path+':'+body.name);const rec={id:'qa-frame-'+(++n),kind:'asset',media:'image',stage:'dev',story_id:body.story_id,created:1700000200};state.records.push(rec);return rec;}
+   if(path==='image-edits'){window.__fix.push(path+':'+body.asset_ids.length);const id='qa-edit-'+(++n),res='qa-fixed-'+n;state.records.push({id,kind:'job',status:'done',result:res,story_id:body.story_id,created:1700000300},{id:res,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,created:1700000301});return {id,status:'queued'};}
+   if(path==='frame-editor/export'){window.__fix.push(path+':'+Object.keys(body.replacements).join(','));window.__export=body;return {id:body.request_id,status:'queued'};}
+   if(path.startsWith('frame-editor/jobs/'))return {status:'done',output_asset_id:'qa-video-fixed'};
+   return original(path,body);
+  };
+ });
+ await generationTab(page);
+ await page.evaluate(()=>{const story=activeStory;state.records.push({id:'qa-video-job',kind:'job',status:'done',result:'qa-video-1',story_id:story,created:1700000000,started:1700000000},{id:'qa-video-1',kind:'asset',media:'video',stage:'dev',story_id:story,title:'Frame fixes.mp4',created:1700000100,duration:1});localStorage.setItem('ecco-video-job:'+story,'qa-video-job');});
+ await expect(page.locator('[data-gen-chip]')).toHaveText('Ready to review');await expect(page.getByRole('button',{name:'Publish',exact:true})).toBeEnabled();
+ await page.getByRole('button',{name:'Show frames at the current time',exact:true}).click();const frames=page.locator('.story-gen-frame');await expect(frames).toHaveCount(16);
+ await frames.nth(3).click();await frames.nth(5).click({modifiers:['Shift']});await expect(page.getByRole('button',{name:'Regenerate 3 frames',exact:true})).toBeEnabled();
+ await page.getByLabel('Describe the fix',{exact:true}).fill('The t-shirt turns blue. Keep it red.');await page.getByRole('button',{name:'Regenerate 3 frames',exact:true}).click();
+ await expect(page.locator('.story-gen-fix').first()).toContainText('Ready',{timeout:20000});
+ expect(await page.evaluate(()=>window.__fix)).toEqual(['images/upload:frame-3-reference.jpg','images/upload:frame-4.jpg','image-edits:2','images/upload:frame-5.jpg','image-edits:2','images/upload:frame-6.jpg','image-edits:2','frame-editor/export:4,5,6']);
+ expect(await page.evaluate(()=>({removed:window.__export.removed,fps:window.__export.fps,asset:window.__export.asset_id}))).toEqual({removed:[],fps:25,asset:'qa-video-1'});
+});
 test('UPLOAD-09 a full chapter carried by Next: Characters reaches audio generation intact',async({page})=>{
  await boot(page,{sourceFit:'castRetry'});await page.getByLabel('Story name (required)',{exact:true}).fill('Complete cave chapter');
  for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
@@ -1007,8 +1077,8 @@ test('UPLOAD-09 a full chapter carried by Next: Characters reaches audio generat
 await expect(page.locator('[data-cast-panel]')).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);await scriptStep(page);
  // Screen Play adds [directions] on arrival (owner request 2026-11-10); every spoken word stays as written.
  await expect.poll(()=>page.locator('#story-simple-script').inputValue().then(v=>v.replace(/ \[[^\]]*\]/g,''))).toBe(text);
- await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();await expect(page.locator('#audio-lines textarea[data-field=text]')).toHaveCount(87);
- await page.locator('#generate-audio').click();await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(1);
+ await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#audio-lines textarea[data-field=text]')).toHaveCount(87);
+ await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(1);
  const request=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='audio/generate').body);
  expect(request.long_form_version).toBe(1);expect(request.lines.length).toBeGreaterThan(80);expect(request.lines.reduce((n,l)=>n+l.text.length,0)).toBeGreaterThan(4000);expect(request.lines.every(l=>l.text.length<=500)).toBe(true);
  expect(request.lines.map(l=>l.text).join('\n\n')).toBe(text.replace(/^(Ali|Morgiana|Narrator): /gm,''));
@@ -1033,7 +1103,7 @@ for(const output of ['audio','video'])test(`STORY-06 Generate With AI tab writes
  await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();await expect(story).toHaveValue('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');await story.fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.\n\nAli: We are safe.');
  await page.getByRole('tab',{name:'Upload PDF',exact:true}).click();await page.locator('dialog.story-tab-warning').getByRole('button',{name:'Go back',exact:true}).click();await expect(page.getByRole('tab',{name:'Generate With AI',exact:true})).toHaveAttribute('aria-selected','true');await expect(story).toHaveValue(/We are safe/);await expect(ai.getByLabel('What should your story be about?',{exact:true})).toHaveValue('Write a cave adventure with Ali and Morgiana.');
  await page.screenshot({path:info.outputPath('ai-story-review.png')});await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('ai-story-review-mobile.png'),fullPage:true});await page.setViewportSize({width:1440,height:1000});
- await expect(ai.getByRole('button',{name:'Generate Script',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);await scriptStep(page);await expect(page.locator('#story-simple-script')).toHaveValue(/Ali: We are safe/);await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator(output==='audio'?'#audio-form':'#video-form')).toBeVisible();
+ await expect(ai.getByRole('button',{name:'Generate Script',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);await scriptStep(page);await expect(page.locator('#story-simple-script')).toHaveValue(/Ali: We are safe/);await generationTab(page);await expect(page.locator(output==='audio'?'#audio-form':'#video-form')).toBeAttached();
 });
 
 
@@ -1225,7 +1295,7 @@ test('STORY-10 one linked summary identifies every missing detail and clears err
 test('STORY-11 Story type sets One time or Recurring generation; Generation shows a summary only for Recurring',async({page})=>{
  await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Publishing preference');for(const [name,value]of Object.entries({output:'audio',type:'storybook',genre:'Adventure'}))await fillStoryDetail(page,name,value);
  await expect(page.locator('#story-detail-type-button [data-generation-tag]')).toHaveText('One time');
- await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await setScript(page,'Narrator: A new day begins.');await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await setScript(page,'Narrator: A new day begins.');await generationTab(page);await expect(page.locator('#audio-form')).toBeAttached();
  await expect(page.locator('#story-simple-publishing')).toHaveCount(0);await expect(page.locator('[name=recurrence]')).toHaveCount(0);await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeHidden();
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=storybook]').click();
  await expect(page.locator('#story-detail-type-button [data-generation-tag]')).toHaveText('Recurring');expect(await page.evaluate(()=>JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('Publishing preference')&&localStorage.getItem(k).includes('simple_workspace')))).simple_workspace?.recurrence)).toBe('recurring');
@@ -1254,7 +1324,7 @@ test('STORY-18 Recurring generation: split Story type list, PDF tab name, one-ti
  await expect(r.locator('[data-rec-saved]')).toHaveText('Saved as “Cave nights” · in Workflows');const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').find(w=>w.name==='Cave nights'));expect(saved).toMatchObject({source_mode:'chapters',total_chapters:3,repeat:'daily',status:'draft',schedule_requested:false});
  await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await expect(page.locator('dialog.story-tab-warning')).toHaveCount(0);await expect(box.locator('[data-selected]')).toHaveValue(/Part 3/);
  await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
- await setScript(page,'Narrator: Part 1.');await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();await expect(page.locator('#story-simple-publishing')).toContainText('3 episodes · every day');await expect(page.locator('#story-simple-publishing')).toContainText('saved as workflow “Cave nights”');
+ await setScript(page,'Narrator: Part 1.');await generationTab(page);await expect(page.locator('#audio-form')).toBeAttached();await expect(page.locator('#story-simple-publishing')).toContainText('3 episodes · every day');await expect(page.locator('#story-simple-publishing')).toContainText('saved as workflow “Cave nights”');
  // One time with parts: Schedule appears on its own and offers to switch.
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();
  await page.getByRole('tab',{name:'2. Story Script',exact:true}).click();await expect(page.locator('[data-generation-pill]')).toHaveText('One time');await expect(page.getByRole('tab',{name:'Upload PDF',exact:true})).toBeVisible();

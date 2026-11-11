@@ -1062,6 +1062,51 @@
         "Upload PDF"
       ],
       "area": "Story pages"
+    },
+    {
+      "id": "story-gen-percent",
+      "of": "body-text",
+      "name": "Generation overall percent",
+      "font": "@title-display",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".story-gen-percent"
+      ],
+      "examples": [
+        "47%"
+      ],
+      "area": "Story Generation"
+    },
+    {
+      "id": "story-gen-frame",
+      "of": "button",
+      "name": "Generation frame tile",
+      "font": "@text-regular",
+      "height": 96,
+      "width": null,
+      "selectors": [
+        ".story-gen-frame"
+      ],
+      "examples": [
+        "148"
+      ],
+      "area": "Story Generation"
+    },
+    {
+      "id": "story-gen-image",
+      "of": "button",
+      "name": "Generation image tile",
+      "font": "@text-regular",
+      "height": 220,
+      "width": null,
+      "selectors": [
+        ".story-gen-image"
+      ],
+      "examples": [
+        "Generated image"
+      ],
+      "area": "Story Generation"
     }
   ],
   "scale": [

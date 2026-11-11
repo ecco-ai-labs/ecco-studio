@@ -586,7 +586,7 @@
   q('#page').innerHTML='<div class="form"><section class="panel form story-cast" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-cast-reason></p><div class="story-cast-bar"><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><div class="story-cast-legend help" aria-hidden="true"><span><span class="story-cast-status" data-status="none"></span>Not created</span><span><span class="story-cast-status" data-status="created"></span>Created</span><span><span class="story-cast-status" data-status="tested"><svg viewBox="0 0 16 16"><path d="M4.5 8.2l2.3 2.3 4.7-4.8"/></svg></span>Tested</span></div></div><div class="story-cast-body" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions story-cast-actions"><p class="help" id="story-cast-progress" data-cast-progress role="status" aria-live="polite"></p><button type="button" data-next>Next: Story Screen Play</button></div></div>';
   inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
   inPage('[data-cast-reason]').textContent=isImage()?'No characters needed for a picture. Add a person only if you want them to look the same in every picture.':data.castReason||(data.castFrom?'':'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.');
-  characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(isImage()){select(GENERATE);return;}if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
+  characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(isImage()){requestGeneration();return;}if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
  }
  // Screen Play (owner request 2026-11-09): lines with who speaks and how (e.g. Whisper), plus sounds such as a door, footsteps or birds. Edit as text keeps the plain script.
  function scriptPage(){
@@ -599,7 +599,7 @@
   const syncViews=()=>{const ok=!!(data.output==='audio'&&scriptPlan());for(const b of q('#page').querySelectorAll('[data-script-view]')){b.hidden=!ok;b.setAttribute('aria-pressed',String(b.dataset.scriptView==='text'));}if(ok)data.scriptView='text';};
   for(const b of inPage('[data-script-view]')?.parentElement.querySelectorAll('[data-script-view]')||[])b.onclick=()=>{data.scriptView=b.dataset.scriptView;persist();paintScript();};
   inPage('[data-suggest-sounds]').onclick=event=>void suggestSounds(event.currentTarget);
-  inPage('[data-next]').onclick=()=>select(GENERATE);paintScript();
+  inPage('[data-next]').onclick=()=>requestGeneration();paintScript();
   // Automatic flow: delivery and sounds are suggested once, without a click; anything changed by hand is kept.
   if(data.output==='audio'&&!data.autoDirected&&scriptPlan()&&window.EccoAudioDirection&&window.EccoSoundDesign){data.autoDirected=true;persist();void suggestSounds(inPage('[data-suggest-sounds]'));}
  }
@@ -854,15 +854,18 @@
    const script=q('#'+kind+'-final-script-panel');if(script){if(!script.closest('.story-simple-script-review')){const details=document.createElement('details');details.className='story-simple-script-review';const summary=document.createElement('summary');summary.textContent=kind==='audio'?'Script, delivery & sound effects':'Final script and detailed controls';details.append(summary);script.before(details);details.append(script);}if(script.hidden)script.hidden=false;}
    for(const suffix of ['progress-panel','review-panel']){const panel=q('#'+kind+'-'+suffix);if(panel?.hidden)panel.hidden=false;}
   }
-  let review=q('#story-simple-review');if(!review){review=document.createElement('section');review.id='story-simple-review';review.className='panel form';review.innerHTML='<div class="section-head"><h2>Finish your story</h2><button type="button" data-publish>Publish</button></div><p data-result-note class="help"></p><details><summary>Saved results for this story</summary><div class="cards" data-results></div></details><div class="row"><button type="button" class="secondary" data-next-episode hidden>Start next episode / chapter</button></div>';q('#page').append(review);q('[data-publish]',review).onclick=()=>generateView('publish');q('[data-next-episode]',review).onclick=nextEpisode;}
-  if(data.view==='publish'){if(!review.hidden)review.hidden=true;return;}if(review.hidden)review.hidden=false;
-  const list=state.records.filter(r=>r.kind==='asset'&&!r.deleted&&r.story_id===activeStory&&r.media===data.output).sort((a,b)=>b.created-a.created);
-  const signature=JSON.stringify(list.map(r=>[r.id,r.stage,r.deleted,r.path]));const results=q('[data-results]',review);
-  if(results.dataset.signature!==signature){results.dataset.signature=signature;results.innerHTML=list.map(card).join('');wireCards();if(list.length)hydrateMedia();}
-  const publish=q('[data-publish]',review);const approved=list.some(r=>r.stage==='prod');publish.disabled=data.output!=='video'||!approved;
-  const note=data.output!=='video'?'Download your result from its preview. Connected publishing currently accepts approved videos.':!list.length?'Generate a video, review it, then approve it to publish.':!approved?'Review and approve the video you want to publish.':'Your approved video is ready. Choose Publish to select a destination and publishing time.';
-  if(q('[data-result-note]',review).textContent!==note)q('[data-result-note]',review).textContent=note;
-  q('[data-next-episode]',review).hidden=data.recurrence!=='recurring';
+  // Story Generation (owner-approved mocks, 2026-11-10): progress, error popups, review with fixes and Publish.
+  // The studio's own form moves into the Model Settings panel; the old "Finish your story" box is gone.
+  if(data.view==='publish'){inPage('#story-generation')?.remove();return;}
+  const kind={audio:'audio',images:'image',render:'video'}[data.view];if(!kind||!window.EccoStoryGeneration)return;
+  window.EccoStoryGeneration.mount(q('#page'),{kind,story:activeStory,recurring:data.recurrence==='recurring',autoStart:takeAutoStart(kind),stop:()=>window.EccoGenerationStop?.stop(kind,activeStory),edit:()=>select(STORY),prepareImages:()=>generateView('images'),nextEpisode,publish:publishResult});
+ }
+ // Generate on Story Screen Play (or Characters for pictures) starts generation once Story Generation opens.
+ async function requestGeneration(){const current=data;data.autoStart={kind:{audio:'audio',image:'image',video:'video'}[data.output],at:Date.now()};persist();await select(GENERATE);if(current===data&&data.autoStart&&!generating(data.tab)){delete data.autoStart;persist();}}
+ function takeAutoStart(kind){const request=data.autoStart;if(!request)return false;delete data.autoStart;persist();return request.kind===kind&&Date.now()-request.at<120000;}
+ async function publishResult(asset){
+  if(asset?.kind==='asset'&&asset.stage!=='prod'&&data.output!=='audio'){await api('approve',{asset_id:asset.id});await refresh();}
+  return select(PUBLISH);
  }
  function nextEpisode(){const n=(data.episode||0)+1,chapter=data.seriesText&&data.storyShape?.multi&&!data.storyShape?.open&&n<data.storyShape.episodes;
   if(chapter){const seed={...clone(data),episode:n,script:episodeText(data.seriesText,n),audioScript:'',scenes:[],plan:null,tab:CHARACTERS,view:'',applied:{},research:null,title:(data.title||'Story').replace(/ · Episode \d+$/,'')+' · Episode '+(n+1)};window.EccoWorkspaceUI.startNewStory({id:data.type,format:data.output,seed:{simple_workspace:seed}});return;}
@@ -879,7 +882,7 @@
   if(savedId){captureStudio();window.EccoWorkspaceUI.preserveNewStoryDraft();const saved=read(savedId==='pending'?'ecco-new-story-draft':'ecco-story-setup:'+savedId);activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);if(!activeStory){localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));localStorage.setItem('ecco-board-new-draft',JSON.stringify(saved.boardDraft||defaultDraft));}draft=loadDraft();}
   open();if(!savedId){data.tab=0;render();}
  }
- function leave(){if(!enabled)return;closeDetailMenu();window.EccoPopups?.suspendContexts?.();captureStudio();persist();enabled=false;epoch++;document.body.classList.remove('story-simple-mode');q('#story-workspace-header')?.setAttribute('hidden','');q('#page')?.removeAttribute('role');q('#page')?.removeAttribute('aria-labelledby');}
+ function leave(){if(!enabled)return;window.EccoStoryGeneration?.leave();closeDetailMenu();window.EccoPopups?.suspendContexts?.();captureStudio();persist();enabled=false;epoch++;document.body.classList.remove('story-simple-mode');q('#story-workspace-header')?.setAttribute('hidden','');q('#page')?.removeAttribute('role');q('#page')?.removeAttribute('aria-labelledby');}
  function captureContext(){
   if(!enabled)return null;captureStudio();persist();const snapshot={data,legacy,workspaceStory,tab:data.tab,view:data.view};
   return ()=>{

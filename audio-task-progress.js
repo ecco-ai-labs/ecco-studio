@@ -30,5 +30,5 @@
   }
   for(const card of [...root.children])if(!run.rows.some(r=>r.key===card.dataset.task))card.remove();
  }
- window.EccoAudioTasks={begin,prepare,sounds,speech,submitted,fail,render,recover};
+ window.EccoAudioTasks={get,begin,prepare,sounds,speech,submitted,fail,render,recover};
 })();

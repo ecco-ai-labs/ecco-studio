@@ -13,13 +13,13 @@
   state={records,config:{models_ready:{},storage:{volume:'qa-fixture'}},storage_pending:false};
   for(const item of records.filter(r=>r.kind==='asset'))mediaCache.set(item.id,'/'+item.path);
   const sourceFit=new URLSearchParams(location.search).get('sourceFit');
-  if(['fiction','clarification','cast','castRetry','audioPreview','drafts','picture'].includes(sourceFit))Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
+  if(['fiction','clarification','cast','castRetry','audioPreview','audioDone','drafts','picture'].includes(sourceFit))Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
   window.__qaCalls=[];
   api=async(path,body)=>{
     window.__qaCalls.push({path,body});
     if(window.__qaHold&&path==='ai/enhance')await window.__qaHold;
     if(path==='state')return state;
-    if(['audioPreview','castRetry'].includes(sourceFit)&&path==='ai/enhance'&&body.fields?.[0]?.id==='audio_directed_script'){
+    if(['audioPreview','castRetry','audioDone'].includes(sourceFit)&&path==='ai/enhance'&&body.fields?.[0]?.id==='audio_directed_script'){
       const draft=JSON.parse(body.context.summary).draft,part=p=>({...p,performance:{emotion:'neutral',direction:'Clear speech.',pause_before:0}});
       return {revisions:[{id:'audio_directed_script',text:JSON.stringify({...draft,opening:draft.opening?part(draft.opening):null,segments:draft.segments.map(part),expressiveness:null})}]};
     }
@@ -58,12 +58,14 @@
   };
   refresh=async()=>true;
   Object.defineProperty(window.EccoStorage,'ready',{get:()=>true});
-  if(['audioPreview','castRetry'].includes(sourceFit)){
+  if(['audioPreview','castRetry','audioDone'].includes(sourceFit)){
     const jobs=new Map();let sampleURL;
     window.EccoAudioStudio.connect({storageIndependentOfGPU:true,
-      status:async()=>({routing_version:1,compute:{cpu:{ready:true,models:['indic-mio'],character_controls_version:1,mixed_models_version:1,long_form_version:1}}}),list:async()=>[],
+      status:async()=>({routing_version:1,compute:{cpu:{ready:true,models:['indic-mio'],character_controls_version:1,mixed_models_version:1,long_form_version:1}}}),
+      // audioDone: a recording finishes after two polls, so Story Generation can be reviewed.
+      list:async({story_id}={})=>[...jobs.entries()].filter(([,j])=>j.done&&j.body.story_id===story_id).map(([id,j])=>({id:'qa-recording-'+id,media:'audio',kind:'asset',stage:'dev',story_id,title:j.body.title||'Recording',created:1700000100+j.polls,duration:4})),
       generate:async body=>{window.__qaCalls.push({path:'audio/generate',body});const id='qa-audio-job-'+(jobs.size+1);jobs.set(id,{body,polls:0});return{id,status:'queued',media:'audio',kind:'audio_job',story_id:body.story_id};},
-      job:async id=>{const job=jobs.get(id);job.polls++;return{id,status:job.body.title.startsWith('Voice preview')&&job.polls>1?'done':'running',asset_id:'qa-preview'};},
+      job:async id=>{const job=jobs.get(id);job.polls++;const preview=job.body.title.startsWith('Voice preview');if(sourceFit==='audioDone'&&!preview&&window.__qaAudioFail)return{id,status:'failed',error:window.__qaAudioFail,progress:'Generating speech · 0 of 2 passages complete'};if(sourceFit==='audioDone'&&!preview){if(job.polls>2)job.done=true;return{id,status:job.done?'done':'running',progress:job.done?'Audio saved.':'Generating speech · 1 of 2 passages complete',asset_id:'qa-recording-'+id};}return{id,status:preview&&job.polls>1?'done':'running',asset_id:'qa-preview'};},
       mediaURL:async()=>sampleURL||(sampleURL=URL.createObjectURL(await(await fetch('/qa/fixtures/sample.wav')).blob())),download:async()=>{}
     });
   }
