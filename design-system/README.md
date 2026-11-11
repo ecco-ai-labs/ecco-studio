@@ -949,6 +949,14 @@ needs avatars). Story Screen Play suggests delivery and sounds once on arrival,
 keeping anything set by hand. Generate With AI writes the way people speak for
 each Story type.
 
+Screen Play script rules (owner request 2026-11-10): a paragraph without a name
+continues the same speaker (only the first paragraph needs one); text in
+[square brackets] is a direction sent to the voice model separately and never
+spoken; [Sound: …] on its own line is a background sound; parentheses in spoken
+words become a pause. The storage server refuses any line whose spoken words
+still contain a bracket. While you type, Lines and sounds appears as soon as
+the script is valid; the text view stays open.
+
 Automatic episodes (owner-approved mock 2026-11-09, story-auto.js): for a
 recurring story, Schedule shows an Automatic episodes box under the schedule.
 Make the pilot episode saves the workflow with automatic episodes on and makes

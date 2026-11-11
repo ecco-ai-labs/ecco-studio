@@ -51,7 +51,7 @@
    for(const piece of body.split(/(\[[^\]]*\])/)){
     if(/^\[[^\]]*\]$/.test(piece)){const d=piece.slice(1,-1).trim();direction=fresh&&direction?direction+', '+d:d;fresh=true;continue;}
     // Words only: stray brackets are dropped and parentheses become pauses, so nothing can be read as an instruction.
-    const words=piece.replace(/[\[\]]/g,'').replace(/\s*[()]\s*/g,', ').replace(/^,\s*|,\s*$/g,'').replace(/\s+/g,' ').trim();if(!words)continue;
+    const words=piece.replace(/[\[\]]/g,'').replace(/([.!?])\s*\(\s*/g,'$1 ').replace(/^\s*\(\s*/,'').replace(/\s*\(\s*/g,', ').replace(/\s*\)\s*(?=[.!?,;:]|$)/g,'').replace(/\s*\)\s*/g,', ').replace(/,\s*([.!?,;:])/g,'$1').replace(/^,\s*|,\s*$/g,'').replace(/\s+/g,' ').trim();if(!words)continue;
     const part={character_id:who,text:words};if(join)part.join=join;if(direction)part.performance={direction:direction.slice(0,300)};
     const match=old.find(p=>p.character_id===part.character_id&&p.text===part.text);
     if(match?.performance){const keep=copy(match.performance);delete keep.after;part.performance={...keep,...(direction?{direction:direction.slice(0,300)}:{})};}

@@ -912,7 +912,9 @@ test('UPLOAD-09 a full chapter carried by Next: Characters reaches audio generat
  const text='Ali: Open sesame!\n\nMorgiana: I will help.\n\n'+Array.from({length:85},(_,i)=>'Narrator: Passage '+i+'. The woodcutter carried the logs through the forest and returned home before nightfall.').join('\n\n');
  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload PDF',exact:true}).click();await(await chooser).setFiles({name:'complete-chapter.txt',mimeType:'text/plain',buffer:Buffer.from(text)});
  const source=page.getByRole('dialog',{name:'Select Story Text',exact:true});await source.locator('[data-selected]').fill(text);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();
-await expect(page.locator('[data-cast-panel]')).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);await scriptStep(page);await expect(page.locator('#story-simple-script')).toHaveValue(text);
+await expect(page.locator('[data-cast-panel]')).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);await scriptStep(page);
+ // Screen Play adds [directions] on arrival (owner request 2026-11-10); every spoken word stays as written.
+ await expect.poll(()=>page.locator('#story-simple-script').inputValue().then(v=>v.replace(/ \[[^\]]*\]/g,''))).toBe(text);
  await page.getByRole('button',{name:'Generate',exact:true}).click();await expect(page.locator('#audio-form')).toBeVisible();await expect(page.locator('#audio-lines textarea[data-field=text]')).toHaveCount(87);
  await page.locator('#generate-audio').click();await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(1);
  const request=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='audio/generate').body);
@@ -1664,5 +1666,27 @@ test('STORY-31 Schedule makes a pilot episode automatically, takes a plain-words
  await panel.getByRole('button',{name:'Sounds good, approve the series',exact:true}).click();await expect(panel).toContainText('Series approved. Each episode publishes on its own');
  const calls=await page.evaluate(()=>window.__qaCalls.map(c=>c.path));expect(calls).toContain('audio/auto/approve');
  const resave=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/workflows/save').at(-1).body);expect(resave.review_before_publish).toBe(false);
+ expect(page.qaErrors).toEqual([]);
+});
+
+// Owner request 2026-11-10: a paragraph without a name continues the same speaker; [directions] are never spoken. (The fixture cast is Narrator, Ali and Morgiana.)
+test('STORY-32 Screen Play: unnamed paragraphs continue the speaker and [directions] stay out of the spoken words',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Quantum Talk');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=podcast]').click();await fillStoryDetail(page,'genre','Science & Technology');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Host: Hi, how are you.\n\nGuest: Thank you for having me.\n\nHost: Oh how fascinating.');
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('.story-cast-row').first()).toBeVisible();
+ await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);
+ await expect(page.locator('[data-script-help]')).toContainText('never read aloud');
+ await page.locator('#story-simple-script').fill('[Sound: soft intro music]\n\nAli [warm, welcoming]: Hi, how are you (and welcome).\n\nMorgiana [warm, grateful]: Thank you for having me. [professional, rising excitement] Quantum mechanics is fascinating.\n\nLike now we know that electrons vibrate like strings.\n\nAli [amazed]: Oh how fascinating! [slight laugh]');await page.locator('#story-simple-script').blur();
+ await page.getByRole('button',{name:'Lines and sounds',exact:true}).click();
+ const lines=page.locator('[data-script-lines]'),turns=lines.locator('.story-script-turn');await expect(turns).toHaveCount(5);
+ await expect(lines.getByLabel('Speaker for line 4',{exact:true}).locator('option:checked')).toHaveText('Morgiana');
+ for(let i=1;i<=5;i++)await expect(lines.getByLabel('Line '+i,{exact:true})).not.toHaveValue(/[\[\]()]/);
+ await expect(lines.getByLabel('Line 1',{exact:true})).toHaveValue('Hi, how are you, and welcome.');
+ await page.getByRole('button',{name:'Edit as text',exact:true}).click();
+ await expect(page.locator('#story-simple-script')).toHaveValue('[Sound: soft intro music]\n\nAli [warm, welcoming]: Hi, how are you (and welcome).\n\nMorgiana [warm, grateful]: Thank you for having me. [professional, rising excitement] Quantum mechanics is fascinating.\n\nLike now we know that electrons vibrate like strings.\n\nAli [amazed]: Oh how fascinating! [slight laugh]');
+ // Only the very first paragraph needs a name.
+ await page.locator('#story-simple-script').fill('Thank you for having me.\n\nAli: Hi.');await page.locator('#story-simple-script').blur();await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.getByRole('button',{name:'Lines and sounds',exact:true})).toBeHidden();
  expect(page.qaErrors).toEqual([]);
 });
