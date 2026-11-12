@@ -1,4 +1,4 @@
-"""GPU voice-model installer for svara-TTS and MOSS-TTSD, in two separate steps.
+"""GPU voice-model installer for svara-TTS, MOSS-TTSD and Qwen3-TTS, in separate steps.
 
   packages <model>  create <ECCO_AUDIO_VENVS>/<model>-venv and install pinned packages (no weights)
   weights <model>   download pinned weights to <ECCO_AUDIO_MODELS>/<model>
@@ -13,7 +13,12 @@ pod's CUDA torch via --system-site-packages and is pinned as a constraint, as in
 install_extra_models.sh. SVARA_REVISION / SNAC_REVISION / MOSS_TTSD_REVISION /
 MOSS_CODEC_REVISION pin exact Hugging Face commits; when unset the current commit is
 resolved once and recorded in ecco-install.json. Existing installers are unchanged.
-There is no CPU path for these two models.
+There is no CPU path for these models.
+
+Qwen3-TTS: weights go to models/qwen3-tts/voice-design (VoiceDesign: a voice from a description) and
+models/qwen3-tts/base (Base: every line cloned from the designed voice so a character keeps one voice).
+QWEN3_DESIGN_REVISION / QWEN3_BASE_REVISION pin the commits. After downloading, any repository the model
+loads at start-up (its speech tokenizer) is fetched once into hf-cache so offline workers can load it.
 """
 import argparse
 import json
@@ -40,6 +45,14 @@ MODELS = {
         'source': 'git+https://github.com/OpenMOSS/MOSS-TTS.git',
         'extras': [('codec', 'OpenMOSS-Team/MOSS-Audio-Tokenizer', 'MOSS_CODEC_REVISION', None)],
         'patterns': None,
+    },
+    'qwen3-tts': {
+        'repo': 'Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign', 'revision_env': 'QWEN3_DESIGN_REVISION', 'subdir': 'voice-design',
+        # qwen-tts brings its own transformers pin; torch/torchaudio come from the base image (constraints).
+        'packages': ['qwen-tts', 'soundfile', 'huggingface_hub', 'accelerate'],
+        'extras': [('base', 'Qwen/Qwen3-TTS-12Hz-1.7B-Base', 'QWEN3_BASE_REVISION', None)],
+        'patterns': None,
+        'prefetch': ['voice-design', 'base'],
     },
 }
 
@@ -102,7 +115,7 @@ def weights(model):
     root = models_dir() / model
     root.mkdir(parents=True, exist_ok=True)
     record = {'repo': spec['repo'], 'revision': resolve(spec['repo'], os.environ.get(spec['revision_env']))}
-    snapshot_download(spec['repo'], revision=record['revision'], local_dir=root,
+    snapshot_download(spec['repo'], revision=record['revision'], local_dir=root / spec.get('subdir', ''),
                       **({'allow_patterns': spec['patterns']} if spec['patterns'] else {}))
     record['extras'] = {}
     for name, repo, revision_env, patterns in spec['extras']:
@@ -110,10 +123,20 @@ def weights(model):
         snapshot_download(repo, revision=revision, local_dir=root / name, **({'allow_patterns': patterns} if patterns else {}))
         record['extras'][name] = {'repo': repo, 'revision': revision}
     (root / 'ecco-install.json').write_text(json.dumps(record, indent=2))
+    for folder in spec.get('prefetch', []):
+        # Load once with the hub online so anything the model pulls at start-up lands in the workers' hf-cache.
+        env = dict(os.environ, HF_HOME=str(AUDIO / 'hf-cache'), HF_HUB_OFFLINE='0')
+        env.pop('PYTHONPATH', None)
+        code = ('import sys, torch\nfrom qwen_tts import Qwen3TTSModel\n'
+                'Qwen3TTSModel.from_pretrained(sys.argv[1], device_map="cpu", dtype=torch.bfloat16)\nprint("cached", sys.argv[1])')
+        subprocess.run([str(venv_python(model)), '-c', code, str(root / folder)], check=True, env=env)
     print('WEIGHTS DOWNLOADED', model, root, json.dumps(record), flush=True)
 
 
 SMOKE = {
+    'qwen3-tts': [{'text': 'Welcome to the show. Today we have a wonderful story for you.', 'language': 'English', 'voice': 'warm-host-f'},
+                  {'text': 'Look, look! A butterfly landed on my nose!', 'language': 'English', 'voice': 'girl-5'},
+                  {'text': 'And that, my friends, is how the river found the sea.', 'language': 'English', 'voice': 'warm-host-f'}],
     'svara-tts': [{'text': 'హలో! మా కథకు స్వాగతం.', 'language': 'Telugu', 'voice': 'telugu-female', 'emotion': 'happy'},
                   {'text': 'नमस्ते। आज की कहानी शुरू करते हैं।', 'language': 'Hindi', 'voice': 'hindi-male'}],
 }
@@ -125,7 +148,7 @@ def smoke(model, run=subprocess.run):
     directory = AUDIO / 'gpu-verification' / model
     directory.mkdir(parents=True, exist_ok=True)
     (directory / 'request.json').write_text(json.dumps({'compute': os.environ.get('ECCO_AUDIO_COMPUTE', 'b200'), 'model': model, 'lines': SMOKE[model]}))
-    env = dict(os.environ, HF_HUB_OFFLINE='1')
+    env = dict(os.environ, HF_HUB_OFFLINE='1', HF_HOME=str(AUDIO / 'hf-cache'))
     env.pop('PYTHONPATH', None)
     run([str(venv_python(model)), str(AUDIO / 'modern_worker.py'), '--request', str(directory / 'request.json'),
          '--runtime', str(models_dir()), '--output', str(directory / 'output.wav')], check=True, env=env, timeout=1800, cwd=str(AUDIO))

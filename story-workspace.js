@@ -737,7 +737,8 @@
  const voiceGender=v=>/\b(masculine|male)\b/i.test(v.name||'')?'Male':/\b(feminine|female)\b/i.test(v.name||'')?'Female':'';
  const genderOf=c=>/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
  // svara-TTS (GPU) has native male and female voices per Indian language plus emotion tags, so it leads where a worker offers it.
- const VOICE_QUALITY={English:['kokoro','voxcpm2','indic-parler','chatterbox','svara-tts','indic-mio'],Urdu:['indic-parler','indic-mio'],Telugu:['svara-tts','indicf5','indic-parler','indic-mio'],Hindi:['svara-tts','indic-parler','indicf5','indic-mio'],other:['svara-tts','indic-parler','indicf5','voxcpm2','kokoro','chatterbox','indic-mio']};
+ // Qwen3-TTS (GPU) designs a distinct voice per character from a description (children, elders, accents) and follows delivery instructions, so it leads for English where installed.
+ const VOICE_QUALITY={English:['qwen3-tts','kokoro','voxcpm2','indic-parler','chatterbox','svara-tts','indic-mio'],Urdu:['indic-parler','indic-mio'],Telugu:['svara-tts','indicf5','indic-parler','indic-mio'],Hindi:['svara-tts','indic-parler','indicf5','indic-mio'],other:['svara-tts','indic-parler','indicf5','voxcpm2','kokoro','chatterbox','indic-mio']};
  function voiceModels(language){
   const ready=window.EccoAudioCompute?.readyNow?.(),fits=(window.EccoAudioModels||[]).filter(m=>!m.pending&&(!m.languages||m.languages.includes(language)));
   return fits.filter(m=>!ready||ready.includes(m.id));

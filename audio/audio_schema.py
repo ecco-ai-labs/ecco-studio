@@ -16,8 +16,8 @@ def required_models(request):
     return {line.get('model', request.get('model', 'indic-mio')) for line in request.get('lines', [])} or {request.get('model', 'indic-mio')}
 
 # Character voice references (2026-11-09): copying models can speak with a saved clip.
-REF_MODELS = ('chatterbox', 'indicf5', 'voxcpm2')
-DESIGN_MODELS = ('voxcpm2', 'indic-parler')
+REF_MODELS = ('chatterbox', 'indicf5', 'voxcpm2', 'qwen3-tts')
+DESIGN_MODELS = ('voxcpm2', 'indic-parler', 'qwen3-tts')
 SLUG = re.compile(r'^[a-z][a-z0-9-]{0,31}$')
 HEX32 = re.compile(r'^[0-9a-f]{32}$')
 # A line's delivery picks the palette clip; these are the nearest palette names for each delivery.
