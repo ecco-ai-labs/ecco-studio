@@ -70,7 +70,7 @@
   // Default and fallback: Serverless first, then a CPU, unless the person chose a compute that is still available.
   const needed=[...new Set([draft.model,...(draft.speakers||[]).map(sp=>sp.model).filter(Boolean)])];
   const current=choices.find(c=>c.value===computeValue(draft.compute,draft.worker_id));
-  if(computeStatus&&draft.compute_auto!==false&&!submitting){const best=preferredCompute(computeStatus,needed);if(best&&best.value!==current?.value){draft.compute=best.compute;if(best.worker_id)draft.worker_id=best.worker_id;else delete draft.worker_id;save();}}
+  if(computeStatus&&draft.compute_auto!==false&&(!submitting||!current?.ready)){const best=preferredCompute(computeStatus,needed);if(best&&best.value!==current?.value){draft.compute=best.compute;if(best.worker_id)draft.worker_id=best.worker_id;else delete draft.worker_id;save();}}
   if(select){
    const signature=JSON.stringify(choices);
    if(select.dataset.options!==signature){select.replaceChildren(new Option('Select connected compute',''),...choices.map(c=>new Option(c.label,c.value)));select.dataset.options=signature;}
