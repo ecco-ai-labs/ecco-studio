@@ -278,5 +278,10 @@
     "area": "Audio generation stays running",
     "mode": "fixture+live",
     "scope": "While a recording is generating, compute auto-selection never switches the draft's compute, and the 'script or settings changed' guard compares only generation inputs (script, cast, model, delivery, sound cues; not compute choice or UI state), so background status refreshes cannot abort a run. Story Generation review lists finished recordings only, never the music/effects made for this story's sound cues (audio-instance-routing.test.cjs). Live: The Jet That Starves Itself on Serverless, 11 Nov 2026."
+  },
+  {
+    "area": "Screen Play quality gate",
+    "mode": "fixture",
+    "scope": "Generate on Screen Play checks an audio script before recording: rules in code (one introduction near the start, no speaker labels or brackets in spoken words, conversation turn-taking, monologue length, 80-turn limit only when sound cues exist, length estimate at the story type's pace) and an AI review that fixes structure and adds natural reactions, laughs and pauses as directions. A script with a blocking problem is never recorded; one turn per line splits speakers without blank lines (STORY-33, story-script-turns.test.cjs). The AI review itself needs a live AI connection and is verified live."
   }
 ]

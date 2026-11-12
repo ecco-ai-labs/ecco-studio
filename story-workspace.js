@@ -590,25 +590,68 @@
  // Screen Play (owner request 2026-11-09): lines with who speaks and how (e.g. Whisper), plus sounds such as a door, footsteps or birds. Edit as text keeps the plain script.
  function scriptPage(){
   page='story-script';
-  q('#page').innerHTML='<div class="form"><section class="panel form story-script-panel"><div class="section-head"><h2>Script</h2><div class="row story-script-views" role="group" aria-label="Script view"><button type="button" class="secondary" data-script-view="lines">Lines and sounds</button><button type="button" class="secondary" data-script-view="text">Edit as text</button></div><button type="button" data-suggest-sounds>✦ Suggest delivery and sounds</button></div>'
-   +'<p class="help" data-script-help></p><p class="help" data-sound-status role="status" aria-live="polite"></p><div class="story-script-lines" data-script-lines></div>'
+  q('#page').innerHTML='<div class="form"><section class="panel form story-script-panel"><div class="section-head"><h2>Script</h2><div class="row story-script-views" role="group" aria-label="Script view"><button type="button" class="secondary" data-script-view="lines">Lines and sounds</button><button type="button" class="secondary" data-script-view="text">Edit as text</button></div><button type="button" class="secondary" data-check-script>✦ Check script</button><button type="button" data-suggest-sounds>✦ Suggest delivery and sounds</button></div>'
+   +'<p class="help" data-script-help></p><p class="help" data-sound-status role="status" aria-live="polite"></p><p class="help" data-review-status role="status" aria-live="polite"></p><ul class="help" data-review-issues hidden></ul><div class="story-script-lines" data-script-lines></div>'
    +'<label data-script-text>Script<textarea id="story-simple-script" rows="18" placeholder="Generate Script in the Story Script step fills this in. You can also write it here."></textarea></label></section><div class="story-simple-actions"><span class="help" data-script-count></span><button type="button" data-next>Generate</button></div></div>';
   const text=q('#story-simple-script');text.value=data.script;let viewTimer;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();clearTimeout(viewTimer);viewTimer=setTimeout(syncViews,300);};
   // While typing, show Lines and sounds as soon as the script is valid; stay in the text view so nothing moves under the pointer.
   const syncViews=()=>{const ok=!!(data.output==='audio'&&scriptPlan());for(const b of q('#page').querySelectorAll('[data-script-view]')){b.hidden=!ok;b.setAttribute('aria-pressed',String(b.dataset.scriptView==='text'));}if(ok)data.scriptView='text';};
   for(const b of inPage('[data-script-view]')?.parentElement.querySelectorAll('[data-script-view]')||[])b.onclick=()=>{data.scriptView=b.dataset.scriptView;persist();paintScript();};
   inPage('[data-suggest-sounds]').onclick=event=>void suggestSounds(event.currentTarget);
-  inPage('[data-next]').onclick=()=>requestGeneration();paintScript();
+  inPage('[data-check-script]').onclick=event=>void checkScript(event.currentTarget);
+  inPage('[data-next]').onclick=event=>void gatedGeneration(event.currentTarget);paintScript();paintReview();
   // Automatic flow: delivery and sounds are suggested once, without a click; anything changed by hand is kept.
   if(data.output==='audio'&&!data.autoDirected&&scriptPlan()&&window.EccoAudioDirection&&window.EccoSoundDesign){data.autoDirected=true;persist();void suggestSounds(inPage('[data-suggest-sounds]'));}
  }
  function scriptPlan(){try{return M.parseScript(data.script,data.cast,data.plan);}catch{return null;}}
+ // Screen Play quality gate (owner request 2026-11-12). Audio scripts are checked before they are recorded:
+ // rules in code first, then an AI review that fixes structure and adds natural touches. Generate records only a
+ // script that passed for exactly its current wording; any edit after the check asks for a new check.
+ const reviewBrief=()=>({title:data.title,genre:data.genre,audience:data.audience,language:data.language,story_type:data.type,narration_style:data.narrationStyle||'',sounds:data.soundDesign?.cues?.length||0});
+ function paintReview(){
+  const status=inPage('[data-review-status]'),list=inPage('[data-review-issues]');if(!status||!list)return;
+  const plan=data.output==='audio'?scriptPlan():null,R=window.EccoScriptReview;
+  if(!plan||!R){status.textContent='';list.hidden=true;return;}
+  const local=R.checks(plan,data.cast,{storyType:data.type,sounds:data.soundDesign?.cues?.length||0}),review=data.scriptReview,current=review&&review.signature===R.signature(plan);
+  const blocking=local.issues.filter(i=>i.severity==='block');
+  status.textContent=current?`Script checked${Number.isFinite(review.score)?' · original score '+review.score+'/100':''} · ${review.fixed||0} fixes applied · about ${local.minutes} min · ${local.turns} turns. Ready to record.`
+   :`Not checked yet · about ${local.minutes} min · ${local.turns} turns.${blocking.length?' '+blocking.length+' problem'+(blocking.length>1?'s':'')+' to fix.':''} Generate checks the script first.`;
+  const items=[...(current?review.issues||[]:[]).map(i=>({...i,fixed:true})),...local.issues];
+  list.replaceChildren(...items.slice(0,12).map(i=>{const li=document.createElement('li');li.textContent=(i.fixed?'Fixed: ':i.severity==='block'?'Must fix: ':'Suggestion: ')+(i.turn?'turn '+i.turn+' · ':'')+i.problem;return li;}));
+  list.hidden=!items.length;
+ }
+ async function checkScript(button){
+  const plan=scriptPlan(),R=window.EccoScriptReview,status=inPage('[data-review-status]'),origin=owner();if(!plan||!R)return false;
+  button.disabled=true;button.setAttribute('aria-busy','true');status.textContent='Checking the script: structure, turn-taking, pace and natural delivery…';
+  try{
+   const result=await R.review({plan,cast:data.cast,brief:reviewBrief(),request:api});if(origin!==owner())return false;
+   if(!result.passed){status.textContent='The checked script still has problems. Fix the items below, then check again.';data.scriptReview=null;persist();const list=inPage('[data-review-issues]');list.replaceChildren(...result.local.issues.map(i=>{const li=document.createElement('li');li.textContent=(i.severity==='block'?'Must fix: ':'Suggestion: ')+(i.turn?'turn '+i.turn+' · ':'')+i.problem;return li;}));list.hidden=false;return false;}
+   savePlan(result.plan);
+   data.scriptReview={signature:R.signature(scriptPlan()),score:result.score,fixed:result.aiIssues.length,issues:result.aiIssues};persist();paintScript();paintReview();return true;
+  }catch(error){status.textContent='Could not run the AI script check: '+error.message;delete data.scriptReview;return false;}
+  finally{if(button.isConnected){button.disabled=false;button.setAttribute('aria-busy','false');}}
+ }
+ async function gatedGeneration(button){
+  const plan=data.output==='audio'?scriptPlan():null,R=window.EccoScriptReview;
+  if(!plan||!R)return requestGeneration();
+  if(data.scriptReview?.signature!==R.signature(plan)){
+   const blocking=R.checks(plan,data.cast,{storyType:data.type,sounds:data.soundDesign?.cues?.length||0}).issues.filter(i=>i.severity==='block');
+   const ok=await checkScript(inPage('[data-check-script]')||button);
+   if(!ok){
+    // The AI check could not run: the rules in code still decide. A script with problems is never recorded.
+    if(data.scriptReview===undefined&&!blocking.length){inPage('[data-review-status]').textContent+=' The rules check passed, so recording continues.';return requestGeneration();}
+    return;
+   }
+  }
+  requestGeneration();
+ }
  const soundLines=plan=>window.EccoSoundDesign?.planLines(plan)||[];
  function savePlan(plan){
   data.plan=plan;data.script=M.transcript(plan,data.cast);delete data.audioScript;data.scenes=[];
   if(data.soundDesign?.cues?.length)data.soundDesign.speech_key=window.EccoSoundDesign.key(soundLines(plan));epoch++;persist();
  }
  function paintScript(){
+  queueMicrotask(paintReview);
   const plan=data.output==='audio'?scriptPlan():null,view=plan&&data.scriptView!=='text'?'lines':'text',root=inPage('[data-script-lines]');if(!root)return;
   for(const b of q('#page').querySelectorAll('[data-script-view]')){b.setAttribute('aria-pressed',String(b.dataset.scriptView===view));b.hidden=!plan;}
   inPage('[data-suggest-sounds]').hidden=view!=='lines';inPage('[data-script-text]').hidden=view!=='text';root.hidden=view!=='lines';

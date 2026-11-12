@@ -41,7 +41,11 @@
   validateCast(cast);const names=new Map(cast.map(c=>[c.name.trim().toLowerCase(),c.id]));
   const heading=/^\s*(?:chapter|part|episode|section)\s*(?:[0-9]+|[ivxlc]+)\s*(?:[:.\-–—][^\n]{0,70})?\s*(?:\n|$)/i;
   const old=[...(previous?.opening?[previous.opening]:[]),...(previous?.segments||[])],parts=[],sounds=[];let who=null;
-  for(const paragraph of String(text||'').trim().split(/\n\s*\n/).map(p=>p.replace(heading,'').trim()).filter(Boolean)){
+  // A line that starts with a cast name and a colon (or is a [Sound: …] line) starts a new turn even without a blank
+  // line before it: AI-written and pasted scripts often put one turn per line, and every turn was read by one voice.
+  const turnStart=line=>{const m=line.match(/^\s*([^:\[\]\n]{1,60}?)\s*(\[[^\]]*\])?\s*:/);return !!(m&&names.has(m[1].trim().toLowerCase()))||/^\s*\[\s*sound\s*:[^\]]*\]\s*$/i.test(line);};
+  const spaced=String(text||'').replace(/\r\n?/g,'\n').split('\n').map((line,i,all)=>i&&all[i-1].trim()&&turnStart(line)?'\n'+line:line).join('\n');
+  for(const paragraph of spaced.trim().split(/\n\s*\n/).map(p=>p.replace(heading,'').trim()).filter(Boolean)){
    const sound=paragraph.match(/^\[\s*sound\s*:\s*([^\]]+)\]$/i);if(sound){sounds.push({at:parts.length,name:sound[1].trim().slice(0,160)});continue;}
    const head=paragraph.match(/^([^:\[\]\n]{1,60}?)\s*(\[[^\]]*\])?\s*:\s*/),id=head?names.get(head[1].trim().toLowerCase()):null;
    // “Bob: …” where Bob isn't in the cast is a typo, not words for the previous speaker.

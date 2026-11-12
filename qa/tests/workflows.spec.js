@@ -1957,6 +1957,29 @@ test('STORY-32 Screen Play: unnamed paragraphs continue the speaker and [directi
  await page.locator('#story-simple-script').fill('Thank you for having me.\n\nAli: Hi.');await page.locator('#story-simple-script').blur();await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.getByRole('button',{name:'Lines and sounds',exact:true})).toBeHidden();
  expect(page.qaErrors).toEqual([]);
 });
+test('STORY-33 Screen Play quality gate: one turn per line splits speakers; a script introduced twice is never recorded',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Gate Talk');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=podcast]').click();await fillStoryDetail(page,'genre','Science & Technology');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Host: Hi.\n\nGuest: Hello.');
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('.story-cast-row').first()).toBeVisible();
+ await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);
+ // One turn per line, no blank lines: every line keeps its own speaker (11 Nov 2026 every turn went to one voice).
+ await page.locator('#story-simple-script').fill("Ali [curious]: What if a jet could starve its own black hole?\nMorgiana: That is the idea we are exploring.\nAli: Welcome to Gate Talk. I'm Ali.\nMorgiana: Thanks for having me.\nAli: Welcome back to Gate Talk.");await page.locator('#story-simple-script').blur();
+ await page.getByRole('button',{name:'Lines and sounds',exact:true}).click();
+ const lines=page.locator('[data-script-lines]');await expect(lines.locator('.story-script-turn')).toHaveCount(5);
+ await expect(lines.getByLabel('Speaker for line 2',{exact:true}).locator('option:checked')).toHaveText('Morgiana');
+ await expect(page.locator('[data-review-status]')).toContainText('Not checked yet');
+ await page.locator('.story-simple-actions [data-next]').click();
+ await expect(page.locator('[data-review-issues]')).toContainText('introduced more than once');
+ await expect(page.locator('#story-generation')).toBeHidden();
+ expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(0);
+ // One introduction at the start: the rules pass and Generate records.
+ await page.getByRole('button',{name:'Edit as text',exact:true}).click();
+ await page.locator('#story-simple-script').fill("Ali: Welcome to Gate Talk. I'm Ali, and with me is Morgiana.\nMorgiana: Thanks for having me.\nAli: What if a jet could starve its own black hole?\nMorgiana: That is the idea we are exploring.");await page.locator('#story-simple-script').blur();
+ await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('#story-generation')).toBeVisible();
+ expect(page.qaErrors).toEqual([]);
+});
 test('GPU-SERVERLESS-01 the GPU connection box has an always-on Serverless card',async({page})=>{
  await boot(page,{enter:false});
  const card=await page.evaluate(()=>{const box=document.createElement('div');box.id='qa-gpu-box';document.body.append(box);
