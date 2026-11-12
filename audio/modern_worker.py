@@ -1,4 +1,4 @@
-"""Inference for Kokoro, VoxCPM2, Indic Parler (CPU or GPU) and svara-TTS (GPU) in isolated environments."""
+"""Inference for Kokoro, VoxCPM2, Indic Parler (CPU or GPU), svara-TTS and Qwen3-TTS (GPU) in isolated environments."""
 import argparse
 import json
 from pathlib import Path
@@ -88,6 +88,50 @@ def synthesize(request, output, runtime):
             codes = svara_codec.snac_codes(out[0, prompt.shape[1]:].tolist())
             audio = snac.decode([torch.tensor([c], device=device) for c in codes])
             return audio.squeeze().float().cpu().numpy()
+    elif model_id == 'qwen3-tts':
+        # GPU. Weights: <runtime>/qwen3-tts/voice-design (Qwen3-TTS-12Hz-1.7B-VoiceDesign) and
+        # <runtime>/qwen3-tts/base (Qwen3-TTS-12Hz-1.7B-Base). A voice described in words is designed ONCE per
+        # character into a short reference clip; every line is then cloned from that clip so the character keeps
+        # one voice for the whole recording (designing per line would give each line a different voice).
+        from qwen_tts import Qwen3TTSModel
+        if device != 'cuda':
+            raise RuntimeError('Qwen3-TTS runs on a GPU worker only.')
+        load = dict(device_map='cuda:0', dtype=torch.bfloat16)
+        design_model = Qwen3TTSModel.from_pretrained(str(root / 'voice-design'), **load)
+        clone_model = Qwen3TTSModel.from_pretrained(str(root / 'base'), **load)
+        rate = 24000
+        references = {}
+        def character_reference(line):
+            """(path, transcript) of the reference clip for this line's voice."""
+            if ref_id(line['voice']):
+                path, item = fetch_voice_ref(request, line['voice'], output)
+                return str(path), (item or {}).get('text') or None
+            description = line.get('direction', '') if line.get('design') else voices[line['voice']]['description']
+            key = (line['voice'], description, line['language'])
+            if key not in references:
+                sample = voices.get(line['voice'], {}).get('sample') or 'Hello there. It is lovely to meet you, and I am glad you are here today.'
+                wavs, sr = design_model.generate_voice_design(text=sample, language=line['language'], instruct=description)
+                path = Path(output).with_name(f'qwen3-ref-{len(references)}.wav')
+                import soundfile
+                soundfile.write(str(path), np.asarray(wavs[0], dtype=np.float32), sr)
+                references[key] = (str(path), sample)
+            return references[key]
+        def render(line):
+            path, transcript = character_reference(line)
+            delivery = '' if line.get('design') else performance_direction(request, line)
+            kwargs = dict(text=line['text'], language=line['language'], ref_audio=path)
+            if transcript:
+                kwargs['ref_text'] = transcript
+            else:
+                kwargs['x_vector_only_mode'] = True
+            if delivery:
+                kwargs['instruct'] = delivery
+            try:
+                wavs, sr = clone_model.generate_voice_clone(**kwargs)
+            except TypeError:
+                kwargs.pop('instruct', None)  # older qwen-tts: no per-line instruction on cloned voices
+                wavs, sr = clone_model.generate_voice_clone(**kwargs)
+            return np.asarray(wavs[0], dtype=np.float32)
     else:
         raise ValueError('Unsupported model.')
     with torch.inference_mode():
