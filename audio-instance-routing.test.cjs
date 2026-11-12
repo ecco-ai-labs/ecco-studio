@@ -26,3 +26,11 @@ test('Serverless is the default audio compute and CPUs are fallbacks',async t=>{
  x.q('#audio-form').requestSubmit();await tick();await tick();assert.equal(requests.length,1);assert.equal(requests[0].compute,'a100');assert.ok(!requests[0].worker_id);
  state.compute.a100={ready:false,models:[],reason:'Serverless unavailable'};await x.w.EccoAudioCompute.refresh();await tick();assert.equal(x.q(selector).value,'cpu:large');assert.deepEqual(x.errors,[]);
 });
+test('Review lists finished recordings, not the music and effects made for sound cues',async t=>{
+ const draft={model:'chatterbox',compute:'cpu',title:'Review list',genre:'Podcast',presentation:'single',character_count:1,characters_configured:true,speakers:[{id:'n',name:'Host',voice:'default',language:'English',emotion:'neutral'}],lines:[{speaker_id:'n',text:'Welcome.'}],single_text:'Welcome.',sound_design:{enabled:true,cues:[{name:'Intro',kind:'music',asset_id:'sfx'}]}};
+ const x=await setup({'ecco-active-story':'s','ecco-audio-draft:s':JSON.stringify(draft)});t.after(x.close);x.w.EccoStorage={ready:true};
+ await x.go('audio');const state={routing_version:1,instance_routing_version:1,compute:{cpu:{ready:true,models:['chatterbox']}},instances:[{id:'large',name:'cpu-large',compute:'cpu',ready:true,models:['chatterbox']}]};
+ const assets=[{id:'sfx',kind:'asset',media:'audio',title:'Intro',story_id:'s',created:2},{id:'rec',kind:'asset',media:'audio',title:'Review list',story_id:'s',created:1}];
+ x.w.EccoAudioStudio.connect({storageIndependentOfGPU:true,status:async()=>state,list:async()=>assets,generate:async()=>({id:'j'}),job:async()=>({id:'j',status:'done'}),mediaURL:async()=>'',download:async()=>{}});await tick();await tick();
+ assert.deepEqual(x.w.EccoAudioStudio.recordings().map(a=>a.id),['rec']);
+});

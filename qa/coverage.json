@@ -273,5 +273,10 @@
     "area": "Generation error popup and timer",
     "mode": "live",
     "scope": "Starting a new run (Generate on Screen Play or Generate again) marks the previous failed run's error as seen, so its popup does not reappear while the new run starts; the seen list is kept in localStorage so reloading or opening a new tab does not re-announce old failures; Elapsed stops at the last activity of a failed, stopped or finished run instead of counting up from its start forever. Verified live on The Jet That Starves Itself (11 Nov 2026)."
+  },
+  {
+    "area": "Audio generation stays running",
+    "mode": "fixture+live",
+    "scope": "While a recording is generating, compute auto-selection never switches the draft's compute, and the 'script or settings changed' guard compares only generation inputs (script, cast, model, delivery, sound cues; not compute choice or UI state), so background status refreshes cannot abort a run. Story Generation review lists finished recordings only, never the music/effects made for this story's sound cues (audio-instance-routing.test.cjs). Live: The Jet That Starves Itself on Serverless, 11 Nov 2026."
   }
 ]
