@@ -149,6 +149,14 @@ class Harness(unittest.TestCase):
         if heard is not None:
             self.finish_listen(heard)
             auto.tick(self.env)
+            # The auto-rater records again (up to three passes) while too little of the script is heard.
+            while self.rows[eid].get('phase') in ('record', 'recording', 'check', 'listen') and self.rows[eid].get('rater_pass', 1) <= auto.audio_rater.MAX_PASSES:
+                self.finish_jobs()
+                auto.tick(self.env)
+                self.finish_jobs()
+                auto.tick(self.env)
+                self.finish_listen(heard)
+                auto.tick(self.env)
         return self.rows[eid]
 
     def script(self, eid):
@@ -441,6 +449,61 @@ class AutoWorkflowTest(Harness):
         self.assertNotIn('auto', w)
         with self.assertRaises(Problem):
             auto.episodes({'workflow_id': w['id']}, self.env)
+
+
+class AutoRaterTest(Harness):
+    def test_rater_retries_failing_lines_in_spoken_form_then_holds_after_three_passes(self):
+        eid = self.pilot()['episode_id']
+        self.run_to_end(eid, heard='completely different words')
+        ep = self.rows[eid]
+        self.assertEqual(ep['checks']['listen_back']['status'], 'failed')
+        self.assertEqual([h['pass'] for h in ep['rater_history']], [1, 2, 3])
+        self.assertIn('could not be generated reliably', ep['checks']['listen_back']['detail'])
+        records = [r for r in self.rows.values() if r['kind'] == 'audio_job' and r.get('request', {}).get('task') != 'listen'
+                   and 'lines' in r.get('request', {}) and r['request'].get('title', '').startswith(ep['title'])]
+        self.assertGreaterEqual(len({r['id'] for r in records}), 3)
+
+    def test_rater_passes_on_a_retry_when_the_script_is_heard(self):
+        eid = self.pilot()['episode_id']
+        auto.tick(self.env)
+        self.finish_jobs()
+        auto.tick(self.env)
+        self.finish_jobs()
+        auto.tick(self.env)
+        self.finish_listen('nothing like it')
+        auto.tick(self.env)
+        self.assertEqual(self.rows[eid]['checks']['listen_back']['status'], 'retrying')
+        self.assertIn(self.rows[eid]['phase'], ('record', 'recording'))
+        self.finish_jobs()
+        auto.tick(self.env)
+        self.finish_jobs()
+        auto.tick(self.env)
+        self.finish_listen(self.script(eid))
+        auto.tick(self.env)
+        check = self.rows[eid]['checks']['listen_back']
+        self.assertEqual((check['status'], check['pass']), ('passed', 2))
+
+
+class AudioRaterUnitTest(unittest.TestCase):
+    def test_numbers_match_as_digits_or_words_and_punctuation_is_ignored(self):
+        import audio_rater as r
+        score, per_line, _ = r.score(['It took about four million years, roughly 1,000-10,000 radii.'],
+                                     'it took about 4 million years roughly 1000 10000 radii')
+        self.assertEqual((score, per_line), (1.0, [1.0]))
+
+    def test_per_line_scores_find_the_line_that_was_not_spoken(self):
+        import audio_rater as r
+        lines = ['Welcome to the show.', 'The jet power is about ten to the forty-six ergs per second.', 'Thanks for listening.']
+        score, per_line, missing = r.score(lines, 'Welcome to the show. The jet power is. Thanks for listening.')
+        self.assertLess(score, r.PASS)
+        self.assertEqual(r.repair(lines, per_line)[0], [1])
+        self.assertTrue(missing)
+
+    def test_spoken_form_rewrites_notation_without_changing_meaning(self):
+        import audio_rater as r
+        self.assertEqual(r.spoken_form('~4 × 10^6 yr, 0.1–0.3 pc, e.g. HERG & LERG, 10⁴⁶ erg'),
+                         'about 4 times ten to the sixth yr, 0.1 to 0.3 pc, for example HERG and LERG, ten to the forty-sixth erg')
+        self.assertEqual(r.spoken_form('Plain words stay.'), 'Plain words stay.')
 
 
 if __name__ == '__main__':
