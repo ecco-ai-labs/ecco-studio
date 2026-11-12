@@ -1346,99 +1346,99 @@ window.EccoAudioModels = [
     "voices": [
       {
         "id": "warm-host-f",
-        "name": "Warm host · woman, 30s",
+        "name": "Warm host · 30s · feminine",
         "description": "Female, early 30s, warm and bright American voice, natural conversational pace, smiling tone, clear articulation, podcast host"
       },
       {
         "id": "curious-host-m",
-        "name": "Curious host · man, 30s",
+        "name": "Curious host · 30s · masculine",
         "description": "Male, mid 30s, friendly American baritone, curious and upbeat, relaxed conversational pace"
       },
       {
         "id": "expert-m",
-        "name": "Expert guest · man, 40s",
+        "name": "Expert guest · 40s · masculine",
         "description": "Male, late 40s, calm and thoughtful British voice, measured pace, authoritative but kind"
       },
       {
         "id": "expert-f",
-        "name": "Expert guest · woman, 40s",
+        "name": "Expert guest · 40s · feminine",
         "description": "Female, mid 40s, confident Indian-English voice, articulate, warm and precise"
       },
       {
         "id": "news-anchor-f",
-        "name": "News anchor · woman",
+        "name": "News anchor · feminine",
         "description": "Female, 40s, polished neutral news-anchor voice, crisp diction, steady confident pace"
       },
       {
         "id": "news-anchor-m",
-        "name": "News anchor · man",
+        "name": "News anchor · masculine",
         "description": "Male, 40s, deep polished broadcast voice, authoritative, steady pace, neutral accent"
       },
       {
         "id": "documentary-m",
-        "name": "Documentary narrator · man",
+        "name": "Documentary narrator · masculine",
         "description": "Male, 50s, rich resonant narrator voice, slow and awe-filled, intimate close-microphone delivery"
       },
       {
         "id": "documentary-f",
-        "name": "Documentary narrator · woman",
+        "name": "Documentary narrator · feminine",
         "description": "Female, 50s, soft velvety British narrator, unhurried, gentle sense of wonder"
       },
       {
         "id": "storyteller-f",
-        "name": "Storyteller · grandmother",
+        "name": "Storyteller · grandmother · feminine",
         "description": "Female, around 70 years old, warm grandmotherly voice, slow cosy storytelling pace, gentle smile"
       },
       {
         "id": "storyteller-m",
-        "name": "Storyteller · grandfather",
+        "name": "Storyteller · grandfather · masculine",
         "description": "Male, around 70 years old, kind gravelly voice, slow and twinkly, bedtime-story warmth"
       },
       {
         "id": "girl-5",
-        "name": "Child · girl, about 5",
+        "name": "Child · girl about 5 · feminine",
         "description": "Little girl around 5 years old, high bright voice, giggly and excited, speaks a little fast with childlike wonder",
         "sample": "Look, look! A butterfly landed on my nose! Can we follow it, please?"
       },
       {
         "id": "boy-6",
-        "name": "Child · boy, about 6",
+        "name": "Child · boy about 6 · masculine",
         "description": "Little boy around 6 years old, high clear voice, curious and bouncy, occasionally breathless with excitement",
         "sample": "I found a big shiny rock! Do you think it is a dinosaur egg?"
       },
       {
         "id": "girl-9",
-        "name": "Child · girl, about 9",
+        "name": "Child · girl about 9 · feminine",
         "description": "Girl around 9 years old, confident and chatty, clear young voice, playful"
       },
       {
         "id": "boy-10",
-        "name": "Child · boy, about 10",
+        "name": "Child · boy about 10 · masculine",
         "description": "Boy around 10 years old, earnest and adventurous, clear young voice"
       },
       {
         "id": "teen-f",
-        "name": "Teenager · girl",
+        "name": "Teenager · girl · feminine",
         "description": "Female, 16 years old, lively and expressive, slightly sarcastic humour, natural modern speech"
       },
       {
         "id": "teen-m",
-        "name": "Teenager · boy",
+        "name": "Teenager · boy · masculine",
         "description": "Male, 16 years old, voice recently broken, relaxed and casual, a bit shy at first"
       },
       {
         "id": "young-adult-f",
-        "name": "Young woman, 20s",
+        "name": "Young woman, 20s · feminine",
         "description": "Female, early 20s, energetic and friendly, quick natural speech, upbeat"
       },
       {
         "id": "young-adult-m",
-        "name": "Young man, 20s",
+        "name": "Young man, 20s · masculine",
         "description": "Male, mid 20s, laid-back friendly voice, easy-going and warm"
       },
       {
         "id": "wise-elder-m",
-        "name": "Wise old character",
+        "name": "Wise old character · masculine",
         "description": "Male, very old, slow deep voice with gentle wisdom, pauses thoughtfully, a soft chuckle in it"
       },
       {
@@ -1461,12 +1461,12 @@ window.EccoAudioModels = [
       },
       {
         "id": "teacher-f",
-        "name": "Teacher · woman",
+        "name": "Teacher · feminine",
         "description": "Female, 30s, clear encouraging teacher voice, patient and warm, explains slowly"
       },
       {
         "id": "coach-m",
-        "name": "Coach · man",
+        "name": "Coach · masculine",
         "description": "Male, 30s, energetic motivating voice, punchy and positive"
       }
     ],
