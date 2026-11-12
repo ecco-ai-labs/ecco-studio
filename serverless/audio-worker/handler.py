@@ -33,49 +33,102 @@ SPEECH_STAGES = ('Mixing music and effects', 'Loading sound model', 'Generating 
 
 
 LOCAL_VENVS = Path('/opt/ecco-audio-venvs')
+TIMINGS = {}
 
 
-def build_audio_folder(source=None, audio=None, venvs=None):
+def _extract_packed(entry, temporary):
+    """Unpack <name>-venv.tar (made once by pack_audio_venvs.sh) - one sequential read instead of
+    copying tens of thousands of small files from the network volume. Returns False when not packed."""
+    archive = entry.parent / (entry.name + '.tar')
+    if not archive.is_file():
+        return False
+    checksum = entry.parent / (entry.name + '.tar.sha256')
+    temporary.mkdir(parents=True)
+    # One sequential read: the bytes go to tar and the hash together.
+    digest = hashlib.sha256()
+    process = subprocess.Popen(['tar', '-xf', '-', '-C', str(temporary), '--strip-components=1'], stdin=subprocess.PIPE)
+    try:
+        with archive.open('rb') as source:
+            for chunk in iter(lambda: source.read(1 << 24), b''):
+                digest.update(chunk)
+                process.stdin.write(chunk)
+    finally:
+        process.stdin.close()
+    if process.wait():
+        raise RuntimeError(f'Unpacking the voice environment {entry.name} failed.')
+    if checksum.is_file() and digest.hexdigest() != checksum.read_text().split()[0]:
+        subprocess.run(['rm', '-rf', str(temporary)], check=True)
+        raise RuntimeError(f'The packed voice environment {entry.name} failed its checksum.')
+    return True
+
+
+def _local_venv(entry, venvs):
+    local = venvs / entry.name
+    if (local / 'pyvenv.cfg').is_file():
+        return local
+    local.parent.mkdir(parents=True, exist_ok=True)
+    temporary = venvs / (entry.name + '.partial')
+    subprocess.run(['rm', '-rf', str(temporary)], check=True)
+    if not _extract_packed(entry, temporary):
+        subprocess.run(['cp', '-r', '--no-dereference', '--no-preserve=mode,ownership,timestamps',
+                        str(entry), str(temporary)], check=True)
+        # Recreate the launchers locally; console scripts are not used by the workers.
+        subprocess.run(['rm', '-rf', str(temporary / 'bin')], check=True)
+        (temporary / 'bin').mkdir()
+        for link in (entry / 'bin').iterdir():
+            if link.is_symlink():
+                (temporary / 'bin' / link.name).symlink_to(os.readlink(link))
+    temporary.rename(local)
+    return local
+
+
+def build_audio_folder(source=None, audio=None, venvs=None, needed=None, report=None):
     """A local /workspace/ecco-audio whose entries point at the volume.
 
     The serverless mount will not execute anything stored on it, not even a symlink to
-    /usr/bin/python3.12, so each voice environment (*-venv) is copied to local disk and its
-    bin/ launcher symlinks are recreated there. Everything else (scripts, weights, caches)
-    is read in place through symlinks.
+    /usr/bin/python3.12, so each voice environment (*-venv) a job needs is made local:
+    unpacked from <name>-venv.tar when it has been packed, otherwise copied with its bin/
+    launcher symlinks recreated. Only the environments in `needed` are prepared (all when
+    None); the rest stay linked to the volume and are made local the first time a job needs
+    them. Everything else (scripts, weights, caches) is read in place through symlinks.
     """
     source, audio, venvs = Path(source or VOLUME / 'ecco-audio'), Path(audio or AUDIO), Path(venvs or LOCAL_VENVS)
+    report = report or (lambda text: None)
     if audio.is_symlink():
         audio.unlink()
     audio.mkdir(parents=True, exist_ok=True)
-    for entry in sorted(source.iterdir()):
+    entries = sorted(source.iterdir())
+    wanted = [e for e in entries if e.name.endswith('-venv') and (e / 'pyvenv.cfg').is_file() and (needed is None or e.name in needed)]
+    for entry in entries:
         target = audio / entry.name
-        if target.exists() or target.is_symlink():
-            continue
-        if entry.name.endswith('-venv') and (entry / 'pyvenv.cfg').is_file():
-            local = venvs / entry.name
-            if not (local / 'pyvenv.cfg').is_file():
-                local.parent.mkdir(parents=True, exist_ok=True)
-                temporary = venvs / (entry.name + '.partial')
-                subprocess.run(['rm', '-rf', str(temporary)], check=True)
-                subprocess.run(['cp', '-r', '--no-dereference', '--no-preserve=mode,ownership,timestamps',
-                                str(entry), str(temporary)], check=True)
-                # Recreate the launchers locally; console scripts are not used by the workers.
-                subprocess.run(['rm', '-rf', str(temporary / 'bin')], check=True)
-                (temporary / 'bin').mkdir()
-                for link in (entry / 'bin').iterdir():
-                    if link.is_symlink():
-                        (temporary / 'bin' / link.name).symlink_to(os.readlink(link))
-                temporary.rename(local)
+        is_venv = entry in wanted
+        if is_venv:
+            if target.is_symlink() and Path(os.readlink(target)) == (venvs / entry.name):
+                continue
+            began = time.time()
+            report(f'Preparing {entry.name[:-5]} voice environment ({wanted.index(entry) + 1} of {len(wanted)})')
+            local = _local_venv(entry, venvs)
+            if target.is_symlink() or target.exists():
+                target.unlink()
             target.symlink_to(local)
-        else:
+            TIMINGS[entry.name] = round(time.time() - began, 1)
+        elif not (target.exists() or target.is_symlink()):
             target.symlink_to(entry)
 
 
-def prepare():
-    """Build the local audio folder and unpack the pods' Python runtime (verified by sha256)."""
-    if not (AUDIO / 'queue_worker.py').exists():
-        build_audio_folder()
+def needed_venvs(request):
+    """Voice environments a request uses (Indic-Mio runs on the shared runtime and needs none)."""
+    models = {request.get('model')} | {line.get('model') for line in request.get('lines', []) if isinstance(line, dict)}
+    return {m + '-venv' for m in models if m and m != 'indic-mio'}
+
+
+def prepare(needed=None, report=None):
+    """Build the local audio folder for the needed voices and unpack the pods' Python runtime (verified by sha256)."""
+    report = report or (lambda text: None)
+    build_audio_folder(needed=needed, report=report)
     if not (RUNTIME / 'bin' / 'python').exists():
+        began = time.time()
+        report('Unpacking the speech runtime')
         archive = VOLUME / 'ecco-runtime' / 'runtime.tar'
         expected = (VOLUME / 'ecco-runtime' / 'runtime.sha256').read_text().split()[0]
         digest = hashlib.sha256()
@@ -85,6 +138,7 @@ def prepare():
         if digest.hexdigest() != expected:
             raise RuntimeError('The audio runtime archive failed its checksum.')
         subprocess.run(['tar', '-xf', str(archive), '-C', '/opt'], check=True)
+        TIMINGS['runtime'] = round(time.time() - began, 1)
     # Same environment as audio/start_worker.sh on the pods.
     os.environ['PYTHONPATH'] = str(AUDIO / 'deps')
     os.environ['TORCH_HOME'] = str(AUDIO / 'torch-cache')
@@ -102,10 +156,8 @@ def progress_text(details, request):
     return progress if progress in SPEECH_STAGES else None
 
 
-def run(job, data, directory):
+def run(job, data, directory, request):
     import queue_worker as qw  # from the shared audio folder, same version the pods run
-    worker_common.unpack_inputs(worker_common.fetch(data['archive']), directory)
-    request = json.loads((directory / 'request.json').read_text())
     listen = request.get('task') == 'listen'
     command, env = qw.worker_command(request, directory)
     if command[0] == sys.executable:  # the pods run these scripts with the runtime's python
@@ -129,7 +181,7 @@ def run(job, data, directory):
     archive = worker_common.pack(files, directory)
     key = worker_common.safe_name(str(data.get('key', 'audio'))) + '.tar'
     return {'archive': worker_common.deliver(archive, key, inline=bool(data.get('return_inline'))),
-            'output': name, 'sha256': hashlib.sha256(output.read_bytes()).hexdigest()}
+            'output': name, 'sha256': hashlib.sha256(output.read_bytes()).hexdigest(), 'prepare_seconds': dict(TIMINGS)}
 
 
 def handler(job):
@@ -137,12 +189,18 @@ def handler(job):
     with tempfile.TemporaryDirectory(prefix='ecco-audio-') as temp:
         directory = Path(temp)
         try:
-            runpod.serverless.progress_update(job, 'Loading speech models')
-            prepare()
-            return run(job, data, directory)
+            report = lambda text: runpod.serverless.progress_update(job, text)
+            report('Reading the job')
+            worker_common.unpack_inputs(worker_common.fetch(data['archive']), directory)
+            request = json.loads((directory / 'request.json').read_text())
+            began = time.time()
+            prepare(needed_venvs(request), report)
+            TIMINGS['prepare_total'] = round(time.time() - began, 1)
+            report('Loading speech models')
+            return run(job, data, directory, request)
         except Exception as exc:
             log = directory / 'worker.log'
-            return {'error': f'Audio generation failed: {exc}'[:1500],
+            return {'error': f'Audio generation failed: {exc}'[:1500], 'prepare_seconds': dict(TIMINGS),
                     'log': log.read_text(errors='replace')[-4000:] if log.is_file() else ''}
 
 

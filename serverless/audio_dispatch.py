@@ -63,7 +63,7 @@ def run_job(qw, request, d, pod, client=rp, volume=None):
         qw.cancellation.check(d)
         archive, staged = stage_inputs(pack_job(d), d.name + '.tar', volume)
         job_id = client.submit('audio', {'key': d.name, 'archive': archive})
-        qw.write(d / 'status.json', {'status': 'running', 'progress': 'Waiting for a serverless A100', 'compute': COMPUTE,
+        qw.write(d / 'status.json', {'status': 'running', 'progress': 'Waiting for a Serverless GPU', 'compute': COMPUTE,
                                      'worker_pod': pod, 'serverless_job': job_id})
 
         def progress(text):
@@ -71,7 +71,7 @@ def run_job(qw, request, d, pod, client=rp, volume=None):
 
         def on_status(state):
             if state == 'IN_PROGRESS':
-                progress('Loading speech models')
+                progress('Serverless GPU started; preparing voices')
         result = client.wait('audio', job_id, should_cancel=lambda: (d / 'cancel.json').exists(),
                              on_status=on_status, on_progress=progress, timeout=1800)
         qw.cancellation.check(d)

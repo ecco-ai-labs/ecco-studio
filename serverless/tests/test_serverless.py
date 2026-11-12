@@ -550,9 +550,46 @@ class AudioWorkerHandler(unittest.TestCase):
         self.assertIsNone(self.handler.progress_text({'progress': 'something internal'}, request))
 
     def test_failure_returns_error_and_log(self):
-        with patch.object(self.handler, 'prepare', side_effect=RuntimeError('runtime missing')):
-            result = self.handler.handler({'input': {'key': 'k', 'archive': {'inline': ''}}})
+        archive = base64.b64encode(tar_of({'request.json': json.dumps({'model': 'chatterbox', 'lines': []}).encode()})).decode()
+        with patch.object(self.handler, 'prepare', side_effect=RuntimeError('runtime missing')) as prepare:
+            result = self.handler.handler({'input': {'key': 'k', 'archive': {'inline': archive}}})
         self.assertIn('runtime missing', result['error'])
+        self.assertEqual(prepare.call_args[0][0], {'chatterbox-venv'})
+        self.assertEqual(self.progress[:1], ['Reading the job'])
+
+    def test_needed_venvs_come_from_the_request(self):
+        request = {'model': 'chatterbox', 'lines': [{'model': 'indicf5'}, {'model': 'indic-mio'}, {}]}
+        self.assertEqual(self.handler.needed_venvs(request), {'chatterbox-venv', 'indicf5-venv'})
+
+    def _venv(self, source, name):
+        venv = source / name
+        (venv / 'bin').mkdir(parents=True)
+        (venv / 'lib').mkdir()
+        (venv / 'lib' / 'pkg.py').write_text(name)
+        (venv / 'pyvenv.cfg').write_text('home = /usr/bin\n')
+        (venv / 'bin' / 'python').symlink_to('/usr/bin/python3.12')
+        return venv
+
+    def test_only_needed_voice_environments_are_made_local_and_packed_ones_are_unpacked(self):
+        root = Path(self.temp.name)
+        source, audio, venvs = root / 'volume' / 'ecco-audio', root / 'workspace' / 'ecco-audio', root / 'opt' / 'venvs'
+        source.mkdir(parents=True)
+        packed = self._venv(source, 'chatterbox-venv')
+        with tarfile.open(source / 'chatterbox-venv.tar', 'w') as archive:
+            archive.add(str(packed), arcname='chatterbox-venv')
+        (packed / 'lib' / 'pkg.py').write_text('changed after packing')  # proves the tar, not the folder, was used
+        self._venv(source, 'indicf5-venv')
+        reports = []
+        self.handler.build_audio_folder(source, audio, venvs, needed={'chatterbox-venv'}, report=reports.append)
+        self.assertEqual((audio / 'chatterbox-venv' / 'lib' / 'pkg.py').read_text(), 'chatterbox-venv')
+        self.assertEqual(os.readlink(audio / 'chatterbox-venv' / 'bin' / 'python'), '/usr/bin/python3.12')
+        self.assertEqual((audio / 'indicf5-venv').resolve(), (source / 'indicf5-venv').resolve())  # not copied
+        self.assertEqual(reports, ['Preparing chatterbox voice environment (1 of 1)'])
+        self.assertIn('chatterbox-venv', self.handler.TIMINGS)
+        # A later job on the same warm worker that needs IndicF5 makes it local then.
+        self.handler.build_audio_folder(source, audio, venvs, needed={'chatterbox-venv', 'indicf5-venv'}, report=reports.append)
+        self.assertEqual((audio / 'indicf5-venv').resolve(), (venvs / 'indicf5-venv').resolve())
+        self.assertEqual(reports[-1], 'Preparing indicf5 voice environment (2 of 2)')
 
     def test_unpack_inputs_rejects_links_and_escapes(self):
         buffer = io.BytesIO()
