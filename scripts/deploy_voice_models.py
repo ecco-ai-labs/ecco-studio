@@ -18,8 +18,8 @@ import subprocess
 import time
 from urllib.request import urlopen
 
-SOURCE_COMMIT = '47d50384b1af55ffc5203408989c951395bb30c9'
-SOURCE_HASHES = {'backend/audio_jobs.py': '9358202893f114f9a12fbb5af7d3681df7ec5cdbeb26806b6cbc009a9700e165', 'backend/audio_workflows.py': 'fea24cfd063192c4c3d0bbff1bebc1a0966598e8e972773ad7b625100dd79ed5', 'audio/audio_schema.py': 'c93163c8f254701b8119f7bde5e0ac911df7d72749a743a333502fbb45076aac', 'audio/audio_queue.py': '70d6c15b0eb8bbe10e7893f74621ac003b4c6283afcd9b4067e85bd0d1e977ad', 'audio/queue_worker.py': 'a7a9b01284993365154162638248dfe72d7c44500ee4d8be9e18339e995f1ac4', 'audio/modern_worker.py': '35bd9ff2402a3faa2c72974329411d131c32e1a6673f3ec24cff4f2f549accc8', 'audio/mixed_worker.py': '1b46ffb50c7390499b667d610c5cec6d75792a6a69417daa054be36d3441b03a', 'audio/model_catalog.json': 'ae3aed7704250b7ee9a6963421cd0010d8dc897ddbddc6b107ba42ca67544cf5'}
+SOURCE_COMMIT = 'c6897dcde7d4146a789036a1a1defefa8e77215a'
+SOURCE_HASHES = {'backend/audio_jobs.py': '9358202893f114f9a12fbb5af7d3681df7ec5cdbeb26806b6cbc009a9700e165', 'backend/audio_workflows.py': 'f418fbc62c3d48d228456878ce47251a1c0e0b8750a7cfaca57b39dcf090d107', 'audio/audio_schema.py': '62d4d347ef7569b0071a886ab2b855c3825acc8061e5a31f3572484acae8a6eb', 'audio/audio_queue.py': 'a17ce325c6c2d5689e51caefcf9dc33b79f287434f1a791b42ef34f6a9e3533d', 'audio/queue_worker.py': '253e0bbbe049f198ca324914ba8fa97fa024d828c86a8fd274adb8738065f40a', 'audio/modern_worker.py': 'bff0a469b746e1ecc9e93dd10de18f5178d2ab562db489d0cf41edec7422c4af', 'audio/mixed_worker.py': '0d2c4dc575fc32eaf9a0d6e11486e958ef55bb86e0f1fc623b0417de810ed5d9', 'audio/model_catalog.json': 'd5400aa52082f80a518b23fc0d1789a9559f0e7a1522ea3d1335cc0a794132a4'}
 APP = Path('/workspace/ecco-storage-app')
 AUDIO = Path('/workspace/ecco-audio')
 DATABASE = Path('/workspace/ecco-studio-data/studio.sqlite')
