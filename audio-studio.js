@@ -70,7 +70,7 @@
   // Default and fallback: Serverless first, then a CPU, unless the person chose a compute that is still available.
   const needed=[...new Set([draft.model,...(draft.speakers||[]).map(sp=>sp.model).filter(Boolean)])];
   const current=choices.find(c=>c.value===computeValue(draft.compute,draft.worker_id));
-  if(computeStatus&&draft.compute_auto!==false){const best=preferredCompute(computeStatus,needed);if(best&&best.value!==current?.value){draft.compute=best.compute;if(best.worker_id)draft.worker_id=best.worker_id;else delete draft.worker_id;save();}}
+  if(computeStatus&&draft.compute_auto!==false&&!submitting){const best=preferredCompute(computeStatus,needed);if(best&&best.value!==current?.value){draft.compute=best.compute;if(best.worker_id)draft.worker_id=best.worker_id;else delete draft.worker_id;save();}}
   if(select){
    const signature=JSON.stringify(choices);
    if(select.dataset.options!==signature){select.replaceChildren(new Option('Select connected compute',''),...choices.map(c=>new Option(c.label,c.value)));select.dataset.options=signature;}
@@ -166,6 +166,9 @@
  }
  const modelParameters=()=>draft.model==='chatterbox'?{exaggeration:Number(draft.exaggeration??draft.planned_expressiveness??0.5)}:{};
  function save(){localStorage.setItem(key(),JSON.stringify(draft));verification?.refresh();}
+ // What a running generation depends on. Background updates (compute auto-selection, panel state, status text) must not
+ // abort a recording, so only the script, cast, model, delivery and sound cues are compared while it runs.
+ function generationInputs(){const omit=new Set(['compute','worker_id','compute_auto','selected_speaker']);return JSON.stringify(draft,(k,v)=>omit.has(k)?undefined:v);}
  const options=(values,value)=>values.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v.charAt(0).toUpperCase()+v.slice(1))}</option>`).join('');
  const speakerOptions=value=>(activeSpeakers().some(s=>s.id===value)?'':'<option value="" selected disabled>Choose an active character</option>')+activeSpeakers().map(s=>`<option value="${esc(s.id)}" ${s.id===value?'selected':''}>${esc(s.name||'Speaker')}</option>`).join('');
  function drawLines(){
@@ -420,7 +423,8 @@
  // Never attach the legacy RunPod/Jupyter bridge here.
  window.EccoAudioStudio={
   // Story Generation review (2026-11-10): the transcript, saved recordings and pronunciation fixes for the open story.
-  recordings:()=>audioAssets(),mediaURL:id=>service?service.mediaURL(id):Promise.reject(Error('Connect the audio service to play this recording.')),
+  // Finished recordings only: music and effects made for this story's sound cues are inputs, not the recording.
+  recordings:()=>{const cueAssets=new Set((draft?.sound_design?.cues||[]).map(c=>c.asset_id).filter(Boolean));return audioAssets().filter(a=>!cueAssets.has(a.id));},mediaURL:id=>service?service.mediaURL(id):Promise.reject(Error('Connect the audio service to play this recording.')),
   lines:()=>draft&&story===activeStory?turns().map(t=>({speaker_id:t.speaker_id,text:t.text})):[],speakers:()=>draft?.speakers?.map(s=>({id:s.id,name:s.name}))||[],
   pronunciations:()=>(draft?.pronunciations||[]).map(p=>({...p})),
   setPronunciation({word,sayAs,line=null}){if(!draft||story!==activeStory)throw Error('Open this story before changing its pronunciations.');const list=(draft.pronunciations||[]).filter(p=>!(p.word.toLowerCase()===word.toLowerCase()&&p.line===line));list.push({word,sayAs,line});draft.pronunciations=list;save();},
@@ -503,9 +507,9 @@
    let lines;try{lines=requestLines();}catch(error){notice(error.message,true);q('[data-open-prompt]')?.click();return;}
    verification?.collapse();const requestedStory=activeStory,stopToken=window.EccoGenerationStop?.begin('audio',activeStory);submitting=true;submissionError='';notice('');submissionLabel='Preparing generation…';window.EccoAudioTasks?.begin(requestedStory,draft.sound_design?.enabled?draft.sound_design.cues||[]:[]);q('[data-audio-tab=progress]')?.click();update();
    try{
-    const current=service,baseline=JSON.stringify(draft),form=q('#audio-form');
+    const current=service,baseline=generationInputs(),form=q('#audio-form');
     await requireCompute(draft.compute,draft.model,draft.worker_id,lines);window.EccoGenerationStop?.assert(stopToken);
-    if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==baseline)throw Error('The script or settings changed. Generate again with the current draft.');
+    if(current!==service||activeStory!==requestedStory||!form.isConnected||generationInputs()!==baseline)throw Error('The script or settings changed. Generate again with the current draft.');
     if(draft.sound_design?.enabled&&computeTarget(computeStatus,draft.compute,draft.worker_id)?.sound_design_version!==1)throw Error('Sound Design is saved. Update the audio service before generating music and effects.');
     const brief=performanceBrief(),hasDirection=activeSpeakers().some(s=>!characterModel(s).voice_direction&&(brief.audience||brief.tone||brief.narration_style||s.delivery||s.style||s.delivery_style&&s.delivery_style!=='Voice Default'||!characterModel(s).emotions&&s.emotion!=='neutral'));
     const signature=JSON.stringify([turns(),activeSpeakers(),draft.genre,draft.model,draft.opening_text,performanceBrief()]);
@@ -516,15 +520,15 @@
      const directed=await window.EccoAudioDirection.refine({plan:existing,cast:activeSpeakers(),brief:{...draft.script_brief,genre:draft.genre,language:draft.speakers[0].language},model:model(),directionOnly:true,request:api,assertCurrent:()=>{window.EccoGenerationStop?.assert(stopToken);if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==baseline)throw Error('The script or character settings changed. Generate again with the current draft.');}});
      draft.lines=directed.segments.map(p=>({text:p.text,speaker_id:p.character_id,performance:p.performance}));draft.opening_performance=directed.opening?.performance;draft.planned_expressiveness=directed.expressiveness;draft.delivery_signature=JSON.stringify([turns(),activeSpeakers(),draft.genre,draft.model,draft.opening_text,performanceBrief()]);save();lines=requestLines();
     }
-    let soundBaseline=JSON.stringify(draft);
-    const soundCurrent=()=>{window.EccoGenerationStop?.assert(stopToken);if(current!==service||activeStory!==requestedStory||!form.isConnected||JSON.stringify(draft)!==soundBaseline)throw Error('The script or settings changed. Your edits are preserved. Generate again to continue.');};
+    let soundBaseline=generationInputs();
+    const soundCurrent=()=>{window.EccoGenerationStop?.assert(stopToken);if(current!==service||activeStory!==requestedStory||!form.isConnected||generationInputs()!==soundBaseline)throw Error('The script or settings changed. Your edits are preserved. Generate again to continue.');};
     if(draft.sound_design?.enabled){
      if(!draft.sound_design.cues?.length){
       if(!window.EccoAI?.enabled)throw Error('Connect OpenAI to plan sounds, or add sound cues in Final Script.');
       submissionLabel='Planning Sounds…';window.EccoAudioTasks?.prepare(requestedStory,submissionLabel);update();const cues=await window.EccoSoundDesign.suggest({lines,brief:{...draft.script_brief,genre:draft.genre},direction:draft.sound_design.direction,assets:window.EccoAudioLibrary?.items()||[]});soundCurrent();
-      draft.sound_design={...draft.sound_design,cues,speech_key:window.EccoSoundDesign.key(lines)};save();soundBaseline=JSON.stringify(draft);
+      draft.sound_design={...draft.sound_design,cues,speech_key:window.EccoSoundDesign.key(lines)};save();soundBaseline=generationInputs();
      }
-     await window.EccoSoundGeneration.ensure({plan:draft.sound_design,lines,assets:window.EccoAudioLibrary?.items()||[],compute:draft.compute,worker_id:draft.worker_id||'',story_id:requestedStory||null,valid:soundCurrent,changed:()=>{save();soundBaseline=JSON.stringify(draft);},progress:message=>{submissionLabel=message;update();},tasks:rows=>window.EccoAudioTasks?.sounds(requestedStory,rows)});
+     await window.EccoSoundGeneration.ensure({plan:draft.sound_design,lines,assets:window.EccoAudioLibrary?.items()||[],compute:draft.compute,worker_id:draft.worker_id||'',story_id:requestedStory||null,valid:soundCurrent,changed:()=>{save();soundBaseline=generationInputs();},progress:message=>{submissionLabel=message;update();},tasks:rows=>window.EccoAudioTasks?.sounds(requestedStory,rows)});
      soundCurrent();
     }
     const sounds=window.EccoSoundDesign?.prepare(draft.sound_design,lines,window.EccoAudioLibrary?.items()||[])||{lines};
