@@ -37,6 +37,7 @@ from urllib.parse import urlencode
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'audio'))
 import audio_jobs
+import audio_rater
 import openai_assistant
 import voice_references
 from audio_schema import DESIGN_MODELS, ENGLISH_EMOTIONS, GENRES, MODELS, REF_MODELS, validate as validate_audio
@@ -51,7 +52,7 @@ PHASES = ('source', 'cast', 'voices', 'script', 'delivery', 'sounds', 'assets', 
 CONVERSATIONAL = ('Podcast', 'Interview', 'News', 'Casual Conversation')
 FEELINGS = ('neutral', 'happy', 'sad', 'angry', 'fear', 'surprise', 'whisper', 'confused')
 LISTEN_MODEL = 'whisper-large-v3-turbo'
-LISTEN_PASS = 0.8
+LISTEN_PASS = audio_rater.PASS  # 90% of the script must be heard (owner, 12 Nov 2026)
 LISTEN_TIMEOUT = 1800
 MAX_ACTIVE = 3
 MAX_CAST = 12
@@ -693,8 +694,13 @@ def phase_record(ep, series, env):
         validate_audio(request)
     except ValueError as error:
         raise problem(env, 'The episode could not be prepared for recording: ' + str(error))
+    # Auto-rater repairs from an earlier listen-back pass: lines rewritten in plain spoken form.
+    for index, text in (ep.get('line_fixes') or {}).items():
+        if 0 <= int(index) < len(request.get('lines', [])):
+            request['lines'][int(index)]['text'] = text
     ep['request'] = request
-    jid = uuid.uuid5(uuid.NAMESPACE_URL, f"ecco-auto-record:{ep['id']}:{ep.get('version', 1)}").hex
+    attempt = ep.get('rater_pass', 1)
+    jid = uuid.uuid5(uuid.NAMESPACE_URL, f"ecco-auto-record:{ep['id']}:{ep.get('version', 1)}" + (f":pass{attempt}" if attempt > 1 else '')).hex
     ep.setdefault('jobs', {})['record'] = jid
     env['save'](ep)
     submit(env, request, jid)
@@ -825,7 +831,8 @@ def verify_listen_link(asset_id, query, env):
 
 def submit_listen(ep, asset, path, env):
     worker = listen_workers()[0]
-    jid = uuid.uuid5(uuid.NAMESPACE_URL, f"ecco-auto-listen:{ep['id']}:{ep.get('version', 1)}").hex
+    attempt = ep.get('rater_pass', 1)
+    jid = uuid.uuid5(uuid.NAMESPACE_URL, f"ecco-auto-listen:{ep['id']}:{ep.get('version', 1)}" + (f":pass{attempt}" if attempt > 1 else '')).hex
     directory = audio_jobs.queue.ROOT / jid
     if not (directory / 'request.json').is_file():
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -877,10 +884,31 @@ def phase_listen(ep, series, env):
         if not isinstance(transcript, str):
             ep['checks']['listen_back'] = {'status': 'skipped', 'detail': 'The listen-back worker returned no transcript.'}
         else:
-            score, missing = compare(' '.join(l['text'] for l in ep['request']['lines']), transcript)
-            ep['checks']['listen_back'] = {'status': 'passed' if score >= LISTEN_PASS else 'failed', 'score': round(score, 3),
-                                           'model': LISTEN_MODEL, 'missing': missing,
-                                           'detail': f'{round(score * 100)}% of the script was heard' + ('; missing: ' + ' / '.join(missing) if missing and score < LISTEN_PASS else '.')}
+            texts = [l['text'] for l in ep['request']['lines']]
+            score, per_line, missing = audio_rater.score(texts, transcript)
+            attempt = ep.get('rater_pass', 1)
+            failing, fixes = audio_rater.repair(texts, per_line)
+            check = {'score': round(score, 3), 'model': LISTEN_MODEL, 'missing': missing, 'pass': attempt,
+                     'failing_lines': [i + 1 for i in failing][:40]}
+            ep.setdefault('rater_history', []).append({'pass': attempt, 'score': round(score, 3), 'failing_lines': check['failing_lines']})
+            if score >= LISTEN_PASS:
+                ep['checks']['listen_back'] = {**check, 'status': 'passed',
+                                               'detail': f'{round(score * 100)}% of the script was heard (pass {attempt} of {audio_rater.MAX_PASSES}).'}
+            elif attempt < audio_rater.MAX_PASSES:
+                # Repair and record again: failing lines in plain spoken form; the rest unchanged.
+                ep.setdefault('line_fixes', {}).update({str(i): t for i, t in fixes.items()})
+                ep['rater_pass'] = attempt + 1
+                ep['checks']['listen_back'] = {**check, 'status': 'retrying',
+                                               'detail': f'{round(score * 100)}% heard on pass {attempt}; lines {", ".join(map(str, check["failing_lines"][:10])) or "-"} '
+                                                         f'{"rewritten in spoken form and " if fixes else ""}recorded again.'}
+                ep['transcript'] = transcript[:60000]
+                log(ep, 'auto-rater retry', score=round(score, 3), failing=check['failing_lines'][:10], fixed=sorted(int(i) + 1 for i in fixes))
+                ep['phase'] = 'record'
+                return
+            else:
+                ep['checks']['listen_back'] = {**check, 'status': 'failed',
+                                               'detail': f'Audio could not be generated reliably: {round(score * 100)}% heard after {attempt} passes; '
+                                                         f'lines still failing: {", ".join(map(str, check["failing_lines"][:15]))}.'}
             ep['transcript'] = transcript[:60000]
     elif status.get('status') in ('error', 'cancelled'):
         ep['checks']['listen_back'] = {'status': 'skipped', 'detail': 'Listen-back did not run: ' + (status.get('error') or status['status'])}
