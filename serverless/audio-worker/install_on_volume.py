@@ -346,6 +346,15 @@ def sound(model):
     for name in ('manifest.json', 'dependencies-a100.txt'):
         if (base / name).is_file():
             shutil.copyfile(base / name, volume_base / name)
+    if model == 'ace-step-1.5':
+        # ACE-Step checks for its whole main model at start-up and otherwise downloads it, then copies
+        # its model code into the checkpoint with shutil.copy2 - which the volume refuses (it cannot set
+        # file times). Do both here, online, with plain copies, so workers find everything in place.
+        code = ('import shutil, sys\nfrom pathlib import Path\n'
+                'shutil.copy2 = lambda src, dst, *a, **k: shutil.copyfile(src, dst if not Path(dst).is_dir() else Path(dst) / Path(src).name)\n'
+                'from acestep.model_downloader import download_main_model\n'
+                'print("ACE-Step main model:", download_main_model(Path(sys.argv[1]), force=False))\n')
+        run([base / 'a100-venv' / 'bin' / 'python', '-c', code, base / 'weights'], env=env, cwd=str(base / 'source'))
     install_seconds = round(time.time() - began)
     began = time.time()
     run([RUNTIME_PY, SRC / 'audio' / 'install_sound_models.py', 'verify', '--model', model, '--compute', 'a100',
