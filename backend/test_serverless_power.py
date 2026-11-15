@@ -1,8 +1,6 @@
-import base64
 import io
 import json
 import os
-import tarfile
 import tempfile
 import unittest
 import urllib.error
@@ -119,27 +117,42 @@ class ServerlessPowerTest(unittest.TestCase):
         self.assertEqual((saved['workersMin'], saved['workersMax'], saved['templateId']), (1, 3, 'tpl'))
         self.assertNotIn('locations', saved)
 
-    def test_wakeup_jobs_go_to_each_endpoint_with_valid_inputs(self):
-        runpod = FakeRunPod({'id': 'job-i'}, {'id': 'job-v'}, {'id': 'job-a'})
-        sent = power.wake(opener=runpod)
-        self.assertEqual(sent, {'images': 'job-i', 'video': 'job-v', 'audio': 'job-a'})
-        bodies = {c[1]: c[2]['input'] for c in runpod.calls}
-        image = bodies['https://api.runpod.ai/v2/img1/run']
-        self.assertEqual(image['workflow']['1']['inputs']['unet_name'], 'qwen_image_2512_fp8_e4m3fn.safetensors')
-        self.assertEqual(image['workflow']['8']['inputs']['steps'], 1)
-        video = bodies['https://api.runpod.ai/v2/vid1/run']
-        self.assertEqual(video['workflow']['1']['inputs']['unet_name'], 'wan2.2_ti2v_5B_fp16.safetensors')
-        self.assertNotIn('start_image', video['workflow']['8']['inputs'])
-        audio = bodies['https://api.runpod.ai/v2/aud1/run']
-        with tarfile.open(fileobj=io.BytesIO(base64.b64decode(audio['archive']['inline']))) as archive:
-            request = json.load(archive.extractfile('request.json'))
-        self.assertEqual(request['model'], 'chatterbox')
-        self.assertEqual(len(request['lines']), 1)
+    def test_wakeup_jobs_go_through_the_bridge_with_valid_inputs(self):
+        runpod = FakeRunPod({'prompt_id': 'p-img'}, {'prompt_id': 'p-vid'})
+        with patch.object(power, 'AUDIO_QUEUE', Path(self.temp.name) / 'queue'):
+            sent = power.wake(opener=runpod, now=lambda: 5)
+            self.assertEqual((sent['images'], sent['video']), ('p-img', 'p-vid'))
+            self.assertEqual([c[1] for c in runpod.calls], ['http://127.0.0.1:8188/prompt'] * 2)
+            image, video = (c[2]['prompt'] for c in runpod.calls)
+            self.assertEqual(image['1']['inputs']['unet_name'], 'qwen_image_2512_fp8_e4m3fn.safetensors')
+            self.assertEqual(image['8']['inputs']['steps'], 1)
+            self.assertEqual(video['1']['inputs']['unet_name'], 'wan2.2_ti2v_5B_fp16.safetensors')
+            self.assertNotIn('start_image', video['8']['inputs'])
+            folder = Path(self.temp.name) / 'queue' / sent['audio']
+            request = json.loads((folder / 'request.json').read_text())
+            self.assertEqual((request['model'], request['compute'], request['worker_id'], request['wakeup']),
+                             ('chatterbox', 'a100', 'serverless', True))
+            self.assertEqual(json.loads((folder / 'status.json').read_text())['status'], 'queued')
+            self.assertEqual(power.cleanup_wakeups(now=lambda: 10), 0)
+            (folder / 'status.json').write_text('{"status": "done"}')
+            self.assertEqual(power.cleanup_wakeups(now=lambda: 10), 1)
+            self.assertFalse(folder.exists())
 
     def test_a_failed_wakeup_is_reported_not_raised(self):
-        sent = power.wake(opener=FakeRunPod(http_error(500), {'id': 'v'}, {'id': 'a'}))
+        os.environ['ECCO_WARM_ENDPOINTS'] = 'images,video'
+        sent = power.wake(opener=FakeRunPod(urllib.error.URLError('refused'), {'prompt_id': 'v'}))
         self.assertTrue(sent['images'].startswith('error:'))
         self.assertEqual(sent['video'], 'v')
+
+    def test_cleanup_leaves_real_audio_jobs_alone(self):
+        queue = Path(self.temp.name) / 'queue'
+        job = queue / ('a' * 32)
+        job.mkdir(parents=True)
+        (job / 'request.json').write_text('{"model": "chatterbox"}')
+        (job / 'status.json').write_text('{"status": "done"}')
+        with patch.object(power, 'AUDIO_QUEUE', queue):
+            self.assertEqual(power.cleanup_wakeups(now=lambda: 10 ** 10), 0)
+        self.assertTrue(job.exists())
 
     def test_sign_out_keeps_it_on_while_another_browser_is_active(self):
         runpod = FakeRunPod()
