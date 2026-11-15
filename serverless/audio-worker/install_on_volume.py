@@ -335,8 +335,12 @@ def sound(model):
     for item in list(base.iterdir()):
         if item.is_symlink():
             item.unlink()
-    for name in ('source', 'weights'):
-        link(volume_base / name, base / name)
+    link(volume_base / 'weights', base / 'weights')
+    # Build against a local copy of the source: setuptools writes and renames temporary egg-info files
+    # in the source tree, which the volume refuses. Jobs later read the same files from the volume.
+    if (base / 'source').is_dir() and not (base / 'source').is_symlink():
+        shutil.rmtree(base / 'source')  # left by an earlier attempt on this worker
+    shutil.copytree(volume_base / 'source', base / 'source', symlinks=True)
     if (volume_base / 'manifest.json').is_file():
         shutil.copyfile(volume_base / 'manifest.json', base / 'manifest.json')
     env = clean_env()
@@ -358,6 +362,8 @@ def sound(model):
                 'for c in m.MAIN_MODEL_COMPONENTS:\n'
                 '    if c in m._CHECKPOINT_TO_VARIANT: print("synced", c, m._sync_model_code_files(c, Path(sys.argv[1])))\n')
         run([base / 'a100-venv' / 'bin' / 'python', '-c', code, base / 'weights'], env=env, cwd=str(base / 'source'))
+    shutil.rmtree(base / 'source')
+    link(volume_base / 'source', base / 'source')
     install_seconds = round(time.time() - began)
     began = time.time()
     run([RUNTIME_PY, SRC / 'audio' / 'install_sound_models.py', 'verify', '--model', model, '--compute', 'a100',
