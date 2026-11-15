@@ -335,16 +335,34 @@ def voxcpm2():
 
 
 def chatterbox_hi():
+    """Download the Hindi finetune if missing, then prove the worker at this commit uses it (GPU smoke test)."""
     python = AUDIO / 'chatterbox-venv' / 'bin' / 'python'
     if not python.exists():
         raise SystemExit('The Chatterbox environment is not prepared on this worker.')
     dest = VOL / 'models' / 'chatterbox' / 'hi'
     dest.mkdir(parents=True, exist_ok=True)
-    revision = download(python, 'ResembleAI/Chatterbox-Multilingual-hi', dest)
-    write_json(dest / 'ecco-install.json', {'repo': 'ResembleAI/Chatterbox-Multilingual-hi', 'revision': revision})
-    files = {p.relative_to(dest).as_posix(): p.stat().st_size for p in dest.rglob('*') if p.is_file() and '.cache' not in p.parts}
-    configs = {name: (dest / name).read_text()[:2000] for name in files if name.endswith(('.json', '.md', '.yaml')) and files[name] < 20000}
-    step_result('chatterbox-hi', revision=revision, files=files, configs=configs)
+    record = read_json(dest / 'ecco-install.json', {})
+    if not (dest / 't3_hi.safetensors').is_file():
+        revision = download(python, 'ResembleAI/Chatterbox-Multilingual-hi', dest)
+        record = {'repo': 'ResembleAI/Chatterbox-Multilingual-hi', 'revision': revision}
+        write_json(dest / 'ecco-install.json', record)
+    directory = Path(tempfile.mkdtemp(prefix='smoke-chatterbox-hi-'))
+    lines = [{'text': 'नमस्ते! आज की कहानी बहुत खास है, ध्यान से सुनिए।', 'language': 'Hindi', 'voice': 'default'},
+             {'text': 'Welcome back. That was our Hindi line.', 'language': 'English', 'voice': 'default'}]
+    (directory / 'request.json').write_text(json.dumps({'compute': 'a100', 'model': 'chatterbox', 'lines': lines}))
+    began = time.time()
+    run([python, SRC / 'audio' / 'extra_worker.py', '--request', directory / 'request.json', '--runtime', AUDIO / 'models',
+         '--output', directory / 'output.wav'], env=clean_env(HF_HUB_OFFLINE='1', HF_HOME=str(AUDIO / 'hf-cache')),
+        cwd=str(SRC / 'audio'), timeout=1800)
+    output = directory / 'output.wav'
+    if not output.is_file() or output.stat().st_size <= 44:
+        raise SystemExit('The Hindi Chatterbox smoke test produced no audio.')
+    if not (directory / 'chatterbox-hi-checkpoint').is_dir():
+        raise SystemExit('The worker did not load the Hindi finetune.')
+    import wave
+    with wave.open(str(output)) as f:
+        seconds = round(f.getnframes() / f.getframerate(), 2)
+    step_result('chatterbox-hi', revision=record.get('revision'), audio_seconds=seconds, smoke_seconds=round(time.time() - began))
 
 
 def whisper():
@@ -472,6 +490,7 @@ def main(steps):
         except (Exception, SystemExit) as exc:
             failures += 1
             step_result(item, error=str(exc)[:1500])
+            break  # later steps (e.g. sync-scripts) must not run after a failed check
     return 1 if failures else 0
 
 
