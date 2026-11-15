@@ -524,6 +524,27 @@ class AudioDispatch(unittest.TestCase):
                 time.sleep(0.05)
             time.sleep(0.1)
 
+    def test_models_installed_on_the_endpoint_are_advertised_and_sound_jobs_claimed(self):
+        ready = Path(self.temp.name) / 'ecco-serverless'
+        ready.mkdir()
+        (ready / 'audio-ready.json').write_text(json.dumps({'speech': ['voxcpm2', 'not-a-model'], 'sound': ['ace-step-1.5', 'bogus'], 'listen': True}))
+        with patch.object(self.dispatch.rp, 'VOLUME', self.temp.name):
+            beat = self.dispatch.heartbeat(self.qw, 'serverless', FakeClient({}, configured=('audio',)))
+            self.assertIn('voxcpm2', beat['models'])
+            self.assertNotIn('not-a-model', beat['models'])
+            self.assertEqual(beat['sound_models'], ['ace-step-1.5'])
+            self.assertEqual(beat['listen_version'], 1)
+            self.qw.write(self.job / 'request.json', {'task': 'sound', 'kind': 'music', 'model': 'ace-step-1.5', 'compute': 'a100',
+                                                      'duration': 10, 'description': 'calm oud'})
+            with self.dispatch.claim(self.qw, self.job, 'serverless', beat['models'], beat['sound_models']) as request:
+                self.assertEqual(request['model'], 'ace-step-1.5')
+
+    def test_without_readiness_no_sound_models_are_advertised(self):
+        with patch.object(self.dispatch.rp, 'VOLUME', self.temp.name):
+            beat = self.dispatch.heartbeat(self.qw, 'serverless', FakeClient({}, configured=('audio',)))
+        self.assertEqual(beat['sound_models'], [])
+        self.assertNotIn('voxcpm2', beat['models'])
+
     def test_unconfigured_endpoint_advertises_no_models(self):
         beat = self.dispatch.heartbeat(self.qw, 'serverless', FakeClient({}, configured=()))
         self.assertEqual(beat['models'], [])
@@ -623,6 +644,75 @@ class AudioWorkerHandler(unittest.TestCase):
         self.assertFalse((local / 'bin' / 'pip').exists())
         self.assertEqual((local / 'lib' / 'python3.12' / 'site-packages' / 'pkg.py').read_text(), 'x = 1')
         self.handler.build_audio_folder(source, audio, venvs)  # second call is a no-op
+
+    def test_sound_and_listen_jobs_need_their_own_environments(self):
+        self.assertEqual(self.handler.needed_venvs({'task': 'sound', 'model': 'ace-step-1.5'}), {'sounds/ace-step-1.5/a100-venv'})
+        self.assertEqual(self.handler.needed_venvs({'task': 'listen', 'model': 'whisper-large-v3-turbo'}), {'indicf5-venv'})
+
+    def test_sound_environment_is_unpacked_locally_and_weights_stay_on_the_volume(self):
+        root = Path(self.temp.name)
+        source, audio, venvs = root / 'volume' / 'ecco-audio', root / 'workspace' / 'ecco-audio', root / 'opt' / 'venvs'
+        model = source / 'sounds' / 'ace-step-1.5'
+        (model / 'weights').mkdir(parents=True)
+        (model / 'weights' / 'w.bin').write_text('w')
+        built = root / 'build' / 'a100-venv'
+        (built / 'lib').mkdir(parents=True)
+        (built / 'pyvenv.cfg').write_text('home = /usr/bin\n')
+        with tarfile.open(model / 'a100-venv.tar', 'w') as archive:
+            archive.add(str(built), arcname='a100-venv')
+        (source / 'sounds' / 'moss-soundeffect-v2').mkdir()
+        reports = []
+        self.handler.build_audio_folder(source, audio, venvs, needed={'sounds/ace-step-1.5/a100-venv'}, report=reports.append)
+        local = audio / 'sounds' / 'ace-step-1.5'
+        self.assertFalse((audio / 'sounds').is_symlink())
+        self.assertTrue((local / 'a100-venv' / 'pyvenv.cfg').is_file())
+        self.assertEqual((local / 'a100-venv').resolve(), (venvs / 'sounds' / 'ace-step-1.5' / 'a100-venv').resolve())
+        self.assertEqual((local / 'weights').resolve(), (model / 'weights').resolve())
+        self.assertFalse((local / 'a100-venv.tar').exists())
+        self.assertEqual(reports, ['Preparing ace-step-1.5 sound environment'])
+        # Speech-only jobs leave sound environments alone.
+        self.handler.build_audio_folder(source, audio, venvs, needed=set(), report=reports.append)
+        self.assertEqual(len(reports), 1)
+
+    def test_readiness_needs_an_archive_beside_each_ready_model(self):
+        root = Path(self.temp.name) / 'volume'
+        audio = root / 'ecco-audio'
+        (audio / 'sounds' / 'ace-step-1.5').mkdir(parents=True)
+        (audio / 'gpu-ready-models.json').write_text(json.dumps(['voxcpm2', 'qwen3-tts']))
+        (audio / 'voxcpm2-venv.tar').write_text('')
+        (audio / 'sound-ready-a100.json').write_text(json.dumps(['ace-step-1.5', 'moss-soundeffect-v2']))
+        (audio / 'sounds' / 'ace-step-1.5' / 'a100-venv.tar').write_text('')
+        ready = self.handler.readiness(root)
+        self.assertEqual((ready['speech'], ready['sound'], ready['listen']), (['voxcpm2'], ['ace-step-1.5'], False))
+
+    def test_install_job_validates_commit_and_steps(self):
+        self.assertIn('error', self.handler.install({}, {'commit': 'abc', 'steps': ['inventory']}))
+        commit = 'a' * 40
+        self.assertIn('error', self.handler.install({}, {'commit': commit, 'steps': ['rm -rf /']}))
+        self.assertIn('error', self.handler.install({}, {'commit': commit, 'steps': ['sound:../x']}))
+        self.assertTrue(self.handler.valid_step('sound:ace-step-1.5'))
+        self.assertTrue(self.handler.valid_step('pack:chatterbox'))
+        self.assertFalse(self.handler.valid_step('sound:'))
+
+    def test_install_job_runs_the_installer_and_publishes_readiness(self):
+        root = Path(self.temp.name)
+        script = root / 'src' / 'serverless' / 'audio-worker' / 'install_on_volume.py'
+        script.parent.mkdir(parents=True)
+        script.write_text('import sys, json\nprint("=== inventory")\nprint("ECCO_STEP " + json.dumps({"step": "inventory", "args": sys.argv[1:]}))\n')
+        published = []
+        runtime = root / 'runtime'
+        (runtime / 'bin').mkdir(parents=True)
+        (runtime / 'bin' / 'python').symlink_to(sys.executable)
+        with patch.object(self.handler, 'prepare') as prepare, \
+                patch.object(self.handler, 'RUNTIME', runtime), \
+                patch.object(self.handler, 'readiness', return_value={'speech': ['voxcpm2']}), \
+                patch.object(self.handler, 'publish_readiness', side_effect=lambda r: published.append(r) or True):
+            result = self.handler.install({}, {'commit': 'b' * 40, 'steps': ['inventory', 'whisper']}, source_dir=root / 'src')
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(result['steps'], [{'step': 'inventory', 'args': ['inventory', 'whisper']}])
+        self.assertEqual(prepare.call_args[0][0], {'indicf5-venv'})
+        self.assertEqual(published, [{'speech': ['voxcpm2']}])
+        self.assertIn('=== inventory', self.progress)
 
     def test_fetch_only_reads_the_inputs_folder(self):
         with self.assertRaises(ValueError):

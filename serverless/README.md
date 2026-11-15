@@ -107,6 +107,27 @@ Z-Image image and a LongCat shot. Activity and errors go to
 `/workspace/ecco-serverless/proxy.log`. If that GPU pod gets started, its own
 workers take their locks back and the launcher stays out of the way.
 
+## Installing models on the audio endpoint (no pod)
+
+The audio worker accepts an install job that runs `serverless/audio-worker/install_on_volume.py`
+from this repository at a pinned commit, on the endpoint's own GPU worker. Send it from RunPod →
+Serverless → ecco-audio → Requests (one step or a few per job; each job may run up to the
+endpoint's execution timeout, or set `policy.executionTimeout`):
+
+```json
+{"input": {"install": {"commit": "<40-char main commit>", "steps": ["inventory"]}},
+ "policy": {"executionTimeout": 3600000}}
+```
+
+Steps: `inventory`, `sync-scripts` (worker scripts at that commit; old copies kept in
+`backup-scripts-<time>/`), `pack:<venv>`, `voxcpm2`, `chatterbox-hi`, `whisper`,
+`sound:ace-step-1.5`, `sound:moss-soundeffect-v2`. Environments are built on the worker's local disk,
+smoke-tested on the GPU, and stored on the volume as `<name>.tar` + `.sha256`, which new workers
+unpack. After every install job the worker publishes what is ready to
+`ecco-serverless/audio-ready.json` on the network volume; the dispatcher reads it and advertises
+those speech models, sound models and listen-back for Serverless. A model is advertised only after
+its smoke test passed and its archive exists.
+
 ## Rolling back
 
 Stop `serverless_studio.py` and start the GPU pod again. The launcher only writes
