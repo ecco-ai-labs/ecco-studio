@@ -317,7 +317,11 @@ def sound(model):
     if model not in SOUND_MODELS:
         raise SystemExit('Unknown sound model ' + model)
     volume_base = VOL / 'sounds' / model
-    (volume_base / 'weights').mkdir(parents=True, exist_ok=True)
+    weights = volume_base / 'weights'
+    if weights.is_symlink() or (weights.exists() and not weights.is_dir()):
+        # The volume cannot store links: a CPU pod's weights link arrives as an empty file.
+        weights.unlink()
+    weights.mkdir(parents=True, exist_ok=True)
     fetch_source(model, volume_base / 'source')
     # Local working folder at the path jobs use: source and weights live on the volume, the
     # environment is built here and archived to the volume afterwards.
