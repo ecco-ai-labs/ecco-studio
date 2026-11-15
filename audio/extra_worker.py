@@ -34,6 +34,43 @@ def chatterbox_controls(request, line):
     return {'exaggeration': exaggeration, 'cfg_weight': line.get('cfg_weight', cfg)}
 
 
+HINDI_PACK = ('t3_hi.safetensors', 's3gen_v3.pt', 'grapheme_mtl_merged_expanded_v1.json')
+
+
+def hindi_pack(runtime):
+    """The Chatterbox Multilingual V3 Hindi finetune (ResembleAI/Chatterbox-Multilingual-hi), when installed."""
+    folder = runtime / 'chatterbox' / 'hi'
+    return folder if all((folder / name).is_file() for name in HINDI_PACK) else None
+
+
+# Buffers the model computes itself at construction; the finetune's s3gen_v3.pt does not store them.
+S3GEN_COMPUTED = {'tokenizer._mel_filters', 'tokenizer.window'}
+
+
+def load_hindi(runtime, device, output):
+    """The Hindi finetune ships its own T3, S3Gen weights and tokenizer; the voice encoder and default voice
+    come from the base checkpoint. Load a link checkpoint (base S3Gen), then swap in the finetune's S3Gen
+    weights, allowing only the computed buffers to be absent."""
+    import torch
+    from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+    base, hindi = runtime / 'chatterbox', hindi_pack(runtime)
+    folder = output.parent / 'chatterbox-hi-checkpoint'
+    folder.mkdir(exist_ok=True)
+    links = {'ve.pt': base / 've.pt', 'conds.pt': base / 'conds.pt', 'Cangjie5_TC.json': base / 'Cangjie5_TC.json',
+             's3gen.pt': base / 's3gen.pt', 'grapheme_mtl_merged_expanded_v1.json': hindi / 'grapheme_mtl_merged_expanded_v1.json',
+             't3_hi.safetensors': hindi / 't3_hi.safetensors'}
+    for name, target in links.items():
+        if target.exists() and not (folder / name).exists():
+            (folder / name).symlink_to(target)
+    model = ChatterboxMultilingualTTS.from_local(folder, device, t3_model='t3_hi.safetensors')
+    state = torch.load(hindi / 's3gen_v3.pt', map_location='cpu' if device in ('cpu', 'mps') else None, weights_only=True)
+    result = model.s3gen.load_state_dict(state, strict=False)
+    if result.unexpected_keys or set(result.missing_keys) - S3GEN_COMPUTED:
+        raise RuntimeError('The Hindi Chatterbox decoder does not match this Chatterbox version.')
+    model.s3gen.to(device).eval()
+    return model
+
+
 def synthesize(request, output, runtime):
     import numpy as np
     import torch
@@ -44,12 +81,20 @@ def synthesize(request, output, runtime):
     speech_progress(output, 0, len(request['lines']))
     if request['model'] == 'chatterbox':
         from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-        model = ChatterboxMultilingualTTS.from_local(runtime / 'chatterbox', device, t3_model='v3')
-        original = copy.deepcopy(model.conds)
-        rate = model.sr
-        for index, line in enumerate(request['lines']):
+        lines = request['lines']
+        use_hindi = hindi_pack(runtime) is not None and any(line['language'] == 'Hindi' for line in lines)
+        models = {}
+        if not use_hindi or any(line['language'] != 'Hindi' for line in lines):
+            models['base'] = ChatterboxMultilingualTTS.from_local(runtime / 'chatterbox', device, t3_model='v3')
+        if use_hindi:
+            models['hi'] = load_hindi(runtime, device, output)
+        originals = {key: copy.deepcopy(m.conds) for key, m in models.items()}
+        rate = next(iter(models.values())).sr
+        for index, line in enumerate(lines):
+            key = 'hi' if use_hindi and line['language'] == 'Hindi' else 'base'
+            model = models[key]
             # Reset between speakers; the default must never inherit another voice.
-            model.conds = copy.deepcopy(original)
+            model.conds = copy.deepcopy(originals[key])
             if ref_id(line['voice']):
                 ref = str(fetch_voice_ref(request, line['voice'], output)[0])
             else:
