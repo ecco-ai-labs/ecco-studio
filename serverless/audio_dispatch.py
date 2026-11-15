@@ -191,12 +191,18 @@ def dispatcher(qw, pod=None, stop=None, client=rp, volume=None):
         for d in sorted(qw.ROOT.glob('[a-f0-9]' * 32)):
             if stop.is_set():
                 break
-            with claim(qw, d, pod, models, sounds) as request:
-                if request is None:
-                    continue
-                # Each job runs in its own thread so a long recording does not hold up the queue.
-                threading.Thread(target=run_job, args=(qw, request, d, pod, client, volume), daemon=True,
-                                 name='audio-serverless-' + d.name[:8]).start()
+            try:
+                with claim(qw, d, pod, models, sounds) as request:
+                    if request is None:
+                        continue
+                    # Each job runs in its own thread so a long recording does not hold up the queue.
+                    threading.Thread(target=run_job, args=(qw, request, d, pod, client, volume), daemon=True,
+                                     name='audio-serverless-' + d.name[:8]).start()
+            except OSError:
+                # The job folder was removed between listing and claiming (deleted or cleaned up):
+                # skip it. An exception here used to end this thread while the heartbeat kept
+                # advertising the worker, so audio jobs then waited forever.
+                continue
         stop.wait(2)
     lock.close()
     return True

@@ -117,7 +117,7 @@ class ServerlessPowerTest(unittest.TestCase):
         self.assertEqual((saved['workersMin'], saved['workersMax'], saved['templateId']), (1, 3, 'tpl'))
         self.assertNotIn('locations', saved)
 
-    def test_wakeup_jobs_go_through_the_bridge_with_valid_inputs(self):
+    def test_image_and_video_wakeups_go_through_the_bridge_and_audio_gets_none(self):
         runpod = FakeRunPod({'prompt_id': 'p-img'}, {'prompt_id': 'p-vid'})
         with patch.object(power, 'AUDIO_QUEUE', Path(self.temp.name) / 'queue'):
             sent = power.wake(opener=runpod, now=lambda: 5)
@@ -128,15 +128,8 @@ class ServerlessPowerTest(unittest.TestCase):
             self.assertEqual(image['8']['inputs']['steps'], 1)
             self.assertEqual(video['1']['inputs']['unet_name'], 'wan2.2_ti2v_5B_fp16.safetensors')
             self.assertNotIn('start_image', video['8']['inputs'])
-            folder = Path(self.temp.name) / 'queue' / sent['audio']
-            request = json.loads((folder / 'request.json').read_text())
-            self.assertEqual((request['model'], request['compute'], request['worker_id'], request['wakeup']),
-                             ('chatterbox', 'a100', 'serverless', True))
-            self.assertEqual(json.loads((folder / 'status.json').read_text())['status'], 'queued')
-            self.assertEqual(power.cleanup_wakeups(now=lambda: 10), 0)
-            (folder / 'status.json').write_text('{"status": "done"}')
-            self.assertEqual(power.cleanup_wakeups(now=lambda: 10), 1)
-            self.assertFalse(folder.exists())
+            self.assertNotIn('audio', sent)
+            self.assertFalse((Path(self.temp.name) / 'queue').exists())
 
     def test_a_failed_wakeup_is_reported_not_raised(self):
         os.environ['ECCO_WARM_ENDPOINTS'] = 'images,video'
