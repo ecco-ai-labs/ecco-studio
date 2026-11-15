@@ -71,6 +71,7 @@
   async serverlessStatus(){return storageRequest('gpu/serverless');},
   async serverlessPower(on,reason,client){return storageRequest('gpu/serverless/power',{on,reason,client});},
   async serverlessHeartbeat(active,client){return storageRequest('gpu/serverless/heartbeat',{active,client});},
+  async serverlessSettings(autoOffMinutes,client){return storageRequest('gpu/serverless/settings',{auto_off_minutes:autoOffMinutes,client});},
   async select(gpu){
    connectionLog('Connect requested',{gpu:gpu.id});
    try{

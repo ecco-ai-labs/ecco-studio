@@ -1220,6 +1220,37 @@
         "Off"
       ],
       "area": "Header (GPU icon popup)"
+    },
+    {
+      "id": "serverless-auto-off-select",
+      "of": "text-input",
+      "name": "Serverless Auto-off choice",
+      "font": "@text-regular",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "#serverless-auto-off"
+      ],
+      "examples": [
+        "30 min",
+        "Never"
+      ],
+      "area": "Header (GPU icon popup)"
+    },
+    {
+      "id": "serverless-auto-off-label",
+      "of": "form-label",
+      "name": "Serverless Auto-off label",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#serverless-auto-off-label"
+      ],
+      "examples": [
+        "Auto-off"
+      ],
+      "area": "Header (GPU icon popup)"
     }
   ],
   "scale": [

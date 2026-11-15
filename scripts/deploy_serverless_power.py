@@ -11,6 +11,8 @@ Run on the storage pod (python3 deploy_serverless_power.py --api-pid PID):
      environment, and waits for /healthz. Any failure restores the old files and the old process.
 The audio worker, the Serverless bridge and every credential file are left alone.
 Add --check to run steps 1-3 only (nothing is written or restarted).
+Later versions of serverless_power.py ship with --commit SHA --sha256 HASH (no new hooks needed:
+new routes come from serverless_power.ROUTES).
 """
 import argparse
 import hashlib
@@ -170,7 +172,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--api-pid', type=int, required=True)
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--commit', help='Ship backend/serverless_power.py from this reviewed commit instead')
+    parser.add_argument('--sha256', help='Expected SHA-256 of that file (required with --commit)')
     args = parser.parse_args()
+    global SOURCE_COMMIT, MODULE_HASH
+    if args.commit:
+        if not args.sha256 or len(args.sha256) != 64:
+            raise SystemExit('--commit needs --sha256 of backend/serverless_power.py at that commit')
+        SOURCE_COMMIT, MODULE_HASH = args.commit, args.sha256
     api = base.process(args.api_pid)
     if not base.matching_script(api, 'storage_api.py') or Path(api['cwd']) != APP / 'backend':
         raise RuntimeError('Expected the running storage API in ' + str(APP / 'backend'))

@@ -2153,7 +2153,8 @@ async function serverlessFixture(page,on=false){
   if(!window.EccoStorage?.ready)Object.defineProperty(window.EccoStorage,'ready',{get:()=>true,configurable:true});
   const c=window.EccoGPUConnection;window.__power=[];window.__on=start;
   c.serverlessPower=async(value,reason)=>{window.__power.push({on:value,reason});window.__on=value;return {on:value,reason};};
-  c.serverlessHeartbeat=async()=>({on:window.__on});
+  c.serverlessHeartbeat=async()=>({on:window.__on,auto_off_minutes:window.__autoOff===undefined?30:window.__autoOff});
+  window.__settings=[];c.serverlessSettings=async(minutes)=>{window.__settings.push(minutes);window.__autoOff=minutes;return {on:window.__on,auto_off_minutes:minutes};};
  },on);
 }
 test('GPU-SERVERLESS-02 the GPU icon opens one On/Off button that switches Serverless and closes',async({page})=>{
@@ -2164,6 +2165,7 @@ test('GPU-SERVERLESS-02 the GPU icon opens one On/Off button that switches Serve
  await icon.click();
  await expect(popup).toBeVisible();
  await expect(popup.locator('button')).toHaveCount(1);
+ await expect(page.locator('#serverless-auto-off')).toHaveValue('30');
  await expect(button).toHaveText('Off');
  await expect(button).toHaveAttribute('aria-pressed','false');
  await expect(page.locator('#connected-accelerator .serverless-power-dot')).toBeHidden();
@@ -2197,4 +2199,21 @@ test('GPU-SERVERLESS-03 signing in turns Serverless On and Log Off turns it Off;
  await expect.poll(()=>page.evaluate(()=>window.__power)).toEqual([{on:true,reason:'sign-in'}]);
  await page.evaluate(()=>window.EccoAuth.signOut());
  await expect.poll(()=>page.evaluate(()=>window.__power.at(-1))).toEqual({on:false,reason:'sign-out'});
+});
+test('GPU-SERVERLESS-04 Auto-off in the GPU popup offers 30 min (default) and Never and keeps the popup open',async({page})=>{
+ await boot(page);
+ await serverlessFixture(page);
+ await page.locator('#connected-accelerator').click();
+ const select=page.locator('#serverless-auto-off');
+ await expect(page.locator('#serverless-auto-off-label')).toHaveText('Auto-off');
+ await expect(select.locator('option')).toHaveText(['30 min','Never']);
+ await expect(select).toHaveValue('30');
+ await select.selectOption('never');
+ await expect.poll(()=>page.evaluate(()=>window.__settings)).toEqual([null]);
+ await expect(page.locator('#serverless-power-popup')).toBeVisible();
+ await select.selectOption('30');
+ await expect.poll(()=>page.evaluate(()=>window.__settings)).toEqual([null,30]);
+ const size=await select.evaluate(e=>({height:e.getBoundingClientRect().height,font:parseFloat(getComputedStyle(e).fontSize)}));
+ expect(size.height).toBeLessThanOrEqual(26);expect(size.font).toBeLessThanOrEqual(11);
+ expect(page.qaErrors).toEqual([]);
 });

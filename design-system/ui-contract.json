@@ -1840,15 +1840,16 @@
     },
     "serverlessPower": {
       "approved": "Owner-approved 2026-11-15 from the Serverless On/Off mock",
-      "entry": "Clicking (or Enter/Space on) the GPU icon in the connection panel opens a small popup under it holding one button and nothing else",
+      "entry": "Clicking (or Enter/Space on) the GPU icon in the connection panel opens a small popup under it holding the On/Off button and, under it, an Auto-off choice",
       "button": "Variant serverless-power-toggle of button (size roster). Label Off (outlined, theme text and border) or On (theme accent fill, theme contrast text); aria-pressed follows the state",
-      "behavior": "Pressing the button switches On/Off and closes the popup. On asks the storage server to keep one warm image worker on RunPod (workersMin 1); Off sets it back to 0. A RunPod refusal is shown and the state is not changed",
+      "behavior": "Pressing the button switches On/Off and closes the popup. On asks the storage server to keep one warm worker on each of the image, video and audio endpoints (workersMin 1) and to send each a tiny wake-up job (256 px one-step Qwen-Image, 9-frame one-step Wan 2.2 5B, one short Chatterbox line) so models are loaded; Off sets them back to 0. If RunPod refuses every endpoint the state does not change and the refusal is shown",
       "indicator": "While On, a small dot in the theme success color sits on the GPU icon's top-right corner; the GPU icon's tooltip is hidden while the popup is open",
-      "signIn": "A Google sign-in turns Serverless On; Log Off (or a revoked session) turns it Off unless another browser used Studio in the last 5 minutes. Restoring a saved session on reload changes nothing",
-      "idle": "The storage server turns it Off by itself when no open Studio has been used for 20 minutes (ECCO_SERVERLESS_IDLE_MINUTES) and no serverless job is running",
+      "signIn": "A Google sign-in turns Serverless On; Log Off (or a revoked session) turns it Off unless another browser used Studio in the last 5 minutes, or waits until running serverless work finishes and then turns it Off. Restoring a saved session on reload changes nothing",
+      "idle": "With Auto-off 30 min the storage server turns it Off after 30 minutes with no Studio use and no serverless job running; with Never it stays On until the button's Off or a sign-out",
       "dismissal": "Escape or a click outside closes the popup; focus returns to the GPU icon after keyboard use",
       "disabled": "Disabled with a hint until workspace storage is connected",
-      "approvedException": "The On/Off pill keeps its own colors (Off: transparent with theme border; On: theme accent fill with theme contrast text) over the shared pressed/focused button colors, as in the owner-approved mock"
+      "approvedException": "The On/Off pill keeps its own colors (Off: transparent with theme border; On: theme accent fill with theme contrast text) over the shared pressed/focused button colors, as in the owner-approved mock",
+      "autoOff": "Approved 2026-11-15: 'Auto-off' label and a select (variant serverless-auto-off-select) with 30 min (default) and Never. One setting for the whole workspace, stored on the storage server; changing it keeps the popup open"
     }
   },
   "settingsMenu": {
