@@ -17,6 +17,9 @@ Steps (run in the order given; each prints one JSON line starting with ECCO_STEP
                          versions found in the volume copy, GPU smoke test, archive (fast replacement for pack)
   voxcpm2                build voxcpm2-venv, download openbmb/VoxCPM2 if missing, GPU smoke test,
                          then mark ready in gpu-ready-models.json
+  kokoro                 build kokoro-venv (misaki G2P with bundled espeak-ng, spaCy English), download
+                         hexgrad/Kokoro-82M with its voices, GPU smoke test (English + Hindi), mark ready.
+                         Images built before this step existed accept it as rebuild:kokoro.
   chatterbox-hi          download the Hindi Chatterbox finetune to models/chatterbox/hi
   whisper                cache openai/whisper-large-v3-turbo in hf-cache for listen-back
   sound:<model>          ace-step-1.5 or moss-soundeffect-v2: source + weights on the volume, a100-venv
@@ -46,6 +49,11 @@ VOXCPM_PACKAGES = ['transformers==4.51.3', 'huggingface_hub<1', 'librosa==0.11.0
                    'pydantic>=2', 'safetensors', 'sentencepiece', 'tqdm', 'addict']
 WEIGHT_PATTERNS = ['*.json', '*.safetensors', '*.model', '*.txt', '*.tiktoken', '*.pth', 'LICENSE*', '*.md']
 SOUND_MODELS = ('ace-step-1.5', 'moss-soundeffect-v2')
+KOKORO_PACKAGES = ['kokoro==0.9.4', 'misaki[en,ja,zh]==0.9.4', 'spacy==3.8.7', 'preshed==3.0.10', 'soundfile',
+                   'huggingface_hub<1', 'transformers==4.51.3']
+# spaCy's English model as a pinned wheel, so the first job never tries to download it.
+SPACY_EN = 'https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl'
+KOKORO_PATTERNS = ['config.json', 'kokoro-v1_0.pth', 'voices/*.pt', 'LICENSE*', '*.md']
 
 
 def log(*parts):
@@ -334,6 +342,23 @@ def voxcpm2():
     step_result('voxcpm2', ready=True, audio_seconds=seconds, smoke_seconds=took, revision=record.get('revision'))
 
 
+def kokoro():
+    python = build_venv('kokoro-venv', KOKORO_PACKAGES, extra=[[SPACY_EN]])
+    weights = VOL / 'models' / 'kokoro'
+    record = read_json(weights / 'ecco-install.json', {})
+    if not (weights / 'kokoro-v1_0.pth').is_file() or not (weights / 'voices' / 'af_heart.pt').is_file():
+        weights.mkdir(parents=True, exist_ok=True)
+        revision = download(python, 'hexgrad/Kokoro-82M', weights, KOKORO_PATTERNS)
+        record = {'repo': 'hexgrad/Kokoro-82M', 'revision': revision, 'source': 'kokoro==0.9.4'}
+        write_json(weights / 'ecco-install.json', record)
+    seconds, took = smoke_speech('kokoro', python, [
+        {'text': 'Welcome to our story. Settle down and imagine a quiet forest.', 'language': 'English', 'voice': 'af_heart'},
+        {'text': 'हमारी कहानी में आपका स्वागत है।', 'language': 'Hindi', 'voice': 'hf_alpha'}])
+    publish_speech_venv('kokoro-venv')
+    mark_ready('gpu-ready-models.json', 'kokoro')
+    step_result('kokoro', ready=True, audio_seconds=seconds, smoke_seconds=took, revision=record.get('revision'))
+
+
 def chatterbox_hi():
     """Download the Hindi finetune if missing, then prove the worker at this commit uses it (GPU smoke test)."""
     python = AUDIO / 'chatterbox-venv' / 'bin' / 'python'
@@ -475,6 +500,8 @@ def main(steps):
                 rebuild(argument[len('rebuild-'):])  # alias accepted by workers built before rebuild: existed
             elif name == 'pack':
                 pack(argument)
+            elif name == 'kokoro' or (name == 'rebuild' and argument == 'kokoro'):
+                kokoro()  # rebuild:kokoro lets images whose handler predates the kokoro step run it
             elif name == 'rebuild':
                 rebuild(argument)
             elif name == 'voxcpm2':

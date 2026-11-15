@@ -737,3 +737,17 @@ class AudioDispatchOlderWorkerCode(unittest.TestCase):
             self.assertIsNone(request)
         self.assertEqual(calls, [('a100', 'serverless')])
         self.assertFalse(audio_dispatch.listen_ready(old))
+
+
+class KokoroInstallStep(unittest.TestCase):
+    def test_kokoro_runs_as_its_own_step_and_through_the_rebuild_alias(self):
+        path = Path(__file__).resolve().parents[1] / 'audio-worker' / 'install_on_volume.py'
+        spec = importlib.util.spec_from_file_location('install_on_volume_k', path)
+        installer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(installer)
+        with patch.object(installer, 'kokoro') as run, patch.object(installer, 'rebuild') as other:
+            self.assertEqual(installer.main(['kokoro']), 0)
+            self.assertEqual(installer.main(['rebuild:kokoro']), 0)
+        self.assertEqual(run.call_count, 2)
+        other.assert_not_called()
+        self.assertIn('voices/*.pt', installer.KOKORO_PATTERNS)
