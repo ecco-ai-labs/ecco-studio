@@ -174,6 +174,21 @@ class VoiceReferenceTest(unittest.TestCase):
         self.records[generated['id']] = generated
         ref = refs.from_design({'request': clean, 'story_id': 'story'}, generated, self.env)
         self.assertEqual((ref['voice_reference']['source'], ref['voice_reference']['transcript']), ('designed', 'అనగనగా ఒక ఊరు'))
+        self.assertTrue(ref['voice_reference']['studio'])
+
+    def test_quiet_designed_voice_is_brought_to_studio_level(self):
+        tone(self.env['DATA'] / 'audio-prod/quiet.wav', 8)
+        subprocess.run(['ffmpeg', '-nostdin', '-y', '-v', 'error', '-i', str(self.env['DATA'] / 'audio-prod/quiet.wav'),
+                        '-af', 'volume=-14dB', str(self.env['DATA'] / 'audio-prod/quieter.wav')], check=True)
+        request = refs.design_request({'model': 'voxcpm2', 'compute': 'a100', 'character': 'Dev', 'emotion': 'confident',
+                                       'language': 'English', 'text': 'Hello there', 'description': 'A calm man'}, self.env)
+        generated = dict(id='e' * 32, kind='asset', media='audio', source='generated', story_id='story',
+                         path='audio-prod/quieter.wav', seconds=8)
+        ref = refs.from_design({'request': validate(request), 'story_id': 'story'}, generated, self.env)
+        out = subprocess.run(['ffmpeg', '-nostats', '-i', str(self.env['DATA'] / ref['path']), '-af', 'ebur128', '-f', 'null', '-'],
+                             capture_output=True, text=True).stderr
+        loudness = float(out.rsplit(' I:', 1)[1].split('LUFS')[0])
+        self.assertAlmostEqual(loudness, -20, delta=1.5)
 
 
 if __name__ == '__main__':

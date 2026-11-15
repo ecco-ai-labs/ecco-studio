@@ -30,6 +30,11 @@ LINK_SECONDS = 6 * 3600
 MIN_SECONDS, MAX_SECONDS = 3.0, 30.0
 RATE = 24000
 CLEAN_FILTER = 'highpass=f=80,afftdn=nf=-25,loudnorm=I=-20:TP=-2:LRA=11'
+# Designed voices are clean but can come out quiet and far away (one measured -33 LUFS against -22 for its partner),
+# and every line cloned from them inherits that. Each designed clip gets one close-mic studio treatment at -20 LUFS.
+STUDIO_TONE = ('aformat=channel_layouts=mono,highpass=f=80,acompressor=threshold=-24dB:ratio=3:attack=5:release=80:makeup=2,'
+               'equalizer=f=180:t=q:w=1:g=1.5,equalizer=f=3500:t=q:w=1.2:g=3')
+STUDIO_LUFS = -20.0
 SOURCES = ('upload', 'recording', 'designed', 'catalog')
 
 
@@ -83,9 +88,20 @@ def _probe(path):
     return seconds, int(stream.get('sample_rate') or 0), int(stream.get('channels') or 0)
 
 
+def _studio_filter(source, start, length):
+    """Measure loudness after the tone chain, then one gain plus a peak limiter so every clip lands on -20 LUFS."""
+    probe = subprocess.run(['ffmpeg', '-nostdin', '-nostats', '-ss', f'{start:.3f}', '-t', f'{length:.3f}', '-i', str(source),
+                            '-af', STUDIO_TONE + ',ebur128', '-f', 'null', '-'], capture_output=True, text=True, check=True, timeout=120).stderr
+    measured = float(probe.rsplit(' I:', 1)[1].split('LUFS')[0])
+    gain = max(-20.0, min(30.0, STUDIO_LUFS - measured)) if measured > -70 else 0.0
+    return STUDIO_TONE + f',volume={gain:.2f}dB,alimiter=limit=0.79:attack=2:release=50:level=false'
+
+
 def _render(source, destination, start, length, clean):
     command = ['ffmpeg', '-nostdin', '-y', '-v', 'error', '-ss', f'{start:.3f}', '-t', f'{length:.3f}', '-i', str(source)]
-    if clean:
+    if clean == 'studio':
+        command += ['-af', _studio_filter(source, start, length)]
+    elif clean:
         command += ['-af', CLEAN_FILTER]
     command += ['-ac', '1', '-ar', str(RATE), '-c:a', 'pcm_s16le', str(destination)]
     subprocess.run(command, capture_output=True, check=True, timeout=120)
@@ -120,7 +136,7 @@ def _save_reference(env, *, source_asset, story_id, start, end, clean, info):
         temporary.unlink(missing_ok=True)
         raise
     digest = hashlib.sha256(destination.read_bytes()).hexdigest()
-    block = {**info, 'trimmed_start': round(start, 3), 'trimmed_end': round(end, 3), 'cleaned': bool(clean),
+    block = {**info, 'trimmed_start': round(start, 3), 'trimmed_end': round(end, 3), 'cleaned': bool(clean), 'studio': clean == 'studio',
              'source_asset_id': source_asset['id']}
     return env['save'](dict(id=rid, kind='asset', created=time.time(), media='audio', stage='prod', story_id=story_id,
                             path='audio-voices/' + destination.name, title=info['character'] + ' · ' + info['emotion'],
@@ -262,7 +278,7 @@ def from_design(job, asset, env):
     seconds = float(asset.get('seconds') or 0)
     info = {**design, 'source': 'designed', 'consent': True}
     ref = _save_reference(env, source_asset=asset, story_id=job.get('story_id'), start=0, end=min(seconds, MAX_SECONDS),
-                          clean=False, info=info)
+                          clean='studio', info=info)
     return ref
 
 
