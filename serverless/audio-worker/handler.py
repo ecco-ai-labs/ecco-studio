@@ -101,6 +101,9 @@ def build_audio_folder(source=None, audio=None, venvs=None, needed=None, report=
     wanted = [e for e in entries if e.name.endswith('-venv') and (e / 'pyvenv.cfg').is_file() and (needed is None or e.name in needed)]
     for entry in entries:
         target = audio / entry.name
+        if entry.name == 'sounds' and entry.is_dir():
+            build_sounds_folder(entry, audio / 'sounds', venvs, needed, report)
+            continue
         is_venv = entry in wanted
         if is_venv:
             if target.is_symlink() and Path(os.readlink(target)) == (venvs / entry.name):
@@ -116,8 +119,47 @@ def build_audio_folder(source=None, audio=None, venvs=None, needed=None, report=
             target.symlink_to(entry)
 
 
+def build_sounds_folder(source, target, venvs, needed, report):
+    """sounds/<model>/ as local folders: source and weights read in place from the volume; the
+    a100-venv a job needs is unpacked from sounds/<model>/a100-venv.tar (built by install_on_volume.py)."""
+    if target.is_symlink():
+        target.unlink()
+    target.mkdir(parents=True, exist_ok=True)
+    for model_dir in sorted(p for p in source.iterdir() if p.is_dir()):
+        local = target / model_dir.name
+        local.mkdir(exist_ok=True)
+        for item in model_dir.iterdir():
+            if item.name == 'a100-venv' or item.name.endswith(('.tar', '.sha256', '.partial')):
+                continue
+            path = local / item.name
+            if not (path.exists() or path.is_symlink()):
+                path.symlink_to(item)
+        key = 'sounds/' + model_dir.name + '/a100-venv'
+        archive = model_dir / 'a100-venv.tar'
+        venv = local / 'a100-venv'
+        if needed is None or key not in needed or venv.exists() or not archive.is_file():
+            continue
+        began = time.time()
+        report(f'Preparing {model_dir.name} sound environment')
+        destination = venvs / 'sounds' / model_dir.name / 'a100-venv'
+        if not (destination / 'pyvenv.cfg').is_file():
+            temporary = destination.with_name('a100-venv.partial')
+            subprocess.run(['rm', '-rf', str(temporary)], check=True)
+            temporary.parent.mkdir(parents=True, exist_ok=True)
+            # _extract_packed looks for <entry>.tar beside <entry>.
+            _extract_packed(model_dir / 'a100-venv', temporary)
+            temporary.rename(destination)
+        venv.symlink_to(destination)
+        TIMINGS[key] = round(time.time() - began, 1)
+
+
 def needed_venvs(request):
-    """Voice environments a request uses (Indic-Mio runs on the shared runtime and needs none)."""
+    """Environments a request uses (Indic-Mio runs on the shared runtime and needs none).
+    Sound jobs use sounds/<model>/a100-venv; listen-back runs Whisper in the IndicF5 environment."""
+    if request.get('task') == 'sound':
+        return {'sounds/' + str(request.get('model')) + '/a100-venv'}
+    if request.get('task') == 'listen':
+        return {'indicf5-venv'}
     models = {request.get('model')} | {line.get('model') for line in request.get('lines', []) if isinstance(line, dict)}
     return {m + '-venv' for m in models if m and m != 'indic-mio'}
 
@@ -171,12 +213,14 @@ def run(job, data, directory, request):
                 runpod.serverless.progress_update(job, text)
                 last = text
             time.sleep(2)
+    sound = request.get('task') == 'sound'
     if process.returncode:
-        raise RuntimeError('Listen-back failed.' if listen else 'Speech inference failed.')
+        raise RuntimeError('Listen-back failed.' if listen else 'Sound generation failed.' if sound else 'Speech inference failed.')
     name = 'output.json' if listen else 'output.wav'
     output = directory / name
     if not output.is_file() or output.stat().st_size <= (2 if listen else 44):
-        raise RuntimeError('Listen-back returned no transcript.' if listen else 'The audio model returned an empty recording.')
+        raise RuntimeError('Listen-back returned no transcript.' if listen else 'The sound model returned an empty recording.' if sound
+                           else 'The audio model returned an empty recording.')
     files = [p for p in (output, directory / 'provenance.json', directory / 'progress.json') if p.is_file()]
     archive = worker_common.pack(files, directory)
     key = worker_common.safe_name(str(data.get('key', 'audio'))) + '.tar'
@@ -184,8 +228,102 @@ def run(job, data, directory, request):
             'output': name, 'sha256': hashlib.sha256(output.read_bytes()).hexdigest(), 'prepare_seconds': dict(TIMINGS)}
 
 
+INSTALL_STEPS = ('inventory', 'sync-scripts', 'pack:', 'voxcpm2', 'chatterbox-hi', 'whisper', 'sound:')
+INSTALL_REPO = 'ecco-ai-labs/ecco-studio'
+READY_KEY = 'ecco-serverless/audio-ready.json'
+
+
+def valid_step(step):
+    name, colon, argument = step.partition(':')
+    if not colon:
+        return step in INSTALL_STEPS
+    return name + ':' in INSTALL_STEPS and bool(argument) and all(c.isalnum() or c in '.-_' for c in argument)
+
+
+def readiness(volume=None):
+    """What this endpoint can run, from the volume's readiness files (written by install_on_volume.py)."""
+    audio = Path(volume or VOLUME) / 'ecco-audio'
+
+    def listed(name):
+        try:
+            value = json.loads((audio / name).read_text())
+        except (OSError, ValueError):
+            return []
+        return sorted(v for v in value if isinstance(v, str)) if isinstance(value, list) else []
+    speech = [m for m in listed('gpu-ready-models.json') if (audio / (m + '-venv.tar')).is_file()]
+    sound = [m for m in listed('sound-ready-a100.json') if (audio / 'sounds' / m / 'a100-venv.tar').is_file()]
+    listen = (audio / 'hf-cache' / 'hub' / 'models--openai--whisper-large-v3-turbo').is_dir()
+    return {'speech': speech, 'sound': sound, 'listen': listen, 'updated': time.time()}
+
+
+def publish_readiness(ready):
+    """Copy readiness to the network volume the dispatcher reads (through the volume's S3 API)."""
+    if not worker_common.volume_configured():
+        return False
+    import io
+    worker_common._s3_client().upload_fileobj(io.BytesIO(json.dumps(ready).encode()), os.environ['ECCO_S3_BUCKET'], READY_KEY)
+    return True
+
+
+def install(job, spec, source_dir=None):
+    """Admin job: run serverless/audio-worker/install_on_volume.py from the repository at a pinned commit."""
+    commit = str(spec.get('commit', ''))
+    steps = [str(s) for s in spec.get('steps', [])]
+    if len(commit) != 40 or any(c not in '0123456789abcdef' for c in commit):
+        return {'error': 'Install jobs need the full 40-character commit to install from.'}
+    if not steps or not all(valid_step(s) for s in steps):
+        return {'error': 'Unknown install step. Allowed: ' + ', '.join(INSTALL_STEPS)}
+    report = lambda text: runpod.serverless.progress_update(job, text[:300])
+    needed = set()
+    if 'chatterbox-hi' in steps:
+        needed.add('chatterbox-venv')
+    if 'whisper' in steps:
+        needed.add('indicf5-venv')
+    prepare(needed, report)
+    with tempfile.TemporaryDirectory(prefix='ecco-src-') as temp:
+        root = Path(source_dir) if source_dir else Path(temp) / 'src'
+        if not source_dir:
+            import urllib.request
+            import zipfile
+            report('Downloading installer at ' + commit[:7])
+            archive = Path(temp) / 'src.zip'
+            urllib.request.urlretrieve('https://codeload.github.com/' + INSTALL_REPO + '/zip/' + commit, archive)
+            with zipfile.ZipFile(archive) as package:
+                for item in package.infolist():
+                    if Path(item.filename).is_absolute() or '..' in Path(item.filename).parts:
+                        return {'error': 'Invalid source archive.'}
+                package.extractall(temp)
+            top = [p for p in Path(temp).iterdir() if p.is_dir()]
+            top[0].rename(root)
+        env = dict(os.environ, HF_HUB_OFFLINE='0', TRANSFORMERS_OFFLINE='0')
+        env.pop('PYTHONPATH', None)
+        lines, results = [], []
+        with subprocess.Popen([str(RUNTIME / 'bin' / 'python'), '-u', str(root / 'serverless/audio-worker/install_on_volume.py'), *steps],
+                              env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as process:
+            for line in process.stdout:
+                line = line.rstrip()
+                lines.append(line)
+                del lines[:-400]
+                if line.startswith('ECCO_STEP '):
+                    results.append(json.loads(line[10:]))
+                elif line.startswith(('=== ', '$ ')):
+                    report(line)
+    ready = readiness()
+    try:
+        published = publish_readiness(ready)
+    except Exception as exc:  # readiness can be republished by the next install job
+        published = 'failed: ' + str(exc)[:200]
+    return {'ok': process.returncode == 0, 'steps': results, 'ready': ready, 'published': published,
+            'log': '\n'.join(lines)[-6000:]}
+
+
 def handler(job):
     data = job.get('input') or {}
+    if isinstance(data.get('install'), dict):
+        try:
+            return install(job, data['install'])
+        except Exception as exc:
+            return {'error': f'Install failed: {exc}'[:1500], 'prepare_seconds': dict(TIMINGS)}
     with tempfile.TemporaryDirectory(prefix='ecco-audio-') as temp:
         directory = Path(temp)
         try:

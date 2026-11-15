@@ -115,28 +115,51 @@ def heartbeat(qw, pod, client=rp):
             'instance_routing_version': 1, 'cpu_count': 8, 'memory_gb': round(memory / 1e9), 'mixed_models_version': 1,
             'long_form_version': 1, 'character_controls_version': 1, 'sound_design_version': 1, 'sound_generation_version': 1,
             'cancellation_version': 1, 'voice_refs_version': 1, 'listen_version': 1 if ready and listen_ready(qw) else 0,
-            'sound_models': []}
+            'sound_models': sound_models(qw) if ready else []}
 
 
-def listen_ready(qw):
+READY_FILE = ('ecco-serverless', 'audio-ready.json')
+
+
+def endpoint_ready(volume=None):
+    """What the endpoint's global volume holds, as last published by an install job
+    (serverless/audio-worker/install_on_volume.py through the volume's S3 API)."""
+    try:
+        import json
+        value = json.loads(Path(volume or rp.VOLUME, *READY_FILE).read_text())
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def listen_ready(qw, volume=None):
     """Listen-back support, when the live audio worker code on the volume has it."""
     check = getattr(qw, 'listen_ready', None)
-    return bool(check and check(COMPUTE))
+    return bool(check and check(COMPUTE)) or endpoint_ready(volume).get('listen') is True
 
 
-def claim(qw, d, pod, models):
+def sound_models(qw, volume=None):
+    """Sound models installed and verified on the endpoint (never guessed from this host)."""
+    known = getattr(qw, 'SOUND_MODELS', ())
+    return [m for m in endpoint_ready(volume).get('sound', []) if m in known]
+
+
+def claim(qw, d, pod, models, sounds=()):
     """queue_worker.claim_job, with or without the newer listen-back argument."""
     import inspect
     if 'listen' in inspect.signature(qw.claim_job).parameters:
-        return qw.claim_job(d, COMPUTE, pod, models, [], listen_ready(qw))
-    return qw.claim_job(d, COMPUTE, pod, models, [])
+        return qw.claim_job(d, COMPUTE, pod, models, list(sounds), listen_ready(qw))
+    return qw.claim_job(d, COMPUTE, pod, models, list(sounds))
 
 
 def enabled_models(qw):
     """Speech models with GPU environments on the shared volume (same rule as the A100 pod worker)."""
     base = Path(qw.__file__).parent
     verified = ['indic-mio', 'chatterbox', 'indicf5'] + qw.read(base / 'gpu-ready-models.json', [])
-    return [m for m in qw.MODELS if m in verified and (m == 'indic-mio' or (base / (m + '-venv') / 'bin' / 'python').exists())]
+    local = [m for m in qw.MODELS if m in verified and (m == 'indic-mio' or (base / (m + '-venv') / 'bin' / 'python').exists())]
+    # Models installed and smoke-tested on the endpoint itself (they need no copy on this host).
+    remote = [m for m in qw.MODELS if m in endpoint_ready().get('speech', []) and m not in local]
+    return local + remote
 
 
 def dispatcher(qw, pod=None, stop=None, client=rp, volume=None):
@@ -164,10 +187,11 @@ def dispatcher(qw, pod=None, stop=None, client=rp, volume=None):
     qw.recover_jobs(COMPUTE, pod)
     while not stop.is_set():
         models = enabled_models(qw) if client.configured('audio') else []
+        sounds = sound_models(qw) if client.configured('audio') else []
         for d in sorted(qw.ROOT.glob('[a-f0-9]' * 32)):
             if stop.is_set():
                 break
-            with claim(qw, d, pod, models) as request:
+            with claim(qw, d, pod, models, sounds) as request:
                 if request is None:
                     continue
                 # Each job runs in its own thread so a long recording does not hold up the queue.
