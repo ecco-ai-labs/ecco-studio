@@ -1,8 +1,11 @@
 'use strict';
 /* Serverless On/Off (owner-approved mock, 15 Nov 2026).
    The GPU icon opens a small popup with one button: Off / On. Pressing it switches and closes the popup.
-   On  = the storage server asks RunPod to keep one image worker loaded and ready for generation.
-   Off = no warm worker; RunPod shuts it down and billing stops.
+   On  = the storage server keeps one image, one video and one audio worker running on RunPod and sends each a
+         tiny wake-up job so its model is loaded before the first real generation.
+   Off = no warm workers; RunPod shuts them down and billing stops.
+   Under the button, Auto-off (one setting for the whole workspace, owner request 15 Nov 2026): 30 min (default)
+   turns it Off after 30 minutes with no Studio use and nothing generating; Never keeps it On until Off or sign-out.
    Signing in turns it On; signing out turns it Off (unless another browser is using Studio).
    While it is On, a small dot on the GPU icon shows it. The storage server also turns it Off by itself
    when no open Studio has been used for a while, so a forgotten tab never keeps a worker running. */
@@ -33,6 +36,13 @@
    if(reason==='button')(window.EccoErrors?.show?window.EccoErrors.show(error,{title:'Serverless could not switch '+(on?'on':'off')}):typeof notice==='function'&&notice(error.message,true));
   }finally{busy=false;draw();}
  }
+ async function setAutoOff(minutes){
+  if(!ready())return;
+  const before=state;state={...state,auto_off_minutes:minutes};busy=true;draw();
+  try{accept(await connection().serverlessSettings(minutes,client));log('Serverless auto-off changed',{gpu:'serverless',auto_off_minutes:minutes});}
+  catch(error){state=before;(window.EccoErrors?.show?window.EccoErrors.show(error,{title:'Auto-off could not be changed'}):typeof notice==='function'&&notice(error.message,true));}
+  finally{busy=false;draw();}
+ }
  async function beat(){
   if(!ready())return;
   if(pending)return setPower(pending.on,pending.reason);
@@ -46,7 +56,14 @@
   popup=document.createElement('div');popup.id='serverless-power-popup';popup.setAttribute('role','group');popup.setAttribute('aria-label','Serverless GPU');popup.hidden=true;
   const button=document.createElement('button');button.type='button';button.id='serverless-power-toggle';
   button.onclick=()=>{if(button.disabled)return;const on=!state.on;close(true);setPower(on,'button');};
-  popup.append(button);document.body.append(popup);return popup;
+  const row=document.createElement('div');row.className='serverless-auto-off-row';
+  const label=document.createElement('label');label.id='serverless-auto-off-label';label.htmlFor='serverless-auto-off';label.textContent='Auto-off';
+  const select=document.createElement('select');select.id='serverless-auto-off';
+  select.title='Never: workers keep running (and billing) until someone turns Serverless Off or signs out.';
+  for(const [value,text] of [['30','30 min'],['never','Never']]){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}
+  select.onchange=()=>setAutoOff(select.value==='never'?null:30);
+  row.append(label,select);
+  popup.append(button,row);document.body.append(popup);return popup;
  }
  function place(){
   const target=icon();if(!popup||popup.hidden||!target)return;
@@ -72,6 +89,8 @@
   button.disabled=busy||!ready();
   button.setAttribute('aria-busy',String(busy));
   button.title=ready()?'':'Connect workspace storage first.';
+  const select=popup.querySelector('#serverless-auto-off');
+  if(select){const value=state.auto_off_minutes===null?'never':'30';if(select.value!==value&&document.activeElement!==select)select.value=value;select.disabled=busy||!ready();}
  }
 
  document.addEventListener('click',event=>{
@@ -96,12 +115,16 @@
   +'#connected-accelerator .serverless-power-dot{position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--ecco-theme-success,#7bcf9b);box-shadow:0 0 0 2px var(--ecco-theme-surface,#252039);pointer-events:none}'
   +'#connected-accelerator .serverless-power-dot[hidden]{display:none}'
   +'#serverless-power-popup{position:fixed;z-index:10002;padding:5px;border-radius:12px;background:var(--ecco-theme-surface,#252039);border:1px solid var(--ecco-theme-border,#51496f);box-shadow:0 8px 20px #0006}'
-  +'#serverless-power-popup[hidden]{display:none}'
+  +'#serverless-power-popup[hidden]{display:none!important}'
   // Approved exception (mock, 15 Nov 2026): On is an accent-filled pill, so the shared pressed/focused button colors are overridden here.
   +'#serverless-power-popup #serverless-power-toggle{padding:0 12px;border-radius:999px;font-weight:600;cursor:pointer;background:transparent!important;color:var(--ecco-theme-text,#ffffff)!important;border:1px solid var(--ecco-theme-border,#51496f)!important;box-shadow:none!important}'
   +'#serverless-power-popup #serverless-power-toggle[aria-pressed=true]{background:var(--ecco-theme-accent,#ffdc24)!important;color:var(--ecco-theme-contrast,#211b33)!important;border-color:var(--ecco-theme-accent,#ffdc24)!important}'
   +'#serverless-power-toggle:disabled{opacity:.55;cursor:not-allowed}'
-  +'#serverless-power-toggle:focus-visible{outline:2px solid var(--ecco-theme-text,#ffffff);outline-offset:2px}';
+  +'#serverless-power-toggle:focus-visible{outline:2px solid var(--ecco-theme-text,#ffffff);outline-offset:2px}'
+  +'#serverless-power-popup{display:flex;flex-direction:column;align-items:center;gap:6px}'
+  +'#serverless-power-popup .serverless-auto-off-row{display:flex;align-items:center;gap:6px;white-space:nowrap}'
+  +'#serverless-auto-off-label{color:var(--ecco-theme-muted,#c7c0dd);font-weight:500;margin:0}'
+  +'#serverless-auto-off{padding:0 6px;border-radius:6px}';
  document.head.append(style);
 
  setInterval(()=>{draw();},2000);

@@ -295,6 +295,6 @@
   {
     "area": "Serverless On/Off",
     "mode": "fixture",
-    "scope": "GPU-SERVERLESS-02: the GPU icon is a button that opens a popup with one On/Off button; pressing it switches, closes the popup and shows or hides the dot on the GPU icon; small size from the roster; Enter, Escape and click-outside. GPU-SERVERLESS-03: a sign-in turns Serverless On, Log Off turns it Off, a restored session does neither. The storage server's RunPod calls (workersMin 1/0), the sign-out rule for other active browsers and the idle auto-off are unit-tested in backend/test_serverless_power.py; a real warm worker needs the storage server and RunPod and remains blocked here"
+    "scope": "GPU-SERVERLESS-02: the GPU icon is a button that opens a popup with one On/Off button; pressing it switches, closes the popup and shows or hides the dot on the GPU icon; small size from the roster; Enter, Escape and click-outside. GPU-SERVERLESS-03: a sign-in turns Serverless On, Log Off turns it Off, a restored session does neither. GPU-SERVERLESS-04: Auto-off choice (30 min default, Never) in the popup, saved without closing it. The storage server's RunPod calls (workersMin 1/0 on image, video and audio, wake-up jobs, Auto-off, sign-out waiting for running work), the sign-out rule for other active browsers and the idle auto-off are unit-tested in backend/test_serverless_power.py; a real warm worker needs the storage server and RunPod and remains blocked here"
   }
 ]

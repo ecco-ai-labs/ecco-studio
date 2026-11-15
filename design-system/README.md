@@ -166,11 +166,13 @@ Connected. Availability refreshes every 20 seconds.
 
 Serverless On/Off (owner-approved mock, 15 Nov 2026): clicking the GPU icon in the connection
 panel opens a small popup with one button, Off or On. Pressing it switches and closes the popup; a
-small success-colored dot on the GPU icon shows On. On keeps one warm image worker on RunPod
-(workersMin 1, set by the storage server, which holds the RunPod key); Off sets it back to 0. Google
+small success-colored dot on the GPU icon shows On. On keeps one warm worker each on the image,
+video and audio endpoints (workersMin 1, set by the storage server, which holds the RunPod key) and
+sends each a tiny wake-up job so the models are loaded; Off sets them back to 0. Under the button an
+Auto-off choice (30 min default, or Never; one setting for the whole workspace) controls whether the
+storage server turns it Off after 30 minutes with no Studio use and nothing generating. Google
 sign-in turns it On and Log Off turns it Off, unless another browser used Studio in the last five
-minutes. The storage server turns it Off by itself after 20 minutes with no Studio use and no
-serverless job running. See `acceleratorConnections.serverlessPower` in the contract.
+minutes or work is still running (then it turns Off when that work finishes). See `acceleratorConnections.serverlessPower` in the contract.
 
 The top ribbon Settings control panel has three icons: Model Garden (sprout), User Preferences (sliders), and Workspace Drive (drive). It matches the adjacent panels with 32px icon targets, 16px SVGs, equal 8px gaps, immediate hover/focus labels and theme-aware surfaces. User Preferences contains only Themes and retains the internal Activity category identifier. Existing model navigation, theme persistence and file browsing are reused. Its file browser is labeled Workspace Drive, including its dialog title and accessible name. Type, Location and a self-contained Search box share one ribbon, with Search last. It filters immediately by file name, title or path as the user types, combined with Type, Location and job scope. Matching is case-insensitive; clearing the search restores the current scope. The result count and empty state update without moving typing focus. Files appear in a sortable table with Name, Kind, Date Last Opened and Date Created. Header arrows show both sort directions and highlight the current one. File names open a preview with existing download/trash actions. The enlarged popup uses compact single-line rows and short display names without generated duration/frame-edit suffixes or extensions; original names remain in tooltips and search. The All jobs and stories button is removed. Last-opened dates track explicit Drive previews in this browser, scoped to the signed-in user and workspace; unknown dates display an em dash and sort last.
 
