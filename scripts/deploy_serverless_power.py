@@ -1,7 +1,7 @@
 """Deploy Serverless On/Off (PR #94) to the storage API pod and restart only the storage API.
 
 Run on the storage pod (python3 deploy_serverless_power.py --api-pid PID):
-  1. Refuses unless Studio is idle: no audio or Studio jobs (deploy_audio_delivery.assert_idle) and no
+  1. Refuses unless Studio is idle: no audio queue entries or unfinished Studio jobs and no
      relayed GPU generation in progress on any pod, Serverless included.
   2. Downloads backend/serverless_power.py from SOURCE_COMMIT and checks its SHA-256.
   3. Adds the four Serverless On/Off hooks to the pod's OWN storage_api.py (import, write routes, the
@@ -86,8 +86,30 @@ def relayed_jobs():
     return busy
 
 
+def studio_jobs():
+    """Unfinished audio queue entries and Studio jobs (the first half of deploy_audio_delivery.assert_idle).
+    Its live-audio-worker check is left out: the Serverless audio dispatcher is always registered, and this
+    deploy never touches audio workers."""
+    active = []
+    for f in base.QUEUE.glob('*/status.json'):
+        try:
+            status = json.loads(f.read_text()).get('status')
+        except (OSError, ValueError):
+            continue
+        if status not in base.TERMINAL:
+            active.append(('audio_queue', status))
+    import sqlite3
+    with sqlite3.connect('file:' + str(base.DATABASE) + '?mode=ro', uri=True) as db:
+        rows = db.execute("SELECT kind, json_extract(body, '$.status') FROM records "
+                          "WHERE kind LIKE '%job%' OR kind='audio_workflow_run'").fetchall()
+    active.extend((kind, status) for kind, status in rows if status not in base.TERMINAL)
+    return active
+
+
 def assert_idle():
-    base.assert_idle()
+    active = studio_jobs()
+    if active:
+        raise RuntimeError('Active or unresolved jobs; deployment stopped: ' + repr(active))
     busy = relayed_jobs()
     if busy:
         raise RuntimeError('GPU generations are running; deployment stopped: ' + ', '.join(busy[:5]))
