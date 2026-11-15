@@ -3,7 +3,8 @@
 On  = the image, video and audio endpoints each keep one worker running (RunPod workersMin 1), and each
       gets one tiny wake-up job so its model is loaded before the first real generation:
       images a 256 px one-step Qwen-Image render, video a 9-frame one-step Wan 2.2 5B clip,
-      audio one short Chatterbox line.
+      audio one short Chatterbox line. They go through the Serverless bridge on this pod (its ComfyUI
+      stand-in and the audio queue), which holds the RunPod key allowed to run jobs.
 Off = workersMin back to 0 everywhere, so RunPod shuts the idle workers down and billing stops.
 
 Studio turns it On when someone signs in and Off when they sign out; the GPU icon's button turns it
@@ -19,17 +20,16 @@ it Off or signs out.
 Runs inside the storage API with the account RunPod key runpod_pods already uses; the browser never
 sees the key. State is kept in a small JSON file so a restart keeps On/Off, the setting and the timer.
 """
-import base64
-import io
 import json
 import os
 import re
+import shutil
 import sqlite3
-import tarfile
 import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 import runpod_pods
@@ -39,6 +39,11 @@ API = os.getenv('RUNPOD_API_BASE', 'https://api.runpod.ai/v2').rstrip('/')
 DEFAULT_ENDPOINTS = {'images': 'yoxpbbmy8ecy0h', 'video': 'q7fsjr4f8xt60f', 'audio': 'pifk74h48p9mwl'}
 STATE_FILE = Path(os.getenv('ECCO_SERVERLESS_POWER_FILE', '/workspace/ecco-storage-private/serverless-power.json'))
 STUDIO_DB = Path(os.getenv('ECCO_STUDIO_DB', '/workspace/ecco-studio-data/studio.sqlite'))
+# Wake-up jobs go through the Serverless bridge on this pod, which holds the job-running RunPod key:
+# its ComfyUI stand-in (Qwen -> image endpoint, Wan -> video endpoint) and the audio queue it watches.
+COMFY_PROXY = os.getenv('ECCO_COMFY_PROXY', 'http://127.0.0.1:8188').rstrip('/')
+AUDIO_QUEUE = Path(os.getenv('ECCO_AUDIO_QUEUE', '/workspace/ecco-audio/queue'))
+WAKE_AUDIO_WORKER = os.getenv('ECCO_SERVERLESS_AUDIO_POD', 'serverless')
 DEFAULT_AUTO_OFF = 30
 AUTO_OFF_CHOICES = (30, None)  # minutes; None = never
 SHARED_SECONDS = 5 * 60
@@ -206,35 +211,68 @@ def video_wakeup():
 
 
 def audio_wakeup():
-    """One short Chatterbox line: unpacks the speech runtime and the Chatterbox voice environment."""
-    request = {'model': 'chatterbox', 'compute': 'a100', 'genre': 'News', 'title': 'Wake-up',
-               'lines': [{'text': 'Ready.', 'language': 'English', 'emotion': 'neutral', 'voice': 'default'}]}
-    buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode='w') as archive:
-        data = json.dumps(request).encode()
-        info = tarfile.TarInfo('request.json')
-        info.size, info.mtime = len(data), int(time.time())
-        archive.addfile(info, io.BytesIO(data))
-    return {'key': 'wakeup-audio', 'archive': {'inline': base64.b64encode(buffer.getvalue()).decode()}}
+    """One short Chatterbox line for the Serverless audio worker: unpacks the speech runtime and the
+    Chatterbox voice environment."""
+    return {'model': 'chatterbox', 'compute': 'a100', 'worker_id': WAKE_AUDIO_WORKER, 'genre': 'News',
+            'title': 'Serverless wake-up', 'wakeup': True,
+            'lines': [{'text': 'Ready.', 'language': 'English', 'emotion': 'neutral', 'voice': 'default'}]}
 
 
-WAKEUPS = {'images': image_wakeup, 'video': video_wakeup, 'audio': audio_wakeup}
+def _comfy(graph, opener):
+    request = urllib.request.Request(COMFY_PROXY + '/prompt', method='POST', headers={'Content-Type': 'application/json'},
+                                     data=json.dumps({'prompt': graph, 'client_id': 'ecco-serverless-wakeup'}).encode())
+    try:
+        with opener(request, timeout=30) as response:
+            reply = json.loads(response.read() or b'{}')
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        raise PowerError(f'The Serverless bridge did not take the wake-up job: {exc}', 502) from None
+    if not reply.get('prompt_id'):
+        raise PowerError('The Serverless bridge rejected the wake-up job: ' + json.dumps(reply)[:300], 502)
+    return reply['prompt_id']
 
 
-def wake(opener=urllib.request.urlopen):
-    """Send one wake-up job to each warm endpoint; returns {group: RunPod job id or 'error: ...'}."""
-    sent = {}
-    for group, endpoint in endpoints().items():
-        build = WAKEUPS.get(group)
-        if not build:
-            continue
+def _queue_audio(now=time.time):
+    directory = AUDIO_QUEUE / uuid.uuid4().hex
+    directory.mkdir(parents=True, mode=0o700)
+    for name, value in (('request.json', audio_wakeup()), ('status.json', {'status': 'queued', 'created': now()})):
+        temp = directory / (name + '.tmp')
+        temp.write_text(json.dumps(value))
+        os.replace(temp, directory / name)
+    return directory.name
+
+
+def wake(opener=urllib.request.urlopen, now=time.time):
+    """Send one wake-up job to each warm endpoint; returns {group: job id or 'error: ...'}."""
+    sent, groups = {}, endpoints()
+    for group in ('images', 'video'):
+        if group in groups:
+            try:
+                sent[group] = _comfy((image_wakeup if group == 'images' else video_wakeup)()['workflow'], opener)
+            except PowerError as exc:
+                sent[group] = 'error: ' + exc.message[:200]
+    if 'audio' in groups:
         try:
-            reply = _http('POST', f'{API}/{endpoint}/run', {'input': build(), 'policy': {'executionTimeout': 30 * 60 * 1000}},
-                          opener=opener)
-            sent[group] = str(reply.get('id') or 'sent')
-        except PowerError as exc:
-            sent[group] = 'error: ' + exc.message[:200]
+            sent['audio'] = _queue_audio(now)
+        except OSError as exc:
+            sent['audio'] = f'error: could not queue the audio wake-up: {exc}'
     return sent
+
+
+def cleanup_wakeups(now=time.time):
+    """Remove finished (or abandoned, > 1 h) audio wake-up folders; they are not Studio jobs."""
+    removed = 0
+    for directory in AUDIO_QUEUE.glob('[a-f0-9]' * 32):
+        try:
+            request = json.loads((directory / 'request.json').read_text())
+            if not request.get('wakeup'):
+                continue
+            status = json.loads((directory / 'status.json').read_text()).get('status')
+            if status in ('done', 'complete', 'completed', 'error', 'failed', 'cancelled') or now() - directory.stat().st_mtime > 3600:
+                shutil.rmtree(directory, ignore_errors=True)
+                removed += 1
+        except (OSError, ValueError):
+            continue
+    return removed
 
 
 def _wake_later(at):
@@ -251,9 +289,21 @@ def _wake_later(at):
 
 # --- Work in progress -----------------------------------------------------------
 
+def _wakeups_running():
+    count = 0
+    for directory in AUDIO_QUEUE.glob('[a-f0-9]' * 32):
+        try:
+            if json.loads((directory / 'request.json').read_text()).get('wakeup') and \
+                    json.loads((directory / 'status.json').read_text()).get('status') == 'running':
+                count += 1
+        except (OSError, ValueError):
+            continue
+    return count
+
+
 def running_jobs(now=time.time):
     """Serverless work in progress: relayed GPU jobs, audio queue entries and unfinished Studio jobs (< 6 h old)."""
-    count = runpod_pods.active_jobs('serverless')
+    count = max(0, runpod_pods.active_jobs('serverless') - _wakeups_running())
     try:
         with sqlite3.connect('file:' + str(STUDIO_DB) + '?mode=ro', uri=True, timeout=5) as db:
             rows = db.execute("SELECT json_extract(body, '$.status'), json_extract(body, '$.created') FROM records "
@@ -412,6 +462,7 @@ def start(interval=60):
         while True:
             time.sleep(interval)
             try:
+                cleanup_wakeups()
                 tick()
             except Exception as exc:  # keep watching; RunPod may be briefly unreachable
                 print('Serverless idle check failed:', exc, flush=True)
