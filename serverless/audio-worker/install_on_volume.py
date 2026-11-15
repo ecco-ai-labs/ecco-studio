@@ -353,7 +353,10 @@ def sound(model):
         code = ('import shutil, sys\nfrom pathlib import Path\n'
                 'shutil.copy2 = lambda src, dst, *a, **k: shutil.copyfile(src, dst if not Path(dst).is_dir() else Path(dst) / Path(src).name)\n'
                 'from acestep.model_downloader import download_main_model\n'
-                'print("ACE-Step main model:", download_main_model(Path(sys.argv[1]), force=False))\n')
+                'print("ACE-Step main model:", download_main_model(Path(sys.argv[1]), force=False))\n'
+                'import acestep.model_downloader as m\n'
+                'for c in m.MAIN_MODEL_COMPONENTS:\n'
+                '    if c in m._CHECKPOINT_TO_VARIANT: print("synced", c, m._sync_model_code_files(c, Path(sys.argv[1])))\n')
         run([base / 'a100-venv' / 'bin' / 'python', '-c', code, base / 'weights'], env=env, cwd=str(base / 'source'))
     install_seconds = round(time.time() - began)
     began = time.time()
