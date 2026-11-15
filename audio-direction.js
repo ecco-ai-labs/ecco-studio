@@ -182,10 +182,14 @@
  const parts=plan=>[...(plan.opening?[plan.opening]:[]),...plan.segments];
  function clean(value){
   if(value==null)return undefined;
-  // Directions written in the script as [brackets] may carry only words; emotion and pause then default.
-  const v={emotion:'neutral',pause_before:0,...value};
-  if(typeof value!=='object'||!emotions.includes(v.emotion)||typeof v.direction!=='string'||!v.direction.trim()||v.direction.length>400||!Number.isFinite(v.pause_before)||v.pause_before<0||v.pause_before>2||(v.after!=null&&(typeof v.after!=='string'||v.after.length>120)))throw Error('AI returned invalid delivery cues. Your script was preserved.');
-  return {emotion:v.emotion,direction:v.direction.trim(),pause_before:v.pause_before,...(v.after?{after:v.after.trim()}:{}),...(v.manual?{manual:true}:{})};
+  if(typeof value!=='object')throw Error('AI returned invalid delivery cues. Your script was preserved.');
+  // A delivery picked from the Screen Play menu carries only the emotion (live run 2026-11-15 blocked Generate);
+  // directions written in the script as [brackets] may carry only words. Fill gaps instead of failing.
+  const emotion=emotions.includes(value.emotion)?value.emotion:'neutral';
+  const direction=typeof value.direction==='string'&&value.direction.trim()?value.direction.trim().slice(0,400):profiles[emotion][0];
+  const pause=Number.isFinite(value.pause_before)?Math.min(2,Math.max(0,value.pause_before)):0;
+  const after=typeof value.after==='string'&&value.after.trim()&&value.after.length<=120?value.after.trim():'';
+  return {emotion,direction,pause_before:pause,...(after?{after}:{}),...(value.manual?{manual:true}:{})};
  }
  function guidance(brief={}){
   const genre=brief.genre||'Story Book Reading',audience=brief.audience||'the selected audience',style=brief.language_style||'Everyday / Conversational';
