@@ -98,6 +98,24 @@
  }
  // Keep references, timing and camera edits when the same scene survives a script edit.
  function reconcileScenes(next,previous){return next.map((s,i)=>{const old=previous.find(p=>p.narration===s.narration&&p.motion===s.motion);return old?{...s,...old,title:s.title,image_id:old.image_id||s.image_id||''}:{...s,image_id:s.image_id||''};});}
- const api={types,genres,typeLabel,typeOptions,fresh,migrate,transcript,validateCast,parseScript,sourcePlan,validateProposal,signature,reconcileScenes};
+ // Default voice model per Story Type, Genre and Language (owner 2026-11-15, "Serverless voice model grid").
+ // Only the starting choice: a model the user picks in Characters is never replaced. Callers keep the
+ // models the workers can run, in this order. Pod-only models trail so pods still find something.
+ const EMOTIONAL=['Comedy','Adventure','Action','Drama','Fantasy','Mystery','Thriller','Horror','Romance','Science Fiction'];
+ const ACTED=['storybook','audio-drama','podcast','interview','marketing'];
+ const KOKORO_LANGS=['English','Spanish','Portuguese','French','Italian','Japanese','Chinese'];
+ const INDIC=['Tamil','Punjabi','Bengali','Telugu','Marathi','Gujarati','Kannada','Malayalam','Assamese','Odia'];
+ const POD_ONLY=['qwen3-tts','svara-tts','indic-parler'];
+ function voiceModelRank(type,genre,language){
+  const acted=ACTED.includes(type)||(!['news','documentary','teaching','training','presentation'].includes(type)&&EMOTIONAL.includes(genre));
+  let order;
+  if(language==='Urdu')order=['indic-mio'];
+  else if(INDIC.includes(language))order=['indicf5','indic-mio'];
+  else if(language==='Hindi')order=acted?['chatterbox','voxcpm2','indicf5','kokoro','indic-mio']:['indicf5','kokoro','voxcpm2','chatterbox','indic-mio'];
+  else if(acted)order=['voxcpm2','chatterbox','kokoro'];
+  else order=KOKORO_LANGS.includes(language)?['kokoro','voxcpm2','chatterbox']:['voxcpm2','chatterbox','kokoro'];
+  return [...order,...POD_ONLY.filter(m=>!order.includes(m))];
+ }
+ const api={voiceModelRank,types,genres,typeLabel,typeOptions,fresh,migrate,transcript,validateCast,parseScript,sourcePlan,validateProposal,signature,reconcileScenes};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EccoStoryWorkspaceModel=api;
 })(typeof window==='undefined'?globalThis:window);

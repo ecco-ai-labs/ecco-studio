@@ -736,9 +736,7 @@
  }
  const voiceGender=v=>/\b(masculine|male)\b/i.test(v.name||'')?'Male':/\b(feminine|female)\b/i.test(v.name||'')?'Female':'';
  const genderOf=c=>/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
- // svara-TTS (GPU) has native male and female voices per Indian language plus emotion tags, so it leads where a worker offers it.
  // Qwen3-TTS (GPU) designs a distinct voice per character from a description (children, elders, accents) and follows delivery instructions, so it leads for English where installed.
- const VOICE_QUALITY={English:['qwen3-tts','kokoro','voxcpm2','indic-parler','chatterbox','svara-tts','indic-mio'],Urdu:['indic-parler','indic-mio'],Telugu:['svara-tts','indicf5','indic-parler','indic-mio'],Hindi:['svara-tts','indic-parler','indicf5','indic-mio'],other:['svara-tts','indic-parler','indicf5','voxcpm2','kokoro','chatterbox','indic-mio']};
  function voiceModels(language){
   const ready=window.EccoAudioCompute?.readyNow?.(),fits=(window.EccoAudioModels||[]).filter(m=>!m.pending&&(!m.languages||m.languages.includes(language)));
   return fits.filter(m=>!ready||ready.includes(m.id));
@@ -746,9 +744,10 @@
  function assignVoices(cast,model){
   const need=cast.filter(c=>!c.voiceChosen).length,language=data.language;let short=0;
   // Voice quality (owner report 2026-11-09): use the best-sounding model the workers can run for this language.
-  const options=voiceModels(language),rank=VOICE_QUALITY[language]||VOICE_QUALITY.other,score=m=>{const i=rank.indexOf(m.id);return i<0?rank.length:i;};
+  // The grid (M.voiceModelRank) picks by Story Type, Genre and Language; models the user chose are kept.
+  const options=voiceModels(language),rank=M.voiceModelRank(data.type,data.genre,language),score=m=>{const i=rank.indexOf(m.id);return i<0?rank.length:i;};
   const most=Math.max(0,...options.map(m=>voicePool(m,language).length)),enough=m=>voicePool(m,language).length>=Math.min(need,most);
-  const chosen=[...options].sort((a,b)=>score(a)-score(b)).find(enough)||options[0]||model;
+  const ranked=[...options].sort((a,b)=>score(a)-score(b)),chosen=ranked.find(enough)||ranked[0]||model;
   const used=new Set(cast.filter(c=>c.voiceChosen).map(c=>(c.model||chosen.id)+'|'+c.voice));let alternate=0;
   for(const c of cast){
    if(c.voiceChosen)continue;
@@ -761,7 +760,12 @@
   data.voiceShortage=short?{model:chosen.name||chosen.id,language,count:cast.length}:null;
   if(short)message(chosen.name+' doesn’t have a different '+language+' voice for every character, so some share a voice.');
  }
- window.EccoStoryVoices={assign:(cast,model)=>{if(data&&model)assignVoices(cast,model);}};
+ window.EccoStoryVoices={assign:(cast,model)=>{
+  if(!data||!model)return;assignVoices(cast,model);
+  // Before Serverless has said which models it runs, any model could be picked; pick again once it has.
+  if(data.output==='audio'&&!window.EccoAudioCompute?.readyNow?.()&&window.EccoAudioCompute?.refresh){const current=data;
+   Promise.resolve(window.EccoAudioCompute.refresh()).then(()=>{if(data!==current||!window.EccoAudioCompute.readyNow?.())return;assignVoices(current.cast,model);persist();if(inPage('[data-cast-panel]'))render();}).catch(()=>{});}
+ }};
  function applyDetectedCast(proposal,model,valid){
     castDefaults(proposal,model);valid();data.cast=proposal.cast;data.castCustomized=false;data.castReason=proposal.cast.length+' '+(data.output==='audio'?'audio ':'')+'characters identified from applied text.'+(proposal.reason?' '+proposal.reason:'');data.plan=proposal.plan||null;if(proposal.plan){data.audioScript=M.transcript(proposal.plan,data.cast);if(data.output==='audio')data.script=data.audioScript;data.sourceAssignmentPending=false;}data.castPending=false;epoch++;persist();if(data.tab===CHARACTERS){render();aiStatus('Characters and properties are ready.');}
  }
