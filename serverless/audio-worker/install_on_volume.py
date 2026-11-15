@@ -50,7 +50,7 @@ VOXCPM_PACKAGES = ['transformers==4.51.3', 'huggingface_hub<1', 'librosa==0.11.0
 WEIGHT_PATTERNS = ['*.json', '*.safetensors', '*.model', '*.txt', '*.tiktoken', '*.pth', 'LICENSE*', '*.md']
 SOUND_MODELS = ('ace-step-1.5', 'moss-soundeffect-v2')
 KOKORO_PACKAGES = ['kokoro==0.9.4', 'misaki[en,ja,zh]==0.9.4', 'spacy==3.8.7', 'preshed==3.0.10', 'soundfile',
-                   'huggingface_hub<1', 'transformers==4.51.3']
+                   'huggingface_hub<1', 'transformers==4.51.3', 'click>=8.1']
 # spaCy's English model as a pinned wheel, so the first job never tries to download it.
 SPACY_EN = 'https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl'
 KOKORO_PATTERNS = ['config.json', 'kokoro-v1_0.pth', 'voices/*.pt', 'LICENSE*', '*.md']
