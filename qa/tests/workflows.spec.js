@@ -1750,6 +1750,21 @@ test('STORY-35 VoxCPM2 designs a character voice from the description and Genera
  expect(speakers).toContainEqual(['Ali','voxcpm2','ref:'+'a'.repeat(32)]);
  expect(page.qaErrors).toEqual([]);
 });
+// Live run 2026-11-14: "Nationality: …" was appended to the character description on every trip through Generation.
+test('STORY-36 A character description does not grow "Nationality" notes on round trips through Generation',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Round trips');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
+ await page.locator('.story-simple-actions [data-next]').click();await castEditor(page);
+ await page.getByRole('tab',{name:'Ali',exact:true}).click();await page.getByLabel('Character 2 Suggested voice',{exact:true}).fill('Calm and low.');
+ await page.getByLabel('Character 2 Nationality',{exact:true}).fill('Indian');
+ for(let i=0;i<3;i++){await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await page.getByRole('tab',{name:'3. Story Characters',exact:true}).click();await castEditor(page);}
+ await page.getByRole('tab',{name:'Ali',exact:true}).click();await expect(page.getByLabel('Character 2 Suggested voice',{exact:true})).toHaveValue('Calm and low.');
+ const speaker=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-audio-draft:'));return JSON.parse(localStorage.getItem(k)).speakers.find(s=>s.name==='Ali').delivery;});
+ expect(speaker).toBe('Calm and low. Nationality: Indian');
+ expect(page.qaErrors).toEqual([]);
+});
 const rosterScreens={
  'Story details':async page=>boot(page),
  'Story and characters':async page=>{await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Roster audit');for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();},

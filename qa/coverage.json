@@ -287,5 +287,9 @@
   {
     "area": "Characters: VoxCPM2 voice design",
     "scope": "STORY-35 checks that choosing VoxCPM2 offers “Design from the description above”, that Design voice refuses an empty Suggested voice, that a description designs one voice saved as the character's voice (ref:<id>, “Designed voice · <name>”) with a sample sentence long enough for a 3–30 s clip, that testing a line speaks with that voice, and that Generation keeps it instead of resetting to a catalog voice. The real design job (POST /api/audio/voices/design on VoxCPM2) needs storage and a GPU and is verified live."
+  },
+  {
+    "area": "Characters: description round trips",
+    "scope": "STORY-36 checks that going back and forth between Characters and Generation keeps a character's Suggested voice exactly as typed and adds the Nationality note to the audio speaker once (live run 2026-11-14 found it appended on every round trip)."
   }
 ]
