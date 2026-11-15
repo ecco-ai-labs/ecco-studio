@@ -11,7 +11,10 @@ Steps (run in the order given; each prints one JSON line starting with ECCO_STEP
   inventory              what is on the volume (models, environments, readiness files, free disk)
   sync-scripts           copy the worker scripts (audio/*.py, model_catalog.json) at this commit to the
                          volume; the previous copies are kept in backup-scripts-<time>/
-  pack:<name>            archive an existing environment on the volume (e.g. pack:chatterbox)
+  pack:<name>            archive an existing environment on the volume (e.g. pack:chatterbox); slow for
+                         large environments because it reads every small file from the volume
+  rebuild:<name>         chatterbox or indicf5: rebuild the environment on local disk with the exact package
+                         versions found in the volume copy, GPU smoke test, archive (fast replacement for pack)
   voxcpm2                build voxcpm2-venv, download openbmb/VoxCPM2 if missing, GPU smoke test,
                          then mark ready in gpu-ready-models.json
   chatterbox-hi          download the Hindi Chatterbox finetune to models/chatterbox/hi
@@ -248,6 +251,72 @@ def smoke_speech(model, python, lines):
     return seconds, round(time.time() - began)
 
 
+REBUILD_SMOKE = {
+    'chatterbox': [{'text': 'Welcome to the show. Today we have a wonderful story for you.', 'language': 'English', 'voice': 'default'},
+                   {'text': 'नमस्ते। आज की कहानी शुरू करते हैं।', 'language': 'Hindi', 'voice': 'default'}],
+    'indicf5': [{'text': 'नमस्ते, आज की कहानी शुरू करते हैं।', 'language': 'Hindi', 'voice': 'kan_f'}],
+}
+
+
+def installed_packages(venv):
+    """name==version pins (and git sources) of a venv on the volume, read from its dist-info folders."""
+    sites = list((venv / 'lib').glob('python3*/site-packages'))
+    if not sites:
+        raise SystemExit('No site-packages in ' + str(venv))
+    pins, skipped = [], []
+    for info in sorted(sites[0].glob('*.dist-info')):
+        try:
+            meta = (info / 'METADATA').read_text(errors='replace')
+        except OSError:
+            continue
+        fields = dict(line.split(': ', 1) for line in meta.splitlines()[:20] if ': ' in line)
+        name, version = fields.get('Name'), fields.get('Version')
+        if not name or not version or name.lower() in ('pip', 'setuptools', 'wheel', 'torch', 'torchaudio'):
+            continue
+        direct = read_json(info / 'direct_url.json', None)
+        if direct and direct.get('vcs_info'):
+            pins.append('git+' + direct['url'] + '@' + direct['vcs_info']['commit_id'])
+        elif direct and direct.get('dir_info'):
+            skipped.append(name)
+        else:
+            pins.append(name + '==' + version)
+    return pins, skipped
+
+
+def rebuild(name):
+    if name not in REBUILD_SMOKE:
+        raise SystemExit('rebuild supports ' + ', '.join(REBUILD_SMOKE))
+    venv_name = name + '-venv'
+    pins, skipped = installed_packages(VOL / venv_name)
+    env_dir = LOCAL / venv_name
+    if (AUDIO / venv_name).is_symlink() and (AUDIO / venv_name).resolve() == env_dir.resolve() and env_dir.exists():
+        shutil.rmtree(env_dir)  # rebuild from scratch even on a warm worker
+    if env_dir.exists():
+        shutil.rmtree(env_dir)
+    LOCAL.mkdir(parents=True, exist_ok=True)
+    run([RUNTIME_PY, '-m', 'venv', '--system-site-packages', env_dir])
+    constraints = env_dir / 'ecco-constraints.txt'
+    constraints.write_text(''.join(p + '\n' for p in base_constraints()))
+    python = env_dir / 'bin' / 'python'
+    began = time.time()
+    run([python, '-m', 'pip', 'install', '--no-deps', '-c', constraints, *pins], env=clean_env())
+    link(env_dir, AUDIO / venv_name)
+    directory = Path(tempfile.mkdtemp(prefix='smoke-' + name + '-'))
+    (directory / 'request.json').write_text(json.dumps({'compute': 'a100', 'model': name, 'lines': REBUILD_SMOKE[name]}))
+    run([python, AUDIO / 'extra_worker.py', '--request', directory / 'request.json', '--runtime', AUDIO / 'models',
+         '--output', directory / 'output.wav'], env=clean_env(HF_HUB_OFFLINE='1', HF_HOME=str(AUDIO / 'hf-cache')),
+        cwd=str(AUDIO), timeout=1800)
+    output = directory / 'output.wav'
+    if not output.is_file() or output.stat().st_size <= 44:
+        raise SystemExit(name + ' smoke test produced no audio.')
+    import wave
+    with wave.open(str(output)) as f:
+        seconds = round(f.getnframes() / f.getframerate(), 2)
+    publish_speech_venv(venv_name)
+    step_result('rebuild', venv=venv_name, packages=len(pins), skipped=skipped, audio_seconds=seconds,
+                seconds=round(time.time() - began))
+
+
 def voxcpm2():
     python = build_venv('voxcpm2-venv', VOXCPM_PACKAGES, extra=[['--no-deps', VOXCPM_SOURCE]])
     weights = VOL / 'models' / 'voxcpm2'
@@ -384,8 +453,12 @@ def main(steps):
                 inventory()
             elif name == 'sync-scripts':
                 sync_scripts()
+            elif name == 'pack' and argument.startswith('rebuild-'):
+                rebuild(argument[len('rebuild-'):])  # alias accepted by workers built before rebuild: existed
             elif name == 'pack':
                 pack(argument)
+            elif name == 'rebuild':
+                rebuild(argument)
             elif name == 'voxcpm2':
                 voxcpm2()
             elif name == 'chatterbox-hi':
