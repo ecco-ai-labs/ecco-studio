@@ -352,6 +352,97 @@ test('IMG-create falls back to choosing the image type when AI is off',async({pa
   await expect(page.locator('#image-form')).toBeVisible();await expect(page.locator('#image-workspace')).toHaveCount(0);
   expect(page.qaErrors).toEqual([]);
 });
+// Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
+// the sidebar tree Studios › Voice Studio.
+async function openVoiceStudio(page){
+  await boot(page,{landing:true});
+  await page.evaluate(()=>{localStorage.removeItem('ecco-voice-workspace');window.EccoCompute={...window.EccoCompute,choices:()=>[{id:'serverless',name:'Serverless'}]};});
+  await page.locator('#workspace-voice-studio-node > summary').click();
+  const ws=page.locator('#voice-workspace');await expect(ws).toBeVisible();return ws;
+}
+const voiceCalls=(page,path)=>page.evaluate(p=>window.__qaCalls.filter(c=>c.path===p).map(c=>c.body),path);
+test('VOICE-01 sidebar tree: Studios below Tell Your Story with the same gap, Voice Studio indented with its own sign',async({page})=>{
+  await openVoiceStudio(page);
+  const gaps=await page.evaluate(async()=>{
+    const frame=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const bottom=el=>{const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let m=-1e9,n;while(n=w.nextNode()){if(!n.textContent.trim())continue;const r=document.createRange();r.selectNodeContents(n);for(const q of r.getClientRects())if(q.height)m=Math.max(m,q.bottom);}return m;};
+    const top=el=>{const r=document.createRange();r.selectNodeContents(el.querySelector(':scope>summary span:last-child'));return r.getClientRects()[0].top;};
+    const lib=document.querySelector('#workspace-library-group'),tell=document.querySelector('#workspace-production-group'),studios=document.querySelector('#workspace-studios-group');
+    // Same distance as Library → Tell Your Story, with both groups open and with both closed.
+    const gap=async open=>{lib.open=open;tell.open=open;await frame();return [top(tell)-bottom(lib),top(studios)-bottom(tell)];};
+    const shut=await gap(false),opened=await gap(true);
+    // A different font changes the space under the last line; the gap must still match.
+    const font=document.createElement('style');font.textContent='aside,aside *{font-family:Georgia,serif!important}';document.head.append(font);dispatchEvent(new Event('resize'));await frame();
+    const shutSerif=await gap(false),openedSerif=await gap(true);font.remove();dispatchEvent(new Event('resize'));await frame();
+    return {order:tell.nextElementSibling===studios,library:shut[0],studios:shut[1],libraryOpen:opened[0],studiosOpen:opened[1],serif:[shutSerif[0]-shutSerif[1],openedSerif[0]-openedSerif[1]],
+     indent:document.querySelector('#workspace-voice-studio-node>summary span:last-child').getBoundingClientRect().left-studios.querySelector(':scope>summary span:last-child').getBoundingClientRect().left,
+     sign:getComputedStyle(document.querySelector('#workspace-voice-studio-node>summary>.library-symbol'),'::before').content};
+  });
+  expect(gaps.order).toBe(true);expect(Math.abs(gaps.studios-gaps.library)).toBeLessThan(1);expect(Math.abs(gaps.studiosOpen-gaps.libraryOpen)).toBeLessThan(1);
+  expect(Math.abs(gaps.serif[0])).toBeLessThan(1);expect(Math.abs(gaps.serif[1])).toBeLessThan(1);
+  expect(gaps.indent).toBeGreaterThan(10);expect(gaps.sign).toBe('"−"');
+  const node=page.locator('#workspace-voice-studio-node');await expect(node).toHaveAttribute('open','');
+  await expect(node.getByRole('button',{name:'1. Voice',exact:true})).toBeVisible();await expect(node.getByRole('button',{name:'3. Publish Voice',exact:true})).toBeVisible();
+  await expect(page.locator('#heading')).toHaveText('Voice Studio');await expect(page.locator('#journey-guide')).toBeHidden();
+  // Collapsing Voice Studio hides its rows and shows +.
+  await node.locator('summary').click();await expect(node).not.toHaveAttribute('open','');await expect(node.getByRole('button',{name:'1. Voice',exact:true})).toBeHidden();
+  expect(page.qaErrors).toEqual([]);
+});
+test('VOICE-02 Voice Studio: upload, generate, improve, hear and publish under a new label',async({page})=>{
+  test.setTimeout(60000);
+  const ws=await openVoiceStudio(page);
+  await expect(ws.getByRole('tab',{name:'1. Voice',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(ws.locator('.iw-settings')).toContainText('Qwen3-TTS Voice Design');await expect(ws.locator('.iw-settings')).toContainText('Serverless');
+  for(const name of ['Upload a Voice','Generate with AI','Record with Mic'])await expect(ws.getByRole('tab',{name,exact:true})).toBeVisible();
+  const selected=ws.locator('.pdf-selected-label');await expect(selected).toContainText('0 of 3');await expect(selected.locator('.iw-empty-slot')).toHaveCount(3);
+  await expect(ws.getByRole('button',{name:'Next: Enhance Voice →',exact:true})).toBeDisabled();
+
+  // Upload a Voice: the clip is uploaded, then saved as a voice (cleaned, with consent).
+  await ws.locator('[data-upload-file]').setInputFiles(new URL('../fixtures/sample.wav',import.meta.url).pathname);
+  await expect(selected).toContainText('1 of 3');
+  const created=(await voiceCalls(page,'audio/voices/create'))[0];expect(created).toMatchObject({source:'upload',consent:true,clean:true,character:'sample'});
+
+  // Generate with AI: Telugu switches to Indic Parler-TTS; English designs with Qwen3-TTS on Serverless.
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await expect(ws.getByRole('button',{name:'Generate voice',exact:true})).toBeDisabled();
+  await ws.locator('[data-input=genLang]').selectOption('Telugu');await expect(ws.locator('.iw-settings')).toContainText('Indic Parler-TTS');
+  await ws.locator('[data-input=genLang]').selectOption('English');
+  await ws.locator('[data-input=genPrompt]').fill('a grumpy cartoon duck who quacks when he gets angry');
+  await ws.getByRole('button',{name:'Generate voice',exact:true}).click();await expect(selected).toContainText('2 of 3');
+  const designed=(await voiceCalls(page,'audio/voices/design'))[0];
+  expect(designed).toMatchObject({model:'qwen3-tts',compute:'a100',language:'English'});expect(designed.description).toContain('cartoon character voice');expect(designed.description).toContain('grumpy cartoon duck');
+
+  // Improve with AI makes a draft from the voice's description; Use AI Voice puts it in Selected Voices.
+  await ws.getByLabel('AI instructions').fill('a bit older and slower');await ws.getByRole('button',{name:'Improve with AI',exact:true}).click();
+  await expect(ws.getByRole('tab',{name:'Draft 1',exact:true})).toHaveAttribute('data-filled','true');
+  expect((await voiceCalls(page,'audio/voices/design'))[1].description).toContain('Change: a bit older and slower');
+  const before=await page.evaluate(()=>window.EccoVoiceStudio.state.selected[1]);
+  await ws.getByRole('button',{name:'Use AI Voice',exact:true}).click();
+  expect(await page.evaluate(()=>window.EccoVoiceStudio.state.selected[1])).not.toBe(before);
+  // An uploaded voice has no description to change, so Improve with AI explains instead of guessing.
+  await selected.getByRole('button',{name:/^Show voice 1:/}).click();await expect(ws.getByRole('button',{name:'Improve with AI',exact:true})).toBeDisabled();
+  await expect(ws.getByLabel('AI instructions')).toHaveAttribute('placeholder',/Improve with AI changes voices made with Generate with AI/);
+  expect((await voiceCalls(page,'audio/voices/design')).length).toBe(2);
+  await ws.getByRole('tab',{name:'Record with Mic',exact:true}).click();await expect(ws.getByRole('button',{name:'Start Recording'})).toBeVisible();
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+
+  // 2. Enhance Voice: hear the selected voice say any line.
+  await ws.getByRole('button',{name:'Next: Enhance Voice →',exact:true}).click();
+  await expect(ws.getByRole('tab',{name:/^Voice 1 · sample/})).toHaveAttribute('aria-selected','true');
+  await ws.getByRole('button',{name:'Speak this line',exact:true}).click();
+  const spoken=(await voiceCalls(page,'audio/generate'))[0];expect(spoken.lines[0].voice).toBe('ref:'+(await page.evaluate(()=>window.EccoVoiceStudio.state.selected[0])));
+  await expect(ws.locator('#vw-enh-panel audio')).toHaveCount(2);
+
+  // 3. Publish Voice: save under a new label.
+  await ws.getByRole('button',{name:'Next: Publish Voice →',exact:true}).click();
+  await expect(ws.locator('.vw-publish figure')).toHaveCount(2);await expect(ws.getByRole('button',{name:'Publish',exact:true})).toBeDisabled();
+  await ws.getByRole('radio',{name:'+ New label',exact:true}).click();await ws.getByLabel('Label name').fill('QA Voices');
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  await ws.getByRole('button',{name:'Publish',exact:true}).click();
+  await expect(ws.getByRole('heading',{name:'2 voices saved to Audio Library › QA Voices'})).toBeVisible();
+  expect(await voiceCalls(page,'audio/folders')).toEqual([{name:'QA Voices'}]);expect((await voiceCalls(page,'audio/labels')).length).toBe(2);
+  expect(page.qaErrors).toEqual([]);
+});
 test('LIB-image-steps full-size viewer steps back and forward through the images',async({page})=>{
   await boot(page);const hub=await openLibrary(page,'image');
   const cards=hub.locator('[data-pick]'),n=await cards.count();expect(n).toBeGreaterThan(1);

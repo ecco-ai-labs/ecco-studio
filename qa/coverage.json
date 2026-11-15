@@ -270,6 +270,11 @@
     "scope": "IMG-create: journey step 4 opens the three-step workspace (no old image form), step header text, hidden Model settings with Qwen and Serverless defaults and no Image Library button; library selection, × remove, Generate with AI, Improve with AI drafts; Enhance Image animal vs person controls with ✦ suggestions, choices sent without a prompt and with a prompt, Image N references, Use Draft; Publish shows images and one Publish button, approves and labels with the story name; fallback type choice when AI is off; direct navigation keeps the old image form; roster audit clean. Real GPU generation, OpenAI image analysis and library writes remain blocked (synthetic jobs and responses)."
   },
   {
+    "area": "Voice Studio",
+    "mode": "fixture",
+    "scope": "VOICE-01/02: sidebar Studios sits after Tell Your Story with the same gap as Library → Tell Your Story (both open and both closed); Voice Studio is an indented tree node with its own −/+ sign and 1. Voice / 2. Enhance Voice / 3. Publish Voice rows; the page copies Create Images (steps, Model/Compute pills, three tabs, Selected Voices 0 of 3 with Empty slots, Improve with AI drafts, Next disabled until a voice is selected). Upload saves the clip and makes it a voice (cleaned, consent); Generate with AI designs with Qwen3-TTS on Serverless (Indic Parler-TTS for Telugu) with the voice-type hint; Improve with AI drafts from the description and Use AI Voice swaps it in; uploaded voices cannot be improved (✦ disabled with a note); Record with Mic shows Start Recording; Enhance Voice speaks a line with ref:<voice>; Publish saves under a new label; roster audit clean. Real recording, uploads to storage, voice design and speech on an audio worker remain blocked (synthetic responses)."
+  },
+  {
     "area": "Generation error popup and timer",
     "mode": "live",
     "scope": "Starting a new run (Generate on Screen Play or Generate again) marks the previous failed run's error as seen, so its popup does not reappear while the new run starts; the seen list is kept in localStorage so reloading or opening a new tab does not re-announce old failures; Elapsed stops at the last activity of a failed, stopped or finished run instead of counting up from its start forever. Verified live on The Jet That Starves Itself (11 Nov 2026)."

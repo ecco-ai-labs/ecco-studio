@@ -46,9 +46,9 @@
 @media(max-width:800px){.library-browser-tools{flex:1}.library-browser-tools input{flex:1;width:100px}#page .library-files{max-height:calc(100dvh - 260px)}}
 
 /* Larger Library and Tell Your Story headings, preserving other text sizes. */
-body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary{font-size:calc(16px - 2pt)!important}
+body>aside :is(#workspace-library-group,#workspace-production-group,#workspace-studios-group).workspace-library>summary{font-size:calc(16px - 2pt)!important}
 main:has(#page>.workspace-home) #heading{font-size:calc(21px - 2pt)}
 
 /* Match the landing subtitles in the corresponding sidebar branches. */
-#workspace-production-group .journey-step{--workspace-button-font-size:14px}
+:is(#workspace-production-group,#workspace-studios-group) .journey-step{--workspace-button-font-size:14px}
 #workspace-library-group .workspace-library>summary{font-size:calc(14px - 2pt)}
