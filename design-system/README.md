@@ -590,8 +590,7 @@ Saving or resuming a campaign includes today’s unsent occurrence in the select
 
 Campaigns also have Show Upcoming (days before), default 7; 14 means two weeks and 0 turns it off (maximum 90). Enabled Billing campaigns appear in the recipient’s Billing drawer, Credit and Usage and purchase popup before their start, with Upcoming plus their configured badge and start/expiry dates. These previews have no purchase/read actions or Bell unread count. Pause, targeting, placement and lead time apply; the scheduled notification replaces the preview after dispatch. Backend upcomingCampaignVersion 1 precedes frontend deployment.
 
-Save Draft makes Resume Saved Selection available immediately. Resume reads the latest
-saved selection and cannot restore a previous story’s source after navigation.
+Save Draft keeps the selection in this browser. The story page has no Resume Saved Selection bar.
 
 ## Selective agent checks
 

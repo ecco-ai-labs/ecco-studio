@@ -53,7 +53,6 @@
 @media(max-width:700px){.story-script-layout{overflow:auto}.story-script-layout>section{max-height:none}.story-script-layout [data-turns],.story-script-layout [data-properties]{overflow:visible}}
 .story-editor-panel{gap:10px}
 .story-editor-panel :is(p,div):empty{display:none}
-.story-editor-panel .story-source-resume:not(:has(button:not([hidden]))){display:none}
 #page .story-source-actions{gap:6px;margin:0}
 #page .story-source-actions .story-source-control{flex:0 0 172px;width:172px;padding:5px;border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px;background:var(--ecco-theme-surface,#201a35)}
 #page .story-source-control>button{width:160px!important;height:28px!important;min-height:28px!important;padding:5px 8px}
@@ -377,3 +376,10 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .generation-image-style{display:flex;flex-direction:column;gap:6px}
 .generation-image-style-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 @media(max-width:700px){.image-style-body{grid-template-columns:1fr}.image-style-groups{flex-direction:row;flex-wrap:wrap;border-right:0;padding-right:0}.image-style-list{grid-template-columns:1fr}}
+/* Story Picture: optional people who keep the same look (owner request 2026-11-15). Layout only. */
+.story-picture-people{margin:16px 0;border:1px dashed var(--ecco-theme-border,#4a4580);border-radius:10px;padding:12px 14px}
+.story-picture-people summary{cursor:pointer;color:var(--ecco-theme-accent,#ffdc24)}
+.story-picture-people-list{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.story-picture-person{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:10px;align-items:end}
+.story-picture-person label{display:flex;flex-direction:column;gap:4px}
+@media(max-width:700px){.story-picture-person{grid-template-columns:1fr}}

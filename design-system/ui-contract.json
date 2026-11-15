@@ -2163,7 +2163,7 @@
       "chapterFeedback": "Show missing input/connection errors and per-page reading/AI-boundary progress beside Chapter controls. Large book indexes omit repeated headers/footers and prioritize heading candidates; exact boundary verification remains mandatory.",
       "scriptReview": "Selected-text Improve with AI is available while reviewing character turns before Apply. Repeated improvement operates on the current suggested replacement, preserving the original exact replacement range. Storybook generation suggests uniquely named sound cues after script refinement; errors preserve the script and remain visible for retry.",
       "drafts": {
-        "controls": "Save Draft on every preparation step and source selection; Resume Saved Draft in Generate with AI and Resume Saved Selection in main Upload.",
+        "controls": "Save Draft on every preparation step and source selection; Resume Saved Draft in Generate with AI.",
         "content": "Source file, selected excerpts, scope and pending-selection state; instructions, audience, language, tone, questions, answers, cast, edited script, sound cues, current step and script version.",
         "scope": "Explicit browser-local save keyed by story/local-draft identity and entry surface. Parent story remains in Story Library as a local draft. Resume is explicit and does not apply or generate.",
         "feedback": "Saving Draft spinner, confirmed saved time, readable failure with current work retained. AI/storage not required for saving.",
