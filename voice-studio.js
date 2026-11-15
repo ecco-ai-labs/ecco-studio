@@ -288,6 +288,23 @@
 
  /* ---------- sidebar: Studios › Voice Studio (tree) ---------- */
  const expanded=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k)!=='false';localStorage.setItem(k,String(v));}catch{}return true;};
+ // Owner request: Studios sits exactly as far below Tell Your Story as Tell Your Story sits below Library (text to
+ // text). The space after a group's last line depends on the font, so it is measured rather than fixed: the gap
+ // Library → Tell Your Story is read whenever both are in the same open/closed state, and Studios gets the gap that
+ // matches Tell Your Story's current state.
+ const gapCache={};
+ function textBottom(el){const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let m=-Infinity,n;while(n=w.nextNode()){if(!n.textContent.trim())continue;const r=document.createRange();r.selectNodeContents(n);for(const b of r.getClientRects())if(b.height)m=Math.max(m,b.bottom);}return m;}
+ function textTop(group){const label=group.querySelector(':scope>summary span:last-child');if(!label)return NaN;const r=document.createRange();r.selectNodeContents(label);return r.getClientRects()[0]?.top??NaN;}
+ function alignGap(){
+  const lib=q('#workspace-library-group'),tell=q('#workspace-production-group'),group=q('#workspace-studios-group');
+  if(!lib||!tell||!group||!group.offsetParent)return;
+  if(lib.open===tell.open){const g=textTop(tell)-textBottom(lib);if(Number.isFinite(g))gapCache[tell.open]=g;}
+  const target=gapCache[tell.open];group.style.marginTop='';if(!Number.isFinite(target))return;
+  const now=textTop(group)-textBottom(tell);if(!Number.isFinite(now))return;
+  const margin=parseFloat(getComputedStyle(group).marginTop)+target-now;
+  if(Math.abs(target-now)>0.25&&margin>=0)group.style.marginTop=margin+'px';
+ }
+ let aligning=0;const queueAlign=()=>{cancelAnimationFrame(aligning);aligning=requestAnimationFrame(alignGap);};
  function sidebar(){
   const tell=q('#workspace-production-group');if(!tell)return;
   let group=q('#workspace-studios-group');
@@ -302,6 +319,8 @@
    group.addEventListener('click',e=>{const b=e.target.closest('[data-voice-step]');if(!b)return;load();ws.step=b.dataset.voiceStep;save();navigate(PAGE);});
   }
   if(tell.nextElementSibling!==group)tell.after(group);
+  for(const g of [q('#workspace-library-group'),tell])if(g&&!g.dataset.studiosGap){g.dataset.studiosGap='1';g.addEventListener('toggle',queueAlign);}
+  queueAlign();
   const on=page===PAGE;
   q('#workspace-voice-studio-node',group).classList.toggle('active',on);
   all('[data-voice-step]',group).forEach(b=>b.classList.toggle('active',on&&ws?.step===b.dataset.voiceStep));
@@ -333,5 +352,6 @@
  if(typeof names!=='undefined')names[PAGE]='Voice Studio';
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;sidebar();});}).observe(document.querySelector('aside')||document.body,{childList:true,subtree:true});
  sidebar();
+ window.addEventListener('resize',queueAlign);document.fonts?.ready?.then(queueAlign);
  window.EccoVoiceStudio={draw,open:()=>navigate(PAGE),get state(){return ws;}};
 })();

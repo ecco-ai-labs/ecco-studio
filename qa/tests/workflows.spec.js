@@ -363,18 +363,23 @@ async function openVoiceStudio(page){
 const voiceCalls=(page,path)=>page.evaluate(p=>window.__qaCalls.filter(c=>c.path===p).map(c=>c.body),path);
 test('VOICE-01 sidebar tree: Studios below Tell Your Story with the same gap, Voice Studio indented with its own sign',async({page})=>{
   await openVoiceStudio(page);
-  const gaps=await page.evaluate(()=>{
+  const gaps=await page.evaluate(async()=>{
+    const frame=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
     const bottom=el=>{const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let m=-1e9,n;while(n=w.nextNode()){if(!n.textContent.trim())continue;const r=document.createRange();r.selectNodeContents(n);for(const q of r.getClientRects())if(q.height)m=Math.max(m,q.bottom);}return m;};
     const top=el=>{const r=document.createRange();r.selectNodeContents(el.querySelector(':scope>summary span:last-child'));return r.getClientRects()[0].top;};
     const lib=document.querySelector('#workspace-library-group'),tell=document.querySelector('#workspace-production-group'),studios=document.querySelector('#workspace-studios-group');
     // Same distance as Library → Tell Your Story, with both groups open and with both closed.
-    const gap=open=>{lib.open=open;tell.open=open;return [top(tell)-bottom(lib),top(studios)-bottom(tell)];};
-    const shut=gap(false),opened=gap(true);
-    return {order:tell.nextElementSibling===studios,library:shut[0],studios:shut[1],libraryOpen:opened[0],studiosOpen:opened[1],
+    const gap=async open=>{lib.open=open;tell.open=open;await frame();return [top(tell)-bottom(lib),top(studios)-bottom(tell)];};
+    const shut=await gap(false),opened=await gap(true);
+    // A different font changes the space under the last line; the gap must still match.
+    const font=document.createElement('style');font.textContent='aside,aside *{font-family:Georgia,serif!important}';document.head.append(font);dispatchEvent(new Event('resize'));await frame();
+    const shutSerif=await gap(false),openedSerif=await gap(true);font.remove();dispatchEvent(new Event('resize'));await frame();
+    return {order:tell.nextElementSibling===studios,library:shut[0],studios:shut[1],libraryOpen:opened[0],studiosOpen:opened[1],serif:[shutSerif[0]-shutSerif[1],openedSerif[0]-openedSerif[1]],
      indent:document.querySelector('#workspace-voice-studio-node>summary span:last-child').getBoundingClientRect().left-studios.querySelector(':scope>summary span:last-child').getBoundingClientRect().left,
      sign:getComputedStyle(document.querySelector('#workspace-voice-studio-node>summary>.library-symbol'),'::before').content};
   });
   expect(gaps.order).toBe(true);expect(Math.abs(gaps.studios-gaps.library)).toBeLessThan(1);expect(Math.abs(gaps.studiosOpen-gaps.libraryOpen)).toBeLessThan(1);
+  expect(Math.abs(gaps.serif[0])).toBeLessThan(1);expect(Math.abs(gaps.serif[1])).toBeLessThan(1);
   expect(gaps.indent).toBeGreaterThan(10);expect(gaps.sign).toBe('"−"');
   const node=page.locator('#workspace-voice-studio-node');await expect(node).toHaveAttribute('open','');
   await expect(node.getByRole('button',{name:'1. Voice',exact:true})).toBeVisible();await expect(node.getByRole('button',{name:'3. Publish Voice',exact:true})).toBeVisible();
