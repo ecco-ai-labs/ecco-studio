@@ -171,6 +171,7 @@
   const line=storyLines(c).find(l=>l.split(/\s+/).length>=12);
   return line||((c.name?'Hello, I am '+c.name+'. ':'Hello. ')+'It is lovely to meet you. Let me tell you a story, slowly and clearly, from the very beginning.');
  }
+ function testLine(c){return 'Hello, my name is '+(String(c.name||'').trim()||'your character')+'.';}
  function sampleText(c){
   return storyLines(c)[0]||(c.name?'Hello, I am '+c.name+'.':'Hello, this is my voice.')+' Welcome to our story.';
  }
@@ -208,7 +209,11 @@
    create.append(element('p',{className:'help story-cast-ready',text:'Voice ready · made with '+(model?.name||'the selected model')}),player);
   }
   const test=element('section',{className:'story-cast-step form','aria-labelledby':'story-cast-test-title'},element('h3',{id:'story-cast-test-title',text:'Test'}));
-  if(!created)test.append(element('p',{className:'story-cast-empty',text:'Generate a voice to test it with lines from your story.'}));
+  // Test line (owner 2026-11-15): editable, defaults to "Hello, my name is <name>."
+  if(c.test_line===undefined)c.test_line=testLine(c);
+  const own=element('input',{type:'text',maxlength:'300','aria-label':'Test line',value:c.test_line});
+  own.oninput=()=>{c.test_line=own.value;ctx.persist();};
+  if(!created){const wait=playButton('Play test line',()=>{});wait.disabled=true;test.append(element('label',{className:'story-cast-own',text:'Test line'},element('div',{className:'story-cast-line'},own,wait)),element('p',{className:'help',text:'Generate a voice first, then play this line.'}));}
   else{
    const player=element('audio',{controls:true,preload:'metadata','aria-label':'Voice test playback',hidden:true});
    const play=async(text,trigger)=>{
@@ -217,12 +222,12 @@
     try{let url=voiceTests.get(key);if(!url){url=(await voiceSample(c,text,'Character voice test · '+(c.name||'Character'))).url;voiceTests.set(key,url);}if(!player.isConnected)return;player.src=url;player.hidden=false;await player.play().catch(()=>{});}
     catch(error){ctx.message(error.message,true);}finally{done();}
    };
+   const ownPlay=playButton('Play test line',()=>play(own.value,ownPlay));
+   test.append(element('label',{className:'story-cast-own',text:'Test line'},element('div',{className:'story-cast-line'},own,ownPlay)));
    const lines=storyLines(c);
    if(lines.length){test.append(element('p',{className:'help',text:'Lines from your story'}));lines.forEach((line,i)=>{const b=playButton('Play line '+(i+1),()=>play(line,b));test.append(element('div',{className:'story-cast-line'},b,element('span',{className:'story-cast-line-text',text:'“'+line+'”'})));});}
    else test.append(element('p',{className:'help',text:'Lines from your story appear here once they are assigned to '+(c.name||'this character')+'. Type one below meanwhile.'}));
-   const own=element('input',{type:'text',maxlength:'300','aria-label':'Try your own line',placeholder:'Type a line to hear it in this voice'});
-   const ownPlay=playButton('Play your line',()=>play(own.value,ownPlay));
-   test.append(element('label',{className:'story-cast-own',text:'Or try your own line'},element('div',{className:'story-cast-line'},own,ownPlay)),player,verdict(c,'Sounds right — mark as tested','Not right? Edit the suggestion or switch model or voice, then generate again.','Tested — this voice is ready for the story'));
+   test.append(player,verdict(c,'Sounds right — mark as tested','Not right? Edit the suggestion or switch model or voice, then generate again.','Tested — this voice is ready for the story'));
   }
   host.append(create,test);
  }
@@ -344,8 +349,10 @@
    if(data.output==='image'){const empty=element('div',{className:'story-cast-empty'});empty.append(element('p',{className:'help',text:'No characters needed for a picture.'}));const add=element('button',{type:'button',className:'secondary',text:'+ Add a person',dataset:{addPerson:''}});add.onclick=()=>q('.story-character-add',ctx.list)?.click();empty.append(add);root.append(empty);}
    refreshStatus();return;
   }
-  if(!visual()){const back=button('← Back to cast list',()=>{data.castDetail=false;ctx.persist();ctx.redraw();});back.classList.add('secondary');back.dataset.castBack='';root.append(back);}
-  root.append(properties(c,selected),element('div',{className:'story-cast-create'}));
+  // Voices (owner 2026-11-15): Generate voice sits at the top of the left column; no "Back to cast list" button.
+  root.classList.toggle('story-cast-voice-first',!visual());
+  if(visual())root.append(properties(c,selected),element('div',{className:'story-cast-create'}));
+  else root.append(element('div',{className:'story-cast-create'}),properties(c,selected));
   drawCreate(c,selected);refreshStatus();
  }
  window.EccoStoryCharacters={render,status:c=>ctx?status(c):'none',progress:()=>ctx?progress():null,refresh:()=>ctx&&refreshStatus()};

@@ -227,6 +227,8 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .story-cast-body{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2fr);gap:0;border:1px solid var(--ecco-theme-border,#51496f);border-top:0;border-radius:0 0 10px 10px}
 .story-cast-props{padding:18px;border-right:1px solid var(--ecco-theme-border,#51496f);min-width:0}
 .story-cast-create{padding:18px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.story-cast-voice-first .story-cast-create{border-right:1px solid var(--ecco-theme-border,#51496f)}
+.story-cast-voice-first .story-cast-props{border-right:0}
 .story-cast-props h3,.story-cast-step h3{margin:0}
 .story-cast-step+.story-cast-step{border-top:1px solid var(--ecco-theme-border,#51496f);padding-top:16px}
 .story-cast-step>button{align-self:flex-start}
