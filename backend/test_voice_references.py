@@ -189,6 +189,9 @@ class VoiceReferenceTest(unittest.TestCase):
                              capture_output=True, text=True).stderr
         loudness = float(out.rsplit(' I:', 1)[1].split('LUFS')[0])
         self.assertAlmostEqual(loudness, -20, delta=1.5)
+        # Level only: any compression/EQ/limiting is copied by the voice model as rasp.
+        chain = refs._studio_filter(self.env['DATA'] / 'audio-prod/quieter.wav', 0, 8)
+        self.assertFalse(any(f in chain for f in ('acompressor', 'equalizer', 'alimiter', 'loudnorm')))
 
 
 if __name__ == '__main__':
