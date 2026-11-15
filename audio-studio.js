@@ -121,7 +121,9 @@
  const model=()=>audioModels.find(m=>m.id===draft.model)||audioModels[0];
  const performanceBrief=()=>{const b=draft.script_brief||draft.guided_preparation||{};return Object.fromEntries(Object.entries({audience:b.audience||'',genre:draft.genre,tone:b.tone||'',narration_style:b.narration_style||'',language_style:b.language_style||'',language_style_instructions:b.language_style_instructions||'',purpose:b.purpose||''}).filter(([,v])=>v));};
  const characterModel=s=>audioModels.find(m=>m.id===(s.model||draft.model))||model();
- const voiceChoices=s=>characterModel(s).voices.filter(v=>!v.language||v.language===s.language);
+ // Models that speak with a saved character voice (a designed or recorded clip, voice id "ref:<asset>").
+ const REF_MODELS=['chatterbox','indicf5','voxcpm2','qwen3-tts'];
+ const voiceChoices=s=>{const m=characterModel(s),list=m.voices.filter(v=>!v.language||v.language===s.language);return String(s.voice||'').startsWith('ref:')&&REF_MODELS.includes(m.id)?[{id:s.voice,name:'Designed voice'},...list]:list;};
  const speaker=id=>draft.speakers.find(s=>s.id===id)||draft.speakers[0];
  const activeSpeakers=()=>draft.presentation==='conversation'?draft.speakers.slice(0,draft.character_count||draft.speakers.length):[draft.speakers[0]];
  const turns=()=>draft.presentation==='single'?(draft.lines.every(t=>t.speaker_id===draft.speakers[0].id)&&draft.lines.map(t=>t.text).join('\n\n')===draft.single_text?draft.lines:[{text:draft.single_text,speaker_id:draft.speakers[0].id}]):draft.lines;
@@ -154,7 +156,7 @@
   save();
  }
  function normalizeSpeakers(){
-  draft.speakers.forEach((item,index)=>{const m=characterModel(item);if(!m.languages.includes(item.language))item.language=m.languages.includes('Hindi')?'Hindi':m.languages[0];if(!voiceChoices(item).some(v=>v.id===item.voice))item.voice=window.EccoAudioDirection.defaultVoice(m,item.language,index);if(!window.EccoAudioDirection.emotions.includes(item.emotion))item.emotion='neutral';if(!m.languages.includes(item.mixed_language)||item.mixed_language===item.language)item.mixed_language='';});
+  draft.speakers.forEach((item,index)=>{const m=characterModel(item);if(!m.languages.includes(item.language))item.language=m.languages.includes('Hindi')?'Hindi':m.languages[0];if(!(item.voice==='design'&&m.id==='voxcpm2')&&!voiceChoices(item).some(v=>v.id===item.voice))item.voice=window.EccoAudioDirection.defaultVoice(m,item.language,index);if(!window.EccoAudioDirection.emotions.includes(item.emotion))item.emotion='neutral';if(!m.languages.includes(item.mixed_language)||item.mixed_language===item.language)item.mixed_language='';});
  }
  function retainVoice(item,oldModel,newModel){
   item.model_settings||={};item.model_settings[oldModel]={language:item.language,voice:item.voice,emotion:item.emotion,mixed_language:item.mixed_language};
@@ -378,6 +380,31 @@
    await new Promise(resolve=>setTimeout(resolve,1500));
   }
  }
+ // Design a character's voice from a description (VoxCPM2): one sample clip is generated and saved as the
+ // character's voice; every line is then spoken by cloning it, so the character keeps one voice.
+ async function designVoice(character,description,text){
+  if(!service)throw Error('Connect workspace storage from Connections → Storage to create voices.');
+  if(!service.designVoice)throw Error('This workspace cannot design voices yet. Refresh and try again.');
+  if(!draft||story!==activeStory)load();
+  const current=service,model=characterModel(character);
+  if(!model||model.id!=='voxcpm2')throw Error('Choose VoxCPM2 to design a voice from a description.');
+  description=String(description||'').trim();if(!description)throw Error('Describe the voice first.');
+  await requireCompute(draft.compute,model.id,draft.worker_id);
+  const job=await current.designVoice({model:model.id,compute:draft.compute,worker_id:draft.worker_id,story_id:activeStory,character:String(character.name||'Character').slice(0,80),character_id:String(character.id||'').slice(0,64),emotion:'default',language:character.language||'English',description:description.slice(0,1200),text:String(text).slice(0,300)});
+  window.EccoGeneration?.trackJob('audio',activeStory,job);
+  const started=Date.now();
+  for(;;){
+   const result=await current.job(job.id);
+   if(['error','cancelled'].includes(result.status))throw Error(result.error||(result.status==='cancelled'?'Voice design stopped.':'Voice design failed.'));
+   if(result.status==='done'){
+    const id=result.asset_id||result.asset_ids?.[0];
+    if(!result.voice_reference_id)throw Error(result.progress&&/could not be saved/.test(result.progress)?result.progress:'The voice was made but could not be saved as the character’s voice. Try a longer sample sentence.');
+    return {asset_id:id,url:id?await current.mediaURL(id):'',reference_id:result.voice_reference_id};
+   }
+   if(Date.now()-started>600000)throw Error('The voice is still being designed. Check Activity before trying again.');
+   await new Promise(resolve=>setTimeout(resolve,1500));
+  }
+ }
  function reviewScript(){
   const panel=q('#audio-final-script-panel'),prompt=q('#audio-form [data-section=prompt]');if(prompt)prompt.hidden=true;
   const controls=q('#generation-controls-dialog [data-body]');
@@ -430,7 +457,7 @@
   setPronunciation({word,sayAs,line=null}){if(!draft||story!==activeStory)throw Error('Open this story before changing its pronunciations.');const list=(draft.pronunciations||[]).filter(p=>!(p.word.toLowerCase()===word.toLowerCase()&&p.line===line));list.push({word,sayAs,line});draft.pronunciations=list;save();},
   removePronunciation(index){if(!draft?.pronunciations)return;draft.pronunciations=draft.pronunciations.filter((_,i)=>i!==index);save();},
   editLine(index,text){if(!draft||story!==activeStory)throw Error('Open this story before changing its script.');const list=turns();if(!list[index])throw Error('That passage is no longer in the script.');if(list===draft.lines)draft.lines[index]={...draft.lines[index],text};else{draft.single_text=text;}save();},
-  generateScript,sample:sampleVoice,characters:drawCharacters,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
+  generateScript,sample:sampleVoice,design:designVoice,characters:drawCharacters,mountScenePicker,controls:drawControls,aiContext,importScript,connect(adapter){
   if(!adapter||adapter.storageIndependentOfGPU!==true||!['list','generate','job','mediaURL','download'].every(name=>typeof adapter[name]==='function'))throw Error('An authenticated, GPU-independent audio service is required.');
   service=adapter;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();poll();
  },disconnect(){clearPreview();q('#audio-voice-preview-dialog')?.close();service=null;computeStatus=null;computeChecked=0;recordings=[];lastJob=null;signature='';update();}};
@@ -472,7 +499,7 @@
   const lines=requestLines(),cast=activeSpeakers(),names=new Set();
   for(const c of cast){
    const name=String(c.name||'').trim().toLowerCase();if(!name||names.has(name))throw Error('Give every character a unique name.');names.add(name);
-   const m=characterModel(c);if(!m.languages.includes(c.language)||!voiceChoices(c).some(v=>v.id===c.voice))throw Error(c.name+': choose a voice supported by the character model and language.');
+   const m=characterModel(c);if(c.voice==='design')throw Error(c.name+': design the voice in Characters first (Design voice).');if(!m.languages.includes(c.language)||!voiceChoices(c).some(v=>v.id===c.voice))throw Error(c.name+': choose a voice supported by the character model and language.');
   }
   const brief=performanceBrief(),directed=cast.some(c=>!characterModel(c).voice_direction&&(brief.audience||brief.tone||brief.narration_style||c.delivery||c.style||c.delivery_style&&c.delivery_style!=='Voice Default'||!characterModel(c).emotions&&c.emotion!=='neutral'));
   const signature=JSON.stringify([turns(),cast,draft.genre,draft.model,draft.opening_text,brief]);

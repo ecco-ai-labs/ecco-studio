@@ -1720,6 +1720,36 @@ for(const output of ['audio','video'])test(`STORY-07 Characters step creates and
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('characters-'+output+'-mobile.png'),fullPage:true});
  await next.click();await expect(page.getByRole('tab',{name:'4. Story Screen Play',exact:true})).toHaveAttribute('aria-selected','true');expect(page.qaErrors).toEqual([]);
 });
+// Voice design (owner-approved order 2026-11-14): VoxCPM2 designs a character's voice from the description, saves it as the
+// character's voice (ref:<id>) and Generation keeps it. The real design job needs storage and a GPU and is verified live.
+test('STORY-35 VoxCPM2 designs a character voice from the description and Generation keeps the designed voice',async({page})=>{
+ await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Designed voices');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
+ await page.locator('.story-simple-actions [data-next]').click();await stubCharacterJobs(page);
+ await page.evaluate(()=>{window.qaDesigns=[];window.EccoAudioStudio.design=async(character,description,text)=>{window.qaDesigns.push({model:character.model,name:character.name,description,text});return {asset_id:'qa-design-1',url:'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',reference_id:'a'.repeat(32)};};});
+ await castEditor(page);const tabs=page.getByRole('tablist',{name:'Story characters',exact:true});await tabs.getByRole('tab',{name:'Ali',exact:true}).click();
+ await page.getByRole('combobox',{name:'Character 2 Audio model',exact:true}).selectOption('voxcpm2');
+ const voice=page.getByRole('combobox',{name:'Character 2 Voice',exact:true});await expect(voice).toHaveValue('design');
+ await expect(voice.locator('option',{hasText:'Design from the description above'})).toHaveCount(1);
+ const suggestion=page.getByLabel('Character 2 Suggested voice',{exact:true});await suggestion.fill('');
+ await page.getByRole('button',{name:'Design voice',exact:true}).click();const popup=page.locator('#ecco-error-popup');await expect(popup).toContainText('in “Suggested voice” first');await popup.getByRole('button',{name:'Close popup',exact:true}).click();
+ expect(await page.evaluate(()=>window.qaDesigns.length)).toBe(0);
+ await suggestion.fill('A calm British astrophysicist in her forties, low warm voice, unhurried, smiles when she explains.');
+ await page.getByRole('button',{name:'Design voice',exact:true}).click();await expect(page.getByRole('button',{name:'Design again',exact:true})).toBeVisible();
+ await expect(voice).toHaveValue('ref:'+'a'.repeat(32));await expect(voice.locator('option:checked')).toHaveText('Designed voice · Ali');
+ const designs=await page.evaluate(()=>window.qaDesigns);expect(designs).toHaveLength(1);
+ expect(designs[0]).toMatchObject({model:'voxcpm2',name:'Ali',description:/astrophysicist/});expect(designs[0].text.split(/\s+/).length).toBeGreaterThanOrEqual(12);
+ await expect(tabs.getByRole('tab',{name:'Ali',exact:true})).toHaveAttribute('aria-description','Created');
+ // Testing a line speaks with the saved voice, and Generation keeps it instead of resetting to a catalog voice.
+ await page.getByLabel('Try your own line',{exact:true}).fill('Welcome to the show.');await page.getByRole('button',{name:'Play your line',exact:true}).click();
+ const tested=await page.evaluate(()=>window.qaVoiceRequests.at(-1));expect(tested).toMatchObject({voice:'ref:'+'a'.repeat(32),model:'voxcpm2'});
+ await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('#audio-form')).toBeAttached();
+ const speakers=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-audio-draft:'));return JSON.parse(localStorage.getItem(k)).speakers.map(s=>[s.name,s.model,s.voice]);});
+ expect(speakers).toContainEqual(['Ali','voxcpm2','ref:'+'a'.repeat(32)]);
+ expect(page.qaErrors).toEqual([]);
+});
 const rosterScreens={
  'Story details':async page=>boot(page),
  'Story and characters':async page=>{await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Roster audit');for(const [name,value] of Object.entries({output:'audio',type:'podcast',genre:'Comedy',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();},

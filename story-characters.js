@@ -7,6 +7,10 @@
  const q=(s,r=document)=>r?.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const AVATAR_MODELS=['z-image','sdxl','qwen-image-2512','flux-klein-4b'];
  const AUDIO_RESET=['delivery','model','voice','language','dialect','style','emotion','gender','age_group'];
+ // VoxCPM2 can design a new voice from the "Suggested voice" description (saved as the character's voice, "ref:<id>").
+ const DESIGNABLE=['voxcpm2'],DESIGN='design';
+ const designable=model=>!!model&&DESIGNABLE.includes(model.id);
+ const designed=c=>String(c.voice||'').startsWith('ref:');
  const LABELS={none:'Not created',created:'Created',tested:'Tested'};
  const media=new Map(),voiceTests=new Map();
  let ctx=null,busy=null;
@@ -150,15 +154,22 @@
  async function voiceSample(c,text,title){
   if(!window.EccoAudioStudio?.sample)throw Error('Audio Studio is still loading. Try again in a moment.');
   if(!c.voice)throw Error('Choose a voice for '+(c.name||'this character')+' first.');
+  if(c.voice===DESIGN)throw Error('Design '+(c.name||'this character')+'’s voice first with “Design voice”.');
   const model=currentAudioModel(c);
   return window.EccoAudioStudio.sample({...c,model:model?.id},text,{title});
  }
  // After a model change, choose a voice from that model that fits the character and isn't used by anyone else.
  function fitVoice(c){
+  if(designable(currentAudioModel(c))&&!designed(c)){c.voice=DESIGN;c.voiceChosen=false;return;}
   const model=currentAudioModel(c),voices=(model?.voices||[]).filter(v=>!v.language||!c.language||v.language===c.language);
   if(!voices.length)return;const used=new Set(ctx.data.cast.filter(x=>x!==c&&(x.model||'')===model.id).map(x=>x.voice));
   const want=/^f/i.test(c.gender||'')?'(feminine|female)':/^m/i.test(c.gender||'')?'(masculine|male)':'',free=voices.filter(v=>!used.has(v.id));
   const pick=(want&&free.find(v=>new RegExp('\\b'+want+'\\b','i').test(v.name||'')))||free[0]||voices[0];c.voice=pick.id;c.voiceChosen=false;
+ }
+ // A designed voice is saved as a 3–30 second clip, so its sample sentence must be long enough to say.
+ function designSample(c){
+  const line=storyLines(c).find(l=>l.split(/\s+/).length>=12);
+  return line||((c.name?'Hello, I am '+c.name+'. ':'Hello. ')+'It is lovely to meet you. Let me tell you a story, slowly and clearly, from the very beginning.');
  }
  function sampleText(c){
   return storyLines(c)[0]||(c.name?'Hello, I am '+c.name+'.':'Hello, this is my voice.')+' Welcome to our story.';
@@ -173,11 +184,20 @@
   const suggestion=field(c,index,'Suggested voice','delivery',{multiline:true});suggestion.append(element('span',{className:'help',text:'Suggested from your story'+(brief?' · '+brief:'')+'. Edit before generating if needed.'}));
   const row=element('div',{className:'story-character-fields'});
   const ready=window.EccoAudioCompute?.readyNow?.();
-  row.append(field(c,index,'Audio model','model',{options:audioModels(c).map(m=>[m.id,m.name+(ready&&!ready.includes(m.id)?' (not on this worker)':'')]),onchange:()=>{c.modelChosen=true;fitVoice(c);ctx.persist();drawCreate(c,index);}}),field(c,index,'Voice','voice',{options:voices.map(v=>[v.id,v.name||v.label||v.id])}));
-  const created=!!c.voice_sample;
-  const go=button(created?'Generate again':'Generate voice',async()=>{
-   const done=setBusy(go,'Generating voice…');
-   try{const result=await voiceSample(c,sampleText(c),'Character voice · '+(c.name||'Character'));c.voice_sample=result.asset_id;c.tested=false;media.set(result.asset_id,result.url);ctx.changed();drawCreate(c,index);refreshStatus();ctx.status(c.name+'’s voice is ready. Test it below.');}
+  const canDesign=designable(model),voiceOptions=[...(canDesign?[[DESIGN,'Design from the description above']]:[]),...(designed(c)?[[c.voice,'Designed voice · '+(c.name||'Character')]]:[]),...voices.map(v=>[v.id,v.name||v.label||v.id])];
+  row.append(field(c,index,'Audio model','model',{options:audioModels(c).map(m=>[m.id,m.name+(ready&&!ready.includes(m.id)?' (not on this worker)':'')]),onchange:()=>{c.modelChosen=true;fitVoice(c);ctx.persist();drawCreate(c,index);}}),field(c,index,'Voice','voice',{options:voiceOptions,onchange:()=>drawCreate(c,index)}));
+  const created=!!c.voice_sample,designing=canDesign&&(c.voice===DESIGN||designed(c));
+  const go=button(designing?(designed(c)?'Design again':'Design voice'):(created?'Generate again':'Generate voice'),async()=>{
+   const done=setBusy(go,designing?'Designing voice…':'Generating voice…');
+   try{
+    if(designing){
+     if(!String(c.delivery||'').trim())throw Error('Describe '+(c.name||'this character')+'’s voice in “Suggested voice” first.');
+     if(!window.EccoAudioStudio?.design)throw Error('Audio Studio is still loading. Try again in a moment.');
+     const result=await window.EccoAudioStudio.design({...c,model:model.id},c.delivery,designSample(c));
+     c.voice='ref:'+result.reference_id;c.voiceChosen=true;c.voice_sample=result.asset_id;c.tested=false;if(result.url)media.set(result.asset_id,result.url);
+    }else{const result=await voiceSample(c,sampleText(c),'Character voice · '+(c.name||'Character'));c.voice_sample=result.asset_id;c.tested=false;media.set(result.asset_id,result.url);}
+    ctx.changed();drawCreate(c,index);refreshStatus();ctx.status(c.name+'’s voice is ready. Test it below.');
+   }
    catch(error){done();ctx.message(error.message,true);}
   },created?'secondary':'');
   go.dataset.castGenerate='voice';
