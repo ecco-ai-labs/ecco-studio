@@ -43,6 +43,7 @@
   // Explicit local sign-out must not depend on the network or Google loading.
   const previous=token;
   forgetIdentity();const version=authVersion;
+  document.dispatchEvent(new Event('ecco:signed-out'));
   window.EccoConnectivityLog?.record('Sign-in disconnected on this browser');
   if(previous)void request('logout',{},previous).then(()=>{
    window.EccoConnectivityLog?.record('Sign-in server revocation confirmed');
@@ -71,6 +72,7 @@
       if(!verified.user?.id||!verified.session_token)throw Error('Invalid sign-in response.');
       authVersion++;user=verified.user;token=verified.session_token;localStorage.setItem('ecco-user-session',token);sessionStorage.setItem('ecco-user-session',token);
       busy=false;logoutNotice='';clearTimeout(renewTimer);changed();
+      document.dispatchEvent(new CustomEvent('ecco:signed-in',{detail:{user}}));
      }catch(e){if(version===authVersion){ready=false;error=e.message;}}
      finally{if(version===authVersion){busy=false;mount();}}
     }});
@@ -95,7 +97,7 @@
     if(identityChanged)changed();else mount();
    }catch(e){
     if(version!==authVersion)return;
-    if(e.status===401){forgetIdentity();error='Sign-in was revoked or is no longer valid. Sign in again.';await prepare();}
+    if(e.status===401){forgetIdentity();document.dispatchEvent(new Event('ecco:signed-out'));error='Sign-in was revoked or is no longer valid. Sign in again.';await prepare();}
     else {error='Sign-in service is temporarily unreachable. Your connection is retained.';mount();}
    }finally{if(version===authVersion)restoring=null;}
   })();return restoring;
