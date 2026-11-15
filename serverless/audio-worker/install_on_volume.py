@@ -330,6 +330,11 @@ def sound(model):
         sounds.unlink()
     base = sounds / model
     base.mkdir(parents=True, exist_ok=True)
+    # A warm worker may already hold links into the volume for this model (handler.py); the install
+    # works on local files, so drop every link and relink only source and weights.
+    for item in list(base.iterdir()):
+        if item.is_symlink():
+            item.unlink()
     for name in ('source', 'weights'):
         link(volume_base / name, base / name)
     if (volume_base / 'manifest.json').is_file():
