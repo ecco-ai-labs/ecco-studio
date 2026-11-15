@@ -147,6 +147,25 @@ def healthy(child):
     return False
 
 
+def restarted_after(moment, timeout=30):
+    """A storage API process (any pid) that started after `moment`, so it imported the new files."""
+    ticks, boot = os.sysconf('SC_CLK_TCK'), None
+    for line in Path('/proc/stat').read_text().splitlines():
+        if line.startswith('btime '):
+            boot = int(line.split()[1])
+    end = time.time() + timeout
+    while time.time() < end:
+        for proc in Path('/proc').glob('[0-9]*'):
+            try:
+                p = base.process(int(proc.name))
+            except (OSError, ValueError, IndexError):
+                continue
+            if base.matching_script(p, 'storage_api.py') and boot + int(p['start']) / ticks >= moment - 1:
+                return p['pid']
+        time.sleep(.5)
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--api-pid', type=int, required=True)
@@ -174,7 +193,7 @@ def main():
     environment = dict(x.decode().split('=', 1) for x in
                        (Path('/proc') / str(api['pid']) / 'environ').read_bytes().split(b'\0') if b'=' in x)
     log = (root / 'activation.log').open('ab')
-    child, written, stopped = None, False, False
+    child, written, stopped, supervised = None, False, False, False
 
     def start():
         return subprocess.Popen(api['command'], cwd=api['cwd'], env=environment, stdin=subprocess.DEVNULL,
@@ -185,11 +204,22 @@ def main():
         written = True
         base.atomic(TARGET, module)
         base.atomic(API, new_api)
+        written_at = time.time()
+        supervised = 'start-storage-persistent' in ' '.join(base.process(api['parent'])['command']) if api['parent'] > 1 else False
         base.terminate(api['pid'])
         stopped = True
-        child = start()
+        if supervised:
+            # start-storage-persistent.sh relaunches the API itself after 5 s; starting a second copy would lose the
+            # port race and a health check could then be answered by a process running the old code.
+            child = None
+            if not restarted_after(written_at):
+                raise RuntimeError('The supervisor did not relaunch the storage API with the new files.')
+        else:
+            child = start()
         if not healthy(child):
             raise RuntimeError('Updated storage API did not become healthy; see ' + str(root / 'activation.log'))
+        if child is not None and child.poll() is not None:
+            raise RuntimeError('The new storage API exited; the health check was answered by another process.')
         with urlopen('http://127.0.0.1:8888/healthz', timeout=5) as response:
             response.read()
         print('ACTIVATED storage API pid', child.pid, 'source', SOURCE_COMMIT[:7], 'backup', root / 'backup', flush=True)
@@ -202,7 +232,15 @@ def main():
                 base.atomic(TARGET, (root / 'backup/serverless_power.py').read_bytes())
             else:
                 TARGET.unlink(missing_ok=True)
-        if stopped:
+        if stopped and supervised:
+            for proc in Path('/proc').glob('[0-9]*'):
+                try:
+                    if base.matching_script(base.process(int(proc.name)), 'storage_api.py'):
+                        base.terminate(int(proc.name))
+                except (OSError, ValueError, IndexError, RuntimeError):
+                    pass
+            print('ROLLED BACK; the supervisor relaunches the storage API with the old files', flush=True)
+        if stopped and not supervised:
             restored = start()
             print('ROLLED BACK; old storage API restarted, pid', restored.pid,
                   'healthy' if healthy(restored) else 'NOT HEALTHY - check ' + str(root / 'activation.log'), flush=True)
