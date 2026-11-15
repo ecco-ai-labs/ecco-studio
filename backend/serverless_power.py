@@ -2,9 +2,9 @@
 
 On  = the image, video and audio endpoints each keep one worker running (RunPod workersMin 1), and each
       gets one tiny wake-up job so its model is loaded before the first real generation:
-      images a 256 px one-step Qwen-Image render, video a 9-frame one-step Wan 2.2 5B clip,
-      audio one short Chatterbox line. They go through the Serverless bridge on this pod (its ComfyUI
-      stand-in and the audio queue), which holds the RunPod key allowed to run jobs.
+      images a 256 px one-step Qwen-Image render, video a 9-frame one-step Wan 2.2 5B clip. They go through
+      the Serverless bridge's ComfyUI stand-in on this pod, which holds the RunPod key allowed to run jobs.
+      Audio gets its warm worker only (no wake-up job), so its first job still unpacks its voice files.
 Off = workersMin back to 0 everywhere, so RunPod shuts the idle workers down and billing stops.
 
 Studio turns it On when someone signs in and Off when they sign out; the GPU icon's button turns it
@@ -250,11 +250,8 @@ def wake(opener=urllib.request.urlopen, now=time.time):
                 sent[group] = _comfy((image_wakeup if group == 'images' else video_wakeup)()['workflow'], opener)
             except PowerError as exc:
                 sent[group] = 'error: ' + exc.message[:200]
-    if 'audio' in groups:
-        try:
-            sent['audio'] = _queue_audio(now)
-        except OSError as exc:
-            sent['audio'] = f'error: could not queue the audio wake-up: {exc}'
+    # Audio gets its warm worker (workersMin 1) but no wake-up job: a wake-up folder in the audio queue
+    # was removed before the dispatcher claimed it, which stopped the bridge's audio thread (15 Nov 2026).
     return sent
 
 

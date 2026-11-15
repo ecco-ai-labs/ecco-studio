@@ -457,6 +457,28 @@ class AudioDispatch(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_dispatcher_survives_a_job_folder_removed_before_claiming(self):
+        calls = []
+
+        def vanished(*args, **kwargs):
+            calls.append(1)
+            raise FileNotFoundError('claim.lock')
+        stop = threading.Event()
+        with patch.object(self.dispatch, 'claim', vanished), \
+                patch.object(self.dispatch, 'enabled_models', lambda qw: ['chatterbox']), \
+                patch.object(self.dispatch, 'sound_models', lambda qw: []), \
+                patch.object(self.dispatch, 'heartbeat', lambda *a: {}):
+            worker = threading.Thread(target=self.dispatch.dispatcher,
+                                      args=(self.qw, 'serverless', stop, FakeClient({}, configured=('audio',))), daemon=True)
+            worker.start()
+            deadline = time.time() + 10
+            while len(calls) < 2 and time.time() < deadline:
+                time.sleep(.05)
+            self.assertTrue(worker.is_alive())
+            self.assertGreaterEqual(len(calls), 2)
+            stop.set()
+            worker.join(5)
+
     def test_pack_job_sends_inputs_only(self):
         with tarfile.open(fileobj=io.BytesIO(self.dispatch.pack_job(self.job))) as archive:
             names = sorted(archive.getnames())
