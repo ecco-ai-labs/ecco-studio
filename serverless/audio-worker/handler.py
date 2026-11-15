@@ -228,7 +228,7 @@ def run(job, data, directory, request):
             'output': name, 'sha256': hashlib.sha256(output.read_bytes()).hexdigest(), 'prepare_seconds': dict(TIMINGS)}
 
 
-INSTALL_STEPS = ('inventory', 'sync-scripts', 'pack:', 'rebuild:', 'voxcpm2', 'chatterbox-hi', 'whisper', 'sound:')
+INSTALL_STEPS = ('inventory', 'sync-scripts', 'pack:', 'rebuild:', 'voxcpm2', 'kokoro', 'chatterbox-hi', 'whisper', 'sound:')
 INSTALL_REPO = 'ecco-ai-labs/ecco-studio'
 READY_KEY = 'ecco-serverless/audio-ready.json'
 
