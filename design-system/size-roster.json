@@ -1204,6 +1204,22 @@
         "Hair color: Auburn"
       ],
       "area": "Create Images"
+    },
+    {
+      "id": "serverless-power-toggle",
+      "of": "button",
+      "name": "Serverless On/Off button",
+      "font": "@text-regular",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "#serverless-power-toggle"
+      ],
+      "examples": [
+        "On",
+        "Off"
+      ],
+      "area": "Header (GPU icon popup)"
     }
   ],
   "scale": [

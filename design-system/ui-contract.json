@@ -1837,6 +1837,18 @@
       "running": "A running pod shows Connect/Connected and a Stop pod button. Stop asks for confirmation in the card, warns how many jobs on that pod would be interrupted, and says files are kept",
       "console": "A Studio console section under the cards logs each start/stop step and RunPod's refusals (errors in red); the same events go to the Connections log",
       "scope": "Only the Ecco pods in the relay list; never the serverless bridge. Not shown in disconnect mode"
+    },
+    "serverlessPower": {
+      "approved": "Owner-approved 2026-11-15 from the Serverless On/Off mock",
+      "entry": "Clicking (or Enter/Space on) the GPU icon in the connection panel opens a small popup under it holding one button and nothing else",
+      "button": "Variant serverless-power-toggle of button (size roster). Label Off (outlined, theme text and border) or On (theme accent fill, theme contrast text); aria-pressed follows the state",
+      "behavior": "Pressing the button switches On/Off and closes the popup. On asks the storage server to keep one warm image worker on RunPod (workersMin 1); Off sets it back to 0. A RunPod refusal is shown and the state is not changed",
+      "indicator": "While On, a small dot in the theme success color sits on the GPU icon's top-right corner; the GPU icon's tooltip is hidden while the popup is open",
+      "signIn": "A Google sign-in turns Serverless On; Log Off (or a revoked session) turns it Off unless another browser used Studio in the last 5 minutes. Restoring a saved session on reload changes nothing",
+      "idle": "The storage server turns it Off by itself when no open Studio has been used for 20 minutes (ECCO_SERVERLESS_IDLE_MINUTES) and no serverless job is running",
+      "dismissal": "Escape or a click outside closes the popup; focus returns to the GPU icon after keyboard use",
+      "disabled": "Disabled with a hint until workspace storage is connected",
+      "approvedException": "The On/Off pill keeps its own colors (Off: transparent with theme border; On: theme accent fill with theme contrast text) over the shared pressed/focused button colors, as in the owner-approved mock"
     }
   },
   "settingsMenu": {

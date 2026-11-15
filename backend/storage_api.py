@@ -30,6 +30,7 @@ import audio_video_sequence
 import generation_controls
 import gpu_relay
 import runpod_pods
+import serverless_power
 import openai_assistant
 import scene_planner
 import google_signin
@@ -55,6 +56,7 @@ WRITE_ROUTES = frozenset({
     '/api/audio/voices/create', '/api/audio/voices/list', '/api/audio/voices/update', '/api/audio/voices/design',
     *auto_series.ROUTES,
     *runpod_pods.ROUTES,
+    *serverless_power.ROUTES,
     '/api/images/upload', '/api/stories', '/api/stories/archive', '/api/boards',
     '/api/library/folders', '/api/library/save', '/api/trash', '/api/trash/board',
     '/api/library/labels/create', '/api/library/labels/assign', '/api/library/labels/remove',
@@ -192,6 +194,7 @@ class Handler(legacy.Handler):
             if path == '/api/gpu/pods':
                 try: return self.send(runpod_pods.pods())
                 except runpod_pods.PodError as exc: raise legacy.Problem(exc.message, exc.code)
+            if path == '/api/gpu/serverless': return self.send(serverless_power.status())
             if path.startswith('/api/gpu/requests/'):
                 parts = path.split('/')
                 return self.send(gpu_relay.result(parts[-2], parts[-1]))
@@ -276,6 +279,9 @@ class Handler(legacy.Handler):
             if path in runpod_pods.ROUTES:
                 try: return self.send(runpod_pods.handle(path, body))
                 except runpod_pods.PodError as exc: raise legacy.Problem(exc.message, exc.code)
+            if path in serverless_power.ROUTES:
+                try: return self.send(serverless_power.handle(path, body))
+                except serverless_power.PowerError as exc: raise legacy.Problem(exc.message, exc.code if 400 <= exc.code < 600 else 502)
             if path == '/api/longcat/control':
                 return self.send(audio_video_sequence.control(body, vars(legacy)))
             if path == '/api/longcat/sequence':
@@ -336,6 +342,7 @@ def main():
     audio_jobs.start(vars(legacy))
     audio_workflows.start(vars(legacy))
     auto_series.start(vars(legacy))
+    serverless_power.start()
     character_studio.start(vars(legacy))
     address = os.getenv('ECCO_STORAGE_BIND', '127.0.0.1')
     port = int(os.getenv('ECCO_STORAGE_PORT', '8888'))

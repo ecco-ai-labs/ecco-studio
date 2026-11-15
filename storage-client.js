@@ -67,6 +67,10 @@
   async stopPod(id){connectionLog('Stopping pod on RunPod',{gpu:id});
    try{const reply=await storageRequest('gpu/pods/stop',{gpu:id});connectionLog('Pod stopped on RunPod',{gpu:id});if(connectedGPUs.has(id))this.disconnect(id);return reply;}
    catch(error){connectionLog('RunPod refused to stop the pod',{level:'error',gpu:id,message:error.message});throw error;}},
+  // Serverless On/Off: one warm worker while Studio is in use (serverless-power.js). The RunPod key stays on the server.
+  async serverlessStatus(){return storageRequest('gpu/serverless');},
+  async serverlessPower(on,reason,client){return storageRequest('gpu/serverless/power',{on,reason,client});},
+  async serverlessHeartbeat(active,client){return storageRequest('gpu/serverless/heartbeat',{active,client});},
   async select(gpu){
    connectionLog('Connect requested',{gpu:gpu.id});
    try{
@@ -141,7 +145,7 @@
   if(!accessKey)throw Error('Connect your saved workspace from Connections → Storage. No GPU is needed.');
   let response;
   try{
-   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:path.startsWith('thumb/')?60000:path.startsWith('gpu/pods')?45000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
+   response=await fetch(endpoint+'/api/'+path,{signal:AbortSignal.any([AbortSignal.timeout(path==='stories/plan'?180000:path.startsWith('ai/')?150000:path.startsWith('media/')?120000:path.startsWith('thumb/')?60000:(path.startsWith('gpu/pods')||path.startsWith('gpu/serverless'))?45000:20000),...(options.signal?[options.signal]:[])]),method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+accessKey,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});
    if(!response.ok){
     let message=response.status===401?'The private storage key was not accepted.':'Storage request failed (HTTP '+response.status+').';
     try{message=(await response.json()).error||message;}catch{}

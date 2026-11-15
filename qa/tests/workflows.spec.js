@@ -2144,3 +2144,54 @@ test('GPU-POD-02 a running pod asks before stopping and warns about running jobs
  await card.locator('.gpu-pod-stop-confirm').click();
  await expect.poll(()=>page.evaluate(()=>window.__stopped)).toEqual(['1muqctw9bxvguu']);
 });
+// Owner request 2026-11-15: the GPU icon opens one On/Off button; sign-in turns Serverless On, sign-out Off.
+async function serverlessFixture(page,on=false){
+ await page.evaluate(start=>{
+  if(!window.EccoStorage?.ready)Object.defineProperty(window.EccoStorage,'ready',{get:()=>true,configurable:true});
+  const c=window.EccoGPUConnection;window.__power=[];window.__on=start;
+  c.serverlessPower=async(value,reason)=>{window.__power.push({on:value,reason});window.__on=value;return {on:value,reason};};
+  c.serverlessHeartbeat=async()=>({on:window.__on});
+ },on);
+}
+test('GPU-SERVERLESS-02 the GPU icon opens one On/Off button that switches Serverless and closes',async({page})=>{
+ await boot(page);
+ await serverlessFixture(page);
+ const icon=page.locator('#connected-accelerator'),popup=page.locator('#serverless-power-popup'),button=page.locator('#serverless-power-toggle');
+ await expect(icon).toHaveAttribute('role','button');
+ await icon.click();
+ await expect(popup).toBeVisible();
+ await expect(popup.locator('button')).toHaveCount(1);
+ await expect(button).toHaveText('Off');
+ await expect(button).toHaveAttribute('aria-pressed','false');
+ await expect(page.locator('#connected-accelerator .serverless-power-dot')).toBeHidden();
+ await button.click();
+ await expect(popup).toBeHidden();
+ await expect.poll(()=>page.evaluate(()=>window.__power)).toEqual([{on:true,reason:'button'}]);
+ await expect(page.locator('#connected-accelerator .serverless-power-dot')).toBeVisible();
+ await icon.click();
+ await expect(button).toHaveText('On');
+ await expect(button).toHaveAttribute('aria-pressed','true');
+ const size=await button.evaluate(b=>({height:b.getBoundingClientRect().height,font:parseFloat(getComputedStyle(b).fontSize)}));
+ expect(size.height).toBeLessThanOrEqual(26);expect(size.font).toBeLessThanOrEqual(11);
+ await button.click();
+ await expect(popup).toBeHidden();
+ await expect.poll(()=>page.evaluate(()=>window.__power.at(-1))).toEqual({on:false,reason:'button'});
+ await expect(page.locator('#connected-accelerator .serverless-power-dot')).toBeHidden();
+ // Keyboard: Enter opens, Escape closes and returns focus to the GPU icon; a click outside closes.
+ await icon.focus();await page.keyboard.press('Enter');
+ await expect(button).toBeFocused();
+ await page.keyboard.press('Escape');
+ await expect(popup).toBeHidden();await expect(icon).toBeFocused();
+ await icon.click();await page.mouse.click(5,400);await expect(popup).toBeHidden();
+ expect(page.qaErrors).toEqual([]);
+});
+test('GPU-SERVERLESS-03 signing in turns Serverless On and Log Off turns it Off; a reload changes nothing',async({page})=>{
+ await boot(page,{enter:false});
+ await serverlessFixture(page);
+ await page.waitForTimeout(500);
+ expect(await page.evaluate(()=>window.__power)).toEqual([]);
+ await page.evaluate(()=>document.dispatchEvent(new CustomEvent('ecco:signed-in',{detail:{user:{id:'qa-user'}}})));
+ await expect.poll(()=>page.evaluate(()=>window.__power)).toEqual([{on:true,reason:'sign-in'}]);
+ await page.evaluate(()=>window.EccoAuth.signOut());
+ await expect.poll(()=>page.evaluate(()=>window.__power.at(-1))).toEqual({on:false,reason:'sign-out'});
+});
