@@ -122,6 +122,7 @@
    verify:body=>storageRequest('audio/verify',body),
    list:async({story_id})=>(await storageRequest('state')).records.filter(a=>a.kind==='asset'&&a.media==='audio'&&!a.deleted&&(a.story_id||LEGACY_STORY)===story_id),
    generate:body=>api('audio/generate',body),
+   designVoice:body=>storageRequest('audio/voices/design',body),
    job:id=>storageRequest('audio/jobs/'+encodeURIComponent(id)),
    mediaURL:async id=>{
     if(audioMedia.has(id))return audioMedia.get(id);
