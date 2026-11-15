@@ -3150,5 +3150,28 @@
     "entry": "Tell Your Story > Create Images for Your Story: the left-nav step, the Story home list and the journey guide's Back/Next. Flows that open the image page directly (refine, instruction edits, uploads, character handoff) and the Story workspace Story Generation tab keep the existing image form.",
     "appearance": "image-workspace.css reuses the Story Script panes (story-source-tabs, story-source-panel, pdf-selection-layout, pdf-review-box, pdf-selected-label, pdf-ai-draft-tab, story-upload-target) and theme tokens. Step tabs follow the Story workspace header style. New roster variants: image-tile, image-tile-remove, image-choice-chip, image-color-swatch.",
     "behavior": "Generation uses Qwen-Image-2512 (or the chosen image model) for new images and Qwen Image Edit for changes to selected images, on the selected compute (Serverless when connected). Enhance Image asks AI (stage image, field image_enhancement) for the image type and catalog suggestions; when AI is off or fails, the user chooses the type. Publish approves each final image and files it under an Image Library label named after the story."
+  },
+  "voiceStudio": {
+    "approval": "2026-11-15: Owner approved the Voice Studio mock built from the Create Images screen (canvas 'Ecco Voice Studio Mocks'): same steps, pills, tabs, panes, slots, drafts and footer, with Voice wording. 1. Voice (Upload a Voice, Generate with AI, Record with Mic; Selected Voices 0 of 3 with Empty slots; Improve with AI with Draft 1-3, Use AI Voice, Clear AI Output), 2. Enhance Voice, 3. Publish Voice. Sidebar: Studios section below Tell Your Story with the same gap; Voice Studio is an indented tree node with its own +/- sign (owner request).",
+    "types": [
+      "sidebar",
+      "collapsible",
+      "step-navigation",
+      "tabs",
+      "tab",
+      "panel",
+      "button",
+      "audio",
+      "textarea",
+      "dropdown",
+      "text-input",
+      "file-upload",
+      "popup",
+      "help-text",
+      "badge"
+    ],
+    "entry": "Sidebar: Studios > Voice Studio (and its 1. Voice / 2. Enhance Voice / 3. Publish Voice rows). Not story-bound; voices are saved in Audio Library.",
+    "appearance": "Uses image-workspace.css (selectors are :is(#image-workspace,#voice-workspace)); voice-studio.css adds the voice slot, voice preview with an audio player, the recording icon and the sidebar tree. Sidebar Studios reuses the Tell Your Story header and step styles. New roster variant: voice-slot; sidebar-group-header, sidebar-step, image-tile-remove and image-choice-chip also cover the Voice Studio selectors.",
+    "behavior": "Upload and Record with Mic save the clip with /api/audio/upload, then make it a saved voice with /api/audio/voices/create (cleaned; consent given by the upload/record action with the permission note). Recordings are converted to 24 kHz mono WAV in the browser. Generate with AI designs a voice with /api/audio/voices/design using Qwen3-TTS (or VoxCPM2), or Indic Parler-TTS for Indian languages, on the preferred audio compute (Serverless first). Improve with AI designs a new draft from the voice's description plus the requested change (designed voices only). Enhance Voice speaks any line with the saved voice (/api/audio/generate, voice ref:<id>). Publish Voice saves the voices under an existing or new Audio Library label (/api/audio/folders, /api/audio/labels)."
   }
 }

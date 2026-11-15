@@ -62,6 +62,22 @@
     if(['fiction','clarification','cast'].includes(sourceFit)&&path==='ai/enhance'){const id=body.fields?.[0]?.id;if(id==='source_excerpt'&&sourceFit==='clarification')return body.context.instructions.includes('User selected this answer')?{questions:[],notes:[],revisions:[{id,text:body.context.instructions.includes('User selected this answer to the clarification: Set burial count to 38')?'Thirty-nine jars held one jar of oil and thirty-eight robbers. They buried thirty-eight robbers.':'Thirty-nine jars hid thirty-nine robbers. The oil was stored separately.'}]}:{questions:['With 39 jars total and one holding oil, only 38 can hide robbers, but the source later buries 39 robbers. Should the burial count be 38, or should the oil be stored separately?'],notes:['Recommendation: Keep the stated jar total and oil location; change the burial count to 38.','Recommended choice: Set burial count to 38','Choice: Store oil separately'],revisions:[{id,text:'Thirty-nine jars stood ready, one holding oil. Later, thirty-nine robbers were buried.'}]};if(id==='source_excerpt')return {revisions:[{id,text:'Alibaba discovered a hidden cave.'}]};if(id==='source_compatibility')return {revisions:[{id,text:JSON.stringify({verdict:'mismatch',source_kind:'Fictional storybook',reason:'This is fiction about Alibaba, not a sports news report.'})}]};}
     if(sourceFit==='picture'&&path.startsWith('media/qa-photo-'))return {buffer:Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='),c=>c.charCodeAt(0)).buffer,mime:'image/png'};
     if(sourceFit==='picture'&&path==='images/upload'){const record={id:'qa-photo-'+window.__qaCalls.length,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:body.name,prompt:body.name,path:'qa/fixtures/sample.svg',settings:{model:'uploaded-image'},created:1700000000};state.records.push(record);return record;}
+    // Voice Studio: synthetic voices and jobs; nothing reaches the storage server or an audio worker.
+    if(path==='audio/status')return {routing_version:1,instances:[],compute:{a100:{ready:true,models:['qwen3-tts','voxcpm2','indic-parler','indicf5','chatterbox']}}};
+    {
+      const v=window.__qaVoice||(window.__qaVoice={jobs:new Map(),n:0});
+      const asset=(extra)=>{v.n++;const a={id:'qa-voice-'+v.n,kind:'asset',media:'audio',stage:'prod',title:'Voice '+v.n,path:'qa/fixtures/sample.wav',seconds:12,duration:12,created:1700002000+v.n,...extra};state.records.push(a);mediaCache.set(a.id,'/'+a.path);return a;};
+      if(path==='audio/upload')return asset({title:body.name,source:'upload'});
+      if(path==='audio/voices/create'){const a=asset({title:body.character+' · default',voice_reference:{character:body.character,emotion:'default',source:body.source,consent:body.consent,source_asset_id:body.asset_id}});return {id:a.id,...a.voice_reference};}
+      if(path==='audio/voices/design'||(path==='audio/generate'&&!window.EccoAudioStudio?.connected)){const id='qa-voice-job-'+(v.jobs.size+1);v.jobs.set(id,{path,body});return {id,status:'queued'};}
+      if(path.startsWith('audio/jobs/')){
+       const job=v.jobs.get(decodeURIComponent(path.slice(11)));if(!job)throw Error('QA fixture: unknown audio job');
+       if(job.path==='audio/voices/design'){const a=asset({title:job.body.character+' · default (designed voice)',source:'generated',voice_reference:{character:job.body.character,emotion:'default',language:job.body.language,description:job.body.description,source:'designed'}});return {status:'done',asset_id:a.id,voice_reference_id:a.id};}
+       const a=asset({title:job.body.title,source:'generated'});return {status:'done',asset_id:a.id};
+      }
+      if(path==='audio/folders'){const f={id:'qa-audio-folder-'+window.__qaCalls.length,kind:'audio_folder',name:body.name,created:1700000000};state.records.push(f);return f;}
+      if(path==='audio/labels'){for(const folder_id of body.folder_ids)state.records.push({id:'qa-audio-item-'+window.__qaCalls.length+'-'+folder_id,kind:'library_item',asset_id:body.asset_id,folder_id});const a=state.records.find(r=>r.id===body.asset_id);if(a)a.title=body.title;return a;}
+    }
     if(path==='stories'){
       const record={id:'qa-created-'+window.__qaCalls.length,kind:'story',created:1700000000,...body};
       state.records.push(record);return record;

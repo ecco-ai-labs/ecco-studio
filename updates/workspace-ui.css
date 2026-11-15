@@ -10,7 +10,7 @@
 
 .workspace-library:not([open])>.workspace-library-content{display:none!important}
 
-nav>button[hidden]{display:none!important}#workspace-production-group{margin:10px 0}#workspace-production-group>summary{font-size:calc(13px - 2pt);padding:8px 5px}#workspace-production-group .workspace-library-content>button{font-size:calc(12px - 2pt);padding:8px;text-align:left}#workspace-production-group #model-nav{margin-top:12px}
+nav>button[hidden]{display:none!important}:is(#workspace-production-group,#workspace-studios-group){margin:10px 0}:is(#workspace-production-group,#workspace-studios-group)>summary{font-size:calc(13px - 2pt);padding:8px 5px}:is(#workspace-production-group,#workspace-studios-group) .workspace-library-content>button{font-size:calc(12px - 2pt);padding:8px;text-align:left}:is(#workspace-production-group,#workspace-studios-group) #model-nav{margin-top:12px}
 
 .library-selection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 0 7px;border-bottom:1px solid #454057;margin-bottom:5px;font-size:calc(11px - 2pt)}.library-selection-toolbar>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.library-selection-toolbar .asset-icon{flex-shrink:0}.production-heading{display:flex;gap:8px;align-items:center;font-size:calc(13px - 2pt);padding:8px 5px;margin:0;cursor:default}.production-heading span{font-size:calc(17px - 2pt);font-weight:400}
 
@@ -18,7 +18,7 @@ nav>button[hidden]{display:none!important}#workspace-production-group{margin:10p
 .workspace-library-content{border-left:0!important}
 .workspace-library-content .tree-upload{background:transparent!important;border:0!important;color:#d8d3e4!important;font-size:calc(12px - 2pt);font-weight:400;box-shadow:none;text-align:left;padding:6px 8px}
 .workspace-library-content .tree-upload:hover,.workspace-library-content .tree-folder:hover,.workspace-library-content .tree-image:hover{background:#302a54!important;color:#eeebf5!important}
-.workspace-library-content .tree-folder.selected,.workspace-library-content .tree-image.selected,#workspace-production-group button.active{background:#38305e!important;color:var(--accent)!important;box-shadow:inset 3px 0 var(--accent)!important;border-radius:7px}
+.workspace-library-content .tree-folder.selected,.workspace-library-content .tree-image.selected,:is(#workspace-production-group,#workspace-studios-group) button.active{background:#38305e!important;color:var(--accent)!important;box-shadow:inset 3px 0 var(--accent)!important;border-radius:7px}
 .workspace-delete{background:transparent!important;border:0!important;box-shadow:none!important;color:#b1acc9!important;font-size:calc(21px - 2pt)!important;font-weight:400!important;line-height:1!important;padding:4px!important;width:28px!important;min-width:28px!important;height:28px!important}
 .workspace-delete:hover{background:#3a2944!important;color:#ffa8a8!important}
 
@@ -169,11 +169,11 @@ body.workspace-entry-mode :is(#workspace-entry,#story-choice-screen) .entry-logo
 #activity-panel #close-activity{width:30px;height:30px;padding:0;font-size:calc(18px - 2pt)}
 
 /* Six-step story creation journey. */
-#workspace-production-group.story-journey{margin-top:20px}
+:is(#workspace-production-group,#workspace-studios-group).story-journey{margin-top:20px}
 .story-journey>h2{font-size:calc(14px - 2pt);font-weight:600;margin:0 0 10px;padding:0 8px;color:var(--text,#eeebf5)}
 .story-journey>.workspace-library-content{padding:0;border:0}
-#workspace-production-group .journey-step{display:block;width:100%;text-align:left;font-size:calc(12px - 2pt);line-height:1.5;padding:7px 8px;border-radius:6px;margin:3px 0;background:transparent;color:var(--muted,#b8b4c5)}
-#workspace-production-group .journey-step.active{background:var(--accent,#ffdc24);color:#191720}
+:is(#workspace-production-group,#workspace-studios-group) .journey-step{display:block;width:100%;text-align:left;font-size:calc(12px - 2pt);line-height:1.5;padding:7px 8px;border-radius:6px;margin:3px 0;background:transparent;color:var(--muted,#b8b4c5)}
+:is(#workspace-production-group,#workspace-studios-group) .journey-step.active{background:var(--accent,#ffdc24);color:#191720}
 #journey-guide{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid #ffffff18;padding:4px 0 16px;margin-bottom:20px}
 #journey-guide[hidden]{display:none}
 #journey-guide small{font-size:calc(10px - 2pt);letter-spacing:.12em;color:var(--accent,#ffdc24)}
@@ -191,7 +191,7 @@ body.workspace-entry-mode :is(#workspace-entry,#story-choice-screen) .entry-logo
 #page .section-head .row>button,#page .library-view-label,#page .library-view-label select{font-size:calc(12px - 2pt)!important;font-weight:400!important;min-height:28px;padding:4px 8px!important;width:auto}
 
 /* Shared compact button sizing across Studios menus and action toolbars. */
-body:not(.workspace-entry-mode) :is(#workspace-menus button,#workspace-menus .workspace-menu>summary,#workspace-library-group button,#workspace-production-group button,main button,dialog button:not(.pdf-text-control)):not(.ecco-popup-close,.ecco-popup-minimize,#close-activity,.story-details-next,.story-workspace-tab,.story-choice-trigger,.story-choice-option){
+body:not(.workspace-entry-mode) :is(#workspace-menus button,#workspace-menus .workspace-menu>summary,#workspace-library-group button,#workspace-production-group button,#workspace-studios-group button,main button,dialog button:not(.pdf-text-control)):not(.ecco-popup-close,.ecco-popup-minimize,#close-activity,.story-details-next,.story-workspace-tab,.story-choice-trigger,.story-choice-option){
  font-size:calc(var(--workspace-button-font-size,12px) - 2pt)!important;line-height:16px!important;font-weight:500!important;min-height:28px!important;padding:4px 8px!important;box-sizing:border-box;
 }
 body:not(.workspace-entry-mode) :is(.asset-icon,.workspace-delete,.storage-key-toggle,.tree-branch-toggle){width:32px!important;min-width:32px!important;height:32px!important;padding:4px!important}
@@ -518,12 +518,12 @@ body.story-choice-mode #activity-edge-arrow,body.story-choice-mode #activity-pan
 #story-choice-screen .entry-logo-particle{animation-play-state:running}
 
 /* Align the two primary sidebar disclosures and their label columns. */
-body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary{
+body>aside :is(#workspace-library-group,#workspace-production-group,#workspace-studios-group).workspace-library>summary{
  display:flex!important;align-items:center;gap:8px!important;
  padding:8px 5px!important;margin:0!important;font-size:calc(13px - 2pt)!important;
 }
-body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary::before{display:none!important}
-body>aside :is(#workspace-library-group,#workspace-production-group).workspace-library>summary>.library-symbol{
+body>aside :is(#workspace-library-group,#workspace-production-group,#workspace-studios-group).workspace-library>summary::before{display:none!important}
+body>aside :is(#workspace-library-group,#workspace-production-group,#workspace-studios-group).workspace-library>summary>.library-symbol{
  display:inline-block!important;position:static!important;flex:0 0 12px;width:12px;text-align:center;
 }
 
