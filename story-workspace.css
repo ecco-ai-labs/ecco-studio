@@ -377,8 +377,7 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .generation-image-style-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 @media(max-width:700px){.image-style-body{grid-template-columns:1fr}.image-style-groups{flex-direction:row;flex-wrap:wrap;border-right:0;padding-right:0}.image-style-list{grid-template-columns:1fr}}
 /* Story Picture: optional people who keep the same look (owner request 2026-11-15). Layout only. */
-.story-picture-people{margin:16px 0;border:1px dashed var(--ecco-theme-border,#4a4580);border-radius:10px;padding:12px 14px}
-.story-picture-people summary{cursor:pointer;color:var(--ecco-theme-accent,#ffdc24)}
+.story-picture-people>.pdf-tool-panel{width:min(560px,calc(96vw - 56px))}
 .story-picture-people-list{display:flex;flex-direction:column;gap:8px;margin:8px 0}
 .story-picture-person{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:10px;align-items:end}
 .story-picture-person label{display:flex;flex-direction:column;gap:4px}
