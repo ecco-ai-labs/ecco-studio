@@ -2165,7 +2165,7 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  await expect(panel.locator('.image-style-list [data-image-style]')).toHaveCount(8);await expect(panel.getByRole('tab',{name:/^Popular/})).toHaveAttribute('aria-selected','true');
  await expect(panel.locator('.image-style-suggest')).toContainText('Suggested for All ages:');
  await panel.getByRole('tab',{name:/^Cultural/}).click();await expect(panel.locator('.image-style-list [data-image-style]')).toHaveCount(5);
- await panel.getByLabel('Search image styles',{exact:true}).fill('indian');await expect(panel.locator('.image-style-list .story-choice-name')).toHaveText(['Indian miniature','Madhubani','Warli']);
+ await panel.getByLabel('Search image styles',{exact:true}).fill('indian');await expect(panel.locator('.image-style-list .story-choice-name')).toHaveText(['Indian miniature','Madhubani']);
  await panel.getByLabel('Search image styles',{exact:true}).fill('zzz');await expect(panel).toContainText('No style matches. Try another word.');
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();
  await pickImageStyle(page,'Mosaic');await expect(trigger).toContainText('Mosaic');await expect(page.locator('[data-image-style-hint]')).toHaveText(' · Small tiles');

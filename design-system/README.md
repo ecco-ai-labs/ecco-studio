@@ -976,7 +976,7 @@ Arrows and Left/Right keys step through the Library's current order; the
 popup's own close button or Esc closes. Other libraries keep the side panel.
 
 Image style picker (owner-approved mock 2026-11-10): Story Details → Image
-style lists 50 styles (image-styles.js) without a long list: one dropdown that
+style lists 47 styles (image-styles.js) without a long list: one dropdown that
 opens on Popular (8), 2–3 suggestions for the audience, a search box and seven
 groups (Popular, Illustration, Painting, 3D and craft, Photo, Digital and retro,
 Cultural). The chosen style's one-line hint shows under the field. Story

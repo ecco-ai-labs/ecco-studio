@@ -42,7 +42,6 @@
   'Cinematic film still':S('Movie frame, dramatic light','Cinematic film still: widescreen movie frame, dramatic lighting and color grading, shallow depth of field, real actors and locations, subtle film grain.','cartoon, illustration, anime, painting, 3D render'),
   'Black-and-white photo':S('Classic monochrome','Black-and-white photograph: classic monochrome film look, rich tonal range, real textures and light, no color.','color, cartoon, illustration, painting, 3D render'),
   'Vintage film photo':S('Faded, grainy, retro','Vintage film photograph from the 1970s: faded warm colors, visible film grain, slight light leaks, soft focus, real scene.','cartoon, illustration, painting, 3D render, crisp digital'),
-  'Studio product shot':S('Clean background, crisp light','Studio photograph: the characters and key objects posed on a clean seamless studio backdrop in one solid color, crisp softbox lighting, sharp focus, no landscape and no outdoor background.','outdoor, landscape, scenery, lake, mountains, sky, cartoon, illustration, painting'),
   'Aerial / drone':S('Seen from above','Top-down aerial drone photograph taken from high above, looking straight down at the ground: the people and animals appear small, the land spreads out below, no horizon.','eye-level view, side view, close-up, horizon, cartoon, illustration, painting'),
   // Digital and retro
   'Pixel art':S('16-bit retro game','Pixel art in a 16-bit retro video game style, visible square pixels, limited color palette, crisp pixel edges.','smooth gradients, photorealistic, blurry, painting'),
@@ -51,14 +50,12 @@
   'Fantasy concept art':S('Epic painted world','Epic fantasy concept art: grand painterly digital landscape, dramatic light rays, rich atmosphere and depth, cinematic scale.','photograph, flat cartoon, pixel art, simple'),
   'Stained glass':S('Colored glass and lead lines','Stained glass window: the entire scene, including the characters, the animals, the ground, the water and the sky, is built from flat pieces of colored translucent glass joined by thick dark lead lines, with light glowing through the glass. No painted areas.','photograph, painted scene inside a frame, realistic shading, 3D render, soft gradients'),
   'Mosaic':S('Small tiles','Mosaic artwork: the whole scene made of small square stone and glass tiles with visible grout lines between them, like an ancient wall mosaic.','photograph, smooth painting, 3D render, cartoon outlines'),
-  'Graffiti / street art':S('Spray paint on walls','Graffiti street art spray-painted on a brick wall: bold sprayed colors, drips and overspray, thick outlines, urban mural look.','photograph of real people, watercolor, clean digital, 3D render'),
   'Sticker':S('Die-cut sticker look','Die-cut vinyl sticker design: bold cartoon shapes with a thick white border around the whole design, glossy finish, plain background.','photograph, painting, busy background, 3D render'),
   'Blueprint':S('White lines on blue','Technical blueprint drawing: every element, including the characters and the animals, is drawn only in thin white lines on a deep blue background, with measurement marks and a faint grid. No other colors.','orange, red, any color fills, photograph, painting, cartoon, shading'),
   'Infographic':S('Clean diagram style','Clean infographic poster: the scene drawn as flat icons and simple shapes, with short text labels, numbered callouts and arrows pointing to the characters and objects, a limited palette and a white background.','photograph, painting, 3D render, cluttered, realistic shading'),
   // Cultural
   'Indian miniature':S('Mughal and Rajput court painting','Indian miniature painting in the Mughal and Rajput tradition: fine detailed brushwork, flat perspective, rich jewel colors, gold accents and a decorative border.','photograph, 3D render, western cartoon, anime'),
   'Madhubani':S('Indian folk art from Bihar, bold patterns','Madhubani folk painting from Bihar, India: bold black outlines, every space filled with fine line patterns, bright natural colors, flat stylized figures, decorative border.','photograph, 3D render, realistic shading, anime'),
-  'Warli':S('Indian tribal art, white figures on earth tones','Warli tribal art from Maharashtra, India: simple white stick figures made of circles and triangles on a terracotta earth-brown background, rhythmic patterns.','color fills, photograph, 3D render, realistic shading'),
   'Ukiyo-e':S('Japanese woodblock print','Japanese ukiyo-e woodblock print: bold flowing outlines, flat areas of muted color, visible wood grain texture, stylized waves and clouds.','photograph, 3D render, western cartoon, gradients'),
   'Chinese ink wash':S('Brush and ink on rice paper','Chinese ink wash painting on rice paper: expressive black ink brush strokes, soft gray washes, lots of empty space, a touch of color.','photograph, 3D render, bright saturated color, cartoon outlines')};
  const GROUPS=[
@@ -66,9 +63,9 @@
   ['Illustration',['Cartoon',"Children's storybook",'Anime','Manga','Comic book','Classic 2D animation','Chibi / kawaii','Flat vector','Line art','Pencil sketch','Charcoal']],
   ['Painting',['Watercolor','Oil painting','Acrylic','Gouache','Pastel','Impressionist','Pop art','Art nouveau']],
   ['3D and craft',['3D animation','Clay / claymation','Origami','Paper cut-out','Felt / plush','Toy bricks','Isometric diorama','Low-poly','Wood carving']],
-  ['Photo',['Photographic','Human / realistic portrait','Cinematic film still','Black-and-white photo','Vintage film photo','Studio product shot','Aerial / drone']],
-  ['Digital and retro',['Pixel art','Retro 80s synthwave','Neon cyberpunk','Fantasy concept art','Stained glass','Mosaic','Graffiti / street art','Sticker','Blueprint','Infographic']],
-  ['Cultural',['Indian miniature','Madhubani','Warli','Ukiyo-e','Chinese ink wash']]];
+  ['Photo',['Photographic','Human / realistic portrait','Cinematic film still','Black-and-white photo','Vintage film photo','Aerial / drone']],
+  ['Digital and retro',['Pixel art','Retro 80s synthwave','Neon cyberpunk','Fantasy concept art','Stained glass','Mosaic','Sticker','Blueprint','Infographic']],
+  ['Cultural',['Indian miniature','Madhubani','Ukiyo-e','Chinese ink wash']]];
  // Pictures have no Story type, so suggestions follow the audience.
  const SUGGEST=[[/child|kid|toddler|pre-?school/i,["Children's storybook",'Cartoon','Watercolor']],[/teen/i,['Anime','Comic book','3D animation']],[/adult|all ages|everyone/i,['Photographic','Cinematic film still','Watercolor']]];
  const get=style=>STYLES[String(style||'').trim()]||null;
