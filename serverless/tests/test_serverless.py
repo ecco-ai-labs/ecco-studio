@@ -773,3 +773,46 @@ class KokoroInstallStep(unittest.TestCase):
         self.assertEqual(run.call_count, 2)
         other.assert_not_called()
         self.assertIn('voices/*.pt', installer.KOKORO_PATTERNS)
+
+
+class Qwen3InstallStep(unittest.TestCase):
+    def load(self):
+        path = Path(__file__).resolve().parents[1] / 'audio-worker' / 'install_on_volume.py'
+        spec = importlib.util.spec_from_file_location('install_on_volume_q', path)
+        installer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(installer)
+        return installer
+
+    def test_qwen3_runs_as_its_own_step_and_through_the_rebuild_alias(self):
+        installer = self.load()
+        with patch.object(installer, 'qwen3_tts') as run, patch.object(installer, 'rebuild') as other:
+            self.assertEqual(installer.main(['qwen3-tts']), 0)
+            self.assertEqual(installer.main(['rebuild:qwen3-tts']), 0)
+        self.assertEqual(run.call_count, 2)
+        other.assert_not_called()
+        self.assertEqual([r for _, r in installer.QWEN3_REPOS], ['Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign', 'Qwen/Qwen3-TTS-12Hz-1.7B-Base'])
+
+    def test_deployed_handler_accepts_the_alias_and_new_images_the_step(self):
+        path = Path(__file__).resolve().parents[1] / 'audio-worker' / 'handler.py'
+        source = path.read_text()
+        self.assertIn("'qwen3-tts'", source.split('INSTALL_STEPS = ', 1)[1].split('\n', 1)[0])
+        self.assertIn("'rebuild:'", source.split('INSTALL_STEPS = ', 1)[1].split('\n', 1)[0])
+
+    def test_install_downloads_both_models_caches_them_smoke_tests_and_marks_ready(self):
+        import types
+        installer = self.load()
+        with tempfile.TemporaryDirectory() as tmp:
+            installer.VOL = Path(tmp) / 'vol'
+            calls = []
+            with patch.object(installer, 'build_venv', return_value=Path('/venv/bin/python')), \
+                 patch.object(installer, 'download', side_effect=lambda py, repo, dest, *a, **k: calls.append(('download', repo)) or 'rev-' + repo[-4:]), \
+                 patch.object(installer, 'run', side_effect=lambda cmd, **k: calls.append(('run', str(cmd[-1])))), \
+                 patch.object(installer, 'smoke_speech', return_value=(4.2, 30)) as smoke, \
+                 patch.object(installer, 'publish_speech_venv') as publish, \
+                 patch.object(installer.subprocess, 'run', return_value=types.SimpleNamespace(stdout='0.1.0\n')):
+                installer.qwen3_tts()
+            self.assertEqual([c[1] for c in calls if c[0] == 'download'], ['Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign', 'Qwen/Qwen3-TTS-12Hz-1.7B-Base'])
+            self.assertEqual([Path(c[1]).name for c in calls if c[0] == 'run'], ['voice-design', 'base'])
+            self.assertEqual(smoke.call_args[0][0], 'qwen3-tts')
+            publish.assert_called_once_with('qwen3-tts-venv')
+            self.assertIn('qwen3-tts', json.loads((installer.VOL / 'gpu-ready-models.json').read_text()))

@@ -20,6 +20,10 @@ Steps (run in the order given; each prints one JSON line starting with ECCO_STEP
   kokoro                 build kokoro-venv (misaki G2P with bundled espeak-ng, spaCy English), download
                          hexgrad/Kokoro-82M with its voices, GPU smoke test (English + Hindi), mark ready.
                          Images built before this step existed accept it as rebuild:kokoro.
+  qwen3-tts              build qwen3-tts-venv, download Qwen3-TTS-12Hz-1.7B VoiceDesign (a voice from a
+                         description) and Base (every line cloned from that voice) to models/qwen3-tts/voice-design
+                         and models/qwen3-tts/base, cache the speech tokenizer in hf-cache, GPU smoke test, mark
+                         ready. Images built before this step existed accept it as rebuild:qwen3-tts.
   chatterbox-hi          download the Hindi Chatterbox finetune to models/chatterbox/hi
   whisper                cache openai/whisper-large-v3-turbo in hf-cache for listen-back
   sound:<model>          ace-step-1.5 or moss-soundeffect-v2: source + weights on the volume, a100-venv
@@ -54,6 +58,13 @@ KOKORO_PACKAGES = ['kokoro==0.9.4', 'misaki[en,ja,zh]==0.9.4', 'spacy==3.8.7', '
 # spaCy's English model as a pinned wheel, so the first job never tries to download it.
 SPACY_EN = 'https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl'
 KOKORO_PATTERNS = ['config.json', 'kokoro-v1_0.pth', 'voices/*.pt', 'LICENSE*', '*.md']
+# Same packages as the pod installer (audio/install_gpu_voice_models.py); qwen-tts brings its own transformers pin
+# and torch/torchaudio come from the runtime (constraints).
+QWEN3_PACKAGES = ['qwen-tts', 'soundfile', 'huggingface_hub', 'accelerate']
+QWEN3_REPOS = (('voice-design', 'Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign'), ('base', 'Qwen/Qwen3-TTS-12Hz-1.7B-Base'))
+QWEN3_SMOKE = [{'text': 'Welcome to the show. Today we have a wonderful story for you.', 'language': 'English', 'voice': 'warm-host-f'},
+               {'text': 'Look, look! A butterfly landed on my nose!', 'language': 'English', 'voice': 'girl-5'},
+               {'text': 'And that, my friends, is how the river found the sea.', 'language': 'English', 'voice': 'warm-host-f'}]
 
 
 def log(*parts):
@@ -359,6 +370,30 @@ def kokoro():
     step_result('kokoro', ready=True, audio_seconds=seconds, smoke_seconds=took, revision=record.get('revision'))
 
 
+def qwen3_tts():
+    python = build_venv('qwen3-tts-venv', QWEN3_PACKAGES)
+    root = VOL / 'models' / 'qwen3-tts'
+    record = read_json(root / 'ecco-install.json', {})
+    for folder, repo in QWEN3_REPOS:
+        if not (root / folder / 'config.json').is_file():
+            (root / folder).mkdir(parents=True, exist_ok=True)
+            record[folder] = {'repo': repo, 'revision': download(python, repo, root / folder)}
+            write_json(root / 'ecco-install.json', record)
+    # Load each model once with the hub online, so what it fetches at start-up (its speech tokenizer) is in the
+    # volume's hf-cache and offline workers can load it.
+    code = ('import sys, torch\nfrom qwen_tts import Qwen3TTSModel\n'
+            'Qwen3TTSModel.from_pretrained(sys.argv[1], device_map="cpu", dtype=torch.bfloat16)\nprint("cached", sys.argv[1])')
+    for folder, _ in QWEN3_REPOS:
+        run([python, '-c', code, root / folder], env=clean_env(HF_HOME=str(AUDIO / 'hf-cache')), cwd=str(AUDIO))
+    seconds, took = smoke_speech('qwen3-tts', python, QWEN3_SMOKE)
+    publish_speech_venv('qwen3-tts-venv')
+    mark_ready('gpu-ready-models.json', 'qwen3-tts')
+    version = subprocess.run([str(python), '-c', 'import importlib.metadata as m; print(m.version("qwen-tts"))'],
+                             capture_output=True, text=True).stdout.strip()
+    step_result('qwen3-tts', ready=True, audio_seconds=seconds, smoke_seconds=took, qwen_tts=version,
+                revisions={k: v.get('revision') for k, v in record.items() if isinstance(v, dict)})
+
+
 def chatterbox_hi():
     """Download the Hindi finetune if missing, then prove the worker at this commit uses it (GPU smoke test)."""
     python = AUDIO / 'chatterbox-venv' / 'bin' / 'python'
@@ -502,6 +537,8 @@ def main(steps):
                 pack(argument)
             elif name == 'kokoro' or (name == 'rebuild' and argument == 'kokoro'):
                 kokoro()  # rebuild:kokoro lets images whose handler predates the kokoro step run it
+            elif name == 'qwen3-tts' or (name == 'rebuild' and argument == 'qwen3-tts'):
+                qwen3_tts()  # rebuild:qwen3-tts lets images whose handler predates the qwen3-tts step run it
             elif name == 'rebuild':
                 rebuild(argument)
             elif name == 'voxcpm2':
