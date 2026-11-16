@@ -5,6 +5,12 @@ const LEGACY_STORY='00000000000000000000000000000001';
 // A page refresh starts a new selection; saved story drafts stay in storage.
 let activeStory='';
 localStorage.removeItem('ecco-active-story');
+// A browser refresh starts a blank story (owner request, 16 Nov 2026): no title, prompt or picture text comes back.
+// The unsaved story is not deleted: its copy stays in Story Library › Drafts (ecco-story-setup:<id>), and saved stories
+// stay in storage. Keys ending in ':' belong to the unsaved story (no story ID yet).
+try{if(performance.getEntriesByType('navigation')[0]?.type==='reload'){
+ for(const key of Object.keys(localStorage))if(key==='ecco-new-story-draft'||key==='ecco-board-new-draft'||(/^ecco-[a-z0-9-]+(:[a-z0-9-]+)?:$/.test(key)&&key!=='ecco-unsaved-images:'))localStorage.removeItem(key);
+}}catch{}
 const defaultDraft={title:'',story:'',scenes:[]};
 function stories(){if(state.storage_pending)return [];const explicit=state.records.filter(r=>r.kind==='story');const legacy=explicit.find(r=>r.id===LEGACY_STORY),legacyContent=state.records.some(r=>['asset','board'].includes(r.kind)&&!r.deleted&&(!r.story_id||r.story_id===LEGACY_STORY));return [...(!legacy&&legacyContent?[{id:LEGACY_STORY,title:'The Fisherman and the Jinni'}]:[]),...explicit.filter(r=>!r.deleted).sort((a,b)=>a.created-b.created)];}
 function currentStory(){return stories().find(s=>s.id===activeStory)||{id:null,title:'No active story'};}

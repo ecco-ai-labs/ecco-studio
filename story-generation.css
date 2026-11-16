@@ -109,7 +109,10 @@
 .story-gen-image-frame[data-filled]{border-style:solid;background:var(--ecco-theme-background,#17152f)}
 .story-gen-image-frame img{display:block;max-width:100%;border-radius:8px}
 .story-gen-image-frame .story-gen-images{width:100%}
-.story-gen-image-actions{display:flex;justify-content:flex-end}
+.story-gen-image-actions{display:flex;justify-content:flex-end;margin-top:16px}
+.story-gen-bar-detail{margin:0}
+/* Image rows sit indented under Overall Progress, 1 pt smaller (owner request 2026-11-16). */
+.story-gen-bars-units{grid-column:1/-1;display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;align-items:center;gap:10px 12px;padding-left:24px;font-size:calc(1em - 1pt)}
 .story-gen-save-item{display:flex;gap:12px;align-items:center}
 .story-gen-save-item img{display:block;width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px}
 .story-gen-save-item div{display:flex;flex-direction:column;gap:2px}
@@ -127,7 +130,8 @@
 .story-gen-fullscreen-head .row{display:flex;align-items:center;gap:12px;white-space:nowrap}
 .story-gen-fullscreen-stage{flex:1 1 auto;min-height:0;display:grid;place-items:center}
 .story-gen-fullscreen-stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
-#page .story-gen-fullscreen-head button.pdf-icon-btn,.story-gen-fullscreen button.pdf-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:var(--ecco-size-control-medium);padding:0;background:transparent;color:var(--ecco-theme-muted,#b1acc9);border:1px solid #45405e;border-radius:6px}
+.story-gen-fullscreen button.pdf-icon-btn svg{width:60%;height:60%}
+#page .story-gen-fullscreen-head button.pdf-icon-btn,.story-gen-fullscreen button.pdf-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:var(--ecco-size-control-medium);height:var(--ecco-size-control-medium);padding:0;background:transparent;color:var(--ecco-theme-muted,#b1acc9);border:1px solid #45405e;border-radius:6px}
 #page .story-gen-fullscreen-head button.pdf-icon-btn:hover,#page .story-gen-fullscreen-head button.pdf-icon-btn:focus-visible,.story-gen-fullscreen button.pdf-icon-btn:hover,.story-gen-fullscreen button.pdf-icon-btn:focus-visible{color:var(--ecco-theme-accent,#ffdc24);border-color:var(--ecco-theme-accent,#ffdc24)}
 /* Audio stories (owner-approved mocks, 2026-11-16): the Image Generation layout with one row per worker and the Audio box. */
 .story-gen-bars-workers .story-gen-bar-label~.story-gen-bar-label{padding-left:16px;font-weight:500}

@@ -109,7 +109,7 @@
  function logKey(story){return 'ecco-gen-log:'+story;}
  function track(snap,story){
   const key=logKey(story),saved=session(key,{key:'',units:{},items:[]});
-  if(saved.key!==snap.key){saved.key=snap.key;saved.units={};saved.items=[{t:clock(),m:'Generation started.'}];}
+  if(saved.key!==snap.key){saved.key=snap.key;saved.units={};saved.details={};saved.items=[{t:clock(),m:'Generation started.'}];}
   for(const u of snap.units){const before=saved.units[u.id];if(before===u.status)continue;saved.units[u.id]=u.status;
    const n=u.logName||u.name,m=u.status==='done'?n+' finished.':u.status==='running'?n+' started'+(u.worker?' on '+u.worker:'')+'.':u.status==='failed'?n+' failed'+(u.error?': '+u.error:'.'):u.status==='stopped'?n+' stopped.':'';
    if(m&&(before||u.status!=='waiting'))saved.items.push({t:clock(),m});}
@@ -140,7 +140,7 @@
   q('[data-next-episode]',root).hidden=!ctx.recurring;
   settingsDrawer(page);
   for(const child of [...page.children])if(child!==root&&child.id!=='story-gen-settings'&&child.id!=='story-simple-publishing'&&child.tagName!=='DIALOG'&&!child.hidden){child.hidden=true;child.dataset.storyGenHidden='';}
-  if(options.autoStart){autoStartUntil=Date.now()+20000;ctx.autoStart=false;}
+  if(options.autoStart){autoStartUntil=Date.now()+20000;ctx.autoStart=false;if(ctx.kind==='image'){sessionWrite(freshKey(),{t:clock(),was:localStorage.getItem('ecco-image-job:'+ctx.story)||''});chosenImage='';imageSig='';}}
   if(!timer)timer=setInterval(update,1000);
   update();
  }
@@ -166,21 +166,29 @@
   const button=generateButton();
   if(!button){window.EccoErrors?.show('The '+NOUN[ctx.kind]+' studio is still loading. Try again in a moment.',{title:'Generation could not start'});return false;}
   if(button.disabled||button.getAttribute('aria-busy')==='true'){window.EccoErrors?.show(busyText()||'Generation is already running.',{title:'Generation could not start'});return false;}
-  const previous=snapshot(ctx.kind,ctx.story)?.key;if(previous)rememberShown(ctx.story,[...shownErrors(ctx.story).filter(k=>k!==previous),previous]);autoStartUntil=0;ctx.startedAt=clock();button.click();setTimeout(update,300);return true;
+  const previous=snapshot(ctx.kind,ctx.story)?.key;if(previous)rememberShown(ctx.story,[...shownErrors(ctx.story).filter(k=>k!==previous),previous]);autoStartUntil=0;button.click();setTimeout(update,300);return true;
  }
  async function download(chosen){const asset=chosen||current().asset;if(!asset)return;try{if(ctx.kind==='audio'){q('[data-download-audio="'+(window.CSS?.escape?CSS.escape(asset.id):asset.id)+'"]')?.click();return;}const url=typeof media==='function'?media(asset):'';if(!url)throw Error('The file is still loading. Try again in a moment.');const a=document.createElement('a');a.href=url;a.download=(asset.title||'ecco-'+ctx.kind).replace(/[\\/:*?"<>|]+/g,'-');a.click();}catch(error){window.EccoErrors?.show(error,{title:'Download failed'});}}
  async function publish(){const button=q('[data-publish]',root),asset=current().asset;button.disabled=true;try{await ctx.publish?.(asset);}catch(error){window.EccoErrors?.show(error,{title:'Publish could not start'});}finally{if(button.isConnected)button.disabled=!current().asset;}}
 
+ const freshKey=()=>'ecco-gen-fresh:'+ctx.story;
+ // {t: when Next: Generate was pressed, was: the job shown before it}. Job IDs, not clocks, decide what is new.
+ function fresh(){const f=session(freshKey(),null);return f&&typeof f==='object'&&clock()-(f.t||0)<3600?f:null;}
  function current(){
   const snap=snapshot(ctx.kind,ctx.story);let asset=null;
   if(ctx.kind==='audio'){const list=(window.EccoAudioStudio?.recordings?.()||[]).slice().sort((a,b)=>(b.created||0)-(a.created||0));asset=list[0]||null;}
   else if(ctx.kind==='image'){const done=snap?.status==='done'?snap.assets:[];asset=done[0]||latestAsset('image',ctx.story);}
   else asset=latestAsset('video',ctx.story);
-  const button=generateButton();
-  // Image stories: once the job started from this screen has finished, review shows even if the studio's own Generate
-  // button is still busy (it used to keep the screen on "Starting…" with no picture to review).
-  const finishedHere=ctx.kind==='image'&&snap&&ctx.startedAt&&(snap.started||0)>=ctx.startedAt-30&&(snap.status==='done'||FAILED.includes(snap.status));
-  const submitting=button?.getAttribute('aria-busy')==='true'&&!ACTIVE.includes(snap?.status)&&!finishedHere;
+  const button=generateButton(),busy=button?.getAttribute('aria-busy')==='true';
+  let submitting=busy&&!ACTIVE.includes(snap?.status);
+  if(ctx.kind==='image'){
+   // Image stories (owner request 2026-11-16): Next: Generate opens a clean screen. Until the new job shows up, the
+   // previous picture, bars and Activity are not shown. A finished job always shows its picture, even if the studio's
+   // own Generate button is still busy (that used to keep the screen on "Starting…" with no picture).
+   const f=fresh(),pending=f&&(!snap||snap.key===f.was)&&(busy||clock()-f.t<90);
+   if(pending)return {snap:null,asset:null,mode:'running',submitting:true,pending:true,busy};
+   submitting=busy&&!snap;
+  }
   const running=snap&&ACTIVE.includes(snap.status)||submitting;
   const failed=!running&&snap&&FAILED.includes(snap.status)&&(!asset||(asset.created||0)<(snap.started||0));
   const mode=running?'running':failed?'failed':asset&&(!snap||snap.status==='done'||(asset.created||0)>=(snap.started||0)||snap.status==='cancelled')?'review':snap?.status==='cancelled'?'stopped':'idle';
@@ -189,8 +197,9 @@
 
  function update(){
   if(!root?.isConnected||!ctx){clearInterval(timer);timer=null;return;}
-  const {snap,asset,mode,submitting}=current();
-  if(autoStartUntil&&mode!=='running'){const button=generateButton();if(button&&!button.disabled&&button.getAttribute('aria-busy')!=='true')start();else if(Date.now()>autoStartUntil){autoStartUntil=0;window.EccoErrors?.show(busyText()||'The '+NOUN[ctx.kind]+' studio is not ready to generate yet. Check Model Settings, then choose Generate.',{title:'Generation could not start',retry:()=>toggleSettings(true),retryLabel:'Open Model Settings'});}}
+  const {snap,asset,mode,submitting,pending,busy}=current();
+  // A clean screen waiting for its first job still has to press Generate (pending but the studio is not busy yet).
+  if(autoStartUntil&&(mode!=='running'||pending&&!busy)){const button=generateButton();if(button&&!button.disabled&&button.getAttribute('aria-busy')!=='true')start();else if(Date.now()>autoStartUntil){autoStartUntil=0;window.EccoErrors?.show(busyText()||'The '+NOUN[ctx.kind]+' studio is not ready to generate yet. Check Model Settings, then choose Generate.',{title:'Generation could not start',retry:()=>toggleSettings(true),retryLabel:'Open Model Settings'});}}
   else if(mode==='running')autoStartUntil=0;
   const chip=q('[data-gen-chip]',root),summary=q('[data-gen-summary]',root);
   const chipText={running:submitting?'Starting…':'Generating',failed:'Needs attention',review:'Ready to review',stopped:'Stopped',idle:'Ready to generate'}[mode];
@@ -261,9 +270,10 @@
   const list=mode==='review'?(snap?.status==='done'&&snap.assets.length?snap.assets:asset?[asset]:[]):[];
   if(!list.some(a=>a.id===chosenImage))chosenImage=list[0]?.id||'';
   const shown=list.find(a=>a.id===chosenImage)||null;
+  if(snap&&mode==='running')noteDetails(snap);
   const items=snap?track(snap,ctx.story):[],ended=mode==='running'?clock():(items.at(-1)?.t||clock()),elapsed=snap?.started?Math.max(0,ended-snap.started):0;
   const eta=snap&&mode==='running'?(snap.eta??(snap.overall>4&&elapsed>20?elapsed*(100-snap.overall)/snap.overall:null)):0;
-  const sig=JSON.stringify([mode,snap?.key||'',Math.round(snap?.overall??-1),snap?.units.map(u=>[u.status,Math.round(u.pct??-1)])||[],items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),list.map(a=>a.id),chosenImage,ctx.title]);
+  const sig=JSON.stringify([mode,snap?.key||'',Math.round(snap?.overall??-1),snap?.units.map(u=>[u.status,Math.round(u.pct??-1)])||[],items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),list.map(a=>a.id),chosenImage,ctx.title,snap?.units.map(u=>u.detail)||[]]);
   if(sig===imageSig)return;imageSig=sig;
   const total=snap?snap.units.length:0;
   const left=snap?'<div class="story-gen-image-left">'+leftBox(snap,mode,items,elapsed,eta,(u,i)=>imageName(i,total),'image')+'</div>':'';
@@ -272,26 +282,38 @@
    :'<p class="help">'+(mode==='failed'?'The image could not be made. Choose Generate again.':mode==='stopped'?'Generation stopped.':'Your image will appear here when it is ready.')+'</p>';
   host.innerHTML='<div class="story-gen-image-layout'+(snap?'':' story-gen-image-only')+'">'+left
    +'<section class="panel story-gen-image-box" aria-labelledby="story-gen-image-title"><div class="story-gen-image-head"><h3 id="story-gen-image-title">Image</h3><div class="story-gen-image-tools" role="group" aria-label="Image actions">'+tool('save','Save to Image Library','save')+tool('delete','Delete image','trash')+tool('download','Download','download')+tool('full','Full Screen','expand')+'</div></div><div class="story-gen-image-frame"'+(shown?' data-filled':'')+'>'+frame+'</div></section></div>'
-   +'<div class="story-gen-image-actions"><button type="button" data-image-publish'+(ready&&mode!=='running'?'':' disabled')+'>Publish</button></div>';
-  if(typeof hydrateMedia==='function')hydrateMedia();
+   +'<div class="story-gen-image-actions"><button type="button" data-image-publish'+(ready&&mode!=='running'?'':' disabled')+'>Next: Publish</button></div>';
+  paintImages(host);
   host.onclick=e=>{const pick=e.target.closest('[data-image]');if(pick){chosenImage=pick.dataset.image;imageSig='';update();return;}
    const b=e.target.closest('[data-image-act],[data-image-publish]');if(!b||b.disabled)return;const a=list.find(x=>x.id===chosenImage);
    if(b.hasAttribute('data-image-publish'))return publish();if(!a)return;
    ({save:()=>saveDialog(a),delete:()=>removeImage(a),download:()=>download(a),full:()=>fullScreen(a)})[b.dataset.imageAct]?.();};
  }
 
- // Left box of the Image and Audio screens: the stats, "Overall Progress: <bar> NN%" and one "<name>: <bar> NN%" row
- // per image or worker, then Activity.
+ // Left box of the Image and Audio screens: the stats, "Overall Progress: <bar> NN%", one "<name>: <bar> NN%" row per
+ // image or worker (indented under it, 1 pt smaller), the live worker status, then Activity (owner requests 2026-11-16).
  function leftBox(snap,mode,items,elapsed,eta,nameOf,noun){
   const busy=snap.units.filter(u=>u.status==='running'),active=new Set(busy.map(u=>u.worker||u.name)).size;
   const stats=[['Elapsed',duration(elapsed)],['Remaining',mode==='running'?remaining(eta):mode==='review'?'Done':'—'],...snap.counts,['Working now',active?active+' worker'+(active>1?'s':''):'—']];
   const pct=u=>Math.round(u.status==='done'?100:u.pct??0);
-  const bar=(label,value,large,status,indeterminate)=>'<span class="story-gen-bar-label">'+esc(label)+':</span><div class="story-gen-track'+(large?' story-gen-track-large':'')+(indeterminate?' story-gen-indeterminate':'')+'"'+(status?' data-status="'+status+'"':'')+' role="progressbar" aria-label="'+esc(label)+' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+value+'"><span style="width:'+value+'%"></span></div><span class="story-gen-bar-pct">'+value+'%</span>';
+  const waiting=mode==='running'&&!snap.units.some(u=>u.status==='done'||(u.pct??0)>0);
+  // No step count yet (a worker starting or loading its model): a moving stripe and "…", not a 0% that looks stuck.
+  const bar=(label,value,large,status,indeterminate)=>'<span class="story-gen-bar-label">'+esc(label)+':</span><div class="story-gen-track'+(large?' story-gen-track-large':'')+(indeterminate?' story-gen-indeterminate':'')+'"'+(status?' data-status="'+status+'"':'')+' role="progressbar" aria-label="'+esc(label)+' progress"'+(indeterminate?'':' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+value+'"')+'><span style="width:'+value+'%"></span></div><span class="story-gen-bar-pct">'+(indeterminate?'…':value+'%')+'</span>';
   return '<section class="panel story-gen-overall" aria-label="Overall progress"><dl class="story-gen-stats">'+stats.map(([k,v])=>'<div><dt class="help">'+esc(k)+'</dt><dd><strong>'+esc(v)+'</strong></dd></div>').join('')+'</dl>'
-   +'<div class="story-gen-bars'+(noun==='audio'?' story-gen-bars-workers':'')+'">'+bar('Overall Progress',Math.round(mode==='review'?100:snap.overall),true,'')+snap.units.map((u,i)=>bar(nameOf(u,i),mode==='review'?100:pct(u),false,u.status,u.status==='running'&&u.pct==null)).join('')+'</div>'
-   +'<p class="help">Overall progress is the sum of every worker\'s finished work divided by all the work in this '+(noun==='audio'?'recording':'image')+', so it moves whenever any worker makes progress.</p></section>'
+   +'<div class="story-gen-bars">'+bar('Overall Progress',Math.round(mode==='review'?100:snap.overall),true,'',waiting)+'<div class="story-gen-bars-units">'+snap.units.map((u,i)=>bar(nameOf(u,i),mode==='review'?100:pct(u),false,u.status,mode==='running'&&u.status==='running'&&u.pct==null)).join('')+'</div></div>'
+   +'<p class="help story-gen-bar-detail" aria-live="polite">'+snap.units.map((u,i)=>esc(nameOf(u,i)+': '+workerStatus(u,mode,noun))).join('<br>')+'</p></section>'
    +'<section class="panel story-gen-log" aria-label="Activity"><h3>Activity</h3><ol>'+items.slice().reverse().map(i=>'<li><time class="help">'+esc(new Date(i.t*1000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}))+'</time><span>'+esc(i.m)+'</span></li>').join('')+'</ol><p class="help">You can leave this tab. Generation keeps going and this screen catches up when you return.</p></section>';
  }
+ // What the worker is doing now, in plain words (owner request 2026-11-16): replaces the old explanation sentence.
+ function workerStatus(u,mode,noun='image'){if(mode==='review'||u.status==='done')return 'Finished';if(u.status==='failed')return 'Stopped with an error'+(u.error?': '+u.error:'');if(u.status==='stopped')return 'Stopped';if(u.status==='waiting')return 'Waiting for a worker';
+  const step=/(\d+)\s*(?:\/|of)\s*(\d+)/i.exec(u.detail||'');if(step&&noun==='image')return 'Drawing the picture · step '+step[1]+' of '+step[2]+(u.worker?' on '+u.worker:'');
+  return (u.detail||(noun==='image'?'Starting a GPU worker and loading the model':'Working'))+(u.worker?' on '+u.worker:'');}
+ // Each new status the job reports (for example "Preparing the model") goes into Activity once, with its time.
+ function noteDetails(snap){const key=logKey(ctx.story),saved=session(key,{key:'',units:{},items:[]});if(saved.key!==snap.key)return;saved.details=saved.details||{};let changed=false;
+  for(const u of snap.units){if(u.status!=='running'||!u.detail||saved.details[u.id]===u.detail)continue;saved.details[u.id]=u.detail;saved.items.push({t:clock(),m:u.name+': '+u.detail});changed=true;}
+  if(changed){saved.items=saved.items.slice(-40);sessionWrite(key,saved);}}
+ // The studio loads each picture once; a new <img> for an already-loaded picture gets its address here, otherwise it stays blank.
+ function paintImages(scope){for(const img of all('img[data-asset]',scope)){if(img.getAttribute('src'))continue;const a=records().find(r=>r.id===img.dataset.asset),url=a&&typeof media==='function'?media(a):'';if(url)img.src=url;}if(typeof hydrateMedia==='function')hydrateMedia();}
  function folderList(){return records().filter(r=>r.kind==='image_folder'&&!r.deleted).sort((a,b)=>a.name.localeCompare(b.name));}
  function saveDialog(asset){
   q('#story-gen-save-dialog')?.remove();const folders=folderList(),style=asset.settings?.style||asset.style||'';
@@ -300,7 +322,7 @@
    +'<fieldset class="story-gen-save-labels"><legend>Label</legend><label class="story-gen-check"><input type="radio" name="mode" value="existing"'+(folders.length?' checked':' disabled')+'> Existing label</label><select name="folder" aria-label="Existing label"'+(folders.length?'':' disabled')+'>'+(folders.length?folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name.replaceAll(' / ',' › '))+'</option>').join(''):'<option>No labels yet</option>')+'</select>'
    +'<label class="story-gen-check"><input type="radio" name="mode" value="new"'+(folders.length?'':' checked')+'> New label</label><input type="text" name="name" maxlength="80" aria-label="New label name" placeholder="Name the new label"'+(folders.length?' disabled':'')+'></fieldset>'
    +'<p class="help" role="status" data-save-status></p><div class="row story-gen-save-actions"><button type="button" class="secondary" data-cancel>Cancel</button><button type="submit">Save</button></div></form>';
-  document.body.append(d);if(typeof hydrateMedia==='function')hydrateMedia();
+  document.body.append(d);paintImages(d);
   const form=q('form',d),sync=()=>{const fresh=form.elements.mode.value==='new';form.elements.folder.disabled=fresh||!folders.length;form.elements.name.disabled=!fresh;};
   for(const r of all('input[name=mode]',d))r.onchange=()=>{sync();(form.elements.mode.value==='new'?form.elements.name:form.elements.folder).focus();};
   q('[data-cancel]',d).onclick=()=>d.close();d.onclose=()=>d.remove();
@@ -320,7 +342,7 @@
  function fullScreen(asset){
   q('#story-gen-fullscreen')?.remove();const d=document.createElement('dialog');d.id='story-gen-fullscreen';d.className='story-gen-fullscreen';d.dataset.inlinePanel='';d.setAttribute('aria-label','Image, full screen');
   d.innerHTML='<div class="story-gen-fullscreen-head"><strong>'+esc(imageName(0,1))+'</strong><div class="row"><span class="help">Press Esc to return</span><button type="button" class="pdf-icon-btn" data-close aria-label="Exit Full Screen" title="Exit Full Screen (Esc)">'+svg('collapse')+'</button></div></div><div class="story-gen-fullscreen-stage"><img data-asset="'+esc(asset.id)+'" alt="'+esc(asset.prompt||asset.title||'Generated image')+'"></div>';
-  (root||document.body).append(d);if(typeof hydrateMedia==='function')hydrateMedia();q('[data-close]',d).onclick=()=>d.close();d.onclose=()=>d.remove();d.showModal();q('[data-close]',d).focus();
+  document.body.append(d);paintImages(d);q('[data-close]',d).onclick=()=>d.close();d.onclose=()=>d.remove();d.showModal();q('[data-close]',d).focus();
  }
 
 

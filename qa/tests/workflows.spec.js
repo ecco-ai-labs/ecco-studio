@@ -1442,7 +1442,7 @@ test('GEN-06 Image Generation starts by itself, shows the picture for review and
  expect(await box.getByRole('group',{name:'Image actions'}).getByRole('button').evaluateAll(b=>b.map(x=>x.getAttribute('aria-label')))).toEqual(['Save to Image Library','Delete image','Download','Full Screen']);
  const save=box.getByRole('button',{name:'Save to Image Library',exact:true});await save.hover();await expect(save).toHaveCSS('color','rgb(255, 220, 36)');
  // Publish sits outside the Image box, below it.
- const publish=page.locator('.story-gen-image-actions').getByRole('button',{name:'Publish',exact:true});await expect(publish).toBeEnabled();
+ const publish=page.locator('.story-gen-image-actions').getByRole('button',{name:'Next: Publish',exact:true});await expect(publish).toBeEnabled();
  expect((await publish.boundingBox()).y).toBeGreaterThan((await box.boundingBox()).y+(await box.boundingBox()).height-1);
  // Not in Image Library until Save.
  const made=await page.evaluate(()=>window.__qaCalls.findLast(()=>true)&&JSON.parse(localStorage.getItem('ecco-unsaved-images')||'[]'));expect(made).toHaveLength(1);
@@ -1454,10 +1454,16 @@ test('GEN-06 Image Generation starts by itself, shows the picture for review and
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-unsaved-images')||'[]'))).toEqual([]);
  // Full Screen opens the picture across the window; Esc returns.
  await box.getByRole('button',{name:'Full Screen',exact:true}).click();const full=page.getByRole('dialog',{name:'Image, full screen',exact:true});await expect(full).toBeVisible();
- await expect(full.getByText('Press Esc to return')).toBeVisible();await page.keyboard.press('Escape');await expect(full).toHaveCount(0);
+ await expect(full.getByText('Press Esc to return')).toBeVisible();
+ // The full-screen picture gets the same picture as the Image box (an already-loaded picture used to stay blank).
+ await expect.poll(()=>full.locator('img').getAttribute('src')).toBe(await box.locator('img[data-asset]').getAttribute('src'));expect(await full.locator('img').getAttribute('src')).toBeTruthy();await page.keyboard.press('Escape');await expect(full).toHaveCount(0);
  // Publish opens Story Publishing without Edit story or a second Back.
  await publish.click();await expect(page.getByRole('tab',{name:'4. Story Publishing',exact:true})).toHaveAttribute('aria-selected','true');
  await expect(page.locator('#story-simple-media')).toBeHidden();await expect(page.getByRole('button',{name:'Edit story',exact:true})).toHaveCount(0);
+ // Back on Image Generation the picture is still there with working icons (it used to come back empty).
+ await page.getByRole('tab',{name:'3. Image Generation',exact:true}).click();await expect(page.locator('[data-gen-chip]')).toHaveText('Ready to review');
+ const again=page.locator('.story-gen-image-box img[data-asset]');await expect.poll(()=>again.getAttribute('src')).toBeTruthy();
+ await expect(page.locator('.story-gen-image-box').getByRole('button',{name:'Download',exact:true})).toBeEnabled();
  expect(page.qaErrors).toEqual([]);
 });
 test('GEN-07 an unsaved Image Generation picture stays out of Image Library, and Delete moves it to Trash',async({page})=>{
