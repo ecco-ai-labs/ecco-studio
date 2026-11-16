@@ -376,9 +376,9 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .generation-image-style{display:flex;flex-direction:column;gap:6px}
 .generation-image-style-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 @media(max-width:700px){.image-style-body{grid-template-columns:1fr}.image-style-groups{flex-direction:row;flex-wrap:wrap;border-right:0;padding-right:0}.image-style-list{grid-template-columns:1fr}}
-/* Story Picture: optional people who keep the same look (owner request 2026-11-15). Layout only. */
-.story-picture-people>.pdf-tool-panel{width:min(560px,calc(96vw - 56px))}
-.story-picture-people-list{display:flex;flex-direction:column;gap:8px;margin:8px 0}
-.story-picture-person{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:10px;align-items:end}
-.story-picture-person label{display:flex;flex-direction:column;gap:4px}
-@media(max-width:700px){.story-picture-person{grid-template-columns:1fr}}
+/* Story Picture, image stories (owner-approved mocks, 2026-11-16): the photo beside one prompt box, or one prompt box
+   on its own. Layout only; sizes come from the roster. */
+.story-picture-photo-row.story-picture-simple{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.story-picture-prompt .pdf-ai-sections{grid-template-rows:auto minmax(0,1fr)}
+.pdf-story-dialog.pdf-story-inline.story-picture-prompt{height:auto}
+@media (max-width:900px){.story-picture-photo-row.story-picture-simple{grid-template-columns:minmax(0,1fr)}}

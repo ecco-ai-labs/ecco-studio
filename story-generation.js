@@ -108,7 +108,7 @@
   const same=ctx&&ctx.story===options.story&&ctx.kind===options.kind&&root?.isConnected&&root.parentElement===page;
   ctx={...ctx,...options};
   if(!same){
-   root?.remove();q('#story-gen-settings')?.remove();progressSig='';reviewSig='';
+   root?.remove();q('#story-gen-settings')?.remove();progressSig='';reviewSig='';imageSig='';
    root=document.createElement('section');root.id='story-generation';root.className='story-gen';root.dataset.inlinePanel='';root.setAttribute('aria-label','Story generation');
    root.innerHTML='<div class="story-gen-toolbar"><div class="story-gen-state"><span class="story-gen-chip" data-gen-chip></span><span class="help" data-gen-summary></span></div><div class="story-gen-actions"><button type="button" class="secondary" data-gen-settings aria-controls="story-gen-settings" aria-expanded="false"></button><button type="button" class="secondary" data-gen-stop hidden>Stop generation</button><button type="button" class="secondary" data-gen-start></button><button type="button" class="secondary" data-gen-download hidden>Download</button><button type="button" data-publish disabled>Publish</button></div></div><p class="help" data-gen-note></p><div data-gen-progress></div><div data-gen-review></div><div class="row"><button type="button" class="secondary" data-next-episode hidden>Start next episode / chapter</button></div>';
    const anchor=q('#story-simple-publishing',page);if(anchor)anchor.after(root);else page.prepend(root);
@@ -149,9 +149,9 @@
   const button=generateButton();
   if(!button){window.EccoErrors?.show('The '+NOUN[ctx.kind]+' studio is still loading. Try again in a moment.',{title:'Generation could not start'});return false;}
   if(button.disabled||button.getAttribute('aria-busy')==='true'){window.EccoErrors?.show(busyText()||'Generation is already running.',{title:'Generation could not start'});return false;}
-  const previous=snapshot(ctx.kind,ctx.story)?.key;if(previous)rememberShown(ctx.story,[...shownErrors(ctx.story).filter(k=>k!==previous),previous]);autoStartUntil=0;button.click();setTimeout(update,300);return true;
+  const previous=snapshot(ctx.kind,ctx.story)?.key;if(previous)rememberShown(ctx.story,[...shownErrors(ctx.story).filter(k=>k!==previous),previous]);autoStartUntil=0;ctx.startedAt=clock();button.click();setTimeout(update,300);return true;
  }
- async function download(){const asset=current().asset;if(!asset)return;try{if(ctx.kind==='audio'){q('[data-download-audio="'+(window.CSS?.escape?CSS.escape(asset.id):asset.id)+'"]')?.click();return;}const url=typeof media==='function'?media(asset):'';if(!url)throw Error('The file is still loading. Try again in a moment.');const a=document.createElement('a');a.href=url;a.download=(asset.title||'ecco-'+ctx.kind).replace(/[\\/:*?"<>|]+/g,'-');a.click();}catch(error){window.EccoErrors?.show(error,{title:'Download failed'});}}
+ async function download(chosen){const asset=chosen||current().asset;if(!asset)return;try{if(ctx.kind==='audio'){q('[data-download-audio="'+(window.CSS?.escape?CSS.escape(asset.id):asset.id)+'"]')?.click();return;}const url=typeof media==='function'?media(asset):'';if(!url)throw Error('The file is still loading. Try again in a moment.');const a=document.createElement('a');a.href=url;a.download=(asset.title||'ecco-'+ctx.kind).replace(/[\\/:*?"<>|]+/g,'-');a.click();}catch(error){window.EccoErrors?.show(error,{title:'Download failed'});}}
  async function publish(){const button=q('[data-publish]',root),asset=current().asset;button.disabled=true;try{await ctx.publish?.(asset);}catch(error){window.EccoErrors?.show(error,{title:'Publish could not start'});}finally{if(button.isConnected)button.disabled=!current().asset;}}
 
  function current(){
@@ -159,7 +159,11 @@
   if(ctx.kind==='audio'){const list=(window.EccoAudioStudio?.recordings?.()||[]).slice().sort((a,b)=>(b.created||0)-(a.created||0));asset=list[0]||null;}
   else if(ctx.kind==='image'){const done=snap?.status==='done'?snap.assets:[];asset=done[0]||latestAsset('image',ctx.story);}
   else asset=latestAsset('video',ctx.story);
-  const button=generateButton(),submitting=button?.getAttribute('aria-busy')==='true'&&!ACTIVE.includes(snap?.status);
+  const button=generateButton();
+  // Image stories: once the job started from this screen has finished, review shows even if the studio's own Generate
+  // button is still busy (it used to keep the screen on "Starting…" with no picture to review).
+  const finishedHere=ctx.kind==='image'&&snap&&ctx.startedAt&&(snap.started||0)>=ctx.startedAt-30&&(snap.status==='done'||FAILED.includes(snap.status));
+  const submitting=button?.getAttribute('aria-busy')==='true'&&!ACTIVE.includes(snap?.status)&&!finishedHere;
   const running=snap&&ACTIVE.includes(snap.status)||submitting;
   const failed=!running&&snap&&FAILED.includes(snap.status)&&(!asset||(asset.created||0)<(snap.started||0));
   const mode=running?'running':failed?'failed':asset&&(!snap||snap.status==='done'||(asset.created||0)>=(snap.started||0)||snap.status==='cancelled')?'review':snap?.status==='cancelled'?'stopped':'idle';
@@ -174,17 +178,18 @@
   const chip=q('[data-gen-chip]',root),summary=q('[data-gen-summary]',root);
   const chipText={running:submitting?'Starting…':'Generating',failed:'Needs attention',review:'Ready to review',stopped:'Stopped',idle:'Ready to generate'}[mode];
   if(chip.textContent!==chipText){chip.textContent=chipText;chip.dataset.state=mode;}
-  const summaryText=mode==='review'&&asset?describe(asset):mode==='running'&&snap?Math.round(snap.overall)+'% · '+snap.headline:mode==='idle'?'Choose Generate to start. Progress shows here.':'';
+  const image=ctx.kind==='image';
+  const summaryText=image?'':mode==='review'&&asset?describe(asset):mode==='running'&&snap?Math.round(snap.overall)+'% · '+snap.headline:mode==='idle'?'Choose Generate to start. Progress shows here.':'';
   if(summary.textContent!==summaryText)summary.textContent=summaryText;
   q('[data-gen-stop]',root).hidden=mode!=='running';
   const startLabel=mode==='review'||mode==='failed'||mode==='stopped'?'Generate again':'Generate';const startButton=q('[data-gen-start]',root);
-  if(startButton.textContent!==startLabel)startButton.textContent=startLabel;startButton.hidden=mode==='running';startButton.className=mode==='idle'?'':'secondary';
-  q('[data-gen-download]',root).hidden=mode!=='review';
-  const publishButton=q('[data-publish]',root);publishButton.disabled=!asset||mode==='running';publishButton.hidden=!asset;
+  if(startButton.textContent!==startLabel)startButton.textContent=startLabel;startButton.hidden=mode==='running'||image&&mode==='review';startButton.className=mode==='idle'?'':'secondary';
+  q('[data-gen-download]',root).hidden=mode!=='review'||image;
+  const publishButton=q('[data-publish]',root);publishButton.disabled=!asset||mode==='running';publishButton.hidden=!asset||image;
   const note=ctx.kind==='video'?'':'Connected publishing currently accepts approved videos; Publish opens Story Publishing for this '+(ctx.kind==='audio'?'recording':'image')+'.';
-  const noteEl=q('[data-gen-note]',root),showNote=mode==='review'&&!!note;if(noteEl.hidden===showNote||noteEl.textContent!==note){noteEl.textContent=note;noteEl.hidden=!showNote;}
-  drawProgress(snap,mode);
-  drawReview(asset,mode);
+  const noteEl=q('[data-gen-note]',root),showNote=mode==='review'&&!!note&&!image;if(noteEl.hidden===showNote||noteEl.textContent!==note){noteEl.textContent=note;noteEl.hidden=!showNote;}
+  if(image){if(snap?.status==='done')unsaved.add(snap.assets.map(a=>a.id));drawImageScreen(snap,asset,mode);}
+  else{drawProgress(snap,mode);drawReview(asset,mode);}
   if(snap&&mode==='failed')announceError(snap);
  }
  function describe(asset){const bits=[asset.title||LABEL[ctx.kind]];if(asset.duration)bits.push(duration(asset.duration));if(asset.width&&asset.height)bits.push(asset.width+' × '+asset.height);if(asset.created)bits.push('made '+new Date(asset.created*1000).toLocaleString());return bits.join(' · ');}
@@ -211,6 +216,86 @@
    +snap.units.map(u=>'<div class="story-gen-unit" data-status="'+u.status+'"><div class="story-gen-unit-head"><strong>'+esc(u.name)+(u.worker?' · '+esc(u.worker):'')+'</strong><span class="story-gen-unit-state">'+esc(u.status==='running'?(u.pct==null?'Working…':Math.round(u.pct)+'%'):{done:'Done',failed:'Failed',stopped:'Stopped',waiting:'Waiting'}[u.status])+'</span></div><div class="story-gen-track'+(u.pct==null&&u.status==='running'?' story-gen-indeterminate':'')+'" role="progressbar" aria-label="'+esc(u.name)+' progress"'+(u.pct==null?'':' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(u.pct)+'"')+'><span style="width:'+Math.round(u.status==='done'?100:u.pct??0)+'%"></span></div>'+(u.detail?'<p class="help">'+esc(u.detail)+'</p>':'')+'</div>').join('')+'</section>'
    +'<section class="panel story-gen-log" aria-label="Activity"><h3>Activity</h3><ol>'+items.slice().reverse().map(i=>'<li><time class="help">'+esc(new Date(i.t*1000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}))+'</time><span>'+esc(i.m)+'</span></li>').join('')+'</ol><p class="help">You can leave this tab. Generation keeps going and this screen catches up when you return.</p></section></div>';
  }
+ // ---------- Image stories (owner-approved mocks, 2026-11-16) ----------
+ // Left half: the stats, "Overall Progress: <bar> NN%" and one "<image name>: <bar> NN%" row per image, then Activity.
+ // Right half: the Image box with Save, Delete, Download and Full Screen; Publish sits below it.
+ // A finished picture is not in Image Library until Save (kept per browser in localStorage).
+ const UNSAVED='ecco-unsaved-images';
+ const unsaved={
+  list:()=>{try{return JSON.parse(localStorage.getItem(UNSAVED))||[];}catch{return [];}},
+  has(id){return this.list().includes(id);},
+  add(ids){const list=this.list(),labelled=new Set(records().filter(r=>r.kind==='library_item'&&!r.deleted).map(r=>r.asset_id)),fresh=ids.filter(id=>id&&!list.includes(id)&&!labelled.has(id)&&!this.done().includes(id));if(!fresh.length)return;try{localStorage.setItem(UNSAVED,JSON.stringify([...list,...fresh].slice(-200)));}catch{}},
+  remove(id){try{localStorage.setItem(UNSAVED,JSON.stringify(this.list().filter(x=>x!==id)));const done=this.done();if(!done.includes(id))localStorage.setItem(UNSAVED+':done',JSON.stringify([...done,id].slice(-400)));}catch{}},
+  done:()=>{try{return JSON.parse(localStorage.getItem(UNSAVED+':done'))||[];}catch{return [];}}
+ };
+ const ICON={save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
+  trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+  download:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  expand:'<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>',
+  collapse:'<path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/>'};
+ const svg=name=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICON[name]+'</svg>';
+ let imageSig='',chosenImage='';
+ function imageName(i,total){const title=String(ctx.title||'').trim()||'Image';return total>1?title+' · Image '+(i+1):title;}
+ function drawImageScreen(snap,asset,mode){
+  const host=q('[data-gen-progress]',root);q('[data-gen-review]',root).replaceChildren();reviewSig='';
+  const list=mode==='review'?(snap?.status==='done'&&snap.assets.length?snap.assets:asset?[asset]:[]):[];
+  if(!list.some(a=>a.id===chosenImage))chosenImage=list[0]?.id||'';
+  const shown=list.find(a=>a.id===chosenImage)||null;
+  const items=snap?track(snap,ctx.story):[],ended=mode==='running'?clock():(items.at(-1)?.t||clock()),elapsed=snap?.started?Math.max(0,ended-snap.started):0;
+  const eta=snap&&mode==='running'?(snap.eta??(snap.overall>4&&elapsed>20?elapsed*(100-snap.overall)/snap.overall:null)):0;
+  const sig=JSON.stringify([mode,snap?.key||'',Math.round(snap?.overall??-1),snap?.units.map(u=>[u.status,Math.round(u.pct??-1)])||[],items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),list.map(a=>a.id),chosenImage,ctx.title]);
+  if(sig===imageSig)return;imageSig=sig;
+  const total=snap?snap.units.length:0,busy=snap?snap.units.filter(u=>u.status==='running'):[],active=new Set(busy.map(u=>u.worker||u.name)).size;
+  const stats=snap?[['Elapsed',duration(elapsed)],['Remaining',mode==='running'?remaining(eta):mode==='review'?'Done':'—'],...snap.counts,['Working now',active?active+' worker'+(active>1?'s':''):'—']]:[];
+  const pct=u=>Math.round(u.status==='done'?100:u.pct??0);
+  const bar=(label,value,large,status,indeterminate)=>'<span class="story-gen-bar-label">'+esc(label)+':</span><div class="story-gen-track'+(large?' story-gen-track-large':'')+(indeterminate?' story-gen-indeterminate':'')+'"'+(status?' data-status="'+status+'"':'')+' role="progressbar" aria-label="'+esc(label)+' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+value+'"><span style="width:'+value+'%"></span></div><span class="story-gen-bar-pct">'+value+'%</span>';
+  const left=snap?'<div class="story-gen-image-left"><section class="panel story-gen-overall" aria-label="Overall progress"><dl class="story-gen-stats">'+stats.map(([k,v])=>'<div><dt class="help">'+esc(k)+'</dt><dd><strong>'+esc(v)+'</strong></dd></div>').join('')+'</dl>'
+   +'<div class="story-gen-bars">'+bar('Overall Progress',Math.round(mode==='review'?100:snap.overall),true,'')+snap.units.map((u,i)=>bar(imageName(i,total),mode==='review'?100:pct(u),false,u.status,u.status==='running'&&u.pct==null)).join('')+'</div>'
+   +'<p class="help">Overall progress is the sum of every worker\'s finished work divided by all the work in this image, so it moves whenever any worker makes progress.</p></section>'
+   +'<section class="panel story-gen-log" aria-label="Activity"><h3>Activity</h3><ol>'+items.slice().reverse().map(i=>'<li><time class="help">'+esc(new Date(i.t*1000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}))+'</time><span>'+esc(i.m)+'</span></li>').join('')+'</ol><p class="help">You can leave this tab. Generation keeps going and this screen catches up when you return.</p></section></div>':'';
+  const ready=!!shown,tool=(act,label,icon)=>'<button type="button" class="pdf-icon-btn" data-image-act="'+act+'" aria-label="'+label+'" title="'+label+'"'+(ready?'':' disabled')+'>'+svg(icon)+'</button>';
+  const frame=shown?(list.length>1?'<div class="story-gen-images">'+list.map(a=>'<button type="button" class="story-gen-image" data-image="'+esc(a.id)+'" aria-pressed="'+(a.id===chosenImage)+'"><img data-asset="'+esc(a.id)+'" alt="'+esc(a.prompt||a.title||'Generated image')+'"></button>').join('')+'</div>':'<img data-asset="'+esc(shown.id)+'" alt="'+esc(shown.prompt||shown.title||'Generated image')+'">')
+   :'<p class="help">'+(mode==='failed'?'The image could not be made. Choose Generate again.':mode==='stopped'?'Generation stopped.':'Your image will appear here when it is ready.')+'</p>';
+  host.innerHTML='<div class="story-gen-image-layout'+(snap?'':' story-gen-image-only')+'">'+left
+   +'<section class="panel story-gen-image-box" aria-labelledby="story-gen-image-title"><div class="story-gen-image-head"><h3 id="story-gen-image-title">Image</h3><div class="story-gen-image-tools" role="group" aria-label="Image actions">'+tool('save','Save to Image Library','save')+tool('delete','Delete image','trash')+tool('download','Download','download')+tool('full','Full Screen','expand')+'</div></div><div class="story-gen-image-frame"'+(shown?' data-filled':'')+'>'+frame+'</div></section></div>'
+   +'<div class="story-gen-image-actions"><button type="button" data-image-publish'+(ready&&mode!=='running'?'':' disabled')+'>Publish</button></div>';
+  if(typeof hydrateMedia==='function')hydrateMedia();
+  host.onclick=e=>{const pick=e.target.closest('[data-image]');if(pick){chosenImage=pick.dataset.image;imageSig='';update();return;}
+   const b=e.target.closest('[data-image-act],[data-image-publish]');if(!b||b.disabled)return;const a=list.find(x=>x.id===chosenImage);
+   if(b.hasAttribute('data-image-publish'))return publish();if(!a)return;
+   ({save:()=>saveDialog(a),delete:()=>removeImage(a),download:()=>download(a),full:()=>fullScreen(a)})[b.dataset.imageAct]?.();};
+ }
+ function folderList(){return records().filter(r=>r.kind==='image_folder'&&!r.deleted).sort((a,b)=>a.name.localeCompare(b.name));}
+ function saveDialog(asset){
+  q('#story-gen-save-dialog')?.remove();const folders=folderList(),style=asset.settings?.style||asset.style||'';
+  const d=document.createElement('dialog');d.id='story-gen-save-dialog';d.className='generation-dialog story-gen-save';d.setAttribute('aria-labelledby','story-gen-save-title');
+  d.innerHTML='<form method="dialog" class="form"><h2 id="story-gen-save-title">Save to Image Library</h2><div class="story-gen-save-item"><img data-asset="'+esc(asset.id)+'" alt=""><div><strong>'+esc(imageName(0,1))+'</strong><span class="help">'+esc([asset.width&&asset.height?asset.width+' × '+asset.height:'',style].filter(Boolean).join(' · '))+'</span></div></div>'
+   +'<fieldset class="story-gen-save-labels"><legend>Label</legend><label class="story-gen-check"><input type="radio" name="mode" value="existing"'+(folders.length?' checked':' disabled')+'> Existing label</label><select name="folder" aria-label="Existing label"'+(folders.length?'':' disabled')+'>'+(folders.length?folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name.replaceAll(' / ',' › '))+'</option>').join(''):'<option>No labels yet</option>')+'</select>'
+   +'<label class="story-gen-check"><input type="radio" name="mode" value="new"'+(folders.length?'':' checked')+'> New label</label><input type="text" name="name" maxlength="80" aria-label="New label name" placeholder="Name the new label"'+(folders.length?' disabled':'')+'></fieldset>'
+   +'<p class="help" role="status" data-save-status></p><div class="row story-gen-save-actions"><button type="button" class="secondary" data-cancel>Cancel</button><button type="submit">Save</button></div></form>';
+  document.body.append(d);if(typeof hydrateMedia==='function')hydrateMedia();
+  const form=q('form',d),sync=()=>{const fresh=form.elements.mode.value==='new';form.elements.folder.disabled=fresh||!folders.length;form.elements.name.disabled=!fresh;};
+  for(const r of all('input[name=mode]',d))r.onchange=()=>{sync();(form.elements.mode.value==='new'?form.elements.name:form.elements.folder).focus();};
+  q('[data-cancel]',d).onclick=()=>d.close();d.onclose=()=>d.remove();
+  form.onsubmit=async e=>{e.preventDefault();const status=q('[data-save-status]',d),button=q('[type=submit]',form);button.disabled=true;status.textContent='Saving…';
+   try{let id=form.elements.folder.value,label=folders.find(f=>f.id===id)?.name||'';
+    if(form.elements.mode.value==='new'){const name=form.elements.name.value.trim();if(!name||name.includes('/'))throw Error('Enter a label name without slashes, up to 80 characters.');const made=await api('library/folders',{name});if(made?.deleted)throw Error('This label is in Trash. Restore it or choose another name.');id=made.id;label=name;}
+    if(!id)throw Error('Choose a label or enter a new one.');
+    await api('library/save',{asset_id:asset.id,folder_id:id});unsaved.remove(asset.id);if(typeof refresh==='function')await refresh();d.close();
+    if(typeof notice==='function')notice('Saved to Image Library under “'+label+'”.');}
+   catch(error){status.textContent=error.message;button.disabled=false;}};
+  d.showModal();(folders.length?form.elements.folder:form.elements.name).focus();
+ }
+ async function removeImage(asset){
+  try{await api('trash',{asset_id:asset.id,restore:false});unsaved.remove(asset.id);chosenImage='';imageSig='';if(typeof refresh==='function')await refresh();update();if(typeof notice==='function')notice('Image deleted. You can restore it from Trash.');}
+  catch(error){window.EccoErrors?.show(error,{title:'Delete failed'});}
+ }
+ function fullScreen(asset){
+  q('#story-gen-fullscreen')?.remove();const d=document.createElement('dialog');d.id='story-gen-fullscreen';d.className='story-gen-fullscreen';d.dataset.inlinePanel='';d.setAttribute('aria-label','Image, full screen');
+  d.innerHTML='<div class="story-gen-fullscreen-head"><strong>'+esc(imageName(0,1))+'</strong><div class="row"><span class="help">Press Esc to return</span><button type="button" class="pdf-icon-btn" data-close aria-label="Exit Full Screen" title="Exit Full Screen (Esc)">'+svg('collapse')+'</button></div></div><div class="story-gen-fullscreen-stage"><img data-asset="'+esc(asset.id)+'" alt="'+esc(asset.prompt||asset.title||'Generated image')+'"></div>';
+  (root||document.body).append(d);if(typeof hydrateMedia==='function')hydrateMedia();q('[data-close]',d).onclick=()=>d.close();d.onclose=()=>d.remove();d.showModal();q('[data-close]',d).focus();
+ }
+
  function announceError(snap){
   const shown=shownErrors(ctx.story);if(shown.includes(snap.key))return;rememberShown(ctx.story,[...shown,snap.key]);
   const help=advice(snap.error,snap.kind),failed=snap.units.find(u=>u.status==='failed');
@@ -372,6 +457,6 @@
   for(const p of list||[]){if(!p?.word||!p?.sayAs||(p.line!=null&&p.line!==line))continue;const word=p.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');out=out.replace(new RegExp('(?<![\\p{L}\\p{N}])'+word+'(?![\\p{L}\\p{N}])','giu'),p.sayAs);}
   return out;
  }
- function leave(){clearInterval(timer);timer=null;root=null;ctx=null;progressSig='';reviewSig='';autoStartUntil=0;}
- window.EccoStoryGeneration={mount,update,leave,openSettings:()=>toggleSettings(true),closeSettings:()=>toggleSettings(false),applyPronunciations,advice,snapshot,ranges};
+ function leave(){clearInterval(timer);timer=null;root=null;ctx=null;progressSig='';reviewSig='';imageSig='';chosenImage='';autoStartUntil=0;}
+ window.EccoStoryGeneration={mount,update,leave,unsavedImages:unsaved,openSettings:()=>toggleSettings(true),closeSettings:()=>toggleSettings(false),applyPronunciations,advice,snapshot,ranges};
 })();

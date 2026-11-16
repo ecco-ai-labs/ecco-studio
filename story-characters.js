@@ -90,7 +90,7 @@
   // Pictures do not need every character created first (owner-approved mock, 2026-11-09).
   const p=progress(),optional=ctx.data.output==='image',ready=optional||(p.created===p.total&&p.total>0);
   const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent=optional?'Optional for pictures: create a look to keep the same person across images.':!visual()?(p.created===p.total?'Every character has a voice':p.created+' of '+p.total+' characters have a voice · Choose a voice for the rest to continue')+sharedNote():'Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue')+sharedNote();
-  const next=q('[data-next]',q('#page'));if(next){if(optional&&next.textContent!=='Next: Story Generation')next.textContent='Next: Story Generation';next.disabled=!ready;next.setAttribute('aria-describedby','story-cast-progress');}
+  const next=q('[data-next]',q('#page'));if(next){if(optional&&next.textContent!=='Next: Image Generation')next.textContent='Next: Image Generation';next.disabled=!ready;next.setAttribute('aria-describedby','story-cast-progress');}
  }
 
  /* From Story */

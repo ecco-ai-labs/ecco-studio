@@ -3173,5 +3173,27 @@
     "entry": "Sidebar: Studios > Voice Studio (and its 1. Voice / 2. Enhance Voice / 3. Publish Voice rows). Not story-bound; voices are saved in Audio Library.",
     "appearance": "Uses image-workspace.css (selectors are :is(#image-workspace,#voice-workspace)); voice-studio.css adds the voice slot, voice preview with an audio player, the recording icon and the sidebar tree. Sidebar Studios reuses the Tell Your Story header and step styles. New roster variant: voice-slot; sidebar-group-header, sidebar-step, image-tile-remove and image-choice-chip also cover the Voice Studio selectors.",
     "behavior": "Upload and Record with Mic save the clip with /api/audio/upload, then make it a saved voice with /api/audio/voices/create (cleaned; consent given by the upload/record action with the permission note). Recordings are converted to 24 kHz mono WAV in the browser. Generate with AI designs a voice with /api/audio/voices/design using Qwen3-TTS (or VoxCPM2), or Indic Parler-TTS for Indian languages, on the preferred audio compute (Serverless first). Improve with AI designs a new draft from the voice's description plus the requested change (designed voices only). Enhance Voice speaks any line with the saved voice (/api/audio/generate, voice ref:<id>). Publish Voice saves the voices under an existing or new Audio Library label (/api/audio/folders, /api/audio/labels)."
+  },
+  "imageGeneration": {
+    "type": "workflow-screen",
+    "source": "story-generation.js (drawImageScreen, saveDialog, fullScreen), story-generation.css; story-workspace.js (picturePage, promptBox)",
+    "approved": "Owner-approved mocks, 2026-11-16 (Image stories only; Audio and Video screens unchanged)",
+    "storyPicture": "Upload a Photo: the photo box beside one Improve with AI prompt box (pdf-review-box pdf-ai-pane, \u2726 pdf-ai-icon). Generate With AI: one full-width Generate with AI prompt box. No drafts, Use AI Text, Clear AI Output, Find and Replace or Keep a person box.",
+    "stepName": "Step 3 tab and its Next button: Image Generation (image), Video Generation (video), Story Generation (audio)",
+    "start": "Next: Image Generation starts generation at once; no Ready to generate state",
+    "layout": "Two equal columns: left = progress panel (stats row; Overall Progress: <bar> NN%; one <image name>: <bar> NN% row per image; help line) above Activity; right = Image box. Publish button below the Image box, right-aligned. Stacks to one column under 900px.",
+    "imageTools": "Icon buttons (pdf-icon-btn) at the Image box's top right in this order: Save to Image Library, Delete image, Download, Full Screen; disabled until the image is ready; hover and keyboard focus turn the icon and border the theme accent",
+    "saveDialog": "generation-dialog: thumbnail, name, size and style; Label = Existing label (select) or New label (text, max 80, no slashes); Save. Shared popup controls supply \u00d7 and \u2212.",
+    "fullScreen": "Modal dialog across the window: name, 'Press Esc to return', Exit Full Screen icon button; Esc closes",
+    "library": "A finished picture joins Image Library only on Save (unsaved IDs kept per browser in localStorage 'ecco-unsaved-images'); Delete moves it to Trash",
+    "removed": [
+      "Edit story",
+      "0% \u00b7 N images summary",
+      "big percent figure",
+      "Estimating\u2026 left",
+      "Workers panel",
+      "Fix this image panel",
+      "toolbar Download / Generate again / Publish"
+    ]
   }
 }
