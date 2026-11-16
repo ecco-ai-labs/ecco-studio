@@ -30,12 +30,13 @@
    tabs.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.id='story-simple-tab-'+i;b.className='story-workspace-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls','page');b.textContent=(i+1)+'. '+name;b.onclick=()=>select(i);b.onkeydown=e=>{const n=tabs.length,next=e.key==='ArrowRight'?(i+1)%n:e.key==='ArrowLeft'?(i+n-1)%n:e.key==='Home'?0:e.key==='End'?n-1:null;if(next!==null){e.preventDefault();root.querySelectorAll('[role=tab]')[next].focus();}};root.firstElementChild.append(b);});
   }
   const ribbon=q('main > header'),save=q('#story-simple-save');if(save.parentElement!==ribbon)ribbon.append(save);
-  let shown=0;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const hide=isImage()&&(i===SCRIPT||i===CHARACTERS);b.hidden=hide;if(!hide){shown++;const label=shown+'. '+(isImage()&&i===STORY?'Story Picture':tabs[i]);if(b.textContent!==label)b.textContent=label;}});
+  let shown=0;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const hide=isImage()&&(i===SCRIPT||i===CHARACTERS);b.hidden=hide;if(!hide){shown++;const label=shown+'. '+(isImage()&&i===STORY?'Story Picture':i===GENERATE?genName():tabs[i]);if(b.textContent!==label)b.textContent=label;}});
   root.hidden=false;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const selected=i===data.tab;b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
   const pageRoot=q('#page');pageRoot.setAttribute('role','tabpanel');pageRoot.setAttribute('aria-labelledby','story-simple-tab-'+data.tab);
   q('#heading').textContent=data.title||'Tell Your Story';
-  const media=q('#story-simple-media');media.hidden=!generating(data.tab);media.replaceChildren();
-  if(generating(data.tab)){
+  const media=q('#story-simple-media');media.hidden=!generating(data.tab)||isImage();media.replaceChildren();
+  // Image stories (owner-approved mocks, 2026-11-16): no Edit story or second Back on Image Generation and Publishing.
+  if(generating(data.tab)&&!isImage()){
    if(data.output==='video')for(const [view,label]of [['audio','Prepare Audio'],['images','Prepare Images'],['render','Generate Video']]){const b=button(label,()=>generateView(view),'secondary');b.setAttribute('aria-pressed',String(data.view===view));media.append(b);}
    const edit=button('Edit story',()=>select(STORY),'secondary');media.append(edit);
    if(data.view==='publish')media.append(button('← Back',()=>window.EccoNavigation?.back(),'secondary ecco-page-back'));
@@ -50,6 +51,7 @@
  const ONE_TIME_ONLY=['presentation','marketing','ambient','custom'],isRecurring=()=>data?.recurrence==='recurring'&&data?.output!=='image';
  // Output-aware fields (owner-approved mock, 2026-11-09): Image uses Image style and no Genre or Language; Video adds Visual style.
  const IMAGE_STYLES=window.EccoImageStyles?.names||['Cartoon','3D animation','Origami','Clay / claymation','Human / realistic portrait','Photographic','Anime','Watercolor','Oil painting','Pixel art'],VIDEO_STYLES=['Cinematic realistic film','Cartoon animation','Clay stop-motion','Origami animation','Vintage hand-drawn animation'];
+ const genName=()=>data?.output==='image'?'Image Generation':data?.output==='video'?'Video Generation':'Story Generation';
  const isImage=()=>data?.output==='image',outputFields=[['imageStyle','Image style','Choose an image style.'],['videoStyle','Visual style','Choose a visual style.']];
  function requiredDetails(){const image=isImage();return [...detailFields.filter(([n])=>!(image&&['type','genre','language'].includes(n))),...(image?[outputFields[0]]:[]),...(data.output==='video'?[outputFields[1]]:[])];}
  const genreGroups=[['Story genres',genres.slice(0,10).map(value=>[value,''])],['Real-world topics',genres.slice(10).map(value=>[value,''])]];
@@ -529,19 +531,35 @@
  function picturePage(){
   page='story-picture';if(!data.cast.length)data.cast=defaultCast();const tab=data.pictureTab==='ai'?'ai':'photo';
   q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel story-picture-panel"><div class="story-settings-bar" role="group" aria-label="Picture settings" data-picture-settings></div><div class="story-source-tabs" role="tablist" aria-label="Picture source"><button type="button" role="tab" id="story-picture-tab-photo" aria-controls="story-picture-panel-photo" data-picture-tab="photo">Upload a Photo</button><button type="button" role="tab" id="story-picture-tab-ai" aria-controls="story-picture-panel-ai" data-picture-tab="ai">Generate With AI</button></div>'
-   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-photo" aria-labelledby="story-picture-tab-photo" data-picture-panel="photo"><div class="story-picture-photo-row"><section class="pdf-review-box story-photo-box" aria-labelledby="story-photo-title"><div class="pdf-pane-head"><h3 class="pdf-review-heading" id="story-photo-title">Photo</h3></div><input type="file" accept="image/*" data-photo-file hidden><div class="story-photo-preview" data-photo-preview></div></section><div class="story-source-host" data-picture-host="photo"></div></div></div>'
-   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-ai" aria-labelledby="story-picture-tab-ai" data-picture-panel="ai"><div class="story-source-host" data-picture-host="ai"></div></div>'
-   +'<p id="story-simple-ai-status" role="status" aria-live="polite"></p></section><details class="pdf-tool-menu story-picture-people" data-picture-people><summary>Keep a Person Looking the Same</summary><div class="pdf-tool-panel form"><p class="help">Optional. For pictures in a series. Describe each person once; every picture uses the same look.</p><div class="story-picture-people-list" data-people-list></div><button type="button" class="secondary" data-people-add>+ Add a person</button></div></details><div class="story-simple-actions"><button type="button" data-next>Next: Story Generation</button></div></div>';
-  paintPeople();
+   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-photo" aria-labelledby="story-picture-tab-photo" data-picture-panel="photo"><div class="story-picture-photo-row story-picture-simple"><section class="pdf-review-box story-photo-box" aria-labelledby="story-photo-title"><div class="pdf-pane-head"><h3 class="pdf-review-heading" id="story-photo-title">Photo</h3></div><input type="file" accept="image/*" data-photo-file hidden><div class="story-photo-preview" data-photo-preview></div></section>'+promptBox('photo','Improve with AI','Describe what to make from this photo, for example: turn it into a watercolor picture for a children’s book')+'</div></div>'
+   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-ai" aria-labelledby="story-picture-tab-ai" data-picture-panel="ai">'+promptBox('ai','Generate with AI','Describe the picture, for example: a girl carrying a basket of salt up a hill at sunrise')+'</div>'
+   +'<p id="story-simple-ai-status" role="status" aria-live="polite"></p></section><div class="story-simple-actions"><button type="button" data-next>Next: Generate</button></div></div>';
   const bar=inPage('[data-picture-settings]');
   for(const [name,label,options]of [['imageStyle','Image Style',IMAGE_STYLES],['audience','Audience',audiences]]){const l=document.createElement('label');l.className='story-setting';l.textContent=label;const select=document.createElement('select');select.name=name;select.setAttribute('aria-label',label);select.add(new Option('Choose…',''));for(const o of options)select.add(new Option(o,o));select.value=data[name]||'';select.onchange=()=>{data[name]=select.value;epoch++;persist();};l.append(select);bar.append(l);}
   const help=document.createElement('p');help.className='help';help.textContent='Changes here also update Details.';bar.append(help);
-  const show=name=>{data.pictureTab=name;for(const b of q('#page').querySelectorAll('[data-picture-tab]')){const on=b.dataset.pictureTab===name;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}for(const p of q('#page').querySelectorAll('[data-picture-panel]'))p.hidden=p.dataset.picturePanel!==name;placePeople();persist();};
+  const show=name=>{data.pictureTab=name;for(const b of q('#page').querySelectorAll('[data-picture-tab]')){const on=b.dataset.pictureTab===name;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}for(const p of q('#page').querySelectorAll('[data-picture-panel]'))p.hidden=p.dataset.picturePanel!==name;persist();};
   for(const b of q('#page').querySelectorAll('[data-picture-tab]'))b.onclick=()=>show(b.dataset.pictureTab);show(tab);
   paintPhoto();const file=inPage('[data-photo-file]');file.onchange=()=>{const chosen=file.files[0];if(!chosen)return;if(!chosen.type.startsWith('image/')){message('Choose an image file.',true);return;}const reader=new FileReader();reader.onload=()=>{data.photo={name:chosen.name,url:chosen.size<=1500000?reader.result:''};photoUrl=reader.result;epoch++;persist();paintPhoto();};reader.readAsDataURL(chosen);};
-  if(window.EccoSourcePicker){picturePicker('photo').mount(inPage('[data-picture-host=photo]'));picturePicker('ai').mount(inPage('[data-picture-host=ai]'));}
-  placePeople();
-  inPage('[data-next]').onclick=()=>{if(!pictureText()){message('Describe the picture first.',true);return;}data.script=pictureText();epoch++;persist();select(GENERATE);};
+  wirePrompts();
+  // Next starts the picture straight away (owner-approved mocks, 2026-11-16): no Ready to generate step.
+  inPage('[data-next]').onclick=()=>{if(!pictureText()){message('Describe the picture first.',true);return;}data.script=pictureText();epoch++;persist();void requestGeneration();};
+ }
+ // One prompt box per tab (owner-approved mocks, 2026-11-16): no drafts, no Use AI Text, no Find and Replace.
+ function promptBox(kind,title,placeholder){const id='story-picture-prompt-'+kind;return '<div class="pdf-story-dialog pdf-story-inline story-picture-prompt"><section class="pdf-review-box pdf-ai-pane" aria-labelledby="'+id+'"><strong class="pdf-review-heading" id="'+id+'">'+title+'</strong><div class="pdf-ai-sections"><section class="pdf-ai-section"><div class="pdf-ai-ribbon"><div class="pdf-ai-settings"></div><button type="button" class="secondary pdf-ai-icon" data-picture-improve="'+kind+'" aria-label="'+title+'" title="'+title+'"><span aria-hidden="true">✦</span></button></div><textarea data-picture-prompt="'+kind+'" aria-labelledby="'+id+'" rows="20" maxlength="3000" dir="auto" placeholder="'+placeholder+'"></textarea></section></div></section></div>';}
+ function wirePrompts(){
+  for(const kind of ['photo','ai']){
+   const box=inPage('[data-picture-prompt='+kind+']'),run=inPage('[data-picture-improve='+kind+']');if(!box||!run)continue;
+   box.value=(kind==='ai'?data.pictureAI:data.photoDesc)||'';
+   box.oninput=()=>{if(kind==='ai')data.pictureAI=box.value;else data.photoDesc=box.value;persist();};
+   run.onclick=async()=>{const origin=owner();run.disabled=true;run.setAttribute('aria-busy','true');message(kind==='ai'?'Writing the picture description…':'Improving the instructions…');
+    try{const text=kind==='ai'?await describePicture(0,box.value):await improvePhotoPrompt(box.value);if(origin!==owner())return;box.value=text;box.oninput();message('',true);}
+    catch(error){message(error.message,true);}finally{if(run.isConnected){run.disabled=false;run.removeAttribute('aria-busy');}}};
+  }
+ }
+ async function improvePhotoPrompt(text){
+  const idea=String(text||'').trim()||'turn this photo into a picture that suits the story';
+  const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,fields:[{id:'photo_instruction',text:idea,max_length:2000}],context:{title:data.title,genre:'',language:'English',summary:JSON.stringify({output:'image',image_style:data.imageStyle,audience:data.audience}),lines:[],instructions:'Rewrite this as one clear instruction of 1–3 sentences for editing the uploaded photo into a picture for '+(data.audience||'all ages')+': what to keep from the photo and what to change. Do not name or describe any art style, medium or technique (the '+(data.imageStyle||'chosen')+' style is added separately). Return only the instruction. Do not ask questions.'},review_only:false});
+  const value=result.revisions?.find(r=>r.id==='photo_instruction')?.text;if(typeof value!=='string'||!value.trim())throw Error('AI returned no instruction. Try again.');return value.trim();
  }
  let photoUrl='';
  function paintPhoto(){
@@ -563,32 +581,9 @@
   }catch(error){const text='Your photo could not be added, so the picture will be made from the description only. '+error.message;message(text,true);if(typeof notice==='function')notice(text,true);}
  }
  const pictureText=()=>String((data.pictureTab==='ai'?data.pictureAI:data.photoDesc)||'').trim();
- function picturePicker(kind){
-  const key='picture-'+kind;ensurePickerOwner();if(textPickers[key])return textPickers[key];
-  const current=pickerOwner,ai=kind==='ai';
-  const created=window.EccoSourcePicker.create({inline:true,drafts:3,expandableText:true,mode:'text',title:ai?'Generate With AI':'Upload a Photo',selectedLabel:ai?'Picture Description':'What to make from it',
-   selectedPlaceholder:ai?'Choose a draft and select Use AI Text to place it here.':'For example, turn this photo into a watercolor picture for a children’s book',sourceName:ai?'AI picture description':'Photo description',applyLabel:null,
-   aiSettings:{fields:[],getValues:()=>({title:data.title,output:'image',image_style:data.imageStyle,age_group:data.audience}),onChange:()=>{}},
-   onTextChange:text=>{if(current!==owner()||!data)return;if(ai)data.pictureAI=text;else data.photoDesc=text;persist();},
-   idea:ai?{label:'What should your picture show?',placeholder:'For example, a girl carrying a basket of salt up a hill at sunrise',value:data.pictureIdea||'',
-    onInput:value=>{if(current!==owner()||!enabled)return;data.pictureIdea=value;persist();},generateLabel:'Generate With AI',
-    generate:async(index=0)=>{if(current!==owner()||!enabled)throw Error('Return to the story where you started.');return describePicture(index);}}:null,
-   onApply(){}});
-  created.setText(ai?data.pictureAI||'':data.photoDesc||'');textPickers[key]=created;return created;
- }
- // Optional people for pictures: a name and a look each, kept in data.cast so every picture repeats the same look.
- // People sit in the text toolbar of the open tab, next to Find and Replace.
- function placePeople(){const box=inPage('[data-picture-people]'),tab=data.pictureTab==='ai'?'ai':'photo',anchor=inPage('[data-picture-panel='+tab+'] .pdf-find-replace');if(box&&anchor&&anchor.nextElementSibling!==box)anchor.after(box);}
- function paintPeople(){
-  const box=inPage('[data-picture-people]'),list=inPage('[data-people-list]');if(!box||!list)return;imageCast();const people=data.cast.filter(c=>c.id!=='narrator');
-  list.replaceChildren(...people.map((c,i)=>{const row=document.createElement('div');row.className='story-picture-person';row.innerHTML='<label>Name<input type="text" maxlength="60" data-person-name></label><label>Look<input type="text" maxlength="300" placeholder="For example: 8-year-old girl, long dark brown hair, yellow raincoat" data-person-look></label><button type="button" class="secondary" data-person-remove>Remove</button>';
-   const name=row.querySelector('[data-person-name]'),look=row.querySelector('[data-person-look]');name.value=c.name||'';look.value=c.appearance||'';name.setAttribute('aria-label','Person '+(i+1)+' name');look.setAttribute('aria-label','Person '+(i+1)+' look');row.querySelector('[data-person-remove]').setAttribute('aria-label','Remove person '+(i+1));
-   name.oninput=()=>{c.name=name.value;persist();};look.oninput=()=>{c.appearance=look.value;persist();};row.querySelector('[data-person-remove]').onclick=()=>{data.cast=data.cast.filter(x=>x!==c);persist();paintPeople();};return row;}));
-  inPage('[data-people-add]').onclick=()=>{data.castCustomized=true;data.cast.push({id:'person-'+Date.now().toString(36),name:'Person '+(people.length+1),appearance:'',role:'character'});persist();paintPeople();list.querySelector('.story-picture-person:last-child [data-person-look]')?.focus();};
- }
  // AI writes picture descriptions; the pictures themselves are made in Story Generation (Image Studio).
- async function describePicture(index){
-  const idea=String(data.pictureIdea||'').trim()||'a picture that suits the story';
+ async function describePicture(index,text){
+  const idea=String(text??data.pictureIdea??'').trim()||'a picture that suits the story';
   const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,fields:[{id:'picture_description',text:idea,max_length:2000}],context:{title:data.title,genre:'',language:'English',summary:JSON.stringify({output:'image',image_style:data.imageStyle,audience:data.audience}),lines:[],instructions:'Rewrite the idea as one vivid picture description of 1–3 sentences for '+(data.audience||'all ages')+': who is in it, what they are doing, their expressions, the setting and the light. Do not name or describe any art style, medium or technique (the '+(data.imageStyle||'chosen')+' style is added separately). Return only the description. Do not ask questions.'+(index?' Make version '+(index+1)+' of 3 slightly different in composition.':'')},review_only:false});
   const value=result.revisions?.find(r=>r.id==='picture_description')?.text;if(typeof value!=='string'||!value.trim())throw Error('AI returned no picture description. Try again.');return value.trim();
  }
@@ -921,7 +916,7 @@
   // The studio's own form moves into the Model Settings panel; the old "Finish your story" box is gone.
   if(data.view==='publish'){inPage('#story-generation')?.remove();return;}
   const kind={audio:'audio',images:'image',render:'video'}[data.view];if(!kind||!window.EccoStoryGeneration)return;
-  window.EccoStoryGeneration.mount(q('#page'),{kind,story:activeStory,recurring:data.recurrence==='recurring',autoStart:takeAutoStart(kind),stop:()=>window.EccoGenerationStop?.stop(kind,activeStory),edit:()=>select(STORY),prepareImages:()=>generateView('images'),nextEpisode,publish:publishResult});
+  window.EccoStoryGeneration.mount(q('#page'),{kind,story:activeStory,title:data.title||'',recurring:data.recurrence==='recurring',autoStart:takeAutoStart(kind),stop:()=>window.EccoGenerationStop?.stop(kind,activeStory),edit:()=>select(STORY),prepareImages:()=>generateView('images'),nextEpisode,publish:publishResult});
  }
  // Generate on Story Screen Play starts generation once Story Generation opens (owner request 2026-11-10).
  async function requestGeneration(){const current=data;data.autoStart={kind:{audio:'audio',image:'image',video:'video'}[data.output],at:Date.now()};persist();await select(GENERATE);if(current===data&&data.autoStart&&!generating(data.tab)){delete data.autoStart;persist();}}

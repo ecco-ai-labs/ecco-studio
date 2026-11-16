@@ -99,7 +99,9 @@
   const images=state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted).sort((a,b)=>(b.created||0)-(a.created||0));
   const folders=state.records.filter(r=>r.kind==='image_folder'&&!r.deleted);
   const term=ws.search.trim().toLowerCase();
-  const shown=images.filter(a=>(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!ws.label||state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id&&l.folder_id===ws.label)));
+  // Pictures made in Image Generation stay out of Image Library until saved there (owner-approved mocks, 2026-11-16).
+  let hidden;try{hidden=new Set(JSON.parse(localStorage.getItem('ecco-unsaved-images'))||[]);}catch{hidden=new Set();}
+  const shown=images.filter(a=>!(hidden.has(a.id)&&!state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id))&&(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!ws.label||state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id&&l.folder_id===ws.label)));
   return '<section class="pdf-review-box" aria-labelledby="iw-lib-heading"><strong class="pdf-review-heading" id="iw-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-input="search" value="'+esc(ws.search)+'" placeholder="Find an image"></label><label>Label<select data-input="label"><option value="">All images</option>'+folders.map(f=>'<option value="'+esc(f.id)+'"'+(f.id===ws.label?' selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></label></div><p class="help">Select up to 3 images. Click again to deselect.</p>'+(shown.length?'<div class="iw-grid iw-library">'+shown.map(a=>tile(a.id,ws.selected.indexOf(a.id)+1,'pick')).join('')+'</div>':'<p class="help">'+(images.length?'No images match.':'Image Library is empty. Upload or generate an image.')+'</p>')+'</section>';
  }
  function selectedPane(){

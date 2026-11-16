@@ -43,11 +43,13 @@
  const parentOf=(f,list)=>{const name=f.name.split(' / ').slice(0,-1).join(' / ');return name?list.find(x=>x.name===name):null;};
  const path=f=>f.name.replaceAll(' / ',' › ');
  function scope(kind,f){const list=folders(kind);return new Set(list.filter(x=>x.id===f.id||x.name.startsWith(f.name+' / ')).map(x=>x.id));}
+ function unsavedImages(){try{return new Set(JSON.parse(localStorage.getItem('ecco-unsaved-images'))||[]);}catch{return new Set();}}
  function items(kind){
   const list=folders(kind),ids=new Set(list.map(f=>f.id)),byItem=new Map();
   for(const l of records().filter(r=>r.kind==='library_item'&&!r.deleted&&ids.has(r.folder_id))){if(!byItem.has(l.asset_id))byItem.set(l.asset_id,[]);byItem.get(l.asset_id).push(l.folder_id);}
   let out=[];
-  if(kind==='image')out=records().filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted).map(a=>({id:a.id,name:a.title&&(a.title!==a.prompt||a.settings?.model==='uploaded-image')?a.title:'Generated image',raw:a.title??'',type:extension(a.path)||'IMG',created:a.created,asset:a,cloud:true}));
+  // A picture made in Image Generation joins the library only when Save is chosen there (owner-approved mocks, 2026-11-16).
+  if(kind==='image'){const hidden=unsavedImages();out=records().filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted&&!(hidden.has(a.id)&&!byItem.has(a.id))).map(a=>({id:a.id,name:a.title&&(a.title!==a.prompt||a.settings?.model==='uploaded-image')?a.title:'Generated image',raw:a.title??'',type:extension(a.path)||'IMG',created:a.created,asset:a,cloud:true}));}
   else if(kind==='audio')out=records().filter(a=>a.kind==='asset'&&a.media==='audio'&&!a.deleted).map(a=>({id:a.id,name:a.title||a.prompt||'Audio',raw:a.title??'',type:extension(a.path)||'AUDIO',created:a.created,asset:a,cloud:true}));
   else if(kind==='video')out=(window.EccoVideoLibrary?.assets()||[]).map(a=>({id:a.id,name:a.title||a.prompt||'Video',raw:a.title??'',type:extension(a.path)||'VIDEO',created:a.created,asset:a,cloud:true}));
   else if(kind==='story'){

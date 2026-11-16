@@ -301,5 +301,10 @@
     "area": "Serverless On/Off",
     "mode": "fixture",
     "scope": "GPU-SERVERLESS-02: the GPU icon is a button that opens a popup with one On/Off button; pressing it switches, closes the popup and shows or hides the dot on the GPU icon; small size from the roster; Enter, Escape and click-outside. GPU-SERVERLESS-03: a sign-in turns Serverless On, Log Off turns it Off, a restored session does neither. GPU-SERVERLESS-04: Auto-off choice (30 min default, Never) in the popup, saved without closing it. The storage server's RunPod calls (workersMin 1/0 on image, video and audio, wake-up jobs, Auto-off, sign-out waiting for running work), the sign-out rule for other active browsers and the idle auto-off are unit-tested in backend/test_serverless_power.py; a real warm worker needs the storage server and RunPod and remains blocked here"
+  },
+  {
+    "area": "Image story workflow (owner-approved mocks, 2026-11-16)",
+    "mode": "fixture",
+    "scope": "STORY-20/21/33/34 and GEN-06/07. Story Picture: Upload a Photo shows the photo beside one Improve with AI prompt box; Generate With AI is one prompt box with ✦; no drafts, Use AI Text, Clear AI Output, Find and Replace or Keep a person box. Step 3 is named after the output (Image Generation / Video Generation / Story Generation) on the tab; the Story Picture button reads Next: Generate and starts the picture at once (no second Generate click; with no GPU the Connect a GPU workspace popup opens). Image Generation: no Edit story, no 0% summary, no big percent or Workers panel; stats row, Overall Progress and per-image bars with percents, Activity; Image box with Save, Delete, Download and Full Screen (hover turns the accent colour); Publish below the box opens Story Publishing without Edit story or a second Back. Save to Image Library takes an existing or new label; an unsaved picture stays out of Image Library (per browser) and Delete moves it to Trash. Real GPU generation is blocked in the fixture."
   }
 ]

@@ -30,7 +30,7 @@ async function fillStoryDetail(page,name,value){
  else await page.locator('#story-simple-details [name='+name+']').selectOption(value);
 }
 // Story Generation (2026-11-10): the tab shows progress and review; the studio form sits in Model Settings.
-async function generationTab(page){await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();}
+async function generationTab(page){await page.getByRole('tab',{name:/^5\. (Story|Video) Generation$/}).click();await expect(page.locator('#story-generation')).toBeVisible();}
 async function modelSettings(page){await page.locator('[data-gen-settings]').click();await expect(page.locator('#story-gen-settings')).toBeVisible();}
 async function textView(page){const b=page.getByRole('button',{name:'Edit as text',exact:true});if(await b.isVisible())await b.click();}
 async function setScript(page,text){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await page.locator('#story-simple-script').fill(text);}
@@ -1355,37 +1355,98 @@ test('STORY-20 Image and Video change Story Details fields, the Step 2 screen an
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt hill');await fillStoryDetail(page,'output','image');
  const form=page.locator('#story-simple-details');await expect(form.locator('#story-detail-imageStyle-button')).toBeVisible();for(const id of ['#story-detail-type-button','#story-detail-genre-button','#story-detail-language'])await expect(form.locator(id)).toBeHidden();await expect(form.getByLabel('Visual style (required)')).toBeHidden();
  const tabs=page.getByRole('tablist',{name:'Create your story',exact:true});// Pictures have no Characters step (owner request 2026-11-15).
- await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Picture','3. Story Generation','4. Story Publishing']);
+ await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Picture','3. Image Generation','4. Story Publishing']);
  await page.getByRole('button',{name:/Next: Story Picture/}).click();await expect(form.locator('#story-detail-imageStyle-error')).toHaveText('Choose an image style.');await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
  await expect(page.getByRole('tab',{name:'2. Story Picture',exact:true})).toHaveAttribute('aria-selected','true');const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});await expect(ptabs.getByRole('tab')).toHaveText(['Upload a Photo','Generate With AI']);
  await expect(page.getByRole('group',{name:'Picture settings',exact:true}).getByLabel('Image Style',{exact:true})).toHaveValue('Watercolor');await expect(page.getByRole('group',{name:'Picture settings'}).getByLabel('Language')).toHaveCount(0);
  const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
  await expect(page.getByRole('img',{name:'Uploaded photo'})).toBeVisible();await expect(page.getByRole('button',{name:'Replace photo',exact:true})).toBeVisible();
- await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});await ai.getByLabel('What should your picture show?',{exact:true}).fill('A girl carrying salt');
- await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).toHaveValue('Picture 1: A girl carrying salt, Watercolor.');await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();
- await expect(ai.getByLabel('Picture Description',{exact:true})).toHaveValue(/Picture 1: A girl carrying salt/);await page.getByRole('button',{name:'Next: Story Generation',exact:true}).click();
- await expect(page.getByRole('tab',{name:'3. Story Generation',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
+ // Owner-approved mocks 2026-11-16: the photo beside one Improve with AI box; Generate With AI is one prompt box. No drafts,
+ // Use AI Text, Find and Replace or Keep a person box.
+ await expect(page.getByRole('textbox',{name:'Improve with AI',exact:true})).toBeVisible();
+ for(const name of ['Use AI Text','Clear AI Output','Draft 1','Clear Text'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ await expect(page.getByText('Find and Replace',{exact:true})).toHaveCount(0);await expect(page.getByText('Keep a Person Looking the Same')).toHaveCount(0);
+ await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();const prompt=page.getByRole('textbox',{name:'Generate with AI',exact:true});await expect(prompt).toHaveValue('');await prompt.fill('A girl carrying salt');
+ await page.getByRole('button',{name:'Generate with AI',exact:true}).click();await expect(prompt).toHaveValue('Picture 1: A girl carrying salt, Watercolor.');
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();
+ await expect(page.getByRole('tab',{name:'3. Image Generation',exact:true})).toHaveAttribute('aria-selected','true');
+ // Generation starts by itself; with no GPU connected the studio asks for one (closed here).
+ await expect(page.locator('#gpu-picker-dialog')).toBeVisible();await page.locator('#gpu-picker-dialog').evaluate(d=>d.close());await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
  expect(await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('Salt hill')&&localStorage.getItem(k).includes('simple_workspace'));return JSON.parse(localStorage.getItem(k)).simple_workspace.script;})).toMatch(/A girl carrying salt/);
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await fillStoryDetail(page,'output','video');await expect(form.getByLabel('Visual style (required)')).toHaveValue('Cinematic realistic film');await expect(form.locator('#story-detail-language')).toBeVisible();await expect(form.locator('#story-detail-imageStyle-button')).toBeHidden();
- await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Script','3. Story Characters','4. Story Screen Play','5. Story Generation','6. Story Publishing']);
+ await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Script','3. Story Characters','4. Story Screen Play','5. Video Generation','6. Story Publishing']);
  expect(page.qaErrors).toEqual([]);
 });
-for(const way of ['Upload a Photo','Generate With AI'])test(`STORY-21 ${way}: the picture reaches Story Generation with only its description, its style and the photo`,async({page})=>{
+for(const way of ['Upload a Photo','Generate With AI'])test(`STORY-21 ${way}: the picture reaches Image Generation with only its description, its style and the photo`,async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt picture '+way);await fillStoryDetail(page,'output','audio');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
  const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});
  if(way==='Upload a Photo'){const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
-  await page.getByRole('dialog',{name:'Upload a Photo',exact:true}).locator('[data-selected]').fill('Turn this photo into a picture for a storybook.');}
- else{await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});await ai.getByLabel('What should your picture show?',{exact:true}).fill('A girl carrying salt');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();}
- // Pictures start with no people; a person who should look the same can be added right here (no Characters step).
- const people=page.locator('[data-picture-people]');await expect(people.locator('.story-picture-person')).toHaveCount(0);await expect(people.locator('summary')).toHaveText('Keep a Person Looking the Same');await expect(page.locator('.pdf-find-replace + [data-picture-people]')).toHaveCount(1);
- if(way==='Generate With AI'){await people.locator('summary').click();await people.getByRole('button',{name:'+ Add a person',exact:true}).click();await expect(people.getByLabel('Person 1 name',{exact:true})).toHaveValue('Person 1');}
- const next=page.getByRole('button',{name:'Next: Story Generation',exact:true});await expect(next).toBeEnabled();await next.click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
+  await page.getByRole('textbox',{name:'Improve with AI',exact:true}).fill('Turn this photo into a picture for a storybook.');}
+ else{await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();const prompt=page.getByRole('textbox',{name:'Generate with AI',exact:true});await prompt.fill('A girl carrying salt');await page.getByRole('button',{name:'Generate with AI',exact:true}).click();await expect(prompt).toHaveValue(/A girl carrying salt/);}
+ // The Keep a person box is gone (owner-approved mocks, 2026-11-16).
+ await expect(page.locator('[data-picture-people]')).toHaveCount(0);
+ const next=page.getByRole('button',{name:'Next: Generate',exact:true});await expect(next).toBeEnabled();await next.click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
  const prompt=await page.locator('#image-form textarea[name=prompt]').inputValue();expect(prompt).not.toMatch(/Narrator|:\s*$/);expect(prompt).toMatch(way==='Upload a Photo'?/^Turn this photo into a picture for a storybook\.$/:/A girl carrying salt/);
  const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});expect(saved.style).toBe('Watercolor');
  if(way==='Upload a Photo'){const upload=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='images/upload'));expect(upload.body.name).toBe('girl.png');expect(saved.reference_ids[0]).toMatch(/^qa-photo-/);await expect(page.locator('#image-form #job-model')).toHaveValue('qwen-image-edit-2511');}
  else{expect(await page.evaluate(()=>window.__qaCalls.some(c=>c.path==='images/upload'))).toBe(false);expect(saved.reference_ids||[]).toEqual([]);}
  await expect(page.locator('#ecco-error-popup')).toBeHidden();expect(page.qaErrors).toEqual([]);
+});
+// Image stories (owner-approved mocks, 2026-11-16): Next starts the picture at once; progress on the left half, the Image
+// box with Save, Delete, Download and Full Screen on the right, Publish below it; the picture joins Image Library only on Save.
+test('GEN-06 Image Generation starts by itself, shows the picture for review and saves it to Image Library only on Save',async({page})=>{
+ await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt hill');await fillStoryDetail(page,'output','image');
+ await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
+ await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A girl carrying a basket of salt up a hill at sunrise');
+ // A stand-in Serverless GPU; nothing reaches a real GPU.
+ await page.evaluate(()=>{const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;window.modelAvailable=()=>true;window.modelPayload=(kind,gpu,model)=>({gpu:gpu||'serverless',model});});
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();
+ await expect(page.getByRole('tab',{name:'3. Image Generation',exact:true})).toHaveAttribute('aria-selected','true');
+ // No second Generate click: the picture is requested as soon as the screen opens.
+ await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='images').length)).toBe(1);
+ await expect(page.locator('[data-gen-chip]')).toHaveText('Ready to review',{timeout:15000});
+ await expect(page.getByRole('button',{name:'Edit story',exact:true})).toHaveCount(0);
+ for(const sel of ['[data-gen-download]','[data-gen-start]','[data-publish]'])await expect(page.locator('.story-gen-actions '+sel)).toBeHidden();
+ await expect(page.locator('[data-gen-summary]')).toHaveText('');await expect(page.locator('.story-gen-percent')).toHaveCount(0);await expect(page.locator('.story-gen-workers')).toHaveCount(0);
+ const bars=page.locator('.story-gen-bars');await expect(bars.locator('.story-gen-bar-label')).toHaveText(['Overall Progress:','Salt hill:']);await expect(bars.locator('.story-gen-bar-pct')).toHaveText(['100%','100%']);
+ await expect(page.getByRole('progressbar',{name:'Overall Progress progress',exact:true})).toHaveAttribute('aria-valuenow','100');
+ const box=page.locator('.story-gen-image-box');await expect(box.locator('img[data-asset]')).toHaveCount(1);
+ expect(await box.getByRole('group',{name:'Image actions'}).getByRole('button').evaluateAll(b=>b.map(x=>x.getAttribute('aria-label')))).toEqual(['Save to Image Library','Delete image','Download','Full Screen']);
+ const save=box.getByRole('button',{name:'Save to Image Library',exact:true});await save.hover();await expect(save).toHaveCSS('color','rgb(255, 220, 36)');
+ // Publish sits outside the Image box, below it.
+ const publish=page.locator('.story-gen-image-actions').getByRole('button',{name:'Publish',exact:true});await expect(publish).toBeEnabled();
+ expect((await publish.boundingBox()).y).toBeGreaterThan((await box.boundingBox()).y+(await box.boundingBox()).height-1);
+ // Not in Image Library until Save.
+ const made=await page.evaluate(()=>window.__qaCalls.findLast(()=>true)&&JSON.parse(localStorage.getItem('ecco-unsaved-images')||'[]'));expect(made).toHaveLength(1);
+ await save.click();const dialog=page.getByRole('dialog',{name:'Save to Image Library',exact:true});await expect(dialog).toBeVisible();
+ await dialog.getByRole('radio',{name:'New label',exact:true}).check();await dialog.getByRole('textbox',{name:'New label name',exact:true}).fill('Salt pictures');await dialog.getByRole('button',{name:'Save',exact:true}).click();
+ await expect(dialog).toHaveCount(0);
+ const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>/^library\//.test(c.path)).map(c=>[c.path,c.body]));
+ expect(calls[0]).toEqual(['library/folders',{name:'Salt pictures'}]);expect(calls[1][0]).toBe('library/save');expect(calls[1][1].asset_id).toBe(made[0]);
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-unsaved-images')||'[]'))).toEqual([]);
+ // Full Screen opens the picture across the window; Esc returns.
+ await box.getByRole('button',{name:'Full Screen',exact:true}).click();const full=page.getByRole('dialog',{name:'Image, full screen',exact:true});await expect(full).toBeVisible();
+ await expect(full.getByText('Press Esc to return')).toBeVisible();await page.keyboard.press('Escape');await expect(full).toHaveCount(0);
+ // Publish opens Story Publishing without Edit story or a second Back.
+ await publish.click();await expect(page.getByRole('tab',{name:'4. Story Publishing',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.locator('#story-simple-media')).toBeHidden();await expect(page.getByRole('button',{name:'Edit story',exact:true})).toHaveCount(0);
+ expect(page.qaErrors).toEqual([]);
+});
+test('GEN-07 an unsaved Image Generation picture stays out of Image Library, and Delete moves it to Trash',async({page})=>{
+ await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox picnic');await fillStoryDetail(page,'output','image');
+ await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ await page.getByRole('textbox',{name:'Improve with AI',exact:true}).fill('Turn this photo into a storybook picture.');
+ await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
+ await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A fox at a picnic');
+ await page.evaluate(()=>{const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;window.modelAvailable=()=>true;window.modelPayload=(kind,gpu,model)=>({gpu:gpu||'serverless',model});});
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();await expect(page.locator('[data-gen-chip]')).toHaveText('Ready to review',{timeout:15000});
+ const id=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-unsaved-images')||'[]')[0]);expect(id).toBeTruthy();
+ expect(await page.evaluate(id=>window.EccoLibraryHub?.items?window.EccoLibraryHub.items('image').some(i=>i.id===id):null,id)).not.toBe(true);
+ await page.locator('.story-gen-image-box').getByRole('button',{name:'Delete image',exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='trash').map(c=>c.body))).toEqual([{asset_id:id,restore:false}]);
+ expect(page.qaErrors).toEqual([]);
 });
 for(const tab of ['Upload PDF','Generate With AI','Write Yourself'])test(`STORY-15 ${tab} keeps three AI drafts and uses the chosen one`,async({page})=>{
  await boot(page,{sourceFit:'drafts'});await page.getByLabel('Story name (required)',{exact:true}).fill('Draft choices');
@@ -1495,7 +1556,7 @@ test('STORY-11 Story type sets One time or Recurring generation; Generation show
  await expect(page.locator('#story-simple-publishing')).toHaveCount(0);await expect(page.locator('[name=recurrence]')).toHaveCount(0);await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeHidden();
  await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=recurring][data-choice-value=storybook]').click();
  await expect(page.locator('#story-detail-type-button [data-generation-tag]')).toHaveText('Recurring');expect(await page.evaluate(()=>JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('Publishing preference')&&localStorage.getItem(k).includes('simple_workspace')))).simple_workspace?.recurrence)).toBe('recurring');
- await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();const summary=page.locator('#story-simple-publishing');await expect(summary.getByRole('heading',{name:'Recurring'})).toBeVisible();await expect(summary).toContainText('Set the schedule in Story Script → Schedule.');await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeVisible();
+ await page.getByRole('tab',{name:/^5\. (Story|Video) Generation$/}).click();const summary=page.locator('#story-simple-publishing');await expect(summary.getByRole('heading',{name:'Recurring'})).toBeVisible();await expect(summary).toContainText('Set the schedule in Story Script → Schedule.');await expect(page.getByRole('button',{name:'Start next episode / chapter',exact:true})).toBeVisible();
  await summary.getByRole('button',{name:'Change in Story Script → Schedule',exact:true}).click();await expect(page.getByRole('tab',{name:'Schedule',exact:true})).toHaveAttribute('aria-selected','true');
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>/generate|publish/.test(c.path)))).toEqual([]);
 });
@@ -1853,7 +1914,7 @@ test('STORY-36 A character description does not grow "Nationality" notes on roun
  await page.locator('.story-simple-actions [data-next]').click();await castEditor(page);
  await page.getByRole('tab',{name:'Ali',exact:true}).click();await page.getByLabel('Character 2 Suggested voice',{exact:true}).fill('Calm and low.');
  await page.getByLabel('Character 2 Nationality',{exact:true}).fill('Indian');
- for(let i=0;i<3;i++){await page.getByRole('tab',{name:'5. Story Generation',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await page.getByRole('tab',{name:'3. Story Characters',exact:true}).click();await castEditor(page);}
+ for(let i=0;i<3;i++){await page.getByRole('tab',{name:/^5\. (Story|Video) Generation$/}).click();await expect(page.locator('#story-generation')).toBeVisible();await page.getByRole('tab',{name:'3. Story Characters',exact:true}).click();await castEditor(page);}
  await page.getByRole('tab',{name:'Ali',exact:true}).click();await expect(page.getByLabel('Character 2 Suggested voice',{exact:true})).toHaveValue('Calm and low.');
  const speaker=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-audio-draft:'));return JSON.parse(localStorage.getItem(k)).speakers.find(s=>s.name==='Ali').delivery;});
  expect(speaker).toBe('Calm and low. Nationality: Indian');
@@ -2132,17 +2193,15 @@ test('GPU-SERVERLESS-01 the GPU connection box has an always-on Serverless card'
 });
 
 // Owner request 2026-11-10: the chosen Image style always wins; people keep their described look.
-test('STORY-33 Picture: the Image style is described first with what to avoid, AI descriptions name no style, and people keep their look',async({page})=>{
+test('STORY-33 Picture: the Image style is described first with what to avoid and AI descriptions name no style',async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox picnic');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'3D animation');await page.getByRole('button',{name:/Next: Story Picture/}).click();
- await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});
- await ai.getByLabel('What should your picture show?',{exact:true}).fill('A girl and a fox at a picnic');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');
+ await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();const prompt=page.getByRole('textbox',{name:'Generate with AI',exact:true});
+ await prompt.fill('A girl and a fox at a picnic');await page.getByRole('button',{name:'Generate with AI',exact:true}).click();await expect(prompt).not.toHaveValue('A girl and a fox at a picnic');
  const instruction=await page.evaluate(()=>window.__qaCalls.find(c=>c.body?.fields?.[0]?.id==='picture_description').body.context.instructions);expect(instruction).toContain('Do not name or describe any art style');expect(instruction).toContain('expressions');
- await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();
- const people=page.locator('[data-picture-people]');await people.locator('summary').click();await people.getByRole('button',{name:'+ Add a person',exact:true}).click();await people.getByLabel('Person 1 look',{exact:true}).fill('8-year-old girl, long dark brown hair, yellow raincoat, blue jeans');
- await page.getByRole('button',{name:'Next: Story Generation',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
  const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});
- expect(saved.style).toBe('3D animation');expect(saved.prompt).toContain('Characters, keep exactly as described:\nPerson 1: 8-year-old girl, long dark brown hair, yellow raincoat, blue jeans');
+ expect(saved.style).toBe('3D animation');expect(saved.prompt).toContain('A girl and a fox at a picnic');
  // Submit with a stand-in GPU and capture the request.
  await page.evaluate(()=>{window.qaImageRequests=[];const real=window.api;window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-style-job'};}return real(path,body);};
   const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});
@@ -2151,7 +2210,7 @@ test('STORY-33 Picture: the Image style is described first with what to avoid, A
  await page.locator('#image-form').evaluate(form=>form.requestSubmit());await expect.poll(()=>page.evaluate(()=>window.qaImageRequests.length)).toBe(1);
  const body=await page.evaluate(()=>window.qaImageRequests[0]);
  expect(body.prompt.startsWith('3D animated feature film still')).toBe(true);expect(body.prompt).toContain('The whole image is in this style.');expect(body.prompt).not.toContain('Style: 3D animation.');
- expect(body.negative).toContain('watercolor');expect(body.prompt).toContain('yellow raincoat');
+ expect(body.negative).toContain('watercolor');expect(body.prompt).toContain('fox');
  expect(page.qaErrors).toEqual([]);
 });
 
@@ -2177,8 +2236,8 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  // Reopened, nothing is covered: the hint is inside the field and the search box is the first thing in view.
  await trigger.click();await expect(panel.getByLabel('Search image styles',{exact:true})).toBeInViewport();await expect(panel.locator('.image-style-list [data-image-style]').last()).toBeInViewport();await page.keyboard.press('Escape');
  await page.getByRole('button',{name:/Next: Story Picture/}).click();await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
- const ai=page.getByRole('dialog',{name:'Generate With AI',exact:true});await ai.getByLabel('What should your picture show?',{exact:true}).fill('A fox walking on ice');await ai.getByRole('button',{name:'Generate With AI',exact:true}).click();await expect(ai.getByLabel('Draft 1',{exact:true})).not.toHaveValue('');await ai.getByRole('button',{name:'Use AI Text',exact:true}).click();
- await page.getByRole('button',{name:'Next: Story Generation',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
+ await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A fox walking on ice');
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
  await expect(page.locator('[data-generation-style-current]')).toHaveText('Mosaic · Small tiles');
  await page.evaluate(()=>{window.qaImageRequests=[];const real=window.api;window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-mosaic-job'};}return real(path,body);};
   const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;
