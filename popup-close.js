@@ -119,7 +119,8 @@
    });
    dialog.append(close);
    }
-   if([...dialog.children].some(el=>el.classList.contains('ecco-popup-minimize')))continue;
+   // Error popups (owner, 16 Nov 2026): only the close button, no minimize.
+   if(dialog.id==='ecco-error-popup'||[...dialog.children].some(el=>el.classList.contains('ecco-popup-minimize')))continue;
    const minimizeButton=document.createElement('button');minimizeButton.type='button';minimizeButton.className='secondary ecco-popup-minimize';minimizeButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 12h12"/></svg>';minimizeButton.setAttribute('aria-label','Minimize popup');minimizeButton.title='Minimize and keep your work';minimizeButton.onclick=event=>{event.preventDefault();event.stopPropagation();minimize();};dialog.append(minimizeButton);
   }
  }

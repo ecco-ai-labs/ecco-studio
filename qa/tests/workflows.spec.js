@@ -48,6 +48,8 @@ async function openLibrary(page,kind,{keepView=false}={}){
   return hub;
 }
 async function popupControls(popup){
+ // Error popups show only the close button (owner, 16 Nov 2026).
+ if(await popup.evaluate(el=>el.id==='ecco-error-popup')){await expect(popup.locator('.ecco-popup-close')).toBeVisible();await expect(popup.getByRole('button',{name:'Minimize popup',exact:true})).toHaveCount(0);return;}
  const close=popup.locator('.ecco-popup-close'),minimize=popup.getByRole('button',{name:'Minimize popup',exact:true});
  await expect(close).toBeVisible();await expect(minimize).toBeVisible();
  for(const property of ['width','height','background-color','color'])expect(await close.evaluate((el,p)=>getComputedStyle(el).getPropertyValue(p),property)).toBe(await minimize.evaluate((el,p)=>getComputedStyle(el).getPropertyValue(p),property));
@@ -2177,8 +2179,8 @@ test('STORY-32 Screen Play: unnamed paragraphs continue the speaker and [directi
  await expect(lines.getByLabel('Line 1',{exact:true})).toHaveValue('Hi, how are you, and welcome.');
  await page.getByRole('button',{name:'Edit as text',exact:true}).click();
  await expect(page.locator('#story-simple-script')).toHaveValue('[Sound: soft intro music]\n\nAli [warm, welcoming]: Hi, how are you (and welcome).\n\nMorgiana [warm, grateful]: Thank you for having me. [professional, rising excitement] Quantum mechanics is fascinating.\n\nLike now we know that electrons vibrate like strings.\n\nAli [amazed]: Oh how fascinating! [slight laugh]');
- // Only the very first paragraph needs a name.
- await page.locator('#story-simple-script').fill('Thank you for having me.\n\nAli: Hi.');await page.locator('#story-simple-script').blur();await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.getByRole('button',{name:'Lines and sounds',exact:true})).toBeHidden();
+ // An unnamed first paragraph no longer blocks (owner, 16 Nov 2026): the first character reads it.
+ await page.locator('#story-simple-script').fill('Thank you for having me.\n\nAli: Hi.');await page.locator('#story-simple-script').blur();await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.getByRole('button',{name:'Lines and sounds',exact:true})).toBeVisible();await expect(page.locator('#ecco-error-popup')).toBeHidden();
  expect(page.qaErrors).toEqual([]);
 });
 test('STORY-33 Screen Play quality gate: one turn per line splits speakers; a script introduced twice is never recorded',async({page})=>{

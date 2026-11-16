@@ -3201,7 +3201,7 @@
     "source": "story-generation.js (drawAudioScreen, leftBox, audioReview, audioSaveDialog, removeAudio, drawWave, audioSnapshot, voiceUnits), story-generation.css; story-workspace.js (Screen Play button, Edit story); story-characters.js (cast summary); audio-studio.js (EccoAudioStudio.speakers model, compute)",
     "approved": "Owner-approved mocks, 2026-11-16 (design canvas 'Ecco Audio Generation Mocks')",
     "characters": "The cast summary no longer says 'Every character has a voice'; it shows only a shared-voice warning or how many characters still need a voice",
-    "screenPlay": "No sounds / special delivery summary under the script; the button reads Next: Generate",
+    "screenPlay": "No sounds / special delivery summary under the script; the button reads Next: Generate; an unnamed first paragraph no longer stops the story (the first character reads it)",
     "start": "Next: Generate opens Story Generation and starts the recording at once; no Ready to generate state",
     "layout": "Same as imageGeneration: left = progress panel (Elapsed, Remaining, Lines done, Working now; Overall Progress: <bar> NN%; one indented <worker>: <bar> NN% row per worker: each voice '<name> (<model>) \u00b7 <compute>', each sound, 'Mix & save \u00b7 <compute>') above Activity; right = Audio box, stretched to the height of the left column; Next: Publish below it, right-aligned",
     "audioTools": "Icon buttons (pdf-icon-btn) at the Audio box's top right in this order: Play, Stop, Save to Audio Library, Delete audio; disabled until the recording is ready; hover and keyboard focus turn the icon and border the theme accent",
@@ -3220,6 +3220,7 @@
       "Every character has a voice",
       "N sounds \u00b7 N lines with special delivery summary"
     ],
-    "limits": "One Serverless worker records the voices in turn today, so voice rows share it; one worker per voice in parallel needs a queue change"
+    "limits": "One Serverless worker records the voices in turn today, so voice rows share it; one worker per voice in parallel needs a queue change",
+    "errorPopup": "Error popups ('Story could not continue' and the others) show only the \u00d7 close button; no minimize (owner, 16 Nov 2026)"
   }
 }

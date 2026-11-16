@@ -50,7 +50,8 @@
    const head=paragraph.match(/^([^:\[\]\n]{1,60}?)\s*(\[[^\]]*\])?\s*:\s*/),id=head?names.get(head[1].trim().toLowerCase()):null;
    // “Bob: …” where Bob isn't in the cast is a typo, not words for the previous speaker.
    if(head&&!id&&(head[2]||/^\p{Lu}[\p{L}'’.\-]*(?: \p{Lu}[\p{L}'’.\-]*){0,2}$/u.test(head[1].trim())))throw Error('“'+head[1].trim()+'” is not in your cast. Add the character, or fix the name.');
-   if(id)who=id;else if(!who){if(cast.length>1)throw Error('Start the first paragraph with a character name followed by a colon, for example “'+cast[0].name+': …”.');who=cast[0].id;}
+   // Owner (16 Nov 2026): never block on an unnamed opening paragraph; the first character reads it.
+   if(id)who=id;else if(!who)who=cast[0].id;
    let direction=id&&head[2]?head[2].slice(1,-1).trim():'',fresh=!!direction,join=id?'':'para',body=id?paragraph.slice(head[0].length):paragraph;
    for(const piece of body.split(/(\[[^\]]*\])/)){
     if(/^\[[^\]]*\]$/.test(piece)){const d=piece.slice(1,-1).trim();direction=fresh&&direction?direction+', '+d:d;fresh=true;continue;}
