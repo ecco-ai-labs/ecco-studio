@@ -452,7 +452,9 @@
   // Story Generation review (2026-11-10): the transcript, saved recordings and pronunciation fixes for the open story.
   // Finished recordings only: music and effects made for this story's sound cues are inputs, not the recording.
   recordings:()=>{const cueAssets=new Set((draft?.sound_design?.cues||[]).map(c=>c.asset_id).filter(Boolean));return audioAssets().filter(a=>!cueAssets.has(a.id));},mediaURL:id=>service?service.mediaURL(id):Promise.reject(Error('Connect the audio service to play this recording.')),
-  lines:()=>draft&&story===activeStory?turns().map(t=>({speaker_id:t.speaker_id,text:t.text})):[],speakers:()=>draft?.speakers?.map(s=>({id:s.id,name:s.name}))||[],
+  lines:()=>draft&&story===activeStory?turns().map(t=>({speaker_id:t.speaker_id,text:t.text})):[],speakers:()=>draft?.speakers?.map(s=>({id:s.id,name:s.name,model:characterModel(s)?.name||''}))||[],
+  // Story Generation worker rows: the compute the recording runs on, as chosen in Model Settings.
+  compute:()=>{const select=q('#audio-form [name=compute]');return select?.selectedOptions?.[0]?.value?select.selectedOptions[0].textContent.replace(/\s*\(.*\)\s*$/,'').trim():'';},
   pronunciations:()=>(draft?.pronunciations||[]).map(p=>({...p})),
   setPronunciation({word,sayAs,line=null}){if(!draft||story!==activeStory)throw Error('Open this story before changing its pronunciations.');const list=(draft.pronunciations||[]).filter(p=>!(p.word.toLowerCase()===word.toLowerCase()&&p.line===line));list.push({word,sayAs,line});draft.pronunciations=list;save();},
   removePronunciation(index){if(!draft?.pronunciations)return;draft.pronunciations=draft.pronunciations.filter((_,i)=>i!==index);save();},

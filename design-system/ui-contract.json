@@ -3177,7 +3177,7 @@
   "imageGeneration": {
     "type": "workflow-screen",
     "source": "story-generation.js (drawImageScreen, saveDialog, fullScreen), story-generation.css; story-workspace.js (picturePage, promptBox)",
-    "approved": "Owner-approved mocks, 2026-11-16 (Image stories only; Audio and Video screens unchanged)",
+    "approved": "Owner-approved mocks, 2026-11-16 (Image stories; Audio stories use the same layout, see audioGeneration)",
     "storyPicture": "Upload a Photo: the photo box beside one Improve with AI prompt box (pdf-review-box pdf-ai-pane, \u2726 pdf-ai-icon). Generate With AI: one full-width Generate with AI prompt box. No drafts, Use AI Text, Clear AI Output, Find and Replace or Keep a person box.",
     "stepName": "Step 3 tab: Image Generation (image), Video Generation (video), Story Generation (audio); the Story Picture button reads Next: Generate",
     "start": "Next: Generate starts generation at once; no Ready to generate state",
@@ -3195,5 +3195,32 @@
       "Fix this image panel",
       "toolbar Download / Generate again / Publish"
     ]
+  },
+  "audioGeneration": {
+    "type": "workflow-screen",
+    "source": "story-generation.js (drawAudioScreen, leftBox, audioReview, audioSaveDialog, removeAudio, drawWave, audioSnapshot, voiceUnits), story-generation.css; story-workspace.js (Screen Play button, Edit story); story-characters.js (cast summary); audio-studio.js (EccoAudioStudio.speakers model, compute)",
+    "approved": "Owner-approved mocks, 2026-11-16 (design canvas 'Ecco Audio Generation Mocks')",
+    "characters": "The cast summary no longer says 'Every character has a voice'; it shows only a shared-voice warning or how many characters still need a voice",
+    "screenPlay": "No sounds / special delivery summary under the script; the button reads Next: Generate; an unnamed first paragraph no longer stops the story (the first character reads it)",
+    "start": "Next: Generate opens Story Generation and starts the recording at once; no Ready to generate state",
+    "layout": "Same as imageGeneration: left = progress panel (Elapsed, Remaining, Lines done, Working now; Overall Progress: <bar> NN%; one indented <worker>: <bar> NN% row per worker: each voice '<name> (<model>) \u00b7 <compute>', each sound, 'Mix & save \u00b7 <compute>') above Activity; right = Audio box, stretched to the height of the left column; Next: Publish below it, right-aligned",
+    "audioTools": "Icon buttons (pdf-icon-btn) at the Audio box's top right in this order: Play, Stop, Save to Audio Library, Delete audio; disabled until the recording is ready; hover and keyboard focus turn the icon and border the theme accent",
+    "audioBox": "Placeholder 'Your audio will appear here when it is ready.' until done; then title, length \u00b7 voices \u00b7 model, a waveform drawn from the decoded recording (canvas; hidden if it cannot be decoded), time, and the transcript ('Name: words'). Clicking a word opens the Fix the recording panel (pronunciation or new wording) under the transcript",
+    "saveDialog": "generation-dialog 'Save to Audio Library': audio thumbnail, name, length \u00b7 voices \u00b7 model; Label = Existing label (select of audio labels) or New label (text, max 80, no slashes); Cancel / Save. Uses /api/audio/folders and /api/audio/labels",
+    "delete": "Moves the recording to Trash (/api/trash)",
+    "removed": [
+      "Edit story (Story Generation)",
+      "N% \u00b7 N passages summary",
+      "Generating audio / N passages heading",
+      "big percent figure",
+      "Estimating\u2026 left",
+      "Workers and tasks panel",
+      "Passage map",
+      "toolbar Download / Generate again / Publish",
+      "Every character has a voice",
+      "N sounds \u00b7 N lines with special delivery summary"
+    ],
+    "limits": "One Serverless worker records the voices in turn today, so voice rows share it; one worker per voice in parallel needs a queue change",
+    "errorPopup": "Error popups ('Story could not continue' and the others) show only the \u00d7 close button; no minimize (owner, 16 Nov 2026)"
   }
 }
