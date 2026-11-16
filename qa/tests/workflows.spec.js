@@ -1368,7 +1368,7 @@ test('STORY-20 Image and Video change Story Details fields, the Step 2 screen an
  await expect(page.getByText('Find and Replace',{exact:true})).toHaveCount(0);await expect(page.getByText('Keep a Person Looking the Same')).toHaveCount(0);
  await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();const prompt=page.getByRole('textbox',{name:'Generate with AI',exact:true});await expect(prompt).toHaveValue('');await prompt.fill('A girl carrying salt');
  await page.getByRole('button',{name:'Generate with AI',exact:true}).click();await expect(prompt).toHaveValue('Picture 1: A girl carrying salt, Watercolor.');
- await page.getByRole('button',{name:'Next: Image Generation',exact:true}).click();
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();
  await expect(page.getByRole('tab',{name:'3. Image Generation',exact:true})).toHaveAttribute('aria-selected','true');
  // Generation starts by itself; with no GPU connected the studio asks for one (closed here).
  await expect(page.locator('#gpu-picker-dialog')).toBeVisible();await page.locator('#gpu-picker-dialog').evaluate(d=>d.close());await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
@@ -1386,7 +1386,7 @@ for(const way of ['Upload a Photo','Generate With AI'])test(`STORY-21 ${way}: th
  else{await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();const prompt=page.getByRole('textbox',{name:'Generate with AI',exact:true});await prompt.fill('A girl carrying salt');await page.getByRole('button',{name:'Generate with AI',exact:true}).click();await expect(prompt).toHaveValue(/A girl carrying salt/);}
  // The Keep a person box is gone (owner-approved mocks, 2026-11-16).
  await expect(page.locator('[data-picture-people]')).toHaveCount(0);
- const next=page.getByRole('button',{name:'Next: Image Generation',exact:true});await expect(next).toBeEnabled();await next.click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
+ const next=page.getByRole('button',{name:'Next: Generate',exact:true});await expect(next).toBeEnabled();await next.click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
  const prompt=await page.locator('#image-form textarea[name=prompt]').inputValue();expect(prompt).not.toMatch(/Narrator|:\s*$/);expect(prompt).toMatch(way==='Upload a Photo'?/^Turn this photo into a picture for a storybook\.$/:/A girl carrying salt/);
  const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});expect(saved.style).toBe('Watercolor');
  if(way==='Upload a Photo'){const upload=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='images/upload'));expect(upload.body.name).toBe('girl.png');expect(saved.reference_ids[0]).toMatch(/^qa-photo-/);await expect(page.locator('#image-form #job-model')).toHaveValue('qwen-image-edit-2511');}
@@ -1402,7 +1402,7 @@ test('GEN-06 Image Generation starts by itself, shows the picture for review and
  await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A girl carrying a basket of salt up a hill at sunrise');
  // A stand-in Serverless GPU; nothing reaches a real GPU.
  await page.evaluate(()=>{const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;window.modelAvailable=()=>true;window.modelPayload=(kind,gpu,model)=>({gpu:gpu||'serverless',model});});
- await page.getByRole('button',{name:'Next: Image Generation',exact:true}).click();
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();
  await expect(page.getByRole('tab',{name:'3. Image Generation',exact:true})).toHaveAttribute('aria-selected','true');
  // No second Generate click: the picture is requested as soon as the screen opens.
  await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='images').length)).toBe(1);
@@ -1441,7 +1441,7 @@ test('GEN-07 an unsaved Image Generation picture stays out of Image Library, and
  await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
  await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A fox at a picnic');
  await page.evaluate(()=>{const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;window.modelAvailable=()=>true;window.modelPayload=(kind,gpu,model)=>({gpu:gpu||'serverless',model});});
- await page.getByRole('button',{name:'Next: Image Generation',exact:true}).click();await expect(page.locator('[data-gen-chip]')).toHaveText('Ready to review',{timeout:15000});
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();await expect(page.locator('[data-gen-chip]')).toHaveText('Ready to review',{timeout:15000});
  const id=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-unsaved-images')||'[]')[0]);expect(id).toBeTruthy();
  expect(await page.evaluate(id=>window.EccoLibraryHub?.items?window.EccoLibraryHub.items('image').some(i=>i.id===id):null,id)).not.toBe(true);
  await page.locator('.story-gen-image-box').getByRole('button',{name:'Delete image',exact:true}).click();
@@ -2199,7 +2199,7 @@ test('STORY-33 Picture: the Image style is described first with what to avoid an
  await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();const prompt=page.getByRole('textbox',{name:'Generate with AI',exact:true});
  await prompt.fill('A girl and a fox at a picnic');await page.getByRole('button',{name:'Generate with AI',exact:true}).click();await expect(prompt).not.toHaveValue('A girl and a fox at a picnic');
  const instruction=await page.evaluate(()=>window.__qaCalls.find(c=>c.body?.fields?.[0]?.id==='picture_description').body.context.instructions);expect(instruction).toContain('Do not name or describe any art style');expect(instruction).toContain('expressions');
- await page.getByRole('button',{name:'Next: Image Generation',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
  const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});
  expect(saved.style).toBe('3D animation');expect(saved.prompt).toContain('A girl and a fox at a picnic');
  // Submit with a stand-in GPU and capture the request.
@@ -2237,7 +2237,7 @@ test('STORY-34 Image style picker: Popular first, audience suggestions, search, 
  await trigger.click();await expect(panel.getByLabel('Search image styles',{exact:true})).toBeInViewport();await expect(panel.locator('.image-style-list [data-image-style]').last()).toBeInViewport();await page.keyboard.press('Escape');
  await page.getByRole('button',{name:/Next: Story Picture/}).click();await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
  await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A fox walking on ice');
- await page.getByRole('button',{name:'Next: Image Generation',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
  await expect(page.locator('[data-generation-style-current]')).toHaveText('Mosaic · Small tiles');
  await page.evaluate(()=>{window.qaImageRequests=[];const real=window.api;window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-mosaic-job'};}return real(path,body);};
   const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;
