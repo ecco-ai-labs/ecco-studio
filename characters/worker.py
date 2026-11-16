@@ -27,14 +27,21 @@ class Stopped(Exception): pass
 def configuration(path):
     config = json.loads(Path(path).read_text())
     if not isinstance(config, dict): raise ValueError('Worker configuration must be an object.')
-    for name in ('blender', 'trellis_python', 'trellis_root', 'trellis_weights', 'unirig_root', 'unirig_python'):
+    for name in ('blender', 'trellis_python', 'trellis_root', 'trellis_weights', 'trellis_encoder_root',
+                 'trellis_encoder_checkpoint', 'unirig_root', 'unirig_python'):
         if config.get(name) and not Path(config[name]).is_absolute(): raise ValueError(name + ' must be an absolute path.')
+    if config.get('trellis_engine', 'trellis2') not in ('trellis1', 'trellis2'):
+        raise ValueError('Unknown reconstruction engine.')
+    if config.get('trellis_engine') == 'trellis1' and not all(config.get(k) for k in ('trellis_encoder_root', 'trellis_encoder_checkpoint')):
+        raise ValueError('TRELLIS 1 requires a local DINOv2 source tree and checkpoint.')
     return config
 
 
 def capabilities(config):
     blender = Path(config.get('blender', '/missing')).is_file()
     trellis = all(Path(config.get(k, '/missing')).exists() for k in ('trellis_python', 'trellis_root', 'trellis_weights'))
+    if config.get('trellis_engine') == 'trellis1':
+        trellis = trellis and all(Path(config.get(k, '/missing')).exists() for k in ('trellis_encoder_root', 'trellis_encoder_checkpoint'))
     unirig = all(Path(config.get(k, '/missing')).exists() for k in ('unirig_root', 'unirig_python'))
     # Readiness requires an explicit local qualification record, produced by
     # --qualify after a real model/rig/render run, not just downloaded weights.
@@ -114,8 +121,12 @@ def execute(task, config, base):
     task_path = base / 'task.json'
     queue.write(task_path, local_task)
     if stage == 'model':
-        run([config['trellis_python'], str(HERE / 'trellis_adapter.py'), '--task', str(task_path),
-             '--weights', config['trellis_weights']], config['trellis_root'], base,
+        legacy = config.get('trellis_engine') == 'trellis1'
+        command = [config['trellis_python'], str(HERE / ('trellis_v1_adapter.py' if legacy else 'trellis_adapter.py')),
+                   '--task', str(task_path), '--weights', config['trellis_weights']]
+        if legacy:
+            command += ['--encoder-root', config['trellis_encoder_root'], '--encoder-checkpoint', config['trellis_encoder_checkpoint']]
+        run(command, config['trellis_root'], base,
             'Reconstructing geometry and baking textures', extra_env={'PYTHONPATH': config['trellis_root']})
         model = output / 'model.glb'
     elif stage == 'rig' and not task['params'].get('imported'):
@@ -150,7 +161,8 @@ def execute(task, config, base):
     result = queue.read(output / 'manifest.json')
     if not result.get('files'): raise ValueError('Blender did not produce a validated manifest.')
     if stage == 'rig': inspect(output / 'rig.glb')
-    return {**result, 'status': 'done', 'model': 'TRELLIS.2' if stage == 'model' else 'UniRig / Blender' if stage == 'rig' else 'Blender'}
+    reconstruction = 'TRELLIS 1' if config.get('trellis_engine') == 'trellis1' else 'TRELLIS.2'
+    return {**result, 'status': 'done', 'model': reconstruction if stage == 'model' else 'UniRig / Blender' if stage == 'rig' else 'Blender'}
 
 
 def worker(config, pod):
