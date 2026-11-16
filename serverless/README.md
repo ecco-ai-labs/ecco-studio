@@ -121,7 +121,8 @@ endpoint's execution timeout, or set `policy.executionTimeout`):
 
 Steps: `inventory`, `sync-scripts` (worker scripts at that commit; old copies kept in
 `backup-scripts-<time>/`), `pack:<venv>`, `voxcpm2`, `chatterbox-hi`, `whisper`,
-`sound:ace-step-1.5`, `sound:moss-soundeffect-v2`. Environments are built on the worker's local disk,
+`sound:ace-step-1.5`, `sound:moss-soundeffect-v2`, `qwen3-tts` (Qwen3-TTS VoiceDesign + Base for designed
+voices; on images built before this step, send it as `rebuild:qwen3-tts`). Environments are built on the worker's local disk,
 smoke-tested on the GPU, and stored on the volume as `<name>.tar` + `.sha256`, which new workers
 unpack. After every install job the worker publishes what is ready to
 `ecco-serverless/audio-ready.json` on the network volume; the dispatcher reads it and advertises
