@@ -38,9 +38,11 @@
   // Image stories (owner-approved mocks, 2026-11-16): no Edit story or second Back on Image Generation and Publishing.
   if(generating(data.tab)&&!isImage()){
    if(data.output==='video')for(const [view,label]of [['audio','Prepare Audio'],['images','Prepare Images'],['render','Generate Video']]){const b=button(label,()=>generateView(view),'secondary');b.setAttribute('aria-pressed',String(data.view===view));media.append(b);}
-   const edit=button('Edit story',()=>select(STORY),'secondary');media.append(edit);
+   // Audio stories (owner-approved mocks, 2026-11-16): no Edit story on Story Generation.
+   if(!(data.output==='audio'&&data.tab===GENERATE)){const edit=button('Edit story',()=>select(STORY),'secondary');media.append(edit);}
    if(data.view==='publish')media.append(button('← Back',()=>window.EccoNavigation?.back(),'secondary ecco-page-back'));
   }
+  if(!media.childElementCount)media.hidden=true;
  }
  function button(text,run,cls=''){const b=document.createElement('button');b.type='button';b.textContent=text;b.className=cls;b.onclick=run;return b;}
  const detailFields=[['title','Story name','Enter a story name.'],['output','What are you making?','Choose Audio, Image or Video.'],['type','Story type','Choose a story type.'],['genre','Genre / Topic','Choose a genre or topic.'],['audience','Audience age group','Choose an audience age group.'],['language','Language','Choose a language.']];
@@ -599,7 +601,7 @@
   page='story-script';
   q('#page').innerHTML='<div class="form"><section class="panel form story-script-panel"><div class="section-head"><h2>Script</h2><div class="row story-script-views" role="group" aria-label="Script view"><button type="button" class="secondary" data-script-view="lines">Lines and sounds</button><button type="button" class="secondary" data-script-view="text">Edit as text</button></div><button type="button" class="secondary" data-check-script>✦ Check script</button><button type="button" data-suggest-sounds>✦ Suggest delivery and sounds</button></div>'
    +'<p class="help" data-script-help></p><p class="help" data-sound-status role="status" aria-live="polite"></p><p class="help" data-review-status role="status" aria-live="polite"></p><ul class="help" data-review-issues hidden></ul><div class="story-script-lines" data-script-lines></div>'
-   +'<label data-script-text>Script<textarea id="story-simple-script" rows="18" placeholder="Generate Script in the Story Script step fills this in. You can also write it here."></textarea></label></section><div class="story-simple-actions"><span class="help" data-script-count></span><button type="button" data-next>Generate</button></div></div>';
+   +'<label data-script-text>Script<textarea id="story-simple-script" rows="18" placeholder="Generate Script in the Story Script step fills this in. You can also write it here."></textarea></label></section><div class="story-simple-actions"><span class="help" data-script-count></span><button type="button" data-next>Next: Generate</button></div></div>';
   const text=q('#story-simple-script');text.value=data.script;let viewTimer;text.oninput=()=>{data.script=text.value;delete data.audioScript;data.scenes=[];epoch++;persist();clearTimeout(viewTimer);viewTimer=setTimeout(syncViews,300);};
   // While typing, show Lines and sounds as soon as the script is valid; stay in the text view so nothing moves under the pointer.
   const syncViews=()=>{const ok=!!(data.output==='audio'&&scriptPlan());for(const b of q('#page').querySelectorAll('[data-script-view]')){b.hidden=!ok;b.setAttribute('aria-pressed',String(b.dataset.scriptView==='text'));}if(ok)data.scriptView='text';};
@@ -682,7 +684,8 @@
    add.onclick=()=>{const sd=data.soundDesign||(data.soundDesign={enabled:true,cues:[]});sd.enabled=true;sd.cues.push({...window.EccoSoundDesign.defaults('effect'),name:'Sound '+(sd.cues.length+1),description:'',start:first,end:first});sd.speech_key=window.EccoSoundDesign.key(lines);epoch++;persist();paintScript();};
   });
   const n=cues.length,special=turns.filter(t=>t.performance?.emotion&&t.performance.emotion!=='neutral').length;
-  inPage('[data-script-count]').textContent=n+' sound'+(n===1?'':'s')+' · '+special+' line'+(special===1?'':'s')+' with special delivery'+(()=>{const flat=[...new Set(data.cast.map(c=>(window.EccoAudioModels||[]).find(m=>m.id===c.model)||model).filter(m=>m&&!m.emotions).map(m=>m.name||m.id))];return flat.length?' · '+flat.join(', ')+' reads every line in a normal voice':'';})();
+  // Owner (16 Nov 2026): no sounds / special delivery summary under the script.
+  inPage('[data-script-count]').textContent='';void n;void special;
  }
  function soundRow(cue,index,lines){
   const KINDS={effect:'Sound Effect',ambience:'Ambience',music:'Background Music'},row=document.createElement('div');row.className='story-script-sound';row.dataset.kind=cue.kind;

@@ -69,20 +69,37 @@
  }
  function audioSnapshot(story){
   const run=window.EccoAudioTasks?.get?.(story);if(!run?.rows?.length)return null;
-  let weight=0,sum=0;const units=[];
+  let weight=0,sum=0;const tasks=[];
   for(const row of run.rows){
    const s=row.steps,valid=s&&s.total>0&&s.completed>=0,status=row.status==='done'?'done':FAILED.includes(row.status)?'failed':row.status==='cancelled'?'stopped':['running','queued','cancelling'].includes(row.status)?'running':'waiting';
    const pct=status==='done'?100:valid?s.completed/s.total*100:status==='running'?null:0,w=row.key==='speech'&&valid?s.total:1;
    weight+=w;sum+=w*(pct??(status==='running'?15:0));
-   units.push({id:row.key,name:row.name,pct,status,detail:valid&&row.key==='speech'?s.completed+' of '+s.total+' passages'+(row.message&&!/passages/.test(row.message)?' · '+row.message:''):row.message||'',worker:row.key==='speech'?'Speech worker':row.key.startsWith('sound')?'Sound worker':row.key==='mix'?'Mixer':'',steps:valid?s:null,error:FAILED.includes(row.status)?row.message:''});
+   tasks.push({id:row.key,name:row.name,pct,status,detail:valid&&row.key==='speech'?s.completed+' of '+s.total+' passages'+(row.message&&!/passages/.test(row.message)?' · '+row.message:''):row.message||'',worker:row.key==='speech'?'Speech worker':row.key.startsWith('sound')?'Sound worker':row.key==='mix'?'Mixer':'',steps:valid?s:null,error:FAILED.includes(row.status)?row.message:''});
   }
-  const speech=units.find(u=>u.id==='speech'),status=units.some(u=>u.status==='failed')?'failed':units.some(u=>u.status==='stopped')?'cancelled':units.every(u=>u.status==='done')?'done':units.some(u=>u.status==='running')?'running':'queued';
-  const sounds=units.filter(u=>u.id.startsWith('sound-'));
-  return {kind:'audio',key:String(run.id),run,status,units,overall:status==='done'?100:sum/Math.max(1,weight),started:run.id/1000,eta:null,
+  const speech=tasks.find(u=>u.id==='speech'),status=tasks.some(u=>u.status==='failed')?'failed':tasks.some(u=>u.status==='stopped')?'cancelled':tasks.every(u=>u.status==='done')?'done':tasks.some(u=>u.status==='running')?'running':'queued';
+  const sounds=tasks.filter(u=>u.id.startsWith('sound-'));
+  // Owner (16 Nov 2026): one row per worker node: every voice, every sound, then the mix. Preparation counts toward
+  // the overall bar but is not a row.
+  const units=[...voiceUnits(speech),...sounds.map(u=>({...u,logName:u.name,worker:computeName('sound'),name:u.name+' · '+computeName('sound')})),...tasks.filter(u=>u.id==='mix').map(u=>({...u,logName:'Mix & save',worker:computeName('mix'),name:'Mix & save · '+computeName('mix')}))];
+  const lines=window.EccoAudioStudio?.lines?.()||[];
+  return {kind:'audio',key:String(run.id),run,status,units,tasks,overall:status==='done'?100:sum/Math.max(1,weight),started:run.id/1000,eta:null,
    headline:(speech?.steps?speech.steps.total+' passages':'Speech')+(sounds.length?' and '+sounds.length+' sound effect'+(sounds.length>1?'s':''):''),
-   counts:[...(speech?.steps?[['Passages',speech.steps.completed+' of '+speech.steps.total]]:[]),...(sounds.length?[['Sound effects',sounds.filter(u=>u.status==='done').length+' of '+sounds.length]]:[])],
-   error:units.find(u=>u.status==='failed')?.error||'',assets:[]};
+   counts:speech?.steps||lines.length?[['Lines done',(speech?.steps?Math.round(speech.steps.completed/speech.steps.total*(lines.length||speech.steps.total)):speech?.status==='done'?lines.length:0)+' of '+(lines.length||speech.steps.total)]]:[],
+   error:tasks.find(u=>u.status==='failed')?.error||'',assets:[]};
  }
+ // Each voice's share of the speech task, from the passages finished so far (the script is recorded in order).
+ function voiceUnits(speech){
+  if(!speech)return [];
+  const studio=window.EccoAudioStudio,lines=studio?.lines?.()||[],speakers=studio?.speakers?.()||[];
+  if(!lines.length||!speakers.length)return [{...speech,name:'Speech · '+computeName('speech')}];
+  const finished=speech.status==='done'?lines.length:speech.steps?Math.round(speech.steps.completed/speech.steps.total*lines.length):0;
+  const next=lines[finished]?.speaker_id;
+  return speakers.filter(sp=>lines.some(l=>l.speaker_id===sp.id)).map((sp,i)=>{
+   const mine=lines.filter(l=>l.speaker_id===sp.id).length,done=lines.slice(0,finished).filter(l=>l.speaker_id===sp.id).length;
+   const status=speech.status==='done'||done===mine?'done':speech.status==='failed'&&sp.id===next?'failed':speech.status==='stopped'?'stopped':speech.status==='running'&&(speech.steps?sp.id===next:true)?'running':'waiting';
+   return {id:'voice-'+sp.id,name:sp.name+(sp.model?' ('+sp.model+')':'')+' · '+computeName('speech'),pct:speech.steps||speech.status==='done'?done/mine*100:status==='running'?null:0,status,detail:done+' of '+mine+' lines',worker:computeName('speech'),logName:sp.name,error:status==='failed'?speech.error:''};});
+ }
+ function computeName(task){const label=window.EccoAudioStudio?.compute?.()||'';return task==='speech'?(label||'Speech worker'):/serverless/i.test(label)?'CPU':label||(task==='mix'?'Mixer':'Sound worker');}
  function workerName(r){if(!r)return '';const gpu=window.EccoGPUPicker?.gpus?.find(g=>g.id===(r.gpu||r.worker_id||r.pod));return gpu?gpu.name+' · '+gpu.label:r.gpu_name||r.worker||'';}
  const workers=units=>new Set(units.map(u=>u.worker).filter(Boolean)).size;
  const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
@@ -94,7 +111,7 @@
   const key=logKey(story),saved=session(key,{key:'',units:{},items:[]});
   if(saved.key!==snap.key){saved.key=snap.key;saved.units={};saved.items=[{t:clock(),m:'Generation started.'}];}
   for(const u of snap.units){const before=saved.units[u.id];if(before===u.status)continue;saved.units[u.id]=u.status;
-   const m=u.status==='done'?u.name+' finished.':u.status==='running'?u.name+' started'+(u.worker?' on '+u.worker:'')+'.':u.status==='failed'?u.name+' failed'+(u.error?': '+u.error:'.'):u.status==='stopped'?u.name+' stopped.':'';
+   const n=u.logName||u.name,m=u.status==='done'?n+' finished.':u.status==='running'?n+' started'+(u.worker?' on '+u.worker:'')+'.':u.status==='failed'?n+' failed'+(u.error?': '+u.error:'.'):u.status==='stopped'?n+' stopped.':'';
    if(m&&(before||u.status!=='waiting'))saved.items.push({t:clock(),m});}
   const last=saved.items[saved.items.length-1]?.m,end=snap.status==='done'?'Ready to review.':FAILED.includes(snap.status)?'Generation stopped with an error.':snap.status==='cancelled'?'Generation stopped.':'';
   if(end&&last!==end)saved.items.push({t:clock(),m:end});
@@ -108,7 +125,7 @@
   const same=ctx&&ctx.story===options.story&&ctx.kind===options.kind&&root?.isConnected&&root.parentElement===page;
   ctx={...ctx,...options};
   if(!same){
-   root?.remove();q('#story-gen-settings')?.remove();progressSig='';reviewSig='';imageSig='';
+   root?.remove();q('#story-gen-settings')?.remove();progressSig='';reviewSig='';imageSig='';audioSig='';audioBoxSig='';
    root=document.createElement('section');root.id='story-generation';root.className='story-gen';root.dataset.inlinePanel='';root.setAttribute('aria-label','Story generation');
    root.innerHTML='<div class="story-gen-toolbar"><div class="story-gen-state"><span class="story-gen-chip" data-gen-chip></span><span class="help" data-gen-summary></span></div><div class="story-gen-actions"><button type="button" class="secondary" data-gen-settings aria-controls="story-gen-settings" aria-expanded="false"></button><button type="button" class="secondary" data-gen-stop hidden>Stop generation</button><button type="button" class="secondary" data-gen-start></button><button type="button" class="secondary" data-gen-download hidden>Download</button><button type="button" data-publish disabled>Publish</button></div></div><p class="help" data-gen-note></p><div data-gen-progress></div><div data-gen-review></div><div class="row"><button type="button" class="secondary" data-next-episode hidden>Start next episode / chapter</button></div>';
    const anchor=q('#story-simple-publishing',page);if(anchor)anchor.after(root);else page.prepend(root);
@@ -178,17 +195,18 @@
   const chip=q('[data-gen-chip]',root),summary=q('[data-gen-summary]',root);
   const chipText={running:submitting?'Starting…':'Generating',failed:'Needs attention',review:'Ready to review',stopped:'Stopped',idle:'Ready to generate'}[mode];
   if(chip.textContent!==chipText){chip.textContent=chipText;chip.dataset.state=mode;}
-  const image=ctx.kind==='image';
-  const summaryText=image?'':mode==='review'&&asset?describe(asset):mode==='running'&&snap?Math.round(snap.overall)+'% · '+snap.headline:mode==='idle'?'Choose Generate to start. Progress shows here.':'';
+  const image=ctx.kind==='image',boxed=image||ctx.kind==='audio';
+  const summaryText=boxed?'':mode==='review'&&asset?describe(asset):mode==='running'&&snap?Math.round(snap.overall)+'% · '+snap.headline:mode==='idle'?'Choose Generate to start. Progress shows here.':'';
   if(summary.textContent!==summaryText)summary.textContent=summaryText;
   q('[data-gen-stop]',root).hidden=mode!=='running';
   const startLabel=mode==='review'||mode==='failed'||mode==='stopped'?'Generate again':'Generate';const startButton=q('[data-gen-start]',root);
-  if(startButton.textContent!==startLabel)startButton.textContent=startLabel;startButton.hidden=mode==='running'||image&&mode==='review';startButton.className=mode==='idle'?'':'secondary';
-  q('[data-gen-download]',root).hidden=mode!=='review'||image;
-  const publishButton=q('[data-publish]',root);publishButton.disabled=!asset||mode==='running';publishButton.hidden=!asset||image;
+  if(startButton.textContent!==startLabel)startButton.textContent=startLabel;startButton.hidden=mode==='running'||boxed&&mode==='review';startButton.className=mode==='idle'?'':'secondary';
+  q('[data-gen-download]',root).hidden=mode!=='review'||boxed;
+  const publishButton=q('[data-publish]',root);publishButton.disabled=!asset||mode==='running';publishButton.hidden=!asset||boxed;
   const note=ctx.kind==='video'?'':'Connected publishing currently accepts approved videos; Publish opens Story Publishing for this '+(ctx.kind==='audio'?'recording':'image')+'.';
-  const noteEl=q('[data-gen-note]',root),showNote=mode==='review'&&!!note&&!image;if(noteEl.hidden===showNote||noteEl.textContent!==note){noteEl.textContent=note;noteEl.hidden=!showNote;}
+  const noteEl=q('[data-gen-note]',root),showNote=mode==='review'&&!!note&&!boxed;if(noteEl.hidden===showNote||noteEl.textContent!==note){noteEl.textContent=note;noteEl.hidden=!showNote;}
   if(image){if(snap?.status==='done')unsaved.add(snap.assets.map(a=>a.id));drawImageScreen(snap,asset,mode);}
+  else if(ctx.kind==='audio')drawAudioScreen(snap,asset,mode);
   else{drawProgress(snap,mode);drawReview(asset,mode);}
   if(snap&&mode==='failed')announceError(snap);
  }
@@ -232,6 +250,8 @@
   trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
   download:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
   expand:'<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>',
+  play:'<path d="M7 4.5v15l12-7.5z"/>',
+  stop:'<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
   collapse:'<path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/>'};
  const svg=name=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICON[name]+'</svg>';
  let imageSig='',chosenImage='';
@@ -245,14 +265,8 @@
   const eta=snap&&mode==='running'?(snap.eta??(snap.overall>4&&elapsed>20?elapsed*(100-snap.overall)/snap.overall:null)):0;
   const sig=JSON.stringify([mode,snap?.key||'',Math.round(snap?.overall??-1),snap?.units.map(u=>[u.status,Math.round(u.pct??-1)])||[],items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),list.map(a=>a.id),chosenImage,ctx.title]);
   if(sig===imageSig)return;imageSig=sig;
-  const total=snap?snap.units.length:0,busy=snap?snap.units.filter(u=>u.status==='running'):[],active=new Set(busy.map(u=>u.worker||u.name)).size;
-  const stats=snap?[['Elapsed',duration(elapsed)],['Remaining',mode==='running'?remaining(eta):mode==='review'?'Done':'—'],...snap.counts,['Working now',active?active+' worker'+(active>1?'s':''):'—']]:[];
-  const pct=u=>Math.round(u.status==='done'?100:u.pct??0);
-  const bar=(label,value,large,status,indeterminate)=>'<span class="story-gen-bar-label">'+esc(label)+':</span><div class="story-gen-track'+(large?' story-gen-track-large':'')+(indeterminate?' story-gen-indeterminate':'')+'"'+(status?' data-status="'+status+'"':'')+' role="progressbar" aria-label="'+esc(label)+' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+value+'"><span style="width:'+value+'%"></span></div><span class="story-gen-bar-pct">'+value+'%</span>';
-  const left=snap?'<div class="story-gen-image-left"><section class="panel story-gen-overall" aria-label="Overall progress"><dl class="story-gen-stats">'+stats.map(([k,v])=>'<div><dt class="help">'+esc(k)+'</dt><dd><strong>'+esc(v)+'</strong></dd></div>').join('')+'</dl>'
-   +'<div class="story-gen-bars">'+bar('Overall Progress',Math.round(mode==='review'?100:snap.overall),true,'')+snap.units.map((u,i)=>bar(imageName(i,total),mode==='review'?100:pct(u),false,u.status,u.status==='running'&&u.pct==null)).join('')+'</div>'
-   +'<p class="help">Overall progress is the sum of every worker\'s finished work divided by all the work in this image, so it moves whenever any worker makes progress.</p></section>'
-   +'<section class="panel story-gen-log" aria-label="Activity"><h3>Activity</h3><ol>'+items.slice().reverse().map(i=>'<li><time class="help">'+esc(new Date(i.t*1000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}))+'</time><span>'+esc(i.m)+'</span></li>').join('')+'</ol><p class="help">You can leave this tab. Generation keeps going and this screen catches up when you return.</p></section></div>':'';
+  const total=snap?snap.units.length:0;
+  const left=snap?'<div class="story-gen-image-left">'+leftBox(snap,mode,items,elapsed,eta,(u,i)=>imageName(i,total),'image')+'</div>':'';
   const ready=!!shown,tool=(act,label,icon)=>'<button type="button" class="pdf-icon-btn" data-image-act="'+act+'" aria-label="'+label+'" title="'+label+'"'+(ready?'':' disabled')+'>'+svg(icon)+'</button>';
   const frame=shown?(list.length>1?'<div class="story-gen-images">'+list.map(a=>'<button type="button" class="story-gen-image" data-image="'+esc(a.id)+'" aria-pressed="'+(a.id===chosenImage)+'"><img data-asset="'+esc(a.id)+'" alt="'+esc(a.prompt||a.title||'Generated image')+'"></button>').join('')+'</div>':'<img data-asset="'+esc(shown.id)+'" alt="'+esc(shown.prompt||shown.title||'Generated image')+'">')
    :'<p class="help">'+(mode==='failed'?'The image could not be made. Choose Generate again.':mode==='stopped'?'Generation stopped.':'Your image will appear here when it is ready.')+'</p>';
@@ -264,6 +278,19 @@
    const b=e.target.closest('[data-image-act],[data-image-publish]');if(!b||b.disabled)return;const a=list.find(x=>x.id===chosenImage);
    if(b.hasAttribute('data-image-publish'))return publish();if(!a)return;
    ({save:()=>saveDialog(a),delete:()=>removeImage(a),download:()=>download(a),full:()=>fullScreen(a)})[b.dataset.imageAct]?.();};
+ }
+
+ // Left box of the Image and Audio screens: the stats, "Overall Progress: <bar> NN%" and one "<name>: <bar> NN%" row
+ // per image or worker, then Activity.
+ function leftBox(snap,mode,items,elapsed,eta,nameOf,noun){
+  const busy=snap.units.filter(u=>u.status==='running'),active=new Set(busy.map(u=>u.worker||u.name)).size;
+  const stats=[['Elapsed',duration(elapsed)],['Remaining',mode==='running'?remaining(eta):mode==='review'?'Done':'—'],...snap.counts,['Working now',active?active+' worker'+(active>1?'s':''):'—']];
+  const pct=u=>Math.round(u.status==='done'?100:u.pct??0);
+  const bar=(label,value,large,status,indeterminate)=>'<span class="story-gen-bar-label">'+esc(label)+':</span><div class="story-gen-track'+(large?' story-gen-track-large':'')+(indeterminate?' story-gen-indeterminate':'')+'"'+(status?' data-status="'+status+'"':'')+' role="progressbar" aria-label="'+esc(label)+' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+value+'"><span style="width:'+value+'%"></span></div><span class="story-gen-bar-pct">'+value+'%</span>';
+  return '<section class="panel story-gen-overall" aria-label="Overall progress"><dl class="story-gen-stats">'+stats.map(([k,v])=>'<div><dt class="help">'+esc(k)+'</dt><dd><strong>'+esc(v)+'</strong></dd></div>').join('')+'</dl>'
+   +'<div class="story-gen-bars'+(noun==='audio'?' story-gen-bars-workers':'')+'">'+bar('Overall Progress',Math.round(mode==='review'?100:snap.overall),true,'')+snap.units.map((u,i)=>bar(nameOf(u,i),mode==='review'?100:pct(u),false,u.status,u.status==='running'&&u.pct==null)).join('')+'</div>'
+   +'<p class="help">Overall progress is the sum of every worker\'s finished work divided by all the work in this '+(noun==='audio'?'recording':'image')+', so it moves whenever any worker makes progress.</p></section>'
+   +'<section class="panel story-gen-log" aria-label="Activity"><h3>Activity</h3><ol>'+items.slice().reverse().map(i=>'<li><time class="help">'+esc(new Date(i.t*1000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}))+'</time><span>'+esc(i.m)+'</span></li>').join('')+'</ol><p class="help">You can leave this tab. Generation keeps going and this screen catches up when you return.</p></section>';
  }
  function folderList(){return records().filter(r=>r.kind==='image_folder'&&!r.deleted).sort((a,b)=>a.name.localeCompare(b.name));}
  function saveDialog(asset){
@@ -294,6 +321,76 @@
   q('#story-gen-fullscreen')?.remove();const d=document.createElement('dialog');d.id='story-gen-fullscreen';d.className='story-gen-fullscreen';d.dataset.inlinePanel='';d.setAttribute('aria-label','Image, full screen');
   d.innerHTML='<div class="story-gen-fullscreen-head"><strong>'+esc(imageName(0,1))+'</strong><div class="row"><span class="help">Press Esc to return</span><button type="button" class="pdf-icon-btn" data-close aria-label="Exit Full Screen" title="Exit Full Screen (Esc)">'+svg('collapse')+'</button></div></div><div class="story-gen-fullscreen-stage"><img data-asset="'+esc(asset.id)+'" alt="'+esc(asset.prompt||asset.title||'Generated image')+'"></div>';
   (root||document.body).append(d);if(typeof hydrateMedia==='function')hydrateMedia();q('[data-close]',d).onclick=()=>d.close();d.onclose=()=>d.remove();d.showModal();q('[data-close]',d).focus();
+ }
+
+
+ // ---------- Audio stories (owner-approved mocks, 2026-11-16) ----------
+ // Same layout as Image Generation. Left: stats, Overall Progress and one row per worker (each voice, each sound, the mix),
+ // then Activity. Right: the Audio box with Play, Stop, Save and Delete; "Next: Publish" below it. The recording, its
+ // waveform and the transcript fill the box; clicking a word opens the pronunciation fix under the transcript.
+ let audioSig='',audioBoxSig='';
+ function drawAudioScreen(snap,asset,mode){
+  const host=q('[data-gen-progress]',root);q('[data-gen-review]',root).replaceChildren();
+  const shown=mode==='review'?asset:null;
+  const items=snap?track(snap,ctx.story):[],ended=mode==='running'?clock():(items.at(-1)?.t||clock()),elapsed=snap?.started?Math.max(0,ended-snap.started):0;
+  const eta=snap&&mode==='running'?(snap.eta??(snap.overall>4&&elapsed>20?elapsed*(100-snap.overall)/snap.overall:null)):0;
+  const sig=JSON.stringify([mode,snap?.key||'',Math.round(snap?.overall??-1),snap?.units.map(u=>[u.name,u.status,Math.round(u.pct??-1)])||[],items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),shown?.id||'',snap?.counts||[]]);
+  if(sig===audioSig&&host.querySelector('.story-gen-audio-box'))return;audioSig=sig;
+  const boxSig=(snap?'1':'0')+':'+mode+':'+(shown?.id||'');
+  if(boxSig!==audioBoxSig||!host.querySelector('.story-gen-audio-box')){
+   audioBoxSig=boxSig;reviewSig='';
+   const ready=!!shown,tool=(act,label,icon)=>'<button type="button" class="pdf-icon-btn" data-audio-act="'+act+'" aria-label="'+label+'" title="'+label+'"'+(ready?'':' disabled')+'>'+svg(icon)+'</button>';
+   host.innerHTML='<div class="story-gen-image-layout'+(snap?'':' story-gen-image-only')+'"><div class="story-gen-image-left" data-gen-left'+(snap?'':' hidden')+'></div>'
+    +'<section class="panel story-gen-image-box story-gen-audio-box" aria-labelledby="story-gen-audio-title"><div class="story-gen-image-head"><h3 id="story-gen-audio-title">Audio</h3><div class="story-gen-image-tools" role="group" aria-label="Audio actions">'+tool('play','Play','play')+tool('stop','Stop','stop')+tool('save','Save to Audio Library','save')+tool('delete','Delete audio','trash')+'</div></div>'
+    +'<div class="story-gen-image-frame'+(shown?' story-gen-audio-frame':'')+'"'+(shown?' data-filled':'')+' data-audio-frame>'+(shown?'':'<p class="help">'+(mode==='failed'?'The recording could not be made. Choose Generate again.':mode==='stopped'?'Generation stopped.':'Your audio will appear here when it is ready.')+'</p>')+'</div></section></div>'
+    +'<div class="story-gen-image-actions"><button type="button" data-audio-publish'+(ready&&mode!=='running'?'':' disabled')+'>Next: Publish</button></div>';
+   if(shown)audioReview(q('[data-audio-frame]',host),shown);
+   host.onclick=e=>{const b=e.target.closest('[data-audio-act],[data-audio-publish]');if(!b||b.disabled)return;
+    if(b.hasAttribute('data-audio-publish'))return publish();const a=current().asset,player=q('[data-gen-player]',host);
+    ({play:()=>player?.play().catch(error=>window.EccoErrors?.show(error,{title:'The recording could not play'})),stop:()=>{if(player){player.pause();player.currentTime=0;}},save:()=>a&&audioSaveDialog(a),delete:()=>a&&removeAudio(a)})[b.dataset.audioAct]?.();};
+  }
+  const left=q('[data-gen-left]',host);if(left&&snap)left.innerHTML=leftBox(snap,mode,items,elapsed,eta,u=>u.name,'audio');
+ }
+ function audioMeta(asset){const speakers=window.EccoAudioStudio?.speakers?.()||[],names=speakers.map(sp=>sp.name).filter(Boolean),models=[...new Set(speakers.map(sp=>sp.model).filter(Boolean))];
+  return [asset.duration?clockTime(asset.duration):'',names.length>1?names.slice(0,-1).join(', ')+' and '+names.at(-1):names[0]||'',models.join(', ')].filter(Boolean).join(' · ');}
+ function clockTime(seconds){seconds=Math.max(0,Math.round(seconds||0));return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');}
+ function audioTitle(asset){return String(ctx.title||'').trim()||asset.title||'Recording';}
+ function audioSaveDialog(asset){
+  q('#story-gen-save-dialog')?.remove();
+  const folders=records().filter(r=>r.kind==='audio_folder'&&!r.deleted).sort((a,b)=>a.name.localeCompare(b.name));
+  const d=document.createElement('dialog');d.id='story-gen-save-dialog';d.className='generation-dialog story-gen-save';d.setAttribute('aria-labelledby','story-gen-save-title');
+  d.innerHTML='<form method="dialog" class="form"><h2 id="story-gen-save-title">Save to Audio Library</h2><div class="story-gen-save-item"><span class="story-gen-save-audio" aria-hidden="true">'+Array.from({length:12},(_,i)=>'<span style="height:'+[10,22,34,18,28,14,24,36,20,12,26,16][i]+'%"></span>').join('')+'</span><div><strong>'+esc(audioTitle(asset))+'</strong><span class="help">'+esc(audioMeta(asset))+'</span></div></div>'
+   +'<fieldset class="story-gen-save-labels"><legend>Label</legend><label class="story-gen-check"><input type="radio" name="mode" value="existing"'+(folders.length?' checked':' disabled')+'> Existing label</label><select name="folder" aria-label="Existing label"'+(folders.length?'':' disabled')+'>'+(folders.length?folders.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name.replaceAll(' / ',' › '))+'</option>').join(''):'<option>No labels yet</option>')+'</select>'
+   +'<label class="story-gen-check"><input type="radio" name="mode" value="new"'+(folders.length?'':' checked')+'> New label</label><input type="text" name="name" maxlength="80" aria-label="New label name" placeholder="Name the new label"'+(folders.length?' disabled':'')+'></fieldset>'
+   +'<p class="help" role="status" data-save-status></p><div class="row story-gen-save-actions"><button type="button" class="secondary" data-cancel>Cancel</button><button type="submit">Save</button></div></form>';
+  document.body.append(d);
+  const form=q('form',d),sync=()=>{const fresh=form.elements.mode.value==='new';form.elements.folder.disabled=fresh||!folders.length;form.elements.name.disabled=!fresh;};
+  for(const r of all('input[name=mode]',d))r.onchange=()=>{sync();(form.elements.mode.value==='new'?form.elements.name:form.elements.folder).focus();};
+  q('[data-cancel]',d).onclick=()=>d.close();d.onclose=()=>d.remove();
+  form.onsubmit=async e=>{e.preventDefault();const status=q('[data-save-status]',d),button=q('[type=submit]',form);button.disabled=true;status.textContent='Saving…';
+   try{let id=form.elements.folder.value,label=folders.find(f=>f.id===id)?.name||'';
+    if(form.elements.mode.value==='new'){const name=form.elements.name.value.trim();if(!name||name.includes('/'))throw Error('Enter a label name without slashes, up to 80 characters.');const made=await api('audio/folders',{name});if(made?.deleted)throw Error('This label is in Trash. Restore it or choose another name.');id=made.id;label=name;}
+    if(!id)throw Error('Choose a label or enter a new one.');
+    const kept=records().filter(r=>r.kind==='library_item'&&!r.deleted&&r.asset_id===asset.id).map(r=>r.folder_id);
+    await api('audio/labels',{asset_id:asset.id,title:audioTitle(asset),folder_ids:[...new Set([...kept,id])]});if(typeof refresh==='function')await refresh();d.close();
+    if(typeof notice==='function')notice('Saved to Audio Library under “'+label+'”.');}
+   catch(error){status.textContent=error.message;button.disabled=false;}};
+  d.showModal();(folders.length?form.elements.folder:form.elements.name).focus();
+ }
+ async function removeAudio(asset){
+  try{await api('trash',{asset_id:asset.id});audioBoxSig='';if(typeof refresh==='function')await refresh();update();if(typeof notice==='function')notice('Audio moved to Trash. You can restore it from Trash.');}
+  catch(error){window.EccoErrors?.show(error,{title:'Delete failed'});}
+ }
+ // Waveform from the recording itself (peaks of the decoded audio); the played part is drawn in the accent colour.
+ async function drawWave(canvas,player,url){
+  let peaks=null;
+  try{const buffer=await (await fetch(url)).arrayBuffer(),Ctx=window.AudioContext||window.webkitAudioContext,ac=new Ctx(),audio=await ac.decodeAudioData(buffer);ac.close?.();
+   const data=audio.getChannelData(0),bars=80,step=Math.max(1,Math.floor(data.length/bars));peaks=Array.from({length:bars},(_,i)=>{let m=0;for(let j=i*step;j<Math.min(data.length,(i+1)*step);j+=16)m=Math.max(m,Math.abs(data[j]));return m;});
+   const top=Math.max(...peaks,1e-3);peaks=peaks.map(v=>Math.max(.08,v/top));}catch{return;}
+  const paint=()=>{if(!canvas.isConnected)return;const css=getComputedStyle(canvas),w=canvas.clientWidth||600,h=canvas.clientHeight||48,dpr=window.devicePixelRatio||1;canvas.width=w*dpr;canvas.height=h*dpr;
+   const g=canvas.getContext('2d');g.scale(dpr,dpr);const gap=3,bw=(w-gap*(peaks.length-1))/peaks.length,played=player.duration?player.currentTime/player.duration:0;
+   peaks.forEach((v,i)=>{g.fillStyle=i/peaks.length<played?css.getPropertyValue('--ecco-theme-accent').trim()||'#ffdc24':css.getPropertyValue('--ecco-theme-border').trim()||'#51496f';const bh=Math.max(3,v*h);g.fillRect(i*(bw+gap),(h-bh)/2,bw,bh);});};
+  canvas.hidden=false;paint();player.addEventListener('timeupdate',paint);window.addEventListener('resize',paint);
  }
 
  function announceError(snap){
@@ -397,18 +494,23 @@
  async function mediaURL(asset){if(typeof media==='function'&&media(asset))return media(asset);if(typeof media!=='function')throw Error('Media is not available here.');const holder=document.createElement('img');holder.dataset.asset=asset.id;holder.hidden=true;document.body.append(holder);try{if(typeof hydrateMedia==='function')await hydrateMedia();for(let i=0;i<240&&!media(asset);i++)await new Promise(r=>setTimeout(r,250));const url=media(asset);if(!url)throw Error((asset.media==='video'?'The video':'A redrawn frame')+' could not be downloaded. Check the connection and try again.');return url;}finally{holder.remove();}}
  function ranges(list){const out=[];let a=list[0],b=list[0];for(const n of list.slice(1)){if(n===b+1){b=n;continue;}out.push(a===b?a:a+'–'+b);a=b=n;}if(list.length)out.push(a===b?a:a+'–'+b);return out.join(', ');}
 
- // Audio: click a word that sounds wrong, say how it should sound, regenerate.
+ // Audio: the recording fills the Audio box. Click a word that sounds wrong, say how it should sound, regenerate.
  function audioReview(host,asset){
   const studio=window.EccoAudioStudio;
-  host.innerHTML='<div class="story-gen-columns"><section class="story-gen-player" aria-label="Audio review"><audio controls preload="metadata" data-gen-player></audio>'
-   +'<section class="panel story-gen-transcript" aria-label="Transcript"><div class="section-head"><h3>Transcript</h3><span class="help">Click a word that sounds wrong</span></div><div data-transcript></div></section></section>'
+  host.innerHTML='<div class="story-gen-audio"><div class="story-gen-audio-head"><strong>'+esc(audioTitle(asset))+'</strong><span class="help">'+esc(audioMeta(asset))+'</span></div>'
+   +'<canvas class="story-gen-wave" data-wave role="img" aria-label="Waveform of the recording" hidden></canvas><div class="story-gen-audio-time help"><span data-time-now>0:00</span><span data-time-total>'+esc(asset.duration?clockTime(asset.duration):'')+'</span></div>'
+   +'<audio preload="metadata" data-gen-player></audio>'
+   +'<section class="story-gen-transcript" aria-label="Transcript"><div class="section-head"><h3>Transcript</h3><span class="help">Click a word that sounds wrong</span></div><div data-transcript></div></section>'
    +fixPanel('Fix the recording','Choose a word in the transcript, then say how it should sound or change the wording. The recording is then made again with your fix.')+'</div>';
-  studio?.mediaURL?.(asset.id).then(url=>{const p=q('[data-gen-player]',host);if(p&&url)p.src=url;}).catch(()=>{});
+  const player=q('[data-gen-player]',host),fixer=q('.story-gen-fixer',host);fixer.hidden=!fixes().length&&!(studio?.pronunciations?.()||[]).length;
+  player.addEventListener('timeupdate',()=>{q('[data-time-now]',host).textContent=clockTime(player.currentTime);});
+  player.addEventListener('loadedmetadata',()=>{if(isFinite(player.duration)&&player.duration>0)q('[data-time-total]',host).textContent=clockTime(player.duration);});
+  studio?.mediaURL?.(asset.id).then(url=>{if(player.isConnected&&url){player.src=url;drawWave(q('[data-wave]',host),player,url);}}).catch(()=>{});
   const transcript=q('[data-transcript]',host),body=q('[data-fix-body]',host);
   const lines=studio?.lines?.()||[],speakers=studio?.speakers?.()||[],name=id=>speakers.find(s=>s.id===id)?.name||'Speaker';
   const words=text=>String(text).split(/(\s+)/);
   const pronounced=()=>studio?.pronunciations?.()||[];
-  function paint(){const fixed=new Set(pronounced().map(p=>p.word.toLowerCase()));transcript.innerHTML=lines.length?lines.map((l,i)=>'<div class="story-gen-passage" data-line="'+i+'"><span class="help">'+esc(name(l.speaker_id))+' · passage '+(i+1)+'</span><p>'+words(l.text).map(w=>/\S/.test(w)?'<span class="story-gen-word'+(fixed.has(clean(w).toLowerCase())?' story-gen-word-fixed':'')+'" data-word="'+esc(clean(w))+'">'+esc(w)+'</span>':esc(w)).join('')+'</p></div>').join(''):'<p class="help">The script for this recording is not available here. Open Model Settings to see it.</p>';}
+  function paint(){const fixed=new Set(pronounced().map(p=>p.word.toLowerCase()));transcript.innerHTML=lines.length?lines.map((l,i)=>'<div class="story-gen-passage" data-line="'+i+'"><p><strong>'+esc(name(l.speaker_id))+':</strong> '+words(l.text).map(w=>/\S/.test(w)?'<span class="story-gen-word'+(fixed.has(clean(w).toLowerCase())?' story-gen-word-fixed':'')+'" data-word="'+esc(clean(w))+'">'+esc(w)+'</span>':esc(w)).join('')+'</p></div>').join(''):'<p class="help">The script for this recording is not available here. Open Model Settings to see it.</p>';}
   const clean=w=>w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,'');
   body.innerHTML=chips(['Mispronounced','Wrong word'],'gen-audio-issue','What sounds wrong?')
    +'<div data-pron><label>Word<input type="text" data-word-input autocomplete="off"></label><label>Say it as<input type="text" data-say-input placeholder="For example: la-HOR" autocomplete="off"></label><label class="story-gen-check"><input type="checkbox" data-all checked> <span data-all-label>Every place this word is said</span></label></div>'
@@ -421,7 +523,7 @@
   const count=word=>lines.reduce((n,l)=>n+words(l.text).filter(w=>clean(w).toLowerCase()===word.toLowerCase()).length,0);
   const syncCount=()=>{const w=q('[data-word-input]',body).value.trim(),n=w?count(w):0;q('[data-all-label]',body).textContent=n>1?'All '+n+' places “'+w+'” is said':'Every place this word is said';};
   q('[data-word-input]',body).oninput=syncCount;
-  transcript.onclick=e=>{const w=e.target.closest('[data-word]');if(!w)return;selectedLine=Number(w.closest('[data-line]').dataset.line);for(const s of all('.story-gen-word-selected',transcript))s.classList.remove('story-gen-word-selected');w.classList.add('story-gen-word-selected');q('[data-word-input]',body).value=w.dataset.word;const known=pronounced().find(p=>p.word.toLowerCase()===w.dataset.word.toLowerCase());q('[data-say-input]',body).value=known?.sayAs||'';syncCount();syncIssue();q('[data-say-input]',body).focus();};
+  transcript.onclick=e=>{const w=e.target.closest('[data-word]');if(!w)return;fixer.hidden=false;selectedLine=Number(w.closest('[data-line]').dataset.line);for(const s of all('.story-gen-word-selected',transcript))s.classList.remove('story-gen-word-selected');w.classList.add('story-gen-word-selected');q('[data-word-input]',body).value=w.dataset.word;const known=pronounced().find(p=>p.word.toLowerCase()===w.dataset.word.toLowerCase());q('[data-say-input]',body).value=known?.sayAs||'';syncCount();syncIssue();q('[data-say-input]',body).focus();};
   function list(){const items=pronounced();q('[data-pron-list]',body).innerHTML=items.length?'<h3>Pronunciations</h3><ul class="story-gen-pron">'+items.map((p,i)=>'<li><span>“'+esc(p.word)+'” → '+esc(p.sayAs)+(p.line==null?'':' · passage '+(p.line+1))+'</span><button type="button" class="secondary" data-remove-pron="'+i+'" aria-label="Remove pronunciation for '+esc(p.word)+'">Remove</button></li>').join('')+'</ul>':'';for(const b of all('[data-remove-pron]',body))b.onclick=()=>{studio.removePronunciation(Number(b.dataset.removePron));list();paint();};}
   q('[data-fix-run]',body).onclick=()=>{
    try{
@@ -457,6 +559,6 @@
   for(const p of list||[]){if(!p?.word||!p?.sayAs||(p.line!=null&&p.line!==line))continue;const word=p.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');out=out.replace(new RegExp('(?<![\\p{L}\\p{N}])'+word+'(?![\\p{L}\\p{N}])','giu'),p.sayAs);}
   return out;
  }
- function leave(){clearInterval(timer);timer=null;root=null;ctx=null;progressSig='';reviewSig='';imageSig='';chosenImage='';autoStartUntil=0;}
+ function leave(){clearInterval(timer);timer=null;root=null;ctx=null;progressSig='';reviewSig='';imageSig='';chosenImage='';audioSig='';audioBoxSig='';autoStartUntil=0;}
  window.EccoStoryGeneration={mount,update,leave,unsavedImages:unsaved,openSettings:()=>toggleSettings(true),closeSettings:()=>toggleSettings(false),applyPronunciations,advice,snapshot,ranges};
 })();

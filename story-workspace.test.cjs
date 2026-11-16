@@ -245,7 +245,7 @@ for(const output of ['audio','video'])test('Generate Script reviews and preserve
  const turn=x.q('[data-turn-text="1"]');turn.value='Open the cave, please!';turn.dispatchEvent(new x.w.Event('input'));
  assert.equal(!!x.q('.story-script-dialog [data-property=appearance]'),output==='video');
  assert.equal(x.q('#story-simple-script').value,'');await applyReview(x);
- assert.match(x.q('#story-simple-script').value,/Ali Baba: Open the cave, please!/);assert.equal(x.saved().simple_workspace.cast[1].dialect,'British English');assert.equal(x.saved().simple_workspace.source.text,ensembleText);assert.equal(x.saved().simple_workspace.scriptReviewDraft,undefined);assert.equal(x.q('[data-next]').textContent,'Generate');
+ assert.match(x.q('#story-simple-script').value,/Ali Baba: Open the cave, please!/);assert.equal(x.saved().simple_workspace.cast[1].dialect,'British English');assert.equal(x.saved().simple_workspace.source.text,ensembleText);assert.equal(x.saved().simple_workspace.scriptReviewDraft,undefined);assert.equal(x.q('[data-next]').textContent,'Next: Generate');
  x.q('[data-next]').click();await tick();assert.equal(x.w.testState.page(),output==='audio'?'audio':'render');
  if(output==='video'){[...x.q('#story-simple-media').querySelectorAll('button')].find(b=>b.textContent==='Prepare Audio').click();await tick();}
  const audio=JSON.parse(x.w.localStorage.getItem('ecco-audio-draft:review-'+output));assert.equal(audio.lines[1].text,'Open the cave, please!');assert.equal(audio.speakers[1].name,'Ali Baba');assert.equal(audio.speakers[1].dialect,'British English');assert.deepEqual(x.errors,[]);
