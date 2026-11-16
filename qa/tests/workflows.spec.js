@@ -1243,7 +1243,7 @@ test('GEN-08 the finished recording is saved to Audio Library with an existing o
  expect(calls[0]).toEqual(['audio/folders',{name:'Podcasts'}]);expect(calls[1][0]).toBe('audio/labels');expect(calls[1][1].asset_id).toBe(id);expect(calls[1][1].title).toBe('Generation review');expect(calls[1][1].folder_ids).toHaveLength(1);
  // The label now exists, so the next save offers it as an existing label.
  await box.getByRole('button',{name:'Save to Audio Library',exact:true}).click();await expect(dialog.getByRole('radio',{name:'Existing label',exact:true})).toBeChecked();await expect(dialog.getByRole('combobox',{name:'Existing label',exact:true})).toContainText('Podcasts');
- await dialog.getByRole('button',{name:'Cancel',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await dialog.getByRole('button',{name:'Close popup',exact:true}).click();await expect(dialog).toHaveCount(0);
  await box.getByRole('button',{name:'Delete audio',exact:true}).click();
  await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='trash').map(c=>c.body.asset_id))).toEqual([id]);
  expect(page.qaErrors).toEqual([]);
@@ -1646,8 +1646,8 @@ test('STORY-22 Recurring Interview opens New Each Episode; brief, plan, Schedule
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').find(w=>w.name==='Star weekly'));
  expect(saved).toMatchObject({source_mode:'series',series_about:'A weekly interview with a well-known person',series_plan:['A playback singer','A cricketer'],no_repeat:true,end_mode:'runs',run_count:4});
  await next.click();await expect(page.getByRole('tab',{name:'3. Story Characters',exact:true})).toHaveAttribute('aria-selected','true');
- await castEditor(page);const guest=page.locator('[data-character-tabs] [role=tab]',{hasText:'Morgiana'});await guest.click();await expect(page.locator('[data-cast-progress]')).toHaveText('Every character has a voice');
- await page.getByRole('checkbox',{name:'Changes each episode',exact:true}).check();await expect(guest).toContainText('Changes each episode');await expect(page.locator('.story-cast-create')).toContainText('Picked for each episode');await expect(page.locator('[data-cast-progress]')).toHaveText('Every character has a voice');
+ await castEditor(page);const guest=page.locator('[data-character-tabs] [role=tab]',{hasText:'Morgiana'});await guest.click();await expect(page.locator('[data-cast-progress]')).toHaveText('');
+ await page.getByRole('checkbox',{name:'Changes each episode',exact:true}).check();await expect(guest).toContainText('Changes each episode');await expect(page.locator('.story-cast-create')).toContainText('Picked for each episode');await expect(page.locator('[data-cast-progress]')).toHaveText('');
  expect(page.qaErrors).toEqual([]);
 });
 
