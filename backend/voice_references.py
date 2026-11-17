@@ -30,10 +30,11 @@ LINK_SECONDS = 6 * 3600
 MIN_SECONDS, MAX_SECONDS = 3.0, 30.0
 RATE = 24000
 CLEAN_FILTER = 'highpass=f=80,afftdn=nf=-25,loudnorm=I=-20:TP=-2:LRA=11'
-# Designed voices are clean but can come out quiet and far away (one measured -33 LUFS against -22 for its partner),
-# and every line cloned from them inherits that. Each designed clip gets one close-mic studio treatment at -20 LUFS.
-STUDIO_TONE = ('aformat=channel_layouts=mono,highpass=f=80,acompressor=threshold=-24dB:ratio=3:attack=5:release=80:makeup=2,'
-               'equalizer=f=180:t=q:w=1:g=1.5,equalizer=f=3500:t=q:w=1.2:g=3')
+# Designed voices can come out quiet (one measured -33 LUFS against -22 for its partner) and every cloned line
+# inherits that. Only the level is changed: compression/EQ/limiting made the clone raspy and drift into another
+# language, because VoxCPM2 copies whatever processing it hears in the reference.
+STUDIO_TONE = 'aformat=channel_layouts=mono'
+STUDIO_PEAK = -1.0
 STUDIO_LUFS = -20.0
 SOURCES = ('upload', 'recording', 'designed', 'catalog')
 
@@ -91,10 +92,12 @@ def _probe(path):
 def _studio_filter(source, start, length):
     """Measure loudness after the tone chain, then one gain plus a peak limiter so every clip lands on -20 LUFS."""
     probe = subprocess.run(['ffmpeg', '-nostdin', '-nostats', '-ss', f'{start:.3f}', '-t', f'{length:.3f}', '-i', str(source),
-                            '-af', STUDIO_TONE + ',ebur128', '-f', 'null', '-'], capture_output=True, text=True, check=True, timeout=120).stderr
-    measured = float(probe.rsplit(' I:', 1)[1].split('LUFS')[0])
-    gain = max(-20.0, min(30.0, STUDIO_LUFS - measured)) if measured > -70 else 0.0
-    return STUDIO_TONE + f',volume={gain:.2f}dB,alimiter=limit=0.79:attack=2:release=50:level=false'
+                            '-af', STUDIO_TONE + ',ebur128=peak=sample', '-f', 'null', '-'], capture_output=True, text=True, check=True, timeout=120).stderr
+    summary = probe.rsplit('Summary:', 1)[-1]
+    measured = float(summary.split(' I:', 1)[1].split('LUFS')[0])
+    peak = float(summary.split('Peak:', 1)[1].split('dBFS')[0]) if 'Peak:' in summary else -60.0
+    gain = min(STUDIO_LUFS - measured, STUDIO_PEAK - peak) if measured > -70 else 0.0
+    return STUDIO_TONE + f',volume={max(-20.0, min(30.0, gain)):.2f}dB'
 
 
 def _render(source, destination, start, length, clean):
