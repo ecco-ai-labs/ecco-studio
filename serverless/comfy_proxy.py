@@ -76,6 +76,7 @@ def input_files(graph):
 
 
 LOG_KEEP = 300
+ANSI = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]')  # terminal colour codes ComfyUI writes, e.g. [32m[INFO]
 
 
 def absorb_log(record, text):
@@ -87,7 +88,7 @@ def absorb_log(record, text):
     if not isinstance(lines, list):
         return
     seen = record.get('log_seq', 0)
-    fresh = [{'seq': n, 't': t, 'line': str(line)[:300]} for n, t, line in
+    fresh = [{'seq': n, 't': t, 'line': ANSI.sub('', str(line)).strip()[:300]} for n, t, line in
              (x for x in lines if isinstance(x, list) and len(x) == 3) if isinstance(n, int) and n > seen]
     if fresh:
         with LOCK:
