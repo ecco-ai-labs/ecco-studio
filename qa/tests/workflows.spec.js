@@ -1477,6 +1477,8 @@ test('STORY-37 Story Picture: Image Library tab uses the Image Studio panes, and
  expect(saved.reference_ids[0]).toBe(picked);expect(saved.model).toBe('qwen-image-edit-2511');
  expect(await page.locator('#image-form textarea[name=prompt]').inputValue()).toBe('Make it a watercolor for a storybook.');
  // Back to Generate With AI: the earlier library pick must not ride along (owner report 18 Nov 2026).
+ // No GPU in QA: close the Compute picker that Generation opens, then go Back.
+ await page.locator('dialog[open]').evaluateAll(ds=>ds.forEach(d=>d.close()));
  await page.locator('#workspace-back').click();await expect(ptabs).toBeVisible();await expect(next).toBeEnabled();
  await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();
  await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A lighthouse on a cliff at dusk');
