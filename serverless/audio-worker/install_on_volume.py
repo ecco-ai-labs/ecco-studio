@@ -24,6 +24,10 @@ Steps (run in the order given; each prints one JSON line starting with ECCO_STEP
                          description) and Base (every line cloned from that voice) to models/qwen3-tts/voice-design
                          and models/qwen3-tts/base, cache the speech tokenizer in hf-cache, GPU smoke test, mark
                          ready. Images built before this step existed accept it as rebuild:qwen3-tts.
+  indic-parler           build indic-parler-venv, download ai4bharat/indic-parler-tts and its description
+                         tokenizer to models/indic-parler, GPU smoke test, mark ready (or rebuild:indic-parler)
+  svara-tts              build svara-tts-venv, download kenpath/svara-tts-v1 and the SNAC 24 kHz decoder to
+                         models/svara-tts, GPU smoke test, mark ready (or rebuild:svara-tts)
   chatterbox-hi          download the Hindi Chatterbox finetune to models/chatterbox/hi
   whisper                cache openai/whisper-large-v3-turbo in hf-cache for listen-back
   sound:<model>          ace-step-1.5 or moss-soundeffect-v2: source + weights on the volume, a100-venv
@@ -62,6 +66,18 @@ KOKORO_PATTERNS = ['config.json', 'kokoro-v1_0.pth', 'voices/*.pt', 'LICENSE*', 
 # and torch/torchaudio come from the runtime (constraints).
 QWEN3_PACKAGES = ['qwen-tts', 'soundfile', 'huggingface_hub', 'accelerate']
 QWEN3_REPOS = (('voice-design', 'Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign'), ('base', 'Qwen/Qwen3-TTS-12Hz-1.7B-Base'))
+# Indic Parler-TTS: same packages as the CPU pod installer (audio/install_voice_models.py), on the runtime's CUDA torch.
+PARLER_SOURCE = 'git+https://github.com/huggingface/parler-tts@d108732cd57788ec86bc857d99a6cabd66663d68'
+PARLER_PACKAGES = ['transformers==4.46.1', 'huggingface_hub<1', 'accelerate', 'sentencepiece', 'protobuf', 'soundfile',
+                   'descript-audio-codec']
+PARLER_SMOKE = [{'text': 'Welcome to our story. Settle down and listen.', 'language': 'English', 'voice': 'english-mary'},
+                {'text': 'नमस्ते। आज की कहानी शुरू करते हैं।', 'language': 'Hindi', 'voice': 'hindi-rohit'}]
+# svara-TTS: same packages and weights as the GPU pod installer (audio/install_gpu_voice_models.py).
+SVARA_PACKAGES = ['numpy==1.26.4', 'transformers==4.51.3', 'accelerate', 'safetensors', 'sentencepiece', 'soundfile',
+                  'huggingface_hub<1', 'snac']
+SVARA_PATTERNS = ['*.json', '*.safetensors', 'tokenizer*', '*.model', '*.txt', 'LICENSE*', '*.md']
+SVARA_SMOKE = [{'text': 'హలో! మా కథకు స్వాగతం.', 'language': 'Telugu', 'voice': 'telugu-female', 'emotion': 'happy'},
+               {'text': 'नमस्ते। आज की कहानी शुरू करते हैं।', 'language': 'Hindi', 'voice': 'hindi-male'}]
 QWEN3_SMOKE = [{'text': 'Welcome to the show. Today we have a wonderful story for you.', 'language': 'English', 'voice': 'warm-host-f'},
                {'text': 'Look, look! A butterfly landed on my nose!', 'language': 'English', 'voice': 'girl-5'},
                {'text': 'And that, my friends, is how the river found the sea.', 'language': 'English', 'voice': 'warm-host-f'}]
@@ -394,6 +410,50 @@ def qwen3_tts():
                 revisions={k: v.get('revision') for k, v in record.items() if isinstance(v, dict)})
 
 
+def indic_parler():
+    python = build_venv('indic-parler-venv', PARLER_PACKAGES, extra=[['--no-deps', PARLER_SOURCE]])
+    weights = VOL / 'models' / 'indic-parler'
+    record = read_json(weights / 'ecco-install.json', {})
+    if not (weights / 'config.json').is_file() or not (weights / 'description-tokenizer').is_dir():
+        weights.mkdir(parents=True, exist_ok=True)
+        revision = download(python, 'ai4bharat/indic-parler-tts', weights, WEIGHT_PATTERNS)
+        # The description tokenizer belongs to the text encoder named in the model's config (as the CPU installer does).
+        code = ('import json,sys\nfrom pathlib import Path\nimport parler_tts\n'
+                'from huggingface_hub import HfApi\nfrom transformers import AutoConfig, AutoTokenizer\n'
+                'root=Path(sys.argv[1]);repo=AutoConfig.from_pretrained(root,local_files_only=True).text_encoder._name_or_path\n'
+                'sha=HfApi().model_info(repo).sha\n'
+                'AutoTokenizer.from_pretrained(repo,revision=sha).save_pretrained(root/"description-tokenizer")\n'
+                'print("ECCO_TOKENIZER="+json.dumps({"repo":repo,"revision":sha}))\n')
+        out = subprocess.run([str(python), '-c', code, str(weights)], check=True, capture_output=True, text=True, env=clean_env())
+        tokenizer = json.loads(next(l.split('=', 1)[1] for l in out.stdout.splitlines() if l.startswith('ECCO_TOKENIZER=')))
+        record = {'repo': 'ai4bharat/indic-parler-tts', 'revision': revision, 'source': PARLER_SOURCE,
+                  'description_tokenizer': tokenizer}
+        write_json(weights / 'ecco-install.json', record)
+    seconds, took = smoke_speech('indic-parler', python, PARLER_SMOKE)
+    publish_speech_venv('indic-parler-venv')
+    mark_ready('gpu-ready-models.json', 'indic-parler')
+    step_result('indic-parler', ready=True, audio_seconds=seconds, smoke_seconds=took, revision=record.get('revision'))
+
+
+def svara_tts():
+    python = build_venv('svara-tts-venv', SVARA_PACKAGES)
+    weights = VOL / 'models' / 'svara-tts'
+    record = read_json(weights / 'ecco-install.json', {})
+    if not (weights / 'config.json').is_file():
+        weights.mkdir(parents=True, exist_ok=True)
+        record = {'repo': 'kenpath/svara-tts-v1', 'revision': download(python, 'kenpath/svara-tts-v1', weights, SVARA_PATTERNS)}
+        write_json(weights / 'ecco-install.json', record)
+    if not (weights / 'snac' / 'pytorch_model.bin').is_file():
+        (weights / 'snac').mkdir(parents=True, exist_ok=True)
+        record['extras'] = {'snac': {'repo': 'hubertsiuzdak/snac_24khz', 'revision': download(
+            python, 'hubertsiuzdak/snac_24khz', weights / 'snac', ['config.json', 'pytorch_model.bin'])}}
+        write_json(weights / 'ecco-install.json', record)
+    seconds, took = smoke_speech('svara-tts', python, SVARA_SMOKE)
+    publish_speech_venv('svara-tts-venv')
+    mark_ready('gpu-ready-models.json', 'svara-tts')
+    step_result('svara-tts', ready=True, audio_seconds=seconds, smoke_seconds=took, revision=record.get('revision'))
+
+
 def chatterbox_hi():
     """Download the Hindi finetune if missing, then prove the worker at this commit uses it (GPU smoke test)."""
     python = AUDIO / 'chatterbox-venv' / 'bin' / 'python'
@@ -539,6 +599,10 @@ def main(steps):
                 kokoro()  # rebuild:kokoro lets images whose handler predates the kokoro step run it
             elif name == 'qwen3-tts' or (name == 'rebuild' and argument == 'qwen3-tts'):
                 qwen3_tts()  # rebuild:qwen3-tts lets images whose handler predates the qwen3-tts step run it
+            elif name == 'indic-parler' or (name == 'rebuild' and argument == 'indic-parler'):
+                indic_parler()  # rebuild:indic-parler lets the deployed handler (which predates this step) run it
+            elif name == 'svara-tts' or (name == 'rebuild' and argument == 'svara-tts'):
+                svara_tts()  # likewise rebuild:svara-tts
             elif name == 'rebuild':
                 rebuild(argument)
             elif name == 'voxcpm2':
