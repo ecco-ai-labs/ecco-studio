@@ -1459,6 +1459,9 @@ test('STORY-37 Story Picture: Image Library tab uses the Image Studio panes, and
  await expect(page.getByRole('img',{name:'Uploaded picture'})).toBeVisible();
  await page.getByRole('button',{name:'Delete picture',exact:true}).first().click();
  await expect(page.getByRole('img',{name:'Uploaded picture'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Upload a Picture',exact:true})).toBeVisible();
+ // No picture, no edit (live test 18 Nov 2026): Next asks for a picture instead of drawing from the words only.
+ await page.getByRole('textbox',{name:'Improve with AI',exact:true}).first().fill('Make it brighter.');
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();await expect(page.locator('#story-simple-error')).toHaveText(/Upload a picture first/);await page.keyboard.press('Escape');
  // Image Library: library grid, Selected Images and Improve with AI side by side.
  await ptabs.getByRole('tab',{name:'Image Library',exact:true}).click();
  const panel=page.locator('#story-picture-panel-library');await expect(panel).toBeVisible();
