@@ -939,7 +939,9 @@
     let needsAssignment=!!data.sourceAssignmentPending;try{M.parseScript(data.audioScript||data.script,data.cast,data.plan);}catch{needsAssignment=true;}
     if(needsAssignment){await recommend(true,{autoApply:true});if(data.sourceAssignmentPending){message(data.castReason||'Character assignment could not finish. Retry Recommend with AI; your complete text is saved.',true);return;}}
    }
-   imageCast();if(!data.cast.length)data.cast=defaultCast();try{if(data.cast.length||!isImage())M.validateCast(data.cast);if(data.output==='audio')M.parseScript(data.audioScript||data.script,data.cast,data.plan);const b=inPage('[data-next]');if(b)b.disabled=true;await ensureSaved();if(isImage())await uploadPhoto();}catch(error){message(error.message,true);inPage('[data-next]')?.removeAttribute('disabled');return;}
+   imageCast();if(!data.cast.length)data.cast=defaultCast();try{if(data.cast.length||!isImage())M.validateCast(data.cast);if(data.output==='audio')M.parseScript(data.audioScript||data.script,data.cast,data.plan);const b=inPage('[data-next]');if(b)b.disabled=true;try{await ensureSaved();if(isImage())await uploadPhoto();}finally{
+    // Back restores this same screen from history, so Next must not stay disabled (live test 18 Nov 2026).
+    if(b)b.disabled=false;}}catch(error){message(error.message,true);inPage('[data-next]')?.removeAttribute('disabled');return;}
   }
   captureStudio();if(generating(tab))return generateView(tab===PUBLISH?'publish':view||(data.view!=='publish'&&data.view)||routes[data.output]);data.tab=tab;persist();render();
  }
