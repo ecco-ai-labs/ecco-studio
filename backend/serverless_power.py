@@ -51,6 +51,11 @@ HEALTH_SECONDS = 15
 MAX_CLIENTS = 50
 CLIENT = re.compile(r'^[A-Za-z0-9_-]{8,64}$')
 PowerError = runpod_pods.PodError
+# RunPod's public proxy replaces 5xx replies from this server with its own page, so Studio lost the real
+# reason and showed "could not reach your saved workspace". Failures caused by RunPod use 424 instead.
+UPSTREAM = 424
+# Max workers per group from the owner's plan (17 Nov 2026); On restores these when RunPod shows 0.
+PLAN_MAX = {'images': 1, 'imageedit': 1, 'video': 1, 'videolarge': 2, 'audio': 2, 'sound': 1, 'longcat': 2}
 
 _lock = threading.RLock()
 _health = {'at': 0.0, 'value': None}
@@ -112,9 +117,9 @@ def _http(method, url, body=None, opener=urllib.request.urlopen, timeout=30):
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
         detail = exc.read()[:400].decode('utf-8', 'replace')
-        raise PowerError(f'RunPod returned HTTP {exc.code}: {detail}', exc.code) from None
+        raise PowerError(f'RunPod returned HTTP {exc.code}: {detail}', exc.code if exc.code < 500 else UPSTREAM) from None
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise PowerError(f'Could not reach RunPod: {exc}', 502) from None
+        raise PowerError(f'Could not reach RunPod: {exc}', UPSTREAM) from None
 
 
 ENDPOINT_FIELDS = 'id name gpuIds idleTimeout locations networkVolumeId scalerType scalerValue templateId workersMax workersMin'
@@ -132,6 +137,19 @@ def _set_min_graphql(endpoint, count, opener):
                          {'input': settings}, opener=opener)
 
 
+def _ensure_max(group, endpoint, count, opener):
+    """RunPod refuses workersMin above workersMax: put max workers back to the plan when it was set to 0."""
+    data = runpod_pods._graphql('query { myself { endpoints { %s } } }' % ENDPOINT_FIELDS, opener=opener)
+    current = next((e for e in (data.get('myself') or {}).get('endpoints') or [] if e.get('id') == endpoint), None)
+    if current is None or (current.get('workersMax') or 0) >= count:
+        return False
+    settings = {k: v for k, v in current.items() if v is not None}
+    settings['workersMax'] = max(count, PLAN_MAX.get(group, count))
+    runpod_pods._graphql('mutation Save($input: EndpointInput!) { saveEndpoint(input: $input) { id workersMax } }',
+                         {'input': settings}, opener=opener)
+    return True
+
+
 def _set_one(endpoint, count, opener):
     try:
         _http('PATCH', f'{REST}/endpoints/{endpoint}', {'workersMin': count}, opener=opener)
@@ -146,7 +164,13 @@ def set_min(count, opener=urllib.request.urlopen):
     failed = {}
     for group, endpoint in endpoints().items():
         try:
-            _set_one(endpoint, count, opener)
+            try:
+                _set_one(endpoint, count, opener)
+            except PowerError as exc:
+                # Max workers 0 (set by hand to stop everything) makes RunPod refuse any warm worker.
+                if not (count and re.search(r'max', exc.message, re.I) and _ensure_max(group, endpoint, count, opener)):
+                    raise
+                _set_one(endpoint, count, opener)
         except PowerError as exc:
             failed[group] = exc.message
     _health['at'] = 0.0
@@ -314,9 +338,9 @@ def _comfy(graph, opener):
         with opener(request, timeout=30) as response:
             reply = json.loads(response.read() or b'{}')
     except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
-        raise PowerError(f'The Serverless bridge did not take the wake-up job: {exc}', 502) from None
+        raise PowerError(f'The Serverless bridge did not take the wake-up job: {exc}', UPSTREAM) from None
     if not reply.get('prompt_id'):
-        raise PowerError('The Serverless bridge rejected the wake-up job: ' + json.dumps(reply)[:300], 502)
+        raise PowerError('The Serverless bridge rejected the wake-up job: ' + json.dumps(reply)[:300], UPSTREAM)
     return reply['prompt_id']
 
 
@@ -442,7 +466,7 @@ def _turn_off(state, at, reason, opener):
         # Keep it marked On so the idle watcher tries again; say which endpoints still have a warm worker.
         _save(state)
         raise PowerError('Serverless could not switch off everywhere: '
-                         + '; '.join(f'{g}: {m}' for g, m in sorted(failed.items())), 502)
+                         + '; '.join(f'{g}: {m}' for g, m in sorted(failed.items())), UPSTREAM)
     state.update(on=False, since=at, reason=reason, clients={}, off_when_done=False, warm={})
     _save(state)
 
@@ -464,7 +488,7 @@ def power(body, opener=urllib.request.urlopen, now=time.time, jobs=None, wake_jo
                 failed = set_min(workers(), opener=opener)
                 if len(failed) == len(endpoints()):
                     raise PowerError('Serverless could not switch on: '
-                                     + '; '.join(f'{g}: {m}' for g, m in sorted(failed.items())), 502)
+                                     + '; '.join(f'{g}: {m}' for g, m in sorted(failed.items())), UPSTREAM)
                 state.update(on=True, since=at, reason=reason, warm={})
                 if failed:
                     extra = {'not_warmed': failed}
