@@ -557,7 +557,9 @@
   paintLibrary();
   wirePrompts();
   // Next starts the picture straight away (owner-approved mocks, 2026-11-16): no Ready to generate step.
-  inPage('[data-next]').onclick=()=>{if(data.pictureTab==='library'&&!libraryPicks().length){message('Select a picture from Image Library first.',true);return;}if(!pictureText()){message('Describe the picture first.',true);return;}data.script=pictureText();epoch++;persist();void requestGeneration();};
+  inPage('[data-next]').onclick=()=>{if(data.pictureTab==='library'&&!libraryPicks().length){message('Select a picture from Image Library first.',true);return;}
+   // Upload a Picture edits a picture, so it needs one (live test 18 Nov 2026: after Delete, Next made a picture from the words only).
+   if((data.pictureTab||'photo')==='photo'&&!data.photo?.name){message('Upload a picture first, or use Generate With AI to make one from words.',true);return;}if(!pictureText()){message('Describe the picture first.',true);return;}data.script=pictureText();epoch++;persist();void requestGeneration();};
  }
  // One prompt box per tab (owner-approved mocks, 2026-11-16): no drafts, no Use AI Text, no Find and Replace.
  function promptBox(kind,title,placeholder){const id='story-picture-prompt-'+kind;return '<div class="pdf-story-dialog pdf-story-inline story-picture-prompt"><section class="pdf-review-box pdf-ai-pane" aria-labelledby="'+id+'"><strong class="pdf-review-heading" id="'+id+'">'+title+'</strong><div class="pdf-ai-sections"><section class="pdf-ai-section"><div class="pdf-ai-ribbon"><div class="pdf-ai-settings"></div><button type="button" class="secondary pdf-ai-icon" data-picture-improve="'+kind+'" aria-label="'+title+'" title="'+title+'"><span aria-hidden="true">✦</span></button></div><textarea data-picture-prompt="'+kind+'" aria-labelledby="'+id+'" rows="20" maxlength="3000" dir="auto" placeholder="'+placeholder+'"></textarea></section></div></section></div>';}
