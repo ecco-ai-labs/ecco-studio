@@ -62,6 +62,27 @@ class RunpodClient(unittest.TestCase):
         self.assertTrue(calls[0][0].endswith('/img123/run'))
         self.assertEqual(calls[0][1], 'Bearer k')
 
+    def test_early_403_on_status_is_retried_but_a_lasting_one_is_not(self):
+        # Live test 18 Nov 2026: RunPod answered the new job's status with 403 one second after /run.
+        import urllib.error
+        replies = ['403', '403', {'status': 'COMPLETED', 'output': {'ok': True}}]
+
+        def opener(request, timeout):
+            reply = replies.pop(0)
+            if reply == '403':
+                raise urllib.error.HTTPError(request.full_url, 403, 'Forbidden', {}, io.BytesIO(b'{"detail":"no permission"}'))
+            return FakeResponse(json.dumps(reply).encode())
+        self.assertEqual(rp.wait('images', 'j', opener=opener, sleep=lambda s: None), {'ok': True})
+        now = [0]
+
+        def always_403(request, timeout):
+            raise urllib.error.HTTPError(request.full_url, 403, 'Forbidden', {}, io.BytesIO(b'{}'))
+
+        def later(seconds):
+            now[0] += seconds
+        with self.assertRaises(rp.ServerlessError):
+            rp.wait('images', 'j', opener=always_403, sleep=later, clock=lambda: now[0])
+
     def test_worker_error_and_failed_status_raise(self):
         def opener_for(reply):
             return lambda request, timeout: FakeResponse(json.dumps(reply).encode())
