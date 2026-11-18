@@ -1472,9 +1472,11 @@ test('STORY-37 Story Picture: Image Library tab uses the Image Studio panes, and
  await expect(tile).toHaveAttribute('aria-pressed','true');await expect(panel.locator('[data-library-selected]')).toContainText('1 of 3');
  await panel.getByRole('textbox',{name:'Improve with AI',exact:true}).fill('Make it a watercolor for a storybook.');
  const picked=await tile.getAttribute('data-id');
+ // A second pick merges two images; they go in pick order so "picture 1" in the prompt is Selected Image 1.
+ const tile2=panel.locator('.iw-library .iw-tile').nth(1);const picked2=await tile2.getAttribute('data-id');await tile2.click();await expect(panel.locator('[data-library-selected]')).toContainText('2 of 3');
  await next.click();await expect(page.locator('#story-generation')).toBeVisible();
  const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});
- expect(saved.reference_ids[0]).toBe(picked);expect(saved.model).toBe('qwen-image-edit-2511');
+ expect(saved.reference_ids).toEqual([picked,picked2]);expect(saved.model).toBe('qwen-image-edit-2511');
  expect(await page.locator('#image-form textarea[name=prompt]').inputValue()).toBe('Make it a watercolor for a storybook.');
  // Back to Generate With AI: the earlier library pick must not ride along (owner report 18 Nov 2026).
  // No GPU in QA: close the Compute picker that Generation opens, then go Back.
