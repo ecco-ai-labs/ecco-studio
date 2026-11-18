@@ -310,20 +310,16 @@
   let group=q('#workspace-studios-group');
   if(!group){
    group=document.createElement('details');group.id='workspace-studios-group';group.className='workspace-library';group.open=expanded('ecco-studios-expanded');
-   group.innerHTML='<summary><span class="library-symbol" aria-hidden="true"></span><span>Studios</span></summary><div class="workspace-library-content"><details class="workspace-library" id="workspace-voice-studio-node"><summary><span class="library-symbol" aria-hidden="true"></span><span>Voice Studio</span></summary><div class="workspace-library-content">'+
-    [['voice','1. Voice'],['enhance','2. Enhance Voice'],['publish','3. Publish Voice']].map(([s,l])=>'<button type="button" class="journey-step" data-voice-step="'+s+'">'+l+'</button>').join('')+'</div></details></div>';
+   // Studios lists each studio as one plain "-" entry; its steps are the tabs on the studio screen (owner-approved mock, 18 Nov 2026).
+   group.innerHTML='<summary><span class="library-symbol" aria-hidden="true"></span><span>Studios</span></summary><div class="workspace-library-content"><button type="button" class="journey-step" id="workspace-voice-studio-node"><span aria-hidden="true">- </span>Voice Studio</button></div>';
    group.addEventListener('toggle',()=>expanded('ecco-studios-expanded',group.open));
-   const node=q('#workspace-voice-studio-node',group);node.open=expanded('ecco-voice-studio-expanded');
-   node.addEventListener('toggle',()=>expanded('ecco-voice-studio-expanded',node.open));
-   node.querySelector('summary').addEventListener('click',e=>{if(page!==PAGE){e.preventDefault();node.open=true;navigate(PAGE);}});
-   group.addEventListener('click',e=>{const b=e.target.closest('[data-voice-step]');if(!b)return;load();ws.step=b.dataset.voiceStep;save();navigate(PAGE);});
+   q('#workspace-voice-studio-node',group).addEventListener('click',()=>navigate(PAGE));
   }
   if(tell.nextElementSibling!==group)tell.after(group);
   for(const g of [q('#workspace-library-group'),tell])if(g&&!g.dataset.studiosGap){g.dataset.studiosGap='1';g.addEventListener('toggle',queueAlign);}
   queueAlign();
   const on=page===PAGE;
   q('#workspace-voice-studio-node',group).classList.toggle('active',on);
-  all('[data-voice-step]',group).forEach(b=>b.classList.toggle('active',on&&ws?.step===b.dataset.voiceStep));
  }
 
  /* ---------- wiring ---------- */

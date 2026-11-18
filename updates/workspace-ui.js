@@ -334,7 +334,7 @@
   homePage('story-home','Tell Your Story');sessionStorage.setItem('ecco-guided-mode','off');productionGroup();
   const icons={'story-setup':'story',board:'workflow',audio:'audio',images:'image',render:'video','journey-preview':'video'};
   // StoryBoard Your Story (old full Studio editor) and Publish Your Story (now part of Describe Your Story) are not listed.
-  homeList('story-home',currentJourneySteps().filter(([target])=>!['board','journey-preview'].includes(target)).map(([target,title],i)=>({key:target,title:(i+1)+'. '+(journeyLabels[target]||title),icon:icons[target],destination:'storyDestination',run:()=>{
+  homeList('story-home',currentJourneySteps().filter(([target])=>!['board','journey-preview'].includes(target)).map(([target,title])=>({key:target,title:journeyLabels[target]||title,icon:icons[target],destination:'storyDestination',run:()=>{
    const group=q('#workspace-production-group'),button=group?.querySelector('[data-page="'+target+'"]');if(!button)return;if(target==='board'&&!activeStory)newStoryStarted=true;group.open=true;button.click();button.focus({preventScroll:true});
   }})));
   journeyGuide();librarySelection();
@@ -504,8 +504,9 @@
   const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
   return ['audio','video'].includes(value)?value:activeStory?'video':'';
  }
- // Create Images moved to Studios › Image Studio (owner request 18 Nov 2026): it is no longer a Tell Your Story step.
- function currentJourneySteps(){return storyJourneySteps().filter(([target])=>target!=='images');}
+ // Tell Your Story keeps only Describe Your Story (owner requests 18 Nov 2026): Create Images moved to
+ // Studios › Image Studio, and the old Create Audio / Create Videos workflows are no longer listed.
+ function currentJourneySteps(){return storyJourneySteps().filter(([target])=>target==='story-setup');}
  function storyJourneySteps(){const saved=readStory(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');if(saved.simple_workspace&&(!saved.cloudId||saved.cloudId===activeStory)){const output=saved.simple_workspace.output;return journeySteps.filter(([target])=>output==='audio'?!['images','render'].includes(target):output==='image'?!['audio','render'].includes(target):true);}if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
  function journeyPreview(){navigate('publish');}
  function productionGroup(){
@@ -527,7 +528,8 @@
    if(target==='story-setup')button.id='workspace-new-story';
    for(const duplicate of nav.querySelectorAll('button[data-page="'+target+'"]'))if(duplicate!==button)duplicate.remove();
    button.hidden=false;button.classList.add('journey-step');
-   const label=(i+1)+'. '+(window.EccoStoryJourneys?.current()?title:journeyLabels[target]||title.replace(/\b[a-z]/g,c=>c.toUpperCase()));if(button.textContent!==label)button.textContent=label;
+   // A plain "-" before each entry, no numbers (owner request 18 Nov 2026).
+   const name=window.EccoStoryJourneys?.current()?title:journeyLabels[target]||title.replace(/\b[a-z]/g,c=>c.toUpperCase()),label='- '+name;if(button.textContent!==label){button.textContent='';const dash=document.createElement('span');dash.setAttribute('aria-hidden','true');dash.textContent='- ';button.append(dash,name);}
    button.classList.toggle('active',page===target||(target==='board'&&page==='director')||(target==='journey-preview'&&page==='publish'));
    if(button.parentElement!==body||[...body.querySelectorAll('.journey-step')].filter(step=>!step.hidden)[i]!==button)body.append(button);
   });

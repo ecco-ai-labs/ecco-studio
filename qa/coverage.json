@@ -330,11 +330,16 @@
   {
     "area": "Back placement",
     "mode": "fixture",
-    "scope": "NAV-BACK-01: Back is the first item in the row with the visible \"Next: …\" button (left end, same line); screens without Next keep Back above the heading; one Back control only"
+    "scope": "NAV-BACK-01: one Back only (copies restored from history are removed); in the row with the visible \"Next: …\" button it is first, on the same line, and looks exactly like Next; a row with its own step Back keeps that one, styled like Next; screens without Next keep Back above the heading"
   },
   {
     "area": "Image Studio",
     "mode": "fixture",
-    "scope": "IMG-STUDIO-01: Create Images opens from Studios › Image Studio (above Voice Studio) with steps 1. Image, 2. Enhance Image, 3. Publish Images; Tell Your Story lists Describe, Create Audio, Create Videos (1–3)"
+    "scope": "IMG-STUDIO-01: Studios lists \"- Image Studio\" and \"- Voice Studio\" (plain entries, no step rows); Image Studio opens the Create Images screen"
+  },
+  {
+    "area": "Tell Your Story sidebar",
+    "mode": "fixture",
+    "scope": "STORY-13 / ENTRY-home: Tell Your Story lists only \"- Describe Your Story\" for every output (no numbers); the Tell Your Story page offers Describe Your Story only"
   }
 ]
