@@ -3,7 +3,7 @@
 #workspace-back:focus-visible{outline:2px solid var(--ecco-theme-accent,var(--accent,#ffdc24));outline-offset:2px}
 #workspace-back{display:block;margin:0 0 2px -8px}
 /* Owner request 18 Nov 2026: in the row with "Next: …", Back is the first item at the left end. */
-#workspace-back[data-placement="actions"]{display:inline-flex;align-items:center;margin:0 auto 0 0}
+#workspace-back[data-placement="actions"]{display:inline-flex;align-items:center;margin:0 auto 0 0!important}
 #workspace-back[hidden]{display:none!important}
 .desk-studio-toolbar:has([data-screen-back]){display:none}
 

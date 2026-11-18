@@ -1153,7 +1153,8 @@
       "height": 74,
       "width": null,
       "selectors": [
-        "#image-workspace button.iw-tile"
+        "#image-workspace button.iw-tile",
+        "#story-picture-library button.iw-tile"
       ],
       "examples": [
         "Image Library thumbnail",
@@ -1186,7 +1187,8 @@
       "width": "@control-small",
       "selectors": [
         "#image-workspace button.iw-remove",
-        "#voice-workspace button.iw-remove"
+        "#voice-workspace button.iw-remove",
+        "#story-picture-library button.iw-remove"
       ],
       "examples": [
         "×"
