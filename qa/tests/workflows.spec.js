@@ -105,6 +105,20 @@ for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} open
   await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('');
   await page.locator('#workspace-back').click();await expect(page.locator('#story-home-list')).toBeVisible();
 });
+test('NAV-BACK-01 Back sits at the left of the Next row; screens without Next keep it above the heading',async({page})=>{
+ // Owner request 18 Nov 2026.
+ await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Back placement');
+ await page.locator('#workspace-production-group > summary').click();await expect(page.locator('#story-home-list')).toBeVisible();
+ const back=page.locator('#workspace-back');
+ await expect(back).toHaveCount(1);await expect(back).toBeVisible();
+ expect(await back.evaluate(b=>b.nextElementSibling?.id)).toBe('heading');
+ await back.click();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('Back placement');
+ const next=page.getByRole('button',{name:/^Next: Story Script/});await expect(next).toBeVisible();
+ await expect.poll(()=>back.evaluate((b,n)=>b.parentElement===n.parentElement&&b.parentElement.firstElementChild===b,await next.elementHandle())).toBe(true);
+ const [bb,nb]=[await back.boundingBox(),await next.boundingBox()];expect(bb.x).toBeLessThan(nb.x);expect(Math.abs((bb.y+bb.height/2)-(nb.y+nb.height/2))).toBeLessThan(12);
+ await expect(page.locator('.ecco-back')).toHaveCount(1);
+ expect(page.qaErrors).toEqual([]);
+});
 test('STORY-home sidebar and Back preserve edited drafts and open the existing tools',async({page})=>{
   await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Keep this story');
   await page.locator('#workspace-production-group > summary').click();await expect(page.locator('#story-home-list')).toBeVisible();

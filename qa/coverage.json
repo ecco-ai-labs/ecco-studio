@@ -326,5 +326,10 @@
     "area": "Story drafts and browser storage",
     "mode": "fixture",
     "scope": "STORY-35: an uploaded story photo is kept out of browser drafts (shown from memory or the Image Library), older drafts holding a photo are slimmed on load, and a failing save pops up once instead of every autosave"
+  },
+  {
+    "area": "Back placement",
+    "mode": "fixture",
+    "scope": "NAV-BACK-01: Back is the first item in the row with the visible \"Next: …\" button (left end, same line); screens without Next keep Back above the heading; one Back control only"
   }
 ]
