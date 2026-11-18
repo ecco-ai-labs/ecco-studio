@@ -65,8 +65,10 @@
  function imageSnapshot(story){
   const job=jobRecord(localStorage.getItem('ecco-image-job:'+story));if(!job)return null;
   const total=Math.max(1,Number(job.total||job.request?.count||job.count)||1),made=results(job).length,step=/(\d+)\s*(?:\/|of)\s*(\d+)/i.exec(job.progress||'');
-  const running=ACTIVE.includes(job.status),stepPct=step&&Number(step[2])?Number(step[1])/Number(step[2])*100:null;
-  const units=Array.from({length:total},(_,i)=>{const finished=job.status==='done'||i<made,active=running&&i===made;return {id:'image-'+(i+1),name:total>1?'Image '+(i+1):'Image',pct:finished?100:active?(stepPct??null):0,status:finished?'done':active?'running':FAILED.includes(job.status)&&i===made?'failed':'waiting',detail:active?job.progress||'Preparing the model':'',worker:workerName(job)};});
+  // The worker log carries the sampler's progress bar (" 5/50 [..."); use it when the job's own progress has no count (live test 18 Nov 2026).
+  const bar=(job.worker_log||[]).slice().reverse().map(l=>/(\d+)\/(\d+)\s*\[/.exec(String(l?.line||'')))?.find(Boolean);
+  const running=ACTIVE.includes(job.status),stepPct=step&&Number(step[2])?Number(step[1])/Number(step[2])*100:bar&&Number(bar[2])?Number(bar[1])/Number(bar[2])*100:null;
+  const units=Array.from({length:total},(_,i)=>{const finished=job.status==='done'||i<made,active=running&&i===made;return {id:'image-'+(i+1),name:total>1?'Image '+(i+1):'Image',pct:finished?100:active?(stepPct??null):0,status:finished?'done':active?'running':FAILED.includes(job.status)&&i===made?'failed':'waiting',detail:active?(bar&&!step?'Drawing the picture':job.progress||'Preparing the model'):'',worker:workerName(job)};});
   const overall=job.status==='done'?100:units.reduce((n,u)=>n+(u.pct??0),0)/units.length;
   return {kind:'image',key:job.id,job,status:job.status,units,overall,started:job.started||job.created,eta:job.eta_seconds,headline:total+' image'+(total>1?'s':''),counts:[['Images done',made+' of '+total]],error:job.error||'',assets:results(job),log:workerLog([job])};
  }
