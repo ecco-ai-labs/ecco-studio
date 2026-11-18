@@ -39,11 +39,24 @@ def log(message):
 VIDEO_MODELS = re.compile(os.getenv('ECCO_VIDEO_MODEL_PATTERN', r'wan|umt5'), re.I)
 
 
+VIDEO_LARGE_MODELS = re.compile(os.getenv('ECCO_VIDEO_LARGE_MODEL_PATTERN', r'wan.*14B'), re.I)
+IMAGE_EDIT_MODELS = re.compile(os.getenv('ECCO_IMAGE_EDIT_MODEL_PATTERN', r'qwen_image_edit'), re.I)
+# Per-model endpoints (owner, 17 Nov 2026): each holds one model built into its worker image, so a second
+# request for the same model waits for that endpoint's warm worker. When a per-model endpoint is not
+# configured, its jobs go to the shared endpoint as before.
+FALLBACK = {'imageedit': 'images', 'videolarge': 'video'}
+
+
 def route(graph):
-    """'video' when the workflow loads a Wan video model, otherwise 'images'."""
+    """The endpoint group for a workflow: 'videolarge' (Wan 14B), 'video' (other Wan), 'imageedit'
+    (Qwen Image Edit) or 'images', falling back to the shared endpoint when the per-model one is not set."""
     names = {str(node.get('inputs', {}).get(k)) for node in graph.values() if isinstance(node, dict) for k in MODEL_KEYS}
     names.discard('None')
-    return 'video' if any(VIDEO_MODELS.search(n) for n in names) else 'images'
+    if any(VIDEO_MODELS.search(n) for n in names):
+        group = 'videolarge' if any(VIDEO_LARGE_MODELS.search(n) for n in names) else 'video'
+    else:
+        group = 'imageedit' if any(IMAGE_EDIT_MODELS.search(n) for n in names) else 'images'
+    return group if group not in FALLBACK or rp.configured(group) else FALLBACK[group]
 
 
 def input_files(graph):
@@ -84,6 +97,25 @@ def run(pid):
         record['state'] = 'interrupted' if record['cancel'] else 'error'
         record['error'] = str(exc)
         log(f'{pid} {record["state"]}: {exc}\n{traceback.format_exc() if not isinstance(exc, rp.ServerlessError) else ""}')
+
+
+# Wake-up jobs for the audio endpoints (Tell Your Story, owner 17 Nov 2026). They go straight to RunPod from
+# here because this bridge holds the job-running key; the worker only unpacks its runtime and environments.
+WARMUP_VENVS = {'audio': [], 'sound': ['sounds/ace-step-1.5/a100-venv', 'sounds/moss-soundeffect-v2/a100-venv']}
+
+
+def warmup_audio(groups):
+    """Send one warm-up job to each named audio endpoint that is configured; {group: job id or error}."""
+    sent = {}
+    for group in groups if isinstance(groups, list) else []:
+        if group not in WARMUP_VENVS or not rp.configured(group):
+            continue
+        try:
+            sent[group] = rp.submit(group, {'warmup': True, 'key': 'warmup-' + group, 'venvs': WARMUP_VENVS[group]})
+            log(f'warm-up sent to {group} endpoint as {sent[group]}')
+        except rp.ServerlessError as exc:
+            sent[group] = 'error: ' + str(exc)[:200]
+    return {'sent': sent}
 
 
 def submit(graph):
@@ -164,6 +196,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/prompt':
                 forget_old()
                 return self.reply({'prompt_id': submit(data.get('prompt')), 'number': 0, 'node_errors': {}})
+            if path == '/ecco/warmup':
+                return self.reply(warmup_audio(data.get('groups')))
             if path == '/free':
                 return self.reply({})
             if path == '/interrupt':

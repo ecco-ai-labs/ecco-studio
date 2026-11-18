@@ -131,6 +131,28 @@ class ServerlessPowerTest(unittest.TestCase):
             self.assertNotIn('audio', sent)
             self.assertFalse((Path(self.temp.name) / 'queue').exists())
 
+    def test_tell_your_story_wakes_every_endpoint_but_longcat_once_per_window(self):
+        runpod = FakeRunPod({'prompt_id': 'p-img'}, {'prompt_id': 'p-edit'}, {'prompt_id': 'p-vid'}, {'prompt_id': 'p-14b'},
+                            {'sent': {'audio': 'rp-a', 'sound': 'rp-s'}})
+        power._story.update(at=0.0, result={})
+        reply = power.story_wake({}, opener=runpod, now=lambda: 10_000, background=False)
+        self.assertTrue(reply['sent'])
+        self.assertEqual(reply['jobs'], {'images': 'p-img', 'imageedit': 'p-edit', 'video': 'p-vid', 'videolarge': 'p-14b',
+                                         'audio': 'rp-a', 'sound': 'rp-s'})
+        urls = [c[1] for c in runpod.calls]
+        self.assertEqual(urls, ['http://127.0.0.1:8188/prompt'] * 4 + ['http://127.0.0.1:8188/ecco/warmup'])
+        graphs = [c[2]['prompt'] for c in runpod.calls[:4]]
+        self.assertEqual(graphs[1]['1']['inputs']['unet_name'], 'qwen_image_edit_2511_fp8mixed.safetensors')
+        self.assertEqual({graphs[3]['1']['inputs']['unet_name'], graphs[3]['2']['inputs']['unet_name']},
+                         {'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors'})
+        self.assertEqual(runpod.calls[4][2], {'groups': ['audio', 'sound']})
+        self.assertFalse(any('longcat' in json.dumps(c[2]).lower() for c in runpod.calls))
+        again = power.story_wake({}, opener=runpod, now=lambda: 10_060, background=False)
+        self.assertFalse(again['sent'])
+        self.assertEqual(len(runpod.calls), 5)
+        later = power.story_wake({}, opener=FakeRunPod(), now=lambda: 10_000 + power.STORY_WAKE_REPEAT + 1, background=False)
+        self.assertTrue(later['sent'])
+
     def test_a_failed_wakeup_is_reported_not_raised(self):
         os.environ['ECCO_WARM_ENDPOINTS'] = 'images,video'
         sent = power.wake(opener=FakeRunPod(urllib.error.URLError('refused'), {'prompt_id': 'v'}))

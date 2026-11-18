@@ -228,7 +228,7 @@ def run(job, data, directory, request):
             'output': name, 'sha256': hashlib.sha256(output.read_bytes()).hexdigest(), 'prepare_seconds': dict(TIMINGS)}
 
 
-INSTALL_STEPS = ('inventory', 'sync-scripts', 'pack:', 'rebuild:', 'voxcpm2', 'kokoro', 'qwen3-tts', 'chatterbox-hi', 'whisper', 'sound:')
+INSTALL_STEPS = ('inventory', 'sync-scripts', 'pack:', 'rebuild:', 'voxcpm2', 'kokoro', 'qwen3-tts', 'indic-parler', 'svara-tts', 'chatterbox-hi', 'whisper', 'sound:')
 INSTALL_REPO = 'ecco-ai-labs/ecco-studio'
 READY_KEY = 'ecco-serverless/audio-ready.json'
 
@@ -319,6 +319,17 @@ def install(job, spec, source_dir=None):
 
 def handler(job):
     data = job.get('input') or {}
+    if data.get('warmup'):
+        # Wake-up job (sent when someone opens Tell Your Story): start the worker, unpack the speech runtime and
+        # the named voice/sound environments, so the first real job skips that work. Generates nothing.
+        began = time.time()
+        try:
+            venvs = {str(v) for v in data.get('venvs') or [] if isinstance(v, str) and '..' not in v}
+            prepare(venvs, lambda text: runpod.serverless.progress_update(job, text))
+            return {'warmup': True, 'venvs': sorted(venvs), 'seconds': round(time.time() - began, 1),
+                    'prepare_seconds': dict(TIMINGS)}
+        except Exception as exc:
+            return {'warmup': False, 'error': f'Warm-up failed: {exc}'[:500]}
     if isinstance(data.get('install'), dict):
         try:
             return install(job, data['install'])

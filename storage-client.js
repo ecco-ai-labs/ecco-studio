@@ -72,6 +72,8 @@
   async serverlessPower(on,reason,client){return storageRequest('gpu/serverless/power',{on,reason,client});},
   async serverlessHeartbeat(active,client){return storageRequest('gpu/serverless/heartbeat',{active,client});},
   async serverlessSettings(autoOffMinutes,client){return storageRequest('gpu/serverless/settings',{auto_off_minutes:autoOffMinutes,client});},
+  // Tell Your Story wake-up: one small job to every Serverless endpoint except LongCat (backend/serverless_power.story_wake).
+  async serverlessWake(client){return storageRequest('gpu/serverless/wake',{client});},
   async select(gpu){
    connectionLog('Connect requested',{gpu:gpu.id});
    try{

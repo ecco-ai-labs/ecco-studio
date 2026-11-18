@@ -163,6 +163,35 @@ class ComfyProxy(unittest.TestCase):
         self.assertEqual(self.proxy.route(wan), 'video')
         self.assertEqual(self.proxy.route(sdxl), 'images')
 
+    def test_routes_edit_and_wan_14b_to_their_own_endpoints_with_fallback(self):
+        edit = {'1': {'class_type': 'UNETLoader', 'inputs': {'unet_name': 'qwen_image_edit_2511_fp8mixed.safetensors'}}}
+        qwen = {'1': {'class_type': 'UNETLoader', 'inputs': {'unet_name': 'qwen_image_2512_fp8_e4m3fn.safetensors'}}}
+        wan14 = {'1': {'class_type': 'UNETLoader', 'inputs': {'unet_name': 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors'}},
+                 '2': {'class_type': 'UNETLoader', 'inputs': {'unet_name': 'wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors'}}}
+        wan5 = {'1': {'class_type': 'UNETLoader', 'inputs': {'unet_name': 'wan2.2_ti2v_5B_fp16.safetensors'}}}
+        everything = FakeClient({}, configured=('images', 'video', 'imageedit', 'videolarge'))
+        with patch.object(self.proxy, 'rp', everything):
+            self.assertEqual(self.proxy.route(edit), 'imageedit')
+            self.assertEqual(self.proxy.route(qwen), 'images')
+            self.assertEqual(self.proxy.route(wan14), 'videolarge')
+            self.assertEqual(self.proxy.route(wan5), 'video')
+        shared_only = FakeClient({}, configured=('images', 'video'))
+        with patch.object(self.proxy, 'rp', shared_only):
+            self.assertEqual(self.proxy.route(edit), 'images')
+            self.assertEqual(self.proxy.route(wan14), 'video')
+
+    def test_audio_warmup_goes_to_configured_audio_endpoints_only(self):
+        fake = FakeClient({}, configured=('audio', 'sound', 'images'))
+        with patch.object(self.proxy, 'rp', fake):
+            reply = self.proxy.warmup_audio(['audio', 'sound', 'images', 'longcat'])
+        self.assertEqual(sorted(reply['sent']), ['audio', 'sound'])
+        inputs = {name: job for name, job in fake.submitted}
+        self.assertTrue(inputs['audio']['warmup'] and inputs['sound']['warmup'])
+        self.assertIn('sounds/ace-step-1.5/a100-venv', inputs['sound']['venvs'])
+        no_sound = FakeClient({}, configured=('audio',))
+        with patch.object(self.proxy, 'rp', no_sound):
+            self.assertEqual(sorted(self.proxy.warmup_audio(['audio', 'sound'])['sent']), ['audio'])
+
     def serve(self):
         from http.server import ThreadingHTTPServer
         server = ThreadingHTTPServer(('127.0.0.1', 0), self.proxy.Handler)
@@ -456,6 +485,13 @@ class AudioDispatch(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def test_sound_jobs_use_the_sound_endpoint_only_when_it_is_set(self):
+        with_sound = FakeClient({}, configured=('audio', 'sound'))
+        without = FakeClient({}, configured=('audio',))
+        self.assertEqual(self.dispatch.endpoint_group({'task': 'sound', 'model': 'ace-step-1.5'}, with_sound), 'sound')
+        self.assertEqual(self.dispatch.endpoint_group(self.request, with_sound), 'audio')
+        self.assertEqual(self.dispatch.endpoint_group({'task': 'sound'}, without), 'audio')
 
     def test_dispatcher_survives_a_job_folder_removed_before_claiming(self):
         calls = []
