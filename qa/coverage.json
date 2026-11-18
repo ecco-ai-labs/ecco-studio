@@ -331,5 +331,10 @@
     "area": "Back placement",
     "mode": "fixture",
     "scope": "NAV-BACK-01: Back is the first item in the row with the visible \"Next: …\" button (left end, same line); screens without Next keep Back above the heading; one Back control only"
+  },
+  {
+    "area": "Image Studio",
+    "mode": "fixture",
+    "scope": "IMG-STUDIO-01: Create Images opens from Studios › Image Studio (above Voice Studio) with steps 1. Image, 2. Enhance Image, 3. Publish Images; Tell Your Story lists Describe, Create Audio, Create Videos (1–3)"
   }
 ]

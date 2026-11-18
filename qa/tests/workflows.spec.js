@@ -97,9 +97,9 @@ test('ENTRY-01 welcome has one enabled Tell Your Story action',async({page})=>{
 for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} opens the same four-option Tell Your Story page`,async({page})=>{
   await boot(page,{enter:false});await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:action,exact:true}).click();
   await expect(page.locator('#heading')).toHaveText('Tell Your Story');
-  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Images for Your Story','4. Create Videos for Your Story']);
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Videos for Your Story']);
   await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
-  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group .journey-step:not([hidden])')).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Images for Your Story','4. Create Videos for Your Story']);
+  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group .journey-step:not([hidden])')).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Videos for Your Story']);
   expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='12px'))).toBe(true);
   await choices.first().focus();await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
   await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('');
@@ -294,14 +294,27 @@ async function openCreateImages(page,story){
     window.EccoCompute={...window.EccoCompute,choices:()=>[{id:'serverless',name:'Serverless'}],requireReady:()=>ready,validate:async()=>ready};
     Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
   },story);
-  await page.locator('[data-story-destination="images"]').click();
+  // Create Images now opens from Studios › Image Studio (owner request 18 Nov 2026), not Tell Your Story.
+  await page.locator('#workspace-image-studio-node > summary').click();
   const ws=page.locator('#image-workspace');await expect(ws).toBeVisible();return ws;
 }
 const imageCalls=(page,path)=>page.evaluate(p=>window.__qaCalls.filter(c=>c.path===p).map(c=>c.body),path);
+test('IMG-STUDIO-01 Create Images lives under Studios › Image Studio, not Tell Your Story',async({page})=>{
+ await boot(page);
+ expect(await page.locator('#workspace-production-group .journey-step:not([hidden])').allTextContents()).not.toContain('3. Create Images for Your Story');
+ expect((await page.locator('#workspace-production-group .journey-step:not([hidden])').allTextContents()).some(t=>/Create Images/.test(t))).toBe(false);
+ const node=page.locator('#workspace-studios-group #workspace-image-studio-node');await expect(node).toHaveCount(1);
+ await expect(page.locator('#workspace-studios-group > .workspace-library-content > details > summary')).toHaveText(['Image Studio','Voice Studio']);
+ await expect(node.locator('[data-image-step]')).toHaveText(['1. Image','2. Enhance Image','3. Publish Images']);
+ await node.locator('[data-image-step="enhance"]').click();
+ await expect(page.locator('#image-workspace')).toBeVisible();await expect(page.locator('#heading')).toHaveText('Image Studio');
+ await expect(page.getByRole('tab',{name:'2. Enhance Image',exact:true})).toHaveAttribute('aria-selected','true');
+ expect(page.qaErrors).toEqual([]);
+});
 test('IMG-create three steps: choose, enhance with type-specific controls, publish',async({page})=>{
   const ws=await openCreateImages(page,'qa-story');
   await expect(page.locator('#image-form')).toHaveCount(0);
-  await expect(page.locator('#journey-guide')).toContainText('STEP 4 OF 6');await expect(page.locator('#journey-guide')).toContainText('Choose or make images, enhance them, then publish them.');
+  await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('#heading')).toHaveText('Image Studio');
   await expect(ws.getByRole('tab',{name:'1. Image',exact:true})).toHaveAttribute('aria-selected','true');
   // Model settings are hidden until asked for; Qwen and Serverless are the defaults.
   await expect(ws.locator('.iw-settings')).toContainText('Serverless');await expect(ws.getByRole('dialog',{name:'Model settings'})).toHaveCount(0);
