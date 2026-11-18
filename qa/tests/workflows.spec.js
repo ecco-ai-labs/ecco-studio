@@ -2120,7 +2120,7 @@ test('LOOK-02 Pick on page selects the clicked element and new elements join the
  await expect(page.locator('#heading')).toHaveText('Tell Your Story');
  // Back beside a Next button picks its own roster variant, "Back beside Next" (owner request 18 Nov 2026).
  await expect(panel.locator('.el.sel b').first()).toHaveText(/^(Back button|Back beside Next)$/);
- const picked=(await panel.locator('.el.sel b').first().textContent()).trim(),beside=picked==='Back beside Next';
+ const picked=(await panel.locator('.el.sel b').first().textContent()).trim(),beside=picked==='Back beside Next',originalSize=await page.locator('#workspace-back').evaluate(b=>getComputedStyle(b).fontSize);
  await panel.getByLabel(picked+' text size',{exact:true}).selectOption(beside?'@text-xl':'@text-regular');
  await expect(page.locator('#workspace-back')).toHaveCSS('font-size',beside?'15px':'10px');
  // An element can be added as a variant with its own size from the scale.
@@ -2138,7 +2138,7 @@ test('LOOK-02 Pick on page selects the clicked element and new elements join the
  await panel.getByRole('button',{name:'Add',exact:true}).click();
  await expect(panel.locator('#msg')).toContainText('plain CSS selectors');
  await panel.getByRole('button',{name:'Discard changes',exact:true}).click();
- await expect(page.locator('#workspace-back')).toHaveCSS('font-size','15px');
+ await expect(page.locator('#workspace-back')).toHaveCSS('font-size',originalSize);
 });
 test('LOOK-03 Look and Feel is only for administrators and listed admin accounts',async({page:first})=>{
  let page=first;
