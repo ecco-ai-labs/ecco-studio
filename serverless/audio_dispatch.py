@@ -56,13 +56,22 @@ def stage_inputs(data, name, volume=None):
     return {'volume_key': 'ecco-serverless/inputs/' + name}, path
 
 
+def endpoint_group(request, client=rp):
+    """Sound jobs go to the sound endpoint (ECCO_ENDPOINT_SOUND) when it is set; everything else, and sound
+    jobs without it, to the audio endpoint. Both run the same worker image and read the same volume."""
+    if isinstance(request, dict) and request.get('task') == 'sound' and client.configured('sound'):
+        return 'sound'
+    return 'audio'
+
+
 def run_job(qw, request, d, pod, client=rp, volume=None):
     """Run one claimed job on the endpoint; always leaves a final status.json."""
     staged = None
     try:
         qw.cancellation.check(d)
         archive, staged = stage_inputs(pack_job(d), d.name + '.tar', volume)
-        job_id = client.submit('audio', {'key': d.name, 'archive': archive})
+        group = endpoint_group(request, client)
+        job_id = client.submit(group, {'key': d.name, 'archive': archive})
         qw.write(d / 'status.json', {'status': 'running', 'progress': 'Waiting for a Serverless GPU', 'compute': COMPUTE,
                                      'worker_pod': pod, 'serverless_job': job_id})
 
@@ -72,7 +81,7 @@ def run_job(qw, request, d, pod, client=rp, volume=None):
         def on_status(state):
             if state == 'IN_PROGRESS':
                 progress('Serverless GPU started; preparing voices')
-        result = client.wait('audio', job_id, should_cancel=lambda: (d / 'cancel.json').exists(),
+        result = client.wait(group, job_id, should_cancel=lambda: (d / 'cancel.json').exists(),
                              on_status=on_status, on_progress=progress, timeout=1800)
         qw.cancellation.check(d)
         with tempfile.TemporaryDirectory() as temp:

@@ -39,11 +39,24 @@ def log(message):
 VIDEO_MODELS = re.compile(os.getenv('ECCO_VIDEO_MODEL_PATTERN', r'wan|umt5'), re.I)
 
 
+VIDEO_LARGE_MODELS = re.compile(os.getenv('ECCO_VIDEO_LARGE_MODEL_PATTERN', r'wan.*14B'), re.I)
+IMAGE_EDIT_MODELS = re.compile(os.getenv('ECCO_IMAGE_EDIT_MODEL_PATTERN', r'qwen_image_edit'), re.I)
+# Per-model endpoints (owner, 17 Nov 2026): each holds one model built into its worker image, so a second
+# request for the same model waits for that endpoint's warm worker. When a per-model endpoint is not
+# configured, its jobs go to the shared endpoint as before.
+FALLBACK = {'imageedit': 'images', 'videolarge': 'video'}
+
+
 def route(graph):
-    """'video' when the workflow loads a Wan video model, otherwise 'images'."""
+    """The endpoint group for a workflow: 'videolarge' (Wan 14B), 'video' (other Wan), 'imageedit'
+    (Qwen Image Edit) or 'images', falling back to the shared endpoint when the per-model one is not set."""
     names = {str(node.get('inputs', {}).get(k)) for node in graph.values() if isinstance(node, dict) for k in MODEL_KEYS}
     names.discard('None')
-    return 'video' if any(VIDEO_MODELS.search(n) for n in names) else 'images'
+    if any(VIDEO_MODELS.search(n) for n in names):
+        group = 'videolarge' if any(VIDEO_LARGE_MODELS.search(n) for n in names) else 'video'
+    else:
+        group = 'imageedit' if any(IMAGE_EDIT_MODELS.search(n) for n in names) else 'images'
+    return group if group not in FALLBACK or rp.configured(group) else FALLBACK[group]
 
 
 def input_files(graph):
