@@ -1466,6 +1466,25 @@ test('GEN-06 Image Generation starts by itself, shows the picture for review and
  await expect(page.locator('.story-gen-image-box').getByRole('button',{name:'Download',exact:true})).toBeEnabled();
  expect(page.qaErrors).toEqual([]);
 });
+test('GEN-09 the Serverless worker log shows line by line in Activity while a picture is made',async({page})=>{
+ await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Worker log');await fillStoryDetail(page,'output','image');
+ await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
+ await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A lantern on a quiet pier');
+ // A stand-in Serverless job that is still running and reports ComfyUI lines (worker_log), as the bridge writes them.
+ await page.evaluate(()=>{const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;window.modelAvailable=()=>true;window.modelPayload=(kind,gpu,model)=>({gpu:gpu||'serverless',model});
+  window.__qaLogJob={id:'qa-log-job',kind:'job',status:'running',progress:'Generating',created:1700002000,started:1700002000,worker_log:[{seq:1,t:1700002001,line:'got prompt'},{seq:2,t:1700002002,line:'Requested to load QwenImage'}]};
+  const real=window.api;window.qaImageRequests=[];window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-log-job',status:'queued'};}
+   if(path==='state'){const s=await real('state');return {...s,records:[...s.records.filter(r=>r.id!=='qa-log-job'),window.__qaLogJob]};}return real(path,body);};});
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();
+ const activity=page.getByRole('region',{name:'Activity',exact:true});
+ await expect(activity).toContainText('Worker: got prompt',{timeout:15000});await expect(activity).toContainText('Worker: Requested to load QwenImage');
+ // A new line arrives: it is added once, and earlier lines are not repeated.
+ await page.evaluate(()=>{window.__qaLogJob={...window.__qaLogJob,worker_log:[...window.__qaLogJob.worker_log,{seq:3,t:1700002010,line:' 50%|#####     | 25/50'}]};});
+ await expect(activity).toContainText('Worker: 50%|#####     | 25/50',{timeout:15000});
+ await expect(activity.getByText('Worker: got prompt',{exact:true})).toHaveCount(1);
+ expect(page.qaErrors).toEqual([]);
+});
 test('GEN-07 an unsaved Image Generation picture stays out of Image Library, and Delete moves it to Trash',async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox picnic');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
