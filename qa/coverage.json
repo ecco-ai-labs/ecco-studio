@@ -316,5 +316,10 @@
     "area": "Live worker log",
     "mode": "fixture",
     "scope": "GEN-09: ComfyUI lines the Serverless worker reports (job worker_log) appear in Story Generation Activity line by line, each once; a real Serverless worker run needs compute and stays blocked"
+  },
+  {
+    "area": "Model per use case",
+    "mode": "unit",
+    "scope": "tests/model-use-case.test.cjs: new picture → Qwen-Image-2512, picture with a reference → Qwen-Image-Edit-2511, video defaults to Wan 2.2 14B (Wan 5B and preview kept when chosen), speech → LongCat chosen automatically before submission; real generation needs compute and stays blocked"
   }
 ]

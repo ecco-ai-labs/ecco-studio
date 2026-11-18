@@ -19,5 +19,5 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --prefix /tmp/ecco-story-tests jsdom@26.1.0 fake-indexeddb@6.2.4 --no-audit --no-fund
-      - run: NODE_PATH=/tmp/ecco-story-tests/node_modules node --test *.test.cjs tests/popup-controls.test.cjs tests/navigation-history.test.cjs tests/studio-workspace-tabs.test.cjs tests/model-selection.test.cjs tests/generation-stop.test.cjs tests/publishing-status.test.cjs tests/publishing-library.test.cjs
+      - run: NODE_PATH=/tmp/ecco-story-tests/node_modules node --test *.test.cjs tests/popup-controls.test.cjs tests/navigation-history.test.cjs tests/studio-workspace-tabs.test.cjs tests/model-selection.test.cjs tests/model-use-case.test.cjs tests/generation-stop.test.cjs tests/publishing-status.test.cjs tests/publishing-library.test.cjs
       - run: python3 scripts/ui_inventory.py --check

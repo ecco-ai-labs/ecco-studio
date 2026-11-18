@@ -15,7 +15,13 @@ const MODEL_CATALOG={
  'silent':{name:'Silent video / script only',defaults:{}},
  'cosyvoice':{name:'CosyVoice — planned',pending:true,defaults:{speed:1,language:'English'}}
 };
-let modelProfiles={selected:{images:'qwen-image-2512',assets3d:'trellis-2',video:'preview',story:'manual',voice:'silent'},settings:{}};
+let modelProfiles={selected:{images:'qwen-image-2512',assets3d:'trellis-2',video:'wan-a14b',story:'manual',voice:'silent'},settings:{}};
+// Model per use case (owner-approved 17 Nov 2026): new picture → Qwen-Image-2512, picture with a reference → Qwen-Image-Edit-2511,
+// video from pictures → Wan 2.2 14B (Wan 5B stays when chosen for a quick draft), video with speech → LongCat.
+function useCaseModel(kind,{references=0,speech=false,current=''}={}){
+ if(kind==='image')return references?'qwen-image-edit-2511':(current&&current!=='qwen-image-edit-2511'?current:'qwen-image-2512');
+ if(kind==='video')return speech?'longcat-avatar-1.5':(['wan-a14b','wan-5b','preview'].includes(current)?current:'wan-a14b');
+ return current;}
 let activeModelCategory=null;
 try{const saved=JSON.parse(localStorage.getItem('ecco-model-profiles-v1'));if(saved){for(const c of Object.keys(MODEL_CATEGORIES)){if(MODEL_CATEGORIES[c].models.includes(saved.selected?.[c]))modelProfiles.selected[c]=saved.selected[c];}modelProfiles.settings=saved.settings||{};}}catch{}
 // Carry the user's model choices from the GitHub entry page into the same-tab workspace.
