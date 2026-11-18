@@ -922,7 +922,8 @@
   legacy.saveUncertain=true;persist();
   saving=(async()=>{try{const created=await api('stories',{title:current.title,summary:current.script.slice(0,4000)});if(!created?.id)throw Error('Storage did not confirm the story.');
    state.records=[...state.records.filter(r=>r.id!==created.id),{...created,kind:'story',title:current.title}];
-   const saved={...saveLegacy,cloudId:created.id,saveUncertain:false,simple_workspace:clone(current)};localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(saved));localStorage.setItem('ecco-story-setup:'+localId,JSON.stringify(saved));
+   // Drafts never carry the uploaded picture itself (owner report 18 Nov 2026: quota error after upload + prompt).
+   const saved=slimDraft({...saveLegacy,cloudId:created.id,saveUncertain:false,simple_workspace:clone(current)});localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(saved));localStorage.setItem('ecco-story-setup:'+localId,JSON.stringify(saved));
    // Mark the pending draft as saved too, so reopening cannot archive stale pre-save fields over it.
    if(read('ecco-new-story-draft').localDraftId===localId)localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));
    if(current!==data||legacy.localDraftId!==localId)throw Error('The story was saved. Reopen it from Existing Story.');
