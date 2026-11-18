@@ -178,6 +178,12 @@ def _node(cls, **inputs):
     return {'class_type': cls, 'inputs': inputs}
 
 
+def _wake_seed():
+    # A fresh seed per wake-up: ComfyUI skips a graph identical to its last run and
+    # reports the previous (already removed) output, which fails the job on a warm worker.
+    return uuid.uuid4().int % 2**31
+
+
 def image_wakeup():
     """The Studio Qwen-Image 2512 graph at 256 px and one step: loads the same three model files."""
     return {'mode': 'comfy', 'key': 'wakeup-images', 'return_inline': True, 'workflow': {
@@ -188,7 +194,7 @@ def image_wakeup():
         '5': _node('CLIPTextEncode', text='a plain grey square', clip=['3', 0]),
         '6': _node('CLIPTextEncode', text='', clip=['3', 0]),
         '7': _node('EmptySD3LatentImage', width=256, height=256, batch_size=1),
-        '8': _node('KSampler', model=['2', 0], positive=['5', 0], negative=['6', 0], latent_image=['7', 0], seed=1,
+        '8': _node('KSampler', model=['2', 0], positive=['5', 0], negative=['6', 0], latent_image=['7', 0], seed=_wake_seed(),
                    steps=1, cfg=1, sampler_name='euler', scheduler='simple', denoise=1),
         '9': _node('VAEDecode', samples=['8', 0], vae=['4', 0]),
         '10': _node('SaveImage', images=['9', 0], filename_prefix='ecco-wakeup/image')}}
@@ -204,7 +210,7 @@ def video_wakeup():
         '5': _node('CLIPTextEncode', clip=['3', 0], text='a plain grey square'),
         '6': _node('CLIPTextEncode', clip=['3', 0], text=''),
         '8': _node('Wan22ImageToVideoLatent', vae=['4', 0], width=256, height=256, length=9, batch_size=1),
-        '9': _node('KSampler', model=['2', 0], positive=['5', 0], negative=['6', 0], latent_image=['8', 0], seed=1,
+        '9': _node('KSampler', model=['2', 0], positive=['5', 0], negative=['6', 0], latent_image=['8', 0], seed=_wake_seed(),
                    steps=1, cfg=1, sampler_name='uni_pc', scheduler='simple', denoise=1),
         '10': _node('VAEDecode', samples=['9', 0], vae=['4', 0]),
         '11': _node('SaveImage', images=['10', 0], filename_prefix='ecco-wakeup/video')}}
@@ -242,10 +248,10 @@ def video_large_wakeup():
         '8': _node('CLIPTextEncode', clip=['5', 0], text=''),
         '9': _node('EmptyHunyuanLatentVideo', width=256, height=256, length=9, batch_size=1),
         '10': _node('KSamplerAdvanced', model=['3', 0], positive=['7', 0], negative=['8', 0], latent_image=['9', 0],
-                    add_noise='enable', noise_seed=1, steps=2, cfg=1, sampler_name='euler', scheduler='simple',
+                    add_noise='enable', noise_seed=_wake_seed(), steps=2, cfg=1, sampler_name='euler', scheduler='simple',
                     start_at_step=0, end_at_step=1, return_with_leftover_noise='enable'),
         '11': _node('KSamplerAdvanced', model=['4', 0], positive=['7', 0], negative=['8', 0], latent_image=['10', 0],
-                    add_noise='disable', noise_seed=1, steps=2, cfg=1, sampler_name='euler', scheduler='simple',
+                    add_noise='disable', noise_seed=_wake_seed(), steps=2, cfg=1, sampler_name='euler', scheduler='simple',
                     start_at_step=1, end_at_step=10000, return_with_leftover_noise='disable'),
         '12': _node('VAEDecode', samples=['11', 0], vae=['6', 0]),
         '13': _node('SaveImage', images=['12', 0], filename_prefix='ecco-wakeup/video-14b')}}
