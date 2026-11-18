@@ -102,6 +102,13 @@ def wait(name, job_id, should_cancel=lambda: False, on_status=lambda s: None,
                 raise
             sleep(max(poll, 5))
             continue
+        except ServerlessError as exc:
+            # Right after /run, RunPod can briefly answer the new job's status with 403 or 404 before the job is
+            # visible (live test 18 Nov 2026: "403 Forbidden" one second after submit). Keep asking for two minutes.
+            if clock() - submitted < 120 and any(code in str(exc) for code in ('HTTP 403', 'HTTP 404')):
+                sleep(max(poll, 3))
+                continue
+            raise
         state = reply.get('status', '')
         on_status(state)
         if state in DONE:
