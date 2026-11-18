@@ -157,6 +157,22 @@ class ComfyProxy(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    @unittest.skipUnless(__import__('shutil').which('ffmpeg'), 'needs ffmpeg')
+    def test_big_reference_pictures_are_shrunk_to_fit_one_job(self):
+        # Live test 18 Nov 2026: an 8 MB photo failed with "Inputs are too large to send to the serverless endpoint".
+        import subprocess
+        big = self.root / 'comfy/input/ecco-edit-big.png'
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'nullsrc=s=4000x3000,geq=random(1)*255:128:128',
+                        '-frames:v', '1', str(big)], check=True)
+        self.assertGreater(big.stat().st_size, 10_000_000)
+        graph = {str(i): {'class_type': 'LoadImage', 'inputs': {'image': 'ecco-edit-big.png'}} for i in range(3)}
+        files = self.proxy.input_files(graph)
+        self.assertEqual(len(files), 3)
+        self.assertLess(sum(len(f['data']) for f in files), 9_000_000)
+        self.assertEqual(base64.b64decode(files[0]['data'])[:2], b'\xff\xd8')  # JPEG
+        small = self.proxy.input_files({'1': {'class_type': 'LoadImage', 'inputs': {'image': 'ecco-edit-1.png'}}})
+        self.assertEqual(base64.b64decode(small[0]['data']), b'source')  # small pictures go unchanged
+
     def test_routes_wan_to_video_and_everything_else_to_images(self):
         wan = {'1': {'class_type': 'UNETLoader', 'inputs': {'unet_name': 'wan2.2_ti2v_5B_fp16.safetensors'}}}
         sdxl = {'1': {'class_type': 'CheckpointLoaderSimple', 'inputs': {'ckpt_name': 'sd_xl_base_1.0.safetensors'}}}

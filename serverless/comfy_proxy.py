@@ -11,6 +11,8 @@ import base64
 import json
 import os
 import re
+import shutil
+import subprocess
 import threading
 import time
 import traceback
@@ -71,8 +73,34 @@ def input_files(graph):
         path = (root / name).resolve()
         if not path.is_relative_to(root) or not path.is_file():
             raise ValueError(f'Input image not found: {name}')
-        files.append({'name': name, 'data': base64.b64encode(path.read_bytes()).decode()})
+        files.append({'name': name, 'data': base64.b64encode(shrunk(path)).decode()})
     return files
+
+
+# RunPod takes about 10 MB per job, so up to three reference pictures have to fit together (live test 18 Nov 2026:
+# an 8 MB phone photo failed with "Inputs are too large"). Bigger pictures are sent as a 2048 px JPEG; the edit
+# model works at about one megapixel anyway. ComfyUI's LoadImage reads the content, not the file extension.
+SHRINK_OVER = 1_500_000
+SHRINK_EDGE = 2048
+
+
+def shrunk(path):
+    data = path.read_bytes()
+    if len(data) <= SHRINK_OVER or not shutil.which('ffmpeg'):
+        return data
+    scale = (f"scale='if(gt(iw,ih),min({SHRINK_EDGE},iw),-2)':'if(gt(iw,ih),-2,min({SHRINK_EDGE},ih))'")
+    for quality in (3, 6, 10):
+        try:
+            out = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(path), '-vf', scale, '-frames:v', '1', '-q:v',
+                                  str(quality), '-f', 'image2pipe', '-c:v', 'mjpeg', 'pipe:1'],
+                                 capture_output=True, timeout=60, check=True).stdout
+        except (subprocess.SubprocessError, OSError) as exc:
+            log(f'could not shrink {path.name}: {exc}')
+            return data
+        if out and len(out) <= SHRINK_OVER:
+            log(f'shrank {path.name} from {len(data)} to {len(out)} bytes')
+            return out
+    return out if out and len(out) < len(data) else data
 
 
 LOG_KEEP = 300
