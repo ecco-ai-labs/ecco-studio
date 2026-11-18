@@ -218,6 +218,89 @@ def audio_wakeup():
             'lines': [{'text': 'Ready.', 'language': 'English', 'emotion': 'neutral', 'voice': 'default'}]}
 
 
+def image_edit_wakeup():
+    """Loads Qwen Image Edit 2511 with the shared text encoder and VAE (the edit endpoint's baked models):
+    the image wake-up graph with the edit model, 256 px, one step. The bridge routes it to the edit endpoint."""
+    job = image_wakeup()
+    job['key'] = 'wakeup-images-edit'
+    job['workflow']['1']['inputs']['unet_name'] = 'qwen_image_edit_2511_fp8mixed.safetensors'
+    job['workflow']['10']['inputs']['filename_prefix'] = 'ecco-wakeup/image-edit'
+    return job
+
+
+def video_large_wakeup():
+    """Loads Wan 2.2 I2V A14B (high- and low-noise), its text encoder and the Wan 2.1 VAE: 256x256, 9 frames,
+    one high-noise step then one low-noise step, no start image. The bridge routes it to the Wan 14B endpoint."""
+    return {'mode': 'comfy', 'key': 'wakeup-video-14b', 'return_inline': True, 'workflow': {
+        '1': _node('UNETLoader', unet_name='wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', weight_dtype='default'),
+        '2': _node('UNETLoader', unet_name='wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors', weight_dtype='default'),
+        '3': _node('ModelSamplingSD3', model=['1', 0], shift=8.0),
+        '4': _node('ModelSamplingSD3', model=['2', 0], shift=8.0),
+        '5': _node('CLIPLoader', clip_name='umt5_xxl_fp8_e4m3fn_scaled.safetensors', type='wan', device='default'),
+        '6': _node('VAELoader', vae_name='wan_2.1_vae.safetensors'),
+        '7': _node('CLIPTextEncode', clip=['5', 0], text='a plain grey square'),
+        '8': _node('CLIPTextEncode', clip=['5', 0], text=''),
+        '9': _node('EmptyHunyuanLatentVideo', width=256, height=256, length=9, batch_size=1),
+        '10': _node('KSamplerAdvanced', model=['3', 0], positive=['7', 0], negative=['8', 0], latent_image=['9', 0],
+                    add_noise='enable', noise_seed=1, steps=2, cfg=1, sampler_name='euler', scheduler='simple',
+                    start_at_step=0, end_at_step=1, return_with_leftover_noise='enable'),
+        '11': _node('KSamplerAdvanced', model=['4', 0], positive=['7', 0], negative=['8', 0], latent_image=['10', 0],
+                    add_noise='disable', noise_seed=1, steps=2, cfg=1, sampler_name='euler', scheduler='simple',
+                    start_at_step=1, end_at_step=10000, return_with_leftover_noise='disable'),
+        '12': _node('VAEDecode', samples=['11', 0], vae=['6', 0]),
+        '13': _node('SaveImage', images=['12', 0], filename_prefix='ecco-wakeup/video-14b')}}
+
+
+# Tell Your Story wake-up (owner, 17 Nov 2026): one small job to every endpoint except LongCat, so each model is
+# loaded by the time the user generates. Workers then stop on their own after the endpoint's idle timeout
+# (3 min). Repeated clicks within STORY_WAKE_REPEAT seconds send nothing more.
+STORY_WAKE_GRAPHS = (('images', image_wakeup), ('imageedit', image_edit_wakeup), ('video', video_wakeup),
+                     ('videolarge', video_large_wakeup))
+STORY_WAKE_AUDIO = ('audio', 'sound')
+STORY_WAKE_REPEAT = int(os.getenv('ECCO_STORY_WAKE_REPEAT', '150'))
+_story = {'at': 0.0, 'result': {}}
+
+
+def _bridge_warmup(groups, opener):
+    request = urllib.request.Request(COMFY_PROXY + '/ecco/warmup', method='POST', headers={'Content-Type': 'application/json'},
+                                     data=json.dumps({'groups': list(groups)}).encode())
+    try:
+        with opener(request, timeout=30) as response:
+            return (json.loads(response.read() or b'{}').get('sent') or {})
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        return {g: 'error: ' + str(exc)[:200] for g in groups}
+
+
+def story_wake_jobs(opener=urllib.request.urlopen):
+    """Send the Tell Your Story wake-up jobs now; returns {group: job id or 'error: ...'}."""
+    sent = {}
+    for group, graph in STORY_WAKE_GRAPHS:
+        try:
+            sent[group] = _comfy(graph()['workflow'], opener)
+        except PowerError as exc:
+            sent[group] = 'error: ' + exc.message[:200]
+    sent.update(_bridge_warmup(STORY_WAKE_AUDIO, opener))
+    return sent
+
+
+def story_wake(body=None, opener=urllib.request.urlopen, now=time.time, background=True):
+    """Tell Your Story was opened: wake every endpoint except LongCat (at most once per STORY_WAKE_REPEAT s)."""
+    with _lock:
+        if now() - _story['at'] < STORY_WAKE_REPEAT:
+            return {'sent': False, 'recent': True, 'at': _story['at'], 'jobs': _story['result']}
+        _story['at'] = now()
+
+    def run():
+        result = story_wake_jobs(opener)
+        _story['result'] = result
+        print('Tell Your Story wake-up jobs:', json.dumps(result), flush=True)
+    if background:
+        threading.Thread(target=run, name='story-wakeup', daemon=True).start()
+        return {'sent': True, 'at': _story['at']}
+    run()
+    return {'sent': True, 'at': _story['at'], 'jobs': _story['result']}
+
+
 def _comfy(graph, opener):
     request = urllib.request.Request(COMFY_PROXY + '/prompt', method='POST', headers={'Content-Type': 'application/json'},
                                      data=json.dumps({'prompt': graph, 'client_id': 'ecco-serverless-wakeup'}).encode())
@@ -466,7 +549,8 @@ def start(interval=60):
     threading.Thread(target=loop, name='serverless-power', daemon=True).start()
 
 
-ROUTES = frozenset({'/api/gpu/serverless/power', '/api/gpu/serverless/heartbeat', '/api/gpu/serverless/settings'})
+ROUTES = frozenset({'/api/gpu/serverless/power', '/api/gpu/serverless/heartbeat', '/api/gpu/serverless/settings',
+                    '/api/gpu/serverless/wake'})
 
 
 def handle(path, body):
@@ -476,4 +560,6 @@ def handle(path, body):
         return _with_workers(heartbeat(body))
     if path == '/api/gpu/serverless/settings':
         return _with_workers(settings(body))
+    if path == '/api/gpu/serverless/wake':
+        return story_wake(body)
     raise PowerError('Unknown serverless action.', 404)

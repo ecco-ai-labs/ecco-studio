@@ -180,6 +180,18 @@ class ComfyProxy(unittest.TestCase):
             self.assertEqual(self.proxy.route(edit), 'images')
             self.assertEqual(self.proxy.route(wan14), 'video')
 
+    def test_audio_warmup_goes_to_configured_audio_endpoints_only(self):
+        fake = FakeClient({}, configured=('audio', 'sound', 'images'))
+        with patch.object(self.proxy, 'rp', fake):
+            reply = self.proxy.warmup_audio(['audio', 'sound', 'images', 'longcat'])
+        self.assertEqual(sorted(reply['sent']), ['audio', 'sound'])
+        inputs = {name: job for name, job in fake.submitted}
+        self.assertTrue(inputs['audio']['warmup'] and inputs['sound']['warmup'])
+        self.assertIn('sounds/ace-step-1.5/a100-venv', inputs['sound']['venvs'])
+        no_sound = FakeClient({}, configured=('audio',))
+        with patch.object(self.proxy, 'rp', no_sound):
+            self.assertEqual(sorted(self.proxy.warmup_audio(['audio', 'sound'])['sent']), ['audio'])
+
     def serve(self):
         from http.server import ThreadingHTTPServer
         server = ThreadingHTTPServer(('127.0.0.1', 0), self.proxy.Handler)

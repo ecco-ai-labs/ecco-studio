@@ -2337,6 +2337,7 @@ async function serverlessFixture(page,on=false){
   c.serverlessPower=async(value,reason)=>{window.__power.push({on:value,reason});window.__on=value;return {on:value,reason};};
   c.serverlessHeartbeat=async()=>({on:window.__on,auto_off_minutes:window.__autoOff===undefined?30:window.__autoOff});
   window.__settings=[];c.serverlessSettings=async(minutes)=>{window.__settings.push(minutes);window.__autoOff=minutes;return {on:window.__on,auto_off_minutes:minutes};};
+  window.__wake=[];c.serverlessWake=async()=>{window.__wake.push(Date.now());return {sent:true};};
  },on);
 }
 test('GPU-SERVERLESS-02 the GPU icon opens one On/Off button that switches Serverless and closes',async({page})=>{
@@ -2381,6 +2382,17 @@ test('GPU-SERVERLESS-03 signing in turns Serverless On and Log Off turns it Off;
  await expect.poll(()=>page.evaluate(()=>window.__power)).toEqual([{on:true,reason:'sign-in'}]);
  await page.evaluate(()=>window.EccoAuth.signOut());
  await expect.poll(()=>page.evaluate(()=>window.__power.at(-1))).toEqual({on:false,reason:'sign-out'});
+});
+test('GPU-SERVERLESS-05 opening Tell Your Story sends one wake-up round to the Serverless endpoints',async({page})=>{
+ await boot(page);
+ await serverlessFixture(page);
+ const entry=page.locator('nav summary, nav button').filter({hasText:/^\W*Tell your story/i}).first();
+ await entry.click();
+ await expect.poll(()=>page.evaluate(()=>window.__wake.length)).toBe(1);
+ await entry.click();
+ await page.waitForTimeout(300);
+ expect(await page.evaluate(()=>window.__wake.length)).toBe(1);
+ expect(page.qaErrors).toEqual([]);
 });
 test('GPU-SERVERLESS-04 Auto-off in the GPU popup offers 30 min (default) and Never and keeps the popup open',async({page})=>{
  await boot(page);

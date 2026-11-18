@@ -99,6 +99,25 @@ def run(pid):
         log(f'{pid} {record["state"]}: {exc}\n{traceback.format_exc() if not isinstance(exc, rp.ServerlessError) else ""}')
 
 
+# Wake-up jobs for the audio endpoints (Tell Your Story, owner 17 Nov 2026). They go straight to RunPod from
+# here because this bridge holds the job-running key; the worker only unpacks its runtime and environments.
+WARMUP_VENVS = {'audio': [], 'sound': ['sounds/ace-step-1.5/a100-venv', 'sounds/moss-soundeffect-v2/a100-venv']}
+
+
+def warmup_audio(groups):
+    """Send one warm-up job to each named audio endpoint that is configured; {group: job id or error}."""
+    sent = {}
+    for group in groups if isinstance(groups, list) else []:
+        if group not in WARMUP_VENVS or not rp.configured(group):
+            continue
+        try:
+            sent[group] = rp.submit(group, {'warmup': True, 'key': 'warmup-' + group, 'venvs': WARMUP_VENVS[group]})
+            log(f'warm-up sent to {group} endpoint as {sent[group]}')
+        except rp.ServerlessError as exc:
+            sent[group] = 'error: ' + str(exc)[:200]
+    return {'sent': sent}
+
+
 def submit(graph):
     if not isinstance(graph, dict) or not graph:
         raise ValueError('Empty workflow')
@@ -177,6 +196,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/prompt':
                 forget_old()
                 return self.reply({'prompt_id': submit(data.get('prompt')), 'number': 0, 'node_errors': {}})
+            if path == '/ecco/warmup':
+                return self.reply(warmup_audio(data.get('groups')))
             if path == '/free':
                 return self.reply({})
             if path == '/interrupt':

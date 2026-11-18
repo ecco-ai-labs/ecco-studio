@@ -108,6 +108,19 @@
  // so a manual Off stays Off.
  document.addEventListener('ecco:signed-in',()=>{lastInput=Date.now();setPower(true,'sign-in');});
  document.addEventListener('ecco:signed-out',()=>{close(false);setPower(false,'sign-out');});
+ // Tell Your Story wake-up (owner, 17 Nov 2026): opening Tell Your Story sends one small job to every endpoint except
+ // LongCat, so each model is loaded before the first generation. The server sends at most one round every 150 s.
+ let lastWake=0;
+ function storyWake(){
+  if(Date.now()-lastWake<60000||!ready()||!connection()?.serverlessWake)return;
+  lastWake=Date.now();
+  connection().serverlessWake(client).then(reply=>log('Serverless wake-up for Tell Your Story',{gpu:'serverless',sent:Boolean(reply?.sent),recent:Boolean(reply?.recent)}))
+   .catch(error=>{lastWake=0;log('Serverless wake-up failed',{gpu:'serverless',level:'error',message:error.message});});
+ }
+ document.addEventListener('click',event=>{
+  const target=event.target.closest?.('summary,button,a,[role=button],[data-page="director"]');
+  if(target&&/^\W*tell your story\b/i.test((target.textContent||'').trim()))storyWake();
+ },true);
 
  const style=document.createElement('style');
  style.textContent='#connection-indicators #connected-accelerator{cursor:pointer;position:relative}'
@@ -130,5 +143,5 @@
  setInterval(()=>{draw();},2000);
  setInterval(beat,BEAT_MS);
  setTimeout(beat,1500);
- window.EccoServerlessPower={get on(){return state.on;},get known(){return state.known;},set:(on,reason='button')=>setPower(on,reason),open,close};
+ window.EccoServerlessPower={get on(){return state.on;},get known(){return state.known;},set:(on,reason='button')=>setPower(on,reason),open,close,storyWake};
 })();
