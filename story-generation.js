@@ -196,7 +196,8 @@
   }
   const running=snap&&ACTIVE.includes(snap.status)||submitting;
   const failed=!running&&snap&&FAILED.includes(snap.status)&&(!asset||(asset.created||0)<(snap.started||0));
-  const mode=running?'running':failed?'failed':asset&&(!snap||snap.status==='done'||(asset.created||0)>=(snap.started||0)||snap.status==='cancelled')?'review':snap?.status==='cancelled'?'stopped':'idle';
+  // A stopped job shows Stopped, not the previous picture as "Ready to review" (live test 18 Nov 2026).
+ const mode=running?'running':failed?'failed':asset&&(!snap||snap.status==='done'||(asset.created||0)>=(snap.started||0))?'review':snap?.status==='cancelled'?'stopped':'idle';
   return {snap,asset,mode,submitting};
  }
 
