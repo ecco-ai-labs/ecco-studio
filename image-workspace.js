@@ -311,7 +311,7 @@
  // the journey guide's Back/Next. Other flows that open the image page (refine an image, instruction
  // edits, uploads, character handoff) keep the existing image form they fill in.
  let entry=0,open=false;
- const ENTRY='#workspace-production-group [data-page="images"],nav [data-page="images"],#story-home-list [data-story-destination="images"],#journey-guide [data-back],#journey-guide [data-next]';
+ const ENTRY='#workspace-image-studio-node > summary,[data-image-step],#workspace-production-group [data-page="images"],nav [data-page="images"],#story-home-list [data-story-destination="images"],#journey-guide [data-back],#journey-guide [data-next]';
  document.addEventListener('click',e=>{if(e.target.closest?.(ENTRY))entry=Date.now();},true);
  const previous=imagePage,navigateBefore=navigate;
  navigate=function(target){if(target!=='images'){open=false;entry=0;}return navigateBefore.apply(this,arguments);};
@@ -322,5 +322,31 @@
   if(!state.storage_pending&&!stories().length){$('#page').innerHTML=empty('Start a new story','Choose + New story in the sidebar, or restore a story from Trash.');return;}
   draw();
  };
- window.EccoImageWorkspace={draw,get state(){return ws;}};
+ /* ---------- sidebar: Studios › Image Studio (owner request 18 Nov 2026; moved out of Tell Your Story) ---------- */
+ const remembered=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k)!=='false';localStorage.setItem(k,String(v));}catch{}return true;};
+ function openStudio(step){
+  window.EccoStoryWorkspace?.leave?.();entry=Date.now();navigate('images');
+  if(step&&q('#image-workspace')){load();ws.step=step;save();draw();}
+  studioNode();
+ }
+ function studioNode(){
+  const box=q('#workspace-studios-group > .workspace-library-content');if(!box)return;
+  let node=q('#workspace-image-studio-node');
+  if(!node){
+   node=document.createElement('details');node.className='workspace-library';node.id='workspace-image-studio-node';node.open=remembered('ecco-image-studio-expanded');
+   node.innerHTML='<summary><span class="library-symbol" aria-hidden="true"></span><span>Image Studio</span></summary><div class="workspace-library-content">'+
+    [['image','1. Image'],['enhance','2. Enhance Image'],['publish','3. Publish Images']].map(([id,label])=>'<button type="button" class="journey-step" data-image-step="'+id+'">'+label+'</button>').join('')+'</div>';
+   node.addEventListener('toggle',()=>remembered('ecco-image-studio-expanded',node.open));
+   node.querySelector('summary').addEventListener('click',e=>{if(page!=='images'||!q('#image-workspace')){e.preventDefault();node.open=true;openStudio();}});
+   node.addEventListener('click',e=>{const b=e.target.closest('[data-image-step]');if(b)openStudio(b.dataset.imageStep);});
+  }
+  if(box.firstElementChild!==node)box.prepend(node);
+  const on=page==='images'&&!!q('#image-workspace');
+  node.classList.toggle('active',on);
+  all('[data-image-step]',node).forEach(b=>b.classList.toggle('active',on&&ws?.step===b.dataset.imageStep));
+ }
+ if(typeof names!=='undefined')names.images='Image Studio';
+ let nodeQueued=false;new MutationObserver(()=>{if(nodeQueued)return;nodeQueued=true;queueMicrotask(()=>{nodeQueued=false;studioNode();});}).observe(document.querySelector('aside')||document.body,{childList:true,subtree:true});
+ studioNode();
+ window.EccoImageWorkspace={draw,open:openStudio,get state(){return ws;}};
 })();

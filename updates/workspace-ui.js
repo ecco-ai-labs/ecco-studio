@@ -504,7 +504,9 @@
   const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
   return ['audio','video'].includes(value)?value:activeStory?'video':'';
  }
- function currentJourneySteps(){const saved=readStory(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');if(saved.simple_workspace&&(!saved.cloudId||saved.cloudId===activeStory)){const output=saved.simple_workspace.output;return journeySteps.filter(([target])=>output==='audio'?!['images','render'].includes(target):output==='image'?!['audio','render'].includes(target):true);}if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
+ // Create Images moved to Studios › Image Studio (owner request 18 Nov 2026): it is no longer a Tell Your Story step.
+ function currentJourneySteps(){return storyJourneySteps().filter(([target])=>target!=='images');}
+ function storyJourneySteps(){const saved=readStory(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');if(saved.simple_workspace&&(!saved.cloudId||saved.cloudId===activeStory)){const output=saved.simple_workspace.output;return journeySteps.filter(([target])=>output==='audio'?!['images','render'].includes(target):output==='image'?!['audio','render'].includes(target):true);}if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
  function journeyPreview(){navigate('publish');}
  function productionGroup(){
   const steps=currentJourneySteps().filter(([target])=>!['board','journey-preview'].includes(target)); // no StoryBoard or Publish entries, as on Tell Your Story
