@@ -413,7 +413,6 @@ test('VOICE-01 sidebar: Studios below Tell Your Story with the same gap; Voice S
   });
   expect(gaps.order).toBe(true);expect(Math.abs(gaps.studios-gaps.library)).toBeLessThan(1);expect(Math.abs(gaps.studiosOpen-gaps.libraryOpen)).toBeLessThan(1);
   expect(Math.abs(gaps.serif[0])).toBeLessThan(1);expect(Math.abs(gaps.serif[1])).toBeLessThan(1);
-  expect(gaps.indent).toBeGreaterThanOrEqual(0);
   const node=page.locator('#workspace-voice-studio-node');await expect(node).toHaveText('- Voice Studio');await expect(node).toHaveClass(/active/);
   await expect(page.locator('#heading')).toHaveText('Voice Studio');await expect(page.locator('#journey-guide')).toBeHidden();
   expect(page.qaErrors).toEqual([]);

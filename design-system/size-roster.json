@@ -1272,6 +1272,22 @@
         "Auto-off"
       ],
       "area": "Header (GPU icon popup)"
+    },
+    {
+      "id": "back-button-beside-next",
+      "of": "back-button",
+      "name": "Back beside Next",
+      "font": "@text-regular",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "#workspace-back[data-placement=\"actions\"]",
+        "[data-next-look]"
+      ],
+      "examples": [
+        "← Back"
+      ],
+      "area": "Navigation"
     }
   ],
   "scale": [
