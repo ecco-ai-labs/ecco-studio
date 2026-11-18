@@ -896,6 +896,9 @@ class WorkerLog(unittest.TestCase):
         self.proxy.absorb_log(record, json.dumps({'log': [[1, 10.0, 'got prompt'], [2, 11.0, 'loading']]}))
         self.proxy.absorb_log(record, json.dumps({'log': [[2, 11.0, 'loading'], [3, 12.0, '50%|##']]}))
         self.proxy.absorb_log(record, 'Generating')  # plain progress text from older workers is ignored
+        self.proxy.absorb_log(record, json.dumps({'log': [[4, 13.0, '\x1b[32m[INFO]\x1b[0m got prompt']]}))
+        self.assertEqual(record['log'][-1]['line'], '[INFO] got prompt')
+        record['log'].pop(); record['log_seq'] = 3
         self.assertEqual([x['line'] for x in record['log']], ['got prompt', 'loading', '50%|##'])
         db_path = self.root / 'studio.sqlite'
         with sqlite3.connect(db_path) as db:
