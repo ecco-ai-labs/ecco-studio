@@ -1410,10 +1410,10 @@ test('STORY-20 Image and Video change Story Details fields, the Step 2 screen an
  const tabs=page.getByRole('tablist',{name:'Create your story',exact:true});// Pictures have no Characters step (owner request 2026-11-15).
  await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Picture','3. Image Generation','4. Story Publishing']);
  await page.getByRole('button',{name:/Next: Story Picture/}).click();await expect(form.locator('#story-detail-imageStyle-error')).toHaveText('Choose an image style.');await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
- await expect(page.getByRole('tab',{name:'2. Story Picture',exact:true})).toHaveAttribute('aria-selected','true');const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});await expect(ptabs.getByRole('tab')).toHaveText(['Upload a Photo','Generate With AI']);
+ await expect(page.getByRole('tab',{name:'2. Story Picture',exact:true})).toHaveAttribute('aria-selected','true');const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});await expect(ptabs.getByRole('tab')).toHaveText(['Upload a Picture','Image Library','Generate With AI']);
  await expect(page.getByRole('group',{name:'Picture settings',exact:true}).getByLabel('Image Style',{exact:true})).toHaveValue('Watercolor');await expect(page.getByRole('group',{name:'Picture settings'}).getByLabel('Language')).toHaveCount(0);
- const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
- await expect(page.getByRole('img',{name:'Uploaded photo'})).toBeVisible();await expect(page.getByRole('button',{name:'Replace photo',exact:true})).toBeVisible();
+ const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Picture',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
+ await expect(page.getByRole('img',{name:'Uploaded picture'})).toBeVisible();await expect(page.getByRole('button',{name:'Replace picture',exact:true})).toBeVisible();
  // Owner-approved mocks 2026-11-16: the photo beside one Improve with AI box; Generate With AI is one prompt box. No drafts,
  // Use AI Text, Find and Replace or Keep a person box.
  await expect(page.getByRole('textbox',{name:'Improve with AI',exact:true})).toBeVisible();
@@ -1430,21 +1430,48 @@ test('STORY-20 Image and Video change Story Details fields, the Step 2 screen an
  await expect(tabs.getByRole('tab').filter({visible:true})).toHaveText(['1. Story Details','2. Story Script','3. Story Characters','4. Story Screen Play','5. Video Generation','6. Story Publishing']);
  expect(page.qaErrors).toEqual([]);
 });
-for(const way of ['Upload a Photo','Generate With AI'])test(`STORY-21 ${way}: the picture reaches Image Generation with only its description, its style and the photo`,async({page})=>{
+for(const way of ['Upload a Picture','Generate With AI'])test(`STORY-21 ${way}: the picture reaches Image Generation with only its description, its style and the photo`,async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt picture '+way);await fillStoryDetail(page,'output','audio');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
  const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});
- if(way==='Upload a Photo'){const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
+ if(way==='Upload a Picture'){const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Picture',exact:true}).click();await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
   await page.getByRole('textbox',{name:'Improve with AI',exact:true}).fill('Turn this photo into a picture for a storybook.');}
  else{await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();const prompt=page.getByRole('textbox',{name:'Generate with AI',exact:true});await prompt.fill('A girl carrying salt');await page.getByRole('button',{name:'Generate with AI',exact:true}).click();await expect(prompt).toHaveValue(/A girl carrying salt/);}
  // The Keep a person box is gone (owner-approved mocks, 2026-11-16).
  await expect(page.locator('[data-picture-people]')).toHaveCount(0);
  const next=page.getByRole('button',{name:'Next: Generate',exact:true});await expect(next).toBeEnabled();await next.click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#image-form')).toBeAttached();
- const prompt=await page.locator('#image-form textarea[name=prompt]').inputValue();expect(prompt).not.toMatch(/Narrator|:\s*$/);expect(prompt).toMatch(way==='Upload a Photo'?/^Turn this photo into a picture for a storybook\.$/:/A girl carrying salt/);
+ const prompt=await page.locator('#image-form textarea[name=prompt]').inputValue();expect(prompt).not.toMatch(/Narrator|:\s*$/);expect(prompt).toMatch(way==='Upload a Picture'?/^Turn this photo into a picture for a storybook\.$/:/A girl carrying salt/);
  const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});expect(saved.style).toBe('Watercolor');
- if(way==='Upload a Photo'){const upload=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='images/upload'));expect(upload.body.name).toBe('girl.png');expect(saved.reference_ids[0]).toMatch(/^qa-photo-/);await expect(page.locator('#image-form #job-model')).toHaveValue('qwen-image-edit-2511');}
+ if(way==='Upload a Picture'){const upload=await page.evaluate(()=>window.__qaCalls.find(c=>c.path==='images/upload'));expect(upload.body.name).toBe('girl.png');expect(saved.reference_ids[0]).toMatch(/^qa-photo-/);await expect(page.locator('#image-form #job-model')).toHaveValue('qwen-image-edit-2511');}
  else{expect(await page.evaluate(()=>window.__qaCalls.some(c=>c.path==='images/upload'))).toBe(false);expect(saved.reference_ids||[]).toEqual([]);}
  await expect(page.locator('#ecco-error-popup')).toBeHidden();expect(page.qaErrors).toEqual([]);
+});
+test('STORY-37 Story Picture: Image Library tab uses the Image Studio panes, and an uploaded picture can be deleted',async({page})=>{
+ // Owner-approved mock (18 Nov 2026): Upload a Picture · Image Library · Generate With AI.
+ await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Library picture');await fillStoryDetail(page,'output','image');
+ await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ const ptabs=page.getByRole('tablist',{name:'Picture source',exact:true});await expect(ptabs.getByRole('tab')).toHaveText(['Upload a Picture','Image Library','Generate With AI']);
+ // Upload, then Delete: the picture leaves this story and the upload button comes back.
+ const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Picture',exact:true}).click();
+ await(await chooser).setFiles({name:'girl.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
+ await expect(page.getByRole('img',{name:'Uploaded picture'})).toBeVisible();
+ await page.getByRole('button',{name:'Delete picture',exact:true}).first().click();
+ await expect(page.getByRole('img',{name:'Uploaded picture'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Upload a Picture',exact:true})).toBeVisible();
+ // Image Library: library grid, Selected Images and Improve with AI side by side.
+ await ptabs.getByRole('tab',{name:'Image Library',exact:true}).click();
+ const panel=page.locator('#story-picture-panel-library');await expect(panel).toBeVisible();
+ await expect(panel.locator('.pdf-review-heading')).toHaveText(['Image Library','Selected Images','Improve with AI']);
+ const next=page.getByRole('button',{name:'Next: Generate',exact:true});await next.click();await expect(page.locator('#story-simple-error')).toHaveText('Select a picture from Image Library first.');
+ await page.keyboard.press('Escape');
+ const tile=panel.locator('.iw-library .iw-tile').first();await tile.click();
+ await expect(tile).toHaveAttribute('aria-pressed','true');await expect(panel.locator('[data-library-selected]')).toContainText('1 of 3');
+ await panel.getByRole('textbox',{name:'Improve with AI',exact:true}).fill('Make it a watercolor for a storybook.');
+ const picked=await tile.getAttribute('data-id');
+ await next.click();await expect(page.locator('#story-generation')).toBeVisible();
+ const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});
+ expect(saved.reference_ids[0]).toBe(picked);expect(saved.model).toBe('qwen-image-edit-2511');
+ expect(await page.locator('#image-form textarea[name=prompt]').inputValue()).toBe('Make it a watercolor for a storybook.');
+ expect(page.qaErrors).toEqual([]);
 });
 // Image stories (owner-approved mocks, 2026-11-16): Next starts the picture at once; progress on the left half, the Image
 // box with Save, Delete, Download and Full Screen on the right, Publish below it; the picture joins Image Library only on Save.
@@ -1502,9 +1529,9 @@ test('STORY-35 an uploaded photo never fills the browser: drafts keep no photo d
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-story-setup:qa-old')).simple_workspace.photo)).toEqual({name:'pankaj.png',url:''});
  await page.getByLabel('Story name (required)',{exact:true}).fill('Photo story');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
- const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();
+ const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Picture',exact:true}).click();
  await(await chooser).setFiles({name:'photo.png',mimeType:'image/png',buffer:Buffer.alloc(900000,1)});
- await expect(page.getByRole('img',{name:'Uploaded photo'})).toBeVisible();
+ await expect(page.getByRole('img',{name:'Uploaded picture'})).toBeVisible();
  const sizes=await page.evaluate(()=>Object.keys(localStorage).filter(k=>/^(ecco-new-story-draft$|ecco-story-setup:|ecco-story-description:)/.test(k)).map(k=>localStorage.getItem(k).length));
  for(const size of sizes)expect(size).toBeLessThan(200000);
  await expect(page.getByRole('dialog').filter({hasText:'Story could not continue'})).toHaveCount(0);

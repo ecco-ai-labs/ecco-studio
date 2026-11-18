@@ -382,3 +382,5 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 .story-picture-prompt .pdf-ai-sections{grid-template-rows:auto minmax(0,1fr)}
 .pdf-story-dialog.pdf-story-inline.story-picture-prompt{height:auto}
 @media (max-width:900px){.story-picture-photo-row.story-picture-simple{grid-template-columns:minmax(0,1fr)}}
+/* Upload a Picture: Replace and Delete side by side (owner-approved mock, 18 Nov 2026). */
+.story-photo-actions{display:flex;flex-wrap:wrap;gap:8px}

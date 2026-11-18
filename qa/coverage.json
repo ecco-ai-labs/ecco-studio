@@ -341,5 +341,10 @@
     "area": "Tell Your Story sidebar",
     "mode": "fixture",
     "scope": "STORY-13 / ENTRY-home: Tell Your Story lists only \"- Describe Your Story\" for every output (no numbers); the Tell Your Story page offers Describe Your Story only"
+  },
+  {
+    "area": "Story Picture tabs",
+    "mode": "fixture",
+    "scope": "STORY-37: Upload a Picture, Image Library, Generate With AI; Delete removes the uploaded picture from the story; Image Library shows the Image Studio panes (library grid up to 3, Selected Images, Improve with AI); Next needs a selected picture and sends it (Qwen Image Edit) with the typed prompt"
   }
 ]
