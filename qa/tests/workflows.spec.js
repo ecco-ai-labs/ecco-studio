@@ -2091,9 +2091,11 @@ test('LOOK-02 Pick on page selects the clicked element and new elements join the
  await page.locator('#workspace-back').click();
  // Picking never runs the page action.
  await expect(page.locator('#heading')).toHaveText('Tell Your Story');
- await expect(panel.locator('.el.sel b').first()).toHaveText('Back button');
- await panel.getByLabel('Back button text size',{exact:true}).selectOption('@text-regular');
- await expect(page.locator('#workspace-back')).toHaveCSS('font-size','10px');
+ // Back beside a Next button picks its own roster variant, "Back beside Next" (owner request 18 Nov 2026).
+ await expect(panel.locator('.el.sel b').first()).toHaveText(/^(Back button|Back beside Next)$/);
+ const picked=(await panel.locator('.el.sel b').first().textContent()).trim(),beside=picked==='Back beside Next';
+ await panel.getByLabel(picked+' text size',{exact:true}).selectOption(beside?'@text-xl':'@text-regular');
+ await expect(page.locator('#workspace-back')).toHaveCSS('font-size',beside?'15px':'10px');
  // An element can be added as a variant with its own size from the scale.
  await panel.locator('#addnew > summary').click();
  await panel.getByLabel('Name',{exact:true}).fill('Draft status');
