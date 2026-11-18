@@ -24,6 +24,13 @@
  function update(){
   let b=q('#workspace-back');const heading=q('#heading');
   if(!b&&heading){b=button(back);b.id='workspace-back';heading.before(b);}
+  // Owner request 18 Nov 2026: Back sits at the left of the row with the visible "Next: …" button;
+  // screens without one keep it above the heading.
+  const next=[...document.querySelectorAll('#page button')].find(x=>/^\s*Next:/.test(x.textContent)&&x.getClientRects().length&&!x.closest('dialog'));
+  const row=next?.parentElement;
+  if(b&&row&&row.firstElementChild!==b)row.prepend(b);
+  else if(b&&!next&&heading&&b.nextElementSibling!==heading)heading.before(b);
+  if(b){if(next)b.dataset.placement='actions';else delete b.dataset.placement;}
   if(b){b.hidden=page==='welcome';b.disabled=!stack.length;}
   for(const control of document.querySelectorAll('[data-screen-back]'))control.disabled=!stack.length;
  }
