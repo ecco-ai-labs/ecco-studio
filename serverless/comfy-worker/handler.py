@@ -9,6 +9,7 @@ Job output
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -57,6 +58,54 @@ def tail_log():
         return ''
 
 
+PROGRESS = re.compile(r'^\s*(\d{1,3})%\|')
+
+
+class LogFeed:
+    """New ComfyUI log lines for the job running now, numbered so the bridge can tell which it already has.
+
+    Progress bars are redrawn with carriage returns many times a second; only every 10% (and 100%) is kept.
+    """
+
+    def __init__(self, path='/tmp/comfyui.log'):
+        self.path, self.lines, self.partial, self.last_pct = Path(path), [], '', None
+        try:
+            self.offset = self.path.stat().st_size
+        except OSError:
+            self.offset = 0
+
+    def add(self, line):
+        line = line.strip()[:300]
+        if line:
+            self.lines.append([len(self.lines) + 1, round(time.time(), 1), line])
+
+    def poll(self):
+        """Read what ComfyUI wrote since the last call; True when there are new lines."""
+        before = len(self.lines)
+        try:
+            with self.path.open('rb') as handle:
+                handle.seek(self.offset)
+                chunk = handle.read()
+        except OSError:
+            return False
+        self.offset += len(chunk)
+        parts = re.split(r'[\r\n]', self.partial + chunk.decode('utf-8', 'replace'))
+        self.partial = parts.pop()
+        for part in parts:
+            match = PROGRESS.match(part)
+            if match:
+                pct = int(match.group(1))
+                if self.last_pct is not None and pct // 10 == self.last_pct // 10 and pct != 100:
+                    continue
+                self.last_pct = None if pct == 100 else pct
+            self.add(part)
+        return len(self.lines) > before
+
+    def update(self):
+        """The progress text sent to RunPod: the latest lines, numbered."""
+        return json.dumps({'log': self.lines[-50:]})
+
+
 def reset():
     """Drop anything left from a cancelled job before starting a new one."""
     try:
@@ -74,12 +123,16 @@ def run_comfy(job, data):
     if not isinstance(workflow, dict) or not workflow:
         return {'error': 'Missing ComfyUI workflow.'}
     worker_common.write_inputs(data.get('files'), COMFY_DIR / 'input')
+    feed = LogFeed()
     reply = request('/prompt', {'prompt': workflow, 'client_id': 'ecco-serverless'})
     prompt_id = reply.get('prompt_id')
     if not prompt_id:
         return {'error': 'ComfyUI rejected the workflow: ' + json.dumps(reply.get('node_errors') or reply)[:1500]}
-    runpod.serverless.progress_update(job, 'Generating')
+    feed.add('Generating')
+    runpod.serverless.progress_update(job, feed.update())
     while True:
+        if feed.poll():
+            runpod.serverless.progress_update(job, feed.update())
         entry = request('/history/' + prompt_id).get(prompt_id)
         if entry:
             status = entry.get('status', {})
@@ -103,9 +156,12 @@ def run_comfy(job, data):
                 paths.append(path)
     if not paths:
         return {'error': 'ComfyUI returned no outputs.'}
-    runpod.serverless.progress_update(job, 'Uploading result')
+    feed.poll()
+    feed.add('Uploading result')
+    runpod.serverless.progress_update(job, feed.update())
     archive = worker_common.pack(paths, COMFY_DIR / 'output')
-    return {'archive': worker_common.deliver(archive, f'{data.get("key") or uuid.uuid4().hex}.tar', inline=bool(data.get('return_inline'))), 'outputs': outputs}
+    return {'archive': worker_common.deliver(archive, f'{data.get("key") or uuid.uuid4().hex}.tar', inline=bool(data.get('return_inline'))), 'outputs': outputs,
+            'log_lines': feed.lines[-50:]}
 
 
 def run_zimage(job, data):

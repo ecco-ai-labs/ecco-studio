@@ -41,6 +41,8 @@
 
  // ---------- Progress snapshots (real job data only) ----------
  function unitStatus(s){s=String(s||'').toLowerCase();if(/complete|done/.test(s))return 'done';if(/fail|error/.test(s))return 'failed';if(/stop|cancel/.test(s))return 'stopped';if(/generat|running|preparing|saving|mix/.test(s))return 'running';return 'waiting';}
+ // Live worker log (owner request 17 Nov 2026): ComfyUI lines the Serverless worker reports, copied into each job as worker_log.
+ function workerLog(jobs){return jobs.filter(Boolean).flatMap(j=>(Array.isArray(j.worker_log)?j.worker_log:[]).map(x=>({job:j.id,seq:Number(x.seq)||0,t:Number(x.t)||clock(),line:String(x.line||'')})));}
  function videoSnapshot(story){
   const tracked=localStorage.getItem('ecco-video-job:'+story);
   let job=jobRecord(tracked);
@@ -57,7 +59,8 @@
   const done=units.filter(u=>u.status==='done').length,noun=sequence?'clip':units.length>1?'scene':'video';
   return {kind:'video',key:job.id,job,status:job.status,units,overall,started:job.started||job.created,eta:job.eta_seconds,
    headline:units.length>1?units.length+' '+noun+'s'+(workers(units)>1?' on '+workers(units)+' workers':''):'One video',
-   counts:units.length>1?[[cap(noun)+'s done',done+' of '+units.length]]:[],error:job.error||units.find(u=>u.status==='failed')?.error||'',assets:results(job)};
+   counts:units.length>1?[[cap(noun)+'s done',done+' of '+units.length]]:[],error:job.error||units.find(u=>u.status==='failed')?.error||'',assets:results(job),
+   log:workerLog([job,...(job.children||[]).map(id=>records().find(r=>r.id===id))])};
  }
  function imageSnapshot(story){
   const job=jobRecord(localStorage.getItem('ecco-image-job:'+story));if(!job)return null;
@@ -65,7 +68,7 @@
   const running=ACTIVE.includes(job.status),stepPct=step&&Number(step[2])?Number(step[1])/Number(step[2])*100:null;
   const units=Array.from({length:total},(_,i)=>{const finished=job.status==='done'||i<made,active=running&&i===made;return {id:'image-'+(i+1),name:total>1?'Image '+(i+1):'Image',pct:finished?100:active?(stepPct??null):0,status:finished?'done':active?'running':FAILED.includes(job.status)&&i===made?'failed':'waiting',detail:active?job.progress||'Preparing the model':'',worker:workerName(job)};});
   const overall=job.status==='done'?100:units.reduce((n,u)=>n+(u.pct??0),0)/units.length;
-  return {kind:'image',key:job.id,job,status:job.status,units,overall,started:job.started||job.created,eta:job.eta_seconds,headline:total+' image'+(total>1?'s':''),counts:[['Images done',made+' of '+total]],error:job.error||'',assets:results(job)};
+  return {kind:'image',key:job.id,job,status:job.status,units,overall,started:job.started||job.created,eta:job.eta_seconds,headline:total+' image'+(total>1?'s':''),counts:[['Images done',made+' of '+total]],error:job.error||'',assets:results(job),log:workerLog([job])};
  }
  function audioSnapshot(story){
   const run=window.EccoAudioTasks?.get?.(story);if(!run?.rows?.length)return null;
@@ -109,7 +112,9 @@
  function logKey(story){return 'ecco-gen-log:'+story;}
  function track(snap,story){
   const key=logKey(story),saved=session(key,{key:'',units:{},items:[]});
-  if(saved.key!==snap.key){saved.key=snap.key;saved.units={};saved.details={};saved.items=[{t:clock(),m:'Generation started.'}];}
+  if(saved.key!==snap.key){saved.key=snap.key;saved.units={};saved.details={};saved.logSeq={};saved.items=[{t:clock(),m:'Generation started.'}];}
+  saved.logSeq=saved.logSeq||{};
+  for(const x of snap.log||[]){if((saved.logSeq[x.job]||0)>=x.seq||!x.line)continue;saved.logSeq[x.job]=x.seq;saved.items.push({t:x.t,m:'Worker: '+x.line});}
   for(const u of snap.units){const before=saved.units[u.id];if(before===u.status)continue;saved.units[u.id]=u.status;
    const n=u.logName||u.name,m=u.status==='done'?n+' finished.':u.status==='running'?n+' started'+(u.worker?' on '+u.worker:'')+'.':u.status==='failed'?n+' failed'+(u.error?': '+u.error:'.'):u.status==='stopped'?n+' stopped.':'';
    if(m&&(before||u.status!=='waiting'))saved.items.push({t:clock(),m});}

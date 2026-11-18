@@ -148,6 +148,8 @@ def main():
     say(f'Model checks use {link_models()}.')
     import comfy_proxy
     threading.Thread(target=comfy_proxy.serve, daemon=True, name='comfy-proxy').start()
+    studio_db = Path(os.getenv('ECCO_DATA', '/workspace/ecco-studio-data')) / 'studio.sqlite'
+    threading.Thread(target=comfy_proxy.sync_logs_forever, args=(studio_db,), daemon=True, name='worker-log-sync').start()
     sys.path.insert(0, str(STUDIO_DIR))
     patch_studio_modules()
     if pod:

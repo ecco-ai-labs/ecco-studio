@@ -75,6 +75,72 @@ def input_files(graph):
     return files
 
 
+LOG_KEEP = 300
+
+
+def absorb_log(record, text):
+    """Keep the worker's new log lines (sent numbered with each progress update) on the prompt record."""
+    try:
+        lines = json.loads(text).get('log') if isinstance(text, str) and text.startswith('{') else None
+    except ValueError:
+        lines = None
+    if not isinstance(lines, list):
+        return
+    seen = record.get('log_seq', 0)
+    fresh = [{'seq': n, 't': t, 'line': str(line)[:300]} for n, t, line in
+             (x for x in lines if isinstance(x, list) and len(x) == 3) if isinstance(n, int) and n > seen]
+    if fresh:
+        with LOCK:
+            record['log'] = (record.get('log', []) + fresh)[-LOG_KEEP:]
+            record['log_seq'] = fresh[-1]['seq']
+            record['log_changed'] = True
+
+
+def sync_logs(db_path):
+    """Copy new worker log lines into the Studio job that owns each prompt (its comfy_prompt_id), so the
+    generation tab shows them in Activity. Each write re-reads the job inside one write transaction, so a
+    newer status Studio saved is never overwritten."""
+    import sqlite3
+    with LOCK:
+        changed = [(pid, list(r['log'])) for pid, r in PROMPTS.items() if r.get('log_changed')]
+        for pid, _ in changed:
+            PROMPTS[pid]['log_changed'] = False
+    if not changed or not Path(db_path).is_file():
+        return 0
+    written = 0
+    db = sqlite3.connect(db_path, timeout=10, isolation_level=None)
+    try:
+        for pid, lines in changed:
+            db.execute('BEGIN IMMEDIATE')
+            try:
+                for rid, body in db.execute("SELECT id, body FROM records WHERE kind='job' AND body LIKE ?",
+                                            ('%' + pid + '%',)).fetchall():
+                    job = json.loads(body)
+                    if job.get('comfy_prompt_id') != pid:
+                        continue
+                    job['worker_log'] = [{'seq': x['seq'], 't': x['t'], 'line': x['line']} for x in lines[-200:]]
+                    db.execute('UPDATE records SET body=? WHERE id=?', (json.dumps(job), rid))
+                    written += 1
+                db.execute('COMMIT')
+            except Exception:
+                db.execute('ROLLBACK')
+                with LOCK:
+                    PROMPTS[pid]['log_changed'] = True
+                raise
+    finally:
+        db.close()
+    return written
+
+
+def sync_logs_forever(db_path, every=2.0):
+    while True:
+        try:
+            sync_logs(db_path)
+        except Exception as exc:
+            log(f'worker log sync failed: {exc}')
+        time.sleep(every)
+
+
 def run(pid):
     record = PROMPTS[pid]
     group = record['group']
@@ -86,7 +152,9 @@ def run(pid):
         def on_status(state):
             if state == 'IN_PROGRESS':
                 record['state'] = 'running'
-        output = rp.wait(group, record['runpod_id'], should_cancel=lambda: record['cancel'], on_status=on_status)
+        output = rp.wait(group, record['runpod_id'], should_cancel=lambda: record['cancel'], on_status=on_status,
+                         on_progress=lambda text: absorb_log(record, text))
+        absorb_log(record, json.dumps({'log': output.get('log_lines') or []}))
         destination = COMFY_ROOT / 'output'
         rp.unpack(output['archive'], destination)
         record['outputs'] = {'0': {'images': [{'filename': o['filename'], 'subfolder': o.get('subfolder', ''),

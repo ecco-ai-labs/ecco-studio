@@ -852,3 +852,61 @@ class Qwen3InstallStep(unittest.TestCase):
             self.assertEqual(smoke.call_args[0][0], 'qwen3-tts')
             publish.assert_called_once_with('qwen3-tts-venv')
             self.assertIn('qwen3-tts', json.loads((installer.VOL / 'gpu-ready-models.json').read_text()))
+
+
+class WorkerLog(unittest.TestCase):
+    """Live worker log (owner request 17 Nov 2026): ComfyUI lines reach the Studio job, line by line."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        sys.modules.setdefault('runpod', type(sys)('runpod'))
+        sys.modules['runpod'].serverless = type('S', (), {'progress_update': staticmethod(lambda job, text: None)})
+        spec = importlib.util.spec_from_file_location('comfy_handler_test', HERE / 'comfy-worker' / 'handler.py')
+        self.handler = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.handler)
+        with patch.dict(os.environ, {'COMFY_ROOT': str(self.root / 'comfy'), 'ECCO_SERVERLESS_LOG': str(self.root / 'proxy.log')}):
+            spec = importlib.util.spec_from_file_location('comfy_proxy_log_test', HERE / 'comfy_proxy.py')
+            self.proxy = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self.proxy)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_feed_sends_only_new_lines_and_thins_progress_bars(self):
+        log = self.root / 'comfyui.log'
+        log.write_text('old line from an earlier job\n')
+        feed = self.handler.LogFeed(log)
+        with log.open('a') as f:
+            f.write('got prompt\nRequested to load WanModel\n')
+            f.write(''.join(f'\r {p}%|###   | {p // 5}/20 [00:01<00:01]' for p in range(0, 101, 5)) + '\n')
+            f.write('Prompt executed in 12.3 seconds\n')
+        self.assertTrue(feed.poll())
+        lines = [x[2] for x in feed.lines]
+        self.assertNotIn('old line from an earlier job', lines)
+        self.assertEqual(lines[:2], ['got prompt', 'Requested to load WanModel'])
+        self.assertEqual([l.split('%')[0] for l in lines[2:-1]], [str(p) for p in range(0, 101, 10)])
+        self.assertEqual(lines[-1], 'Prompt executed in 12.3 seconds')
+        self.assertEqual([x[0] for x in feed.lines], list(range(1, len(lines) + 1)))
+        self.assertFalse(feed.poll())
+
+    def test_bridge_keeps_each_line_once_and_writes_it_to_the_owning_job(self):
+        import sqlite3
+        record = {'log_seq': 0}
+        self.proxy.absorb_log(record, json.dumps({'log': [[1, 10.0, 'got prompt'], [2, 11.0, 'loading']]}))
+        self.proxy.absorb_log(record, json.dumps({'log': [[2, 11.0, 'loading'], [3, 12.0, '50%|##']]}))
+        self.proxy.absorb_log(record, 'Generating')  # plain progress text from older workers is ignored
+        self.assertEqual([x['line'] for x in record['log']], ['got prompt', 'loading', '50%|##'])
+        db_path = self.root / 'studio.sqlite'
+        with sqlite3.connect(db_path) as db:
+            db.execute('CREATE TABLE records (id TEXT PRIMARY KEY, kind TEXT, body TEXT)')
+            db.execute('INSERT INTO records VALUES (?,?,?)', ('a' * 32, 'job', json.dumps({'id': 'a' * 32, 'kind': 'job', 'status': 'running', 'comfy_prompt_id': 'p1'})))
+            db.execute('INSERT INTO records VALUES (?,?,?)', ('b' * 32, 'job', json.dumps({'id': 'b' * 32, 'kind': 'job', 'note': 'p1 mentioned', 'comfy_prompt_id': 'p2'})))
+        self.proxy.PROMPTS['p1'] = record
+        self.assertEqual(self.proxy.sync_logs(db_path), 1)
+        self.assertEqual(self.proxy.sync_logs(db_path), 0)  # nothing new
+        with sqlite3.connect(db_path) as db:
+            jobs = {r: json.loads(b) for r, b in db.execute('SELECT id, body FROM records')}
+        self.assertEqual([x['line'] for x in jobs['a' * 32]['worker_log']], ['got prompt', 'loading', '50%|##'])
+        self.assertEqual(jobs['a' * 32]['status'], 'running')
+        self.assertNotIn('worker_log', jobs['b' * 32])
