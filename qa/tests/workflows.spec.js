@@ -1546,6 +1546,12 @@ test('STORY-35 an uploaded photo never fills the browser: drafts keep no photo d
  await expect(page.getByRole('img',{name:'Uploaded picture'})).toBeVisible();
  const sizes=await page.evaluate(()=>Object.keys(localStorage).filter(k=>/^(ecco-new-story-draft$|ecco-story-setup:|ecco-story-description:)/.test(k)).map(k=>localStorage.getItem(k).length));
  for(const size of sizes)expect(size).toBeLessThan(200000);
+ // Owner report 18 Nov 2026: giving the picture a prompt and pressing Next saved the story with the photo and hit the quota.
+ await page.evaluate(()=>{const ready={model_settings_version:1,generation_controls_version:1,models_ready:{'qwen-image-2512':true,'qwen-image-edit-2511':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;window.modelAvailable=()=>true;window.modelPayload=(kind,gpu,model)=>({gpu:gpu||'serverless',model});});
+ const promptBox=page.locator('#story-picture-panel-photo textarea').first();if(await promptBox.count())await promptBox.fill('Make it a watercolor.');
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();await expect(page.locator('#story-generation')).toBeVisible();
+ const after=await page.evaluate(()=>Object.keys(localStorage).filter(k=>/^(ecco-new-story-draft$|ecco-story-setup:|ecco-story-description:)/.test(k)).map(k=>localStorage.getItem(k).length));
+ for(const size of after)expect(size).toBeLessThan(200000);
  await expect(page.getByRole('dialog').filter({hasText:'Story could not continue'})).toHaveCount(0);
  expect(page.qaErrors).toEqual([]);
 });
