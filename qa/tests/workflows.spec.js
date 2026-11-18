@@ -1476,6 +1476,13 @@ test('STORY-37 Story Picture: Image Library tab uses the Image Studio panes, and
  const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});
  expect(saved.reference_ids[0]).toBe(picked);expect(saved.model).toBe('qwen-image-edit-2511');
  expect(await page.locator('#image-form textarea[name=prompt]').inputValue()).toBe('Make it a watercolor for a storybook.');
+ // Back to Generate With AI: the earlier library pick must not ride along (owner report 18 Nov 2026).
+ await page.locator('#workspace-back').click();await expect(ptabs).toBeVisible();
+ await ptabs.getByRole('tab',{name:'Generate With AI',exact:true}).click();
+ await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A lighthouse on a cliff at dusk');
+ await next.click();await expect(page.locator('#story-generation')).toBeVisible();
+ const after=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});
+ expect(after.reference_ids).toEqual([]);expect(after.model).not.toBe('qwen-image-edit-2511');
  expect(page.qaErrors).toEqual([]);
 });
 // Image stories (owner-approved mocks, 2026-11-16): Next starts the picture at once; progress on the left half, the Image

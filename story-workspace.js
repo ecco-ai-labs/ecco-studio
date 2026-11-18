@@ -878,7 +878,7 @@
   delete next.delivery_signature;localStorage.setItem('ecco-audio-draft:'+activeStory,JSON.stringify(next));data.plan=plan;data.applied.audio=signature;
  }
  function prepareVisual(kind){
-  const image=kind==='image'&&isImage(),signature=M.signature(data,kind)+(image?'|'+[data.imageStyle,data.photoAsset?.id||''].join('|'):'');if(data.applied[kind]===signature)return;
+  const image=kind==='image'&&isImage(),signature=M.signature(data,kind)+(image?'|'+[data.imageStyle,data.photoAsset?.id||'',data.pictureTab||'',libraryPicks().join(','),data.libraryActive||0].join('|'):'');if(data.applied[kind]===signature)return;
   const key='ecco-generation-v1:'+kind+':'+activeStory,previous=read(key);
   // A picture prompt is only the picture description: no speaker labels (audit I11).
   // Pictures keep each person exactly as described in Characters, so they look the same in every image.
@@ -889,8 +889,9 @@
   if(image){
    // Image style and the uploaded photo carry into Story Generation (audit I13). A photo uses Qwen Image Edit.
    const live=id=>state.records.some(r=>r.id===id&&!r.deleted),picked=libraryPicks().filter(live),photo=data.pictureTab==='library'?[picked[data.libraryActive]||picked[0],...picked].filter((id,i,a)=>id&&a.indexOf(id)===i):data.pictureTab!=='ai'&&data.photoAsset?.id&&live(data.photoAsset.id)?[data.photoAsset.id]:[],replaced=new Set(data.photoAssetsReplaced||[]);
-   const refs=[...new Set([...photo,...characterReferences,...(previous.reference_ids||[]).filter(id=>!replaced.has(id))])].slice(0,3);
-   localStorage.setItem(key,JSON.stringify({...previous,prompt,style:data.imageStyle||'',reference_ids:refs,...(photo.length?{model:'qwen-image-edit-2511'}:{})}));
+   // The Story Picture tab owns the references: Generate With AI sends none, Upload sends its picture, Library its picks (owner report 18 Nov 2026: stale picks leaked into text-only generations).
+   const refs=[...new Set([...photo,...characterReferences])].slice(0,3);
+   localStorage.setItem(key,JSON.stringify({...previous,prompt,style:data.imageStyle||'',reference_ids:refs,...(photo.length?{model:'qwen-image-edit-2511'}:previous.model==='qwen-image-edit-2511'?{model:undefined}:{})}));
   }else localStorage.setItem(key,JSON.stringify({...previous,prompt,reference_ids:[...new Set([...(previous.reference_ids||[]),...characterReferences])].slice(0,kind==='image'?3:8)}));
   if(kind==='video'){
    const previousBoard=read('ecco-board-draft:'+activeStory);
