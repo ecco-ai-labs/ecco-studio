@@ -53,7 +53,7 @@ test('YouTube requests use authenticated CPU endpoint even with no GPU connected
  w.eval(readFileSync(join(__dirname,'../storage-client.js'),'utf8'));
  await w.api('youtube/connect',{});await w.api('youtube/publish',{confirmed:true});
  assert.equal(gpuRequests,0);assert.equal(requests.length,2);
- for(const request of requests){assert.match(request.url,/^https:\/\/vowmjru85f2gzo-8888\.proxy\.runpod\.net\/api\/youtube\//);assert.equal(request.options.headers.Authorization,'Bearer fixture-owner-key');}
+ for(const request of requests){assert.match(request.url,/^https:\/\/cb9x2l5ao7p3op-8888\.proxy\.runpod\.net\/api\/youtube\//);assert.equal(request.options.headers.Authorization,'Bearer fixture-owner-key');}
 });
 test('channel change clears confirmation and submits the reviewed channel ID',async t=>{
  const {dom,w}=setup();t.after(()=>dom.window.close());

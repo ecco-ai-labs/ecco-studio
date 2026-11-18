@@ -84,7 +84,7 @@ the existing Web OAuth client
 `219292517219-tngp5k9kso8jvk4ps6oqee45l0j97p78.apps.googleusercontent.com`.
 Add this exact authorized redirect URI:
 
-`https://vowmjru85f2gzo-8888.proxy.runpod.net/api/youtube/callback`
+`https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/youtube/callback`
 
 Store the Web client JSON privately at
 `/workspace/ecco-storage-private/youtube-client.json`, with directory mode 0700

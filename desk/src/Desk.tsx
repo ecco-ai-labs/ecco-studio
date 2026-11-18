@@ -22,7 +22,7 @@ const localToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.g
 const overdue=(t:Ticket)=>!!t.dueDate&&t.dueDate<localToday()&&isOpen(t);
 function Status({value}:{value:string}){return <span className={`status ${value}`}><span />{label(value)}</span>}
 function Priority({value}:{value:string}){return <span className={`priority ${value}`}><i /><i /><i />{label(value)}</span>}
-const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk';
+const endpoint='https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/desk';
 const activeElement=():Element|null=>{let e=document.activeElement;while(e?.shadowRoot?.activeElement)e=e.shadowRoot.activeElement;return e};
 async function request(payload?:any,path='',personalSupport=false){
  const token=personalSupport?sessionStorage.getItem('ecco-user-session'):staffToken();

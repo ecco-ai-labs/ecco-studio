@@ -229,7 +229,7 @@ Normal replies are checked for ownership and delivered only to that ticket’s o
 It is disabled until `/workspace/ecco-storage-private/desk-native-chat.json`
 (mode 0600) sets `enabled`, the approved `space`, and the configured app’s
 `serviceAccount`. Configure the Chat app HTTP URL and authentication audience as
-`https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk/google-chat`. Existing incoming
+`https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/desk/google-chat`. Existing incoming
 webhooks alone cannot receive interactions. The app must be enabled in Google
 Cloud, restricted to authorized support accounts/group, and added to the support
 space. Staff ask the app for the queue and act through its cards; Google identity

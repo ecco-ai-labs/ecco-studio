@@ -39,7 +39,7 @@
    const request=++notificationRequest,token=sessionStorage.getItem('ecco-user-session');
    if(!token||!window.EccoAuth?.user){showUnread(0);return;}
    if(document.visibilityState==='hidden')return;
-   try{const response=await fetch('https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk/support?notifications=1',{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:AbortSignal.timeout(10000)});const result=await response.json();if(request!==notificationRequest||token!==sessionStorage.getItem('ecco-user-session'))return;if(response.ok)showUnread(result.unreadTickets);else if(response.status===401)showUnread(0);}catch{/* Preserve confirmed unread state during transient connectivity loss. */}
+   try{const response=await fetch('https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/desk/support?notifications=1',{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:AbortSignal.timeout(10000)});const result=await response.json();if(request!==notificationRequest||token!==sessionStorage.getItem('ecco-user-session'))return;if(response.ok)showUnread(result.unreadTickets);else if(response.status===401)showUnread(0);}catch{/* Preserve confirmed unread state during transient connectivity loss. */}
   }
   document.addEventListener('ecco:auth-change',()=>{notificationRequest++;showUnread(0);refreshUnread()});
   document.addEventListener('ecco:desk-unread-change',refreshUnread);

@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {ShieldCheck,RefreshCw,ExternalLink,LoaderCircle} from 'lucide-react';
 import type {Actor} from './types';
-const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk/notification-group/connect';
+const endpoint='https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/desk/notification-group/connect';
 export default function NotificationAccess({me,refresh}:{me:Actor;refresh:()=>Promise<any>}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[url,setUrl]=useState('');
  const active=useRef(true),pending=useRef<AbortController|null>(null);
