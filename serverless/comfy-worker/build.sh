@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared Docker build steps for the ComfyUI workers. Usage: build.sh images|video
-# Models are NOT in the image: workers read them from the global volume at /runpod-volume.
+# The default models are baked into the image (bake.sh); the rest are read from the global volume.
 set -euo pipefail
 group="$1"
 apt-get update && apt-get install -y --no-install-recommends git ffmpeg libgl1 libglib2.0-0 ca-certificates
@@ -14,7 +14,15 @@ if [[ "$group" == images ]]; then
 fi
 
 # Model folders come from the volume copy of the pods' ComfyUI/models.
+# Files baked into the image (bake.sh, /models-baked) are searched first (is_default puts them at
+# the front of ComfyUI's search list); everything else still loads from the volume.
 cat > /comfyui/extra_model_paths.yaml <<'EOF'
+ecco_baked:
+  base_path: /models-baked
+  is_default: true
+  diffusion_models: diffusion_models
+  text_encoders: text_encoders
+  vae: vae
 ecco_volume:
   base_path: /runpod-volume/ComfyUI/models
   checkpoints: checkpoints

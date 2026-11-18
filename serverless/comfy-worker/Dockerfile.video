@@ -1,7 +1,20 @@
 # Video endpoint: Wan 2.2 TI2V 5B and Wan 2.2 I2V A14B.
-# Build context: repository root. Models are read from the global volume (/runpod-volume).
+# Build context: repository root.
+# Baked into the image (cold start reads local disk): Wan 2.2 TI2V 5B (Studio's default video model)
+# with its text encoder and VAE, ~18 GB. Wan 2.2 I2V A14B is still read from the global volume
+# (/runpod-volume).
 FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
-ENV PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 COMFY_DIR=/comfyui
+ENV PYTHONUNBUFFERED=1 COMFY_DIR=/comfyui
+
+# Models first, one file per step (each build step must finish in 30 min), so code changes below
+# reuse these layers when the builder has them cached.
+COPY serverless/comfy-worker/bake.sh /opt/bake.sh
+RUN pip install --no-cache-dir "huggingface_hub[hf_xet]>=0.34"
+RUN bash /opt/bake.sh Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/vae/wan2.2_vae.safetensors vae
+RUN bash /opt/bake.sh Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors text_encoders
+RUN bash /opt/bake.sh Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors diffusion_models
+
+ENV HF_HUB_OFFLINE=1
 COPY serverless/worker_common.py serverless/comfy-worker/ /opt/ecco/
 RUN bash /opt/ecco/build.sh video
 CMD ["python", "-u", "/opt/ecco/handler.py"]

@@ -27,8 +27,13 @@ RunPod Serverless (any data center)
    └─ LongCat  LongCat-Video-Avatar 1.5
 ```
 
-Why not build the models into the containers: RunPod's GitHub builds are limited
-to 80 GB images and a 30-minute build step. The image models alone are ~93 GB.
+Models in the containers: RunPod's GitHub builds are limited to 80 GB images and
+a 30-minute build step, and the image models together are ~93 GB, so only each
+endpoint's default models are baked in (`comfy-worker/bake.sh`, one build step per
+file). Images: Qwen-Image-2512 + Qwen Image Edit 2511 with their text encoder and
+VAE (~50 GB). Video: Wan 2.2 TI2V 5B with its text encoder and VAE (~18 GB). ComfyUI
+searches `/models-baked` first and falls back to the global volume for everything
+else, so cold starts of the default models no longer depend on volume speed.
 
 Not moved: audio (stays on the CPU workers), the story planner model and TRELLIS.2.
 
