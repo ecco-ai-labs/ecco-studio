@@ -114,7 +114,8 @@ test('NAV-BACK-01 Back sits at the left of the Next row; screens without Next ke
  expect(await back.evaluate(b=>b.nextElementSibling?.id)).toBe('heading');
  await back.click();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('Back placement');
  const next=page.getByRole('button',{name:/^Next: Story Script/});await expect(next).toBeVisible();
- await expect.poll(()=>back.evaluate((b,n)=>b.parentElement===n.parentElement&&b.parentElement.firstElementChild===b,await next.elementHandle())).toBe(true);
+ const nextHandle=await next.elementHandle();
+ await expect.poll(()=>back.evaluate((b,n)=>b.parentElement===n.parentElement&&b.parentElement.firstElementChild===b,nextHandle)).toBe(true);
  const [bb,nb]=[await back.boundingBox(),await next.boundingBox()];expect(bb.x).toBeLessThan(nb.x);expect(Math.abs((bb.y+bb.height/2)-(nb.y+nb.height/2))).toBeLessThan(12);
  await expect(page.locator('.ecco-back')).toHaveCount(1);
  expect(page.qaErrors).toEqual([]);
