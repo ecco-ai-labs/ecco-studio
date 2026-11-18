@@ -116,7 +116,9 @@ test('NAV-BACK-01 Back sits at the left of the Next row; screens without Next ke
  const next=page.getByRole('button',{name:/^Next: Story Script/});await expect(next).toBeVisible();
  const nextHandle=await next.elementHandle();
  await expect.poll(()=>back.evaluate((b,n)=>b.parentElement===n.parentElement&&b.parentElement.firstElementChild===b,nextHandle)).toBe(true);
- const [bb,nb]=[await back.boundingBox(),await next.boundingBox()];expect(bb.x).toBeLessThan(nb.x);expect(Math.abs((bb.y+bb.height/2)-(nb.y+nb.height/2))).toBeLessThan(12);
+ const [bb,nb]=[await back.boundingBox(),await next.boundingBox()];expect(bb.x).toBeLessThan(nb.x);
+ // Back sits at the left end of the row, not centred (owner report 18 Nov 2026).
+ expect(Math.round(bb.x-await back.evaluate(b=>b.parentElement.getBoundingClientRect().left))).toBeLessThan(4);expect(Math.abs((bb.y+bb.height/2)-(nb.y+nb.height/2))).toBeLessThan(12);
  await expect(page.locator('.ecco-back')).toHaveCount(1);
  // Back looks exactly like Next (owner request 18 Nov 2026).
  const look=el=>el.evaluate(e=>{const c=getComputedStyle(e);return [c.backgroundColor,c.color,c.borderRadius,c.fontSize,c.fontWeight,c.minHeight];});
@@ -1463,7 +1465,10 @@ test('STORY-37 Story Picture: Image Library tab uses the Image Studio panes, and
  await expect(panel.locator('.pdf-review-heading')).toHaveText(['Image Library','Selected Images','Improve with AI']);
  const next=page.getByRole('button',{name:'Next: Generate',exact:true});await next.click();await expect(page.locator('#story-simple-error')).toHaveText('Select a picture from Image Library first.');
  await page.keyboard.press('Escape');
- const tile=panel.locator('.iw-library .iw-tile').first();await tile.click();
+ const tile=panel.locator('.iw-library .iw-tile').first();
+ // Thumbnails keep Image Studio's tile size (owner report 18 Nov 2026: they were squashed to button height).
+ expect((await tile.boundingBox()).height).toBeGreaterThan(60);
+ await tile.click();
  await expect(tile).toHaveAttribute('aria-pressed','true');await expect(panel.locator('[data-library-selected]')).toContainText('1 of 3');
  await panel.getByRole('textbox',{name:'Improve with AI',exact:true}).fill('Make it a watercolor for a storybook.');
  const picked=await tile.getAttribute('data-id');
