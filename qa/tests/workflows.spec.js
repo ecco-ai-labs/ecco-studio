@@ -1474,13 +1474,13 @@ test('GEN-09 the Serverless worker log shows line by line in Activity while a pi
  // A stand-in Serverless job that is still running and reports ComfyUI lines (worker_log), as the bridge writes them.
  await page.evaluate(()=>{const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;window.modelAvailable=()=>true;window.modelPayload=(kind,gpu,model)=>({gpu:gpu||'serverless',model});
   window.__qaLogJob={id:'qa-log-job',kind:'job',status:'running',progress:'Generating',created:1700002000,started:1700002000,worker_log:[{seq:1,t:1700002001,line:'got prompt'},{seq:2,t:1700002002,line:'Requested to load QwenImage'}]};
-  const real=window.api;window.qaImageRequests=[];window.api=async(path,body)=>{if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-log-job',status:'queued'};}
-   if(path==='state'){const s=await real('state');return {...s,records:[...s.records.filter(r=>r.id!=='qa-log-job'),window.__qaLogJob]};}return real(path,body);};});
+  // The fixture replaces the page's own api and state bindings (not window.api), so this does the same.
+  state.records.push(window.__qaLogJob);const real=api;window.qaImageRequests=[];api=async(path,body)=>{window.__qaCalls.push({path,body});if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-log-job',status:'queued'};}return real(path,body);};});
  await page.getByRole('button',{name:'Next: Generate',exact:true}).click();
  const activity=page.getByRole('region',{name:'Activity',exact:true});
  await expect(activity).toContainText('Worker: got prompt',{timeout:15000});await expect(activity).toContainText('Worker: Requested to load QwenImage');
  // A new line arrives: it is added once, and earlier lines are not repeated.
- await page.evaluate(()=>{window.__qaLogJob={...window.__qaLogJob,worker_log:[...window.__qaLogJob.worker_log,{seq:3,t:1700002010,line:' 50%|#####     | 25/50'}]};});
+ await page.evaluate(()=>{window.__qaLogJob.worker_log.push({seq:3,t:1700002010,line:' 50%|#####     | 25/50'});});
  await expect(activity).toContainText('Worker: 50%|#####     | 25/50',{timeout:15000});
  await expect(activity.getByText('Worker: got prompt',{exact:true})).toHaveCount(1);
  expect(page.qaErrors).toEqual([]);
@@ -2403,12 +2403,13 @@ test('GPU-SERVERLESS-03 signing in turns Serverless On and Log Off turns it Off;
  await expect.poll(()=>page.evaluate(()=>window.__power.at(-1))).toEqual({on:false,reason:'sign-out'});
 });
 test('GPU-SERVERLESS-05 opening Tell Your Story sends one wake-up round to the Serverless endpoints',async({page})=>{
- await boot(page);
+ await boot(page,{enter:false});
  await serverlessFixture(page);
- const entry=page.locator('nav summary, nav button').filter({hasText:/^\W*Tell your story/i}).first();
- await entry.click();
+ // The visible Tell Your Story button on the welcome screen (the old nav entry is a hidden button).
+ await page.locator('#entry-tell-story').click();
  await expect.poll(()=>page.evaluate(()=>window.__wake.length)).toBe(1);
- await entry.click();
+ // Opening it again within a minute sends nothing more.
+ await page.evaluate(()=>window.EccoServerlessPower.storyWake());
  await page.waitForTimeout(300);
  expect(await page.evaluate(()=>window.__wake.length)).toBe(1);
  expect(page.qaErrors).toEqual([]);
