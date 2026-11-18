@@ -1486,7 +1486,7 @@ test('STORY-37 Story Picture: Image Library tab uses the Image Studio panes, and
  await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A lighthouse on a cliff at dusk');
  await next.click();await expect(page.locator('#story-generation')).toBeVisible();
  const after=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-generation-v1:image:'));return JSON.parse(localStorage.getItem(k));});
- expect(after.reference_ids).toEqual([]);expect(after.model).not.toBe('qwen-image-edit-2511');
+ expect(after.reference_ids).toEqual([]);expect(after.model).toBe('qwen-image-2512');expect(await page.locator('#job-model').inputValue()).toBe('qwen-image-2512');
  expect(page.qaErrors).toEqual([]);
 });
 // Image stories (owner-approved mocks, 2026-11-16): Next starts the picture at once; progress on the left half, the Image
