@@ -540,9 +540,11 @@
  }
  // ---- Story Picture (Image output) ----
  function picturePage(){
-  page='story-picture';if(!data.cast.length)data.cast=defaultCast();const tab=data.pictureTab==='ai'?'ai':'photo';
-  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel story-picture-panel"><div class="story-settings-bar" role="group" aria-label="Picture settings" data-picture-settings></div><div class="story-source-tabs" role="tablist" aria-label="Picture source"><button type="button" role="tab" id="story-picture-tab-photo" aria-controls="story-picture-panel-photo" data-picture-tab="photo">Upload a Photo</button><button type="button" role="tab" id="story-picture-tab-ai" aria-controls="story-picture-panel-ai" data-picture-tab="ai">Generate With AI</button></div>'
-   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-photo" aria-labelledby="story-picture-tab-photo" data-picture-panel="photo"><div class="story-picture-photo-row story-picture-simple"><section class="pdf-review-box story-photo-box" aria-labelledby="story-photo-title"><div class="pdf-pane-head"><h3 class="pdf-review-heading" id="story-photo-title">Photo</h3></div><input type="file" accept="image/*" data-photo-file hidden><div class="story-photo-preview" data-photo-preview></div></section>'+promptBox('photo','Improve with AI','Describe what to make from this photo, for example: turn it into a watercolor picture for a children’s book')+'</div></div>'
+  page='story-picture';if(!data.cast.length)data.cast=defaultCast();const tab=['ai','library'].includes(data.pictureTab)?data.pictureTab:'photo';
+  q('#page').innerHTML='<div class="form"><section class="panel form story-editor-panel story-picture-panel"><div class="story-settings-bar" role="group" aria-label="Picture settings" data-picture-settings></div><div class="story-source-tabs" role="tablist" aria-label="Picture source"><button type="button" role="tab" id="story-picture-tab-photo" aria-controls="story-picture-panel-photo" data-picture-tab="photo">Upload a Picture</button><button type="button" role="tab" id="story-picture-tab-library" aria-controls="story-picture-panel-library" data-picture-tab="library">Image Library</button><button type="button" role="tab" id="story-picture-tab-ai" aria-controls="story-picture-panel-ai" data-picture-tab="ai">Generate With AI</button></div>'
+   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-photo" aria-labelledby="story-picture-tab-photo" data-picture-panel="photo"><div class="story-picture-photo-row story-picture-simple"><section class="pdf-review-box story-photo-box" aria-labelledby="story-photo-title"><div class="pdf-pane-head"><h3 class="pdf-review-heading" id="story-photo-title">Picture</h3><button type="button" class="pdf-icon-btn" data-photo-delete aria-label="Delete picture" title="Delete picture" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></div><input type="file" accept="image/*" data-photo-file hidden><div class="story-photo-preview" data-photo-preview></div></section>'+promptBox('photo','Improve with AI','Describe how to change the picture, for example: turn it into a watercolor picture for a children’s book')+'</div></div>'
+   // Image Library tab: the same three panes as Image Studio (owner-approved mock, 18 Nov 2026).
+   +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-library" aria-labelledby="story-picture-tab-library" data-picture-panel="library"><div id="story-picture-library"><div class="pdf-selection-layout iw-layout"><section class="pdf-review-box" aria-labelledby="spl-lib-heading" data-library-list></section><section class="pdf-review-box pdf-selected-label" aria-labelledby="spl-selected-heading" data-library-selected></section>'+promptBox('library','Improve with AI','Describe how to change the selected picture…')+'</div></div></div>'
    +'<div class="story-source-panel" role="tabpanel" id="story-picture-panel-ai" aria-labelledby="story-picture-tab-ai" data-picture-panel="ai">'+promptBox('ai','Generate with AI','Describe the picture, for example: a girl carrying a basket of salt up a hill at sunrise')+'</div>'
    +'<p id="story-simple-ai-status" role="status" aria-live="polite"></p></section><div class="story-simple-actions"><button type="button" data-next>Next: Generate</button></div></div>';
   const bar=inPage('[data-picture-settings]');
@@ -551,17 +553,19 @@
   const show=name=>{data.pictureTab=name;for(const b of q('#page').querySelectorAll('[data-picture-tab]')){const on=b.dataset.pictureTab===name;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}for(const p of q('#page').querySelectorAll('[data-picture-panel]'))p.hidden=p.dataset.picturePanel!==name;persist();};
   for(const b of q('#page').querySelectorAll('[data-picture-tab]'))b.onclick=()=>show(b.dataset.pictureTab);show(tab);
   paintPhoto();const file=inPage('[data-photo-file]');file.onchange=()=>{const chosen=file.files[0];if(!chosen)return;if(!chosen.type.startsWith('image/')){message('Choose an image file.',true);return;}const reader=new FileReader();reader.onload=()=>{data.photo={name:chosen.name,url:chosen.size<=1500000?reader.result:''};photoUrl=reader.result;epoch++;persist();paintPhoto();};reader.readAsDataURL(chosen);};
+  inPage('[data-photo-delete]').onclick=deletePhoto;
+  paintLibrary();
   wirePrompts();
   // Next starts the picture straight away (owner-approved mocks, 2026-11-16): no Ready to generate step.
-  inPage('[data-next]').onclick=()=>{if(!pictureText()){message('Describe the picture first.',true);return;}data.script=pictureText();epoch++;persist();void requestGeneration();};
+  inPage('[data-next]').onclick=()=>{if(data.pictureTab==='library'&&!libraryPicks().length){message('Select a picture from Image Library first.',true);return;}if(!pictureText()){message('Describe the picture first.',true);return;}data.script=pictureText();epoch++;persist();void requestGeneration();};
  }
  // One prompt box per tab (owner-approved mocks, 2026-11-16): no drafts, no Use AI Text, no Find and Replace.
  function promptBox(kind,title,placeholder){const id='story-picture-prompt-'+kind;return '<div class="pdf-story-dialog pdf-story-inline story-picture-prompt"><section class="pdf-review-box pdf-ai-pane" aria-labelledby="'+id+'"><strong class="pdf-review-heading" id="'+id+'">'+title+'</strong><div class="pdf-ai-sections"><section class="pdf-ai-section"><div class="pdf-ai-ribbon"><div class="pdf-ai-settings"></div><button type="button" class="secondary pdf-ai-icon" data-picture-improve="'+kind+'" aria-label="'+title+'" title="'+title+'"><span aria-hidden="true">✦</span></button></div><textarea data-picture-prompt="'+kind+'" aria-labelledby="'+id+'" rows="20" maxlength="3000" dir="auto" placeholder="'+placeholder+'"></textarea></section></div></section></div>';}
  function wirePrompts(){
-  for(const kind of ['photo','ai']){
+  for(const kind of ['photo','library','ai']){
    const box=inPage('[data-picture-prompt='+kind+']'),run=inPage('[data-picture-improve='+kind+']');if(!box||!run)continue;
-   box.value=(kind==='ai'?data.pictureAI:data.photoDesc)||'';
-   box.oninput=()=>{if(kind==='ai')data.pictureAI=box.value;else data.photoDesc=box.value;persist();};
+   box.value=(kind==='ai'?data.pictureAI:kind==='library'?data.libraryDesc:data.photoDesc)||'';
+   box.oninput=()=>{if(kind==='ai')data.pictureAI=box.value;else if(kind==='library')data.libraryDesc=box.value;else data.photoDesc=box.value;persist();};
    run.onclick=async()=>{const origin=owner();run.disabled=true;run.setAttribute('aria-busy','true');message(kind==='ai'?'Writing the picture description…':'Improving the instructions…');
     try{const text=kind==='ai'?await describePicture(0,box.value):await improvePhotoPrompt(box.value);if(origin!==owner())return;box.value=text;box.oninput();message('',true);}
     catch(error){message(error.message,true);}finally{if(run.isConnected){run.disabled=false;run.removeAttribute('aria-busy');}}};
@@ -572,13 +576,53 @@
   const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,fields:[{id:'photo_instruction',text:idea,max_length:2000}],context:{title:data.title,genre:'',language:'English',summary:JSON.stringify({output:'image',image_style:data.imageStyle,audience:data.audience}),lines:[],instructions:'Rewrite this as one clear instruction of 1–3 sentences for editing the uploaded photo into a picture for '+(data.audience||'all ages')+': what to keep from the photo and what to change. Do not name or describe any art style, medium or technique (the '+(data.imageStyle||'chosen')+' style is added separately). Return only the instruction. Do not ask questions.'},review_only:false});
   const value=result.revisions?.find(r=>r.id==='photo_instruction')?.text;if(typeof value!=='string'||!value.trim())throw Error('AI returned no instruction. Try again.');return value.trim();
  }
+ // Delete takes the picture out of this story only; a copy already saved to Image Library stays there (owner-approved mock, 18 Nov 2026).
+ function deletePhoto(){if(!data.photo?.name)return;if(data.photoAsset?.id)data.photoAssetsReplaced=[...new Set([...(data.photoAssetsReplaced||[]),data.photoAsset.id])];data.photo=null;data.photoAsset=null;photoUrl='';const file=inPage('[data-photo-file]');if(file)file.value='';epoch++;persist();paintPhoto();}
+ // Image Library tab: Image Studio's library grid, Selected Images (up to 3) and Improve with AI.
+ const LIBRARY_LIMIT=3;
+ function libraryPicks(){return (Array.isArray(data.libraryPicks)?data.libraryPicks:[]).filter(id=>state.records.some(r=>r.id===id&&r.kind==='asset'&&r.media==='image'&&!r.deleted)).slice(0,LIBRARY_LIMIT);}
+ function libraryTitle(id){const r=state.records.find(x=>x.id===id);return r?.title||r?.prompt?.slice(0,60)||'Image';}
+ function libraryImg(id,alt){const r=state.records.find(x=>x.id===id);const img=document.createElement('img');img.dataset.asset=id;img.alt=alt;const url=r&&typeof media==='function'?media(r):'';if(url)img.src=url;return img;}
+ function libraryTile(id,number,act,index){const b=document.createElement('button');b.type='button';b.className='iw-tile';b.dataset.libAct=act;b.dataset.id=id;if(index!=null)b.dataset.index=index;b.setAttribute('aria-pressed',String(number>0));b.setAttribute('aria-label',libraryTitle(id)+(number>0?', selected '+number:''));b.append(libraryImg(id,''));if(number>0){const n=document.createElement('span');n.className='iw-badge';n.textContent=number;b.append(n);}const cap=document.createElement('span');cap.className='iw-cap help';cap.textContent=libraryTitle(id);b.append(cap);return b;}
+ function paintLibrary(){
+  const list=inPage('[data-library-list]'),chosen=inPage('[data-library-selected]');if(!list||!chosen)return;
+  if(!list.dataset.ready){list.dataset.ready='1';
+   list.innerHTML='<strong class="pdf-review-heading" id="spl-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-lib-search placeholder="Find an image"></label><label>Label<select data-lib-label><option value="">All images</option></select></label></div><p class="help">Select up to 3 images. Click again to deselect.</p><div data-lib-grid></div>';
+   const search=list.querySelector('[data-lib-search]'),label=list.querySelector('[data-lib-label]');
+   for(const f of state.records.filter(r=>r.kind==='image_folder'&&!r.deleted))label.add(new Option(f.name,f.id));
+   search.value=data.librarySearch||'';label.value=data.libraryLabel||'';
+   search.oninput=()=>{data.librarySearch=search.value;paintLibrary();};label.onchange=()=>{data.libraryLabel=label.value;persist();paintLibrary();};
+   inPage('#story-picture-library').addEventListener('click',e=>{const b=e.target.closest('[data-lib-act]');if(!b||b.disabled)return;const picks=libraryPicks(),id=b.dataset.id;
+    if(b.dataset.libAct==='pick'){const i=picks.indexOf(id);if(i>=0)picks.splice(i,1);else if(picks.length<LIBRARY_LIMIT)picks.push(id);else{message('Selected Images already has 3; remove one first.',true);return;}data.libraryActive=Math.max(0,Math.min(i>=0?(data.libraryActive||0):picks.length-1,picks.length-1));}
+    else if(b.dataset.libAct==='show')data.libraryActive=Number(b.dataset.index)||0;
+    else if(b.dataset.libAct==='remove'){picks.splice(Number(b.dataset.index),1);data.libraryActive=Math.max(0,Math.min(data.libraryActive||0,picks.length-1));}
+    data.libraryPicks=picks;epoch++;persist();paintLibrary();});
+  }
+  const picks=libraryPicks(),term=(data.librarySearch||'').trim().toLowerCase(),labelId=data.libraryLabel||'';
+  let hidden;try{hidden=new Set(JSON.parse(localStorage.getItem('ecco-unsaved-images'))||[]);}catch{hidden=new Set();}
+  const saved=id=>state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===id);
+  const images=state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted).sort((a,b)=>(b.created||0)-(a.created||0))
+   .filter(a=>!(hidden.has(a.id)&&!saved(a.id))&&(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!labelId||state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id&&l.folder_id===labelId)));
+  const grid=list.querySelector('[data-lib-grid]');grid.replaceChildren();
+  if(images.length){const g=document.createElement('div');g.className='iw-grid iw-library';for(const a of images)g.append(libraryTile(a.id,picks.indexOf(a.id)+1,'pick'));grid.append(g);}
+  else{const none=document.createElement('p');none.className='iw-blank help';none.textContent=term||labelId?'No images match.':'Image Library is empty. Upload or generate a picture first.';grid.append(none);}
+  const active=Math.min(data.libraryActive||0,Math.max(0,picks.length-1)),id=picks[active];
+  chosen.innerHTML='<div class="iw-head"><strong class="pdf-review-heading" id="spl-selected-heading">Selected Images</strong><span class="help">'+picks.length+' of 3</span></div><p class="help">Only these images go to Image Generation.</p>';
+  if(id){const box=document.createElement('div');box.className='iw-preview';box.append(libraryImg(id,'Image '+(active+1)+': '+libraryTitle(id)));const cap=document.createElement('span');cap.className='iw-cap help';cap.textContent='Image '+(active+1)+' · '+libraryTitle(id);box.append(cap);chosen.append(box);}
+  else{const none=document.createElement('p');none.className='iw-blank help';none.textContent='Choose images from a tab on the left.';chosen.append(none);}
+  const slots=document.createElement('div');slots.className='iw-grid';
+  for(let i=0;i<LIBRARY_LIMIT;i++){const s=picks[i];if(s){const slot=document.createElement('div');slot.className='iw-slot';const t=libraryTile(s,i+1,'show',i);t.setAttribute('aria-pressed',String(i===active));t.setAttribute('aria-label','Show image '+(i+1)+': '+libraryTitle(s));slot.append(t);const x=document.createElement('button');x.type='button';x.className='iw-remove';x.dataset.libAct='remove';x.dataset.index=i;x.setAttribute('aria-label','Remove image '+(i+1));x.title='Remove';x.textContent='×';slot.append(x);slots.append(slot);}else{const e=document.createElement('div');e.className='iw-empty-slot help';e.textContent='Empty';slots.append(e);}}
+  chosen.append(slots);
+  const run=inPage('[data-picture-improve=library]');if(run&&!run.hasAttribute('aria-busy'))run.disabled=!picks.length;
+ }
  let photoUrl='';
  function paintPhoto(){
   const box=inPage('[data-photo-preview]');if(!box)return;box.replaceChildren();const asset=data.photoAsset?.id&&state?.records?.find(r=>r.id===data.photoAsset.id&&!r.deleted);
   const url=photoUrl||data.photo?.url||(asset&&typeof media==='function'?media(asset):'')||'';
   const pick=document.createElement('button');pick.type='button';pick.dataset.photoPick='';pick.onclick=()=>inPage('[data-photo-file]').click();
-  if(data.photo?.name){const name=document.createElement('p');name.className='help';name.textContent=data.photo.name;pick.className='secondary';pick.textContent='Replace photo';box.append(name);if(url){const img=document.createElement('img');img.src=url;img.alt='Uploaded photo';box.append(img);}else{const note=document.createElement('p');note.className='help';note.textContent='Upload the photo again to see it here.';box.append(note);}box.append(pick);}
-  else{pick.className='story-upload-target';pick.innerHTML='<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload a Photo';box.append(pick);}
+  if(data.photo?.name){const name=document.createElement('p');name.className='help';name.textContent=data.photo.name;pick.className='secondary';pick.textContent='Replace picture';box.append(name);if(url){const img=document.createElement('img');img.src=url;img.alt='Uploaded picture';box.append(img);}else{const note=document.createElement('p');note.className='help';note.textContent='Upload the picture again to see it here.';box.append(note);}const del=document.createElement('button');del.type='button';del.className='secondary';del.textContent='Delete picture';del.onclick=deletePhoto;const row=document.createElement('div');row.className='story-photo-actions';row.append(pick,del);box.append(row);}
+  else{pick.className='story-upload-target';pick.innerHTML='<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload a Picture';box.append(pick);}
+  const trash=inPage('[data-photo-delete]');if(trash)trash.hidden=!data.photo?.name;
  }
  // An untouched starter Narrator from Audio or Video means nothing for a picture.
  function imageCast(){if(isImage()&&!data.castCustomized&&data.cast.length===1&&data.cast[0].name==='Narrator'&&!data.cast[0].reference_id)data.cast=[];}
@@ -592,7 +636,7 @@
    data.photoAsset={id:record.id,tag};persist();message('',true);
   }catch(error){const text='Your photo could not be added, so the picture will be made from the description only. '+error.message;message(text,true);if(typeof notice==='function')notice(text,true);}
  }
- const pictureText=()=>String((data.pictureTab==='ai'?data.pictureAI:data.photoDesc)||'').trim();
+ const pictureText=()=>String((data.pictureTab==='ai'?data.pictureAI:data.pictureTab==='library'?data.libraryDesc:data.photoDesc)||'').trim();
  // AI writes picture descriptions; the pictures themselves are made in Story Generation (Image Studio).
  async function describePicture(index,text){
   const idea=String(text??data.pictureIdea??'').trim()||'a picture that suits the story';
@@ -844,7 +888,7 @@
   const characterReferences=data.cast.map(c=>c.reference_id).filter(id=>state.records.some(r=>r.id===id&&r.kind==='asset'&&r.media==='image'&&!r.deleted));
   if(image){
    // Image style and the uploaded photo carry into Story Generation (audit I13). A photo uses Qwen Image Edit.
-   const photo=data.pictureTab!=='ai'&&data.photoAsset?.id&&state.records.some(r=>r.id===data.photoAsset.id&&!r.deleted)?[data.photoAsset.id]:[],replaced=new Set(data.photoAssetsReplaced||[]);
+   const live=id=>state.records.some(r=>r.id===id&&!r.deleted),picked=libraryPicks().filter(live),photo=data.pictureTab==='library'?[picked[data.libraryActive]||picked[0],...picked].filter((id,i,a)=>id&&a.indexOf(id)===i):data.pictureTab!=='ai'&&data.photoAsset?.id&&live(data.photoAsset.id)?[data.photoAsset.id]:[],replaced=new Set(data.photoAssetsReplaced||[]);
    const refs=[...new Set([...photo,...characterReferences,...(previous.reference_ids||[]).filter(id=>!replaced.has(id))])].slice(0,3);
    localStorage.setItem(key,JSON.stringify({...previous,prompt,style:data.imageStyle||'',reference_ids:refs,...(photo.length?{model:'qwen-image-edit-2511'}:{})}));
   }else localStorage.setItem(key,JSON.stringify({...previous,prompt,reference_ids:[...new Set([...(previous.reference_ids||[]),...characterReferences])].slice(0,kind==='image'?3:8)}));
