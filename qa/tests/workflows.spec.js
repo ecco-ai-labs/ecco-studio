@@ -1576,6 +1576,9 @@ test('GEN-09 the Serverless worker log shows line by line in Activity while a pi
  await page.evaluate(()=>{window.__qaLogJob.worker_log.push({seq:3,t:1700002010,line:' 50%|#####     | 25/50'});});
  await expect(activity).toContainText('Worker: 50%|#####     | 25/50',{timeout:15000});
  await expect(activity.getByText('Worker: got prompt',{exact:true})).toHaveCount(1);
+ // Stopped (live test 18 Nov 2026): an older picture of this story must not turn a stopped job into "Ready to review".
+ await page.evaluate(()=>{const story=localStorage.getItem('ecco-active-story');state.records.push({id:'qa-old-pic',kind:'asset',media:'image',stage:'dev',story_id:story,path:'image-dev/qa-old-pic.png',created:1700001000,job_id:'older'});window.__qaLogJob.status='cancelled';});
+ await expect(page.locator('[data-gen-chip]')).toHaveText('Stopped',{timeout:15000});
  expect(page.qaErrors).toEqual([]);
 });
 test('GEN-07 an unsaved Image Generation picture stays out of Image Library, and Delete moves it to Trash',async({page})=>{
