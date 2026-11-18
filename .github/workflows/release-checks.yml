@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   verified-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
   dev-preview:
     needs: verified-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ECCO_DEV_PAGES_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
       group: github-pages-dev
