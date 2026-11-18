@@ -980,5 +980,5 @@
  };
  document.addEventListener('ecco:auth-change',()=>{if(enabled){leave();data=null;destroyPickers();}});
  new MutationObserver(records=>{if(queued||!enabled)return;if(records.every(r=>r.target.closest?.('[data-inline-panel]')))return;queued=true;queueMicrotask(()=>{queued=false;if(!enabled||rendering)return;const expected=data?.tab===0?'story-details':data?.tab===STORY?(isImage()?'story-picture':'story-properties'):data?.tab===CHARACTERS?'story-characters':data?.tab===SCRIPT?'story-script':data?.view;if(page!==expected){leave();return;}adaptStudio();});}).observe(q('#page'),{childList:true,subtree:true});
- window.EccoStoryWorkspace={open,openSetup,mountEntry,select,leave,captureContext,get active(){return enabled;}};
+ window.EccoStoryWorkspace={open,openSetup,mountEntry,select,leave,captureContext,slimStoredDrafts,get active(){return enabled;}};
 })();

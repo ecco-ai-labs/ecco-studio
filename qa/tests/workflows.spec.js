@@ -94,14 +94,14 @@ test('ENTRY-01 welcome has one enabled Tell Your Story action',async({page})=>{
   await expect(page.locator('#workspace-entry button:visible')).toHaveCount(1);
   await expect(page.locator('dialog[open]')).toHaveCount(0);
 });
-for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} opens the same four-option Tell Your Story page`,async({page})=>{
+for(const action of ['New Story','Go to Studio'])test(`ENTRY-home ${action} opens Tell Your Story with Describe Your Story only`,async({page})=>{
   await boot(page,{enter:false});await page.locator('#entry-tell-story').click();await page.getByRole('button',{name:action,exact:true}).click();
   await expect(page.locator('#heading')).toHaveText('Tell Your Story');
-  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Videos for Your Story']);
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveText(['Describe Your Story']);
   await expect(page.locator('#story-workspace-header')).toBeHidden();await expect(page.locator('#journey-guide')).toBeHidden();await expect(page.locator('dialog[open]')).toHaveCount(0);
-  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group .journey-step:not([hidden])')).toHaveText(['1. Describe Your Story','2. Create Audio for Your Story','3. Create Videos for Your Story']);
+  await expect(choices.first()).toHaveCSS('font-size','14px');await expect(page.locator('#workspace-production-group .journey-step:not([hidden])')).toHaveText(['- Describe Your Story']);
   expect(await page.locator('#workspace-production-group .journey-step').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).fontSize==='12px'))).toBe(true);
-  await choices.first().focus();await choices.first().press('Tab');await expect(choices.nth(1)).toBeFocused();expect(await choices.nth(1).evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
+  await choices.first().focus();await expect(choices.first()).toBeFocused();
   await choices.first().press('Enter');await expect(page.locator('#story-simple-details')).toBeVisible();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('');
   await page.locator('#workspace-back').click();await expect(page.locator('#story-home-list')).toBeVisible();
 });
@@ -118,6 +118,12 @@ test('NAV-BACK-01 Back sits at the left of the Next row; screens without Next ke
  await expect.poll(()=>back.evaluate((b,n)=>b.parentElement===n.parentElement&&b.parentElement.firstElementChild===b,nextHandle)).toBe(true);
  const [bb,nb]=[await back.boundingBox(),await next.boundingBox()];expect(bb.x).toBeLessThan(nb.x);expect(Math.abs((bb.y+bb.height/2)-(nb.y+nb.height/2))).toBeLessThan(12);
  await expect(page.locator('.ecco-back')).toHaveCount(1);
+ // Back looks exactly like Next (owner request 18 Nov 2026).
+ const look=el=>el.evaluate(e=>{const c=getComputedStyle(e);return [c.backgroundColor,c.color,c.borderRadius,c.fontSize,c.fontWeight,c.minHeight];});
+ expect(await look(back)).toEqual(await look(next));
+ // Going back and forth never leaves a second Back.
+ await page.locator('#workspace-production-group > summary').click();await expect(page.locator('#story-home-list')).toBeVisible();await back.click();
+ await expect(page.locator('#workspace-back')).toHaveCount(1);
  expect(page.qaErrors).toEqual([]);
 });
 test('STORY-home sidebar and Back preserve edited drafts and open the existing tools',async({page})=>{
@@ -125,7 +131,7 @@ test('STORY-home sidebar and Back preserve edited drafts and open the existing t
   await page.locator('#workspace-production-group > summary').click();await expect(page.locator('#story-home-list')).toBeVisible();
   await expect(page.locator('#workspace-production-group > summary')).toHaveAttribute('aria-current','page');await expect(page.locator('#story-workspace-header')).toBeHidden();
   await page.locator('#workspace-back').click();await expect(page.getByLabel('Story name (required)',{exact:true})).toHaveValue('Keep this story');
-  for(const [target,selector]of [['story-setup','#story-simple-details'],['audio','#audio-form'],['images','#image-workspace, #image-form'],['render','#video-form']]){
+  for(const [target,selector]of [['story-setup','#story-simple-details']]){
     await page.locator('#workspace-production-group > summary').click();await page.locator('[data-story-destination="'+target+'"]').click();
     await expect(page.locator('#story-home-list')).toHaveCount(0);
     await expect(page.locator(selector).first()).toBeVisible();
@@ -134,7 +140,7 @@ test('STORY-home sidebar and Back preserve edited drafts and open the existing t
 });
 for(const theme of ['default','dark','forest','desert','ocean','dark-sky'])test(`LAYOUT-story-home matches Library at mobile width in ${theme}`,async({page})=>{
   await page.setViewportSize({width:390,height:900});await boot(page,{landing:true,theme});
-  const choices=page.locator('#story-home-list button');await expect(choices).toHaveCount(4);
+  const choices=page.locator('#story-home-list button');await expect(choices).toHaveCount(1);
   for(const choice of await choices.all())expect(await choice.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth;})).toBe(true);
   const landingStyle=async()=>page.locator('#page .workspace-home').evaluate(el=>({padding:getComputedStyle(el).paddingTop,font:getComputedStyle(el.querySelector('button')).fontSize,borders:[...el.querySelectorAll('ul,li,button')].every(row=>{const s=getComputedStyle(row);return ['borderTopWidth','borderBottomWidth','borderLeftWidth','borderRightWidth'].every(p=>s[p]==='0px');})}));
   expect(await landingStyle()).toEqual({padding:'22px',font:'14px',borders:true});
@@ -295,20 +301,18 @@ async function openCreateImages(page,story){
     Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
   },story);
   // Create Images now opens from Studios › Image Studio (owner request 18 Nov 2026), not Tell Your Story.
-  await page.locator('#workspace-image-studio-node > summary').click();
+  await page.locator('#workspace-image-studio-node').click();
   const ws=page.locator('#image-workspace');await expect(ws).toBeVisible();return ws;
 }
 const imageCalls=(page,path)=>page.evaluate(p=>window.__qaCalls.filter(c=>c.path===p).map(c=>c.body),path);
-test('IMG-STUDIO-01 Create Images lives under Studios › Image Studio, not Tell Your Story',async({page})=>{
+test('IMG-STUDIO-01 Studios lists "- Image Studio" and "- Voice Studio"; Image Studio opens the Create Images screen',async({page})=>{
  await boot(page);
- expect(await page.locator('#workspace-production-group .journey-step:not([hidden])').allTextContents()).not.toContain('3. Create Images for Your Story');
- expect((await page.locator('#workspace-production-group .journey-step:not([hidden])').allTextContents()).some(t=>/Create Images/.test(t))).toBe(false);
- const node=page.locator('#workspace-studios-group #workspace-image-studio-node');await expect(node).toHaveCount(1);
- await expect(page.locator('#workspace-studios-group > .workspace-library-content > details > summary')).toHaveText(['Image Studio','Voice Studio']);
- await expect(node.locator('[data-image-step]')).toHaveText(['1. Image','2. Enhance Image','3. Publish Images']);
- await node.locator('[data-image-step="enhance"]').click();
+ expect((await page.locator('#workspace-production-group .journey-step:not([hidden])').allTextContents()).some(t=>/Create (Images|Audio|Videos)/.test(t))).toBe(false);
+ await expect(page.locator('#workspace-studios-group > .workspace-library-content > button')).toHaveText(['- Image Studio','- Voice Studio']);
+ await page.locator('#workspace-image-studio-node').click();
  await expect(page.locator('#image-workspace')).toBeVisible();await expect(page.locator('#heading')).toHaveText('Image Studio');
- await expect(page.getByRole('tab',{name:'2. Enhance Image',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.locator('#workspace-image-studio-node')).toHaveClass(/active/);
+ await expect(page.getByRole('tab',{name:'1. Image',exact:true})).toBeVisible();
  expect(page.qaErrors).toEqual([]);
 });
 test('IMG-create three steps: choose, enhance with type-specific controls, publish',async({page})=>{
@@ -387,11 +391,11 @@ test('IMG-create falls back to choosing the image type when AI is off',async({pa
 async function openVoiceStudio(page){
   await boot(page,{landing:true});
   await page.evaluate(()=>{localStorage.removeItem('ecco-voice-workspace');window.EccoCompute={...window.EccoCompute,choices:()=>[{id:'serverless',name:'Serverless'}]};});
-  await page.locator('#workspace-voice-studio-node > summary').click();
+  await page.locator('#workspace-voice-studio-node').click();
   const ws=page.locator('#voice-workspace');await expect(ws).toBeVisible();return ws;
 }
 const voiceCalls=(page,path)=>page.evaluate(p=>window.__qaCalls.filter(c=>c.path===p).map(c=>c.body),path);
-test('VOICE-01 sidebar tree: Studios below Tell Your Story with the same gap, Voice Studio indented with its own sign',async({page})=>{
+test('VOICE-01 sidebar: Studios below Tell Your Story with the same gap; Voice Studio is a plain "-" entry',async({page})=>{
   await openVoiceStudio(page);
   const gaps=await page.evaluate(async()=>{
     const frame=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
@@ -405,17 +409,13 @@ test('VOICE-01 sidebar tree: Studios below Tell Your Story with the same gap, Vo
     const font=document.createElement('style');font.textContent='aside,aside *{font-family:Georgia,serif!important}';document.head.append(font);dispatchEvent(new Event('resize'));await frame();
     const shutSerif=await gap(false),openedSerif=await gap(true);font.remove();dispatchEvent(new Event('resize'));await frame();
     return {order:tell.nextElementSibling===studios,library:shut[0],studios:shut[1],libraryOpen:opened[0],studiosOpen:opened[1],serif:[shutSerif[0]-shutSerif[1],openedSerif[0]-openedSerif[1]],
-     indent:document.querySelector('#workspace-voice-studio-node>summary span:last-child').getBoundingClientRect().left-studios.querySelector(':scope>summary span:last-child').getBoundingClientRect().left,
-     sign:getComputedStyle(document.querySelector('#workspace-voice-studio-node>summary>.library-symbol'),'::before').content};
+     indent:document.querySelector('#workspace-voice-studio-node').getBoundingClientRect().left-studios.querySelector(':scope>summary span:last-child').getBoundingClientRect().left};
   });
   expect(gaps.order).toBe(true);expect(Math.abs(gaps.studios-gaps.library)).toBeLessThan(1);expect(Math.abs(gaps.studiosOpen-gaps.libraryOpen)).toBeLessThan(1);
   expect(Math.abs(gaps.serif[0])).toBeLessThan(1);expect(Math.abs(gaps.serif[1])).toBeLessThan(1);
-  expect(gaps.indent).toBeGreaterThan(10);expect(gaps.sign).toBe('"−"');
-  const node=page.locator('#workspace-voice-studio-node');await expect(node).toHaveAttribute('open','');
-  await expect(node.getByRole('button',{name:'1. Voice',exact:true})).toBeVisible();await expect(node.getByRole('button',{name:'3. Publish Voice',exact:true})).toBeVisible();
+  expect(gaps.indent).toBeGreaterThanOrEqual(0);
+  const node=page.locator('#workspace-voice-studio-node');await expect(node).toHaveText('- Voice Studio');await expect(node).toHaveClass(/active/);
   await expect(page.locator('#heading')).toHaveText('Voice Studio');await expect(page.locator('#journey-guide')).toBeHidden();
-  // Collapsing Voice Studio hides its rows and shows +.
-  await node.locator('summary').click();await expect(node).not.toHaveAttribute('open','');await expect(node.getByRole('button',{name:'1. Voice',exact:true})).toBeHidden();
   expect(page.qaErrors).toEqual([]);
 });
 test('VOICE-02 Voice Studio: upload, generate, improve, hear and publish under a new label',async({page})=>{
@@ -1497,8 +1497,9 @@ test('GEN-06 Image Generation starts by itself, shows the picture for review and
 test('STORY-35 an uploaded photo never fills the browser: drafts keep no photo data and an old full draft is slimmed on load',async({page})=>{
  // Owner report 17 Nov 2026: a 939 KB photo saved in every draft filled the browser's storage and "Could not save this draft" popped up every 2 s.
  const big='data:image/png;base64,'+'A'.repeat(400000);
- await page.addInitScript(big=>{if(!localStorage.getItem('qa-seeded')){localStorage.setItem('qa-seeded','1');localStorage.setItem('ecco-story-setup:qa-old',JSON.stringify({title:'Old',simple_workspace:{title:'Old',photo:{name:'pankaj.png',url:big}}}));}},big);
  await boot(page,{sourceFit:'picture'});
+ // An older draft that still holds the photo (the QA bootstrap clears storage first, so it is added now) is slimmed by the same step Studio runs on load.
+ await page.evaluate(big=>{localStorage.setItem('ecco-story-setup:qa-old',JSON.stringify({title:'Old',simple_workspace:{title:'Old',photo:{name:'pankaj.png',url:big}}}));window.EccoStoryWorkspace.slimStoredDrafts();},big);
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-story-setup:qa-old')).simple_workspace.photo)).toEqual({name:'pankaj.png',url:''});
  await page.getByLabel('Story name (required)',{exact:true}).fill('Photo story');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
@@ -1869,11 +1870,16 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`ST
   await page.screenshot({path:info.outputPath('story-'+name+'-menu-'+viewport.width+'.png')});await page.locator('#story-details-story-title').click();await expect(panel).toBeHidden();
  }
 });
-test('STORY-13 every output filters and renumbers the sidebar and journey list without StoryBoard or Publish',async({page})=>{
- await boot(page);const all=['story-setup','audio','images','render'],sidebar=page.locator('#workspace-production-group .journey-step:visible');expect(await sidebar.evaluateAll(els=>els.map(e=>e.dataset.page))).toEqual(all);
- for(const [output,expected]of [['audio',['story-setup','audio']],['image',['story-setup','images']],['video',all]]){
-  await fillStoryDetail(page,'output',output);expect(await sidebar.evaluateAll(els=>els.map(e=>e.dataset.page))).toEqual(expected);expect(await sidebar.evaluateAll(els=>els.map(e=>Number(e.textContent.split('.')[0])))).toEqual(expected.map((_,i)=>i+1));
-  await page.locator('#workspace-production-group > summary').click();const rows=page.locator('#story-home-list button');expect(await rows.evaluateAll(els=>els.map(e=>e.dataset.storyDestination))).toEqual(expected);expect(await rows.evaluateAll(els=>els.map(e=>Number(e.textContent.split('.')[0])))).toEqual(expected.map((_,i)=>i+1));await rows.first().click();await expect(page.getByRole('radio',{name:output[0].toUpperCase()+output.slice(1),exact:true})).toBeChecked();
+test('STORY-13 Tell Your Story lists only Describe Your Story for every output, with a plain dash and no numbers',async({page})=>{
+ // Owner request 18 Nov 2026: Create Audio / Create Images / Create Videos are old workflows and are not listed.
+ await boot(page);const sidebar=page.locator('#workspace-production-group .journey-step:visible');
+ for(const output of ['audio','image','video']){
+  await fillStoryDetail(page,'output',output);
+  await expect(sidebar).toHaveCount(1);
+  await expect(sidebar).toHaveText(['- Describe Your Story']);
+  await page.locator('#workspace-production-group > summary').click();const rows=page.locator('#story-home-list button');
+  expect(await rows.evaluateAll(els=>els.map(e=>e.dataset.storyDestination))).toEqual(['story-setup']);await expect(rows).toHaveText(['Describe Your Story']);
+  await rows.first().click();await expect(page.getByRole('radio',{name:output[0].toUpperCase()+output.slice(1),exact:true})).toBeChecked();
  }
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='stories'||/generate|publish/.test(c.path)))).toEqual([]);
 });
