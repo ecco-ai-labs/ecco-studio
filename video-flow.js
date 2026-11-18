@@ -233,6 +233,9 @@
   };
   form.onsubmit=async e=>{
    e.preventDefault();if(ctx.submitting)return;
+   // Speech goes to LongCat, pictures alone to Wan: pick the model for the use case instead of stopping with an error.
+   const wanted=useCaseModel('video',{speech:data.audio_ids.length>0,current:model.value});
+   if(wanted!==model.value&&[...model.options].some(o=>o.value===wanted)){model.value=wanted;model.dispatchEvent(new Event('change'));}
    const selectedModel=model.value,gpu=ctx.compute.value,stopToken=window.EccoGenerationStop?.begin('video',story);
    ctx.submitting=true;
    try{
