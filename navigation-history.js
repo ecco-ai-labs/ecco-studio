@@ -23,7 +23,8 @@
  function button(action){const b=document.createElement('button');b.type='button';b.className='secondary ecco-back';b.textContent='← Back';b.setAttribute('aria-label','Back');b.onclick=e=>{e.preventDefault();e.stopPropagation();action();};return b;}
  // The one live Back button. A screen restored from history can bring back a copy of it; copies are removed.
  let backButton=null;
- const NEXT_LOOK=['background-color','color','border','border-radius','padding','font-size','font-weight','min-height','box-shadow','line-height'];
+ // Colours, border and weight come from Next; font size and height come from the size roster (variant "Back beside Next").
+ const NEXT_LOOK=['background-color','color','border','border-radius','padding','font-weight','box-shadow'];
  function update(){
   const heading=q('#heading');
   if(!backButton&&heading){backButton=button(back);backButton.id='workspace-back';heading.before(backButton);}
