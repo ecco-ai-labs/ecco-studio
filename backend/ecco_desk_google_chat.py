@@ -13,7 +13,7 @@ import re
 import time
 import uuid
 
-ENDPOINT='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/desk/google-chat'
+ENDPOINT='https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/desk/google-chat'
 
 
 def initialize(db):

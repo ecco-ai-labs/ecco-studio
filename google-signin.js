@@ -2,7 +2,7 @@
 /* Google identity never substitutes for workspace authorization. */
 (()=>{
  const CLIENT_ID='219292517219-tngp5k9kso8jvk4ps6oqee45l0j97p78.apps.googleusercontent.com';
- const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/auth/';
+ const endpoint='https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/auth/';
  let user=null,token=localStorage.getItem('ecco-user-session')||sessionStorage.getItem('ecco-user-session')||'',library=null;
  if(token){localStorage.setItem('ecco-user-session',token);sessionStorage.setItem('ecco-user-session',token);}
  let restoring=null,authVersion=0;

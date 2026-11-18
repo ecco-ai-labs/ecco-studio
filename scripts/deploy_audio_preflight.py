@@ -105,7 +105,7 @@ def restart_worker():
     await_health();print('WORKER VERIFIED',os.environ.get('RUNPOD_POD_ID'),flush=True)
 
 def activate():
-    if os.environ.get('RUNPOD_POD_ID')!='vowmjru85f2gzo':raise RuntimeError('Activate only on the existing storage CPU.')
+    if os.environ.get('RUNPOD_POD_ID')!='cb9x2l5ao7p3op':raise RuntimeError('Activate only on the existing storage CPU.')
     plan=json.loads((ROOT/'plan.json').read_text());idle();svc=services();api=svc['storage_api.py'];worker=svc['queue_worker.py'];launcher=process(worker['parent'])
     if not any(Path(x).name=='start_cpu_worker.sh' for x in launcher['args']):raise RuntimeError('Unexpected worker supervisor.')
     for item in plan['files']:

@@ -1,6 +1,6 @@
 // The staff identity is independent of the customer's Studio identity.
 const key='ecco-desk-staff-session';
-const base='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/auth/';
+const base='https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/auth/';
 export const staffToken=()=>localStorage.getItem(key)||'';
 let revision=0;
 let googleScript:Promise<void>|undefined;

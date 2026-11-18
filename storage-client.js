@@ -1,7 +1,7 @@
 /* Storage and GPU connections are deliberately independent. No private key is bundled. */
 (() => {
  'use strict';
- const endpoint='https://vowmjru85f2gzo-8888.proxy.runpod.net';
+ const endpoint='https://cb9x2l5ao7p3op-8888.proxy.runpod.net';
  let connecting=false,verified=false;
  let key=localStorage.getItem('ecco-storage-access')||sessionStorage.getItem('ecco-storage-access')||'';
  if(key){localStorage.setItem('ecco-storage-access',key);sessionStorage.setItem('ecco-storage-access',key);}

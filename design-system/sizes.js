@@ -162,7 +162,7 @@
  if(typeof document==='undefined')return api;
 
  /* ---------- Browser runtime ---------- */
- const ENDPOINT='https://vowmjru85f2gzo-8888.proxy.runpod.net/api/look-and-feel';
+ const ENDPOINT='https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/look-and-feel';
  const CACHE='ecco-look-and-feel-v1';
  const script=document.currentScript,base=new URL('.',script?.src||location.href);
  const styles=new Set();let css='',state={roster:null,source:'default',version:0,updatedAt:null,updatedBy:null};

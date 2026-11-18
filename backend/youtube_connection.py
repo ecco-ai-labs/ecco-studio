@@ -17,7 +17,7 @@ CLIENT_FILE = Path(os.getenv('YOUTUBE_CLIENT_SECRET_FILE', str(PRIVATE / 'youtub
 TOKEN_FILE = Path(os.getenv('ECCO_YOUTUBE_TOKEN_FILE', str(PRIVATE / 'youtube-connection.json')))
 KEY_FILE = Path(os.getenv('ECCO_YOUTUBE_KEY_FILE', str(PRIVATE / 'youtube-encryption.key')))
 CALLBACK = os.getenv('ECCO_YOUTUBE_REDIRECT_URI',
-                    'https://vowmjru85f2gzo-8888.proxy.runpod.net/api/youtube/callback')
+                    'https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/youtube/callback')
 STUDIO_URL = 'https://ecco-ai-labs.github.io/ecco-studio/'
 SCOPES = ('https://www.googleapis.com/auth/youtube.readonly',
           'https://www.googleapis.com/auth/youtube.upload')
