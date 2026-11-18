@@ -251,3 +251,11 @@ class ServerlessPowerTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_wake_graphs_use_a_fresh_seed_each_time():
+    # ComfyUI caches an identical graph and returns the earlier, already removed output.
+    seeds = lambda g: [n['inputs'].get('seed', n['inputs'].get('noise_seed')) for n in g['workflow'].values()
+                       if n['class_type'] in ('KSampler', 'KSamplerAdvanced')]
+    for make in (power.image_wakeup, power.video_wakeup, power.video_large_wakeup):
+        assert seeds(make()) != seeds(make())
