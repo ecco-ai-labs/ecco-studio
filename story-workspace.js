@@ -615,12 +615,15 @@
   chosen.append(slots);
   const run=inPage('[data-picture-improve=library]');if(run&&!run.hasAttribute('aria-busy'))run.disabled=!picks.length;
  }
- let photoUrl='';
+ let photoUrl='',photoRetry=0;
  function paintPhoto(){
   const box=inPage('[data-photo-preview]');if(!box)return;box.replaceChildren();const asset=data.photoAsset?.id&&state?.records?.find(r=>r.id===data.photoAsset.id&&!r.deleted);
   const url=photoUrl||data.photo?.url||(asset&&typeof media==='function'?media(asset):'')||'';
   const pick=document.createElement('button');pick.type='button';pick.dataset.photoPick='';pick.onclick=()=>inPage('[data-photo-file]').click();
-  if(data.photo?.name){const name=document.createElement('p');name.className='help';name.textContent=data.photo.name;pick.className='secondary';pick.textContent='Replace picture';box.append(name);if(url){const img=document.createElement('img');img.src=url;img.alt='Uploaded picture';box.append(img);}else{const note=document.createElement('p');note.className='help';note.textContent='Upload the picture again to see it here.';box.append(note);}const del=document.createElement('button');del.type='button';del.className='secondary';del.textContent='Delete picture';del.onclick=deletePhoto;const row=document.createElement('div');row.className='story-photo-actions';row.append(pick,del);box.append(row);}
+  if(data.photo?.name){const name=document.createElement('p');name.className='help';name.textContent=data.photo.name;pick.className='secondary';pick.textContent='Replace picture';box.append(name);if(url){photoRetry=0;const img=document.createElement('img');img.src=url;img.alt='Uploaded picture';box.append(img);}else if(data.photoAsset?.id&&(photoRetry=(photoRetry||0)+1)<=40){
+   // After a reload the picture comes from Image Library once the records arrive (live test 18 Nov 2026).
+   const note=document.createElement('p');note.className='help';note.textContent='Loading the picture…';box.append(note);setTimeout(()=>{if(box.isConnected)paintPhoto();},500);}
+  else{const note=document.createElement('p');note.className='help';note.textContent='Upload the picture again to see it here.';box.append(note);}const del=document.createElement('button');del.type='button';del.className='secondary';del.textContent='Delete picture';del.onclick=deletePhoto;const row=document.createElement('div');row.className='story-photo-actions';row.append(pick,del);box.append(row);}
   else{pick.className='story-upload-target';pick.innerHTML='<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload a Picture';box.append(pick);}
   const trash=inPage('[data-photo-delete]');if(trash)trash.hidden=!data.photo?.name;
  }
