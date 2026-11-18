@@ -1466,6 +1466,22 @@ test('GEN-06 Image Generation starts by itself, shows the picture for review and
  await expect(page.locator('.story-gen-image-box').getByRole('button',{name:'Download',exact:true})).toBeEnabled();
  expect(page.qaErrors).toEqual([]);
 });
+test('STORY-35 an uploaded photo never fills the browser: drafts keep no photo data and an old full draft is slimmed on load',async({page})=>{
+ // Owner report 17 Nov 2026: a 939 KB photo saved in every draft filled the browser's storage and "Could not save this draft" popped up every 2 s.
+ const big='data:image/png;base64,'+'A'.repeat(400000);
+ await page.addInitScript(big=>{if(!localStorage.getItem('qa-seeded')){localStorage.setItem('qa-seeded','1');localStorage.setItem('ecco-story-setup:qa-old',JSON.stringify({title:'Old',simple_workspace:{title:'Old',photo:{name:'pankaj.png',url:big}}}));}},big);
+ await boot(page,{sourceFit:'picture'});
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-story-setup:qa-old')).simple_workspace.photo)).toEqual({name:'pankaj.png',url:''});
+ await page.getByLabel('Story name (required)',{exact:true}).fill('Photo story');await fillStoryDetail(page,'output','image');
+ await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload a Photo',exact:true}).click();
+ await(await chooser).setFiles({name:'photo.png',mimeType:'image/png',buffer:Buffer.alloc(900000,1)});
+ await expect(page.getByRole('img',{name:'Uploaded photo'})).toBeVisible();
+ const sizes=await page.evaluate(()=>Object.keys(localStorage).filter(k=>/^(ecco-new-story-draft$|ecco-story-setup:|ecco-story-description:)/.test(k)).map(k=>localStorage.getItem(k).length));
+ for(const size of sizes)expect(size).toBeLessThan(200000);
+ await expect(page.getByRole('dialog').filter({hasText:'Story could not continue'})).toHaveCount(0);
+ expect(page.qaErrors).toEqual([]);
+});
 test('GEN-09 the Serverless worker log shows line by line in Activity while a picture is made',async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Worker log');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();

@@ -14,10 +14,19 @@
  let data=null,legacy={},enabled=false,rendering=false,epoch=0,picker=null,textPickers={},pickerOwner='',sourcePending=false,saving=null,aiRequest=null,queued=false,workspaceStory='';
  const owner=()=>activeStory||legacy.localDraftId;
  function defaultCast(){if(isImage())return [];return ['podcast','interview'].includes(data.type)?[{id:crypto.randomUUID(),name:'Host',role:'Host'},{id:crypto.randomUUID(),name:'Guest',role:'Guest'}]:[{id:crypto.randomUUID(),name:'Narrator',role:'Narrator'}];}
- function message(text,error=false){if(error&&text)window.EccoErrors?.show(text,{title:'Story could not continue'});const el=q(error?'#story-simple-error':'#story-simple-save');if(el&&el.textContent!==text)el.textContent=text;}
+ // A failed save repeats every autosave (about every 2 s): pop it up once, then keep it in the line under the form.
+ let shownError='';
+ function message(text,error=false){if(error&&text){if(text!==shownError){shownError=text;window.EccoErrors?.show(text,{title:'Story could not continue'});}}else shownError='';const el=q(error?'#story-simple-error':'#story-simple-save');if(el&&el.textContent!==text)el.textContent=text;}
+ // An uploaded photo is kept in memory and in the Image Library, never in the browser draft: a 1.5 MB photo is about
+ // 2 MB of text, saved twice per draft, and it filled the browser's 5 MB, so every autosave failed (owner report 17 Nov 2026).
+ const PHOTO_IN_DRAFT=100000;
+ function slimDraft(value){const w=value?.simple_workspace;if(w?.photo&&typeof w.photo.url==='string'&&w.photo.url.length>PHOTO_IN_DRAFT)w.photo={...w.photo,url:''};return value;}
+ function slimStoredDrafts(){try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!/^(ecco-new-story-draft$|ecco-story-setup:|ecco-story-description:)/.test(key||''))continue;const raw=localStorage.getItem(key);if(!raw||raw.length<=PHOTO_IN_DRAFT)continue;
+  try{const value=JSON.parse(raw),before=value?.simple_workspace?.photo?.url;slimDraft(value);if(before!==value?.simple_workspace?.photo?.url)localStorage.setItem(key,JSON.stringify(value));}catch{}}}catch{}}
+ slimStoredDrafts();
  function persist(){
   if(!data)return false;
-  const saved={...legacy,title:data.title,summary:data.script,story_format:data.output,workflow_id:data.type||'custom',genre:data.genre,audio_audience:data.audience,audio_language:data.language,sourceText:data.source?.text||'',simple_workspace:clone(data),...(workspaceStory?{cloudId:workspaceStory}:{})};
+  const saved=slimDraft({...legacy,title:data.title,summary:data.script,story_format:data.output,workflow_id:data.type||'custom',genre:data.genre,audio_audience:data.audience,audio_language:data.language,sourceText:data.source?.text||'',simple_workspace:clone(data),...(workspaceStory?{cloudId:workspaceStory}:{})});
   try{
    localStorage.setItem(workspaceStory?'ecco-story-description:'+workspaceStory:'ecco-new-story-draft',JSON.stringify(saved));
    if(legacy.localDraftId)localStorage.setItem('ecco-story-setup:'+legacy.localDraftId,JSON.stringify(saved));
@@ -565,7 +574,8 @@
  }
  let photoUrl='';
  function paintPhoto(){
-  const box=inPage('[data-photo-preview]');if(!box)return;box.replaceChildren();const url=photoUrl||data.photo?.url||'';
+  const box=inPage('[data-photo-preview]');if(!box)return;box.replaceChildren();const asset=data.photoAsset?.id&&state?.records?.find(r=>r.id===data.photoAsset.id&&!r.deleted);
+  const url=photoUrl||data.photo?.url||(asset&&typeof media==='function'?media(asset):'')||'';
   const pick=document.createElement('button');pick.type='button';pick.dataset.photoPick='';pick.onclick=()=>inPage('[data-photo-file]').click();
   if(data.photo?.name){const name=document.createElement('p');name.className='help';name.textContent=data.photo.name;pick.className='secondary';pick.textContent='Replace photo';box.append(name);if(url){const img=document.createElement('img');img.src=url;img.alt='Uploaded photo';box.append(img);}else{const note=document.createElement('p');note.className='help';note.textContent='Upload the photo again to see it here.';box.append(note);}box.append(pick);}
   else{pick.className='story-upload-target';pick.innerHTML='<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>Upload a Photo';box.append(pick);}
