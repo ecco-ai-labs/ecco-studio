@@ -892,7 +892,7 @@
    // The Story Picture tab owns the references: Generate With AI sends none, Upload sends its picture, Library its picks (owner report 18 Nov 2026: stale picks leaked into text-only generations).
    // Library picks go in the order they were picked, so "picture 1" in the prompt is Selected Image 1 (live test 18 Nov 2026).
    const refs=[...new Set([...photo,...characterReferences])].slice(0,3);
-   localStorage.setItem(key,JSON.stringify({...previous,prompt,style:data.imageStyle||'',reference_ids:refs,...(photo.length?{model:'qwen-image-edit-2511'}:previous.model==='qwen-image-edit-2511'?{model:undefined}:{})}));
+   localStorage.setItem(key,JSON.stringify({...previous,prompt,style:data.imageStyle||'',reference_ids:refs,model:typeof useCaseModel==='function'?useCaseModel('image',{references:photo.length,current:previous.model}):(photo.length?'qwen-image-edit-2511':'qwen-image-2512')}));
   }else localStorage.setItem(key,JSON.stringify({...previous,prompt,reference_ids:[...new Set([...(previous.reference_ids||[]),...characterReferences])].slice(0,kind==='image'?3:8)}));
   if(kind==='video'){
    const previousBoard=read('ecco-board-draft:'+activeStory);
