@@ -1,0 +1,19 @@
+# Video "Wan 14B" endpoint: Wan 2.2 I2V A14B (high- and low-noise fp8) baked in with its text encoder and the
+# Wan 2.1 VAE (~36 GB). The bridge sends every Wan 14B workflow here when ECCO_ENDPOINT_VIDEOLARGE is set.
+# Build context: repository root.
+FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
+ENV PYTHONUNBUFFERED=1 COMFY_DIR=/comfyui
+
+# Models first, one file per step (each build step must finish in 30 min), so code changes below
+# reuse these layers when the builder has them cached.
+COPY serverless/comfy-worker/bake.sh /opt/bake.sh
+RUN pip install --no-cache-dir "huggingface_hub[hf_xet]>=0.34"
+RUN bash /opt/bake.sh Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/vae/wan_2.1_vae.safetensors vae
+RUN bash /opt/bake.sh Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors text_encoders
+RUN bash /opt/bake.sh Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors diffusion_models
+RUN bash /opt/bake.sh Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors diffusion_models
+
+ENV HF_HUB_OFFLINE=1
+COPY serverless/worker_common.py serverless/comfy-worker/ /opt/ecco/
+RUN bash /opt/ecco/build.sh video
+CMD ["python", "-u", "/opt/ecco/handler.py"]

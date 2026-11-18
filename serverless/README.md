@@ -27,13 +27,20 @@ RunPod Serverless (any data center)
    └─ LongCat  LongCat-Video-Avatar 1.5
 ```
 
-Models in the containers: RunPod's GitHub builds are limited to 80 GB images and
-a 30-minute build step, and the image models together are ~93 GB, so only each
-endpoint's default models are baked in (`comfy-worker/bake.sh`, one build step per
-file). Images: Qwen-Image-2512 + Qwen Image Edit 2511 with their text encoder and
-VAE (~50 GB). Video: Wan 2.2 TI2V 5B with its text encoder and VAE (~18 GB). ComfyUI
-searches `/models-baked` first and falls back to the global volume for everything
-else, so cold starts of the default models no longer depend on volume speed.
+Models in the containers (owner, 17 Nov 2026): one endpoint per model, each with its model
+baked into the worker image (`comfy-worker/bake.sh`, one build step per file; RunPod GitHub
+builds allow 80 GB images and 30-minute steps):
+
+| Dockerfile | Endpoint | Baked in |
+|---|---|---|
+| `Dockerfile.images` | ecco-images (creating) | Qwen-Image-2512 + text encoder + VAE (~30 GB) |
+| `Dockerfile.images-edit` | image editing (`ECCO_ENDPOINT_IMAGEEDIT`) | Qwen Image Edit 2511 + text encoder + VAE (~30 GB) |
+| `Dockerfile.video` | ecco-video (Wan 5B) | Wan 2.2 TI2V 5B + text encoder + VAE (~18 GB) |
+| `Dockerfile.video-14b` | Wan 14B (`ECCO_ENDPOINT_VIDEOLARGE`) | Wan 2.2 I2V A14B high/low noise + text encoder + VAE (~36 GB) |
+
+ComfyUI searches `/models-baked` first and falls back to the global volume, so any model
+that is not baked still works. The bridge (`comfy_proxy.route`) sends each workflow to its
+model's endpoint and falls back to the shared one when a per-model endpoint is not set.
 
 Not moved: audio (stays on the CPU workers), the story planner model and TRELLIS.2.
 

@@ -1,9 +1,8 @@
-# Image endpoint: SDXL, Qwen-Image-2512, Qwen Image Edit 2511, FLUX.2 klein 4B, Z-Image.
+# Image "creating" endpoint (ecco-images): Qwen-Image-2512, Studio's default, is baked in with its text
+# encoder and VAE (~30 GB), so a cold worker loads it from local disk. Other image models (SDXL, FLUX.2,
+# Z-Image) are still read from the global volume (/runpod-volume). Qwen Image Edit has its own endpoint
+# (Dockerfile.images-edit); without it, edits run here and load from the volume.
 # Build context: repository root.
-# Baked into the image (cold start reads local disk): Qwen-Image-2512 (Studio's default) and
-# Qwen Image Edit 2511 (used whenever an image is selected), plus their shared text encoder and VAE.
-# ~50 GB of models; RunPod GitHub builds allow 80 GB images. Every other model is still read from
-# the global volume (/runpod-volume).
 FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
 ENV PYTHONUNBUFFERED=1 COMFY_DIR=/comfyui ZIMAGE_DIR=/runpod-volume/ecco-models/z-image
 
@@ -15,7 +14,6 @@ RUN bash /opt/bake.sh Comfy-Org/Qwen-Image_ComfyUI split_files/vae/qwen_image_va
 RUN bash /opt/bake.sh Comfy-Org/Qwen-Image_ComfyUI split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors text_encoders
 RUN bash /opt/bake.sh Comfy-Org/Qwen-Image_ComfyUI split_files/diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors diffusion_models \
     5dc80554d5d83390046a2f4a94ece06afb7700bf7b0aaf8bde9769793875876b
-RUN bash /opt/bake.sh Comfy-Org/Qwen-Image-Edit_ComfyUI split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors diffusion_models
 
 ENV HF_HUB_OFFLINE=1
 COPY serverless/worker_common.py serverless/comfy-worker/ /opt/ecco/

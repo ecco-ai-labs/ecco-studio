@@ -1,8 +1,7 @@
-# Video endpoint: Wan 2.2 TI2V 5B and Wan 2.2 I2V A14B.
+# Video "Wan 5B" endpoint (ecco-video): Wan 2.2 TI2V 5B, Studio's default video model, baked in with its text
+# encoder and VAE (~18 GB). Wan 14B has its own endpoint (Dockerfile.video-14b); without it, 14B jobs run here
+# and load from the global volume (/runpod-volume).
 # Build context: repository root.
-# Baked into the image (cold start reads local disk): Wan 2.2 TI2V 5B (Studio's default video model)
-# with its text encoder and VAE, ~18 GB. Wan 2.2 I2V A14B is still read from the global volume
-# (/runpod-volume).
 FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
 ENV PYTHONUNBUFFERED=1 COMFY_DIR=/comfyui
 
