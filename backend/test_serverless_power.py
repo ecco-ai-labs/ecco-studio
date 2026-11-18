@@ -97,6 +97,26 @@ class ServerlessPowerTest(unittest.TestCase):
         self.assertIn('workersMin exceeds account limit', caught.exception.message)
         self.assertFalse(power.status(now=lambda: 1001)['on'])
 
+    def test_on_restores_max_workers_when_they_were_set_to_zero(self):
+        # 16 Nov: max workers were set to 0 by hand, so On was refused on every endpoint.
+        endpoint = {'id': 'img1', 'name': 'ecco-images', 'gpuIds': 'AMPERE_80', 'idleTimeout': 180, 'workersMax': 0, 'workersMin': 0}
+        runpod = FakeRunPod(http_error(400, b'{"error":"workersMin cannot exceed workersMax"}'),
+                            {'data': {'myself': {'endpoints': [endpoint]}}}, {'data': {'saveEndpoint': {'id': 'img1'}}})
+        reply = self.on(runpod)
+        self.assertTrue(reply['on'])
+        self.assertNotIn('not_warmed', reply)
+        saved = runpod.calls[2][2]['variables']['input']
+        self.assertEqual((saved['id'], saved['workersMax']), ('img1', 1))
+        self.assertEqual([c[2] for c in runpod.patches()][:2], [{'workersMin': 1}, {'workersMin': 1}])
+
+    def test_runpod_failures_are_not_reported_as_502(self):
+        # RunPod's proxy swaps a 502 for its own page, and Studio then blamed the workspace storage.
+        refusal = http_error(503, b'busy')
+        with self.assertRaises(power.PowerError) as caught:
+            self.on(FakeRunPod(refusal, http_error(503, b'busy'), http_error(503, b'busy')))
+        self.assertEqual(caught.exception.code, 424)
+        self.assertIn('busy', caught.exception.message)
+
     def test_off_that_fails_somewhere_stays_on_so_it_is_retried(self):
         runpod = FakeRunPod()
         self.on(runpod)
