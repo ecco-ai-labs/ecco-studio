@@ -30,7 +30,9 @@ async function setup(storage={}, {autoConnect=false,records=null}={}){
  state=window.fixtureState;
  window.testCalls=[];api=async(path,body)=>{window.testCalls.push({path,body});if(path==='stories'){const record={id:'created-story',kind:'story',...body};state.records.push(record);return record;}return {};};refresh=async()=>true;}`);
  await tick();w.sessionStorage.setItem('ecco-guided-mode','on');
- const q=s=>w.document.querySelector(s),nav=()=>[...w.document.querySelectorAll('#workspace-production-group .journey-step')].filter(b=>!b.hidden).map(b=>b.dataset.page);
+ const q=s=>w.document.querySelector(s),sidebar=()=>[...w.document.querySelectorAll('#workspace-production-group .journey-step')].filter(b=>!b.hidden).map(b=>b.dataset.page);
+ // The sidebar lists only Describe Your Story (owner request 18 Nov 2026); the journey itself still has its steps.
+ const nav=()=>{assert.deepEqual(sidebar(),['story-setup']);return [...w.EccoWorkspaceUI.journeyStepIds()];};
  const choose=async value=>{const field=q('[name=story_format]');field.value=value;field.dispatchEvent(new w.Event('change',{bubbles:true}));await tick();};
  return {w,q,nav,choose,errors,close,async go(p){w.testUI.navigate(p);w.sessionStorage.setItem('ecco-guided-mode','on');w.EccoWorkspaceUI.selectJourneyStory(w.testUI.activeStory());await tick();},snapshot:()=>Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]))};
 }

@@ -536,12 +536,15 @@
   q('#model-nav')?.setAttribute('hidden','');q('#workspace-publish')?.remove();
  }
  function journeyGuide(){
-  const steps=currentJourneySteps(),format=storyFormat();
+  // The step guide still walks the whole journey; only the sidebar and home list are trimmed.
+  const steps=storyJourneySteps(),format=storyFormat();
   const root=q('#page');if(!root)return;
   let guide=q('#journey-guide');if(!guide){guide=document.createElement('section');guide.id='journey-guide';root.before(guide);}
   const index=steps.findIndex(step=>step[0]===page||(step[0]==='board'&&page==='director'));
   root.classList.toggle('story-journey-fields',index>=0||page==='story-collections'||page==='publish');
-  guide.hidden=index<0||document.body.classList.contains('workspace-entry-mode');if(index<0)return;
+  // Image Studio is a studio now, not a journey step: no step guide on it (owner request 18 Nov 2026).
+  const studio=page==='images'&&!!window.EccoImageWorkspace;
+  guide.hidden=index<0||studio||document.body.classList.contains('workspace-entry-mode');if(index<0||studio)return;
   const step=steps[index],signature=page+':'+activeStory+':'+format+':'+steps.length;
   if(guide.dataset.signature===signature)return;guide.dataset.signature=signature;
   guide.innerHTML='<div><small>STEP '+(index+1)+' OF '+steps.length+'</small><h2>'+step[1]+'</h2><p>'+step[2]+'</p></div><div class="journey-actions">'+(index?'<button type="button" class="secondary" data-back>Back</button>':'')+(index<steps.length-1?'<button type="button" class="secondary" data-next>Next: '+steps[index+1][1]+'</button>':'')+'</div>';
@@ -672,7 +675,7 @@
    dispose(){if(parking){parking.remove();parking=null;}}
   };
  }
- window.EccoWorkspaceUI={capturePopupContext,openLocalStory:storySetupPage,refreshJourney(){productionGroup();journeyGuide();},openLibrary(kind){if(kind==='video')libraryOverview('video');else if(kind==='audio')navigate('audio-library');},labelDialog,createFolder,uploadDialog,uploadVideoDialog,uploadStoryDialog,deleteStory,deleteLocalStory,localStoryDrafts,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
+ window.EccoWorkspaceUI={capturePopupContext,journeyStepIds:()=>storyJourneySteps().map(([target])=>target).filter(target=>!['board','journey-preview'].includes(target)),openLocalStory:storySetupPage,refreshJourney(){productionGroup();journeyGuide();},openLibrary(kind){if(kind==='video')libraryOverview('video');else if(kind==='audio')navigate('audio-library');},labelDialog,createFolder,uploadDialog,uploadVideoDialog,uploadStoryDialog,deleteStory,deleteLocalStory,localStoryDrafts,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
  const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
  modernize();welcomePage();
 })();
