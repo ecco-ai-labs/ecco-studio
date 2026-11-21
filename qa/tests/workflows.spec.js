@@ -512,6 +512,23 @@ test('IMG-L3-05 ✦ Ideas turns a rough prompt into three picture descriptions; 
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L3-06 more shapes and Fast quality appear only when the server offers them',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await expect(ws.locator('[data-input=genQuality]')).toHaveCount(0);
+  expect(await ws.locator('[data-input=genShape] option').allTextContents()).toEqual(['Wide 16:9','Square 1:1','Tall 9:16']);
+  await page.evaluate(()=>{state.config.image_sizes={'qwen-image-2512':['1664x928','1328x1328','928x1664','1472x1104','1104x1472','1584x1056','1056x1584']};state.config.image_fast={'qwen-image-2512':true,'qwen-image-edit-2511':true};window.EccoImageWorkspace.draw(true);});
+  await expect(ws.locator('[data-input=genQuality]')).toHaveValue('fast');
+  expect(await ws.locator('[data-input=genShape] option').allTextContents()).toEqual(['Wide 16:9','Square 1:1','Tall 9:16','Landscape 4:3','Portrait 3:4','Photo 3:2','Poster 2:3']);
+  await ws.locator('[data-input=genShape]').selectOption('1472x1104');
+  await ws.locator('[data-input=genPrompt]').fill('A harbour at dawn');await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'images').then(c=>c.length)).toBe(1);
+  const sent=(await imageCalls(page,'images'))[0];expect(sent.quality).toBe('fast');expect(sent.resolution).toBe('1472x1104');
+  await ws.locator('[data-input=genQuality]').selectOption('best');await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'images').then(c=>c.length)).toBe(2);expect((await imageCalls(page,'images'))[1].quality).toBeUndefined();
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){

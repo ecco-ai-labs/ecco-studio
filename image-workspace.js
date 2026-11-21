@@ -26,7 +26,7 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',ideas:[],search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',ideas:[],search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
@@ -74,6 +74,10 @@
  const modelName=()=>usesEdit()?MODEL_CATALOG[EDIT_MODEL]?.name||'Qwen Image Edit':ws.step==='image'&&(ws.src==='generate'||ws.src==='set')||!ws.selected.length?MODEL_CATALOG[imageModel()].name:MODEL_CATALOG[EDIT_MODEL]?.name||'Qwen Image Edit';
  // More picture shapes appear once the server lists them (state.config.image_sizes); until then the model's own sizes.
  const shapeList=()=>J.shapes(MODEL_CATALOG[imageModel()].sizes,state.config?.image_sizes?.[imageModel()]);
+ // Fast mode (Lightning LoRA, 8 steps) is offered once the server reports it (state.config.image_fast); it is then the default.
+ const fastReady=model=>!!state.config?.image_fast?.[model];
+ const quality=()=>ws.genQuality||(fastReady(imageModel())?'fast':'best');
+ const qualitySelect=()=>fastReady(imageModel())||fastReady(EDIT_MODEL)?'<label>Quality<select data-input="genQuality"><option value="fast"'+(quality()==='fast'?' selected':'')+'>Fast · about 15 s</option><option value="best"'+(quality()==='best'?' selected':'')+'>Best · about 1 min</option></select></label>':'';
  function requireCompute(){const gpu=computeId();if(!gpu)throw Error('Connect Serverless or a GPU in Compute first.');return gpu;}
  async function waitFor(job){
   const started=Date.now();
@@ -110,14 +114,14 @@
  async function request(prompt,{style='',shape='',seed=null,chars=[]}={}){
   const gpu=requireCompute();
   if(chars.length){
-   const config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(seed!=null)settings.seed=seed;
+   const config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(seed!=null)settings.seed=seed;if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
    if(!config.generation_controls_version&&chars.length>1)throw Error('The connected GPU needs the multi-reference update to use several characters.');
    const full=styled(prompt,style);if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
    return {kind:'edit',path:'image-edits',payload:{gpu,character_ids:chars,prompt:full,story_id:activeStory,...settings}};
   }
   const model=imageModel();await window.EccoCompute.validate(gpu,model);
   const payload=modelPayload('images',gpu,model);if(shape&&(MODEL_CATALOG[model].sizes?.includes(shape)||state.config?.image_sizes?.[model]?.includes(shape)))payload.resolution=shape;
-  if(seed!=null)payload.seed=seed;
+  if(seed!=null)payload.seed=seed;if(quality()==='fast'&&fastReady(model))payload.quality='fast';
   const full=styled(prompt,style);if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
   return {kind:'image',path:'images',payload:{...payload,prompt:full,negative:style?window.EccoImageStyles.negative('',style):'',story_id:activeStory}};
  }
@@ -227,6 +231,7 @@
    +'<div class="iw-pair">'+styleSelect('genStyle',ws.genStyle)+shapeSelect('genShape',ws.genShape,!!char)+'</div>'
    +'<div class="iw-pair"><label>Pictures<select data-input="genCount">'+[1,2,3,4].map(n=>'<option value="'+n+'"'+(n===count?' selected':'')+'>'+n+'</option>').join('')+'</select></label>'
    +'<label>Character<select data-input="genCharacter"><option value="">No character</option>'+chars.map(c=>'<option value="'+esc(c.id)+'"'+(c.id===ws.genCharacter?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></label></div>'
+   +(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')
    +(char?'<p class="help">'+esc(char.name)+' keeps the same look. The shape follows the character picture.</p>':'')
    +'<button type="button" data-act="generate"'+(ws.genPrompt.trim()?'':' disabled')+'>'+(count>1?'Generate '+count+' pictures':'Generate image')+'</button>'
    +(live.length?'<div class="iw-jobs" aria-label="Pictures in progress">'+live.map((j,i)=>jobCard(j,'Picture '+(i+1)+' · '+String(j.prompt||'').slice(0,40))).join('')+'</div>':'')
@@ -239,7 +244,7 @@
    +'<label>Set name<input type="text" data-input="setName" maxlength="80" value="'+esc(s.name)+'" placeholder="For example: The Fox and the Lantern"></label>'
    +'<div class="iw-group"><span id="iw-set-chars">Characters<span class="help"> Pick up to 3 · they look the same on every page</span></span>'+(chars.length?'<div class="iw-options" role="group" aria-labelledby="iw-set-chars">'+chars.map(c=>'<button type="button" class="iw-chip" data-act="set-char" data-id="'+esc(c.id)+'" aria-pressed="'+s.chars.includes(c.id)+'">'+esc(c.name)+'</button>').join('')+'</div>':'<p class="help">No characters yet. Select an image in Selected Images and choose Save as character.</p>')+'</div>'
    +(one?'<div class="iw-row"><button type="button" class="secondary" data-act="sheet">Make '+esc(one.name)+' character sheet (6 views)</button></div>':'')
-   +'<div class="iw-pair">'+styleSelect('setStyle',s.style)+shapeSelect('setShape',s.shape,s.chars.length>0)+'</div>'
+   +'<div class="iw-pair">'+styleSelect('setStyle',s.style)+shapeSelect('setShape',s.shape,s.chars.length>0)+'</div>'+(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')
    +'<div class="iw-head"><label for="iw-set-pages">Pages</label><button type="button" class="pdf-ai-icon" data-act="write-pages" aria-label="Write pages from the first line" title="Write pages"'+(busy.pages||!s.pagesText.trim()?' disabled':'')+'>'+(busy.pages?spinner:'<span aria-hidden="true">✦</span>')+'</button></div>'
    +'<textarea id="iw-set-pages" data-input="setPages" rows="7" maxlength="6000" placeholder="One line per page, for example:&#10;The fox finds a lantern in the snow&#10;The fox follows the light into the forest&#10;Or write one idea and press ✦">'+esc(s.pagesText)+'</textarea>'
    +'<button type="button" data-act="make-set"'+(lines.length&&!live?'':' disabled')+'>'+(lines.length?'Generate '+lines.length+(lines.length===1?' page':' pages'):'Generate pages')+'</button>'
@@ -534,7 +539,7 @@
   }
   unsaved([],ids);await refresh();ws.published=true;notice(ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library.');
  }
- const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;}};
+ const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';}};
  function input(el){
   const k=el.dataset.input;
   if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles())&&e.drafts.length<DRAFTS);save();return;}

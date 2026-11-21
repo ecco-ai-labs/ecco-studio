@@ -98,10 +98,27 @@ QWEN_FILES=('diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors','text_enco
 def qwen_ready():
     return all((COMFY_ROOT/'models'/name).is_file() for name in QWEN_FILES)
 
+# Image Level 2-3 (21 Nov 2026): Qwen-Image-2512's native sizes (16:9, 1:1, 9:16, 4:3, 3:4, 3:2, 2:3) and the
+# optional Lightning step-distilled LoRAs ("Fast": 8 steps for pictures, 4 for edits). A LoRA is used only when its
+# file is on the models volume; Studio advertises what is ready in config.image_sizes / config.image_fast.
+QWEN_SIZES=('1664x928','1328x1328','928x1664','1472x1104','1104x1472','1584x1056','1056x1584')
+FAST_LORAS={'qwen-image-2512':('Qwen-Image-2512-Lightning-8steps*.safetensors','Qwen-Image-Lightning-8steps*.safetensors','Qwen-Image-2512-Lightning-4steps*.safetensors'),
+            'qwen-image-edit-2511':('Qwen-Image-Edit-2511-Lightning-4steps*.safetensors',)}
+FAST_STEPS={'qwen-image-2512':8,'qwen-image-edit-2511':4}
+def fast_steps(model,lora):return 4 if '4steps' in lora else 8 if '8steps' in lora else FAST_STEPS[model]
+def fast_lora(model):
+    folders=[COMFY_ROOT/'models'/'loras',Path(os.getenv('ECCO_VOLUME_LORAS','/runpod-volume/ComfyUI/models/loras'))]
+    for pattern in FAST_LORAS.get(model,()):
+        for folder in folders:
+            try:found=sorted(p.name for p in folder.glob(pattern) if p.is_file())
+            except OSError:found=[]
+            if found:return found[0]
+    return ''
+
 def qwen_image_graph(p, ident):
     return {
         '1':node('UNETLoader',unet_name='qwen_image_2512_fp8_e4m3fn.safetensors',weight_dtype='default'),
-        '2':node('ModelSamplingAuraFlow',model=['1',0],shift=3.1),
+        '2':node('ModelSamplingAuraFlow',model=['11',0] if p.get('fast_lora') else ['1',0],shift=3.1),
         '3':node('CLIPLoader',clip_name='qwen_2.5_vl_7b_fp8_scaled.safetensors',type='qwen_image',device='default'),
         '4':node('VAELoader',vae_name='qwen_image_vae.safetensors'),
         '5':node('CLIPTextEncode',text=p['prompt'],clip=['3',0]),
@@ -109,7 +126,8 @@ def qwen_image_graph(p, ident):
         '7':node('EmptySD3LatentImage',width=p['width'],height=p['height'],batch_size=1),
         '8':node('KSampler',model=['2',0],positive=['5',0],negative=['6',0],latent_image=['7',0],seed=p['seed'],steps=p['steps'],cfg=p['cfg'],sampler_name='euler',scheduler='simple',denoise=1),
         '9':node('VAEDecode',samples=['8',0],vae=['4',0]),
-        '10':node('SaveImage',images=['9',0],filename_prefix=f'ecco-studio/{ident}')}
+        '10':node('SaveImage',images=['9',0],filename_prefix=f'ecco-studio/{ident}'),
+        **({'11':node('LoraLoaderModelOnly',model=['1',0],lora_name=p['fast_lora'],strength_model=1.0)} if p.get('fast_lora') else {})}
 
 def base_image_graph(p, ident):
     if p.get('model')=='qwen-image-2512': return qwen_image_graph(p,ident)
@@ -264,7 +282,7 @@ def create_image(body):
     model=body.get('model','sdxl')
     if model not in ('sdxl','qwen-image-2512') or (model=='qwen-image-2512' and not qwen_ready()): raise Problem('Selected image model is not installed and integrated',503)
     is_qwen=model=='qwen-image-2512'
-    sizes=('1664x928','1328x1328','928x1664') if is_qwen else ('1024x576','1024x1024','768x1024')
+    sizes=QWEN_SIZES if is_qwen else ('1024x576','1024x1024','768x1024')
     width,height=resolution(body.get('resolution',sizes[0]),sizes)
     sampler=body.get('sampler','euler' if is_qwen else 'dpmpp_2m'); scheduler=body.get('scheduler','simple' if is_qwen else 'karras')
     if is_qwen:
@@ -272,6 +290,10 @@ def create_image(body):
     elif sampler not in ('dpmpp_2m','euler') or scheduler not in ('karras','normal'): raise Problem('Unsupported sampler or scheduler')
     p={'model':model,'width':width,'height':height,'sampler':sampler,'scheduler':scheduler,'prompt':text(body.get('prompt')), 'negative':str(body.get('negative','blurry, bad anatomy, watermark'))[:2000],
        'seed':number(body.get('seed',42),0,2**53-1,True),'steps':number(body.get('steps',50 if is_qwen else 25),5,60,True),'cfg':number(body.get('cfg',4 if is_qwen else 7),1,15)}
+    if is_qwen and body.get('quality')=='fast':
+        lora=fast_lora(model)
+        if not lora: raise Problem('Fast mode is not installed yet. Choose Best quality.',503)
+        p.update(fast_lora=lora,steps=fast_steps(model,lora),cfg=1.0,quality='fast')
     p.update(image_style=body['image_style'],source_prompt=body['source_prompt'])
     source_id=body.get('source_asset_id')
     if source_id:
@@ -392,9 +414,9 @@ def trash_asset(body):
 def qwen_edit_ready():
     return qwen_ready() and (COMFY_ROOT/'models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors').is_file()
 
-def edit_graph(prompt,files,ident,seed=42,steps=40,cfg=3):
+def edit_graph(prompt,files,ident,seed=42,steps=40,cfg=3,lora='',size=None):
     g={'1':node('UNETLoader',unet_name='qwen_image_edit_2511_fp8mixed.safetensors',weight_dtype='default'),
-       '2':node('ModelSamplingAuraFlow',model=['1',0],shift=3.1),
+       '2':node('ModelSamplingAuraFlow',model=['14',0] if lora else ['1',0],shift=3.1),
        '3':node('CFGNorm',model=['2',0],strength=1.0),
        '4':node('CLIPLoader',clip_name='qwen_2.5_vl_7b_fp8_scaled.safetensors',type='qwen_image',device='default'),
        '5':node('VAELoader',vae_name='qwen_image_vae.safetensors')}
@@ -407,19 +429,33 @@ def edit_graph(prompt,files,ident,seed=42,steps=40,cfg=3):
               '9':node('VAEEncode',pixels=['8',0],vae=['5',0]),
               '10':node('KSampler',model=['3',0],positive=['6',0],negative=['7',0],latent_image=['9',0],seed=seed,steps=steps,cfg=cfg,sampler_name='euler',scheduler='simple',denoise=1),
               '11':node('VAEDecode',samples=['10',0],vae=['5',0]),
-              '12':node('SaveImage',images=['11',0],filename_prefix='ecco-studio/'+ident)})
+              '12':node('SaveImage',images=['13',0] if size else ['11',0],filename_prefix='ecco-studio/'+ident)})
+    if lora:g['14']=node('LoraLoaderModelOnly',model=['1',0],lora_name=lora,strength_model=1.0)
+    # The edit model works near one megapixel; the result is scaled back to the first picture's own size so an edit
+    # never comes back smaller than its source (live test 21 Nov: 1664x928 came back 1392x752).
+    if size:g['13']=node('ImageScale',image=['11',0],upscale_method='lanczos',width=size[0],height=size[1],crop='disabled')
     return g
 
-def edited_asset(jid,source_ids,prompt,sid,seed=42,extra=None,steps=40,cfg=3):
+def source_size(path,limit=2048):
+    try:
+        from PIL import Image
+        with Image.open(path) as im:w,h=im.size
+    except Exception:return None
+    scale=min(1.0,limit/max(w,h));w,h=max(64,int(w*scale)//8*8),max(64,int(h*scale)//8*8)
+    return (w,h)
+
+def edited_asset(jid,source_ids,prompt,sid,seed=42,extra=None,steps=40,cfg=3,quality=''):
     aid=uuid.uuid4().hex;targets=[]
     try:
         for i,source in enumerate(source_ids):
             a=get(source,'asset')
             if a.get('deleted'):raise Problem('A reference image is in Trash')
             target=COMFY_ROOT/'input'/f'ecco-edit-{aid}-{i}.png';shutil.copyfile(asset_path(a),target);targets.append(target)
-        graph=edit_graph(prompt,[p.name for p in targets],aid,seed,steps,cfg)
+        lora=fast_lora('qwen-image-edit-2511') if quality=='fast' else ''
+        if lora:steps,cfg=fast_steps('qwen-image-edit-2511',lora),1.0
+        graph=edit_graph(prompt,[p.name for p in targets],aid,seed,steps,cfg,lora,source_size(targets[0]) if targets else None)
         output=comfy_execute(graph,jid)[0];rel=f'image-dev/{aid}.png';shutil.copyfile(output,DATA/rel)
-        return save(dict(id=aid,kind='asset',created=time.time(),media='image',stage='dev',story_id=sid,path=rel,prompt=prompt,settings={'model':'qwen-image-edit-2511','steps':steps,'cfg':cfg,'seed':seed,'reference_ids':source_ids},job_id=jid,sync='pending',workflow=graph,**(extra or {})))
+        return save(dict(id=aid,kind='asset',created=time.time(),media='image',stage='dev',story_id=sid,path=rel,prompt=prompt,settings={'model':'qwen-image-edit-2511','steps':steps,'cfg':cfg,'seed':seed,'reference_ids':source_ids,**({'quality':'fast'} if lora else {})},job_id=jid,sync='pending',workflow=graph,**(extra or {})))
     finally:
         for target in targets:target.unlink(missing_ok=True)
 
@@ -445,6 +481,9 @@ def create_edit(body):
         if a.get('media')!='image' or a.get('deleted') or a.get('story_id',LEGACY_STORY)!=sid:raise Problem('Choose an image from this story')
         refs=[a['id']]
     settings={'seed':number(body.get('seed',42),0,2**53-1,True),'steps':number(body.get('steps',40),5,60,True),'cfg':number(body.get('cfg',3),1,15)}
+    if body.get('quality')=='fast':
+        if not fast_lora('qwen-image-edit-2511'):raise Problem('Fast mode is not installed yet. Choose Best quality.',503)
+        settings['quality']='fast'
     return launch('Instruction edit / compose scene',lambda jid:edited_asset(jid,refs,prompt,sid,**settings)['id'],metadata={'media':'image','story_id':sid})
 
 def create_character_sheet(body):
@@ -710,7 +749,7 @@ def runtime_status():
 
 def state():
     channel_file=DATA/'youtube-channel.json'
-    return {'csrf':CSRF,'records':records(),'config':{'video_gpus':__import__('gpu_dispatch').options(),'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),'session_cost':session_cost(),'billing':billing_status(),'model_settings_version':1,'generation_controls_version':1,'models_ready':{'qwen-story':__import__('story_director').planner_ready(),'qwen-image-2512':qwen_ready(),'qwen-image-edit-2511':qwen_edit_ready(),'sdxl':(COMFY_ROOT/'models/checkpoints/sd_xl_base_1.0.safetensors').is_file(),'wan-5b':wan_ready(),'wan-a14b':wan_a14b_ready(),'preview':bool(shutil.which('ffmpeg'))},'repo':REPO,'channel':'https://www.youtube.com/@EccoAILabs','hourly_rate':RATE,'github_connected':bool(github_token()),'youtube_configured':bool(secret_file('YOUTUBE_CLIENT_SECRET_FILE')),'youtube_channel':json.loads(channel_file.read_text()) if channel_file.exists() else None,'wan_ready':wan_ready(),'ffmpeg':bool(shutil.which('ffmpeg'))}}
+    return {'csrf':CSRF,'records':records(),'config':{'video_gpus':__import__('gpu_dispatch').options(),'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),'session_cost':session_cost(),'billing':billing_status(),'model_settings_version':1,'generation_controls_version':1,'image_sizes':{'qwen-image-2512':list(QWEN_SIZES)},'image_fast':{m:bool(fast_lora(m)) for m in FAST_LORAS},'image_edit_full_size':True,'models_ready':{'qwen-story':__import__('story_director').planner_ready(),'qwen-image-2512':qwen_ready(),'qwen-image-edit-2511':qwen_edit_ready(),'sdxl':(COMFY_ROOT/'models/checkpoints/sd_xl_base_1.0.safetensors').is_file(),'wan-5b':wan_ready(),'wan-a14b':wan_a14b_ready(),'preview':bool(shutil.which('ffmpeg'))},'repo':REPO,'channel':'https://www.youtube.com/@EccoAILabs','hourly_rate':RATE,'github_connected':bool(github_token()),'youtube_configured':bool(secret_file('YOUTUBE_CLIENT_SECRET_FILE')),'youtube_channel':json.loads(channel_file.read_text()) if channel_file.exists() else None,'wan_ready':wan_ready(),'ffmpeg':bool(shutil.which('ffmpeg'))}}
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt,*args): pass # OAuth codes must never enter access logs.
