@@ -16,6 +16,8 @@ that fails is remade once; if it still fails it is filed with checks.status = "n
 State is kept in /workspace/ecco-model-sounds/state.json, so the script can be stopped and run again.
 """
 import argparse
+import concurrent.futures
+import threading
 import difflib
 import hashlib
 import json
@@ -42,6 +44,8 @@ COMPUTE = 'a100'
 WHISPER = 'whisper-large-v3-turbo'
 CLAP = 'laion/clap-htsat-unfused'
 IN_FLIGHT = 3          # the storage service allows four audio jobs at once; one stays free for people
+CHECKERS = 4           # checks (listen-back) run beside generation
+LOCK = threading.RLock()
 
 # ---------------------------------------------------------------- human voices
 QWEN_LANGS = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Japanese', 'Chinese', 'Korean', 'Russian']
@@ -445,7 +449,9 @@ def load_state():
 def write_state(state):
     HOME.mkdir(parents=True, exist_ok=True)
     temp = HOME / 'state.json.tmp'
-    temp.write_text(json.dumps(state, ensure_ascii=False, indent=1))
+    with LOCK:
+        text = json.dumps(state, ensure_ascii=False, indent=1)
+    temp.write_text(text)
     temp.replace(HOME / 'state.json')
 
 
@@ -460,28 +466,29 @@ def submit(item, attempt):
 def finish(item, job, attempt, state, digests):
     asset = record(job['asset_id'])
     results = check(item, asset)
-    dup = digests.get(asset['sha256'])
-    if dup and dup != item['key']:
-        results['problems'].append('same audio as ' + dup)
-    entry = state.setdefault(item['key'], {})
-    entry.update(asset_id=asset['id'], attempt=attempt, results=results)
-    if results['problems'] and attempt == 1:
-        entry['status'] = 'remake'
-        asset['deleted'] = True
-        asset['deleted_reason'] = 'Model Sounds remake: ' + '; '.join(results['problems'])
+    with LOCK:
+        dup = digests.get(asset['sha256'])
+        if dup and dup != item['key']:
+            results['problems'].append('same audio as ' + dup)
+        entry = state.setdefault(item['key'], {})
+        entry.update(asset_id=asset['id'], attempt=attempt, results=results)
+        if results['problems'] and attempt == 1:
+            entry['status'] = 'remake'
+            asset['deleted'] = True
+            asset['deleted_reason'] = 'Model Sounds remake: ' + '; '.join(results['problems'])
+            save(asset)
+            return False
+        status = 'needs_listen' if results['problems'] else 'passed'
+        entry['status'] = status
+        digests[asset['sha256']] = item['key']
+        settings = asset.get('settings') or {}
+        asset['title'] = item['title']
+        asset['model_sound'] = {**item['meta'], 'path': item['path'], 'settings': {k: settings.get(k) for k in
+                                ('model', 'seed', 'duration', 'kind', 'sample_rate', 'channels', 'genre', 'worker_compute') if k in settings},
+                                'lines': settings.get('lines'), 'checks': {'status': status, **results}, 'made': time.time()}
         save(asset)
-        return False
-    status = 'needs_listen' if results['problems'] else 'passed'
-    entry['status'] = status
-    digests[asset['sha256']] = item['key']
-    settings = asset.get('settings') or {}
-    asset['title'] = item['title']
-    asset['model_sound'] = {**item['meta'], 'path': item['path'], 'settings': {k: settings.get(k) for k in
-                            ('model', 'seed', 'duration', 'kind', 'sample_rate', 'channels', 'genre', 'worker_compute') if k in settings},
-                            'lines': settings.get('lines'), 'checks': {'status': status, **results}, 'made': time.time()}
-    save(asset)
-    api('audio/labels', {'asset_id': asset['id'], 'title': item['title'], 'folder_ids': [folder(item['path'])]})
-    return True
+        api('audio/labels', {'asset_id': asset['id'], 'title': item['title'], 'folder_ids': [folder(item['path'])]})
+        return True
 
 
 def run(limit=None, only=None):
@@ -491,8 +498,24 @@ def run(limit=None, only=None):
     todo = [i for i in items if state.get(i['key'], {}).get('status') not in ('passed', 'needs_listen')][:limit]
     print(f'{len(items)} samples planned; {len(todo)} to make', flush=True)
     flight = {}  # job id -> (item, attempt)
+    pool, checking = concurrent.futures.ThreadPoolExecutor(CHECKERS), {}
+
+    def finish_safe(item, job, attempt):
+        try:
+            ok = finish(item, job, attempt, state, digests)
+        except Exception as exc:
+            ok = True
+            with LOCK:
+                state.setdefault(item['key'], {}).update(status='needs_listen', error='check failed: ' + str(exc)[:200], asset_id=job['asset_id'])
+        with LOCK:
+            if not ok:
+                queue_.append((item, 2))
+            print(item['key'], state[item['key']].get('status'), flush=True)
+            write_state(state)
     queue_ = [(i, 2 if state.get(i['key'], {}).get('status') == 'remake' else 1) for i in todo]
-    while queue_ or flight:
+    while queue_ or flight or checking:
+        for f in [f for f in checking if f.done()]:
+            checking.pop(f)
         while queue_ and len(flight) < IN_FLIGHT:
             item, attempt = queue_.pop(0)
             try:
@@ -513,15 +536,7 @@ def run(limit=None, only=None):
                 continue
             if job['status'] == 'done' and job.get('asset_id'):
                 del flight[jid]
-                try:
-                    ok = finish(item, job, attempt, state, digests)
-                except Exception as exc:
-                    ok = True
-                    state.setdefault(item['key'], {}).update(status='needs_listen', error='check failed: ' + str(exc)[:200], asset_id=job['asset_id'])
-                if not ok:
-                    queue_.append((item, 2))
-                print(item['key'], state[item['key']].get('status'), flush=True)
-                write_state(state)
+                checking[pool.submit(finish_safe, item, job, attempt)] = item['key']
             elif job['status'] in ('error', 'cancelled') or time.time() - began > 1800:
                 del flight[jid]
                 entry = state.setdefault(item['key'], {})
@@ -532,6 +547,7 @@ def run(limit=None, only=None):
                     entry.update(status='failed', error=(job.get('error') or 'timed out')[:300])
                 print(item['key'], 'job', job['status'], (job.get('error') or '')[:120], flush=True)
                 write_state(state)
+    pool.shutdown(wait=True)
     write_state(state)
     report()
 
