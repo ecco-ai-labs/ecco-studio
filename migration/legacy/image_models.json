@@ -1,0 +1,10 @@
+{
+  "_note": "Picture models (Model Garden). Select Model and the queue tabs read this list. Add a model here with its endpoint group; speed is measured from its last finished jobs.",
+  "models": [
+    {"id": "qwen-image-2512", "name": "Qwen-Image-2512", "group": "images", "default": true, "edit": false, "quality": 4, "quality_label": "High", "seconds": 60},
+    {"id": "flux-klein-4b", "name": "FLUX.2 klein 4B", "group": "images", "edit": false, "quality": 2, "quality_label": "Draft", "seconds": 25},
+    {"id": "z-image", "name": "Z-Image", "group": "images", "edit": false, "quality": 4, "quality_label": "High", "seconds": 40},
+    {"id": "sdxl", "name": "SDXL", "group": "images", "edit": false, "quality": 3, "quality_label": "Good", "seconds": 30},
+    {"id": "qwen-image-edit-2511", "name": "Qwen Image Edit 2511", "group": "imageedit", "default": true, "edit": true, "quality": 4, "quality_label": "High", "seconds": 120}
+  ]
+}

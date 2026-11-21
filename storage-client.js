@@ -87,6 +87,8 @@
  };
  gpuConnected=()=>window.EccoGPUConnection.ready;
  async function inferenceRequest(path,body){
+  // Generation queue (20 Nov 2026): picture jobs and queue actions carry the signed-in user, who sees only their own jobs.
+  if(/^(images|image-edits|queue\/)/.test(path)&&body&&typeof body==='object'&&!body.owner)body={...body,owner:window.EccoAuth?.user?.email||''};
   const request_id=crypto.randomUUID().replaceAll('-',''),gpu=body?.gpu||selectedGPU;
   if(!connectedGPUs.has(gpu))throw Error('Connect the selected accelerator before generating.');
   if(!isGPUConnected(gpu)){await window.EccoGPUConnection.check({id:gpu});if(!isGPUConnected(gpu))throw Error('Saved GPU connection is temporarily unavailable. No generation was submitted.');}
