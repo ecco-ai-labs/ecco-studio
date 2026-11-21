@@ -706,6 +706,30 @@ test('IMG-L5-02 script to boards: a pasted script becomes one shot per line with
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L5-03 scale: 250,000 pictures in Image Library draw 60 tiles at a time, search stays quick, and the server sets how many pictures go at once',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  const made=await page.evaluate(()=>{const t=performance.now();for(let i=0;i<250000;i++)state.records.push({id:'bulk-'+i,kind:'asset',media:'image',stage:'prod',story_id:'qa-story',title:(i%1000===7?'Harbour ':'Picture ')+i,path:'qa/fixtures/sample.svg',created:1600000000+i});
+    for(let i=0;i<300;i++)state.records.push({id:'bulk-item-'+i,kind:'library_item',asset_id:'bulk-'+(i*7),folder_id:'bulk-folder'});state.records.push({id:'bulk-folder',kind:'image_folder',name:'Bulk label',created:1});
+    for(let i=0;i<250000;i++)mediaCache.set('bulk-'+i,'/qa/fixtures/sample.svg');return performance.now()-t;});
+  expect(made).toBeGreaterThan(0);
+  const t0=Date.now();await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await expect(ws.locator('.iw-library .iw-tile')).toHaveCount(60);expect(Date.now()-t0).toBeLessThan(5000);
+  await expect(ws.getByText(/^Showing 60 of 250,00\d$/)).toBeVisible();
+  await ws.getByRole('button',{name:'Show 60 more',exact:true}).click();await expect(ws.locator('.iw-library .iw-tile')).toHaveCount(120);
+  const t1=Date.now();await ws.locator('[data-input=search]').fill('harbour');
+  await expect(ws.getByText('Showing 60 of 250')).toBeVisible();expect(Date.now()-t1).toBeLessThan(3000);
+  await ws.locator('[data-input=label]').selectOption('bulk-folder');
+  await expect(ws.locator('.iw-library .iw-tile')).toHaveCount(1);await expect(ws.locator('.iw-library .iw-tile')).toHaveAttribute('aria-label',/Harbour 1407|Harbour/);
+  // Throughput: the server says how many pictures are sent at once.
+  await page.evaluate(()=>{state.config.image_parallel=10;});await holdImageJobs(page);
+  await ws.getByRole('tab',{name:'Picture Set',exact:true}).click();
+  await ws.locator('[data-input=setPages]').fill(Array.from({length:14},(_,i)=>'Page idea '+(i+1)).join('\n'));
+  await ws.getByRole('button',{name:'Generate 14 pages',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'images').then(c=>c.length)).toBe(10);
+  await page.waitForTimeout(600);expect(await imageCalls(page,'images')).toHaveLength(10);
+  await expect(ws.getByText('Waiting its turn · 10 pictures are sent at a time').first()).toBeVisible();
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){

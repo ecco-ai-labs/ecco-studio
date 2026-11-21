@@ -8,7 +8,7 @@
  const compact=document.createElement('style');compact.textContent='#storage-access-dialog{width:min(480px,calc(100vw - 32px))}#storage-access-dialog .row{justify-content:flex-end;flex-wrap:wrap;gap:6px}#storage-access-dialog .row>button{flex:0 0 auto;padding:4px 8px;font-size:calc(12px - 2pt);min-height:28px}#storage-access-dialog .storage-key-field{position:relative;display:block}#storage-access-dialog .storage-key-field input{padding-right:40px}#storage-access-dialog .storage-key-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:30px;height:30px;padding:5px;background:transparent;color:var(--muted)}#storage-access-dialog .storage-key-toggle svg{width:18px;height:18px}#storage-access-dialog [data-disconnect]{margin-right:auto;background:transparent;color:var(--muted)}';document.head.append(compact);
  const gpuAPI=api;
 
- const inference=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','queue/move','queue/cancel','queue/cancel-all']);
+ const inference=new Set(['images','videos','image-edits','image-resize','image-upscale','character-sheets','director/create','director/regenerate','video-jobs/cancel','queue/move','queue/cancel','queue/cancel-all']);
  let gpuHealth=[],gpuChecked=0,selectedGPU=localStorage.getItem('ecco-selected-gpu')||'';
  let connectedGPUs;
  try{const saved=JSON.parse(localStorage.getItem('ecco-connected-gpus'));connectedGPUs=new Set(Array.isArray(saved)?saved.filter(id=>typeof id==='string'):[selectedGPU].filter(Boolean));}
@@ -88,7 +88,7 @@
  gpuConnected=()=>window.EccoGPUConnection.ready;
  async function inferenceRequest(path,body){
   // Generation queue (20 Nov 2026): picture jobs and queue actions carry the signed-in user, who sees only their own jobs.
-  if(/^(images|image-edits|queue\/)/.test(path)&&body&&typeof body==='object'&&!body.owner)body={...body,owner:window.EccoAuth?.user?.email||''};
+  if(/^(images|image-edits|image-resize|image-upscale|queue\/)/.test(path)&&body&&typeof body==='object'&&!body.owner)body={...body,owner:window.EccoAuth?.user?.email||''};
   const request_id=crypto.randomUUID().replaceAll('-',''),gpu=body?.gpu||selectedGPU;
   if(!connectedGPUs.has(gpu))throw Error('Connect the selected accelerator before generating.');
   if(!isGPUConnected(gpu)){await window.EccoGPUConnection.check({id:gpu});if(!isGPUConnected(gpu))throw Error('Saved GPU connection is temporarily unavailable. No generation was submitted.');}
@@ -109,7 +109,7 @@
   throw Error('GPU submission is still unconfirmed. Check Activity before retrying; Studio has not submitted a duplicate.');
  }
 
- const generation=new Set(['images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel','github/sync','billing/connect','billing/refresh']);
+ const generation=new Set(['images','videos','image-edits','image-resize','image-upscale','character-sheets','director/create','director/regenerate','video-jobs/cancel','github/sync','billing/connect','billing/refresh']);
  window.EccoStorage={get ready(){return Boolean(key)&&!connecting;},endpoint,open:dialog,disconnect,reportError,mediaURL:async id=>{if(audioMedia.has(id))return audioMedia.get(id);const access=key,{buffer,mime}=await storageRequest('media/'+encodeURIComponent(id));if(access!==key)throw Error('Storage disconnected.');const url=URL.createObjectURL(new Blob([buffer],{type:mime||'audio/wav'}));audioMedia.set(id,url);return url;}};
  // Present CPU-owned audio jobs through the shared Activity job view.
  // This is a UI projection only; the durable record stays audio_job.

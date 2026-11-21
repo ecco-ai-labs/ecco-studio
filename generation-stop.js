@@ -3,7 +3,7 @@
  const operations=new Map(),pending=new Map(),known=new Map();
  const active=job=>['queued','running','cancelling','paused'].includes(job?.status);
  const key=(kind,story)=>kind+':'+story;
- const routes={'images':'image','image-edits':'image','character-sheets':'image','videos':'video','longcat/generate':'video','longcat/sequence':'video','audio/generate':'audio','audio/sounds/generate':'audio'};
+ const routes={'images':'image','image-edits':'image','image-resize':'image','image-upscale':'image','character-sheets':'image','videos':'video','longcat/generate':'video','longcat/sequence':'video','audio/generate':'audio','audio/sounds/generate':'audio'};
  const stopped=()=>Object.assign(Error('Stopped by user. Your draft and completed media are saved.'),{name:'GenerationStopped'});
  function begin(kind,story){const previous=operations.get(key(kind,story)),token={kind,story,ids:new Set(previous?.ids||[]),stopped:false,finished:false};operations.set(key(kind,story),token);update();return token;}
  function assert(token){if(token?.stopped)throw stopped();}

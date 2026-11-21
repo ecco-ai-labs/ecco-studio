@@ -38,7 +38,7 @@ class ImageLevel4(unittest.TestCase):
     def test_routes_and_config_are_wired(self):
         source = Path(studio.__file__).read_text()
         self.assertIn("path=='/api/image-resize'", source); self.assertIn("path=='/api/image-upscale'", source)
-        self.assertIn("'image_resize':qwen_edit_ready()", source); self.assertIn("'image_upscale':bool(upscale_model())", source)
+        self.assertIn("'image_resize':qwen_edit_ready()", source); self.assertIn("'image_parallel':", source); self.assertIn("'image_upscale':bool(upscale_model())", source)
 
 
 if __name__ == '__main__':

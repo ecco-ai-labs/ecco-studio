@@ -16,7 +16,9 @@
    - The screen is only rewritten when what it shows changes; live progress updates in place. */
 (()=>{
  const M=window.EccoImageWorkspaceModel,J=window.EccoImageJobs;
- const EDIT_MODEL='qwen-image-edit-2511',LIMIT=3,DRAFTS=3,IN_FLIGHT=6,CHARACTERS=3;
+ const EDIT_MODEL='qwen-image-edit-2511',LIMIT=3,DRAFTS=3,CHARACTERS=3,PAGE=60;
+ // How many pictures are sent to the server at once: the server says (config.image_parallel, Serverless workers), 6 otherwise.
+ const inFlight=()=>Math.max(1,Math.min(24,+state.config?.image_parallel||6));
  const q=(s,r=document)=>r.querySelector(s),all=(s,r=document)=>[...r.querySelectorAll(s)];
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const key=story=>'ecco-image-workspace:'+story;
@@ -26,7 +28,7 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
@@ -161,7 +163,7 @@
  }
  function pump(){
   const flying=ws.jobs.filter(j=>!j.done&&(j.id||(j.claimed&&Date.now()-Number(j.claimed.split(':')[1])<30000))).length;
-  let room=IN_FLIGHT-flying;
+  let room=inFlight()-flying;
   for(const j of ws.jobs){
    if(room<=0)break;
    if(j.done||j.id||(j.claimed&&Date.now()-Number(j.claimed.split(':')[1])<30000)||(j.retryAt&&Date.now()<j.retryAt))continue;
@@ -222,7 +224,7 @@
  function paintJobs(){
   for(const el of all('#image-workspace [data-job]')){
    const j=ws.jobs.find(x=>x.key===el.dataset.job);if(!j)continue;
-   const r=jobRecord(j.id),s=j.error&&!r?{state:'failed',text:j.error,pct:null,elapsed:'',left:''}:!j.id&&!j.claimed?{state:'waiting',text:'Waiting its turn · '+IN_FLIGHT+' pictures are sent at a time',pct:null,elapsed:'',left:''}:J.stage(r||(j.id?{status:'queued',created:j.created/1000}:null),Date.now(),queueInfo[j.id],typicalSeconds(j.kind,j.payload?.quality==='fast'));
+   const r=jobRecord(j.id),s=j.error&&!r?{state:'failed',text:j.error,pct:null,elapsed:'',left:''}:!j.id&&!j.claimed?{state:'waiting',text:'Waiting its turn · '+inFlight()+' pictures are sent at a time',pct:null,elapsed:'',left:''}:J.stage(r||(j.id?{status:'queued',created:j.created/1000}:null),Date.now(),queueInfo[j.id],typicalSeconds(j.kind,j.payload?.quality==='fast'));
    const text=q('[data-job-text]',el),time=q('[data-job-time]',el),bar=q('[data-job-bar]',el);
    if(text&&text.textContent!==s.text)text.textContent=s.text;
    const t=[s.elapsed&&s.state!=='done'?s.elapsed+' so far':s.elapsed,s.left].filter(Boolean).join(' · ').replace(/^(?=.)/,'· ');if(time&&time.textContent!==t)time.textContent=t;
@@ -322,17 +324,27 @@
     +'<div class="iw-row"><button type="button" class="secondary" data-act="set-zip"'+(made&&!busy.zip?'':' disabled')+'>'+(busy.zip?spinner+' Preparing…':'Download ZIP')+'</button><button type="button" class="secondary" data-act="set-pdf"'+(made?'':' disabled')+'>Print or save as PDF</button><button type="button" class="secondary" data-act="set-save"'+(made&&!busy.setSave?'':' disabled')+'>'+(busy.setSave?spinner+' Saving…':'Save set to Image Library')+'</button></div>':'')
    +'</section>';
  }
+ // Image Library at scale (IMG-5.3): the filtered list is worked out once per change of records, search or label,
+ // with label membership as one Set, and only PAGE tiles are drawn at a time (Show more adds the next PAGE).
+ let libMemo={key:'',images:[],shown:[]};
+ function libraryList(){
+  const recs=state.records,key=recs.length+'|'+(state.cursor??'')+'|'+(recs[recs.length-1]?.id||'')+'|'+ws.search.trim().toLowerCase()+'|'+ws.label+'|'+(localStorage.getItem(UNSAVED)||'');
+  if(libMemo.key===key&&libMemo.recs===recs&&Date.now()-libMemo.at<1500)return libMemo;
+  const images=[],saved=new Set(),inLabel=new Set();
+  for(const r of recs){if(r.deleted)continue;if(r.kind==='asset'&&r.media==='image')images.push(r);else if(r.kind==='library_item'){saved.add(r.asset_id);if(ws.label&&r.folder_id===ws.label)inLabel.add(r.asset_id);}}
+  images.sort((a,b)=>(b.created||0)-(a.created||0));
+  const term=ws.search.trim().toLowerCase();
+  // Pictures made in Image Generation stay out of Image Library until saved there (owner-approved mocks, 2026-11-16).
+  let hidden;try{hidden=new Set(JSON.parse(localStorage.getItem(UNSAVED))||[]);}catch{hidden=new Set();}
+  const shown=images.filter(a=>!(hidden.has(a.id)&&!saved.has(a.id))&&(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!ws.label||inLabel.has(a.id)));
+  libMemo={key,recs,images,shown,at:Date.now()};return libMemo;
+ }
  function sourcePane(){
   if(ws.src==='upload')return '<section class="pdf-review-box" aria-labelledby="iw-upload-heading"><strong class="pdf-review-heading" id="iw-upload-heading">Upload an Image</strong><input type="file" accept="image/png,image/jpeg,image/webp" multiple data-upload-file hidden><div class="story-upload-slot"><button type="button" class="story-upload-target" data-act="upload"'+(busy.upload?' disabled aria-busy="true"':'')+'>'+(busy.upload?spinner:'<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>')+(busy.upload?'Uploading…':'Upload Image')+'</button></div><p class="help">PNG, JPG or WebP, one or several at a time. Uploads are added to Selected Images and kept in Image Library.</p></section>';
   if(ws.src==='generate')return genPane();
   if(ws.src==='set')return setPane();
-  const images=state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted).sort((a,b)=>(b.created||0)-(a.created||0));
-  const folders=state.records.filter(r=>r.kind==='image_folder'&&!r.deleted);
-  const term=ws.search.trim().toLowerCase();
-  // Pictures made in Image Generation stay out of Image Library until saved there (owner-approved mocks, 2026-11-16).
-  let hidden;try{hidden=new Set(JSON.parse(localStorage.getItem(UNSAVED))||[]);}catch{hidden=new Set();}
-  const shown=images.filter(a=>!(hidden.has(a.id)&&!state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id))&&(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!ws.label||state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id&&l.folder_id===ws.label)));
-  return '<section class="pdf-review-box" aria-labelledby="iw-lib-heading"><strong class="pdf-review-heading" id="iw-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-input="search" value="'+esc(ws.search)+'" placeholder="Find an image"></label><label>Label<select data-input="label"><option value="">All images</option>'+folders.map(f=>'<option value="'+esc(f.id)+'"'+(f.id===ws.label?' selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></label></div><p class="help">Select up to 3 images. Click again to deselect. To merge pictures, pick the background first.</p>'+(shown.length?'<div class="iw-grid iw-library">'+shown.map(a=>tile(a.id,ws.selected.indexOf(a.id)+1,'pick')).join('')+'</div>':'<p class="help">'+(images.length?'No images match.':'Image Library is empty. Upload or generate an image.')+'</p>')+'</section>';
+  const {images,shown}=libraryList(),folders=state.records.filter(r=>r.kind==='image_folder'&&!r.deleted),more=shown.length-ws.libLimit;
+  return '<section class="pdf-review-box" aria-labelledby="iw-lib-heading"><strong class="pdf-review-heading" id="iw-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-input="search" value="'+esc(ws.search)+'" placeholder="Find an image"></label><label>Label<select data-input="label"><option value="">All images</option>'+folders.map(f=>'<option value="'+esc(f.id)+'"'+(f.id===ws.label?' selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></label></div><p class="help">Select up to 3 images. Click again to deselect. To merge pictures, pick the background first.</p>'+(shown.length?'<p class="help">'+(shown.length>ws.libLimit?'Showing '+ws.libLimit.toLocaleString()+' of '+shown.length.toLocaleString():shown.length.toLocaleString()+(shown.length===1?' image':' images'))+'</p><div class="iw-grid iw-library">'+shown.slice(0,ws.libLimit).map(a=>tile(a.id,ws.selected.indexOf(a.id)+1,'pick')).join('')+'</div>'+(more>0?'<div class="iw-row"><button type="button" class="secondary" data-act="lib-more">Show '+Math.min(PAGE,more)+' more</button></div>':''):'<p class="help">'+(images.length?'No images match.':'Image Library is empty. Upload or generate an image.')+'</p>')+'</section>';
  }
  /* ---------- review notes pinned to a spot (IMG-4.4) ---------- */
  // A note is kept at a spot on the picture (fractions of its width and height); Fix these notes sends them, with
@@ -660,6 +672,7 @@
   }
   else if(a==='note-save'){const d=ws.noteDraft;if(d&&d.text.trim()){(ws.notes[d.id]||(ws.notes[d.id]=[])).push({x:d.x,y:d.y,text:d.text.trim()});ws.noteDraft=null;}}
   else if(a==='note-cancel')ws.noteDraft=null;
+  else if(a==='lib-more')ws.libLimit+=PAGE;
   else if(a==='note-remove'){const list=noteList(id);list.splice(+button.dataset.index,1);}
   else if(a==='notes-fix'){
    const target=id,list=noteList(target);if(!target||!list.length)return;const d=ai(target);
@@ -744,6 +757,7 @@
   ws[k]=el.value;save();
   if(k==='genPrompt'){const b=q('#image-workspace [data-act=generate]');if(b)b.disabled=!el.value.trim();const i=q('#image-workspace [data-act=ideas]');if(i&&!busy.ideas)i.disabled=!el.value.trim();}
   if(k==='aiPrompt'&&!busy.improve){const b=q('#image-workspace [data-act=improve]');if(b)b.disabled=!ws.selected.length||!el.value.trim();}
+  if(k==='search'||k==='label')ws.libLimit=PAGE;
   if(k==='search'||k==='label'||k==='genStyle'||k==='genShape')draw();
  }
  function setting(el){
