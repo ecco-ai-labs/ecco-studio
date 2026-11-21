@@ -97,7 +97,8 @@ def reuse_id():
 
 
 def wants(metadata):
-    return bool(metadata and metadata.get('media') == 'image' and getattr(LOCAL, 'request', None))
+    # Every picture request (any model, including Z-Image's own path) goes to the queue; video and other jobs do not.
+    return bool(getattr(LOCAL, 'request', None)) and (not metadata or metadata.get('media') in (None, 'image'))
 
 
 def enqueue(job, run, label):
@@ -250,7 +251,8 @@ def dispatch_once(opener=urllib.request.urlopen):
         groups = [r[0] for r in con.execute("SELECT DISTINCT grp FROM gen_queue WHERE status='waiting'")]
     if not groups:
         return 0
-    limit = caps(groups, opener)
+    # Read every picture endpoint, so "pictures at once" counts the edit endpoint too.
+    limit = caps(sorted(set(groups) | {m.get('group') or 'images' for m in models_list()}), opener)
     started = 0
     with LOCK:
         busy = {}
