@@ -187,12 +187,14 @@
   catch(error){notice('Could not cancel: '+error.message,true);return;}
   j.cancelRequested=true;save();watch();
  }
- const typicalSeconds=kind=>J.typical(state.records.filter(r=>r.kind==='job'),kind==='image'?'image':'edit',kind==='image'?65:150);
+ // Typical time, measured from this workspace's finished jobs of the same kind (Fast jobs measured separately).
+ const typicalSeconds=(kind,fast)=>{const jobs=state.records.filter(r=>r.kind==='job'),done=ws.jobs.filter(j=>j.done&&j.seconds&&!!j.payload?.quality===!!fast&&(j.kind==='image')===(kind==='image')).map(j=>({status:'done',seconds:j.seconds,created:j.created}));
+  return done.length>=2?J.typical(done,'',0):fast?(kind==='image'?15:30):J.typical(jobs,kind==='image'?'image':'edit',kind==='image'?65:150);};
  // Live lines: written in place every second without redrawing the screen.
  function paintJobs(){
   for(const el of all('#image-workspace [data-job]')){
    const j=ws.jobs.find(x=>x.key===el.dataset.job);if(!j)continue;
-   const r=jobRecord(j.id),s=j.error&&!r?{state:'failed',text:j.error,pct:null,elapsed:'',left:''}:!j.id&&!j.claimed?{state:'waiting',text:'Waiting its turn · '+IN_FLIGHT+' pictures are sent at a time',pct:null,elapsed:'',left:''}:J.stage(r||(j.id?{status:'queued',created:j.created/1000}:null),Date.now(),queueInfo[j.id],typicalSeconds(j.kind));
+   const r=jobRecord(j.id),s=j.error&&!r?{state:'failed',text:j.error,pct:null,elapsed:'',left:''}:!j.id&&!j.claimed?{state:'waiting',text:'Waiting its turn · '+IN_FLIGHT+' pictures are sent at a time',pct:null,elapsed:'',left:''}:J.stage(r||(j.id?{status:'queued',created:j.created/1000}:null),Date.now(),queueInfo[j.id],typicalSeconds(j.kind,j.payload?.quality==='fast'));
    const text=q('[data-job-text]',el),time=q('[data-job-time]',el),bar=q('[data-job-bar]',el);
    if(text&&text.textContent!==s.text)text.textContent=s.text;
    const t=[s.elapsed&&s.state!=='done'?s.elapsed+' so far':s.elapsed,s.left].filter(Boolean).join(' · ').replace(/^(?=.)/,'· ');if(time&&time.textContent!==t)time.textContent=t;
