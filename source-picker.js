@@ -1,7 +1,7 @@
 'use strict';
 /* Shared local-only document preview. Only an explicit selection leaves this component. */
 (()=>{
- function create({onApply,onSave,reviewSelection=null,aiSettings=null,title='Select Story Text',selectedLabel='Selected Text',applyLabel='Apply Text',maxSelection=Infinity,inline=false,mode='document',idea=null,sourceName='',selectedPlaceholder='',onTextChange=null,onUseAI=null,drafts:draftCount=1,expandablePreview=false,expandableText=false}){
+ function create({onApply,onSave,reviewSelection=null,aiSettings=null,title='Select Story Text',selectedLabel='Selected Text',applyLabel='Apply Text',maxSelection=Infinity,inline=false,mode='document',idea=null,sourceName='',selectedPlaceholder='',onTextChange=null,onUseAI=null,drafts:draftCount=1,expandablePreview=false,expandableText=false,direct=false,improve:showImprove=true,findLabel=''}){
   const textMode=mode==='text',DRAFTS=Math.max(1,Math.min(3,draftCount|0||1));
   const dialog=document.createElement('dialog');dialog.className='pdf-story-dialog';dialog.setAttribute('aria-label',title);
   dialog.innerHTML=`
@@ -12,7 +12,7 @@
   <p class="help" data-document-info></p>
   <div class="pdf-page-scroll" tabindex="0" aria-label="Document preview"></div>
  </section>
- <section class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading" data-selected-heading></span><span class="help">Only this text will be used in your story.</span><textarea data-selected rows="12" dir="auto" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></section>
+ <section class="pdf-review-box pdf-selected-label"><span class="pdf-review-heading" data-selected-heading></span><textarea data-selected rows="12" dir="auto" placeholder="Highlight text in the document, or select pages or chapters from the ribbon below."></textarea></section>
  <section class="pdf-review-box pdf-ai-pane" aria-label="Improve with AI">
   <strong class="pdf-review-heading">Improve with AI</strong>
   <div class="pdf-ai-sections">
@@ -64,6 +64,12 @@
   dialog.querySelector('strong').textContent=title;dialog.querySelector('.pdf-selected-label span').textContent=selectedLabel;dialog.querySelector('[data-selected]').setAttribute('aria-label',selectedLabel);dialog.querySelector('[data-extract]').textContent=applyLabel||'';dialog.querySelector('[data-extract]').hidden=!applyLabel;
   if(inline){dialog.classList.add('pdf-story-inline');dialog.dataset.inlinePanel='';dialog.querySelector('[data-close]').hidden=true;}else document.body.append(dialog);
   if(selectedPlaceholder)dialog.querySelector('[data-selected]').placeholder=selectedPlaceholder;
+  // Owner final mocks (2026-11-21): AI writes straight into the story text (no drafts, Use AI Text or Clear AI Output),
+  // Generate With AI has no Improve with AI box, there is no Clear Text, and Find and Replace names what it searches.
+  if(direct){dialog.classList.add('pdf-story-direct');dialog.querySelector('[data-ai-review]').hidden=true;}
+  if(!showImprove)dialog.querySelector('.pdf-ai-pane').hidden=true;
+  if(direct)dialog.querySelector('[data-clear-selection]').hidden=true;
+  if(findLabel)dialog.querySelector('.pdf-find-replace summary').textContent=findLabel;
   if(textMode){
    dialog.classList.add('pdf-story-text-mode');dialog.querySelector('.pdf-document-pane').hidden=true;
    if(idea){
@@ -215,7 +221,7 @@
     if(!window.EccoStorage?.ready||!window.EccoAI?.enabled)throw Error('The AI connection changed. Reconnect and request a new suggestion.');
     if(!Array.isArray(result.revisions)||result.revisions.length!==1||result.revisions[0].id!=='source_excerpt'||typeof result.revisions[0].text!=='string'||!result.revisions[0].text.trim()||result.revisions[0].text.length>context.limit)throw Error('AI returned an invalid suggestion. Your selected text is unchanged.');
     const validDecision=()=>{context.valid();if(request!==aiRequest||requestPrompt!==aiPrompt.value.trim())throw Error('The prompt or selection changed. Request a fresh improvement.');};
-    const showCandidate=()=>{validDecision();aiStatus.textContent='';addDraft(result.revisions[0].text,context.limit);controls();};
+    const showCandidate=()=>{validDecision();aiStatus.textContent='';if(direct){const value=result.revisions[0].text;selected.value=context.original.slice(0,context.start)+value+context.original.slice(context.end);edited();onUseAI?.(selected.value);controls();return;}addDraft(result.revisions[0].text,context.limit);controls();};
     if(result.questions?.length&&!resolution){
      const advice=clarificationAdvice(result);aiStatus.textContent='';showAIMessage(result.questions.join('\n\n'),{clarification:true,...advice,onChoice:answer=>{validDecision();improveSelection(answer);},onContinue:showCandidate});return;
     }
@@ -400,6 +406,7 @@
     let context=aiContext;try{context?.valid();if(context&&(context.start!==0||context.end!==context.original.length))context=null;}catch{context=null;}
     // A new Write Story replaces earlier drafts with a fresh set of three.
     aiRequest++;drafts=[];activeDraft=0;context=aiContext=captureAIContext(0,selected.value.length);paintDrafts();paintAIAction();
+    if(direct){aiStatus.textContent='Writing your story…';const text=await idea.generate(0);if(disposed)return;if(typeof text!=='string'||!text.trim())throw Error('AI returned no story text. Try again.');if(text.length>context.limit)throw Error('The story is longer than '+context.limit.toLocaleString()+' characters. Ask for a shorter story.');selected.value=text;edited();onUseAI?.(text);aiStatus.textContent='';return;}
     for(let i=0;i<DRAFTS;i++){
      aiStatus.textContent='Writing draft '+(i+1)+' of '+DRAFTS+'…';
      const text=await idea.generate(i);if(disposed)return;

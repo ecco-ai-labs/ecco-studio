@@ -431,3 +431,10 @@ label.story-cast-model-inline select{width:auto}
 .story-open-close>label.story-open-close-head{display:flex!important;flex-direction:row!important;justify-content:flex-start!important;align-items:center;gap:8px;text-align:left;width:auto!important;align-self:flex-start}
 .story-open-close-head>input{width:auto!important;margin:0}
 .story-script-panel [data-sound-status]:empty,.story-script-panel [data-review-status]:empty{display:none}
+/* Story Script final mocks (owner 2026-11-21): Find and Replace at the right of the source tabs; no footer in text tabs. */
+.story-source-row{display:flex;align-items:flex-end;gap:10px}
+.story-source-row>.story-source-tabs{flex:1 1 auto;min-width:0}
+.story-placeholder-head{display:flex;align-items:center;justify-content:space-between}
+.story-source-tools{margin-left:auto;align-self:center;position:relative}
+.story-source-tools .pdf-tool-panel{position:absolute!important;top:calc(100% + 6px)!important;bottom:auto!important;right:0!important;left:auto!important;width:min(360px,80vw);z-index:30}
+.pdf-story-text-mode .pdf-selection-footer{display:none}
