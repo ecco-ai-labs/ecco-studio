@@ -32,9 +32,10 @@ async function fillStoryDetail(page,name,value){
 // Story Generation (2026-11-10): the tab shows progress and review; the studio form sits in Model Settings.
 async function generationTab(page){await page.getByRole('tab',{name:/^5\. (Story|Video) Generation$/}).click();await expect(page.locator('#story-generation')).toBeVisible();}
 async function modelSettings(page){await page.locator('[data-gen-settings]').click();await expect(page.locator('#story-gen-settings')).toBeVisible();}
-async function textView(page){const b=page.getByRole('button',{name:'Edit as text',exact:true});if(await b.isVisible())await b.click();}
-async function setScript(page,text){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await page.locator('#story-simple-script').fill(text);}
-async function scriptStep(page){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);await expect(page.locator('#story-simple-script')).toBeVisible();}
+// Final mocks (2026-11-21): the Screen Play has no Edit as text view; a whole script is replaced through the workspace.
+async function textView(page){}
+async function setScript(page,text){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();const box=page.locator('#story-simple-script');if(await box.isVisible())await box.fill(text);else await page.evaluate(t=>window.EccoStoryWorkspace.setScript(t),text);}
+async function scriptStep(page){await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.locator('.story-script-panel')).toBeVisible();}
 // Audio opens on the short cast list (automatic flow); tests of the full editor open it with Change.
 async function castEditor(page){const row=page.locator('.story-cast-row').first();if(await row.isVisible().catch(()=>false))await row.getByRole('button',{name:/^Change /}).click();}
 async function charactersStep(page){await page.getByRole('tab',{name:'3. Story Characters',exact:true}).click();await castEditor(page);await expect(page.getByRole('tablist',{name:'Story characters',exact:true})).toBeVisible();}
@@ -864,7 +865,7 @@ test('UPLOAD-06 Next: Characters selects the audio cast, fills voice properties 
   await expect(source.getByRole('button',{name:'Generate Script',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await castEditor(page);await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
   await expect(page.locator('[data-cast-reason]')).toBeHidden();await expect(page.locator('#story-simple-candidate')).toBeHidden();await scriptStep(page);await expect(page.locator('#story-simple-script')).toHaveValue('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');await charactersStep(page);
   await page.getByRole('tab',{name:'Ali',exact:true}).click();await expect(page.getByLabel('Character 2 Name',{exact:true})).toHaveValue('Ali');await page.getByRole('tab',{name:'Morgiana',exact:true}).click();await expect(page.getByLabel('Character 3 Name',{exact:true})).toHaveValue('Morgiana');await page.getByRole('tab',{name:'Ali',exact:true}).click();
-  await expect(page.locator('#story-character-properties details')).toHaveAttribute('open','');await expect(page.getByLabel('Character 2 Dialect',{exact:true})).toHaveValue('Indian English');await expect(page.getByLabel('Character 2 Speaking style',{exact:true})).toHaveValue('Curious');await expect(page.getByLabel('Character 2 Emotion',{exact:true})).toHaveValue('surprise');await expect(page.getByLabel('Character 2 Voice',{exact:true})).not.toHaveValue('');await expect(page.locator('[data-property=appearance]')).toHaveCount(0);
+  await expect(page.locator('#story-character-properties details')).toHaveAttribute('open','');await expect(page.getByLabel('Character 2 Dialect',{exact:true})).toHaveValue('Indian English');await expect(page.getByLabel('Character 2 Speaking style',{exact:true})).toHaveValue('Curious');await expect(page.getByLabel('Character 2 Emotion',{exact:true})).toHaveValue('surprise');await expect(page.getByLabel('Character 2 Audio model',{exact:true})).not.toHaveValue('');await expect(page.locator('[data-property=appearance]')).toHaveCount(0);
   const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='story_workspace'));expect(calls).toHaveLength(1);expect(JSON.parse(calls[0].body.context.summary)).toMatchObject({output:'audio',story_type:'storybook'});expect(calls[0].body.context.genre).toBe('Adventure');expect(calls[0].body.context.lines).toHaveLength(0);expect(JSON.stringify(calls)).not.toContain('PRIVATE_UNSELECTED_REST');
   // Back now walks the visited steps (Characters ← Script ← Characters); keep walking back to Details.
   for(let i=0;i<6&&!(await page.locator('#story-simple-details').count());i++)await page.locator('#workspace-back').click();await expect(page.locator('#story-simple-details [name=type]')).toHaveValue('storybook');await expect(page.locator('#story-simple-details [name=genre]')).toHaveValue('Adventure');await expect(page.locator('#story-simple-details [name=output][value=audio]')).toBeChecked();
@@ -1221,9 +1222,10 @@ test('AUDIO-01 Generate starts the recording and a voice preview during it never
  for(const [name,value] of Object.entries({output:'audio',type:'storybook',genre:'Adventure',audience:'All ages',language:'English'}))await fillStoryDetail(page,name,value);
  await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await setScript(page,'Narrator: Welcome to the story.');await page.getByRole('button',{name:'Next: Generate',exact:true}).click();
  await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(1);const generate=page.locator('#generate-audio');await expect(generate).toBeDisabled();
- await expect(page.locator('[data-gen-chip]')).toHaveText('Generating');await modelSettings(page);await expect(page.locator('#audio-form [name=compute]')).toHaveValue('cpu');
- await page.locator('#audio-form [data-open-controls]').click();await page.getByRole('button',{name:'Listen to selected voice',exact:true}).click();const preview=page.locator('#audio-voice-preview-dialog');await expect(preview.getByLabel('Voice preview playback',{exact:true})).toBeVisible();expect(await generate.isEnabled()).toBe(false);
- const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate'));expect(calls).toHaveLength(2);expect(calls[0].body.lines[0].text).toBe('Welcome to the story.');expect(calls[1].body.title).toContain('Voice preview');
+ await expect(page.locator('[data-gen-chip]')).toHaveText('Generating');
+ // Final mocks (2026-11-21): Audio Generation has no Model Settings, so no voice preview can start a duplicate from there.
+ await expect(page.locator('[data-gen-settings]')).toBeHidden();expect(await generate.isEnabled()).toBe(false);
+ const calls=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate'));expect(calls).toHaveLength(1);expect(calls[0].body.lines[0].text).toBe('Welcome to the story.');
 });
 
 // Story Generation (owner-approved mocks, 2026-11-10): progress, error popups, review with fixes, Model Settings, Publish.
@@ -1381,7 +1383,7 @@ test('STORY-16 Next: Characters reads the story and makes one tab per character 
  await page.getByRole('tab',{name:'2. Story Script',exact:true}).click();await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(tabs.getByRole('tab')).toHaveCount(3);expect(await reads()).toBe(1);
  // Moving between steps while AI is still reading does not throw the answer away.
  await page.getByRole('tab',{name:'2. Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();await box.locator('[data-selected]').fill('Narrator: Night fell.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
- await page.evaluate(()=>{window.__qaHold=new Promise(r=>window.__qaRelease=r);});await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.locator('[data-cast-reason]')).toContainText('Identifying characters');await expect(page.getByRole('progressbar',{name:'Generating characters',exact:true})).toBeVisible();await expect(page.locator('[data-cast-reason] .generation-spinner')).toBeVisible();expect(await page.locator('.story-cast-progress>span').evaluate(el=>getComputedStyle(el).animationName)).toBe('story-cast-progress');
+ await page.evaluate(()=>{window.__qaHold=new Promise(r=>window.__qaRelease=r);});await page.getByRole('button',{name:'Next: Story Characters',exact:true}).click();await expect(page.locator('[data-cast-reason]')).toContainText('Picking characters and voices');await expect(page.getByRole('progressbar',{name:'Generating characters',exact:true})).toBeVisible();await expect(page.locator('[data-cast-reason] .generation-spinner')).toBeVisible();expect(await page.locator('.story-cast-progress>span').evaluate(el=>getComputedStyle(el).animationName)).toBe('story-cast-progress');
  await page.locator('#workspace-back').click();await expect(page.getByRole('tablist',{name:'Story source',exact:true})).toBeVisible();await page.getByRole('group',{name:'Story settings',exact:true}).getByLabel('Genre / Topic',{exact:true}).selectOption('Fantasy');
  await page.evaluate(()=>{window.__qaHold=null;window.__qaRelease();});await expect.poll(reads).toBe(2);await page.getByRole('tab',{name:'3. Story Characters',exact:true}).click();await expect(tabs.getByRole('tab')).toHaveText(['Narrator','Ali','Morgiana']);await expect(page.locator('[data-cast-reason]')).toBeHidden();await expect(page.getByRole('progressbar',{name:'Generating characters',exact:true})).toHaveCount(0);await expect(page.locator('[data-cast-reason] .generation-spinner')).toHaveCount(0);expect(page.qaErrors).toEqual([]);
 });
@@ -1849,24 +1851,34 @@ test('STORY-24 Characters get different voices that match their gender',async({p
 });
 
 // Screen Play lines, delivery and sounds (owner request 2026-11-09).
-test('STORY-26 Screen Play: each line has a speaker and delivery (Whisper), sounds can be added, and Generation receives both',async({page})=>{
+test('STORY-26 Screen Play: numbered lines take labels (sound, how, interjection) from the Label library by drag and drop, and Generation receives them as directions and sound cues',async({page})=>{
  await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Cave sounds');await fillStoryDetail(page,'output','audio');
  await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
  await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
  await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: At the cave.\n\nAli: Open sesame!\n\nMorgiana: I will help.');
  await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('[data-character-tabs] [role=tab]')).toHaveCount(3);
- await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.getByRole('button',{name:'Lines and sounds',exact:true})).toHaveAttribute('aria-pressed','true');
- const lines=page.locator('[data-script-lines]');await expect(lines.locator('.story-script-turn')).toHaveCount(3);
+ await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();
+ // Final mocks (2026-11-21): no Lines and sounds / Edit as text / Check script buttons; a Label library above numbered lines.
+ for(const name of ['Lines and sounds','Edit as text','✦ Check script'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'✦ Suggest Sounds, How and Interjection',exact:true})).toBeVisible();
+ const library=page.locator('[data-label-library]');await expect(library).toHaveAttribute('open','');
+ const lines=page.locator('[data-script-lines]');await expect(lines.locator('.story-script-turn')).toHaveCount(3);await expect(lines.locator('.story-script-num')).toHaveText(['1','2','3']);
  await lines.getByLabel('Delivery for line 3',{exact:true}).selectOption('whisper');await expect(lines.getByLabel('Delivery for line 3',{exact:true})).toHaveValue('whisper');
- await lines.getByRole('button',{name:'Add a sound at line 2',exact:true}).click();const sound=lines.locator('.story-script-sound');await expect(sound).toHaveCount(1);
- await sound.getByLabel('Sound',{exact:true}).fill('Heavy stone door rolls open');await sound.getByLabel('Sound',{exact:true}).blur();
- await expect(page.locator('[data-script-count]')).toHaveText('');
- await page.getByRole('button',{name:'Edit as text',exact:true}).click();await expect(page.locator('#story-simple-script')).toHaveValue(/Morgiana: I will help\./);
- await page.getByRole('button',{name:'Lines and sounds',exact:true}).click();await expect(lines.getByLabel('Delivery for line 3',{exact:true})).toHaveValue('whisper');
+ await library.locator('.story-label[data-label-kind=sound][data-label="door opening"]').dragTo(lines.getByRole('textbox',{name:'Line 2',exact:true}),{targetPosition:{x:4,y:12}});
+ await expect(lines.getByRole('textbox',{name:'Line 2',exact:true}).locator('.story-label[data-label-kind=sound]')).toHaveText(/door opening/);
+ await library.locator('.story-label[data-label-kind=inter][data-label="laughs"]').dragTo(lines.getByRole('textbox',{name:'Line 3',exact:true}),{targetPosition:{x:4,y:12}});
+ const line3=lines.getByRole('textbox',{name:'Line 3',exact:true});await expect(line3.locator('.story-label[data-label-kind=inter]')).toHaveText(/laughs/);await expect(line3).toContainText('I will help.');
+ // + New adds a label to the library for every story.
+ await library.getByRole('button',{name:'New interjection',exact:true}).click();await library.getByLabel('New interjection name',{exact:true}).fill('whistles');await library.getByLabel('New interjection name',{exact:true}).press('Enter');
+ await expect(library.locator('.story-label[data-label-kind=inter][data-label="whistles"]')).toBeVisible();
+ // A label can be removed from a line with its ×.
+ await library.locator('.story-label[data-label-kind=how][data-label="softly"]').dragTo(lines.getByRole('textbox',{name:'Line 1',exact:true}),{targetPosition:{x:4,y:12}});
+ await lines.getByRole('textbox',{name:'Line 1',exact:true}).getByRole('button',{name:'Remove label softly',exact:true}).click();await expect(lines.getByRole('textbox',{name:'Line 1',exact:true}).locator('.story-label')).toHaveCount(0);
  await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#audio-form')).toBeAttached();
  const draft=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-audio-draft:'));return JSON.parse(localStorage.getItem(k));});
- expect(draft.sound_design).toMatchObject({enabled:true});expect(draft.sound_design.cues[0]).toMatchObject({kind:'effect',name:'Heavy stone door rolls open',start:1});
- expect(draft.lines[2].performance).toMatchObject({emotion:'whisper',manual:true});
+ expect(draft.sound_design).toMatchObject({enabled:true});expect(draft.sound_design.cues.find(c=>c.name==='door opening')).toMatchObject({kind:'effect',start:1});
+ const last=draft.lines.find(l=>/I will help/.test(l.text));expect(last.performance).toMatchObject({emotion:'whisper',manual:true,direction:'laughs'});expect(last.text).not.toContain('laughs');
+ expect(draft.lines[0].performance?.direction||'').not.toContain('softly');
  expect(page.qaErrors).toEqual([]);
 });
 
@@ -2063,17 +2075,18 @@ for(const output of ['audio','video'])test(`STORY-07 Characters step creates and
  await expect(page.getByRole('heading',{name:'From Story',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:output==='audio'?'Create voice':'Create avatar',exact:true})).toBeVisible();if(output==='audio')await expect(page.getByRole('textbox',{name:'Test line',exact:true})).toHaveValue(/^Hello, my name is /);else await expect(page.locator('.story-cast-empty').first()).toBeVisible();
  for(const [index,name] of [[1,'Host'],[2,'Guest']]){
   await tabs.getByRole('tab',{name,exact:true}).click();
-  if(output==='audio'){await page.getByLabel('Character '+index+' Suggested voice',{exact:true}).fill('Warm, unhurried, a little playful.');const voice=page.getByLabel('Character '+index+' Voice',{exact:true});await voice.selectOption({index:index+await voice.locator('option[value=design]').count()});await page.getByRole('button',{name:'Generate voice',exact:true}).click();await expect(page.getByRole('button',{name:'Generate again',exact:true})).toBeVisible();await page.getByLabel('Test line',{exact:true}).fill('Welcome to the show.');await page.getByRole('button',{name:'Play test line',exact:true}).click();await expect(page.getByLabel('Voice test playback',{exact:true})).toBeVisible();}
+  // Final mocks (2026-11-21): no Voice list, Generate voice or Tested button; playing the test line makes the voice sample.
+  if(output==='audio'){await page.getByLabel('Character '+index+' Suggested voice',{exact:true}).fill('Warm, unhurried, a little playful.');await page.getByLabel('Test line',{exact:true}).fill('Welcome to the show.');await page.getByRole('button',{name:'Play test line',exact:true}).click();}
   else{await page.getByLabel('Character '+index+' Suggested avatar prompt',{exact:true}).fill('Short silver hair, green scarf, friendly smile.');await page.getByRole('button',{name:'Generate avatar',exact:true}).click();await expect(page.getByRole('button',{name:'Avatar option 1',exact:true})).toHaveAttribute('aria-pressed','true');await page.getByRole('button',{name:'Generate again',exact:true}).click();await page.getByRole('button',{name:'Avatar option 2',exact:true}).click();await expect(page.getByRole('button',{name:'Avatar option 2',exact:true})).toHaveAttribute('aria-pressed','true');}
   await expect(tabs.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-description','Created');
-  if(index===1){if(output!=='audio')await expect(next).toBeDisabled();await page.locator('[data-cast-tested]').click();await expect(tabs.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-description','Tested');await expect(page.locator('.story-cast-tested')).toBeVisible();}
+  if(index===1&&output!=='audio'){await expect(next).toBeDisabled();await page.locator('[data-cast-tested]').click();await expect(tabs.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-description','Tested');await expect(page.locator('.story-cast-tested')).toBeVisible();}
  }
- if(output==='audio'){const requests=await page.evaluate(()=>window.qaVoiceRequests);expect(requests.length).toBe(4);expect(requests.every(r=>r.voice&&r.model)).toBe(true);}
+ if(output==='audio'){const requests=await page.evaluate(()=>window.qaVoiceRequests);expect(requests.length).toBe(2);expect(requests.every(r=>r.voice&&r.model)).toBe(true);}
  else{const requests=await page.evaluate(()=>window.qaImageRequests);expect(requests.length).toBe(4);expect(requests[0].prompt).toContain('Short silver hair, green scarf');}
  await expect(progress).toHaveText(output==='audio'?'':'Created 2 of 2 · Tested 1 of 2');await expect(next).toBeEnabled();
  const audit=await page.evaluate(rosterAudit);expect(audit.problems).toEqual([]);
  await page.screenshot({path:info.outputPath('characters-'+output+'.png'),fullPage:true});
- await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await charactersStep(page);await expect(tabs.getByRole('tab',{name:'Host',exact:true})).toHaveAttribute('aria-description','Tested');await expect(tabs.getByRole('tab',{name:'Guest',exact:true})).toHaveAttribute('aria-description','Created');
+ await page.getByRole('tab',{name:'1. Story Details',exact:true}).click();await charactersStep(page);await expect(tabs.getByRole('tab',{name:'Host',exact:true})).toHaveAttribute('aria-description',output==='audio'?'Created':'Tested');await expect(tabs.getByRole('tab',{name:'Guest',exact:true})).toHaveAttribute('aria-description','Created');
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('characters-'+output+'-mobile.png'),fullPage:true});
  await next.click();await expect(page.getByRole('tab',{name:'4. Story Screen Play',exact:true})).toHaveAttribute('aria-selected','true');expect(page.qaErrors).toEqual([]);
 });
@@ -2346,18 +2359,17 @@ test('STORY-32 Screen Play: unnamed paragraphs continue the speaker and [directi
  await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
  await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Host: Hi, how are you.\n\nGuest: Thank you for having me.\n\nHost: Oh how fascinating.');
  await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('.story-cast-row').first()).toBeVisible();
- await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);
- await expect(page.locator('[data-script-help]')).toContainText('never read aloud');
- await page.locator('#story-simple-script').fill('[Sound: soft intro music]\n\nAli [warm, welcoming]: Hi, how are you (and welcome).\n\nMorgiana [warm, grateful]: Thank you for having me. [professional, rising excitement] Quantum mechanics is fascinating.\n\nLike now we know that electrons vibrate like strings.\n\nAli [amazed]: Oh how fascinating! [slight laugh]');await page.locator('#story-simple-script').blur();
- await page.getByRole('button',{name:'Lines and sounds',exact:true}).click();
- const lines=page.locator('[data-script-lines]'),turns=lines.locator('.story-script-turn');await expect(turns).toHaveCount(5);
- await expect(lines.getByLabel('Speaker for line 4',{exact:true}).locator('option:checked')).toHaveText('Morgiana');
- for(let i=1;i<=5;i++)await expect(lines.getByLabel('Line '+i,{exact:true})).not.toHaveValue(/[\[\]()]/);
- await expect(lines.getByLabel('Line 1',{exact:true})).toHaveValue('Hi, how are you, and welcome.');
- await page.getByRole('button',{name:'Edit as text',exact:true}).click();
- await expect(page.locator('#story-simple-script')).toHaveValue('[Sound: soft intro music]\n\nAli [warm, welcoming]: Hi, how are you (and welcome).\n\nMorgiana [warm, grateful]: Thank you for having me. [professional, rising excitement] Quantum mechanics is fascinating.\n\nLike now we know that electrons vibrate like strings.\n\nAli [amazed]: Oh how fascinating! [slight laugh]');
+ await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();
+ // Final mocks (2026-11-21): [directions] show as labels inside the line; the words never contain them.
+ await setScript(page,'[Sound: soft intro music]\n\nAli [warm, welcoming]: Hi, how are you (and welcome).\n\nMorgiana [warm, grateful]: Thank you for having me. [professional, rising excitement] Quantum mechanics is fascinating.\n\nLike now we know that electrons vibrate like strings.\n\nAli [amazed]: Oh how fascinating! [slight laugh]');
+ const lines=page.locator('[data-script-lines]'),turns=lines.locator('.story-script-turn');await expect(turns).toHaveCount(4);
+ await expect(lines.getByLabel('Speaker for line 3',{exact:true}).locator('option:checked')).toHaveText('Morgiana');
+ const words=n=>lines.getByRole('textbox',{name:'Line '+n,exact:true}).evaluate(el=>[...el.childNodes].filter(x=>x.nodeType===3).map(x=>x.textContent).join('').replace(/\s+/g,' ').trim());
+ for(let i=1;i<=4;i++)expect(await words(i)).not.toMatch(/[\[\]()]/);
+ expect(await words(1)).toBe('Hi, how are you, and welcome.');
+ await expect(lines.getByRole('textbox',{name:'Line 2',exact:true}).locator('.story-label[data-label-kind=how]')).toHaveText([/warm/,/grateful/,/professional/,/rising excitement/]);
  // An unnamed first paragraph no longer blocks (owner, 16 Nov 2026): the first character reads it.
- await page.locator('#story-simple-script').fill('Thank you for having me.\n\nAli: Hi.');await page.locator('#story-simple-script').blur();await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await expect(page.getByRole('button',{name:'Lines and sounds',exact:true})).toBeVisible();await expect(page.locator('#ecco-error-popup')).toBeHidden();
+ await setScript(page,'Thank you for having me.\n\nAli: Hi.');await expect(lines.locator('.story-script-turn')).toHaveCount(2);await expect(page.locator('#ecco-error-popup')).toBeHidden();
  expect(page.qaErrors).toEqual([]);
 });
 test('STORY-33 Screen Play quality gate: one turn per line splits speakers; a script introduced twice is never recorded',async({page})=>{
@@ -2366,20 +2378,19 @@ test('STORY-33 Screen Play quality gate: one turn per line splits speakers; a sc
  await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
  await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Host: Hi.\n\nGuest: Hello.');
  await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('.story-cast-row').first()).toBeVisible();
- await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();await textView(page);
+ await page.getByRole('tab',{name:'4. Story Screen Play',exact:true}).click();
  // One turn per line, no blank lines: every line keeps its own speaker (11 Nov 2026 every turn went to one voice).
- await page.locator('#story-simple-script').fill("Ali [curious]: What if a jet could starve its own black hole?\nMorgiana: That is the idea we are exploring.\nAli: Welcome to Gate Talk. I'm Ali.\nMorgiana: Thanks for having me.\nAli: Welcome back to Gate Talk.");await page.locator('#story-simple-script').blur();
- await page.getByRole('button',{name:'Lines and sounds',exact:true}).click();
+ await setScript(page,"Ali [curious]: What if a jet could starve its own black hole?\nMorgiana: That is the idea we are exploring.\nAli: Welcome to Gate Talk. I'm Ali.\nMorgiana: Thanks for having me.\nAli: Welcome back to Gate Talk.");
  const lines=page.locator('[data-script-lines]');await expect(lines.locator('.story-script-turn')).toHaveCount(5);
  await expect(lines.getByLabel('Speaker for line 2',{exact:true}).locator('option:checked')).toHaveText('Morgiana');
- await expect(page.locator('[data-review-status]')).toContainText('Not checked yet');
+ // Final mocks (2026-11-21): no "Not checked yet" text; Generate still checks the script and lists what to fix.
+ await expect(page.getByText(/Not checked yet/)).toHaveCount(0);
  await page.locator('.story-simple-actions [data-next]').click();
  await expect(page.locator('[data-review-issues]')).toContainText('introduced more than once');
  await expect(page.locator('#story-generation')).toBeHidden();
  expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(0);
  // One introduction at the start: the rules pass and Generate records.
- await page.getByRole('button',{name:'Edit as text',exact:true}).click();
- await page.locator('#story-simple-script').fill("Ali: Welcome to Gate Talk. I'm Ali, and with me is Morgiana.\nMorgiana: Thanks for having me.\nAli: What if a jet could starve its own black hole?\nMorgiana: That is the idea we are exploring.");await page.locator('#story-simple-script').blur();
+ await setScript(page,"Ali: Welcome to Gate Talk. I'm Ali, and with me is Morgiana.\nMorgiana: Thanks for having me.\nAli: What if a jet could starve its own black hole?\nMorgiana: That is the idea we are exploring.");
  await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('#story-generation')).toBeVisible();
  expect(page.qaErrors).toEqual([]);
 });

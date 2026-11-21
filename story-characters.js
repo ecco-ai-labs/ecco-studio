@@ -226,7 +226,9 @@
      c.voice='ref:'+result.reference_id;c.voiceChosen=true;c.voice_sample=result.asset_id;c.designed_from=String(c.delivery||'');if(result.url)media.set(result.asset_id,result.url);ctx.changed();refreshStatus();
     }
     const key=JSON.stringify([c.id,c.model,c.voice,c.delivery,c.language,c.dialect,text]);
-    let url=voiceTests.get(key);if(!url){url=(await voiceSample(c,text,'Character voice test · '+(c.name||'Character'))).url;voiceTests.set(key,url);}
+    let url=voiceTests.get(key);if(!url){const r=await voiceSample(c,text,'Character voice test · '+(c.name||'Character'));url=r.url;voiceTests.set(key,url);
+     // The first line heard with this voice is kept as the character's sample, so the character counts as Created.
+     if(!c.voice_sample&&r.asset_id){c.voice_sample=r.asset_id;media.set(r.asset_id,url);ctx.changed();refreshStatus();}}
     if(!player.isConnected)return;player.src=url;await player.play().catch(()=>{});
    }catch(error){ctx.message(error.message,true);}finally{done();}
   });

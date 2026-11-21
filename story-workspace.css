@@ -394,3 +394,40 @@ label.story-cast-model-inline select{width:auto}
 .story-cast-rule{border:0;border-top:1px solid var(--ecco-theme-border,#48405c);margin:12px 0;width:100%}
 .story-cast-body.story-cast-voice-first{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .story-cast-body.story-cast-voice-first textarea{field-sizing:content;min-height:5em;width:100%;box-sizing:border-box}
+/* Story Screen Play final mocks (owner 2026-11-21): numbered turns, labels inside the text, Label library, Opening/Closing. */
+.story-script-panel .story-script-turn{grid-template-columns:auto minmax(140px,180px) minmax(110px,130px) minmax(0,1fr)}
+.story-script-num{display:inline-flex;align-items:center;justify-content:center;min-width:1.8em;height:1.8em;border-radius:999px;background:var(--ecco-theme-surface,#252039);color:var(--ecco-theme-accent,#ffdc24);font-weight:600}
+.story-script-line{min-width:0;padding:8px 10px;border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px;background:var(--ecco-theme-input,#17152f);line-height:1.75;white-space:normal;overflow-wrap:anywhere;outline:none}
+.story-script-line:focus-visible{outline:2px solid var(--ecco-theme-accent,#ffdc24);outline-offset:1px}
+.story-label{display:inline-flex;align-items:center;gap:4px;margin:0 2px;padding:0 4px 0 8px;border-radius:999px;font-weight:600;line-height:1.6;vertical-align:baseline;user-select:none;cursor:grab;border:1px solid currentColor}
+.story-label svg{width:1em;height:1em}
+.story-label[data-label-kind=sound]{background:#123b2c;color:#7fd6a4}
+.story-label[data-label-kind=how]{background:#2e2752;color:#c9b8ff}
+.story-label[data-label-kind=inter]{background:#3d3410;color:#ffdc24}
+.story-label[data-suggested=true]{border-style:dashed;background:transparent}
+.story-label-btn{display:inline-flex;align-items:center;justify-content:center;width:1.3em;height:1.3em;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:inherit;cursor:pointer;line-height:1}
+.story-label-library{border:1px solid var(--ecco-theme-border,#51496f);border-radius:12px;padding:10px 14px}
+.story-label-library>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.story-label-library>summary::before{content:'▸';color:var(--ecco-theme-accent,#ffdc24)}
+.story-label-library[open]>summary::before{content:'▾'}
+.story-label-library-title{font-weight:600}
+.story-label-library>summary input{margin-left:auto;width:auto}
+.story-label-groups{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.story-label-group{display:grid;grid-template-columns:minmax(90px,120px) minmax(0,1fr);gap:10px;align-items:start}
+.story-label-group[data-kind=sound] .story-label-group-title{color:#7fd6a4}
+.story-label-group[data-kind=how] .story-label-group-title{color:#c9b8ff}
+.story-label-group[data-kind=inter] .story-label-group-title{color:#ffdc24}
+.story-label-list{display:flex;flex-wrap:wrap;gap:6px}
+.story-label-list .story-label{padding-right:8px}
+.story-label-new{border:1px dashed var(--ecco-theme-border,#5a5478);border-radius:999px;background:transparent;color:inherit;padding:0 10px;cursor:pointer}
+.story-label-input{width:auto}
+.story-open-close{display:flex;flex-direction:column;gap:8px;border:1px solid var(--ecco-theme-border,#51496f);border-left:3px solid var(--ecco-theme-accent,#ffdc24);border-radius:8px;padding:8px}
+.story-open-close-head{display:inline-flex;align-items:center;gap:8px;font-weight:600}
+.story-open-close-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px}
+.story-open-close-grip{cursor:grab;letter-spacing:-3px;opacity:.7}
+.story-open-close-item select{width:auto}
+.story-open-close-item .story-open-close-pick{flex:1 1 0;min-width:0}
+.story-open-close-add{border:1px solid var(--ecco-theme-accent,#ffdc24);background:transparent;color:var(--ecco-theme-accent,#ffdc24);border-radius:8px;cursor:pointer;align-self:flex-start}
+.story-open-close>label.story-open-close-head{display:flex!important;flex-direction:row!important;justify-content:flex-start!important;align-items:center;gap:8px;text-align:left;width:auto!important;align-self:flex-start}
+.story-open-close-head>input{width:auto!important;margin:0}
+.story-script-panel [data-sound-status]:empty,.story-script-panel [data-review-status]:empty{display:none}
