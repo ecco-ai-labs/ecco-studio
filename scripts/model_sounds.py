@@ -439,7 +439,7 @@ def judge(item, r):
     if speech and r.get('peak_db', -10) >= -0.01:        # sound effects are often normalised to full scale
         problems.append('clipped')
     if speech:
-        if not 1.0 <= r.get('seconds', 0) <= 7.0:       # Japanese, Tamil and Malayalam lines run longer
+        if not 1.0 <= r.get('seconds', 0) <= 9.0:       # Japanese, Tamil, Gujarati and Malayalam lines run longer
             problems.append(f"length {r.get('seconds')}s")
         if r.get('words_match', 1) < 0.55:
             problems.append(f"words do not match ({r.get('words_match')})")
