@@ -614,6 +614,8 @@ def rejudge():
         if not item or entry.get('status') not in ('remake', 'needs_listen') or not entry.get('results') or not entry.get('asset_id'):
             continue
         results = dict(entry['results'])
+        if item['kind'] == 'speech' and results.get('heard'):
+            results['words_match'] = similar(results['heard'], item['expect'])
         results['problems'] = judge(item, results)
         if results['problems'] and entry['status'] == 'remake':
             continue
