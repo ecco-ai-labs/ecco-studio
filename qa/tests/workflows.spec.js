@@ -1599,6 +1599,30 @@ test('GEN-09 the Serverless worker log shows line by line in Activity while a pi
  await expect(page.locator('[data-gen-chip]')).toHaveText('Stopped',{timeout:15000});
  expect(page.qaErrors).toEqual([]);
 });
+test('GEN-10 before the first drawing step the screen says Starting GPU worker…, then Loading the model…, with a spinner',async({page})=>{
+ await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Cold start');await fillStoryDetail(page,'output','image');
+ await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
+ await page.getByRole('tablist',{name:'Picture source',exact:true}).getByRole('tab',{name:'Generate With AI',exact:true}).click();
+ await page.getByRole('textbox',{name:'Generate with AI',exact:true}).fill('A lighthouse at dusk');
+ // A stand-in Serverless job whose GPU worker is still starting: running, no worker lines yet (live test 21 Nov 2026).
+ await page.evaluate(()=>{const ready={model_settings_version:1,models_ready:{'qwen-image-2512':true}};Object.assign(window.EccoCompute,{validate:async()=>ready,requireReady:()=>ready,ready:()=>true});window.gpuConnected=()=>true;window.modelAvailable=()=>true;window.modelPayload=(kind,gpu,model)=>({gpu:gpu||'serverless',model});
+  window.__qaColdJob={id:'qa-cold-job',kind:'job',status:'running',progress:'Waiting in the queue',created:Date.now()/1000,started:Date.now()/1000,worker_log:[]};
+  state.records.push(window.__qaColdJob);const real=api;window.qaImageRequests=[];api=async(path,body)=>{window.__qaCalls.push({path,body});if(path==='images'){window.qaImageRequests.push(body);return {id:'qa-cold-job',status:'queued'};}return real(path,body);};});
+ await page.getByRole('button',{name:'Next: Generate',exact:true}).click();
+ const note=page.locator('.story-gen-starting');
+ await expect(note).toContainText('Starting GPU worker…',{timeout:15000});await expect(note.locator('.story-gen-spinner')).toBeVisible();
+ const frame=page.locator('.story-gen-image-frame');await expect(frame).toContainText('Starting Generation…');await expect(frame.locator('.story-gen-spinner')).toBeVisible();
+ await expect(page.locator('.story-gen-bar-detail')).toContainText('Starting GPU worker…');
+ // The worker reports in: the model is loading.
+ await page.evaluate(()=>{window.__qaColdJob.worker_log.push({seq:1,t:Date.now()/1000,line:'got prompt'});});
+ await expect(note).toContainText('Loading the model…',{timeout:15000});
+ await expect(page.getByRole('region',{name:'Activity',exact:true})).toContainText('Starting GPU worker…');
+ // The first drawing step: the spinner goes and the bars count.
+ await page.evaluate(()=>{window.__qaColdJob.worker_log.push({seq:2,t:Date.now()/1000,line:' 10%|#         | 5/50 [00:05<00:44, 1.00it/s]'});});
+ await expect(note).toHaveCount(0,{timeout:15000});await expect(frame.locator('.story-gen-spinner')).toHaveCount(0);
+ await expect(page.locator('[role=progressbar][aria-valuenow="10"]').first()).toBeAttached();
+ expect(page.qaErrors).toEqual([]);
+});
 test('GEN-07 an unsaved Image Generation picture stays out of Image Library, and Delete moves it to Trash',async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Fox picnic');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();

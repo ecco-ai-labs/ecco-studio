@@ -148,3 +148,12 @@
 .story-gen-save-audio>span{display:block;width:4px;border-radius:2px;background:var(--ecco-theme-accent,#ffdc24)}
 @media (max-width:900px){.story-gen-image-layout{grid-template-columns:minmax(0,1fr)}.story-gen-bars{grid-template-columns:minmax(0,1fr) max-content}.story-gen-bars .story-gen-bar-label{grid-column:1/-1}}
 .story-gen-audio .story-gen-wave[hidden],.story-gen-audio .story-gen-fixer[hidden]{display:none}
+/* Before the first drawing step (owner request 2026-11-21): a spinner and what is happening, so it never looks stuck. */
+.story-gen-starting{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:8px;border:1px solid var(--ecco-theme-accent,#ffdc24);background:var(--ecco-theme-background,#17152f)}
+.story-gen-starting p{margin:2px 0 0}
+.story-gen-spinner{flex:none;width:20px;height:20px;border-radius:50%;border:3px solid var(--ecco-theme-border,#51496f);border-top-color:var(--ecco-theme-accent,#ffdc24);animation:story-gen-spin .9s linear infinite}
+.story-gen-image-wait{display:flex;flex-direction:column;align-items:center;gap:10px;animation:story-gen-pulse 1.8s ease-in-out infinite}
+.story-gen-image-wait .story-gen-spinner{width:36px;height:36px}
+@keyframes story-gen-spin{to{transform:rotate(360deg)}}
+@keyframes story-gen-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.story-gen-spinner{animation-duration:2.4s}.story-gen-image-wait{animation:none}}
