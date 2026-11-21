@@ -549,6 +549,8 @@
    +'<p id="story-simple-ai-status" role="status" aria-live="polite"></p></section><div class="story-simple-actions"><button type="button" data-next>Next: Generate</button></div></div>';
   const bar=inPage('[data-picture-settings]');
   for(const [name,label,options]of [['imageStyle','Image Style',IMAGE_STYLES],['audience','Audience',audiences]]){const l=document.createElement('label');l.className='story-setting';l.textContent=label;const select=document.createElement('select');select.name=name;select.setAttribute('aria-label',label);select.add(new Option('Choose…',''));for(const o of options)select.add(new Option(o,o));select.value=data[name]||'';select.onchange=()=>{data[name]=select.value;epoch++;persist();};l.append(select);bar.append(l);}
+  // Select Model (owner-approved mock, 20 Nov 2026): optional; Qwen-Image-2512 unless another is picked. Edit tabs use the edit model.
+  window.EccoQueue?.modelPicker(bar,{get:()=>data.pictureModel||'',set:id=>{data.pictureModel=id;epoch++;persist();},editing:()=>(data.pictureTab||'photo')!=='ai'});
   const help=document.createElement('p');help.className='help';help.textContent='Changes here also update Details.';bar.append(help);
   const show=name=>{data.pictureTab=name;for(const b of q('#page').querySelectorAll('[data-picture-tab]')){const on=b.dataset.pictureTab===name;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}for(const p of q('#page').querySelectorAll('[data-picture-panel]'))p.hidden=p.dataset.picturePanel!==name;persist();};
   for(const b of q('#page').querySelectorAll('[data-picture-tab]'))b.onclick=()=>show(b.dataset.pictureTab);show(tab);
@@ -883,7 +885,7 @@
   delete next.delivery_signature;localStorage.setItem('ecco-audio-draft:'+activeStory,JSON.stringify(next));data.plan=plan;data.applied.audio=signature;
  }
  function prepareVisual(kind){
-  const image=kind==='image'&&isImage(),signature=M.signature(data,kind)+(image?'|'+[data.imageStyle,data.photoAsset?.id||'',data.pictureTab||'',libraryPicks().join(','),data.libraryActive||0].join('|'):'');if(data.applied[kind]===signature)return;
+  const image=kind==='image'&&isImage(),signature=M.signature(data,kind)+(image?'|'+[data.imageStyle,data.photoAsset?.id||'',data.pictureTab||'',libraryPicks().join(','),data.libraryActive||0,data.pictureModel||''].join('|'):'');if(data.applied[kind]===signature)return;
   const key='ecco-generation-v1:'+kind+':'+activeStory,previous=read(key);
   // A picture prompt is only the picture description: no speaker labels (audit I11).
   // Pictures keep each person exactly as described in Characters, so they look the same in every image.
@@ -897,7 +899,7 @@
    // The Story Picture tab owns the references: Generate With AI sends none, Upload sends its picture, Library its picks (owner report 18 Nov 2026: stale picks leaked into text-only generations).
    // Library picks go in the order they were picked, so "picture 1" in the prompt is Selected Image 1 (live test 18 Nov 2026).
    const refs=[...new Set([...photo,...characterReferences])].slice(0,3);
-   localStorage.setItem(key,JSON.stringify({...previous,prompt,style:data.imageStyle||'',reference_ids:refs,model:typeof useCaseModel==='function'?useCaseModel('image',{references:photo.length,current:previous.model}):(photo.length?'qwen-image-edit-2511':'qwen-image-2512')}));
+   localStorage.setItem(key,JSON.stringify({...previous,prompt,style:data.imageStyle||'',reference_ids:refs,model:typeof useCaseModel==='function'?useCaseModel('image',{references:photo.length,current:data.pictureTab==='ai'&&data.pictureModel?data.pictureModel:previous.model}):(photo.length?'qwen-image-edit-2511':'qwen-image-2512')}));
   }else localStorage.setItem(key,JSON.stringify({...previous,prompt,reference_ids:[...new Set([...(previous.reference_ids||[]),...characterReferences])].slice(0,kind==='image'?3:8)}));
   if(kind==='video'){
    const previousBoard=read('ecco-board-draft:'+activeStory);
