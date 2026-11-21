@@ -1494,6 +1494,12 @@ test('STORY-37 Story Picture: Image Library tab uses the Image Studio panes, and
 });
 // Image stories (owner-approved mocks, 2026-11-16): Next starts the picture at once; progress on the left half, the Image
 // box with Save, Delete, Download and Full Screen on the right, Publish below it; the picture joins Image Library only on Save.
+test('LIB-IMG-01 Image Library has no Add images tile; Upload images at the top adds pictures',async({page})=>{
+ await boot(page);const hub=await openLibrary(page,'image');await expect(hub.locator('.lh-card').first()).toBeVisible();
+ await expect(hub.getByRole('button',{name:'Upload images',exact:true})).toBeVisible();
+ await expect(hub.locator('.lh-add')).toHaveCount(0);await expect(hub.getByText('Browse for files',{exact:true})).toHaveCount(0);
+ expect(page.qaErrors).toEqual([]);
+});
 test('GEN-06 Image Generation starts by itself, shows the picture for review and saves it to Image Library only on Save',async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt hill');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
