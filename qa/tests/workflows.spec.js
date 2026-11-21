@@ -548,6 +548,29 @@ test('IMG-L3-07 each new picture is checked against the prompt; misses offer Fix
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+// Image Level 4-5 native blocks (21 Nov 2026, branch image-l5-native).
+test('IMG-L4-01 every edit is kept: the latest three show as drafts, All versions keeps the rest and any can be used',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  for(let i=1;i<=4;i++){await ws.getByLabel('AI instructions').fill('Edit '+i);await ws.getByRole('button',{name:'Improve with AI',exact:true}).click();await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(i);await expect(ws.getByRole('button',{name:'Improve with AI',exact:true})).toBeEnabled();}
+  const strip=ws.locator('.iw-history-strip').first();await expect(strip.locator('button')).toHaveCount(5);
+  await expect(strip.getByRole('button',{name:'Original',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(ws.locator('.iw-drafts').first().locator('[data-filled=true]')).toHaveCount(3);
+  // Version 2 (the first edit) has rolled out of the drafts but is still kept and can be used.
+  await strip.getByRole('button',{name:'Version 2',exact:true}).click();
+  const v2=await page.evaluate(()=>window.EccoImageWorkspace.state.selected[0]);expect(v2).not.toBe('qa-image-0');
+  await expect(ws.locator('.iw-history-strip').first().getByRole('button',{name:'Version 2',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(ws.locator('.iw-history-strip').first().locator('button')).toHaveCount(5);
+  // Enhance keeps going past three drafts.
+  await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await expect(ws.getByRole('heading',{name:'Look'})).toBeVisible();
+  await ws.locator('[data-input=enhPrompt]').fill('warmer light');
+  for(let i=1;i<=4;i++){const b=ws.locator('[data-act=enhance]');await expect(b).toBeEnabled();await b.click();await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(4+i);}
+  await expect(ws.locator('[data-act=enhance]')).toHaveText('Generate another version');
+  await expect(ws.locator('.iw-history-strip').first().locator('button')).toHaveCount(9);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){

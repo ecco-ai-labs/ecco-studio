@@ -26,11 +26,11 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',ideas:[],checks:{},autoCheck:true,search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
-  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};
+  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};
   wsStory=activeStory;modelOpen=false;return ws;
  }
  function save(){try{localStorage.setItem(key(wsStory),JSON.stringify(ws));}catch{}}
@@ -53,6 +53,15 @@
  const finalOf=id=>ws.final[id]||id;
  const ai=id=>ws.ai[id]||(ws.ai[id]={drafts:[],index:0});
  const enh=id=>ws.enhance[id]||(ws.enhance[id]={type:'',analysis:null,choices:{},prompt:'',drafts:[],index:0,compare:'after'});
+ // Version history (IMG-2.6): every edit of a picture is kept under the picture it started from. The latest three show
+ // as Draft 1-3; older ones stay in All versions, so nothing is lost when a fourth edit is made.
+ const rootOf=id=>{for(const [root,list] of Object.entries(ws.history))if(list.includes(id))return root;return id;};
+ function keep(source,made){const root=rootOf(source),list=ws.history[root]||(ws.history[root]=[]);if(!list.includes(made))list.push(made);return root;}
+ function addDraft(d,made){d.drafts.push(made);while(d.drafts.length>DRAFTS)d.drafts.shift();d.index=d.drafts.length-1;}
+ function versions(id,act,current){
+  const root=rootOf(id),list=[root,...(ws.history[root]||[])].filter(record);if(list.length<2)return '';
+  return '<div class="iw-group iw-history"><span id="iw-hist-'+act+'">All versions<span class="help"> '+list.length+' · newest last</span></span><div class="iw-history-strip" role="group" aria-labelledby="iw-hist-'+act+'">'+list.map((v,i)=>'<button type="button" class="iw-tile" data-act="'+act+'" data-id="'+esc(v)+'" aria-pressed="'+(v===current)+'" aria-label="'+(i?'Version '+(i+1):'Original')+'">'+thumb(v)+'<span class="iw-badge">'+(i?i+1:'O')+'</span></button>').join('')+'</div></div>';
+ }
 
  /* ---------- unsaved pictures (owner-approved, 16 Nov): out of Image Library until saved ---------- */
  const UNSAVED='ecco-unsaved-images';
@@ -319,7 +328,7 @@
  function improvePane(){
   const id=ws.selected[ws.active],a=id?ai(id):{drafts:[],index:0},shown=a.drafts[a.index];
   return '<section class="pdf-review-box" aria-labelledby="iw-ai-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-ai-heading">Improve with AI</strong><button type="button" class="pdf-ai-icon" data-act="improve" aria-label="Improve with AI" title="Improve with AI"'+(!id||busy.improve||!ws.aiPrompt.trim()?' disabled':'')+'>'+(busy.improve?spinner:'<span aria-hidden="true">✦</span>')+'</button></div><textarea data-input="aiPrompt" rows="6" maxlength="2000" aria-label="AI instructions" placeholder="Describe how to change the selected image…">'+esc(ws.aiPrompt)+'</textarea>'+(busy.improve?'<p class="help iw-status" role="status">'+spinner+' Changing the picture. This usually takes 1-3 minutes.</p>':'')+drafts(a.drafts,a.index,'ai-draft')+
-   (shown?'<div class="iw-preview iw-preview-small">'+img(shown,'Draft '+(a.index+1))+'<span class="iw-cap help">Draft '+(a.index+1)+'</span></div>':'<p class="iw-blank help">Your AI output will appear here. ✦ fills the next draft, up to 3.</p>')+
+   (shown?'<div class="iw-preview iw-preview-small">'+img(shown,'Draft '+(a.index+1))+'<span class="iw-cap help">Draft '+(a.index+1)+'</span></div>':'<p class="iw-blank help">Your AI output will appear here. ✦ fills the next draft; every version is kept.</p>')+(id?versions(id,'version-use',id):'')+
    '<div class="iw-row"><button type="button" data-act="use-ai"'+(shown?'':' disabled')+'>Use AI Image</button><button type="button" class="secondary" data-act="clear-ai"'+(shown?'':' disabled')+'>Clear AI Output</button></div></section>';
  }
  function imageStep(){
@@ -350,17 +359,17 @@
  function enhanceStep(){
   if(!ws.selected.length)return '<p class="iw-blank help">Choose images in step 1 first.</p>';
   const id=ws.selected[ws.enh],number=ws.enh+1,e=enh(id),shown=e.drafts[e.index],before=e.compare==='before';
-  const can=e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles())&&e.drafts.length<DRAFTS&&!busy['enhance:'+id];
+  const can=e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles())&&!busy['enhance:'+id];
   return '<div class="story-source-tabs" role="tablist" aria-label="Images to enhance">'+ws.selected.map((s,i)=>tab('iw-enh-'+i,'Image '+(i+1)+' · '+esc(title(s))+(ws.final[s]?' <span class="iw-done">✓</span>':''),i===ws.enh,'enh','data-index="'+i+'" aria-controls="iw-enh-panel"')).join('')+'</div>'+
    '<div class="story-source-panel" role="tabpanel" id="iw-enh-panel" aria-labelledby="iw-enh-'+ws.enh+'"><div class="pdf-selection-layout iw-layout iw-enhance">'+
    '<section class="pdf-review-box" aria-labelledby="iw-preview-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-preview-heading">Preview</strong><div class="iw-row" role="group" aria-label="Compare"><button type="button" class="secondary" data-act="compare" data-mode="before" aria-pressed="'+before+'">Before</button><button type="button" class="secondary" data-act="compare" data-mode="after" aria-pressed="'+!before+'">After</button></div></div>'+
    '<div class="iw-preview">'+img(before?id:shown||finalOf(id),(before?'Before':'After')+': '+title(id))+'<span class="iw-cap help">'+(before?'Before':shown?'Draft '+(e.index+1):ws.final[id]?'Enhanced':'Original')+'</span></div>'+
-   drafts(e.drafts,e.index,'enh-draft')+'<p class="help">'+(e.drafts.length?e.drafts.length+' of 3 drafts made for this image.':'Generate fills Draft 1. Each run fills the next draft, up to 3.')+'</p>'+
+   drafts(e.drafts,e.index,'enh-draft')+'<p class="help">'+(e.drafts.length?'The latest '+e.drafts.length+(e.drafts.length===1?' draft is':' drafts are')+' shown; every version is kept below.':'Generate fills Draft 1. Each run fills the next draft; every version is kept.')+'</p>'+versions(id,'version-final',finalOf(id))+
    '<div class="iw-row"><button type="button" data-act="use-draft"'+(shown?'':' disabled')+'>Use Draft '+(e.index+1)+' for Image '+number+'</button><button type="button" class="secondary" data-act="clear-drafts"'+(e.drafts.length?'':' disabled')+'>Clear drafts</button></div></section>'+
    '<section class="pdf-review-box pdf-selected-label" aria-labelledby="iw-controls-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-controls-heading">Enhancements</strong>'+(e.type?'<div class="iw-row"><button type="button" class="secondary" data-act="suggest"'+(e.analysis&&Object.keys(e.analysis.suggestions).length?'':' disabled')+'>✦ Use suggestions</button><button type="button" class="secondary" data-act="clear-choices">Clear</button></div>':'')+'</div><p class="help">✦ marks a suggestion. Your choices are sent with or without a prompt.</p><div class="iw-controls">'+controlsPane(id)+'</div></section>'+
    '<section class="pdf-review-box" aria-labelledby="iw-prompt-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-prompt-heading">AI Prompt</strong><span class="help">Optional</span></div><div class="iw-group"><span id="iw-refs-label">Refer to an image</span><div class="iw-options" role="group" aria-labelledby="iw-refs-label">'+ws.selected.map((s,i)=>'<button type="button" class="iw-chip" data-act="ref" data-index="'+i+'">Image '+(i+1)+'</button>').join('')+'</div></div>'+
    '<textarea data-input="enhPrompt" rows="5" maxlength="2000" aria-labelledby="iw-prompt-heading" placeholder="For example: make this character look younger, or draw a photo album cover using Image 1 as the background and the character from Image 2 signing.">'+esc(e.prompt)+'</textarea>'+
-   '<div class="iw-sent" data-sent aria-live="polite">'+sent(id,number)+'</div><button type="button" data-act="enhance"'+(can?'':' disabled')+(busy['enhance:'+id]?' aria-busy="true"':'')+'>'+(busy['enhance:'+id]?spinner+' Generating…':e.drafts.length>=DRAFTS?'All 3 drafts made':'Generate Draft '+(e.drafts.length+1))+'</button>'+(busy['enhance:'+id]?'<p class="help iw-status" role="status">Changing the picture. This usually takes 1-3 minutes.</p>':'')+'</section>'+
+   '<div class="iw-sent" data-sent aria-live="polite">'+sent(id,number)+'</div><button type="button" data-act="enhance"'+(can?'':' disabled')+(busy['enhance:'+id]?' aria-busy="true"':'')+'>'+(busy['enhance:'+id]?spinner+' Generating…':e.drafts.length>=DRAFTS?'Generate another version':'Generate Draft '+(e.drafts.length+1))+'</button>'+(busy['enhance:'+id]?'<p class="help iw-status" role="status">Changing the picture. This usually takes 1-3 minutes.</p>':'')+'</section>'+
    '</div></div>';
  }
 
@@ -540,10 +549,12 @@
   }
   else if(a==='improve'){
    const prompt=ws.aiPrompt.trim(),target=id;if(!target||!prompt)return;
-   const d=ai(target);if(d.drafts.length>=DRAFTS){notice('All three drafts are in use. Clear the AI output, then try again.',true);return;}
-   return run('improve',async()=>{const ids=await edit([target],prompt,'');d.drafts.push(ids[0]);d.index=d.drafts.length-1;});
+   const d=ai(target);
+   return run('improve',async()=>{const ids=await edit([target],prompt,'');keep(target,ids[0]);addDraft(d,ids[0]);});
   }
   else if(a==='ai-draft'){if(id)ai(id).index=+button.dataset.index;}
+  else if(a==='version-use'){const v=button.dataset.id;if(id&&v&&record(v)){keep(id,v);ws.selected[ws.active]=v;ws.published=false;}}
+  else if(a==='version-final'){const v=button.dataset.id;if(id&&v&&record(v)){if(v===rootOf(id)&&v===id)delete ws.final[id];else ws.final[id]=v;ws.published=false;enh(id).compare='after';}}
   else if(a==='use-ai'){const d=ai(id),draft=d.drafts[d.index];if(draft){ws.selected[ws.active]=draft;ws.published=false;}}
   else if(a==='clear-ai'){if(id)ws.ai[id]={drafts:[],index:0};}
   else if(a==='enh')ws.enh=+button.dataset.index;
@@ -562,7 +573,7 @@
    const c=M.compose({number,type:e.type,prompt:e.prompt,choices:e.choices,styles:styles()});
    const others=M.referenced(e.prompt,ws.selected.length).filter(n=>n!==number).map(n=>finalOf(ws.selected[n-1]));
    const ids=[finalOf(target),...others].slice(0,LIMIT);
-   return run('enhance:'+target,async()=>{const made=await edit(ids,c.prompt,c.style);e.drafts.push(made[0]);e.index=e.drafts.length-1;e.compare='after';});
+   return run('enhance:'+target,async()=>{const made=await edit(ids,c.prompt,c.style);keep(target,made[0]);addDraft(e,made[0]);e.compare='after';});
   }
   else if(a==='publish')return run('publish',publish);
   else if(a==='open-library'){window.EccoLibraryHub?.open('image');return;}
@@ -582,7 +593,7 @@
  const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';}};
  function input(el){
   const k=el.dataset.input;
-  if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles())&&e.drafts.length<DRAFTS);save();return;}
+  if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles()));save();return;}
   if(INPUTS[k]){INPUTS[k](el.value);save();if(el.tagName==='SELECT'||k==='setPages'||k==='charName')draw();return;}
   ws[k]=el.value;save();
   if(k==='genPrompt'){const b=q('#image-workspace [data-act=generate]');if(b)b.disabled=!el.value.trim();const i=q('#image-workspace [data-act=ideas]');if(i&&!busy.ideas)i.disabled=!el.value.trim();}

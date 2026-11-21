@@ -1228,6 +1228,37 @@
       "area": "Create Images"
     },
     {
+      "id": "version-tile",
+      "of": "button",
+      "name": "Version tile (All versions strip)",
+      "font": "@text-regular",
+      "height": 54,
+      "width": 72,
+      "selectors": [
+        "#image-workspace .iw-history-strip button.iw-tile"
+      ],
+      "examples": [
+        "Original",
+        "Version 2"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "set-page-tile",
+      "of": "button",
+      "name": "Picture Set page tile",
+      "font": "@text-regular",
+      "height": 150,
+      "width": null,
+      "selectors": [
+        "#image-workspace .iw-page-media button.iw-tile"
+      ],
+      "examples": [
+        "Page 1 picture"
+      ],
+      "area": "Create Images"
+    },
+    {
       "id": "voice-slot",
       "of": "button",
       "name": "Voice slot",
