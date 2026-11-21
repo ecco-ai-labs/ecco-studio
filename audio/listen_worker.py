@@ -97,4 +97,17 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as error:
+        # Write the reason next to the job, so the coordinator can show why listen-back failed (the worker log stays on the GPU).
+        import traceback
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--request', type=Path)
+        parser.add_argument('--output', type=Path)
+        known, _ = parser.parse_known_args()
+        if known.output:
+            known.output.write_text(json.dumps({'error': f'{type(error).__name__}: {error}'[:500], 'trace': traceback.format_exc()[-1500:]}))
+        raise
