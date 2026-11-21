@@ -28,11 +28,11 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,texts:{},exportFormat:'png',resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,texts:{},exportFormat:'png',sizes:{},resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
-  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};if(!ws.notes||typeof ws.notes!=='object')ws.notes={};if(!ws.texts||typeof ws.texts!=='object')ws.texts={};
+  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};if(!ws.notes||typeof ws.notes!=='object')ws.notes={};if(!ws.texts||typeof ws.texts!=='object')ws.texts={};if(!ws.sizes||typeof ws.sizes!=='object')ws.sizes={};
   wsStory=activeStory;modelOpen=false;return ws;
  }
  function save(){try{localStorage.setItem(key(wsStory),JSON.stringify(ws));}catch{}}
@@ -182,7 +182,8 @@
    const made=state.records.filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted&&(a.job_id===j.id||ids.includes(a.id))).sort((a,b)=>(a.created||0)-(b.created||0)).map(a=>a.id);
    if(!made.length)continue;
    j.done=true;j.finished=Date.now();j.results=made;j.seconds=r.seconds;changed=true;unsaved(made);
-   if(j.target==='set'){const p=ws.set.pages[j.page];if(p&&p.key===j.key){if(p.asset)(p.history||(p.history=[])).push(p.asset);p.asset=made[0];}}
+   if(j.target==='sizes'){const d=ws.sizes[j.root]||(ws.sizes[j.root]={});d[j.size]=made[0];keep(j.source,made[0]);}
+   else if(j.target==='set'){const p=ws.set.pages[j.page];if(p&&p.key===j.key){if(p.asset)(p.history||(p.history=[])).push(p.asset);p.asset=made[0];}}
    else{
     ws.generated=[...made.slice().reverse(),...ws.generated.filter(id=>!made.includes(id))];
     if(j.kind==='image'&&j.prompt)for(const id of made)queueCheck(id,j.prompt);
@@ -393,13 +394,32 @@
    '<div class="iw-row"><button type="button" data-act="use-ai"'+(shown?'':' disabled')+'>Use AI Image</button><button type="button" class="secondary" data-act="clear-ai"'+(shown?'':' disabled')+'>Clear AI Output</button></div></section>';
  }
  // Change shape (fill the new sides, keep the middle) and Make 4K: only when the server offers them.
+ // One picture to every platform size (IMG-4.3): one Change shape job per size, all queued at once.
+ const PLATFORMS=[['Instagram post 4:5','1104x1380'],['Instagram story 9:16','928x1664'],['YouTube 16:9','1664x928'],['Square post 1:1','1328x1328'],['Web banner 21:9','1568x672'],['Pinterest 2:3','1056x1584']];
+ async function allSizes(id){
+  const root=rootOf(id),done=ws.sizes[root]||(ws.sizes[root]={});
+  try{
+   const gpu=requireCompute();await window.EccoCompute.validate(gpu,EDIT_MODEL);const settings={...modelSettings(EDIT_MODEL)};if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
+   for(const [name,size] of PLATFORMS){if(done[size]&&record(done[size]))continue;queue({kind:'edit',path:'image-resize',payload:{gpu,asset_id:id,size,story_id:activeStory,...settings}},{target:'sizes',source:id,root,size,prompt:name});}
+  }catch(error){notice(error.message,true);return;}
+  save();pump();draw();watch();notice('Making '+PLATFORMS.length+' sizes. They appear under Every size as they finish.');
+ }
+ function sizesGrid(id){
+  const root=rootOf(id),done=ws.sizes[root]||{},jobs=ws.jobs.filter(j=>j.target==='sizes'&&j.root===root);
+  if(!jobs.length&&!Object.keys(done).length)return '';
+  return '<div class="iw-group"><span id="iw-sizes-'+esc(root)+'">Every size</span><div class="iw-set-pages" role="group" aria-labelledby="iw-sizes-'+esc(root)+'">'+PLATFORMS.map(([name,size])=>{
+   const a=done[size],j=jobs.filter(x=>x.size===size).pop(),running=j&&!j.done;
+   return '<figure class="iw-page"><div class="iw-page-media">'+(record(a)?'<button type="button" class="iw-tile" data-act="version-use" data-id="'+esc(a)+'" aria-pressed="'+(a===id)+'" aria-label="Use '+esc(name)+'">'+thumb(a)+'</button>':'<div class="iw-empty-slot help">'+esc(name)+'</div>')+'</div><figcaption class="help">'+esc(name)+' · '+size.replace('x',' × ')+'</figcaption>'+(running?jobCard(j,name):j?.error&&!record(a)?'<p class="help">'+esc(j.error)+'</p>':'')+'</figure>';
+  }).join('')+'</div></div>';
+ }
  function sizePane(id){
   const canShape=!!state.config?.image_resize,can4k=!!state.config?.image_upscale;if(!id||(!canShape&&!can4k))return '';
   const list=shapeList(),r=record(id),now=r?.settings?.resize||r?.settings?.upscale||'',pick=ws.resizeShape||list.find(x=>x.size!==now)?.size||'';
   return '<div class="iw-group iw-size-tools" role="group" aria-label="Shape and size"><span>Shape and size</span>'+
    (canShape&&list.length?'<div class="iw-pair"><label>New shape<select data-input="resizeShape">'+list.map(x=>'<option value="'+x.size+'"'+(x.size===pick?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label><button type="button" class="secondary" data-act="resize"'+(busy.resize||busy.improve?' disabled':'')+(busy.resize?' aria-busy="true"':'')+'>'+(busy.resize?spinner+' Changing shape…':'Change shape')+'</button></div>':'')+
    (can4k?'<button type="button" class="secondary" data-act="upscale"'+(busy.upscale?' disabled aria-busy="true"':'')+'>'+(busy.upscale?spinner+' Making 4K…':'Make a 4K copy')+'</button>':'')+
-   '<p class="help">The new sides are drawn to match; the middle stays exactly as it is. Each result is a new version.</p></div>';
+   (canShape?'<button type="button" class="secondary" data-act="all-sizes"'+(ws.jobs.some(j=>j.target==='sizes'&&j.root===rootOf(id)&&!j.done)?' disabled':'')+'>Make every platform size ('+PLATFORMS.length+')</button>':'')+
+   '<p class="help">The new sides are drawn to match; the middle stays exactly as it is. Each result is a new version.</p>'+(canShape?sizesGrid(id):'')+'</div>';
  }
  function imageStep(){
   const tabs=[['upload','Upload an Image'],['library','Select from Image Library'],['generate','Generate with AI'],['set','Picture Set']];
@@ -697,6 +717,7 @@
    const target=id,list=noteList(target);if(!target||!list.length)return;const d=ai(target);
    return run('notes',async()=>{const made=await edit([target],notesPrompt(list),'');keep(target,made[0]);addDraft(d,made[0]);ws.notes[made[0]]=[];notice('Notes sent. The result is the next draft under Improve with AI.');});
   }
+  else if(a==='all-sizes'){if(id)allSizes(id);return;}
   else if(a==='resize'||a==='upscale'){
    const target=id;if(!target)return;const d=ai(target);
    return run(a,async()=>{

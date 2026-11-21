@@ -765,6 +765,26 @@ test('IMG-L4-05 brand font, headline and price on the picture; Publish previews 
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L4-06 one picture to every platform size in one click: six Change shape jobs at once, each lands under Every size and in All versions',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await page.evaluate(()=>{state.config.image_resize=true;const base=api;api=async(path,body)=>{if(path==='image-resize'){window.__qaCalls.push({path,body});const n=window.__qaCalls.length,job={id:'qa-held-'+n,kind:'job',status:'queued',created:Date.now()/1000,label:'Change picture shape',story_id:body.story_id};state.records.push(job);window.__held.push({job,body,path});return {id:job.id,status:'queued'};}return base(path,body);};});
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  await ws.getByRole('button',{name:'Make every platform size (6)',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-resize').then(c=>c.length)).toBe(6);
+  expect((await imageCalls(page,'image-resize')).map(b=>b.size)).toEqual(['1104x1380','928x1664','1664x928','1328x1328','1568x672','1056x1584']);
+  const sizes=ws.getByRole('group',{name:'Every size'});await expect(sizes.locator('.iw-job')).toHaveCount(6);
+  await expect(ws.getByRole('button',{name:'Make every platform size (6)',exact:true})).toBeDisabled();
+  await page.evaluate(()=>{for(let i=0;i<6;i++)window.__finish(i);});
+  await expect(sizes.locator('.iw-tile')).toHaveCount(6,{timeout:10000});await expect(sizes.locator('.iw-job')).toHaveCount(0);
+  await expect(ws.locator('.iw-history-strip').first().locator('button')).toHaveCount(7);
+  await sizes.getByRole('button',{name:'Use YouTube 16:9',exact:true}).click();
+  expect(await page.evaluate(()=>window.EccoImageWorkspace.state.selected[0])).toBe('qa-out-2');
+  // Asking again only makes the sizes that are missing.
+  await expect(ws.getByRole('button',{name:'Make every platform size (6)',exact:true})).toBeEnabled();
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){
