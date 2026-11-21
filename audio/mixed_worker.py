@@ -1,4 +1,12 @@
 """Render each model once in isolation, restore passage order, then mix once."""
+import os
+import sys
+# Serverless links these scripts from the network volume into /workspace/ecco-audio, where each job's voice
+# environments are unpacked. Python puts the link's *target* folder (the volume) first on sys.path, so
+# queue_worker looked for the environments there and every mixed story failed with "Install and verify the
+# selected model runtime on this worker." (found 21 Nov 2026). Import from the folder the script was started from.
+if sys.argv and os.path.basename(sys.argv[0]) == 'mixed_worker.py':
+    sys.path.insert(0, os.path.dirname(os.path.abspath(sys.argv[0])))
 import argparse
 import json
 from pathlib import Path
