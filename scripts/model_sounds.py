@@ -367,6 +367,7 @@ def listen(asset_path, sha, labels=None):
     d = QUEUE / jid
     d.mkdir(parents=True, mode=0o700)
     shutil.copyfile(asset_path, d / 'input.wav')
+    sha = hashlib.sha256((d / 'input.wav').read_bytes()).hexdigest()  # the file as it is now (after any trim)
     request = {'task': 'listen', 'listen_version': 1, 'model': CLAP if labels else WHISPER, 'compute': COMPUTE,
                'title': 'Model Sounds check', 'input': {'sha256': sha}}
     if labels:
@@ -379,6 +380,8 @@ def listen(asset_path, sha, labels=None):
         if status.get('status') == 'complete' and (d / 'output.json').is_file():
             out = json.loads((d / 'output.json').read_text())
             shutil.rmtree(d, ignore_errors=True)
+            if out.get('error'):
+                raise RuntimeError('listen-back: ' + out['error'])
             return out
         if status.get('status') in ('error', 'cancelled'):
             shutil.rmtree(d, ignore_errors=True)
