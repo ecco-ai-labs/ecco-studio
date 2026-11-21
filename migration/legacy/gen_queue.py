@@ -187,8 +187,27 @@ def _finish(job_id, started):
     wake()
 
 
+def _stopped(job_id):
+    g = _STATE['g']
+    try:
+        if g['get'](job_id, 'job').get('cancel_requested'):
+            return True
+    except Exception:
+        return False
+    return (Path(str(g.get('DATA', ''))) / 'generation-control' / job_id / 'cancel.json').exists() if g.get('DATA') else False
+
+
 def _start(row):
     job_id = row['job_id']
+    if _stopped(job_id):  # Stop pressed while it was waiting: it never starts
+        _set(job_id, status='cancelled', finished=time.time())
+        with LOCK:
+            RUNS.pop(job_id, None)
+        try:
+            _STATE['g']['job_update'](job_id, status='cancelled', progress='Stopped by user', error='')
+        except Exception:
+            pass
+        return
     run = RUNS.get(job_id)
     if run is None:
         rebuilt = rebuild(row)
