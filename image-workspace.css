@@ -100,3 +100,10 @@
 #image-workspace .iw-check-row{display:flex;align-items:center;gap:8px;margin-block-end:12px}
 #image-workspace .iw-size-tools{margin-block-start:12px}
 #image-workspace .iw-size-tools .iw-pair{align-items:end}
+/* Review notes pinned to a spot */
+#image-workspace [data-pin] img{cursor:crosshair}
+#image-workspace .iw-pin{position:absolute;transform:translate(-50%,-50%);min-inline-size:1.6em;padding:.15em .4em;border-radius:999px;background:var(--ecco-theme-accent,#7c5cff);color:#fff;font-weight:700;text-align:center;pointer-events:none;box-shadow:0 0 0 2px #fff}
+#image-workspace .iw-pin-draft{opacity:.7}
+#image-workspace .iw-notes{display:flex;flex-direction:column;gap:8px;margin-block:8px}
+#image-workspace .iw-note-list{margin:0;padding-inline-start:1.4em;display:flex;flex-direction:column;gap:4px}
+#image-workspace .iw-note-list li>span{margin-inline-end:6px}

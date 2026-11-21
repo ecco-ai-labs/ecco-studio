@@ -40,6 +40,13 @@
   const x=c.getContext('2d');x.drawImage(pic,0,0,w,h);const b=box(w,h,logo.naturalWidth||logo.width,logo.naturalHeight||logo.height,kit.position,kit.size);x.drawImage(logo,b.x,b.y,b.width,b.height);
   const out=await new Promise(r=>c.toBlob(r,'image/png'));return new Uint8Array(await out.arrayBuffer());
  }
+ // The logo alone on a clear picture of the same size: a layer that design tools can stack over the original.
+ async function layer(pictureBlob,logoBlob,kit){
+  const [pic,logo]=await Promise.all([load(pictureBlob),load(logoBlob)]);
+  const w=pic.naturalWidth||pic.width,h=pic.naturalHeight||pic.height,c=document.createElement('canvas');c.width=w;c.height=h;
+  const b=box(w,h,logo.naturalWidth||logo.width,logo.naturalHeight||logo.height,kit.position,kit.size);c.getContext('2d').drawImage(logo,b.x,b.y,b.width,b.height);
+  const out=await new Promise(r=>c.toBlob(r,'image/png'));return new Uint8Array(await out.arrayBuffer());
+ }
  /* ---------- PNG text chunks ---------- */
  const TABLE=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
  const crc=bytes=>{let c=0xFFFFFFFF;for(const b of bytes)c=TABLE[(c^b)&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
@@ -65,7 +72,7 @@
    if(t==='IEND')break;i+=12+len;}
   return out;
  }
- const api={POSITIONS,SIZES:Object.keys(SIZES),kits,active,save,use,remove,prompt,negative,box,place,pngText,readText,clean};
+ const api={POSITIONS,SIZES:Object.keys(SIZES),kits,active,save,use,remove,prompt,negative,box,place,layer,pngText,readText,clean};
  if(typeof module==='object'&&module.exports)module.exports=api;
  root.EccoImageBrand=api;
 })(typeof window!=='undefined'?window:globalThis);

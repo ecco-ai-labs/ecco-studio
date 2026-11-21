@@ -602,7 +602,8 @@ test('IMG-L4-02 brand kit: colours and words go into new pictures; publish and d
   await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
   await expect(ws.getByText('Place the Acme logo (top left) on each picture')).toBeVisible();
   const download=page.waitForEvent('download');await ws.getByRole('button',{name:'Download pictures',exact:true}).click();
-  expect((await download).suggestedFilename()).toBe('ecco-pictures.zip');
+  const got=await download;expect(got.suggestedFilename()).toBe('ecco-pictures.zip');
+  const files=(await readFile(await got.path())).toString('latin1');expect(files).toContain('layers/01-');expect(files).toMatch(/layers\/01-[^\x00]*-logo\.png/);expect(files).toContain('"name": "Acme"');
   await ws.getByRole('button',{name:'Publish',exact:true}).click();
   await expect(ws.getByRole('heading',{name:/published to Image Library/})).toBeVisible();
   const up=await imageCalls(page,'images/upload');expect(up).toHaveLength(1);expect(up[0].name).toMatch(/Acme\.png$/);
@@ -631,6 +632,31 @@ test('IMG-L4-03 Change shape and Make a 4K copy appear only when the server offe
   await expect(ws.locator('.iw-history-strip').first().locator('button')).toHaveCount(3);
   await ws.getByRole('button',{name:'Use AI Image',exact:true}).click();
   const now=await page.evaluate(()=>window.EccoImageWorkspace.state.selected[0]);expect(now).toMatch(/^qa-made-/);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
+test('IMG-L4-04 review notes pinned to a spot: click the picture, write a note, Fix these notes sends where each one is; Download has layers and pictures.json',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  const pic=ws.locator('[data-pin] img');await expect(pic).toBeVisible();await expect.poll(()=>pic.evaluate(i=>i.naturalWidth)).toBeGreaterThan(0);
+  // The picture is 16:9 inside a box that leaves bands; spots are measured on the picture itself.
+  const spot=async(fx,fy)=>{const r=await pic.evaluate(i=>{const b=i.parentElement.getBoundingClientRect(),s=Math.min(b.width/i.naturalWidth,b.height/i.naturalHeight),w=i.naturalWidth*s,h=i.naturalHeight*s;return {x:b.left+(b.width-w)/2,y:b.top+(b.height-h)/2,w,h};});await page.mouse.click(r.x+fx*r.w,r.y+fy*r.h);};
+  await spot(.1,.1);await ws.locator('[data-input=noteText]').fill('make the sky bluer');await ws.getByRole('button',{name:'Add note',exact:true}).click();
+  await spot(.9,.9);await ws.locator('[data-input=noteText]').fill('add a small dog.');await ws.getByRole('button',{name:'Add note',exact:true}).click();
+  const notes=ws.getByRole('group',{name:'Review notes'});
+  await expect(notes.locator('li')).toHaveText(['top left: make the sky bluer×','bottom right: add a small dog.×']);
+  await expect(ws.locator('[data-pin] .iw-pin')).toHaveCount(2);
+  const pin=await ws.locator('[data-pin] .iw-pin').first().evaluate(p=>{const b=p.parentElement.querySelector('img').getBoundingClientRect(),r=p.getBoundingClientRect();return {left:r.left+r.width/2-b.left,top:r.top+r.height/2-b.top};});
+  expect(pin.left).toBeGreaterThan(0);expect(pin.top).toBeGreaterThan(0);
+  // Download before fixing: the notes go into pictures.json.
+  const dl=page.waitForEvent('download');await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
+  await ws.getByRole('button',{name:'Download pictures',exact:true}).click();const file=await (await dl).path();
+  const zip=(await readFile(file)).toString('latin1');expect(zip).toContain('pictures.json');expect(zip).toContain('"where": "top left"');expect(zip).toContain('make the sky bluer');
+  await ws.getByRole('button',{name:'← Back: Enhance Image',exact:true}).click();await ws.getByRole('button',{name:'← Back: Image',exact:true}).click();
+  await ws.getByRole('button',{name:'Fix these 2 notes',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(1);
+  expect((await imageCalls(page,'image-edits'))[0].prompt).toBe('Make these changes and keep everything else exactly the same: 1) in the top left of the picture: make the sky bluer; 2) in the bottom right of the picture: add a small dog.');
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });

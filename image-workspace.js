@@ -26,11 +26,11 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,resizeShape:'',ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
-  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};
+  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};if(!ws.notes||typeof ws.notes!=='object')ws.notes={};
   wsStory=activeStory;modelOpen=false;return ws;
  }
  function save(){try{localStorage.setItem(key(wsStory),JSON.stringify(ws));}catch{}}
@@ -316,10 +316,40 @@
   const shown=images.filter(a=>!(hidden.has(a.id)&&!state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id))&&(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!ws.label||state.records.some(l=>l.kind==='library_item'&&!l.deleted&&l.asset_id===a.id&&l.folder_id===ws.label)));
   return '<section class="pdf-review-box" aria-labelledby="iw-lib-heading"><strong class="pdf-review-heading" id="iw-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-input="search" value="'+esc(ws.search)+'" placeholder="Find an image"></label><label>Label<select data-input="label"><option value="">All images</option>'+folders.map(f=>'<option value="'+esc(f.id)+'"'+(f.id===ws.label?' selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></label></div><p class="help">Select up to 3 images. Click again to deselect. To merge pictures, pick the background first.</p>'+(shown.length?'<div class="iw-grid iw-library">'+shown.map(a=>tile(a.id,ws.selected.indexOf(a.id)+1,'pick')).join('')+'</div>':'<p class="help">'+(images.length?'No images match.':'Image Library is empty. Upload or generate an image.')+'</p>')+'</section>';
  }
+ /* ---------- review notes pinned to a spot (IMG-4.4) ---------- */
+ // A note is kept at a spot on the picture (fractions of its width and height); Fix these notes sends them, with
+ // where each one is, to the instruction-edit model. Notes go with the picture into Download pictures.
+ const where=(x,y)=>{const v=y<1/3?'top':y>2/3?'bottom':'middle',h=x<1/3?'left':x>2/3?'right':'centre';return v==='middle'&&h==='centre'?'centre':v==='middle'?h+' side':v+' '+h;};
+ const noteList=id=>ws.notes[id]||[];
+ function pins(id){
+  const list=noteList(id).map((n,i)=>({...n,i:i+1})),d=ws.noteDraft&&ws.noteDraft.id===id?[{...ws.noteDraft,i:noteList(id).length+1,draft:true}]:[];
+  return [...list,...d].map(n=>'<span class="iw-pin'+(n.draft?' iw-pin-draft':'')+'" data-x="'+n.x+'" data-y="'+n.y+'" aria-hidden="true">'+n.i+'</span>').join('');
+ }
+ function notesPane(id){
+  const list=noteList(id),d=ws.noteDraft&&ws.noteDraft.id===id?ws.noteDraft:null;
+  return '<div class="iw-notes" role="group" aria-label="Review notes"><p class="help">Click the picture to pin a note to a spot.</p>'+
+   (d?'<div class="iw-note-form"><label>Note '+(list.length+1)+' · '+esc(where(d.x,d.y))+'<input type="text" data-input="noteText" maxlength="300" value="'+esc(d.text||'')+'" placeholder="For example: make this sign say OPEN"></label><div class="iw-row"><button type="button" data-act="note-save"'+((d.text||'').trim()?'':' disabled')+'>Add note</button><button type="button" class="secondary" data-act="note-cancel">Cancel</button></div></div>':'')+
+   (list.length?'<ol class="iw-note-list">'+list.map((n,i)=>'<li><span>'+esc(where(n.x,n.y))+': '+esc(n.text)+'</span><button type="button" class="secondary" data-act="note-remove" data-index="'+i+'" aria-label="Remove note '+(i+1)+'">×</button></li>').join('')+'</ol><div class="iw-row"><button type="button" data-act="notes-fix"'+(busy.notes||busy.improve?' disabled':'')+(busy.notes?' aria-busy="true"':'')+'>'+(busy.notes?spinner+' Fixing…':'Fix '+(list.length===1?'this note':'these '+list.length+' notes'))+'</button></div>':'')+'</div>';
+ }
+ // Pins sit on the picture itself (object-fit: contain leaves bands), so they are placed once the picture has a size.
+ function placePins(){
+  for(const box of all('#image-workspace [data-pin]')){
+   const im=q('img',box);if(!im||!im.naturalWidth)continue;
+   const bw=box.clientWidth,bh=box.clientHeight,s=Math.min(bw/im.naturalWidth,bh/im.naturalHeight),w=im.naturalWidth*s,h=im.naturalHeight*s,ox=(bw-w)/2,oy=(bh-h)/2;
+   for(const p of all('.iw-pin',box)){p.style.left=(ox+(+p.dataset.x)*w)+'px';p.style.top=(oy+(+p.dataset.y)*h)+'px';}
+  }
+ }
+ function pinAt(box,e){
+  const im=q('img',box);if(!im||!im.naturalWidth)return;
+  const r=box.getBoundingClientRect(),s=Math.min(r.width/im.naturalWidth,r.height/im.naturalHeight),w=im.naturalWidth*s,h=im.naturalHeight*s,ox=(r.width-w)/2,oy=(r.height-h)/2;
+  const x=(e.clientX-r.left-ox)/w,y=(e.clientY-r.top-oy)/h;if(x<0||x>1||y<0||y>1)return;
+  ws.noteDraft={id:box.dataset.pin,x:Math.round(x*1000)/1000,y:Math.round(y*1000)/1000,text:''};save();draw();requestAnimationFrame(()=>q('#image-workspace [data-input=noteText]')?.focus());
+ }
+ const notesPrompt=list=>'Make these changes and keep everything else exactly the same: '+list.map((n,i)=>(i+1)+') in the '+where(n.x,n.y)+' of the picture: '+n.text.trim().replace(/[.;]+$/,'')).join('; ')+'.';
  function selectedPane(){
   const id=ws.selected[ws.active],f=ws.charForm;
   return '<section class="pdf-review-box pdf-selected-label" aria-labelledby="iw-selected-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-selected-heading">Selected Images</strong><span class="help">'+ws.selected.length+' of 3</span></div><p class="help">Only these images go to Enhance Image.</p>'+
-   (id?'<div class="iw-preview">'+img(id,'Image '+(ws.active+1)+': '+title(id))+'<span class="iw-cap help">Image '+(ws.active+1)+' · '+esc(title(id))+'</span></div>':'<p class="iw-blank help">Choose images from a tab on the left.</p>')+
+   (id?'<div class="iw-preview" data-pin="'+esc(id)+'">'+img(id,'Image '+(ws.active+1)+': '+title(id))+pins(id)+'<span class="iw-cap help">Image '+(ws.active+1)+' · '+esc(title(id))+'</span></div>'+notesPane(id):'<p class="iw-blank help">Choose images from a tab on the left.</p>')+
    '<div class="iw-grid">'+[0,1,2].map(i=>{const s=ws.selected[i];return s?'<div class="iw-slot">'+'<button type="button" class="iw-tile" data-act="show" data-index="'+i+'" aria-pressed="'+(i===ws.active)+'" aria-label="Show image '+(i+1)+': '+esc(title(s))+'">'+thumb(s)+'<span class="iw-badge">'+(i+1)+'</span></button><button type="button" class="iw-remove" data-act="remove" data-index="'+i+'" aria-label="Remove image '+(i+1)+'" title="Remove">×</button></div>':'<div class="iw-empty-slot help">Empty</div>';}).join('')+'</div>'+
    (id?(f?'<div class="iw-character-form" role="group" aria-label="Save as character"><label>Character name<input type="text" data-input="charName" maxlength="100" value="'+esc(f.name)+'" placeholder="For example: Pip the fox"></label><label>What should stay the same<textarea data-input="charDesc" rows="3" maxlength="2000" placeholder="For example: a small red fox with a white chest, green scarf, amber eyes">'+esc(f.desc)+'</textarea></label><div class="iw-row"><button type="button" data-act="char-save"'+(f.name.trim()&&!busy.character?'':' disabled')+'>'+(busy.character?spinner+' Saving…':'Save character')+'</button><button type="button" class="secondary" data-act="char-cancel">Cancel</button></div></div>'
     :'<div class="iw-row"><button type="button" class="secondary" data-act="char-open">Save as character</button></div>'):'')+
@@ -439,7 +469,7 @@
    const caret=focus&&typeof document.activeElement.selectionStart==='number'?[document.activeElement.selectionStart,document.activeElement.selectionEnd]:null;
    root.innerHTML=html;lastHtml=html;
    if(focus){const el=q('#image-workspace [data-input="'+focus+'"]')||q('#'+CSS.escape(focus));el?.focus();if(caret&&el&&typeof el.setSelectionRange==='function')try{el.setSelectionRange(caret[0],caret[1]);}catch{}}
-   window.scrollTo(0,scroll);
+   window.scrollTo(0,scroll);placePins();
   }
   paintJobs();
   if(typeof hydrateMedia==='function')hydrateMedia();
@@ -591,6 +621,13 @@
    const d=ai(target);
    return run('improve',async()=>{const ids=await edit([target],prompt,'');keep(target,ids[0]);addDraft(d,ids[0]);});
   }
+  else if(a==='note-save'){const d=ws.noteDraft;if(d&&d.text.trim()){(ws.notes[d.id]||(ws.notes[d.id]=[])).push({x:d.x,y:d.y,text:d.text.trim()});ws.noteDraft=null;}}
+  else if(a==='note-cancel')ws.noteDraft=null;
+  else if(a==='note-remove'){const list=noteList(id);list.splice(+button.dataset.index,1);}
+  else if(a==='notes-fix'){
+   const target=id,list=noteList(target);if(!target||!list.length)return;const d=ai(target);
+   return run('notes',async()=>{const made=await edit([target],notesPrompt(list),'');keep(target,made[0]);addDraft(d,made[0]);ws.notes[made[0]]=[];notice('Notes sent. The result is the next draft under Improve with AI.');});
+  }
   else if(a==='resize'||a==='upscale'){
    const target=id;if(!target)return;const d=ai(target);
    return run(a,async()=>{
@@ -639,9 +676,17 @@
  }
  async function download(){
   const kit=logoOn(),files=[];
-  for(const [i,id] of ws.selected.map(finalOf).entries()){const f=await finished(id,kit);files.push({name:String(i+1).padStart(2,'0')+'-'+J.safeName(title(id)).slice(0,40)+(f.mime==='image/png'?'.png':/jpe?g/.test(f.mime)?'.jpg':'.webp'),bytes:f.bytes});}
+  const list=[];
+  for(const [i,id] of ws.selected.map(finalOf).entries()){
+   const f=await finished(id,kit),stem=String(i+1).padStart(2,'0')+'-'+J.safeName(title(id)).slice(0,40),r=record(id)||{},file=stem+(f.mime==='image/png'?'.png':/jpe?g/.test(f.mime)?'.jpg':'.webp');
+   files.push({name:file,bytes:f.bytes});
+   // Layers: the picture without the logo and the logo alone on a clear picture of the same size.
+   if(kit){const o=await bytesOf(id),l=await bytesOf(kit.logo);files.push({name:'layers/'+stem+'-picture'+(/jpe?g/.test(o.mime)?'.jpg':/webp/.test(o.mime)?'.webp':'.png'),bytes:o.bytes});files.push({name:'layers/'+stem+'-logo.png',bytes:await B.layer(new Blob([o.bytes],{type:o.mime}),new Blob([l.bytes],{type:l.mime}),kit)});}
+   list.push({file,title:title(id),prompt:r.prompt||r.settings?.prompt||'',model:r.model||r.settings?.model||'',seed:r.settings?.seed??r.seed??null,versions:[rootOf(id),...(ws.history[rootOf(id)]||[])].length,brand:kit?{name:kit.name,colors:kit.colors,logo_position:kit.position,logo_size:kit.size}:null,notes:noteList(id).map(n=>({x:n.x,y:n.y,where:where(n.x,n.y),text:n.text}))});
+  }
+  files.push({name:'pictures.json',bytes:new TextEncoder().encode(JSON.stringify({made_with:'Ecco Studio',exported:new Date().toISOString(),pictures:list},null,2)+'\n')});
   const url=URL.createObjectURL(new Blob([J.zip(files)],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download='ecco-pictures.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  notice(files.length+(files.length===1?' picture':' pictures')+' downloaded'+(kit?' with the '+kit.name+' logo':'')+'.');
+  notice(list.length+(list.length===1?' picture':' pictures')+' downloaded'+(kit?' with the '+kit.name+' logo':'')+'.');
  }
  async function publish(){
   const story=state.records.find(r=>r.kind==='story'&&r.id===activeStory),name=String(story?.title||'').replace(/\//g,'-').trim().slice(0,80);
@@ -654,7 +699,7 @@
   }
   unsaved([],ids);await refresh();ws.published=true;notice(ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library'+(kit?' with the '+kit.name+' logo':'')+'.');
  }
- const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';},resizeShape:v=>{ws.resizeShape=v;}};
+ const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';},resizeShape:v=>{ws.resizeShape=v;},noteText:v=>{if(ws.noteDraft){ws.noteDraft.text=v;const b=q('#image-workspace [data-act=note-save]');if(b)b.disabled=!v.trim();}}};
  function input(el){
   const k=el.dataset.input;
   if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles()));save();return;}
@@ -688,7 +733,9 @@
  }
 
  /* ---------- wiring ---------- */
- document.addEventListener('click',e=>{const b=e.target.closest?.('#image-workspace [data-act]');if(b&&!b.disabled){e.preventDefault();act(b);}});
+ document.addEventListener('click',e=>{const b=e.target.closest?.('#image-workspace [data-act]');if(b&&!b.disabled){e.preventDefault();act(b);return;}const box=e.target.closest?.('#image-workspace [data-pin]');if(box&&e.target.tagName==='IMG')pinAt(box,e);});
+ document.addEventListener('load',e=>{if(e.target.tagName==='IMG'&&e.target.closest?.('#image-workspace [data-pin]'))placePins();},true);
+ window.addEventListener('resize',()=>placePins());
  document.addEventListener('input',e=>{if(!e.target.closest?.('#image-workspace'))return;if(e.target.dataset.input&&e.target.tagName!=='SELECT')input(e.target);else if(e.target.dataset.brand&&e.target.tagName==='INPUT'&&e.target.type==='text')brandInput(e.target);});
  document.addEventListener('change',e=>{
   if(!e.target.closest?.('#image-workspace'))return;
