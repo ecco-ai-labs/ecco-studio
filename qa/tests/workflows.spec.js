@@ -748,6 +748,7 @@ test('IMG-L4-05 brand font, headline and price on the picture; Publish previews 
   await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
   await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
   await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
+  await ws.getByRole('button',{name:'More options: words, file type, review',exact:true}).click();
   const words=ws.getByRole('group',{name:'Words on image 1'});
   await words.getByLabel('Headline').fill('Fresh bread daily');await words.getByLabel('Price or offer').fill('$4.99');
   // The preview is redrawn with the words; the caption gives the print size at 300 dpi.
@@ -794,6 +795,7 @@ test('IMG-L4-07 share for review: a link for the chosen pictures; reviewers\' pi
   await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
   await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
   await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
+  await ws.getByRole('button',{name:'More options: words, file type, review',exact:true}).click();
   await ws.getByRole('button',{name:'Share for review',exact:true}).click();
   expect((await imageCalls(page,'review/create'))[0]).toMatchObject({asset_ids:['qa-image-0'],story_id:'qa-story'});
   await expect(ws.getByLabel('Review link')).toHaveValue(/\/review\.html#t=T{43}$/);
@@ -829,6 +831,36 @@ test('REVIEW-01 the review page shows only the shared pictures; a click pins a c
   // A closed link.
   await page.unroute(base);await page.route(base,r=>r.fulfill({status:410,json:{error:'This review has been closed by its owner'}}));
   await page.reload();await expect(page.getByRole('heading',{name:'This review is not available'})).toBeVisible();await expect(page.getByText('This review has been closed by its owner')).toBeVisible();
+});
+test('IMG-L3-08 up to 10 reference pictures: the first two go as they are, the rest on one numbered board, and the prompt says so',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await page.evaluate(()=>{for(let i=0;i<11;i++){state.records.push({id:'ref-'+i,kind:'asset',media:'image',stage:'prod',story_id:'qa-story',title:'Ref '+i,path:'qa/fixtures/sample.svg',created:1800000000+i});mediaCache.set('ref-'+i,'/qa/fixtures/sample.svg');}
+    const base=api;api=async(path,body)=>{if(path==='images/upload'){window.__qaCalls.push({path,body});const a={id:'qa-board-'+window.__qaCalls.length,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:body.name,path:'qa/fixtures/sample.svg',created:1};state.records.push(a);mediaCache.set(a.id,'/'+a.path);return a;}return base(path,body);};});
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await ws.getByRole('button',{name:'Choose reference pictures',exact:true}).click();
+  const picker=ws.getByRole('group',{name:'Choose reference pictures'});
+  for(let i=10;i>=0;i--)await picker.getByRole('button',{name:'Ref '+i,exact:true}).click();
+  const limit=page.locator('#ecco-error-popup');await expect(limit).toContainText('Choose up to 10 reference pictures.');await limit.locator('.ecco-popup-close').click();await expect(limit).toBeHidden();
+  await ws.getByRole('button',{name:'Done choosing',exact:true}).click();
+  const refs=ws.getByRole('group',{name:'Reference pictures'});await expect(refs.locator('.iw-tile')).toHaveCount(10);await expect(refs).toContainText('10 chosen');
+  await expect(refs).toContainText('references 3 to 10 are sent together on one board');
+  await ws.locator('[data-input=genPrompt]').fill('The whole team at a picnic');
+  await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(1);
+  const sent=(await imageCalls(page,'image-edits'))[0],board=(await imageCalls(page,'images/upload'))[0];
+  expect(board.name).toBe('reference-board.png');
+  expect(sent.asset_ids).toEqual(['ref-10','ref-9',expect.stringMatching(/^qa-board-/)]);
+  expect(sent.prompt).toContain('Reference image 3 is a board of 8 more reference pictures, numbered 3 to 10');expect(sent.prompt).toContain('Make one new picture: The whole team at a picnic');
+  // The board is made once for the same references.
+  await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(2);expect(await imageCalls(page,'images/upload')).toHaveLength(1);
+  // Three or fewer go as they are.
+  await ws.getByRole('button',{name:'Clear references',exact:true}).click();await ws.getByRole('button',{name:'Choose reference pictures',exact:true}).click();
+  await picker.getByRole('button',{name:'Ref 1',exact:true}).click();await picker.getByRole('button',{name:'Ref 2',exact:true}).click();
+  await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(3);expect((await imageCalls(page,'image-edits'))[2].asset_ids).toEqual(['ref-1','ref-2']);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
 });
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.

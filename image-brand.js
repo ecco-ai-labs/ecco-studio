@@ -68,9 +68,10 @@
  // Headline (up to 2 lines, shrunk to fit) and price, on a soft band for contrast, at the top, middle or bottom.
  function drawText(ctx,w,h,text,kit,family){
   const headline=String(text?.headline||'').trim(),price=String(text?.price||'').trim();if(!headline&&!price)return false;
-  const place=TEXT_PLACES.includes(text.place)?text.place:'Bottom',maxW=w*.88;let size=Math.round(w*.075),lines=[];
-  for(;size>10;size=Math.round(size*.92)){ctx.font='700 '+size+'px '+family;lines=headline?wrap(ctx,headline,maxW):[];if(lines.length<=2&&lines.every(l=>ctx.measureText(l).width<=maxW))break;}
-  const ps=Math.round(size*.8),gap=Math.round(size*.25),blockH=lines.length*size*1.15+(price?ps*1.2+(lines.length?gap:0):0),pad=Math.round(Math.min(w,h)*.04);
+  // Ad-sized words: start near 6% of the width and shrink until the headline fits in 2 lines and the block in a third of the height.
+  const place=TEXT_PLACES.includes(text.place)?text.place:'Bottom',maxW=w*.88,height=(n,sz)=>n*sz*1.15+(price?sz*.8*1.2+(n?sz*.25:0):0);let size=Math.round(Math.min(w*.06,h*.12)),lines=[];
+  for(;size>10;size=Math.round(size*.92)){ctx.font='700 '+size+'px '+family;lines=headline?wrap(ctx,headline,maxW):[];if(lines.length<=2&&lines.every(l=>ctx.measureText(l).width<=maxW)&&height(lines.length,size)<=h*.3)break;}
+  const ps=Math.round(size*.8),gap=Math.round(size*.25),blockH=height(lines.length,size),pad=Math.round(Math.min(w,h)*.04);
   const top=place==='Top'?pad*1.5:place==='Middle'?(h-blockH)/2:h-blockH-pad*1.5;
   if(kit?.band!==false){ctx.fillStyle='rgba(0,0,0,0.45)';ctx.fillRect(0,top-pad,w,blockH+pad*2);}
   ctx.fillStyle=kit?.textColor||'#ffffff';ctx.textAlign='center';ctx.textBaseline='top';

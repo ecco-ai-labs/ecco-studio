@@ -3,7 +3,7 @@ import os, sys, tempfile, unittest
 from pathlib import Path
 
 TMP = tempfile.mkdtemp()
-os.environ.update(ECCO_DATA=TMP + '/data', COMFY_ROOT=TMP + '/comfy', ECCO_VOLUME_UPSCALE=TMP + '/volume-upscale', ECCO_VOLUME_LORAS=TMP + '/volume-loras')
+os.environ.update(ECCO_DATA=TMP + '/data', COMFY_ROOT=TMP + '/comfy', ECCO_VOLUME_UPSCALE=TMP + '/volume-upscale')
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import studio  # noqa: E402
 from PIL import Image  # noqa: E402
