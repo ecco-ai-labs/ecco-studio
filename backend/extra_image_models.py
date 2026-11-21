@@ -39,8 +39,7 @@ def create(body, g):
         request.write_text(json.dumps({**p, 'output_file': str(output), 'progress_file': str(progress)}))
         # Free idle Comfy models without cancelling any queued/running work.
         queue = g['request'](g['COMFY'] + '/queue')
-        if queue.get('queue_running') or queue.get('queue_pending'):
-            raise problem('ComfyUI is busy. Retry Z-Image when the current GPU work finishes.', 409)
+        # Serverless runs pictures side by side (generation queue, 20 Nov 2026): no 'ComfyUI is busy' refusal.
         g['request'](g['COMFY'] + '/free', {'unload_models': True, 'free_memory': True})
         with (work / 'inference.log').open('w') as log:
             process = subprocess.Popen([str(PYTHON), str(RUNTIME / 'zimage_worker.py'), str(request)], stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'TOKENIZERS_PARALLELISM': 'false'})
