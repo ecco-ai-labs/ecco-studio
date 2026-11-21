@@ -26,11 +26,11 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',ideas:[],search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',ideas:[],checks:{},autoCheck:true,search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
-  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];
+  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};
   wsStory=activeStory;modelOpen=false;return ws;
  }
  function save(){try{localStorage.setItem(key(wsStory),JSON.stringify(ws));}catch{}}
@@ -156,6 +156,7 @@
    if(j.target==='set'){const p=ws.set.pages[j.page];if(p&&p.key===j.key){if(p.asset)(p.history||(p.history=[])).push(p.asset);p.asset=made[0];}}
    else{
     ws.generated=[...made.slice().reverse(),...ws.generated.filter(id=>!made.includes(id))];
+    if(j.kind==='image'&&j.prompt)for(const id of made)queueCheck(id,j.prompt);
     if(j.select&&ws.selected.length<LIMIT&&!ws.selected.includes(made[0])){ws.selected.push(made[0]);ws.active=ws.selected.length-1;ws.published=false;}
    }
   }
@@ -209,6 +210,41 @@
    +'<p class="help" aria-live="polite"><span data-job-text></span> <span data-job-time></span></p></div>';
  }
 
+ /* ---------- picture check (IMP-03): does the picture show what was asked? ---------- */
+ // The AI service's vision model looks at the finished picture and lists requested details it gets wrong
+ // (counts, colours, left/right, words). Misses come with Fix it (an instruction edit) and Try again (new seed).
+ const CHECK='You are checking a generated picture against the request in the text field. Look at the attached picture. List only requested details that are clearly wrong or missing: counts of things, colours, left/right/above/below positions, and any words that should appear. Ignore style and small details. Return the text field as JSON only: {"ok":true,"misses":[]} or {"ok":false,"misses":["short plain fix instruction", ...]} with at most 4 misses, each written as an instruction such as "Show three red cups, not two".';
+ function parseCheck(text){try{const v=JSON.parse(String(text).replace(/^```(?:json)?|```$/g,'').trim());const misses=Array.isArray(v.misses)?v.misses.map(m=>String(m).slice(0,160)).filter(Boolean).slice(0,4):[];return {ok:!!v.ok&&!misses.length,misses};}catch{return null;}}
+ const checking=new Set();
+ function queueCheck(id,prompt){
+  if(!ws.autoCheck||!window.EccoAI?.enabled||ws.checks[id]||checking.has(id))return;
+  ws.checks[id]={status:'checking',prompt};checking.add(id);
+  api('ai/enhance',{stage:'image',mode:'improve',story_id:null,reference_ids:[id],fields:[{id:'picture_check',text:String(prompt).split('\nVisual style:')[0].slice(0,3000),max_length:4000}],context:{instructions:CHECK},review_only:false})
+   .then(result=>{const r=parseCheck(result.revisions?.find(x=>x.id==='picture_check')?.text);ws.checks[id]=r?{status:r.ok?'ok':'misses',misses:r.misses,prompt}:{status:'unknown',prompt};})
+   .catch(()=>{ws.checks[id]={status:'unknown',prompt};})
+   .finally(()=>{checking.delete(id);save();if(page==='images'&&q('#image-workspace'))draw();});
+ }
+ async function fixPicture(id){
+  const c=ws.checks[id];if(!c?.misses?.length)return;
+  try{const gpu=requireCompute(),config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
+   const prompt='Fix this picture: '+c.misses.join('; ')+'. Keep everything else the same.';
+   queue({kind:'edit',path:'image-edits',payload:{gpu,asset_id:id,asset_ids:[id],prompt,story_id:activeStory,...settings}},{target:'gen',prompt:'Fix: '+c.misses[0]});c.status='fixing';}
+  catch(error){notice(error.message,true);return;}
+  save();pump();draw();watch();
+ }
+ async function retryPicture(id){
+  const c=ws.checks[id];if(!c?.prompt)return;
+  try{const req=await request(c.prompt,{style:ws.genStyle,shape:ws.genShape,seed:Math.floor(Math.random()*2147000000)});queue(req,{target:'gen',prompt:c.prompt});c.status='retried';}
+  catch(error){notice(error.message,true);return;}
+  save();pump();draw();watch();
+ }
+ function checksPane(){
+  const ids=ws.generated.slice(0,12).filter(id=>ws.checks[id]),list=ids.map(id=>[id,ws.checks[id]]);if(!list.length)return '';
+  const busy=list.filter(([,c])=>c.status==='checking').length,ok=list.filter(([,c])=>c.status==='ok').length,miss=list.filter(([,c])=>['misses','fixing','retried'].includes(c.status));
+  return '<div class="iw-checks" aria-live="polite"><p class="help">'+(busy?spinner+' Checking '+busy+(busy===1?' picture':' pictures')+' against your prompt… ':'')+(ok?'✓ '+ok+(ok===1?' picture matches':' pictures match')+' your prompt. ':'')+(miss.length?miss.length+(miss.length===1?' picture misses':' pictures miss')+' something:':'')+'</p>'
+   +miss.map(([id,c])=>{const done=c.status!=='misses';return '<div class="iw-check" data-check="'+esc(id)+'"><p>'+esc(title(id))+': '+esc(c.misses.join(' · '))+'</p>'+(done?'<p class="help">'+(c.status==='fixing'?'Fixing: the corrected picture appears above when it is ready.':'Trying again with a new seed: the new picture appears above.')+'</p>':'<div class="iw-row"><button type="button" class="secondary" data-act="fix-picture" data-id="'+esc(id)+'" aria-label="Fix it: '+esc(title(id))+'">Fix it</button><button type="button" class="secondary" data-act="retry-picture" data-id="'+esc(id)+'" aria-label="Try again: '+esc(title(id))+'">Try again</button></div>')+'</div>';}).join('')+'</div>';
+ }
+
  /* ---------- small pieces ---------- */
  const img=(id,alt,cls='')=>{const r=record(id);return '<img class="'+cls+'" data-asset="'+esc(id)+'" src="'+esc(r?media(r):'')+'" alt="'+esc(alt)+'">';};
  // Tiles use the small thumbnail where the storage service offers one (blank tiles in the picker, live test 21 Nov).
@@ -237,7 +273,7 @@
    +(char?'<p class="help">'+esc(char.name)+' keeps the same look. The shape follows the character picture.</p>':'')
    +'<button type="button" data-act="generate"'+(ws.genPrompt.trim()?'':' disabled')+'>'+(count>1?'Generate '+count+' pictures':'Generate image')+'</button>'
    +(live.length?'<div class="iw-jobs" aria-label="Pictures in progress">'+live.map((j,i)=>jobCard(j,'Picture '+(i+1)+' · '+String(j.prompt||'').slice(0,40))).join('')+'</div>':'')
-   +(ws.generated.length?'<p class="help">Click an image to select it.</p><div class="iw-grid">'+ws.generated.map(id=>tile(id,ws.selected.indexOf(id)+1,'pick')).join('')+'</div>':'')+'</section>';
+   +(ws.generated.length?'<p class="help">Click an image to select it.</p><div class="iw-grid">'+ws.generated.map(id=>tile(id,ws.selected.indexOf(id)+1,'pick')).join('')+'</div>':'')+checksPane()+'</section>';
  }
  function setPane(){
   const s=ws.set,chars=characters(),lines=J.pages(s.pagesText),live=s.pages.some(p=>{const j=ws.jobs.find(x=>x.key===p.key);return j&&!j.done;});
@@ -485,6 +521,8 @@
   else if(a==='generate'){queueGenerate();return;}
   else if(a==='cancel-job'){const j=ws.jobs.find(x=>x.key===button.dataset.key);if(j)cancel(j);return;}
   else if(a==='ideas'){ideas();return;}
+  else if(a==='fix-picture'){fixPicture(button.dataset.id);return;}
+  else if(a==='retry-picture'){retryPicture(button.dataset.id);return;}
   else if(a==='use-idea'){const t=ws.ideas[+button.dataset.index];if(t){ws.genPrompt=t;ws.ideas=[];}}
   else if(a==='set-char'){const c=button.dataset.id,list=ws.set.chars;const i=list.indexOf(c);if(i>=0)list.splice(i,1);else if(list.length<CHARACTERS)list.push(c);else{notice('Pick up to 3 characters.',true);return;}}
   else if(a==='make-set'){makeSet();return;}

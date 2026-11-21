@@ -530,6 +530,23 @@ test('IMG-L3-06 more shapes and Fast quality appear only when the server offers 
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L3-07 each new picture is checked against the prompt; misses offer Fix it and Try again',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await page.evaluate(()=>{const base=api;api=async(path,body)=>{if(path==='ai/enhance'&&body.fields?.[0]?.id==='picture_check'){window.__qaCalls.push({path,body});return {revisions:[{id:'picture_check',text:'{"ok":false,"misses":["Show three red cups, not two","Put the sign to the right of the cups"]}'}]};}return base(path,body);};});
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await ws.locator('[data-input=genPrompt]').fill('Three red cups to the left of a sign that reads OPEN');await ws.locator('[data-input=genCount]').selectOption('2');await ws.getByRole('button',{name:'Generate 2 pictures',exact:true}).click();
+  await expect(ws.locator('.iw-check')).toHaveCount(2,{timeout:8000});const check=ws.locator('.iw-check').first();
+  await expect(check).toContainText('Show three red cups, not two · Put the sign to the right of the cups');
+  const sent=(await imageCalls(page,'ai/enhance')).find(b=>b.fields[0].id==='picture_check');expect(sent.reference_ids).toHaveLength(1);expect(sent.fields[0].text).toBe('Three red cups to the left of a sign that reads OPEN');
+  const made=await check.getAttribute('data-check');
+  await check.getByRole('button',{name:/^Fix it/}).click();await expect(ws.locator('.iw-check[data-check="'+made+'"]')).toContainText('Fixing');
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.at(-1)?.prompt)).toBe('Fix this picture: Show three red cups, not two; Put the sign to the right of the cups. Keep everything else the same.');
+  expect((await imageCalls(page,'image-edits')).at(-1).asset_ids).toEqual([made]);
+  await ws.locator('.iw-check').nth(1).getByRole('button',{name:/^Try again/}).click();
+  await expect.poll(()=>imageCalls(page,'images').then(c=>c.length)).toBe(3);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){
