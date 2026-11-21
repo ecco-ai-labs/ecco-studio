@@ -71,7 +71,9 @@ def run_job(qw, request, d, pod, client=rp, volume=None):
         qw.cancellation.check(d)
         archive, staged = stage_inputs(pack_job(d), d.name + '.tar', volume)
         group = endpoint_group(request, client)
-        job_id = client.submit(group, {'key': d.name, 'archive': archive})
+        # Recordings come back inside the job's answer when small enough: RunPod's volume API refused uploads on
+        # 20 Nov 2026 ("AccessDenied ... failed to fetch user keys"). Larger recordings still use the volume.
+        job_id = client.submit(group, {'key': d.name, 'archive': archive, 'return_inline': True})
         qw.write(d / 'status.json', {'status': 'running', 'progress': 'Waiting for a Serverless GPU', 'compute': COMPUTE,
                                      'worker_pod': pod, 'serverless_job': job_id})
 
