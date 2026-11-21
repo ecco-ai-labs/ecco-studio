@@ -207,6 +207,10 @@ class Handler(legacy.Handler):
                 parts = path.split('/')
                 return self.send(gpu_relay.result(parts[-2], parts[-1]))
             if path == '/api/audio/status': return self.send(audio_jobs.queue.availability())
+            if path == '/api/audio/queue':
+                q = parse_qs(urlsplit(self.path).query)
+                one = lambda k, d='': q.get(k, [d])[0]
+                return self.send(audio_jobs.queue_page(one('model'), one('search'), int(one('offset', '0') or 0), int(one('limit', '50') or 50), vars(legacy)))
             if path == '/api/audio/workflows/status':
                 return self.send({**audio_workflows.status(), 'workflows': [r for r in legacy.records('workflow') if r.get('workflow_type')=='audio' and not r.get('deleted')], 'runs': legacy.records('audio_workflow_run')})
             if path.startswith('/api/audio/jobs/'):

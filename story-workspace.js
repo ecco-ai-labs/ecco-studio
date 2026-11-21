@@ -669,8 +669,12 @@
  }
  // Screen Play (owner request 2026-11-09): lines with who speaks and how (e.g. Whisper), plus sounds such as a door, footsteps or birds. Edit as text keeps the plain script.
  // Opening and Closing music and sounds from Audio Library join the sound cues: the opening plays from the first line,
- // the closing from the last one. (Spoken Opening/Closing Text recordings need the audio worker to place audio before
- // and after the speech; until it can, they are kept with the story but not mixed in.)
+ // the closing from the last one. Opening/Closing Text recordings are joined before and after the speech (bookendsFor).
+ // Opening and Closing Text recordings: joined before the first line and after the last by the storage server.
+ function bookendsFor(){
+  const ids=which=>{const g=data.openClose?.[which];return g?.on?(g.items||[]).filter(i=>i.kind==='text'&&i.asset_id).map(i=>i.asset_id):[];};
+  const before=ids('opening'),after=ids('closing');return before.length||after.length?{before,after}:undefined;
+ }
  function soundCuesFor(plan){
   const cues=[...(data.soundDesign?.cues||[])],lines=window.EccoSoundDesign?.planLines(plan)||[],last=Math.max(0,lines.length-1),lib=window.EccoAudioLibrary?.items()||[];
   for(const which of ['opening','closing']){const g=data.openClose?.[which];if(!g?.on)continue;
@@ -1015,7 +1019,7 @@
   const signature=M.signature(data,'audio')+JSON.stringify([data.narrationStyle||'',data.soundDesign||null,(data.plan?.segments||[]).map(p=>p.performance?.emotion||'')]);if(data.applied.audio===signature&&previous.speakers?.length)return;
   const cast=data.cast.map((c,i)=>{const saved=previous.speakers?.find(s=>s.id===c.id)||{};return {...saved,...c,language:c.language||data.language,voice:c.voice||saved.voice||window.EccoAudioDirection.defaultVoice(model,data.language,i),emotion:c.emotion||saved.emotion||'neutral',delivery:[plainDelivery(c.delivery).replace(/\.+$/,''),c.nationality&&'Nationality: '+c.nationality].filter(Boolean).join('. ')};});
   const preparation={...previous.guided_preparation,title:data.title,genre:data.genre,audience:data.audience,language:data.language,tone:'Natural',narration_style:data.narrationStyle||'',language_style:'Everyday / Conversational',instructions:data.location?'Audience location: '+data.location:'',cast,plan,model:model.id,source_text:data.source?.text||'',source_name:data.source?.name||'',source_pages:data.source?.pages||[],sound_design:data.soundDesign?.cues?.length?data.soundDesign:previous.sound_design};
-  const next={...previous,title:data.title,model:previous.model||model.id,compute:previous.compute||'cpu',genre:audioGenre(),speakers:cast,character_count:cast.length,characters_configured:true,presentation:cast.length>1?'conversation':'single',lines:plan.segments.map(s=>({speaker_id:s.character_id,text:s.text,performance:s.performance})),single_text:plan.segments.map(s=>s.text).join('\n\n'),opening_text:plan.opening?.text||'',opening_speaker:plan.opening?.character_id||cast[0].id,opening_performance:plan.opening?.performance,script_brief:{...preparation,plan:undefined,cast:undefined},guided_preparation:preparation,...(soundCuesFor(plan).length?{sound_design:{...(data.soundDesign||{}),cues:soundCuesFor(plan),enabled:true,speech_key:window.EccoSoundDesign.key(window.EccoSoundDesign.planLines(plan))}}:{})};
+  const next={...previous,title:data.title,model:previous.model||model.id,compute:previous.compute||'cpu',genre:audioGenre(),speakers:cast,character_count:cast.length,characters_configured:true,presentation:cast.length>1?'conversation':'single',lines:plan.segments.map(s=>({speaker_id:s.character_id,text:s.text,performance:s.performance})),single_text:plan.segments.map(s=>s.text).join('\n\n'),opening_text:plan.opening?.text||'',opening_speaker:plan.opening?.character_id||cast[0].id,opening_performance:plan.opening?.performance,script_brief:{...preparation,plan:undefined,cast:undefined},guided_preparation:preparation,bookends:bookendsFor(),...(soundCuesFor(plan).length?{sound_design:{...(data.soundDesign||{}),cues:soundCuesFor(plan),enabled:true,speech_key:window.EccoSoundDesign.key(window.EccoSoundDesign.planLines(plan))}}:{})};
   delete next.delivery_signature;localStorage.setItem('ecco-audio-draft:'+activeStory,JSON.stringify(next));data.plan=plan;data.applied.audio=signature;
  }
  function prepareVisual(kind){

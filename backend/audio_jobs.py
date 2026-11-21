@@ -62,6 +62,9 @@ def generate(body, env, *, job_id=None, sound=False):
             raise env['Problem']('Four audio recordings are already queued. Wait for one to finish.', 429)
         job = dict(id=job_id or uuid.uuid4().hex, kind='audio_job', media='audio', status='queued',
                    story_id=sid, task=request.get('task', 'speech'), created=time.time(), title=request['title'], compute=request['compute'], worker_id=request.get('worker_id', ''), request=request)
+        ends = bookends(body, env) if not sound else None
+        if ends:
+            job['bookends'] = ends
         directory = queue.ROOT / job['id']
         try:
             snapshot_assets(request, directory, env)
@@ -72,6 +75,50 @@ def generate(body, env, *, job_id=None, sound=False):
         queue.write(directory / 'status.json', {'status': 'queued'})
         queue.write(directory / 'request.json', request)
         return public(job)
+
+def bookends(body, env):
+    """Opening and Closing Text (owner final mocks, 21 Nov 2026): saved Audio Library recordings played, in order,
+    before the first line and after the last one. They are joined here on the storage server after the worker has
+    made the speech, so the audio worker needs no update."""
+    raw = body.get('bookends')
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise env['Problem']('Invalid Opening or Closing.')
+    clean = {}
+    for side in ('before', 'after'):
+        ids = raw.get(side, [])
+        if not isinstance(ids, list) or len(ids) > 10 or any(not isinstance(i, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', i) for i in ids):
+            raise env['Problem']('Choose up to ten Audio Library recordings for the Opening and the Closing.')
+        for i in ids:
+            asset = env['get'](i, 'asset')
+            if asset.get('media') != 'audio':
+                raise env['Problem']('Opening and Closing items must be recordings from Audio Library.')
+        if ids:
+            clean[side] = ids
+    return clean or None
+
+
+def join_bookends(job, target, env, gap=0.4):
+    """Writes Opening + speech + Closing into target (same sample rate and channels as the speech)."""
+    ends = job.get('bookends') or {}
+    parts = [env['asset_path'](env['get'](i, 'asset')) for i in ends.get('before', [])] + [target] + \
+            [env['asset_path'](env['get'](i, 'asset')) for i in ends.get('after', [])]
+    if len(parts) == 1:
+        return
+    with wave.open(str(target)) as audio:
+        rate, channels = audio.getframerate(), audio.getnchannels()
+    layout = 'mono' if channels == 1 else 'stereo'
+    inputs, chains, labels = [], [], []
+    for n, part in enumerate(parts):
+        inputs += ['-i', str(part)]
+        chains.append(f'[{n}:a]aresample={rate},aformat=sample_fmts=s16:channel_layouts={layout},apad=pad_dur={gap if n < len(parts) - 1 else 0}[a{n}]')
+        labels.append(f'[a{n}]')
+    graph = ';'.join(chains) + ';' + ''.join(labels) + f'concat=n={len(parts)}:v=0:a=1[out]'
+    joined = target.with_name(target.stem + '.joined.wav')
+    subprocess.run(['ffmpeg', '-nostdin', '-y', '-v', 'error', *inputs, '-filter_complex', graph, '-map', '[out]', '-c:a', 'pcm_s16le', str(joined)], check=True, timeout=300)
+    joined.replace(target)
+
 
 def public(job):
     return {k: v for k, v in job.items() if k != 'request'}
@@ -127,6 +174,15 @@ def job_status(jid, env):
             if hashlib.sha256(temporary.read_bytes()).hexdigest() != digest:
                 raise env['Problem']('Audio storage verification failed.', 500)
             temporary.replace(target)
+            if job.get('bookends'):
+                try:
+                    join_bookends(job, target, env)
+                except (OSError, subprocess.SubprocessError) as error:
+                    raise env['Problem']('The Opening or Closing could not be added to the recording: ' + str(error), 500)
+                digest = hashlib.sha256(target.read_bytes()).hexdigest()
+                with wave.open(str(target)) as audio:
+                    duration = audio.getnframes() / audio.getframerate()
+                    rate, channels = audio.getframerate(), audio.getnchannels()
             request = job['request']
             # Stable asset ID makes finalization safe if interrupted between asset and job writes.
             asset = dict(id=jid, kind='asset', created=job['created'], media='audio', stage='dev',
@@ -138,7 +194,7 @@ def job_status(jid, env):
             # Job and asset IDs must be distinct in the legacy records table.
             asset['id'] = hashlib.sha256(('audio-asset:' + jid).encode()).hexdigest()[:32]
             env['save'](asset)
-            job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved', asset=asset if request.get('task') == 'sound' else None)
+            job.update(status='done', asset_id=asset['id'], asset_ids=[asset['id']], progress='Audio saved', asset=asset if request.get('task') == 'sound' else None, finished=time.time())
             if request.get('voice_design'):
                 # A designed voice becomes the character's saved clip as soon as it exists.
                 try:
@@ -191,3 +247,29 @@ def cancel(jid, env):
         queue.write(directory / 'cancel.json', {'reason': 'Stopped by user', 'requested': time.time()})
         return job_status(jid, env)
 
+
+
+def queue_page(model='', search='', offset=0, limit=50, env=None):
+    """Audio Queue (owner final mocks, 21 Nov 2026), the same shape as the picture queue (/api/queue): waiting audio
+    recordings in the order they were sent, each with its place and estimated wait. Audio jobs go to RunPod as soon as
+    they are sent, so they cannot be reordered; Cancel stops one through /api/generation/stop."""
+    jobs = sorted(env['records']('audio_job'), key=lambda j: j.get('created', 0))
+    recent = [j for j in jobs if j.get('created', 0) > time.time() - 24 * 3600]
+    waiting = [j for j in jobs if j.get('status') == 'queued' and j.get('task', 'speech') == 'speech']
+    running = [j for j in jobs if j.get('status') in ('running', 'cancelling')]
+    took = [j['finished'] - j['created'] for j in jobs if j.get('status') == 'done' and j.get('finished') and j.get('created')][-10:]
+    each = sum(took) / len(took) if took else 120.0
+    parallel = 2  # the audio endpoint's max workers (serverless-status, 17 Nov 2026)
+    place = {j['id']: n + 1 for n, j in enumerate(waiting)}
+    shown = [j for j in waiting if (not model or j['request'].get('model') == model) and (not search or search.lower() in j.get('title', '').lower())]
+    offset, limit = max(0, int(offset or 0)), max(1, min(50, int(limit or 50)))
+    wait = lambda j: round(each * (1 + (place[j['id']] - 1) // parallel))
+    items = [{'id': j['id'], 'model': j['request'].get('model', ''), 'model_name': j['request'].get('model', ''), 'name': (j.get('title') or 'Audio recording')[:160],
+              'place': place[j['id']], 'wait_seconds': wait(j)} for j in shown[offset:offset + limit]]
+    per_model = {}
+    for j in waiting:
+        per_model[j['request'].get('model', '')] = per_model.get(j['request'].get('model', ''), 0) + 1
+    return {'items': items, 'total': len(shown), 'parallel': parallel, 'offset': offset, 'limit': limit, 'per_model': per_model,
+            'models': sorted(per_model), 'reorder': False,
+            'mine': {'waiting': len(waiting), 'running': len(running), 'done': len([j for j in recent if j.get('status') == 'done'])},
+            'last_wait_seconds': max([wait(j) for j in waiting] or [0])}
