@@ -1,0 +1,125 @@
+diff --git a/migration/legacy/studio.py b/migration/legacy/studio.py
+index c8756bd..16333dc 100644
+--- a/migration/legacy/studio.py
++++ b/migration/legacy/studio.py
+@@ -118,7 +118,7 @@ def fast_lora(model):
+ def qwen_image_graph(p, ident):
+     return {
+         '1':node('UNETLoader',unet_name='qwen_image_2512_fp8_e4m3fn.safetensors',weight_dtype='default'),
+-        '2':node('ModelSamplingAuraFlow',model=['11',0] if p.get('fast_lora') else ['1',0],shift=3.1),
++        '2':node('ModelSamplingAuraFlow',model=['12',0] if p.get('style_lora') else ['11',0] if p.get('fast_lora') else ['1',0],shift=3.1),
+         '3':node('CLIPLoader',clip_name='qwen_2.5_vl_7b_fp8_scaled.safetensors',type='qwen_image',device='default'),
+         '4':node('VAELoader',vae_name='qwen_image_vae.safetensors'),
+         '5':node('CLIPTextEncode',text=p['prompt'],clip=['3',0]),
+@@ -127,7 +127,9 @@ def qwen_image_graph(p, ident):
+         '8':node('KSampler',model=['2',0],positive=['5',0],negative=['6',0],latent_image=['7',0],seed=p['seed'],steps=p['steps'],cfg=p['cfg'],sampler_name='euler',scheduler='simple',denoise=1),
+         '9':node('VAEDecode',samples=['8',0],vae=['4',0]),
+         '10':node('SaveImage',images=['9',0],filename_prefix=f'ecco-studio/{ident}'),
+-        **({'11':node('LoraLoaderModelOnly',model=['1',0],lora_name=p['fast_lora'],strength_model=1.0)} if p.get('fast_lora') else {})}
++        **({'11':node('LoraLoaderModelOnly',model=['1',0],lora_name=p['fast_lora'],strength_model=1.0)} if p.get('fast_lora') else {}),
++        # Image Level 5: a trained house style, after the Fast LoRA when both are used.
++        **({'12':node('LoraLoaderModelOnly',model=['11',0] if p.get('fast_lora') else ['1',0],lora_name=p['style_lora'],strength_model=p.get('style_strength',0.9))} if p.get('style_lora') else {})}
+ 
+ def base_image_graph(p, ident):
+     if p.get('model')=='qwen-image-2512': return qwen_image_graph(p,ident)
+@@ -294,6 +296,10 @@ def create_image(body):
+         lora=fast_lora(model)
+         if not lora: raise Problem('Fast mode is not installed yet. Choose Best quality.',503)
+         p.update(fast_lora=lora,steps=fast_steps(model,lora),cfg=1.0,quality='fast')
++    if is_qwen and body.get('style_lora'):
++        lora=str(body['style_lora'])
++        if lora not in style_loras(): raise Problem('This house style is not trained yet',409)
++        p.update(style_lora=lora,style_strength=number(body.get('style_strength',0.9),0.1,1.5))
+     p.update(image_style=body['image_style'],source_prompt=body['source_prompt'])
+     source_id=body.get('source_asset_id')
+     if source_id:
+@@ -568,6 +574,71 @@ def create_upscale(body):
+     if a.get('media')!='image' or a.get('deleted'):raise Problem('Choose an image outside Trash')
+     sid=story_id(body);return launch('Make a 4K copy',lambda jid:upscaled_asset(jid,a['id'],sid)['id'],metadata={'media':'image','story_id':sid})
+ 
++# Image Level 5 (21 Nov 2026): a house style trained from 10-60 of the owner's pictures (a Qwen-Image LoRA made by the
++# style-trainer Serverless endpoint, serverless/style-trainer), and overnight batches of up to 2,000 pictures.
++STYLE_LORA=re.compile(r'^ecco-style-[a-f0-9]{32}\.safetensors$')
++def style_loras():
++    return {r['lora'] for r in records('style_training') if r.get('status')=='ready' and STYLE_LORA.match(str(r.get('lora','')))}
++def _runpod():
++    try:return __import__('runpod_client')
++    except ImportError:return None
++def trainer_ready():
++    rp=_runpod();return bool(rp and rp.configured('trainer'))
++def create_style_training(body):
++    items=body.get('items')
++    if not isinstance(items,list) or not 10<=len(items)<=60:raise Problem('Choose 10 to 60 pictures to teach the style (20 to 50 works best)')
++    ids=[i.get('asset_id') if isinstance(i,dict) else None for i in items]
++    if len(set(ids))!=len(ids):raise Problem('Each picture can be used once')
++    pictures=[]
++    for item in items:
++        a=get(str(item.get('asset_id','')),'asset')
++        if a.get('media')!='image' or a.get('deleted'):raise Problem('Choose pictures outside Trash')
++        pictures.append((a,text(item.get('caption') or 'a picture',400)))
++    name=text(body.get('name'),80);trigger=re.sub(r'[^a-z0-9]','',str(body.get('trigger') or 'eccostyle').lower())[:24] or 'eccostyle'
++    steps=number(body.get('steps',1200),200,4000,True)
++    record=save(new('style_training',name=name,trigger=trigger,asset_ids=[a['id'] for a,_ in pictures],steps=steps,status='queued',progress='Waiting for the style trainer',lora=None,story_id=body.get('story_id')))
++    if not trainer_ready():
++        record.update(status='needs_trainer',progress='The style trainer is not connected yet. The pictures and captions are saved; training starts once it is set up.');save(record)
++        return record
++    def train():
++        import io,tarfile
++        rp=_runpod();buffer=io.BytesIO()
++        with tarfile.open(fileobj=buffer,mode='w') as tar:
++            for i,(a,caption) in enumerate(pictures):
++                src=asset_path(a);tar.add(str(src),arcname=f'{i:03d}{src.suffix.lower() or ".png"}')
++                data=(trigger+', '+caption).encode();info=tarfile.TarInfo(f'{i:03d}.txt');info.size=len(data);tar.addfile(info,io.BytesIO(data))
++        staged=Path(rp.VOLUME)/'ecco-serverless'/'inputs'/f'style-{record["id"]}.tar';staged.parent.mkdir(parents=True,exist_ok=True);staged.write_bytes(buffer.getvalue())
++        def update(**kw):
++            current=get(record['id'],'style_training');current.update(kw);save(current)
++        try:
++            update(status='running',progress='Starting the style trainer')
++            job=rp.submit('trainer',{'key':record['id'],'name':'ecco-style-'+record['id'],'steps':steps,'dataset':{'volume_key':f'ecco-serverless/inputs/style-{record["id"]}.tar'}})
++            update(runpod_job=job)
++            out=rp.wait('trainer',job,timeout=6*3600,on_progress=lambda t:update(progress=str(t)[:200]))
++            if out.get('error'):raise Problem(out['error'])
++            if not STYLE_LORA.match(str(out.get('lora',''))):raise Problem('The trainer returned no style file')
++            update(status='ready',lora=out['lora'],progress='Ready',finished=time.time())
++        except Exception as exc:
++            update(status='failed',progress='Training stopped',error=str(getattr(exc,'message',exc))[:500])
++        finally:staged.unlink(missing_ok=True)
++    threading.Thread(target=train,daemon=True).start()
++    return record
++BATCH_CHUNK=250
++def create_image_batch(body):
++    items=body.get('items');shared=body.get('shared') if isinstance(body.get('shared'),dict) else {}
++    if not isinstance(items,list) or not 1<=len(items)<=BATCH_CHUNK:raise Problem(f'Send 1 to {BATCH_CHUNK} pictures at a time')
++    batch=text(body.get('batch_id') or uuid.uuid4().hex,64);jobs=[]
++    allowed=('gpu','model','resolution','steps','cfg','quality','negative','style_lora','style_strength','story_id','owner','image_style','sampler','scheduler')
++    for item in items:
++        if not isinstance(item,dict) or not str(item.get('prompt','')).strip():raise Problem('Each picture needs a description')
++        one={k:v for k,v in shared.items() if k in allowed};one.update(prompt=str(item['prompt'])[:4000])
++        if item.get('seed') is not None:one['seed']=item['seed']
++        try:__import__('gen_queue').remember_request('image',one)
++        except ImportError:pass
++        job=create_image(one);jobs.append(job['id'])
++        current=get(job['id'],'job');current.update(batch_id=batch,batch_index=item.get('index'));save(current)
++    return {'batch_id':batch,'job_ids':jobs}
++
+ def create_character_sheet(body):
+     if not qwen_edit_ready():raise Problem('Character sheets require the instruction-edit model and additional persistent storage.',503)
+     c=get(body.get('character_id',''),'character');sid=story_id(body)
+@@ -831,7 +902,7 @@ def runtime_status():
+ 
+ def state():
+     channel_file=DATA/'youtube-channel.json'
+-    return {'csrf':CSRF,'records':records(),'config':{'video_gpus':__import__('gpu_dispatch').options(),'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),'session_cost':session_cost(),'billing':billing_status(),'model_settings_version':1,'generation_controls_version':1,'image_sizes':{'qwen-image-2512':list(QWEN_SIZES)},'image_fast':{m:bool(fast_lora(m)) for m in FAST_LORAS},'image_edit_full_size':True,'image_resize':qwen_edit_ready(),'image_upscale':bool(upscale_model()),'image_parallel':max(1,min(24,int(os.getenv('ECCO_IMAGE_PARALLEL','6') or 6))),'models_ready':{'qwen-story':__import__('story_director').planner_ready(),'qwen-image-2512':qwen_ready(),'qwen-image-edit-2511':qwen_edit_ready(),'sdxl':(COMFY_ROOT/'models/checkpoints/sd_xl_base_1.0.safetensors').is_file(),'wan-5b':wan_ready(),'wan-a14b':wan_a14b_ready(),'preview':bool(shutil.which('ffmpeg'))},'repo':REPO,'channel':'https://www.youtube.com/@EccoAILabs','hourly_rate':RATE,'github_connected':bool(github_token()),'youtube_configured':bool(secret_file('YOUTUBE_CLIENT_SECRET_FILE')),'youtube_channel':json.loads(channel_file.read_text()) if channel_file.exists() else None,'wan_ready':wan_ready(),'ffmpeg':bool(shutil.which('ffmpeg'))}}
++    return {'csrf':CSRF,'records':records(),'config':{'video_gpus':__import__('gpu_dispatch').options(),'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),'session_cost':session_cost(),'billing':billing_status(),'model_settings_version':1,'generation_controls_version':1,'image_sizes':{'qwen-image-2512':list(QWEN_SIZES)},'image_fast':{m:bool(fast_lora(m)) for m in FAST_LORAS},'image_edit_full_size':True,'image_resize':qwen_edit_ready(),'image_upscale':bool(upscale_model()),'image_parallel':max(1,min(24,int(os.getenv('ECCO_IMAGE_PARALLEL','6') or 6))),'style_training':trainer_ready(),'image_style_loras':sorted(style_loras()),'image_batch':BATCH_CHUNK,'models_ready':{'qwen-story':__import__('story_director').planner_ready(),'qwen-image-2512':qwen_ready(),'qwen-image-edit-2511':qwen_edit_ready(),'sdxl':(COMFY_ROOT/'models/checkpoints/sd_xl_base_1.0.safetensors').is_file(),'wan-5b':wan_ready(),'wan-a14b':wan_a14b_ready(),'preview':bool(shutil.which('ffmpeg'))},'repo':REPO,'channel':'https://www.youtube.com/@EccoAILabs','hourly_rate':RATE,'github_connected':bool(github_token()),'youtube_configured':bool(secret_file('YOUTUBE_CLIENT_SECRET_FILE')),'youtube_channel':json.loads(channel_file.read_text()) if channel_file.exists() else None,'wan_ready':wan_ready(),'ffmpeg':bool(shutil.which('ffmpeg'))}}
+ 
+ class Handler(BaseHTTPRequestHandler):
+     def log_message(self, fmt,*args): pass # OAuth codes must never enter access logs.
+@@ -911,6 +982,8 @@ class Handler(BaseHTTPRequestHandler):
+             elif path=='/api/characters': result=save_character(body)
+             elif path=='/api/image-edits': result=create_edit(body)
+             elif path=='/api/image-resize': result=create_resize(body)
++            elif path=='/api/style-training': result=create_style_training(body)
++            elif path=='/api/image-batch': result=create_image_batch(body)
+             elif path=='/api/image-upscale': result=create_upscale(body)
+             elif path=='/api/object-edits': result=__import__('object_editor').save_copy(body,globals())
+             elif path=='/api/character-sheets': result=create_character_sheet(body)
