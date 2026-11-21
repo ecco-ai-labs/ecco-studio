@@ -397,6 +397,33 @@ def listen(asset_path, sha, labels=None):
     raise RuntimeError('listen-back timed out')
 
 
+def judge(item, r):
+    """Problems from the measurements (thresholds tuned 21 Nov after the first pass flagged normal samples)."""
+    problems = []
+    speech = item['kind'] == 'speech'
+    if r.get('mean_db', 0) < (-55 if speech else -60):
+        problems.append('silent')
+    if speech and r.get('peak_db', -10) >= -0.01:        # sound effects are often normalised to full scale
+        problems.append('clipped')
+    if speech:
+        if not 1.0 <= r.get('seconds', 0) <= 7.0:       # Japanese, Tamil and Malayalam lines run longer
+            problems.append(f"length {r.get('seconds')}s")
+        if r.get('words_match', 1) < 0.55:
+            problems.append(f"words do not match ({r.get('words_match')})")
+        hz = r.get('pitch_hz')
+        if item.get('pitch') and hz:
+            lo, hi = item['pitch']
+            lo, hi = round(lo * 0.9), round(hi * 1.2)     # Qwen's child and teen voices sit higher than first guessed
+            if not lo <= hz <= hi:
+                problems.append(f'pitch {hz} Hz outside {lo}–{hi}')
+    elif item['kind'] == 'sound':
+        if r.get('clap_top') is not None and item['clap'] not in r['clap_top']:
+            problems.append('sounds like ' + (r['clap_top'][0] if r['clap_top'] else 'something else'))
+        if len(str(r.get('heard', '')).split()) >= 4:
+            problems.append('contains speech')
+    return problems
+
+
 def check(item, asset):
     path = DATA / asset['path']
     if item.get('seconds'):
@@ -406,37 +433,19 @@ def check(item, asset):
     seconds = round(len(samples) / 8000, 2)
     asset['duration'] = asset['seconds'] = seconds
     mean, peak = levels(path)
-    results, problems = {'seconds': seconds, 'mean_db': mean, 'peak_db': peak}, []
-    if mean < -45:
-        problems.append('silent')
-    if peak >= -0.05:
-        problems.append('clipped')
+    results = {'seconds': seconds, 'mean_db': mean, 'peak_db': peak}
     if item['kind'] == 'speech':
-        if not 1.0 <= seconds <= 5.5:
-            problems.append(f'length {seconds}s')
         heard = listen(path, asset['sha256']).get('text', '')
-        score = similar(heard, item['expect'])
-        results.update(heard=heard[:300], words_match=score)
-        if score < 0.55:
-            problems.append(f'words do not match ({score})')
+        results.update(heard=heard[:300], words_match=similar(heard, item['expect']))
         if item.get('pitch'):
-            hz = pitch(samples)
-            results['pitch_hz'] = hz
-            lo, hi = item['pitch']
-            if hz and not lo <= hz <= hi:
-                problems.append(f'pitch {hz} Hz outside {lo}–{hi}')
-    else:
-        if item['kind'] == 'sound':
-            scores = listen(path, asset['sha256'], item['clap_labels']).get('scores', [])
-            top = [s['label'] for s in scores[:3]]
-            results.update(clap_top=top, clap_score=next((s['score'] for s in scores if s['label'] == item['clap']), 0))
-            if item['clap'] not in top:
-                problems.append('sounds like ' + (top[0] if top else 'something else'))
-            heard = listen(path, asset['sha256']).get('text', '').strip()
-            if len(heard.split()) >= 4:
-                problems.append('contains speech')
-                results['heard'] = heard[:200]
-    results['problems'] = problems
+            results['pitch_hz'] = pitch(samples)
+    elif item['kind'] == 'sound':
+        scores = listen(path, asset['sha256'], item['clap_labels']).get('scores', [])
+        results.update(clap_top=[s['label'] for s in scores[:3]], clap_score=next((s['score'] for s in scores if s['label'] == item['clap']), 0))
+        heard = listen(path, asset['sha256']).get('text', '').strip()
+        if len(heard.split()) >= 4:
+            results['heard'] = heard[:200]
+    results['problems'] = judge(item, results)
     return results
 
 
@@ -480,6 +489,13 @@ def finish(item, job, attempt, state, digests):
             asset['deleted_reason'] = 'Model Sounds remake: ' + '; '.join(results['problems'])
             save(asset)
             return False
+        file_sample(item, asset, results, entry, digests)
+        return True
+
+
+def file_sample(item, asset, results, entry, digests):
+    """Label a checked sample and save its metadata (status passed or needs_listen)."""
+    if True:
         status = 'needs_listen' if results['problems'] else 'passed'
         entry['status'] = status
         digests[asset['sha256']] = item['key']
@@ -488,9 +504,10 @@ def finish(item, job, attempt, state, digests):
         asset['model_sound'] = {**item['meta'], 'path': item['path'], 'settings': {k: settings.get(k) for k in
                                 ('model', 'seed', 'duration', 'kind', 'sample_rate', 'channels', 'genre', 'worker_compute') if k in settings},
                                 'lines': settings.get('lines'), 'checks': {'status': status, **results}, 'made': time.time()}
+        asset['deleted'] = False
+        asset.pop('deleted_reason', None)
         save(asset)
         api('audio/labels', {'asset_id': asset['id'], 'title': item['title'], 'folder_ids': [folder(item['path'])]})
-        return True
 
 
 def run(limit=None, only=None):
@@ -554,6 +571,29 @@ def run(limit=None, only=None):
     report()
 
 
+def rejudge():
+    """Judge earlier samples again with the current thresholds, from their stored measurements (no new audio)."""
+    state, by_key, digests, changed = load_state(), {i['key']: i for i in plan()}, {}, 0
+    for key, entry in state.items():
+        item = by_key.get(key)
+        if not item or entry.get('status') not in ('remake', 'needs_listen') or not entry.get('results') or not entry.get('asset_id'):
+            continue
+        results = dict(entry['results'])
+        results['problems'] = judge(item, results)
+        if results['problems'] and entry['status'] == 'remake':
+            continue
+        asset = record(entry['asset_id'])
+        if not asset:
+            continue
+        entry.update(results=results)
+        with LOCK:
+            file_sample(item, asset, results, entry, digests)
+        changed += 1
+        print(key, entry['status'], flush=True)
+    write_state(state)
+    print('re-judged', changed)
+
+
 def report():
     state, items = load_state(), plan()
     counts = {}
@@ -571,7 +611,7 @@ def report():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('plan', 'run', 'report'))
+    parser.add_argument('command', choices=('plan', 'run', 'report', 'rejudge'))
     parser.add_argument('--limit', type=int)
     parser.add_argument('--only', help='only keys containing this text (for a small test)')
     args = parser.parse_args()
@@ -585,5 +625,7 @@ if __name__ == '__main__':
             print(i['key'], '|', i.get('expect') or i['body'].get('description'))
     elif args.command == 'run':
         run(args.limit, args.only)
+    elif args.command == 'rejudge':
+        rejudge()
     else:
         report()
