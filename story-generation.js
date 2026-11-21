@@ -21,6 +21,9 @@
  const legacy=()=>typeof LEGACY_STORY==='undefined'?'':LEGACY_STORY;
  const ofStory=(r,story)=>(r.story_id||legacy())===story;
  const clock=()=>Date.now()/1000;
+ // A finished job's time comes from the job itself; later Activity lines (a new attempt that never got a job)
+ // must not stretch it (live test 20 Nov 2026: "Elapsed 57h 25m" on a job that failed in seconds).
+ function finishedAt(snap,items){const job=snap?.job;if(job&&Number(job.seconds)>0)return snap.started+Number(job.seconds);const last=items.at(-1)?.t;return last&&last-snap.started<6*3600?last:snap.started;}
  function duration(seconds){seconds=Math.max(0,Math.round(seconds||0));const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=seconds%60;return h?h+'h '+String(m).padStart(2,'0')+'m':m+'m '+String(s).padStart(2,'0')+'s';}
  function remaining(seconds){if(seconds==null||!isFinite(seconds))return 'Estimating…';if(seconds<60)return 'under a minute';const low=Math.max(1,Math.round(seconds*.85/60)),high=Math.max(low,Math.round(seconds*1.2/60));return low===high?'about '+low+' min':'about '+low+'–'+high+' min';}
  const clampPct=x=>Math.max(0,Math.min(100,Number(x)||0));
@@ -232,7 +235,7 @@
  function drawProgress(snap,mode){
   const host=q('[data-gen-progress]',root);
   if(!snap||mode==='review'||mode==='idle'){if(host.childElementCount){host.replaceChildren();progressSig='';}return;}
-  const items=track(snap,ctx.story),ended=mode==='running'?clock():(items.at(-1)?.t||clock()),elapsed=snap.started?Math.max(0,ended-snap.started):0;
+  const items=track(snap,ctx.story),ended=mode==='running'?clock():finishedAt(snap,items),elapsed=snap.started?Math.max(0,ended-snap.started):0;
   const eta=mode==='running'?(snap.eta??(snap.overall>4&&elapsed>20?elapsed*(100-snap.overall)/snap.overall:null)):0;
   const sig=JSON.stringify([mode,Math.round(snap.overall),snap.units.map(u=>[u.status,Math.round(u.pct??-1),u.detail,u.worker]),items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),snap.counts]);
   if(sig===progressSig)return;progressSig=sig;
@@ -279,7 +282,7 @@
   if(!list.some(a=>a.id===chosenImage))chosenImage=list[0]?.id||'';
   const shown=list.find(a=>a.id===chosenImage)||null;
   if(snap&&mode==='running')noteDetails(snap);
-  const items=snap?track(snap,ctx.story):[],ended=mode==='running'?clock():(items.at(-1)?.t||clock()),elapsed=snap?.started?Math.max(0,ended-snap.started):0;
+  const items=snap?track(snap,ctx.story):[],ended=mode==='running'?clock():finishedAt(snap,items),elapsed=snap?.started?Math.max(0,ended-snap.started):0;
   const eta=snap&&mode==='running'?(snap.eta??(snap.overall>4&&elapsed>20?elapsed*(100-snap.overall)/snap.overall:null)):0;
   const sig=JSON.stringify([mode,snap?.key||'',Math.round(snap?.overall??-1),snap?.units.map(u=>[u.status,Math.round(u.pct??-1)])||[],items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),list.map(a=>a.id),chosenImage,ctx.title,snap?.units.map(u=>u.detail)||[]]);
   if(sig===imageSig)return;imageSig=sig;
