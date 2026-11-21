@@ -29,7 +29,7 @@ def main(path, client=rp):
     signal.signal(signal.SIGTERM, lambda *a: STATE.update(stop=True))
     params = {k: request[k] for k in ('prompt', 'negative', 'width', 'height', 'steps', 'cfg', 'seed') if k in request}
     update(progress, 'Waiting for a serverless GPU')
-    STATE['job'] = client.submit('images', {'mode': 'zimage', 'params': params, 'key': output.stem})
+    STATE['job'] = client.submit('images', {'mode': 'zimage', 'params': params, 'key': output.stem, 'return_inline': True})
 
     def on_status(state):
         if state == 'IN_PROGRESS':
