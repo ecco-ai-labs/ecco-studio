@@ -14,6 +14,7 @@ Endpoint secrets (RunPod S3 API key for the network volume):
 import base64
 import io
 import os
+import time
 import tarfile
 from pathlib import Path, PurePosixPath
 
@@ -102,8 +103,18 @@ def deliver(data, name, inline=False):
         key = RESULTS_PREFIX + safe_name(name)
         # The volume API takes single uploads under 500 MB; larger ones go in parts.
         config = TransferConfig(multipart_threshold=256 * 1024 * 1024, multipart_chunksize=256 * 1024 * 1024)
-        client.upload_fileobj(io.BytesIO(data), os.environ['ECCO_S3_BUCKET'], key, Config=config)
-        return {'volume_key': key, 'bytes': len(data)}
+        # RunPod's volume API sometimes refuses uploads for a few minutes ("AccessDenied ... failed to fetch user
+        # keys", 20 Nov 2026). Retry, then return a small result inline instead of losing a finished picture.
+        for attempt in range(3):
+            try:
+                client.upload_fileobj(io.BytesIO(data), os.environ['ECCO_S3_BUCKET'], key, Config=config)
+                return {'volume_key': key, 'bytes': len(data)}
+            except Exception:
+                if attempt == 2 and len(data) > MAX_INLINE_BYTES:
+                    raise
+                if attempt < 2:
+                    time.sleep(5 * (attempt + 1))
+        return {'inline': base64.b64encode(data).decode(), 'bytes': len(data)}
     if len(data) > MAX_INLINE_BYTES:
         raise RuntimeError('Result is too large to return inline. Add the ECCO_S3_* volume secrets to this endpoint.')
     return {'inline': base64.b64encode(data).decode(), 'bytes': len(data)}
