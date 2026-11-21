@@ -83,6 +83,16 @@ class RunpodClient(unittest.TestCase):
         with self.assertRaises(rp.ServerlessError):
             rp.wait('images', 'j', opener=always_403, sleep=later, clock=lambda: now[0])
 
+    def test_failed_job_reason_is_plain_language(self):
+        # Owner report 19 Nov 2026: a refused RunPod key showed only "Comfy generation failed".
+        sys.path.insert(0, str(REPO / 'migration/legacy'))
+        import comfy_errors
+        entry = lambda text: {'status': {'status_str': 'error', 'messages': [['execution_error', {'exception_message': text}]]}}
+        self.assertIn('RunPod refused the API key', comfy_errors.describe(entry('RunPod returned HTTP 403: Forbidden')))
+        self.assertIn('too large', comfy_errors.describe(entry('Inputs are too large to send to the serverless endpoint.')))
+        self.assertEqual(comfy_errors.describe(entry('CUDA out of memory')), 'Generation failed: CUDA out of memory')
+        self.assertEqual(comfy_errors.describe({'status': {'status_str': 'error', 'messages': []}}), comfy_errors.GENERIC)
+
     def test_worker_error_and_failed_status_raise(self):
         def opener_for(reply):
             return lambda request, timeout: FakeResponse(json.dumps(reply).encode())

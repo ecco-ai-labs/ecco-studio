@@ -193,7 +193,7 @@ def comfy_execute(graph, job_id):
         entry=history.get(result['prompt_id'])
         if entry:
             if any(m[0]=='execution_interrupted' for m in entry.get('status',{}).get('messages',[])): raise Problem('Generation was interrupted',409)
-            if entry.get('status',{}).get('status_str')=='error': raise Problem('Comfy generation failed. Inspect Comfy server log.',502)
+            if entry.get('status',{}).get('status_str')=='error': raise Problem(__import__('comfy_errors').describe(entry),502)
             if entry.get('status',{}).get('completed'):
                 paths=[]
                 for output in entry.get('outputs',{}).values():

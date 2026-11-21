@@ -69,7 +69,7 @@ def execute(graph,jid,e):
                 if entry:
                     status=entry.get('status',{})
                     if any(m[0]=='execution_interrupted' for m in status.get('messages',[])):raise e['Problem']('Generation was interrupted',409)
-                    if status.get('status_str')=='error':raise e['Problem']('Comfy generation failed. Inspect Comfy server log.',502)
+                    if status.get('status_str')=='error':raise e['Problem'](__import__('comfy_errors').describe(entry),502)
                     if status.get('completed'):
                         paths=[]
                         for out in entry.get('outputs',{}).values():
