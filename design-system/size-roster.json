@@ -764,6 +764,38 @@
         "00:21:14 · RunPod refused to start ecco-b200-benchmark: …"
       ],
       "area": "GPU connections"
+    },
+    {
+      "id": "model-picker-row",
+      "name": "Model picker row",
+      "contractComponent": "dropdown-option",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".gq-row"
+      ],
+      "examples": [
+        "Qwen-Image-2512 · ●●●●○ High · ~1 min · Est. ~6 min"
+      ],
+      "area": "Story pages",
+      "note": "Two-line rows built as buttons (Select Model, owner-approved 20 Nov 2026). Listed so the Button height does not squash them."
+    },
+    {
+      "id": "queue-image-tab",
+      "name": "Generation image tab",
+      "contractComponent": "tab",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".gq-image-tab"
+      ],
+      "examples": [
+        "Image 1 · 42%"
+      ],
+      "area": "Story pages",
+      "note": "Tab with a name and a small progress bar (generation queue, owner-approved 20 Nov 2026). Listed so the Tab height does not squash it."
     }
   ],
   "variants": [

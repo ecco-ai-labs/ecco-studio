@@ -3222,5 +3222,15 @@
     ],
     "limits": "One Serverless worker records the voices in turn today, so voice rows share it; one worker per voice in parallel needs a queue change",
     "errorPopup": "Error popups ('Story could not continue' and the others) show only the \u00d7 close button; no minimize (owner, 16 Nov 2026)"
+  },
+  "generationQueue": {
+    "type": "workflow-screen",
+    "source": "generation-queue.js, generation-queue.css; story-generation.js (myImageJobs, drawImageScreen); story-workspace.js (picturePage)",
+    "approved": "Owner-approved mock, 2026-11-20 (https://claude.ai/artifact/79woARSSUqDGtfM3UQTTsA)",
+    "selectModel": "Story Picture settings bar: secondary button 'Select Model' (accent border, chevron flips when open). Opens a panel with columns blank | Quality (5 dots + label) | Speed | Estimated wait ('Est. ~N', tone free/busy/slow, 'N in line') and a \u2715 close. Picking a row keeps the panel open; \u2715, the button or Escape close it. Edit tabs (Upload, Image Library) allow only the edit model. Default Qwen-Image-2512. The list comes from /api/image-models.",
+    "queueButton": "Generation tab (pictures): 'Queue' secondary button with an accent count badge of your waiting pictures. Model Settings and Stop generation are not shown for pictures.",
+    "imageTabs": "One role=tab per picture of yours that is running plus your latest finished ones, only when more than one: 'Image N' and a small progress bar with % (Done in green). The chosen tab fills the screen. A Cancel \u2715 icon (pdf-icon-btn) leads the Image box tools while your picture runs.",
+    "queuePopup": "dialog#generation-queue-dialog: title Queue; summary 'X of Y done \u00b7 N generating \u00b7 about T left' (model tab: '<model>: N waiting'); accent progress bar with %; one ribbon with tabs All (with your count) + one per model (no counts) and Search on the right; scrollable list of your waiting pictures only: drag handle (Alt+Up/Down), place in the whole line, name, model, Est. wait (Next for the first), Move to top, Cancel; 50 per page; Cancel All button. Users reorder and cancel only their own jobs; their jobs swap only among the places they already hold.",
+    "noPause": "Serverless jobs cannot be paused, so there is no Pause or Resume."
   }
 }

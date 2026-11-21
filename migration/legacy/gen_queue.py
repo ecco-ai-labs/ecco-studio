@@ -68,6 +68,7 @@ def create_table(path):
                     'kind TEXT, label TEXT, body TEXT)')
         con.execute('CREATE INDEX IF NOT EXISTS gen_queue_wait ON gen_queue (status, pos)')
         con.execute('CREATE INDEX IF NOT EXISTS gen_queue_owner ON gen_queue (owner, status, pos)')
+        con.execute('CREATE TABLE IF NOT EXISTS gen_queue_caps (grp TEXT PRIMARY KEY, cap INTEGER, at REAL)')
 
 
 def _row(job_id):
@@ -118,6 +119,11 @@ def enqueue(job, run, label):
                         'VALUES (?,?,?,?,?,?,?,?,?,?)',
                         (job['id'], owner, model, group_for(model), last + 1, 'waiting', time.time(), kind, label,
                          json.dumps({k: v for k, v in body.items() if k != 'owner'})[:200000]))
+    try:
+        _STATE['g']['job_update'](job['id'], owner=owner, model=model, progress='Waiting in the queue',
+                                  prompt=str(body.get('prompt') or '').split('\nVisual style:')[0][:500])
+    except Exception:
+        pass
     wake()
     return job
 
@@ -150,6 +156,12 @@ def caps(groups, opener=urllib.request.urlopen, now=None):
                 value = CAPS['groups'].get(g, int(os.getenv('ECCO_QUEUE_CAP_' + g.upper(), '1')))
             found[g] = max(0, value)
         CAPS.update(at=now, groups=found)
+        try:  # the storage service reads these for estimated waits
+            with db() as con:
+                for g, v in found.items():
+                    con.execute('INSERT OR REPLACE INTO gen_queue_caps VALUES (?,?,?)', (g, v, now))
+        except sqlite3.Error:
+            pass
     return {g: CAPS['groups'].get(g, 1) for g in groups}
 
 
@@ -410,6 +422,15 @@ def _estimates(con, limit_caps):
     return est
 
 
+def saved_caps(con):
+    return {r[0]: r[1] for r in con.execute('SELECT grp, cap FROM gen_queue_caps')}
+
+
+def parallel(con):
+    """How many pictures can run at once right now (all picture endpoints, at most 8)."""
+    return max(1, min(MAX_PARALLEL, sum(saved_caps(con).values()) or 1))
+
+
 def page(owner, model='', search='', offset=0, limit=PAGE, path=None):
     """One page of the owner's waiting jobs, with each job's place in the whole line and estimated wait."""
     if path and _STATE['db'] != str(path):
@@ -419,7 +440,8 @@ def page(owner, model='', search='', offset=0, limit=PAGE, path=None):
     limit = max(1, min(PAGE, int(limit or PAGE)))
     with db() as con:
         groups = [r[0] for r in con.execute("SELECT DISTINCT grp FROM gen_queue WHERE status IN ('waiting','running')")]
-        est = _estimates(con, dict(CAPS['groups']) or {g: 1 for g in groups})
+        est = _estimates(con, dict(CAPS['groups']) or saved_caps(con) or {g: 1 for g in groups})
+        at_once = parallel(con)
         place = {r[0]: n + 1 for n, r in enumerate(con.execute("SELECT job_id FROM gen_queue WHERE status='waiting' ORDER BY pos"))}
         where, args = "status='waiting' AND owner=?", [owner]
         if model:
@@ -444,7 +466,7 @@ def page(owner, model='', search='', offset=0, limit=PAGE, path=None):
         items.append({'id': r['job_id'], 'model': r['model'], 'model_name': model_info(r['model']).get('name', r['model']),
                       'name': (str(prompt).split('\nVisual style:')[0] or r['label'] or 'Picture')[:160],
                       'place': place.get(r['job_id']), 'wait_seconds': round(est.get(r['job_id'], 0))})
-    return {'items': items, 'total': total, 'offset': offset, 'limit': limit, 'per_model': per_model,
+    return {'items': items, 'total': total, 'parallel': at_once, 'offset': offset, 'limit': limit, 'per_model': per_model,
             'mine': {'waiting': mine.get('waiting', 0), 'running': mine.get('running', 0), 'done': mine.get('done', 0)},
             'last_wait_seconds': round(max([est.get(j, 0) for j in my_ids] or [0]))}
 
@@ -457,7 +479,7 @@ def models_status(path=None):
         speed = speeds(con)
         waiting = {r[0]: r[1] for r in con.execute("SELECT model, COUNT(*) FROM gen_queue WHERE status='waiting' GROUP BY model")}
         groups = [r[0] for r in con.execute("SELECT DISTINCT grp FROM gen_queue WHERE status IN ('waiting','running')")]
-        est = _estimates(con, dict(CAPS['groups']) or {g: 1 for g in groups})
+        est = _estimates(con, dict(CAPS['groups']) or saved_caps(con) or {g: 1 for g in groups})
         by_model = {}
         for r in con.execute("SELECT job_id, model FROM gen_queue WHERE status='waiting' ORDER BY pos"):
             by_model[r[1]] = est.get(r[0], 0) + speed.get(r[1], 60)

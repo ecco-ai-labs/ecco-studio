@@ -65,8 +65,20 @@
    counts:units.length>1?[[cap(noun)+'s done',done+' of '+units.length]]:[],error:job.error||units.find(u=>u.status==='failed')?.error||'',assets:results(job),
    log:workerLog([job,...(job.children||[]).map(id=>records().find(r=>r.id===id))])};
  }
+ // Generation queue (owner-approved mock, 20 Nov 2026): one tab per picture of yours that is running (plus your latest
+ // finished ones), only when more than one. The chosen tab's job fills the screen; otherwise this story's job.
+ const me=()=>window.EccoAuth?.user?.email||'';
+ function myImageJobs(){
+  const mine=records().filter(r=>r.kind==='job'&&r.media==='image'&&me()&&r.owner===me());
+  const live=mine.filter(r=>r.status==='running').sort((a,b)=>(a.started||0)-(b.started||0));
+  const done=mine.filter(r=>r.status==='done'&&clock()-(r.started||r.created||0)<3600).sort((a,b)=>(a.started||0)-(b.started||0));
+  return done.slice(-Math.max(0,Math.max(queueParallel,live.length)-live.length)).concat(live);
+ }
+ let queueParallel=2,activeJob='';
+ function imageSnapshotOf(job){const keep=activeJob;activeJob=job.id;try{return imageSnapshot(ctx?.story||'');}finally{activeJob=keep;}}
  function imageSnapshot(story){
-  const job=jobRecord(localStorage.getItem('ecco-image-job:'+story));if(!job)return null;
+  const tabs=myImageJobs(),pick=tabs.length>1&&tabs.find(r=>r.id===activeJob)?activeJob:'';
+  const job=jobRecord(pick||localStorage.getItem('ecco-image-job:'+story));if(!job)return null;
   const total=Math.max(1,Number(job.total||job.request?.count||job.count)||1),made=results(job).length,step=/(\d+)\s*(?:\/|of)\s*(\d+)/i.exec(job.progress||'');
   // The worker log carries the sampler's progress bar (" 5/50 [..."); use it when the job's own progress has no count (live test 18 Nov 2026).
   const bar=(job.worker_log||[]).slice().reverse().map(l=>/(\d+)\/(\d+)\s*\[/.exec(String(l?.line||'')))?.find(Boolean);
@@ -114,15 +126,17 @@
  function snapshot(kind,story){return kind==='video'?videoSnapshot(story):kind==='image'?imageSnapshot(story):audioSnapshot(story);}
 
  // ---------- Activity log (per story, this browser session) ----------
- function logKey(story){return 'ecco-gen-log:'+story;}
+ function logKey(story,job){return 'ecco-gen-log:'+story+(job?':'+job:'');}
  function track(snap,story){
-  const key=logKey(story),saved=session(key,{key:'',units:{},items:[]});
+  const key=logKey(story,snap.kind==='image'?snap.key:''),saved=session(key,{key:'',units:{},items:[]});
   if(saved.key!==snap.key){saved.key=snap.key;saved.units={};saved.details={};saved.logSeq={};saved.items=[{t:clock(),m:'Generation started.'}];}
   saved.logSeq=saved.logSeq||{};
   for(const x of snap.log||[]){if((saved.logSeq[x.job]||0)>=x.seq||!x.line)continue;saved.logSeq[x.job]=x.seq;saved.items.push({t:x.t,m:'Worker: '+x.line});}
   for(const u of snap.units){const before=saved.units[u.id];if(before===u.status)continue;saved.units[u.id]=u.status;
    const n=u.logName||u.name,m=u.status==='done'?n+' finished.':u.status==='running'?n+' started'+(u.worker?' on '+u.worker:'')+'.':u.status==='failed'?n+' failed'+(u.error?': '+u.error:'.'):u.status==='stopped'?n+' stopped.':'';
-   if(m&&(before||u.status!=='waiting'))saved.items.push({t:clock(),m});}
+   if(m&&(before||u.status!=='waiting'))saved.items.push({t:clock(),m});
+   // The prompt as Serverless accepted it, with the model and who sent it (owner, 20 Nov 2026).
+   if(snap.kind==='image'&&u.status==='running'&&!saved.accepted){saved.accepted=1;const j=snap.job||{};saved.items.push({t:clock(),m:'Serverless accepted the prompt ('+[j.model||'',j.owner?'sent by '+j.owner:''].filter(Boolean).join(', ')+'): '+(j.prompt||'')});}}
   const last=saved.items[saved.items.length-1]?.m,end=snap.status==='done'?'Ready to review.':FAILED.includes(snap.status)?'Generation stopped with an error.':snap.status==='cancelled'?'Generation stopped.':'';
   if(end&&last!==end)saved.items.push({t:clock(),m:end});
   saved.items=saved.items.slice(-40);sessionWrite(key,saved);return saved.items;
@@ -146,11 +160,13 @@
    q('[data-publish]',root).onclick=()=>publish();
    q('[data-next-episode]',root).onclick=()=>ctx.nextEpisode?.();
   }
-  q('[data-gen-settings]',root).textContent='Model Settings · '+LABEL[ctx.kind];
+  q('[data-gen-settings]',root).textContent='Model Settings · '+LABEL[ctx.kind];q('[data-gen-settings]',root).hidden=ctx.kind==='image';
+  if(ctx.kind==='image'&&window.EccoQueue&&!q('[data-gen-queue]',root)){window.EccoQueue.queueButton(q('.story-gen-actions',root));window.EccoQueue.parallel().then(n=>{queueParallel=n;});}
+  q('[data-gen-queue]',root)?.toggleAttribute('hidden',ctx.kind!=='image');
   q('[data-next-episode]',root).hidden=!ctx.recurring;
   settingsDrawer(page);
   for(const child of [...page.children])if(child!==root&&child.id!=='story-gen-settings'&&child.id!=='story-simple-publishing'&&child.tagName!=='DIALOG'&&!child.hidden){child.hidden=true;child.dataset.storyGenHidden='';}
-  if(options.autoStart){autoStartUntil=Date.now()+20000;ctx.autoStart=false;if(ctx.kind==='image'){sessionWrite(freshKey(),{t:clock(),was:localStorage.getItem('ecco-image-job:'+ctx.story)||''});chosenImage='';imageSig='';}}
+  if(options.autoStart){autoStartUntil=Date.now()+20000;ctx.autoStart=false;if(ctx.kind==='image'){sessionWrite(freshKey(),{t:clock(),was:localStorage.getItem('ecco-image-job:'+ctx.story)||''});chosenImage='';imageSig='';activeJob='';}}
   if(!timer)timer=setInterval(update,1000);
   update();
  }
@@ -218,7 +234,7 @@
   const image=ctx.kind==='image',boxed=image||ctx.kind==='audio';
   const summaryText=boxed?'':mode==='review'&&asset?describe(asset):mode==='running'&&snap?Math.round(snap.overall)+'% · '+snap.headline:mode==='idle'?'Choose Generate to start. Progress shows here.':'';
   if(summary.textContent!==summaryText)summary.textContent=summaryText;
-  q('[data-gen-stop]',root).hidden=mode!=='running';
+  q('[data-gen-stop]',root).hidden=mode!=='running'||image;
   const startLabel=mode==='review'||mode==='failed'||mode==='stopped'?'Generate again':'Generate';const startButton=q('[data-gen-start]',root);
   if(startButton.textContent!==startLabel)startButton.textContent=startLabel;startButton.hidden=mode==='running'||boxed&&mode==='review';startButton.className=mode==='idle'?'':'secondary';
   q('[data-gen-download]',root).hidden=mode!=='review'||boxed;
@@ -284,18 +300,23 @@
   if(snap&&mode==='running')noteDetails(snap);
   const items=snap?track(snap,ctx.story):[],ended=mode==='running'?clock():finishedAt(snap,items),elapsed=snap?.started?Math.max(0,ended-snap.started):0;
   const eta=snap&&mode==='running'?(snap.eta??(snap.overall>4&&elapsed>20?elapsed*(100-snap.overall)/snap.overall:null)):0;
-  const sig=JSON.stringify([mode,snap?.key||'',Math.round(snap?.overall??-1),snap?.units.map(u=>[u.status,Math.round(u.pct??-1)])||[],items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),list.map(a=>a.id),chosenImage,ctx.title,snap?.units.map(u=>u.detail)||[]]);
+  const tabs=myImageJobs(),tabPct=r=>r.status==='done'?100:Math.round(imageSnapshotOf(r)?.overall||0);
+  const sig=JSON.stringify([tabs.map(r=>[r.id,r.status,tabPct(r)]),activeJob,mode,snap?.key||'',Math.round(snap?.overall??-1),snap?.units.map(u=>[u.status,Math.round(u.pct??-1)])||[],items.length,Math.round(elapsed/5),eta==null?-1:Math.round(eta/10),list.map(a=>a.id),chosenImage,ctx.title,snap?.units.map(u=>u.detail)||[]]);
   if(sig===imageSig)return;imageSig=sig;
   const total=snap?snap.units.length:0;
   const left=snap?'<div class="story-gen-image-left">'+leftBox(snap,mode,items,elapsed,eta,(u,i)=>imageName(i,total),'image')+'</div>':'';
   const ready=!!shown,tool=(act,label,icon)=>'<button type="button" class="pdf-icon-btn" data-image-act="'+act+'" aria-label="'+label+'" title="'+label+'"'+(ready?'':' disabled')+'>'+svg(icon)+'</button>';
   const frame=shown?(list.length>1?'<div class="story-gen-images">'+list.map(a=>'<button type="button" class="story-gen-image" data-image="'+esc(a.id)+'" aria-pressed="'+(a.id===chosenImage)+'"><img data-asset="'+esc(a.id)+'" alt="'+esc(a.prompt||a.title||'Generated image')+'"></button>').join('')+'</div>':'<img data-asset="'+esc(shown.id)+'" alt="'+esc(shown.prompt||shown.title||'Generated image')+'">')
    :'<p class="help">'+(mode==='failed'?'The image could not be made. Choose Generate again.':mode==='stopped'?'Generation stopped.':'Your image will appear here when it is ready.')+'</p>';
-  host.innerHTML='<div class="story-gen-image-layout'+(snap?'':' story-gen-image-only')+'">'+left
-   +'<section class="panel story-gen-image-box" aria-labelledby="story-gen-image-title"><div class="story-gen-image-head"><h3 id="story-gen-image-title">Image</h3><div class="story-gen-image-tools" role="group" aria-label="Image actions">'+tool('save','Save to Image Library','save')+tool('delete','Delete image','trash')+tool('download','Download','download')+tool('full','Full Screen','expand')+'</div></div><div class="story-gen-image-frame"'+(shown?' data-filled':'')+'>'+frame+'</div></section></div>'
+  const shownJob=snap?.key||'',tabRow=tabs.length>1?'<div class="gq-image-tabs" role="tablist" aria-label="Your pictures" style="--gq-tabs:'+tabs.length+'">'+tabs.map((r,i)=>{const pc=tabPct(r),on=r.id===shownJob;return '<button type="button" role="tab" class="gq-image-tab" data-gen-tab="'+esc(r.id)+'" aria-selected="'+on+'"'+(r.status==='done'?' data-done':'')+'><span>Image '+(i+1)+'</span><span class="gq-mini"><span class="story-gen-track"><span style="width:'+pc+'%"></span></span><span class="help">'+(r.status==='done'?'Done':pc+'%')+'</span></span></button>';}).join('')+'</div>':'';
+  const cancel=snap&&mode==='running'&&snap.job?.owner&&snap.job.owner===me()?'<button type="button" class="pdf-icon-btn" data-image-act="cancel" aria-label="Cancel this image" title="Cancel this image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>':'';
+  host.innerHTML=tabRow+'<div class="story-gen-image-layout'+(snap?'':' story-gen-image-only')+'">'+left
+   +'<section class="panel story-gen-image-box" aria-labelledby="story-gen-image-title"><div class="story-gen-image-head"><h3 id="story-gen-image-title">Image</h3><div class="story-gen-image-tools" role="group" aria-label="Image actions">'+cancel+tool('save','Save to Image Library','save')+tool('delete','Delete image','trash')+tool('download','Download','download')+tool('full','Full Screen','expand')+'</div></div><div class="story-gen-image-frame"'+(shown?' data-filled':'')+'>'+frame+'</div></section></div>'
    +'<div class="story-gen-image-actions"><button type="button" data-image-publish'+(ready&&mode!=='running'?'':' disabled')+'>Next: Publish</button></div>';
   paintImages(host);
-  host.onclick=e=>{const pick=e.target.closest('[data-image]');if(pick){chosenImage=pick.dataset.image;imageSig='';update();return;}
+  host.onclick=e=>{const tab=e.target.closest('[data-gen-tab]');if(tab){activeJob=tab.dataset.genTab;imageSig='';update();return;}
+   const stop=e.target.closest('[data-image-act=cancel]');if(stop&&snap?.key){stop.disabled=true;api('queue/cancel',{job_ids:[snap.key]}).catch(error=>window.EccoErrors?.show(error,{title:'The image could not be cancelled'})).finally(()=>{imageSig='';setTimeout(update,500);});return;}
+   const pick=e.target.closest('[data-image]');if(pick){chosenImage=pick.dataset.image;imageSig='';update();return;}
    const b=e.target.closest('[data-image-act],[data-image-publish]');if(!b||b.disabled)return;const a=list.find(x=>x.id===chosenImage);
    if(b.hasAttribute('data-image-publish'))return publish();if(!a)return;
    ({save:()=>saveDialog(a),delete:()=>removeImage(a),download:()=>download(a),full:()=>fullScreen(a)})[b.dataset.imageAct]?.();};
@@ -320,7 +341,7 @@
   const step=/(\d+)\s*(?:\/|of)\s*(\d+)/i.exec(u.detail||'');if(step&&noun==='image')return 'Drawing the picture · step '+step[1]+' of '+step[2]+(u.worker?' on '+u.worker:'');
   return (u.detail||(noun==='image'?'Starting a GPU worker and loading the model':'Working'))+(u.worker?' on '+u.worker:'');}
  // Each new status the job reports (for example "Preparing the model") goes into Activity once, with its time.
- function noteDetails(snap){const key=logKey(ctx.story),saved=session(key,{key:'',units:{},items:[]});if(saved.key!==snap.key)return;saved.details=saved.details||{};let changed=false;
+ function noteDetails(snap){const key=logKey(ctx.story,snap.key),saved=session(key,{key:'',units:{},items:[]});if(saved.key!==snap.key)return;saved.details=saved.details||{};let changed=false;
   for(const u of snap.units){if(u.status!=='running'||!u.detail||saved.details[u.id]===u.detail)continue;saved.details[u.id]=u.detail;saved.items.push({t:clock(),m:u.name+': '+u.detail});changed=true;}
   if(changed){saved.items=saved.items.slice(-40);sessionWrite(key,saved);}}
  // The studio loads each picture once; a new <img> for an already-loaded picture gets its address here, otherwise it stays blank.

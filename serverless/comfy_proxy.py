@@ -175,6 +175,10 @@ def run(pid):
     group = record['group']
     try:
         job_input = {'mode': 'comfy', 'workflow': record['graph'], 'files': input_files(record['graph']), 'key': pid}
+        # Pictures come back inside the job's answer when small enough, not through the network volume: RunPod's volume
+        # API refused uploads on 20 Nov 2026 ("AccessDenied ... failed to fetch user keys") after the pictures were drawn.
+        if group in ('images', 'imageedit'):
+            job_input['return_inline'] = True
         record['runpod_id'] = rp.submit(group, job_input)
         log(f'{pid} submitted to {group} endpoint as {record["runpod_id"]}')
 
