@@ -119,7 +119,11 @@ def wait(name, job_id, should_cancel=lambda: False, on_status=lambda s: None,
                 raise error
             return output
         if state in FAILED:
-            raise ServerlessError(f'Serverless job {state.lower()}: {reply.get("error") or "no details"}')
+            error = ServerlessError(f'Serverless job {state.lower()}: {reply.get("error") or "no details"}')
+            output = reply.get('output')
+            # A handler that returns {"error", "log"} is marked FAILED by RunPod; keep its log tail too.
+            error.log = str(output.get('log') or '')[-4000:] if isinstance(output, dict) else ''
+            raise error
         if state == 'IN_PROGRESS':
             started = started or clock()
             text = reply.get('output')

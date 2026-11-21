@@ -105,6 +105,11 @@ class RunpodClient(unittest.TestCase):
             rp.wait('audio', 'j', opener=opener_for({'status': 'COMPLETED', 'output': {'error': 'Speech inference failed.', 'log': 'kokoro: No module named x'}}), sleep=lambda s: None)
         except rp.ServerlessError as error:
             self.assertEqual(error.log, 'kokoro: No module named x')
+        # RunPod marks such a job FAILED (seen live 21 Nov 2026); the log must survive that path as well.
+        try:
+            rp.wait('audio', 'j', opener=opener_for({'status': 'FAILED', 'error': 'Speech inference failed.', 'output': {'log': 'RuntimeError: Install and verify'}}), sleep=lambda s: None)
+        except rp.ServerlessError as error:
+            self.assertIn('Install and verify', error.log)
 
     def test_cancel_request_cancels_remote_job(self):
         urls = []

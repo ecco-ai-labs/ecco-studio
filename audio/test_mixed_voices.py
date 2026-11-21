@@ -93,3 +93,20 @@ class MixedVoices(TestCase):
                 with self.assertRaises(RuntimeError) as caught:
                     synthesize(self.request(),out,Path(tmp))
             self.assertIn('could not load voice af_heart',str(caught.exception))
+
+    def test_linked_script_imports_from_the_folder_it_was_started_from(self):
+        # Serverless: /workspace/ecco-audio/mixed_worker.py is a link to the volume copy (21 Nov 2026).
+        import os, subprocess, sys
+        here=Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as tmp:
+            for f in here.iterdir():
+                if f.is_file():
+                    os.symlink(f,Path(tmp)/f.name)
+            Path(tmp,'queue_worker.py').unlink()
+            Path(tmp,'queue_worker.py').write_text("def worker_command(child, directory):\n    raise SystemExit('linked-folder queue_worker')\n")
+            req=Path(tmp)/'request.json'
+            import json
+            req.write_text(json.dumps(self.request()))
+            Path(tmp,'out').mkdir()
+            run=subprocess.run([sys.executable,str(Path(tmp)/'mixed_worker.py'),'--request',str(req),'--output',str(Path(tmp)/'out'/'output.wav'),'--runtime',tmp],capture_output=True,text=True,cwd='/')
+            self.assertIn('linked-folder queue_worker',run.stderr+run.stdout)
