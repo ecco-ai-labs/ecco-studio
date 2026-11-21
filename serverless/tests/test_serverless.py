@@ -100,6 +100,11 @@ class RunpodClient(unittest.TestCase):
             rp.wait('images', 'j', opener=opener_for({'status': 'COMPLETED', 'output': {'error': 'boom'}}), sleep=lambda s: None)
         with self.assertRaisesRegex(rp.ServerlessError, 'failed'):
             rp.wait('images', 'j', opener=opener_for({'status': 'FAILED'}), sleep=lambda s: None)
+        # Mixed-model failures (21 Nov 2026): the worker log tail is the only place the real cause appears.
+        try:
+            rp.wait('audio', 'j', opener=opener_for({'status': 'COMPLETED', 'output': {'error': 'Speech inference failed.', 'log': 'kokoro: No module named x'}}), sleep=lambda s: None)
+        except rp.ServerlessError as error:
+            self.assertEqual(error.log, 'kokoro: No module named x')
 
     def test_cancel_request_cancels_remote_job(self):
         urls = []
@@ -590,6 +595,18 @@ class AudioDispatch(unittest.TestCase):
         self.assertEqual(status['status'], 'error')
         self.assertIn('integrity', status['error'])
         self.assertFalse((self.job / 'output.wav').exists())
+
+    def test_failed_job_keeps_the_worker_log(self):
+        class Failing(FakeClient):
+            def wait(self, *args, **kwargs):
+                error = rp.ServerlessError('Audio generation failed: Speech inference failed.')
+                error.log = 'qwen3-tts failed\nRuntimeError: CUDA error'
+                raise error
+        self.dispatch.run_job(self.qw, self.request, self.job, 'serverless', Failing({}, configured=('audio',)), volume=self.temp.name)
+        status = self.qw.read(self.job / 'status.json', {})
+        self.assertEqual(status['status'], 'error')
+        self.assertIn('CUDA error', status['log'])
+        self.assertIn('CUDA error', (self.job / 'worker.log').read_text())
 
     def test_cancel_marker_stops_before_submit(self):
         self.qw.write(self.job / 'cancel.json', {})
