@@ -1,6 +1,6 @@
 /* Resolve active theme tokens directly, including translucent glass themes. */
 .publishing-tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:18px;padding-bottom:6px;border-bottom:1px solid var(--ecco-theme-border,#48405c);background:transparent}
-html .publishing-tabs>button[role="tab"]{display:flex;align-items:center;justify-content:center;gap:6px;flex:1 1 100px;min-width:0;max-width:160px;padding:8px 10px;font-size:calc(13px - 2pt);border:1px solid var(--ecco-theme-border,#48405c)!important;border-radius:6px;background:var(--ecco-theme-control,#302a43)!important;color:var(--ecco-theme-text,#eeebf5)!important;box-shadow:none!important}
+html .publishing-tabs>button[role="tab"]{display:flex;align-items:center;justify-content:center;gap:6px;flex:1 1 0;min-width:0;max-width:none;padding:8px 10px;font-size:calc(13px - 2pt);border:1px solid var(--ecco-theme-border,#48405c)!important;border-radius:6px;background:var(--ecco-theme-control,#302a43)!important;color:var(--ecco-theme-text,#eeebf5)!important;box-shadow:none!important}
 html .publishing-tabs>button[role="tab"][aria-selected="true"]{background:var(--ecco-theme-surface,#252039)!important;color:var(--ecco-theme-accent,#ffdc24)!important;border-color:var(--ecco-theme-border,#48405c)!important;box-shadow:inset 3px 0 var(--ecco-theme-accent,#ffdc24)!important}
 html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-accent,#ffdc24)!important;color:var(--ecco-theme-accent,#ffdc24)!important}
 .publishing-tabs svg{width:18px;height:18px;flex:0 0 18px}
@@ -43,3 +43,8 @@ html .publishing-tabs>button[role="tab"]:hover{border-color:var(--ecco-theme-acc
 .publishing-toolbar button[aria-busy=true]{display:flex;align-items:center;gap:6px;opacity:1}
 @keyframes publishing-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.publishing-spinner{animation-duration:2s}}
+
+/* Owner final mocks (2026-11-21): text boxes fit their text. */
+#publish-form textarea{field-sizing:content;min-height:3.2em}
+.publishing-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:16px}
+.publishing-toolbar:has(#workspace-back){justify-content:space-between}

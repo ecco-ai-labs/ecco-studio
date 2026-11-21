@@ -384,3 +384,13 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 @media (max-width:900px){.story-picture-photo-row.story-picture-simple{grid-template-columns:minmax(0,1fr)}}
 /* Upload a Picture: Replace and Delete side by side (owner-approved mock, 18 Nov 2026). */
 .story-photo-actions{display:flex;flex-wrap:wrap;gap:8px}
+/* Story Characters final mocks (owner 2026-11-21): AI pick tag; Change like Back/Next; Change a voice editor layout. */
+.story-cast-ai-pick{margin-left:8px;padding:1px 7px;border-radius:999px;border:1px solid color-mix(in srgb,var(--ecco-theme-accent,#ffdc24) 40%,transparent);color:var(--ecco-theme-accent,#ffdc24);font-weight:600;white-space:nowrap}
+.story-cast-test-row{display:flex;align-items:center;gap:10px}
+.story-cast-test-row input{flex:1 1 auto;min-width:0}
+.story-cast-test-label{white-space:nowrap}
+label.story-cast-model-inline{display:flex;flex-direction:row;align-items:center;gap:10px;margin-top:1px}
+label.story-cast-model-inline select{width:auto}
+.story-cast-rule{border:0;border-top:1px solid var(--ecco-theme-border,#48405c);margin:12px 0;width:100%}
+.story-cast-body.story-cast-voice-first{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.story-cast-body.story-cast-voice-first textarea{field-sizing:content;min-height:5em;width:100%;box-sizing:border-box}

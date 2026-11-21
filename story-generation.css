@@ -157,3 +157,4 @@
 @keyframes story-gen-spin{to{transform:rotate(360deg)}}
 @keyframes story-gen-pulse{0%,100%{opacity:1}50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){.story-gen-spinner{animation-duration:2.4s}.story-gen-image-wait{animation:none}}
+.story-gen-image-actions:has(#workspace-back){justify-content:space-between;align-items:center}

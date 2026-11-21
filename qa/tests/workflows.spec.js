@@ -1239,7 +1239,11 @@ test('GEN-01 Next: Generate starts at once and shows overall and per-worker prog
  await audioToGeneration(page);
  await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').length)).toBe(1);
  const overall=page.getByRole('progressbar',{name:'Overall Progress progress',exact:true});await expect(overall).toBeVisible();
- const labels=page.locator('.story-gen-bars .story-gen-bar-label');await expect(labels).toHaveCount(3);await expect(labels.nth(0)).toHaveText('Overall Progress:');await expect(labels.nth(1)).toContainText('Narrator');await expect(labels.nth(2)).toContainText('Mix & save');
+ // Final mocks (owner 2026-11-21): like Image Generation, one row for the story job; Activity counts up in tens; no Model Settings or Stop.
+ const labels=page.locator('.story-gen-bars .story-gen-bar-label');await expect(labels).toHaveCount(2);await expect(labels.nth(0)).toHaveText('Overall Progress:');await expect(labels.nth(1)).toHaveText((await page.locator('#heading').textContent()).trim()+':');
+ await expect(page.locator('.story-gen-log')).toContainText('Audio started.');await expect(page.locator('.story-gen-log')).toContainText(': 0%');
+ await expect(page.locator('[data-gen-settings]')).toBeHidden();await expect(page.locator('[data-gen-stop]')).toBeHidden();await expect(page.getByText(/Overall progress is the sum/)).toHaveCount(0);
+ await expect(page.locator('.story-gen-image-actions #workspace-back')).toBeVisible();
  await expect(page.locator('.story-gen-stats')).toContainText('Lines done');await expect(page.locator('.story-gen-log li').first()).toBeVisible();
  await expect(page.locator('[data-gen-summary]')).toHaveText('');await expect(page.locator('.story-gen-percent')).toHaveCount(0);await expect(page.locator('.story-gen-workers')).toHaveCount(0);await expect(page.locator('.story-gen-map')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Edit story',exact:true})).toHaveCount(0);
@@ -1285,10 +1289,9 @@ test('GEN-03 a generation error pops up with what to do next and opens Model Set
  await popup.getByRole('button',{name:'Open Model Settings',exact:true}).click();await expect(page.locator('#story-gen-settings')).toBeVisible();await expect(page.locator('#story-gen-settings #audio-form')).toBeAttached();
  await expect(page.locator('[data-gen-chip]')).toHaveText('Needs attention');await expect(page.getByRole('button',{name:'Generate again',exact:true})).toBeVisible();
 });
-test('GEN-04 Model Settings opens as a side panel for the media type and closes with Escape',async({page})=>{
- await audioToGeneration(page);await modelSettings(page);await expect(page.getByRole('heading',{name:'Model Settings · Audio',exact:true})).toBeVisible();
- await expect(page.locator('#story-gen-settings .story-simple-advanced')).toHaveAttribute('open','');
- await page.getByRole('button',{name:'Close Model Settings',exact:true}).focus();await page.keyboard.press('Escape');await expect(page.locator('#story-gen-settings')).toBeHidden();await expect(page.locator('[data-gen-settings]')).toBeFocused();
+test('GEN-04 Audio Generation has no Model Settings button, like Image Generation (owner final mocks 2026-11-21)',async({page})=>{
+ await audioToGeneration(page);await expect(page.locator('[data-gen-chip]')).toBeVisible();
+ await expect(page.locator('[data-gen-settings]')).toBeHidden();await expect(page.getByRole('button',{name:/^Model Settings/})).toHaveCount(0);
 });
 test('GEN-05 video review redraws only the selected frames and puts them back as a new version',async({page})=>{
  await boot(page);await page.getByLabel('Story name (required)',{exact:true}).fill('Frame fixes');
@@ -1903,8 +1906,10 @@ test('STORY-29 Changing a character’s Audio model picks a fitting voice from t
  await expect(page.locator('[data-cast-progress]')).not.toContainText('Same voice');
  await page.locator('[data-character-tabs] [role=tab]',{hasText:'Ali'}).click();const model=page.getByRole('combobox',{name:'Character 2 Audio model',exact:true});
  const other=await model.locator('option').evaluateAll((o,cur)=>o.map(x=>x.value).find(v=>v&&v!==cur&&(window.EccoAudioModels.find(m=>m.id===v)?.voices||[]).some(x=>/masculine/.test(x.name)&&(!x.language||x.language==='English'))),await model.inputValue());
- await model.selectOption(other);const voice=page.getByRole('combobox',{name:'Character 2 Voice',exact:true});
- const picked=await voice.inputValue(),info=await page.evaluate(([m,v])=>window.EccoAudioModels.find(x=>x.id===m).voices.find(x=>x.id===v)?.name,[other,picked]);
+ await model.selectOption(other);
+ // Final mocks (2026-11-21): no Voice list in Change a voice; the voice the app picked is kept on the character.
+ await expect(page.getByRole('combobox',{name:'Character 2 Voice',exact:true})).toHaveCount(0);
+ const picked=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('simple_workspace')&&localStorage.getItem(k).includes('Model voices'));return JSON.parse(localStorage.getItem(k)).simple_workspace.cast.find(c=>c.name==='Ali').voice;}),info=await page.evaluate(([m,v])=>window.EccoAudioModels.find(x=>x.id===m).voices.find(x=>x.id===v)?.name,[other,picked]);
  expect(info).toMatch(/masculine/);
  expect(page.qaErrors).toEqual([]);
 });
@@ -1924,7 +1929,10 @@ test('STORY-30 Characters opens on a short cast list: voices picked, Hear and Ch
  await expect(page.getByRole('button',{name:'← Back to cast list',exact:true})).toHaveCount(0);
  await expect(page.getByRole('textbox',{name:'Test line',exact:true})).toHaveValue('Hello, my name is Ali.');
  const create=page.locator('.story-cast-create'),props=page.locator('.story-cast-props');expect((await create.boundingBox()).x).toBeLessThan((await props.boundingBox()).x);
- expect((await page.locator('[data-cast-generate=voice]').boundingBox()).y).toBeLessThan((await page.getByRole('textbox',{name:'Test line',exact:true}).boundingBox()).y);
+ // Final mocks (2026-11-21): Suggested voice, then Test, then Audio model on one line; no Design voice or Generate voice button.
+ await expect(page.locator('[data-cast-generate=voice]')).toHaveCount(0);
+ expect((await page.getByRole('textbox',{name:'Test line',exact:true}).boundingBox()).y).toBeLessThan((await page.getByRole('combobox',{name:'Character 2 Audio model',exact:true}).boundingBox()).y);
+ await expect(page.getByRole('heading',{name:'Story Characters',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Recommend with AI',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Next: Story Screen Play',exact:true}).click();await expect(page.getByRole('tab',{name:'4. Story Screen Play',exact:true})).toHaveAttribute('aria-selected','true');
  const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('simple_workspace')&&localStorage.getItem(k).includes('Lantern'));return JSON.parse(localStorage.getItem(k)).simple_workspace.narrationStyle;});expect(saved).toBe('Intimate and quiet');
  expect(page.qaErrors).toEqual([]);
@@ -2080,15 +2088,14 @@ test('STORY-35 VoxCPM2 designs a character voice from the description and Genera
  await page.evaluate(()=>{window.qaDesigns=[];window.EccoAudioStudio.design=async(character,description,text)=>{window.qaDesigns.push({model:character.model,name:character.name,description,text});return {asset_id:'qa-design-1',url:'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',reference_id:'a'.repeat(32)};};});
  await castEditor(page);const tabs=page.getByRole('tablist',{name:'Story characters',exact:true});await tabs.getByRole('tab',{name:'Ali',exact:true}).click();
  await page.getByRole('combobox',{name:'Character 2 Audio model',exact:true}).selectOption('voxcpm2');
- const voice=page.getByRole('combobox',{name:'Character 2 Voice',exact:true});await expect(voice).toHaveValue('design');
- await expect(voice.locator('option',{hasText:'Design from the description above'})).toHaveCount(1);
+ // Final mocks (2026-11-21): no Voice list or Design voice button; Play test line designs the voice from the description.
+ await expect(page.getByRole('combobox',{name:'Character 2 Voice',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Design voice',exact:true})).toHaveCount(0);
  const suggestion=page.getByLabel('Character 2 Suggested voice',{exact:true});await suggestion.fill('');
- await page.getByRole('button',{name:'Design voice',exact:true}).click();const popup=page.locator('#ecco-error-popup');await expect(popup).toContainText('in “Suggested voice” first');await popup.getByRole('button',{name:'Close popup',exact:true}).click();
+ await page.getByRole('button',{name:'Play test line',exact:true}).click();const popup=page.locator('#ecco-error-popup');await expect(popup).toContainText('in “Suggested voice” first');await popup.getByRole('button',{name:'Close popup',exact:true}).click();
  expect(await page.evaluate(()=>window.qaDesigns.length)).toBe(0);
  await suggestion.fill('A calm British astrophysicist in her forties, low warm voice, unhurried, smiles when she explains.');
- await page.getByRole('button',{name:'Design voice',exact:true}).click();await expect(page.getByRole('button',{name:'Design again',exact:true})).toBeVisible();
- await expect(voice).toHaveValue('ref:'+'a'.repeat(32));await expect(voice.locator('option:checked')).toHaveText('Designed voice · Ali');
- const designs=await page.evaluate(()=>window.qaDesigns);expect(designs).toHaveLength(1);
+ await page.getByRole('button',{name:'Play test line',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.qaDesigns.length)).toBe(1);
+ const designs=await page.evaluate(()=>window.qaDesigns);
  expect(designs[0]).toMatchObject({model:'voxcpm2',name:'Ali',description:/astrophysicist/});expect(designs[0].text.split(/\s+/).length).toBeGreaterThanOrEqual(12);
  await expect(tabs.getByRole('tab',{name:'Ali',exact:true})).toHaveAttribute('aria-description','Created');
  // Testing a line speaks with the saved voice, and Generation keeps it instead of resetting to a catalog voice.

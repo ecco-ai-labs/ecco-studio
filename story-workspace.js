@@ -43,9 +43,10 @@
   root.hidden=false;root.querySelectorAll('[role=tab]').forEach((b,i)=>{const selected=i===data.tab;b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
   const pageRoot=q('#page');pageRoot.setAttribute('role','tabpanel');pageRoot.setAttribute('aria-labelledby','story-simple-tab-'+data.tab);
   q('#heading').textContent=data.title||'Tell Your Story';
-  const media=q('#story-simple-media');media.hidden=!generating(data.tab)||isImage();media.replaceChildren();
+  // Audio stories (owner final mocks, 2026-11-21): like images, no Edit story or second Back on Generation and Publishing.
+  const media=q('#story-simple-media');media.hidden=!generating(data.tab)||isImage()||data.output==='audio';media.replaceChildren();
   // Image stories (owner-approved mocks, 2026-11-16): no Edit story or second Back on Image Generation and Publishing.
-  if(generating(data.tab)&&!isImage()){
+  if(generating(data.tab)&&!isImage()&&data.output!=='audio'){
    if(data.output==='video')for(const [view,label]of [['audio','Prepare Audio'],['images','Prepare Images'],['render','Generate Video']]){const b=button(label,()=>generateView(view),'secondary');b.setAttribute('aria-pressed',String(data.view===view));media.append(b);}
    // Audio stories (owner-approved mocks, 2026-11-16): no Edit story on Story Generation.
    if(!(data.output==='audio'&&data.tab===GENERATE)){const edit=button('Edit story',()=>select(STORY),'secondary');media.append(edit);}
@@ -509,7 +510,8 @@
  }
  function paintCastStatus(){
   const root=inPage('[data-cast-panel]');if(!root)return;root.setAttribute('aria-busy',String(!!data.castPending));
-  const reason=inPage('[data-cast-reason]');reason.textContent=data.castPending?'Identifying characters and recommending their properties…':data.castReason||(data.castFrom?'':'Apply source text to identify its characters, or create your own cast.');reason.hidden=!reason.textContent;
+  const reason=inPage('[data-cast-reason]');// Owner (2026-11-21): no AI reasoning on Story Characters; only a short line while the AI is still picking.
+  reason.textContent=data.castPending?'Picking characters and voices…':'';reason.hidden=!reason.textContent;
   // While AI works, a spinner and a moving bar show that characters are being generated (owner request 2026-11-08).
   root.querySelector('.story-cast-progress')?.remove();
   if(data.castPending){const spin=document.createElement('span');spin.className='generation-spinner';spin.setAttribute('aria-hidden','true');reason.prepend(spin);const bar=document.createElement('div');bar.className='story-cast-progress';bar.setAttribute('role','progressbar');bar.setAttribute('aria-label','Generating characters');bar.append(document.createElement('span'));reason.after(bar);}
@@ -652,8 +654,8 @@
  }
  function charactersPage(){
   page='story-characters';imageCast();if(!data.cast.length)data.cast=defaultCast();
-  q('#page').innerHTML='<div class="form"><section class="panel form story-cast" data-cast-panel><div class="section-head"><h2>Characters</h2><button type="button" class="secondary" data-cast-ai>Recommend with AI</button></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-cast-reason></p><div class="story-cast-bar"><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><div class="story-cast-legend help" aria-hidden="true"><span><span class="story-cast-status" data-status="none"></span>Not created</span><span><span class="story-cast-status" data-status="created"></span>Created</span><span><span class="story-cast-status" data-status="tested"><svg viewBox="0 0 16 16"><path d="M4.5 8.2l2.3 2.3 4.7-4.8"/></svg></span>Tested</span></div></div><div class="story-cast-body" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions story-cast-actions"><p class="help" id="story-cast-progress" data-cast-progress role="status" aria-live="polite"></p><button type="button" data-next>Next: Story Screen Play</button></div></div>';
-  inPage('[data-cast-ai]').onclick=()=>recommend(true,{autoApply:data.output==='audio'&&!!data.source?.text});inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
+  q('#page').innerHTML='<div class="form"><section class="panel form story-cast" data-cast-panel><div class="section-head"><h2>Story Characters</h2></div><p id="story-simple-ai-status" role="status" aria-live="polite"></p><button type="button" class="secondary" data-ai-connections hidden>Open Connections</button><p class="help" data-cast-reason></p><div class="story-cast-bar"><div class="story-character-tabs" data-character-tabs role="tablist" aria-label="Story characters"></div><div class="story-cast-legend help" aria-hidden="true"><span><span class="story-cast-status" data-status="none"></span>Not created</span><span><span class="story-cast-status" data-status="created"></span>Created</span><span><span class="story-cast-status" data-status="tested"><svg viewBox="0 0 16 16"><path d="M4.5 8.2l2.3 2.3 4.7-4.8"/></svg></span>Tested</span></div></div><div class="story-cast-body" data-characters id="story-character-properties" role="tabpanel"></div><div id="story-simple-candidate" class="panel form" hidden></div></section><div class="story-simple-actions story-cast-actions"><p class="help" id="story-cast-progress" data-cast-progress role="status" aria-live="polite"></p><button type="button" data-next>Next: Story Screen Play</button></div></div>';
+  inPage('[data-ai-connections]').onclick=()=>window.EccoAI?.connections();
   inPage('[data-cast-reason]').textContent=isImage()?'No characters needed for a picture. Add a person only if you want them to look the same in every picture.':data.castReason||(data.castFrom?'':'Edit these starter characters, choose saved characters, or ask AI to recommend a cast.');
   characterTabs();inPage('[data-next]').onclick=()=>{const p=window.EccoStoryCharacters.progress();if(isImage()){select(GENERATE);return;}if(p&&p.created<p.total){message('Create every character before moving to Script.',true);return;}select(SCRIPT);};
  }
@@ -803,7 +805,9 @@
  // language, the model with the most voices that this worker can run is used instead. A model or voice picked by hand is kept.
  function voicePool(model,language){
   const all=model?.voices||[];if(model?.id==='chatterbox'){const m=all.filter(v=>v.name.startsWith(language+' ·')||v.name.startsWith(language+' '));return m.length?m:all.filter(v=>v.id==='default');}
-  return all.filter(v=>!v.language||v.language===language);
+  // A clip named for another language (VoxCPM2's "Kannada · feminine") never voices a story in this language (owner 2026-11-21).
+  const other=v=>{const m=/^(Assamese|Bengali|Bodo|Chhattisgarhi|Dogri|English|Gujarati|Hindi|Kannada|Konkani|Maithili|Malayalam|Manipuri|Marathi|Nepali|Odia|Punjabi|Sanskrit|Santali|Sindhi|Tamil|Telugu|Urdu|Spanish|French|German|Italian|Portuguese|Japanese|Korean|Chinese|Mandarin|Arabic|Russian)\b/i.exec(v.name||'');return !!m&&m[1].toLowerCase()!==String(language||'').toLowerCase();};
+  return all.filter(v=>(!v.language||v.language===language)&&!other(v));
  }
  const voiceGender=v=>/\b(masculine|male)\b/i.test(v.name||'')?'Male':/\b(feminine|female)\b/i.test(v.name||'')?'Female':'';
  const genderOf=c=>/^f/i.test(c.gender||'')?'Female':/^m/i.test(c.gender||'')?'Male':'';
@@ -829,7 +833,7 @@
    if(pick){c.voice=pick.id;used.add(m.id+'|'+pick.id);}else{short++;c.voice=pool[0]?.id||c.voice;}
   }
   data.voiceShortage=short?{model:chosen.name||chosen.id,language,count:cast.length}:null;
-  if(short)message(chosen.name+' doesn’t have a different '+language+' voice for every character, so some share a voice.');
+  if(short)window.EccoErrors?.show(chosen.name+' doesn’t have a different '+language+' voice for every character, so some share a voice.',{title:'Check the voices'});
  }
  window.EccoStoryVoices={assign:(cast,model)=>{
   if(!data||!model)return;assignVoices(cast,model);
