@@ -516,7 +516,7 @@
    existing=planned.soundtrack.filter(c=>!c.asset_id.startsWith('verification-missing-'));
    missing=cues.filter(c=>!c.asset_id).map(c=>window.EccoSoundGeneration.soundRequest(c,{compute:draft.compute,worker_id:draft.worker_id||'',story_id:activeStory||null}));
   }
-  const speech={performance_brief:brief,model:draft.model,compute:draft.compute,worker_id:draft.worker_id,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,...planned,story_id:activeStory};
+  const speech={performance_brief:brief,model:draft.model,compute:draft.compute,worker_id:draft.worker_id,...modelParameters(),genre:draft.genre,title:draft.title,speed:draft.speed,pitch:draft.pitch,pause:draft.pause,...planned,...(draft.bookends?{bookends:draft.bookends}:{}),story_id:activeStory};
   // Capability failures belong in the server checklist; preserve the exact needed flags.
   applyCharacterCompatibility(speech,{mixed_models_version:1,character_controls_version:1});
   return {speech,sounds:missing,existing_soundtrack:existing,needs_ai:directed&&draft.delivery_signature!==signature};

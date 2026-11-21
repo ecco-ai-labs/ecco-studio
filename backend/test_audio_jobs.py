@@ -118,6 +118,47 @@ class AudioJobsTest(unittest.TestCase):
         self.assertEqual(len(assets), 1)
         self.assertTrue((self.env['DATA'] / assets[0]['path']).is_file())
         self.assertEqual(assets[0]['duration'], 1)
+    def _wav(self, path, seconds, rate=24000):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(path), 'wb') as f:
+            f.setparams((1, 2, rate, 0, 'NONE', 'not compressed'))
+            f.writeframes(b'\1\0' * int(rate * seconds))
+    def test_opening_and_closing_text_join_the_recording_in_order(self):
+        # Final mocks (21 Nov 2026): Opening/Closing Text recordings from Audio Library play before and after the speech.
+        self.env['asset_path'] = lambda asset: self.env['DATA'] / asset['path']
+        for aid, seconds, rate in (('open1', 1, 44100), ('close1', 0.5, 48000)):
+            self._wav(self.env['DATA'] / 'lib' / (aid + '.wav'), seconds, rate)
+            self.records[aid] = dict(id=aid, kind='asset', media='audio', path='lib/' + aid + '.wav')
+        self.records['pic'] = dict(id='pic', kind='asset', media='image', path='lib/pic.png')
+        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']})
+        with self.assertRaises(Problem):
+            jobs.generate({'lines': [{'text': 'Hello'}], 'bookends': {'before': ['pic']}}, self.env)
+        job = jobs.generate({'lines': [{'text': 'Hello'}], 'bookends': {'before': ['open1'], 'after': ['close1']}}, self.env)
+        directory = jobs.queue.ROOT / job['id']
+        self.assertNotIn('bookends', jobs.queue.read(directory / 'request.json'))
+        output = directory / 'output.wav'
+        self._wav(output, 2)
+        jobs.queue.write(directory / 'status.json', {'status': 'complete', 'sha256': hashlib.sha256(output.read_bytes()).hexdigest()})
+        result = jobs.job_status(job['id'], self.env)
+        self.assertEqual(result['status'], 'done')
+        asset = [a for a in self.env['records']('asset') if a.get('job_id') == job['id']][0]
+        with wave.open(str(self.env['DATA'] / asset['path'])) as f:
+            self.assertEqual(f.getframerate(), 24000)
+            self.assertAlmostEqual(f.getnframes() / 24000, 1 + 0.4 + 2 + 0.4 + 0.5, delta=0.05)
+        self.assertAlmostEqual(asset['duration'], 4.3, delta=0.05)
+        self.assertEqual(asset['sha256'], hashlib.sha256((self.env['DATA'] / asset['path']).read_bytes()).hexdigest())
+    def test_audio_queue_lists_waiting_recordings_in_order_with_places(self):
+        jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']})
+        made = [jobs.generate({'title': t, 'lines': [{'text': 'Hello'}]}, self.env) for t in ('Episode 1', 'Episode 2', 'Pulsars')]
+        for n, j in enumerate(made):
+            self.records[j['id']]['created'] = 1000 + n
+        self.records[made[0]['id']]['status'] = 'running'
+        page = jobs.queue_page(env=self.env)
+        self.assertEqual([i['name'] for i in page['items']], ['Episode 2', 'Pulsars'])
+        self.assertEqual([i['place'] for i in page['items']], [1, 2])
+        self.assertEqual(page['mine'], {'waiting': 2, 'running': 1, 'done': 0})
+        self.assertFalse(page['reorder'])
+        self.assertEqual([i['name'] for i in jobs.queue_page(search='puls', env=self.env)['items']], ['Pulsars'])
     def test_checksum_mismatch_never_marks_done(self):
         jobs.queue.write(jobs.queue.ROOT / 'worker-test.json', {'updated': time.time(), 'compute': 'cpu', 'models': ['indic-mio']})
         job = jobs.generate({'lines': [{'text': 'Hello'}]}, self.env)
