@@ -277,15 +277,20 @@ def sound_item(path, thing, variant, labels):
 def api(path, body=None, method=None):
     request = urllib.request.Request(BASE + '/api/' + path, data=None if body is None else json.dumps(body).encode(), method=method,
                                      headers={'Authorization': 'Bearer ' + TOKEN.read_text().strip(), 'Content-Type': 'application/json'})
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as exc:
+    for wait in (5, 15, 30, 60, 120, 0):               # the storage service restarts itself now and then
         try:
-            message = json.load(exc).get('error') or str(exc)
-        except Exception:
-            message = str(exc)
-        raise RuntimeError(f'{exc.code}: {message}') from None
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            try:
+                message = json.load(exc).get('error') or str(exc)
+            except Exception:
+                message = str(exc)
+            raise RuntimeError(f'{exc.code}: {message}') from None
+        except (urllib.error.URLError, ConnectionError) as exc:   # refused/reset: nothing was received
+            if not wait or 'refused' not in str(exc).lower() and not isinstance(exc, ConnectionRefusedError):
+                raise
+            time.sleep(wait)
 
 
 FOLDERS = {}
