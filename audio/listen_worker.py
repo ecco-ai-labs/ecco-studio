@@ -109,5 +109,6 @@ if __name__ == '__main__':
         parser.add_argument('--output', type=Path)
         known, _ = parser.parse_known_args()
         if known.output:
-            known.output.write_text(json.dumps({'error': f'{type(error).__name__}: {error}'[:500], 'trace': traceback.format_exc()[-1500:]}))
-        raise
+            known.output.write_text(json.dumps({'text': '', 'error': f'{type(error).__name__}: {error}'[:500], 'trace': traceback.format_exc()[-1500:]}))
+        else:
+            raise
