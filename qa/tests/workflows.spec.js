@@ -483,9 +483,10 @@ test('IMG-L3-03 Picture Set: one page per line with the same character, redo one
 test('IMG-L3-04 the screen is not rewritten while nothing changes; new pictures stay out of Image Library until published',async({page})=>{
   const ws=await openCreateImages(page,'qa-story');
   await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
-  await page.evaluate(()=>{window.__wsNode=document.querySelector('#image-workspace');});
-  await page.waitForTimeout(7000);
-  expect(await page.evaluate(()=>document.querySelector('#image-workspace')===window.__wsNode)).toBe(true);
+  // A studio refresh draws the page again; with nothing changed the same elements stay (no flicker, no lost focus).
+  await page.evaluate(()=>{window.__wsNode=document.querySelector('#image-workspace');window.__wsTile=document.querySelector('#image-workspace .iw-tile');imagePage();window.EccoImageWorkspace.draw();imagePage();});
+  expect(await page.evaluate(()=>document.querySelector('#image-workspace')===window.__wsNode&&document.querySelector('#image-workspace .iw-tile')===window.__wsTile)).toBe(true);
+  await page.waitForTimeout(3500);expect(await page.evaluate(()=>document.querySelector('#image-workspace')===window.__wsNode)).toBe(true);
   await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
   await ws.locator('[data-input=genPrompt]').fill('A lighthouse at night');await ws.getByRole('button',{name:'Generate image',exact:true}).click();
   await expect(ws.locator('.pdf-selected-label')).toContainText('1 of 3');
