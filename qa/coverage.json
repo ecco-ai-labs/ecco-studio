@@ -351,5 +351,10 @@
     "area": "Image Library: no Add images tile (owner request, 2026-11-20)",
     "mode": "fixture",
     "scope": "LIB-IMG-01. The grid view of Image Library has no dashed Add images / Browse for files tile at the end; Upload images at the top adds pictures. Other libraries keep their tile."
+  },
+  {
+    "area": "Video Library: no Add video tile (owner request, 2026-11-20)",
+    "mode": "fixture",
+    "scope": "LIB-VID-01. The grid view of Video Library has no dashed Add video / Browse for files tile at the end; Upload video at the top adds videos. Audio and Story Library keep their tile."
   }
 ]
