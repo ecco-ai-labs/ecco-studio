@@ -26,7 +26,7 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,resizeShape:'',ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
@@ -328,8 +328,17 @@
  function improvePane(){
   const id=ws.selected[ws.active],a=id?ai(id):{drafts:[],index:0},shown=a.drafts[a.index];
   return '<section class="pdf-review-box" aria-labelledby="iw-ai-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-ai-heading">Improve with AI</strong><button type="button" class="pdf-ai-icon" data-act="improve" aria-label="Improve with AI" title="Improve with AI"'+(!id||busy.improve||!ws.aiPrompt.trim()?' disabled':'')+'>'+(busy.improve?spinner:'<span aria-hidden="true">✦</span>')+'</button></div><textarea data-input="aiPrompt" rows="6" maxlength="2000" aria-label="AI instructions" placeholder="Describe how to change the selected image…">'+esc(ws.aiPrompt)+'</textarea>'+(busy.improve?'<p class="help iw-status" role="status">'+spinner+' Changing the picture. This usually takes 1-3 minutes.</p>':'')+drafts(a.drafts,a.index,'ai-draft')+
-   (shown?'<div class="iw-preview iw-preview-small">'+img(shown,'Draft '+(a.index+1))+'<span class="iw-cap help">Draft '+(a.index+1)+'</span></div>':'<p class="iw-blank help">Your AI output will appear here. ✦ fills the next draft; every version is kept.</p>')+(id?versions(id,'version-use',id):'')+
+   (shown?'<div class="iw-preview iw-preview-small">'+img(shown,'Draft '+(a.index+1))+'<span class="iw-cap help">Draft '+(a.index+1)+'</span></div>':'<p class="iw-blank help">Your AI output will appear here. ✦ fills the next draft; every version is kept.</p>')+(id?versions(id,'version-use',id):'')+sizePane(id)+
    '<div class="iw-row"><button type="button" data-act="use-ai"'+(shown?'':' disabled')+'>Use AI Image</button><button type="button" class="secondary" data-act="clear-ai"'+(shown?'':' disabled')+'>Clear AI Output</button></div></section>';
+ }
+ // Change shape (fill the new sides, keep the middle) and Make 4K: only when the server offers them.
+ function sizePane(id){
+  const canShape=!!state.config?.image_resize,can4k=!!state.config?.image_upscale;if(!id||(!canShape&&!can4k))return '';
+  const list=shapeList(),r=record(id),now=r?.settings?.resize||r?.settings?.upscale||'',pick=ws.resizeShape||list.find(x=>x.size!==now)?.size||'';
+  return '<div class="iw-group iw-size-tools" role="group" aria-label="Shape and size"><span>Shape and size</span>'+
+   (canShape&&list.length?'<div class="iw-pair"><label>New shape<select data-input="resizeShape">'+list.map(x=>'<option value="'+x.size+'"'+(x.size===pick?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label><button type="button" class="secondary" data-act="resize"'+(busy.resize||busy.improve?' disabled':'')+(busy.resize?' aria-busy="true"':'')+'>'+(busy.resize?spinner+' Changing shape…':'Change shape')+'</button></div>':'')+
+   (can4k?'<button type="button" class="secondary" data-act="upscale"'+(busy.upscale?' disabled aria-busy="true"':'')+'>'+(busy.upscale?spinner+' Making 4K…':'Make a 4K copy')+'</button>':'')+
+   '<p class="help">The new sides are drawn to match; the middle stays exactly as it is. Each result is a new version.</p></div>';
  }
  function imageStep(){
   const tabs=[['upload','Upload an Image'],['library','Select from Image Library'],['generate','Generate with AI'],['set','Picture Set']];
@@ -582,6 +591,15 @@
    const d=ai(target);
    return run('improve',async()=>{const ids=await edit([target],prompt,'');keep(target,ids[0]);addDraft(d,ids[0]);});
   }
+  else if(a==='resize'||a==='upscale'){
+   const target=id;if(!target)return;const d=ai(target);
+   return run(a,async()=>{
+    const gpu=requireCompute(),body={gpu,asset_id:target,story_id:activeStory};
+    if(a==='resize'){await window.EccoCompute.validate(gpu,EDIT_MODEL);const list=shapeList(),now=record(target)?.settings?.resize;body.size=ws.resizeShape||list.find(x=>x.size!==now)?.size;if(!body.size)throw Error('Choose a shape.');Object.assign(body,modelSettings(EDIT_MODEL));if(quality()==='fast'&&fastReady(EDIT_MODEL))body.quality='fast';}
+    const made=await waitFor(await api(a==='resize'?'image-resize':'image-upscale',body));unsaved(made);keep(target,made[0]);addDraft(d,made[0]);
+    notice(a==='resize'?'New shape ready as the next draft. Press Use AI Image to keep it.':'4K copy ready as the next draft. Press Use AI Image to keep it.');
+   });
+  }
   else if(a==='ai-draft'){if(id)ai(id).index=+button.dataset.index;}
   else if(a==='version-use'){const v=button.dataset.id;if(id&&v&&record(v)){keep(id,v);ws.selected[ws.active]=v;ws.published=false;}}
   else if(a==='version-final'){const v=button.dataset.id;if(id&&v&&record(v)){if(v===rootOf(id)&&v===id)delete ws.final[id];else ws.final[id]=v;ws.published=false;enh(id).compare='after';}}
@@ -636,7 +654,7 @@
   }
   unsaved([],ids);await refresh();ws.published=true;notice(ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library'+(kit?' with the '+kit.name+' logo':'')+'.');
  }
- const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';}};
+ const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';},resizeShape:v=>{ws.resizeShape=v;}};
  function input(el){
   const k=el.dataset.input;
   if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles()));save();return;}

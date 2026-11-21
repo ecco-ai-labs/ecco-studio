@@ -20,8 +20,8 @@
     if(window.__qaHold&&path==='ai/enhance')await window.__qaHold;
     if(path==='state')return state;
     // Create Images: synthetic jobs finish at once; nothing reaches a GPU.
-    if((path==='images'||path==='image-edits')&&!window.qaImageRequests){
-      const n=window.__qaCalls.length,asset={id:'qa-made-'+n,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:(path==='images'?'Generated ':'Edited ')+n,prompt:body.prompt,path:'qa/fixtures/sample.svg',job_id:'qa-job-'+n,created:1700001000+n};
+    if((path==='images'||path==='image-edits'||path==='image-resize'||path==='image-upscale')&&!window.qaImageRequests){
+      const n=window.__qaCalls.length,asset={id:'qa-made-'+n,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:({images:'Generated ','image-resize':'Reshaped ','image-upscale':'4K '}[path]||'Edited ')+n,prompt:body.prompt,settings:path==='image-resize'?{resize:body.size}:path==='image-upscale'?{upscale:'3840x2160'}:undefined,path:'qa/fixtures/sample.svg',job_id:'qa-job-'+n,created:1700001000+n};
       state.records.push(asset,{id:'qa-job-'+n,kind:'job',status:'done',result:asset.id,created:1700001000+n});mediaCache.set(asset.id,'/'+asset.path);return {id:'qa-job-'+n,status:'queued'};
     }
     if(path==='ai/enhance'&&body.fields?.[0]?.id==='image_enhancement'){

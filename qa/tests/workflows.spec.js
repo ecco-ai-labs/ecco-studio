@@ -613,6 +613,27 @@ test('IMG-L4-02 brand kit: colours and words go into new pictures; publish and d
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L4-03 Change shape and Make a 4K copy appear only when the server offers them; each result is a new version',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  await expect(ws.getByRole('group',{name:'Shape and size'})).toHaveCount(0);
+  await page.evaluate(()=>{state.config.image_resize=true;state.config.image_upscale=true;state.config.image_sizes={'qwen-image-2512':['1664x928','1328x1328','928x1664','1472x1104','1104x1472','1584x1056','1056x1584']};window.EccoImageWorkspace.draw(true);});
+  const tools=ws.getByRole('group',{name:'Shape and size'});await expect(tools).toBeVisible();
+  await tools.locator('[data-input=resizeShape]').selectOption('1056x1584');
+  await tools.getByRole('button',{name:'Change shape',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-resize').then(c=>c.length)).toBe(1);
+  expect((await imageCalls(page,'image-resize'))[0]).toMatchObject({asset_id:'qa-image-0',size:'1056x1584',story_id:'qa-story'});
+  await expect(ws.locator('.iw-history-strip').first().locator('button')).toHaveCount(2);
+  await ws.getByRole('group',{name:'Shape and size'}).getByRole('button',{name:'Make a 4K copy',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-upscale').then(c=>c.length)).toBe(1);
+  expect((await imageCalls(page,'image-upscale'))[0]).toMatchObject({asset_id:'qa-image-0'});
+  await expect(ws.locator('.iw-history-strip').first().locator('button')).toHaveCount(3);
+  await ws.getByRole('button',{name:'Use AI Image',exact:true}).click();
+  const now=await page.evaluate(()=>window.EccoImageWorkspace.state.selected[0]);expect(now).toMatch(/^qa-made-/);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){

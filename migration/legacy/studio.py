@@ -486,6 +486,88 @@ def create_edit(body):
         settings['quality']='fast'
     return launch('Instruction edit / compose scene',lambda jid:edited_asset(jid,refs,prompt,sid,**settings)['id'],metadata={'media':'image','story_id':sid})
 
+# Image Level 4 (21 Nov 2026): change a picture's shape and make a 4K copy.
+# Change shape: the picture is placed in the middle of a canvas of the new shape, the empty sides are filled by the
+# instruction-edit model ("continue the picture"), and the untouched middle is pasted back so nothing in it changes.
+# 4K: an upscale model from models/upscale_models (Real-ESRGAN / UltraSharp) takes the long side to 3840 pixels.
+UPSCALE_MODELS=('4x-UltraSharp*.pth','4x-UltraSharp*.safetensors','RealESRGAN_x4plus*.pth','RealESRGAN_x4plus*.safetensors','4x_NMKD-Siax*.pth')
+UPSCALE_LONG=3840
+def upscale_model():
+    folders=[COMFY_ROOT/'models'/'upscale_models',Path(os.getenv('ECCO_VOLUME_UPSCALE','/runpod-volume/ComfyUI/models/upscale_models'))]
+    for pattern in UPSCALE_MODELS:
+        for folder in folders:
+            try:found=sorted(p.name for p in folder.glob(pattern) if p.is_file())
+            except OSError:found=[]
+            if found:return found[0]
+    return ''
+def shape_of(value):
+    try:w,h=(int(x) for x in str(value).lower().split('x'))
+    except ValueError:raise Problem('Choose a shape')
+    if not (256<=w<=2048 and 256<=h<=2048):raise Problem('Choose a shape between 256 and 2048 pixels')
+    return w//8*8,h//8*8
+def padded(source,target,size):
+    """Fit source inside size (keeping its shape), centred on a mid-grey canvas. Returns the box it occupies."""
+    from PIL import Image
+    with Image.open(source) as im:
+        im=im.convert('RGB');w,h=size;scale=min(w/im.width,h/im.height);iw,ih=max(1,round(im.width*scale)),max(1,round(im.height*scale))
+        canvas=Image.new('RGB',size,(128,128,128));x,y=(w-iw)//2,(h-ih)//2;canvas.paste(im.resize((iw,ih),Image.LANCZOS),(x,y));canvas.save(target)
+    return (x,y,iw,ih)
+def keep_middle(output,source,box,size,feather=24):
+    """Paste the original back over the filled result with a soft edge, so only the new sides are made up."""
+    from PIL import Image,ImageDraw,ImageFilter
+    x,y,iw,ih=box
+    with Image.open(output) as out,Image.open(source) as src:
+        out=out.convert('RGB').resize(size,Image.LANCZOS);src=src.convert('RGB').resize((iw,ih),Image.LANCZOS)
+        mask=Image.new('L',(iw,ih),0);f=min(feather,iw//4,ih//4);ImageDraw.Draw(mask).rectangle((f,f,iw-1-f,ih-1-f),fill=255)
+        mask=mask.filter(ImageFilter.GaussianBlur(f/2)) if f else Image.new('L',(iw,ih),255)
+        out.paste(src,(x,y),mask);out.save(output)
+def resized_asset(jid,source_id,size,sid,prompt='',seed=42,steps=40,cfg=3,quality=''):
+    a=get(source_id,'asset');aid=uuid.uuid4().hex;target=COMFY_ROOT/'input'/f'ecco-resize-{aid}.png'
+    try:
+        box=padded(asset_path(a),target,size)
+        if box[2]>=size[0]-8 and box[3]>=size[1]-8:raise Problem('The picture already has this shape')
+        ask=('Fill the plain grey areas at the edges so the picture continues naturally beyond its borders: same scene, light, '
+             'style and colours. Do not change anything in the middle. No frames, borders, text or seams.'+((' '+prompt) if prompt else ''))
+        lora=fast_lora('qwen-image-edit-2511') if quality=='fast' else ''
+        if lora:steps,cfg=fast_steps('qwen-image-edit-2511',lora),1.0
+        graph=edit_graph(ask,[target.name],aid,seed,steps,cfg,lora,size)
+        output=comfy_execute(graph,jid)[0];rel=f'image-dev/{aid}.png';shutil.copyfile(output,DATA/rel)
+        keep_middle(DATA/rel,asset_path(a),box,size)
+        return save(dict(id=aid,kind='asset',created=time.time(),media='image',stage='dev',story_id=sid,path=rel,prompt=a.get('prompt',''),title=(a.get('title') or 'Picture')+f' · {size[0]}x{size[1]}',settings={'model':'qwen-image-edit-2511','steps':steps,'cfg':cfg,'seed':seed,'reference_ids':[source_id],'resize':f'{size[0]}x{size[1]}',**({'quality':'fast'} if lora else {})},job_id=jid,sync='pending',workflow=graph))
+    finally:target.unlink(missing_ok=True)
+def create_resize(body):
+    if not qwen_edit_ready():raise Problem('Changing shape needs the instruction-edit model.',503)
+    a=get(body.get('asset_id',''),'asset')
+    if a.get('media')!='image' or a.get('deleted'):raise Problem('Choose an image outside Trash')
+    size=shape_of(body.get('size'));sid=story_id(body);prompt=text(body.get('prompt','')) if body.get('prompt') else ''
+    settings={'seed':number(body.get('seed',42),0,2**53-1,True),'steps':number(body.get('steps',40),5,60,True),'cfg':number(body.get('cfg',3),1,15)}
+    if body.get('quality')=='fast':
+        if not fast_lora('qwen-image-edit-2511'):raise Problem('Fast mode is not installed yet. Choose Best quality.',503)
+        settings['quality']='fast'
+    return launch('Change picture shape',lambda jid:resized_asset(jid,a['id'],size,sid,prompt,**settings)['id'],metadata={'media':'image','story_id':sid})
+def upscale_graph(file,model,ident,size):
+    return {'1':node('LoadImage',image=file),'2':node('UpscaleModelLoader',model_name=model),
+            '3':node('ImageUpscaleWithModel',upscale_model=['2',0],image=['1',0]),
+            '4':node('ImageScale',image=['3',0],upscale_method='lanczos',width=size[0],height=size[1],crop='disabled'),
+            '5':node('SaveImage',images=['4',0],filename_prefix='ecco-studio/'+ident)}
+def upscaled_asset(jid,source_id,sid,long=UPSCALE_LONG):
+    from PIL import Image
+    a=get(source_id,'asset');aid=uuid.uuid4().hex;target=COMFY_ROOT/'input'/f'ecco-upscale-{aid}.png';model=upscale_model()
+    if not model:raise Problem('The 4K upscaler is not installed yet.',503)
+    try:
+        with Image.open(asset_path(a)) as im:im.convert('RGB').save(target);w,h=im.size
+        scale=long/max(w,h)
+        if scale<=1.01:raise Problem('This picture is already 4K or larger')
+        size=(round(w*scale)//2*2,round(h*scale)//2*2);graph=upscale_graph(target.name,model,aid,size)
+        output=comfy_execute(graph,jid)[0];rel=f'image-dev/{aid}.png';shutil.copyfile(output,DATA/rel)
+        return save(dict(id=aid,kind='asset',created=time.time(),media='image',stage='dev',story_id=sid,path=rel,prompt=a.get('prompt',''),title=(a.get('title') or 'Picture')+' · 4K',settings={'model':model,'reference_ids':[source_id],'upscale':f'{size[0]}x{size[1]}'},job_id=jid,sync='pending',workflow=graph))
+    finally:target.unlink(missing_ok=True)
+def create_upscale(body):
+    if not upscale_model():raise Problem('The 4K upscaler is not installed yet.',503)
+    a=get(body.get('asset_id',''),'asset')
+    if a.get('media')!='image' or a.get('deleted'):raise Problem('Choose an image outside Trash')
+    sid=story_id(body);return launch('Make a 4K copy',lambda jid:upscaled_asset(jid,a['id'],sid)['id'],metadata={'media':'image','story_id':sid})
+
 def create_character_sheet(body):
     if not qwen_edit_ready():raise Problem('Character sheets require the instruction-edit model and additional persistent storage.',503)
     c=get(body.get('character_id',''),'character');sid=story_id(body)
@@ -749,7 +831,7 @@ def runtime_status():
 
 def state():
     channel_file=DATA/'youtube-channel.json'
-    return {'csrf':CSRF,'records':records(),'config':{'video_gpus':__import__('gpu_dispatch').options(),'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),'session_cost':session_cost(),'billing':billing_status(),'model_settings_version':1,'generation_controls_version':1,'image_sizes':{'qwen-image-2512':list(QWEN_SIZES)},'image_fast':{m:bool(fast_lora(m)) for m in FAST_LORAS},'image_edit_full_size':True,'models_ready':{'qwen-story':__import__('story_director').planner_ready(),'qwen-image-2512':qwen_ready(),'qwen-image-edit-2511':qwen_edit_ready(),'sdxl':(COMFY_ROOT/'models/checkpoints/sd_xl_base_1.0.safetensors').is_file(),'wan-5b':wan_ready(),'wan-a14b':wan_a14b_ready(),'preview':bool(shutil.which('ffmpeg'))},'repo':REPO,'channel':'https://www.youtube.com/@EccoAILabs','hourly_rate':RATE,'github_connected':bool(github_token()),'youtube_configured':bool(secret_file('YOUTUBE_CLIENT_SECRET_FILE')),'youtube_channel':json.loads(channel_file.read_text()) if channel_file.exists() else None,'wan_ready':wan_ready(),'ffmpeg':bool(shutil.which('ffmpeg'))}}
+    return {'csrf':CSRF,'records':records(),'config':{'video_gpus':__import__('gpu_dispatch').options(),'runtime':runtime_status(),'accelerator':__import__('accelerator_status').status(),'session_cost':session_cost(),'billing':billing_status(),'model_settings_version':1,'generation_controls_version':1,'image_sizes':{'qwen-image-2512':list(QWEN_SIZES)},'image_fast':{m:bool(fast_lora(m)) for m in FAST_LORAS},'image_edit_full_size':True,'image_resize':qwen_edit_ready(),'image_upscale':bool(upscale_model()),'models_ready':{'qwen-story':__import__('story_director').planner_ready(),'qwen-image-2512':qwen_ready(),'qwen-image-edit-2511':qwen_edit_ready(),'sdxl':(COMFY_ROOT/'models/checkpoints/sd_xl_base_1.0.safetensors').is_file(),'wan-5b':wan_ready(),'wan-a14b':wan_a14b_ready(),'preview':bool(shutil.which('ffmpeg'))},'repo':REPO,'channel':'https://www.youtube.com/@EccoAILabs','hourly_rate':RATE,'github_connected':bool(github_token()),'youtube_configured':bool(secret_file('YOUTUBE_CLIENT_SECRET_FILE')),'youtube_channel':json.loads(channel_file.read_text()) if channel_file.exists() else None,'wan_ready':wan_ready(),'ffmpeg':bool(shutil.which('ffmpeg'))}}
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt,*args): pass # OAuth codes must never enter access logs.
@@ -828,6 +910,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path=='/api/purge': result=purge_asset(body)
             elif path=='/api/characters': result=save_character(body)
             elif path=='/api/image-edits': result=create_edit(body)
+            elif path=='/api/image-resize': result=create_resize(body)
+            elif path=='/api/image-upscale': result=create_upscale(body)
             elif path=='/api/object-edits': result=__import__('object_editor').save_copy(body,globals())
             elif path=='/api/character-sheets': result=create_character_sheet(body)
             elif path=='/api/training-requests': result=training_request(body)

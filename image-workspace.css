@@ -98,3 +98,5 @@
 #image-workspace .iw-brand-color{display:inline-flex;align-items:center;gap:4px}
 #image-workspace .iw-brand-color input[type=color]{inline-size:44px;padding:2px;border-radius:8px}
 #image-workspace .iw-check-row{display:flex;align-items:center;gap:8px;margin-block-end:12px}
+#image-workspace .iw-size-tools{margin-block-start:12px}
+#image-workspace .iw-size-tools .iw-pair{align-items:end}
