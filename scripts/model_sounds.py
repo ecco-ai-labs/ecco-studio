@@ -361,8 +361,36 @@ def norm(text):
     return ''.join(ch for ch in text if unicodedata.category(ch)[0] in 'LNM')
 
 
+def roman(text):
+    """Rough sound spelling for Indic scripts so the same words in another script still compare."""
+    out=[]
+    for ch in text:
+        try: name=unicodedata.name(ch)
+        except ValueError: out.append(ch); continue
+        m=re.match(r'(DEVANAGARI|BENGALI|GURMUKHI|GUJARATI|ORIYA|TAMIL|TELUGU|KANNADA|MALAYALAM) (LETTER|VOWEL SIGN|SIGN) (.+)',name)
+        if not m: out.append(ch); continue
+        kind,val=m.group(2),m.group(3)
+        if kind=='SIGN':
+            if val=='VIRAMA' and out and out[-1].endswith('a'): out[-1]=out[-1][:-1]
+            elif val in ('ANUSVARA','CANDRABINDU','TIPPI','BINDI'): out.append('n')
+            continue
+        val=val.split()[0].lower()
+        val={'vocalic':'r'}.get(val,val)
+        val=val.replace('h','') if len(val)>2 else val   # kha/kh→ka: Tamil has no aspirates
+        val=re.sub(r'(aa|ii|uu|ee|oo)', lambda m:m.group(1)[0], val)
+        if kind=='VOWEL SIGN' and out and out[-1].endswith('a'): out[-1]=out[-1][:-1]
+        out.append(val)
+    s=''.join(out).lower()
+    s=s.replace('h','')                  # aspiration differs most between scripts
+    return re.sub(r'[^\w ]','',s)
+
+
 def similar(a, b):
-    return round(difflib.SequenceMatcher(None, norm(a), norm(b)).ratio(), 2)
+    """Word match; Whisper often writes Indian languages in a neighbouring script, so also compare by sound."""
+    plain = difflib.SequenceMatcher(None, norm(a), norm(b)).ratio()
+    ra, rb = roman(a).replace(' ', ''), roman(b).replace(' ', '')
+    sound = difflib.SequenceMatcher(None, ra, rb).ratio() if ra and rb else 0
+    return round(max(plain, sound), 2)
 
 
 def trim(path, seconds):
