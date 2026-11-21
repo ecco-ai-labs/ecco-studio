@@ -1,5 +1,5 @@
 'use strict';
-/* Fresh start (owner decision, 20 Nov 2026): refreshing the page or signing off clears everything in every studio
+/* Fresh start (owner decision, 20 Nov 2026): refreshing the page (browser reload) or signing off clears everything in every studio
    (stories, Story Picture, Image Studio, Voice Studio, audio and video drafts, Generation screens).
    Kept: sign-in (on refresh), storage connection, theme and settings, the libraries (saved stories are closed, not
    changed), and running or waiting jobs.
@@ -22,7 +22,10 @@
   for(const key of list(localStorage))if(key&&(cleared(key)||(signedOff&&key==='ecco-user-session')))try{localStorage.removeItem(key);}catch{}
   for(const key of list(sessionStorage))if(key&&key.startsWith('ecco-')&&(signedOff||key!=='ecco-user-session'))try{sessionStorage.removeItem(key);}catch{}
  }
- clear();
+ // Only a real refresh starts fresh (owner: "upon refresh or sign off"); opening Studio from a link or a new tab keeps
+ // your open work.
+ let reloaded=false;try{reloaded=performance.getEntriesByType('navigation')[0]?.type==='reload';}catch{}
+ if(reloaded)clear();
 
  // ---- Draft label: save remembered pictures, and finished pictures of yours that were never saved (last 24 hours) ----
  let saving=false;
