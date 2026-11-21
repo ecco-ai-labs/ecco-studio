@@ -34,7 +34,7 @@
   // Owner requests 18 Nov 2026: Back sits at the left of the row with the visible "Next: …" button and looks
   // exactly like Next. A row that already has its own step Back (for example "← Back: Image") keeps that one
   // instead, styled like Next. Screens without a Next row keep Back above the heading.
-  const next=[...document.querySelectorAll('#page button')].find(x=>/^\s*Next:/.test(x.textContent)&&x.getClientRects().length&&!x.closest('dialog'));
+  const next=[...document.querySelectorAll('#page button')].find(x=>/^\s*(Next:|Publish\s*$)/.test(x.textContent)&&x.getClientRects().length&&!x.closest('dialog'));
   const row=next?.parentElement;
   const local=row&&[...row.querySelectorAll(':scope > button')].find(x=>x!==b&&/^\s*←\s*Back/.test(x.textContent));
   for(const old of document.querySelectorAll('[data-next-look]'))if(old!==b&&old!==local){for(const p of NEXT_LOOK)old.style.removeProperty(p);delete old.dataset.nextLook;}

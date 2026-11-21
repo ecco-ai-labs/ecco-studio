@@ -103,7 +103,9 @@
   const sounds=tasks.filter(u=>u.id.startsWith('sound-'));
   // Owner (16 Nov 2026): one row per worker node: every voice, every sound, then the mix. Preparation counts toward
   // the overall bar but is not a row.
-  const units=[...voiceUnits(speech),...sounds.map(u=>({...u,logName:u.name,worker:computeName('sound'),name:u.name+' · '+computeName('sound')})),...tasks.filter(u=>u.id==='mix').map(u=>({...u,logName:'Mix & save',worker:computeName('mix'),name:'Mix & save · '+computeName('mix')}))];
+  // Owner (2026-11-21, final mocks): the same as Image Generation: one row per story job, not one per voice or task.
+  const overallPct=status==='done'?100:sum/Math.max(1,weight);
+  const units=[{id:'audio',name:'Audio',logName:'Audio',pct:overallPct,status:status==='queued'?'waiting':status==='cancelled'?'stopped':status,detail:speech?.detail||'',worker:'',error:tasks.find(u=>u.status==='failed')?.error||''}];
   const lines=window.EccoAudioStudio?.lines?.()||[];
   return {kind:'audio',key:String(run.id),run,status,units,tasks,overall:status==='done'?100:sum/Math.max(1,weight),started:run.id/1000,eta:null,
    headline:(speech?.steps?speech.steps.total+' passages':'Speech')+(sounds.length?' and '+sounds.length+' sound effect'+(sounds.length>1?'s':''):''),
@@ -140,6 +142,9 @@
    if(m&&(before||u.status!=='waiting'))saved.items.push({t:clock(),m});
    // The prompt as Serverless accepted it, with the model and who sent it (owner, 20 Nov 2026).
    if(snap.kind==='image'&&u.status==='running'&&!saved.accepted){saved.accepted=1;const j=snap.job||{};saved.items.push({t:clock(),m:'Serverless accepted the prompt ('+[j.model||'',j.owner?'sent by '+j.owner:''].filter(Boolean).join(', ')+'): '+(j.prompt||'')});}}
+  // Audio Activity shows progress in tens like Image Generation (owner 2026-11-21): "<story>: 0%", "…: 10%" and so on.
+  if(snap.kind==='audio'){const name=String(ctx?.title||'').trim()||'Audio',step=Math.floor(Math.min(100,snap.overall||0)/10)*10;saved.tens=saved.tens??-10;
+   if(snap.units.some(u=>u.status==='running'||u.status==='done'))for(let t=saved.tens+10;t<=step;t+=10){saved.items.push({t:clock(),m:name+': '+t+'%'});saved.tens=t;}}
   const last=saved.items[saved.items.length-1]?.m,end=snap.status==='done'?'Ready to review.':FAILED.includes(snap.status)?'Generation stopped with an error.':snap.status==='cancelled'?'Generation stopped.':'';
   if(end&&last!==end)saved.items.push({t:clock(),m:end});
   saved.items=saved.items.slice(-40);sessionWrite(key,saved);return saved.items;
@@ -163,7 +168,7 @@
    q('[data-publish]',root).onclick=()=>publish();
    q('[data-next-episode]',root).onclick=()=>ctx.nextEpisode?.();
   }
-  q('[data-gen-settings]',root).textContent='Model Settings · '+LABEL[ctx.kind];q('[data-gen-settings]',root).hidden=ctx.kind==='image';
+  q('[data-gen-settings]',root).textContent='Model Settings · '+LABEL[ctx.kind];q('[data-gen-settings]',root).hidden=ctx.kind==='image'||ctx.kind==='audio';
   if(ctx.kind==='image'&&window.EccoQueue&&!q('[data-gen-queue]',root)){window.EccoQueue.queueButton(q('.story-gen-actions',root));window.EccoQueue.parallel().then(n=>{queueParallel=n;});}
   q('[data-gen-queue]',root)?.toggleAttribute('hidden',ctx.kind!=='image');
   q('[data-next-episode]',root).hidden=!ctx.recurring;
@@ -237,7 +242,7 @@
   const image=ctx.kind==='image',boxed=image||ctx.kind==='audio';
   const summaryText=boxed?'':mode==='review'&&asset?describe(asset):mode==='running'&&snap?Math.round(snap.overall)+'% · '+snap.headline:mode==='idle'?'Choose Generate to start. Progress shows here.':'';
   if(summary.textContent!==summaryText)summary.textContent=summaryText;
-  q('[data-gen-stop]',root).hidden=mode!=='running'||image;
+  q('[data-gen-stop]',root).hidden=mode!=='running'||boxed;
   const startLabel=mode==='review'||mode==='failed'||mode==='stopped'?'Generate again':'Generate';const startButton=q('[data-gen-start]',root);
   if(startButton.textContent!==startLabel)startButton.textContent=startLabel;startButton.hidden=mode==='running'||boxed&&mode==='review';startButton.className=mode==='idle'?'':'secondary';
   q('[data-gen-download]',root).hidden=mode!=='review'||boxed;
@@ -411,7 +416,7 @@
     if(b.hasAttribute('data-audio-publish'))return publish();const a=current().asset,player=q('[data-gen-player]',host);
     ({play:()=>player?.play().catch(error=>window.EccoErrors?.show(error,{title:'The recording could not play'})),stop:()=>{if(player){player.pause();player.currentTime=0;}},save:()=>a&&audioSaveDialog(a),delete:()=>a&&removeAudio(a)})[b.dataset.audioAct]?.();};
   }
-  const left=q('[data-gen-left]',host);if(left&&snap)left.innerHTML=leftBox(snap,mode,items,elapsed,eta,u=>u.name,'audio');
+  const left=q('[data-gen-left]',host);if(left&&snap)left.innerHTML=leftBox(snap,mode,items,elapsed,eta,()=>String(ctx.title||'').trim()||'Audio','audio');
  }
  function audioMeta(asset){const speakers=window.EccoAudioStudio?.speakers?.()||[],names=speakers.map(sp=>sp.name).filter(Boolean),models=[...new Set(speakers.map(sp=>sp.model).filter(Boolean))];
   return [asset.duration?clockTime(asset.duration):'',names.length>1?names.slice(0,-1).join(', ')+' and '+names.at(-1):names[0]||'',models.join(', ')].filter(Boolean).join(' · ');}

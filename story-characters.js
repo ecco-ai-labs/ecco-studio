@@ -13,7 +13,7 @@
  const designed=c=>String(c.voice||'').startsWith('ref:');
  const LABELS={none:'Not created',created:'Created',tested:'Tested'};
  const media=new Map(),voiceTests=new Map();
- let ctx=null,busy=null;
+ let ctx=null,busy=null,shownNote='';
 
  const visual=()=>ctx.data.output!=='audio';
  const speaks=()=>ctx.data.output!=='image';
@@ -89,7 +89,9 @@
   });
   // Pictures do not need every character created first (owner-approved mock, 2026-11-09).
   const p=progress(),optional=ctx.data.output==='image',ready=optional||(p.created===p.total&&p.total>0);
-  const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent=optional?'Optional for pictures: create a look to keep the same person across images.':!visual()?(p.created===p.total?sharedNote().replace(/^ · /,''):p.created+' of '+p.total+' characters have a voice · Choose a voice for the rest to continue'+sharedNote()):'Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue')+sharedNote();
+  // Owner (2026-11-21): recommendations and warnings (such as two characters sharing a voice) open as a pop-up, not page text.
+  if(!visual()){const note=sharedNote().replace(/^ · /,'');if(note&&note!==shownNote){shownNote=note;window.EccoErrors?.show(note,{title:'Check the voices'});}if(!note)shownNote='';}
+  const summary=q('[data-cast-progress]',q('#page'));if(summary)summary.textContent=optional?'Optional for pictures: create a look to keep the same person across images.':!visual()?(p.created===p.total?'':p.created+' of '+p.total+' characters have a voice · Choose a voice for the rest to continue'):'Created '+p.created+' of '+p.total+' · Tested '+p.tested+' of '+p.total+(ready?'':' · Create every character to continue')+sharedNote();
   const next=q('[data-next]',q('#page'));if(next){if(optional&&next.textContent!=='Next: Generate')next.textContent='Next: Generate';next.disabled=!ready;next.setAttribute('aria-describedby','story-cast-progress');}
  }
 
@@ -200,63 +202,44 @@
  function sampleText(c){
   return storyLines(c)[0]||(c.name?'Hello, I am '+c.name+'.':'Hello, this is my voice.')+' Welcome to our story.';
  }
+ // Change a voice (owner-approved mock 2026-11-21): Suggested voice, Test (line + play) and Audio model on one line under it.
+ // There is no Voice list or Design voice button: playing the test line designs the voice from the description when the
+ // model can (VoxCPM2), and otherwise speaks it with the voice the AI picked.
  function createAudio(c,index,host){
   const model=currentAudioModel(c);
   if(model&&c.model!==model.id)c.model=model.id;
-  const voices=(model?.voices||[]).filter(v=>!v.language||!c.language||v.language===c.language);
-  const brief=[ctx.data.genre,c.language||ctx.data.language,c.dialect].filter(Boolean).join(' · ');
   const create=element('section',{className:'story-cast-step form','aria-labelledby':'story-cast-create-title'});
-  create.append(element('h3',{id:'story-cast-create-title',text:'Create voice'}));
-  const suggestion=field(c,index,'Suggested voice','delivery',{multiline:true});suggestion.append(element('span',{className:'help',text:'Suggested from your story'+(brief?' · '+brief:'')+'. Edit before generating if needed.'}));
-  const row=element('div',{className:'story-character-fields'});
-  const ready=window.EccoAudioCompute?.readyNow?.();
-  const canDesign=designable(model),voiceOptions=[...(canDesign?[[DESIGN,'Design from the description above']]:[]),...(designed(c)?[[c.voice,'Designed voice · '+(c.name||'Character')]]:[]),...voices.map(v=>[v.id,v.name||v.label||v.id])];
-  row.append(field(c,index,'Audio model','model',{options:audioModels(c).map(m=>[m.id,m.name+(ready&&!ready.includes(m.id)?' (not on this worker)':'')]),onchange:()=>{c.modelChosen=true;fitVoice(c);ctx.persist();drawCreate(c,index);}}),field(c,index,'Voice','voice',{options:voiceOptions,onchange:()=>drawCreate(c,index)}));
-  const created=!!c.voice_sample,designing=canDesign&&(c.voice===DESIGN||designed(c));
-  const go=button(designing?(designed(c)?'Design again':'Design voice'):(created?'Generate again':'Generate voice'),async()=>{
-   const done=setBusy(go,designing?'Designing voice…':'Generating voice…');
-   try{
-    if(designing){
-     if(!String(c.delivery||'').trim())throw Error('Describe '+(c.name||'this character')+'’s voice in “Suggested voice” first.');
-     if(!window.EccoAudioStudio?.design)throw Error('Audio Studio is still loading. Try again in a moment.');
-     const result=await window.EccoAudioStudio.design({...c,model:model.id},c.delivery,designSample(c));
-     c.voice='ref:'+result.reference_id;c.voiceChosen=true;c.voice_sample=result.asset_id;c.tested=false;if(result.url)media.set(result.asset_id,result.url);
-    }else{const result=await voiceSample(c,sampleText(c),'Character voice · '+(c.name||'Character'));c.voice_sample=result.asset_id;c.tested=false;media.set(result.asset_id,result.url);}
-    ctx.changed();drawCreate(c,index);refreshStatus();ctx.status(c.name+'’s voice is ready. Test it below.');
-   }
-   catch(error){done();ctx.message(error.message,true);}
-  },created?'secondary':'');
-  go.dataset.castGenerate='voice';
-  // Model Sounds (owner-approved 21 Nov 2026): pick a pre-made voice; its model, voice, language and settings carry over.
-  const fromSamples=button('From Model Sounds',()=>{const open=!create.querySelector('.ms-pick');create.querySelector('.ms-pick')?.remove();if(open)create.append(modelSoundPicker(c,index));},'link');
-  create.append(suggestion,row,go,fromSamples);
-  if(created){
-   const player=element('audio',{controls:true,preload:'metadata','aria-label':'Voice sample for '+(c.name||'this character')});
-   mediaURL(c.voice_sample).then(url=>{if(player.isConnected)player.src=url;}).catch(()=>{});
-   create.append(element('p',{className:'help story-cast-ready',text:c.voice_source?'From Model Sounds · '+c.voice_source.name+' · '+(model?.name||''):'Voice ready · made with '+(model?.name||'the selected model')}),player);
-  }
-  const test=element('section',{className:'story-cast-step form','aria-labelledby':'story-cast-test-title'},element('h3',{id:'story-cast-test-title',text:'Test'}));
-  // Test line (owner 2026-11-15): editable, defaults to "Hello, my name is <name>."
+  create.append(element('h3',{id:'story-cast-create-title',text:'Create voice'}),field(c,index,'Suggested voice','delivery',{multiline:true}));
   if(c.test_line===undefined)c.test_line=testLine(c);
   const own=element('input',{type:'text',maxlength:'300','aria-label':'Test line',value:c.test_line});
   own.oninput=()=>{c.test_line=own.value;ctx.persist();};
-  if(!created){const wait=playButton('Play test line',()=>{});wait.disabled=true;test.append(element('label',{className:'story-cast-own',text:'Test line'},element('div',{className:'story-cast-line'},own,wait)),element('p',{className:'help',text:'Generate a voice first, then play this line.'}));}
-  else{
-   const player=element('audio',{controls:true,preload:'metadata','aria-label':'Voice test playback',hidden:true});
-   const play=async(text,trigger)=>{
-    if(!text.trim()){ctx.message('Type a line to hear it first.',true);return;}
-    const key=JSON.stringify([c.id,c.voice_sample,c.model,c.voice,c.delivery,c.language,c.dialect,text]);const done=setBusy(trigger);
-    try{let url=voiceTests.get(key);if(!url){url=(await voiceSample(c,text,'Character voice test · '+(c.name||'Character'))).url;voiceTests.set(key,url);}if(!player.isConnected)return;player.src=url;player.hidden=false;await player.play().catch(()=>{});}
-    catch(error){ctx.message(error.message,true);}finally{done();}
-   };
-   const ownPlay=playButton('Play test line',()=>play(own.value,ownPlay));
-   test.append(element('label',{className:'story-cast-own',text:'Test line'},element('div',{className:'story-cast-line'},own,ownPlay)));
-   const lines=storyLines(c);
-   if(lines.length){test.append(element('p',{className:'help',text:'Lines from your story'}));lines.forEach((line,i)=>{const b=playButton('Play line '+(i+1),()=>play(line,b));test.append(element('div',{className:'story-cast-line'},b,element('span',{className:'story-cast-line-text',text:'“'+line+'”'})));});}
-   else test.append(element('p',{className:'help',text:'Lines from your story appear here once they are assigned to '+(c.name||'this character')+'. Type one below meanwhile.'}));
-   test.append(player,verdict(c,'Sounds right — mark as tested','Not right? Edit the suggestion or switch model or voice, then generate again.','Tested — this voice is ready for the story'));
-  }
-  host.append(create,test);
+  const player=element('audio',{preload:'metadata','aria-label':'Voice test playback',hidden:true});
+  const play=playButton('Play test line',async()=>{
+   const text=own.value;if(!text.trim()){ctx.message('Type a line to hear it first.',true);return;}
+   const done=setBusy(play);
+   try{
+    const m=currentAudioModel(c);
+    if(designable(m)&&(!designed(c)||c.designed_from!==String(c.delivery||''))){
+     if(!String(c.delivery||'').trim())throw Error('Describe '+(c.name||'this character')+'’s voice in “Suggested voice” first.');
+     if(!window.EccoAudioStudio?.design)throw Error('Audio Studio is still loading. Try again in a moment.');
+     const result=await window.EccoAudioStudio.design({...c,model:m.id},c.delivery,designSample(c));
+     c.voice='ref:'+result.reference_id;c.voiceChosen=true;c.voice_sample=result.asset_id;c.designed_from=String(c.delivery||'');if(result.url)media.set(result.asset_id,result.url);ctx.changed();refreshStatus();
+    }
+    const key=JSON.stringify([c.id,c.model,c.voice,c.delivery,c.language,c.dialect,text]);
+    let url=voiceTests.get(key);if(!url){const r=await voiceSample(c,text,'Character voice test · '+(c.name||'Character'));url=r.url;voiceTests.set(key,url);
+     // The first line heard with this voice is kept as the character's sample, so the character counts as Created.
+     if(!c.voice_sample&&r.asset_id){c.voice_sample=r.asset_id;media.set(r.asset_id,url);ctx.changed();refreshStatus();}}
+    if(!player.isConnected)return;player.src=url;await player.play().catch(()=>{});
+   }catch(error){ctx.message(error.message,true);}finally{done();}
+  });
+  const test=element('div',{className:'story-cast-test-row'},element('span',{className:'story-cast-test-label',text:'Test'}),own,play,player);
+  const ready=window.EccoAudioCompute?.readyNow?.();
+  const pick=field(c,index,'Audio model','model',{options:audioModels(c).map(m=>[m.id,m.name+(ready&&!ready.includes(m.id)?' (not on this worker)':'')]),onchange:()=>{c.modelChosen=true;fitVoice(c);ctx.persist();drawCreate(c,index);}});
+  pick.classList.add('story-cast-model-inline');
+  // Model Sounds (owner-approved 21 Nov 2026): pick a pre-made voice; its model, voice, language and settings carry over.
+  const fromSamples=button('From Model Sounds',()=>{const open=!create.querySelector('.ms-pick');create.querySelector('.ms-pick')?.remove();if(open)create.append(modelSoundPicker(c,index));},'link');
+  create.append(element('hr',{className:'story-cast-rule'}),test,pick,fromSamples);
+  host.append(create);
  }
  function verdict(c,label,hint,doneText){
   if(c.tested)return element('p',{className:'help story-cast-tested',role:'status'},marker('tested'),document.createTextNode(doneText));
@@ -348,17 +331,17 @@
   data.cast.forEach((c,index)=>{
    const row=element('div',{className:'story-cast-row',role:'listitem'});
    const who=element('div',{className:'story-cast-who'},element('b',{text:c.name||'Character '+(index+1)}),element('span',{className:'help',text:[c.role,c.gender&&c.gender!=='Unspecified'?c.gender:'',c.age_group].filter(Boolean).join(' · ')}));
-   const voice=element('span',{className:'help story-cast-voice',text:perEpisode(c)?'Picked for each episode':voiceLabel(c)});
+   const voice=element('span',{className:'help story-cast-voice',text:perEpisode(c)?'Picked for each episode':voiceLabel(c)});if(!perEpisode(c)&&c.voice&&!c.voiceChosen)voice.append(element('span',{className:'story-cast-ai-pick',title:'Picked by AI from story type, language, genre and audience',text:'✦ AI pick'}));
    const player=element('audio',{preload:'none',hidden:true,'aria-label':'Voice sample for '+(c.name||'character')});
    const hear=playButton('Hear '+(c.name||'this voice'),async()=>{const done=setBusy(hear);try{let url=c.voice_sample?await mediaURL(c.voice_sample):voiceTests.get('roster|'+c.id+'|'+c.model+'|'+c.voice);if(!url){url=(await voiceSample(c,sampleText(c),'Character voice · '+(c.name||'Character'))).url;voiceTests.set('roster|'+c.id+'|'+c.model+'|'+c.voice,url);}player.src=url;player.hidden=false;await player.play().catch(()=>{});}catch(error){ctx.message(error.message,true);}finally{done();}});
    hear.disabled=perEpisode(c)||!c.voice;
-   const change=button('Change',()=>{data.activeCharacter=c.id;data.castDetail=true;ctx.persist();ctx.redraw();});change.classList.add('secondary');change.setAttribute('aria-label','Change '+(c.name||'character')+'’s voice');
+   const change=button('Change',()=>{data.activeCharacter=c.id;data.castDetail=true;ctx.persist();ctx.redraw();});change.setAttribute('aria-label','Change '+(c.name||'character')+'’s voice');
    row.append(who,voice,hear,change,player);
    if(isNarrator(c)){const style=element('select',{'aria-label':'Narration style'});for(const [n] of STYLES)style.add(new Option(n,n));style.value=data.narrationStyle;style.onchange=()=>{data.narrationStyle=style.value;ctx.changed();};
     row.append(element('label',{className:'story-cast-style help'},document.createTextNode('Narration style'),style));}
    list.append(row);
   });
-  root.append(element('p',{className:'help',text:'Each character has a voice picked for them. Hear any of them, and use Change only if one isn’t right.'}),list);
+  root.append(list);
  }
  function render(context){
   ctx=context;const {data,root}=ctx;

@@ -126,7 +126,8 @@ test('new story detaches the previous document picker without deleting its saved
  await x.start('image','storybook');assert.equal(x.q('[data-preview]'),null);assert.equal(x.q('#story-simple-script').value,'');assert.equal(destroyed,1);assert.match(JSON.parse(x.w.localStorage.getItem('ecco-story-setup:'+previous)).simple_workspace.script,/Old selected passage/);
 });
 test('Generate With AI tab opens immediately, even without a brief, and calls no AI',async()=>{
- const x=await fixture();await x.start();assert.equal(aiHost(x).closest('[data-source-panel]').hidden,true);x.q('#page [data-source-tab=ai]').click();await tick();assert.equal(aiHost(x).closest('[data-source-panel]').hidden,false);assert.equal(x.q('#page [data-source-tab=ai]').getAttribute('aria-selected'),'true');assert.equal(aiHost(x).querySelector('[data-idea]').value,'');assert.equal(aiHost(x).querySelectorAll('[data-ai-drafts] [role=tab]').length,3);assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);
+ const x=await fixture();await x.start();assert.equal(aiHost(x).closest('[data-source-panel]').hidden,true);x.q('#page [data-source-tab=ai]').click();await tick();assert.equal(aiHost(x).closest('[data-source-panel]').hidden,false);assert.equal(x.q('#page [data-source-tab=ai]').getAttribute('aria-selected'),'true');assert.equal(aiHost(x).querySelector('[data-idea]').value,'');// Final mocks (2026-11-21): no drafts; AI writes straight into Story Text and the Improve with AI box is hidden here.
+ assert.equal(aiHost(x).querySelectorAll('[data-ai-drafts] [role=tab]').length,0);assert.equal(aiHost(x).querySelector('.pdf-ai-pane').hidden,true);assert.equal(x.w.testCalls.length,0);assert.deepEqual(x.errors,[]);
 });
 
 test('AI shows connection failures in a popup and does not submit until storage is ready',async()=>{

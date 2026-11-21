@@ -66,6 +66,8 @@
   const story=typeof activeStory!=='undefined'&&activeStory&&document.querySelector('[role=tablist][aria-label="Create your story"]')?activeStory:'',mine=story?attempts.filter(a=>asset(a.asset_id)?.story_id===story):attempts;
   const current=mine.slice(-5).reverse(),signature=JSON.stringify([story,current]);if(root.dataset.signature===signature)return;root.dataset.signature=signature;
   root.replaceChildren();const heading=document.createElement('h3');heading.textContent='Publishing status';root.append(heading);
+  // Owner (2026-11-21): no empty Publishing status box; it appears once something has been uploaded.
+  const inStory=!!document.querySelector('[role=tablist][aria-label="Create your story"]'),empty=!current.length&&inStory;root.hidden=empty;root.style.display=empty?'none':'';
   if(!current.length){const p=document.createElement('p');p.className='help';p.textContent=story?'Nothing from this story has been uploaded yet.':'No upload attempts recorded yet.';root.append(p);return;}
   for(const a of current){
    const row=document.createElement('div');row.className='publishing-status-row';row.setAttribute('role','status');
@@ -78,7 +80,7 @@
  }
  function mount(root){
   if(q('#publishing-status'))return;
-  const panel=document.createElement('section');panel.id='publishing-status';panel.className='panel form';panel.setAttribute('aria-label','Publishing status');root.querySelector('.publishing-toolbar').after(panel);render();
+  const panel=document.createElement('section');panel.id='publishing-status';panel.className='panel form';panel.setAttribute('aria-label','Publishing status');(root.querySelector('.publishing-tabs')||root.querySelector('.publishing-toolbar')).before(panel);render();
  }
  const originalApi=api;
  api=async function(path,body,...rest){

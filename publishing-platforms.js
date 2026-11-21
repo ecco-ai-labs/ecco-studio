@@ -112,7 +112,10 @@
    tabs.append(button);
   });
   window.EccoPublishingConnection=()=>{if(root.contains(tabs))select(platforms.findIndex(p=>p[0]===selectedPlatform));};
-  root.append(toolbar,tabs,...panels);window.EccoPublishingStatus?.mount(root);select(0);
+  // Owner final mocks (2026-11-21): Publish sits at the bottom right (Back beside it on the left); the reason Publish is
+  // unavailable stays as its tooltip and for screen readers, not as page text.
+  reason.classList.add('sr-only');
+  root.append(tabs,...panels,toolbar);window.EccoPublishingStatus?.mount(root);select(0);
   const saved=pendingLibraryDraft;pendingLibraryDraft=null;window.EccoPublishingMedia?.cancelPicker();
   if(saved&&saved.story===(currentStory().id||'')){
    panels.forEach((panel,index)=>{
