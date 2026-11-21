@@ -660,6 +660,52 @@ test('IMG-L4-04 review notes pinned to a spot: click the picture, write a note, 
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L5-01 house style: save selected pictures as a style; new pictures in it use them as references and keep the brand kit',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await page.evaluate(()=>{localStorage.removeItem('ecco-house-styles');localStorage.removeItem('ecco-brand-kits');});
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  await ws.getByRole('button',{name:'Save as house style',exact:true}).click();
+  await ws.locator('[data-input=houseName]').fill('Storybook look');await ws.getByRole('button',{name:'Save house style',exact:true}).click();
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-house-styles')));expect(saved).toHaveLength(1);expect(saved[0]).toMatchObject({name:'Storybook look',refs:['qa-image-0']});
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await expect(ws.locator('[data-input=genStyle]')).toHaveValue('house:'+saved[0].id);
+  expect(await ws.locator('[data-input=genStyle] optgroup[label="Your house styles"] option').allTextContents()).toEqual(['Storybook look']);
+  await ws.locator('[data-input=genPrompt]').fill('A girl flying a kite on a hill');
+  await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(1);
+  const sent=(await imageCalls(page,'image-edits'))[0];
+  expect(sent).toMatchObject({asset_id:'qa-image-0',asset_ids:['qa-image-0'],story_id:'qa-story'});
+  expect(sent.prompt).toContain('exactly the visual style of the reference picture');expect(sent.prompt).toContain('Do not copy');expect(sent.prompt).toContain('A girl flying a kite on a hill');
+  expect(await imageCalls(page,'images')).toHaveLength(0);
+  // Picture Set can use the house style too.
+  await ws.getByRole('tab',{name:'Picture Set',exact:true}).click();
+  await ws.locator('[data-input=setStyle]').selectOption('house:'+saved[0].id);
+  await ws.locator('[data-input=setPages]').fill('A kite on a hill\nA kite in the clouds');
+  await ws.getByRole('button',{name:'Generate 2 pages',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(3);
+  expect((await imageCalls(page,'image-edits')).slice(1).map(b=>b.asset_ids)).toEqual([['qa-image-0'],['qa-image-0']]);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
+test('IMG-L5-02 script to boards: a pasted script becomes one shot per line with shot sizes, ready to generate as a set',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await page.evaluate(()=>{const base=api;api=async(path,body)=>{const id=body?.fields?.[0]?.id;if(path==='ai/enhance'&&id==='storyboard_shots'){window.__qaCalls.push({path,body});return {revisions:[{id,text:'Wide shot: a lighthouse on a cliff at night\nMedium shot: MAYA climbs the stairs with a lamp\nClose-up: MAYA sees a ship in the storm'}]};}return base(path,body);};});
+  await ws.getByRole('tab',{name:'Picture Set',exact:true}).click();
+  await ws.locator('[data-input=setPages]').fill('EXT. LIGHTHOUSE - NIGHT\nRain hammers the rocks.\nMAYA: Someone is out there.');
+  const boards=ws.getByRole('button',{name:'Turn the script into boards',exact:true});await expect(boards).toBeEnabled();await boards.click();
+  await expect(ws.locator('[data-input=setPages]')).toHaveValue('Wide shot: a lighthouse on a cliff at night\nMedium shot: MAYA climbs the stairs with a lamp\nClose-up: MAYA sees a ship in the storm');
+  const call=await page.evaluate(()=>window.__qaCalls.find(c=>c.body?.fields?.[0]?.id==='storyboard_shots').body);
+  expect(call.fields[0].text).toContain('EXT. LIGHTHOUSE - NIGHT');expect(call.context.instructions).toContain('shot size');
+  await expect(ws.locator('[data-input=setName]')).toHaveValue('Storyboard');
+  // A plain page list keeps the old ✦ (write pages from one idea).
+  await ws.locator('[data-input=setPages]').fill('A fox in the snow');
+  await expect(ws.getByRole('button',{name:'Write pages from the first line',exact:true})).toBeVisible();
+  await ws.locator('[data-input=setPages]').fill('Wide shot: a lighthouse on a cliff at night\nClose-up: a ship in the storm');
+  await ws.getByRole('button',{name:'Generate 2 pages',exact:true}).click();await expect(ws.locator('.iw-page')).toHaveCount(2);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){

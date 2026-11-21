@@ -26,7 +26,7 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
@@ -102,7 +102,16 @@
    await new Promise(resolve=>setTimeout(resolve,2000));
   }
  }
- const styled=(prompt,style)=>style&&window.EccoImageStyles?.get(style)?window.EccoImageStyles.prompt(prompt,style):prompt;
+ /* ---------- house styles (IMG-5.1): your own pictures as the style for new ones ---------- */
+ // A house style is 1-3 pictures from Image Library. New pictures in a house style are made by the instruction-edit
+ // model with those pictures as references ("same look, new content"); the pictures' own content is not copied.
+ const HOUSE='ecco-house-styles';
+ const houses=()=>{try{const v=JSON.parse(localStorage.getItem(HOUSE)||'[]');return Array.isArray(v)?v.filter(h=>h&&h.id&&Array.isArray(h.refs)):[];}catch{return [];}};
+ const saveHouses=v=>{try{localStorage.setItem(HOUSE,JSON.stringify(v));}catch{}};
+ const house=style=>String(style||'').startsWith('house:')?houses().find(h=>'house:'+h.id===style)||null:null;
+ const houseRefs=h=>h?h.refs.filter(record):[];
+ const housePrompt=(prompt,h)=>'Make a completely new picture in exactly the visual style of the reference '+(h.refs.length>1?'pictures':'picture')+': the same colour palette, lighting, rendering, line work and texture. Do not copy the people, objects or layout of the reference. The new picture shows: '+String(prompt).trim();
+ const styled=(prompt,style)=>house(style)?prompt:style&&window.EccoImageStyles?.get(style)?window.EccoImageStyles.prompt(prompt,style):prompt;
  async function edit(ids,prompt,style){
   const gpu=requireCompute(),config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings=modelSettings(EDIT_MODEL);
   if(!config.generation_controls_version&&ids.length>1)throw Error('The connected GPU needs the multi-reference update to use several images. Your choices and prompt are saved.');
@@ -122,6 +131,15 @@
  // Build the request for one picture: a plain picture, or a picture with saved characters (instruction-edit model).
  async function request(prompt,{style='',shape='',seed=null,chars=[]}={}){
   const gpu=requireCompute();
+  const h=house(style);
+  if(h){
+   if(chars.length)throw Error('Choose a character or a house style for now, not both.');
+   const refs=houseRefs(h);if(!refs.length)throw Error('The pictures in the house style '+h.name+' are no longer in Image Library.');
+   const config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(seed!=null)settings.seed=seed;if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
+   if(!config.generation_controls_version&&refs.length>1)throw Error('The connected GPU needs the multi-reference update to use a house style with several pictures.');
+   const full=B.prompt(housePrompt(prompt,h),B.active());if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
+   return {kind:'edit',path:'image-edits',payload:{gpu,asset_id:refs[0],asset_ids:refs,prompt:full,story_id:activeStory,...settings}};
+  }
   if(chars.length){
    const config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(seed!=null)settings.seed=seed;if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
    if(!config.generation_controls_version&&chars.length>1)throw Error('The connected GPU needs the multi-reference update to use several characters.');
@@ -265,7 +283,7 @@
   const on=number>0;
   return '<button type="button" class="iw-tile" data-act="'+act+'" data-id="'+esc(id)+'" aria-pressed="'+on+'" aria-label="'+esc(title(id))+(on?', selected '+number:'')+'">'+thumb(id)+(on?'<span class="iw-badge">'+number+'</span>':'')+'<span class="iw-cap help">'+esc(title(id))+'</span></button>';
  }
- const styleSelect=(input,value)=>'<label>Style<select data-input="'+input+'"><option value="">No style</option>'+styleGroups().map(([g,list])=>'<optgroup label="'+esc(g)+'">'+list.map(s=>'<option value="'+esc(s)+'"'+(s===value?' selected':'')+'>'+esc(s)+'</option>').join('')+'</optgroup>').join('')+'</select></label>';
+ const styleSelect=(input,value)=>{const own=houses();return '<label>Style<select data-input="'+input+'"><option value="">No style</option>'+(own.length?'<optgroup label="Your house styles">'+own.map(h=>'<option value="house:'+esc(h.id)+'"'+('house:'+h.id===value?' selected':'')+'>'+esc(h.name)+'</option>').join('')+'</optgroup>':'')+styleGroups().map(([g,list])=>'<optgroup label="'+esc(g)+'">'+list.map(s=>'<option value="'+esc(s)+'"'+(s===value?' selected':'')+'>'+esc(s)+'</option>').join('')+'</optgroup>').join('')+'</select></label>';};
  const shapeSelect=(input,value,disabled)=>{const list=shapeList();return list.length?'<label>Shape<select data-input="'+input+'"'+(disabled?' disabled':'')+'>'+list.map(s=>'<option value="'+s.size+'"'+(s.size===value?' selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select></label>':'';};
 
  /* ---------- step 1: Image ---------- */
@@ -292,8 +310,8 @@
    +'<div class="iw-group"><span id="iw-set-chars">Characters<span class="help"> Pick up to 3 · they look the same on every page</span></span>'+(chars.length?'<div class="iw-options" role="group" aria-labelledby="iw-set-chars">'+chars.map(c=>'<button type="button" class="iw-chip" data-act="set-char" data-id="'+esc(c.id)+'" aria-pressed="'+s.chars.includes(c.id)+'">'+esc(c.name)+'</button>').join('')+'</div>':'<p class="help">No characters yet. Select an image in Selected Images and choose Save as character.</p>')+'</div>'
    +(one?'<div class="iw-row"><button type="button" class="secondary" data-act="sheet">Make '+esc(one.name)+' character sheet (6 views)</button></div>':'')
    +'<div class="iw-pair">'+styleSelect('setStyle',s.style)+shapeSelect('setShape',s.shape,s.chars.length>0)+'</div>'+(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')
-   +'<div class="iw-head"><label for="iw-set-pages">Pages</label><button type="button" class="pdf-ai-icon" data-act="write-pages" aria-label="Write pages from the first line" title="Write pages"'+(busy.pages||!s.pagesText.trim()?' disabled':'')+'>'+(busy.pages?spinner:'<span aria-hidden="true">✦</span>')+'</button></div>'
-   +'<textarea id="iw-set-pages" data-input="setPages" rows="7" maxlength="6000" placeholder="One line per page, for example:&#10;The fox finds a lantern in the snow&#10;The fox follows the light into the forest&#10;Or write one idea and press ✦">'+esc(s.pagesText)+'</textarea>'
+   +'<div class="iw-head"><label for="iw-set-pages">Pages</label><button type="button" class="pdf-ai-icon" data-act="write-pages" aria-label="'+(scriptLike(s.pagesText)?'Turn the script into boards':'Write pages from the first line')+'" title="'+(scriptLike(s.pagesText)?'Turn into boards':'Write pages')+'"'+(busy.pages||!s.pagesText.trim()?' disabled':'')+'>'+(busy.pages?spinner:'<span aria-hidden="true">✦</span>')+'</button></div>'
+   +'<textarea id="iw-set-pages" data-input="setPages" rows="7" maxlength="6000" placeholder="One line per page, for example:&#10;The fox finds a lantern in the snow&#10;The fox follows the light into the forest&#10;Or write one idea, or paste a script, and press ✦">'+esc(s.pagesText)+'</textarea>'
    +'<button type="button" data-act="make-set"'+(lines.length&&!live?'':' disabled')+'>'+(lines.length?'Generate '+lines.length+(lines.length===1?' page':' pages'):'Generate pages')+'</button>'
    +(s.pages.length?'<div class="iw-set-pages">'+s.pages.map((p,i)=>{
      const j=ws.jobs.find(x=>x.key===p.key),running=j&&!j.done,label='Page '+(i+1);
@@ -352,7 +370,8 @@
    (id?'<div class="iw-preview" data-pin="'+esc(id)+'">'+img(id,'Image '+(ws.active+1)+': '+title(id))+pins(id)+'<span class="iw-cap help">Image '+(ws.active+1)+' · '+esc(title(id))+'</span></div>'+notesPane(id):'<p class="iw-blank help">Choose images from a tab on the left.</p>')+
    '<div class="iw-grid">'+[0,1,2].map(i=>{const s=ws.selected[i];return s?'<div class="iw-slot">'+'<button type="button" class="iw-tile" data-act="show" data-index="'+i+'" aria-pressed="'+(i===ws.active)+'" aria-label="Show image '+(i+1)+': '+esc(title(s))+'">'+thumb(s)+'<span class="iw-badge">'+(i+1)+'</span></button><button type="button" class="iw-remove" data-act="remove" data-index="'+i+'" aria-label="Remove image '+(i+1)+'" title="Remove">×</button></div>':'<div class="iw-empty-slot help">Empty</div>';}).join('')+'</div>'+
    (id?(f?'<div class="iw-character-form" role="group" aria-label="Save as character"><label>Character name<input type="text" data-input="charName" maxlength="100" value="'+esc(f.name)+'" placeholder="For example: Pip the fox"></label><label>What should stay the same<textarea data-input="charDesc" rows="3" maxlength="2000" placeholder="For example: a small red fox with a white chest, green scarf, amber eyes">'+esc(f.desc)+'</textarea></label><div class="iw-row"><button type="button" data-act="char-save"'+(f.name.trim()&&!busy.character?'':' disabled')+'>'+(busy.character?spinner+' Saving…':'Save character')+'</button><button type="button" class="secondary" data-act="char-cancel">Cancel</button></div></div>'
-    :'<div class="iw-row"><button type="button" class="secondary" data-act="char-open">Save as character</button></div>'):'')+
+    :ws.houseForm?'<div class="iw-character-form" role="group" aria-label="Save as house style"><label>House style name<input type="text" data-input="houseName" maxlength="60" value="'+esc(ws.houseForm.name)+'" placeholder="For example: Our storybook look"></label><p class="help">Uses the look of '+(ws.selected.length===1?'this picture':'these '+ws.selected.length+' pictures')+'. Pick it under Style when you generate.</p><div class="iw-row"><button type="button" data-act="house-save"'+(ws.houseForm.name.trim()?'':' disabled')+'>Save house style</button><button type="button" class="secondary" data-act="house-cancel">Cancel</button></div></div>'
+    :'<div class="iw-row"><button type="button" class="secondary" data-act="char-open">Save as character</button><button type="button" class="secondary" data-act="house-open">Save as house style</button></div>'):'')+
    '</section>';
  }
  function improvePane(){
@@ -499,8 +518,19 @@
   const idea=ws.genPrompt.trim();if(!idea)return;
   return run('ideas',async()=>{const out=[];for(let i=0;i<3;i++)out.push(await rewrite('picture_description',idea,IDEA+(i?' Make version '+(i+1)+' of 3 different in composition and camera angle.':'')));ws.ideas=out;});
  }
+ // A script or a story passage (scene headings, dialogue, or long lines) becomes boards: one shot per line.
+ const scriptLike=t=>{const lines=String(t||'').split(/\n+/).filter(x=>x.trim());return /^\s*(INT|EXT|INT\/EXT)[.\s]/im.test(t)||/^\s*[A-Z][A-Z .'-]{1,30}:\s*\S/m.test(t)||lines.some(x=>x.trim().length>160)||(lines.length===1&&/[.!?]\s+\S.*[.!?]\s+\S/.test(lines[0]));};
+ function writeBoards(){
+  const s=ws.set,text=s.pagesText.trim();if(!text)return;
+  return run('pages',async()=>{
+   const out=await rewrite('storyboard_shots',text.slice(0,5800),'Turn this script or story into storyboard shots for a film. Return one line per shot, at most 24 lines, in story order. Start each line with the shot size (Wide shot, Medium shot, Close-up, Over-the-shoulder, Aerial), then who is in it, what they are doing, and where. Describe only what the camera sees. Keep character names the same. No numbering, no dialogue, no camera jargon beyond the shot size. Do not ask questions.');
+   const pages=J.pages(out).slice(0,J.MAX_PAGES);if(!pages.length)throw Error('AI returned no shots. Try again.');s.pagesText=pages.join('\n');if(!s.name)s.name='Storyboard';
+   notice(pages.length+' shots written. Check them, then press Generate.');
+  });
+ }
  function writePages(){
-  const s=ws.set,lines=J.pages(s.pagesText),idea=lines[0]||'';if(!idea)return;
+  const s=ws.set;if(scriptLike(s.pagesText))return writeBoards();
+  const lines=J.pages(s.pagesText),idea=lines[0]||'';if(!idea)return;
   return run('pages',async()=>{
    const text=await rewrite('set_pages',idea,'Write a picture book of 8 pages from this idea. Return exactly 8 lines, one per page, each one short picture description (who, doing what, where). Keep the same characters throughout. No numbering, no titles, no art style. Do not ask questions.');
    const pages=J.pages(text);if(!pages.length)throw Error('AI returned no pages. Try again.');s.pagesText=pages.join('\n');if(!s.name)s.name=idea.slice(0,60);
@@ -610,7 +640,14 @@
   else if(a==='set-zip'){setZip();return;}
   else if(a==='set-pdf'){setPdf();return;}
   else if(a==='set-save'){setSave();return;}
-  else if(a==='char-open')ws.charForm={name:'',desc:''};
+  else if(a==='char-open'){ws.charForm={name:'',desc:''};ws.houseForm=null;}
+  else if(a==='house-open'){ws.houseForm={name:''};ws.charForm=null;}
+  else if(a==='house-cancel')ws.houseForm=null;
+  else if(a==='house-save'){
+   const f=ws.houseForm;if(!f||!f.name.trim()||!ws.selected.length)return;
+   const h={id:'hs-'+Date.now().toString(36),name:f.name.trim().slice(0,60),refs:ws.selected.slice(0,3)},list=houses();list.push(h);saveHouses(list);
+   unsaved([],h.refs);ws.houseForm=null;ws.genStyle='house:'+h.id;notice(h.name+' saved as a house style. It is chosen under Style in Generate with AI.');
+  }
   else if(a==='char-cancel')ws.charForm=null;
   else if(a==='char-save'){
    const f=ws.charForm,target=id;if(!f||!target||!f.name.trim())return;
@@ -699,7 +736,7 @@
   }
   unsaved([],ids);await refresh();ws.published=true;notice(ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library'+(kit?' with the '+kit.name+' logo':'')+'.');
  }
- const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';},resizeShape:v=>{ws.resizeShape=v;},noteText:v=>{if(ws.noteDraft){ws.noteDraft.text=v;const b=q('#image-workspace [data-act=note-save]');if(b)b.disabled=!v.trim();}}};
+ const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';},resizeShape:v=>{ws.resizeShape=v;},houseName:v=>{if(ws.houseForm){ws.houseForm.name=v;const b=q('#image-workspace [data-act=house-save]');if(b)b.disabled=!v.trim();}},noteText:v=>{if(ws.noteDraft){ws.noteDraft.text=v;const b=q('#image-workspace [data-act=note-save]');if(b)b.disabled=!v.trim();}}};
  function input(el){
   const k=el.dataset.input;
   if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles()));save();return;}
