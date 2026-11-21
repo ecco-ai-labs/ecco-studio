@@ -589,7 +589,7 @@
  function paintLibrary(){
   const list=inPage('[data-library-list]'),chosen=inPage('[data-library-selected]');if(!list||!chosen)return;
   if(!list.dataset.ready){list.dataset.ready='1';
-   list.innerHTML='<strong class="pdf-review-heading" id="spl-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-lib-search placeholder="Find an image"></label><label>Label<select data-lib-label><option value="">All images</option></select></label></div><p class="help">Select up to 3 images. Click again to deselect.</p><div data-lib-grid></div>';
+   list.innerHTML='<strong class="pdf-review-heading" id="spl-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-lib-search placeholder="Find an image"></label><label>Label<select data-lib-label><option value="">All images</option></select></label></div><p class="help">Select up to 3 images. Click again to deselect. To merge pictures, pick the background first.</p><div data-lib-grid></div>';
    const search=list.querySelector('[data-lib-search]'),label=list.querySelector('[data-lib-label]');
    for(const f of state.records.filter(r=>r.kind==='image_folder'&&!r.deleted))label.add(new Option(f.name,f.id));
    search.value=data.librarySearch||'';label.value=data.libraryLabel||'';
