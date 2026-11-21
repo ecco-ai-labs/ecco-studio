@@ -167,17 +167,17 @@
   queueAt=Date.now();
   try{const data=await api('queue?'+new URLSearchParams({owner:window.EccoAuth?.user?.email||'',offset:'0',limit:'50'}).toString());queueInfo={};for(const x of data.items||[])queueInfo[x.id]={place:x.place,wait_seconds:x.wait_seconds};}catch{}
  }
- // While pictures are being made, check the server every 2 seconds (the studio's own refresh runs every 3).
+ // While pictures are being made, check the server every 2.5 seconds while the page is visible (the studio's own refresh runs every 3).
  async function watch(){
   if(watching)return;watching=true;
   try{
    while(ws&&liveJobs().length&&window.EccoStorage?.ready!==false){
     pump();
-    try{const next=await api('state');await refresh(next);}catch{}
+    if(!document.hidden){try{const next=await api('state');await refresh(next);}catch{}}
     await queuePlaces();
     if(settle()&&page==='images'&&q('#image-workspace'))draw();
     paintJobs();
-    await new Promise(r=>setTimeout(r,2000));
+    await new Promise(r=>setTimeout(r,2500));
    }
   }finally{watching=false;}
  }
