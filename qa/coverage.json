@@ -361,5 +361,10 @@
     "area": "Image Generation: Starting GPU worker… while the worker starts (owner request, 2026-11-21)",
     "mode": "fixture",
     "scope": "GEN-10. Before the first drawing step the left box shows a spinner with Starting GPU worker… (no worker lines yet) or Loading the model… (worker reported in), or Waiting in the queue… while still in line; the picture box shows a spinner with Starting Generation…; after 2 minutes a line explains a GPU is waking up. Both go away at the first step."
+  },
+  {
+    "area": "Audio story final mocks (21 Nov 2026)",
+    "mode": "fixture",
+    "scope": "Story Script: Upload a file / Generate With AI / Write Yourself; AI writes straight into the story text (no drafts, Use AI Text, Clear AI Output or Clear Text); Generate With AI has only its two boxes; Find and Replace sits right of the tabs and searches the open tab (UPLOAD-01..08, STORY-06, STORY-15, STORY-17, STORY-19). Story Characters: heading Story Characters, no Recommend with AI or AI reasoning text, voice warnings as pop-ups, AI pick tag, Change a voice with Suggested voice, Test and Audio model (plus From Model Sounds); Play test line designs a VoxCPM2 voice from the description (STORY-07, STORY-16, STORY-29, STORY-30, STORY-35). Screen Play: numbered lines whose labels (sound, how, interjection) are dragged from the Label library, removed with ×, + New adds labels, and Generation receives [directions] and sound cues (STORY-26, STORY-32, STORY-33). Story Generation: one row per story job, Activity in tens, no Model Settings or Stop, Back beside Next (GEN-01, GEN-04, AUDIO-01). Publishing: Publish at the bottom, no empty Publishing status. Not covered by real services: AI suggestion quality, Opening/Closing Text recordings (need an audio worker update), audio Queue (needs a storage API change)."
   }
 ]
