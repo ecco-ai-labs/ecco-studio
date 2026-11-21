@@ -131,28 +131,30 @@ def enqueue(job, run, label):
 
 # ----- capacity (read live from RunPod) ---------------------------------------------------------
 
-def _endpoint_max(endpoint_id, opener=urllib.request.urlopen):
+def _endpoint_maxes(opener=urllib.request.urlopen):
+    """{endpoint id: max workers} for the account, from RunPod's GraphQL API (rest.runpod.io does not resolve on the pod)."""
     key = os.getenv('RUNPOD_API_KEY')
-    if not key or not endpoint_id:
-        return None
-    req = urllib.request.Request('https://rest.runpod.io/v1/endpoints/' + endpoint_id,
-                                 headers={'Authorization': 'Bearer ' + key})
+    if not key:
+        return {}
+    query = json.dumps({'query': 'query { myself { endpoints { id workersMax } } }'}).encode()
+    req = urllib.request.Request('https://api.runpod.io/graphql', data=query,
+                                 headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
     try:
         with opener(req, timeout=15) as res:
-            value = json.load(res).get('workersMax')
-        return int(value) if value is not None else None
-    except (urllib.error.URLError, ValueError, TypeError, OSError, TimeoutError):
-        return None
+            items = json.load(res)['data']['myself']['endpoints']
+        return {e['id']: int(e['workersMax']) for e in items if e.get('id') and e.get('workersMax') is not None}
+    except (urllib.error.URLError, ValueError, TypeError, KeyError, OSError, TimeoutError):
+        return {}
 
 
 def caps(groups, opener=urllib.request.urlopen, now=None):
     """Workers each group may use at once: the endpoint's max workers on RunPod, 8 pictures in all."""
     now = time.time() if now is None else now
     if now - CAPS['at'] > CAP_TTL or any(g not in CAPS['groups'] for g in groups):
-        found = {}
+        found, maxes = {}, _endpoint_maxes(opener)
         for g in groups:
             eid = os.getenv('ECCO_ENDPOINT_' + g.upper(), '').strip()
-            value = _endpoint_max(eid, opener)
+            value = maxes.get(eid)
             if value is None:  # RunPod not reachable: keep the last answer, else one at a time
                 value = CAPS['groups'].get(g, int(os.getenv('ECCO_QUEUE_CAP_' + g.upper(), '1')))
             found[g] = max(0, value)
