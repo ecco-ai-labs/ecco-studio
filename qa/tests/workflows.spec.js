@@ -730,6 +730,41 @@ test('IMG-L5-03 scale: 250,000 pictures in Image Library draw 60 tiles at a time
   await expect(ws.getByText('Waiting its turn · 10 pictures are sent at a time').first()).toBeVisible();
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L4-05 brand font, headline and price on the picture; Publish previews exactly what is made; PSD with layers and TIFF at 300 dpi',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await page.evaluate(()=>{localStorage.removeItem('ecco-brand-kits');const base=api;api=async(path,body)=>{
+    if(path==='images/upload'){window.__qaCalls.push({path,body});const a={id:'qa-up-'+window.__qaCalls.length,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:body.name,path:'qa/fixtures/sample.svg',created:1700009000};state.records.push(a);mediaCache.set(a.id,'/'+a.path);return a;}
+    if(path==='approve'){window.__qaCalls.push({path,body});return {ok:true};}return base(path,body);};});
+  await ws.getByRole('button',{name:'Brand kit',exact:true}).click();
+  await ws.locator('#iw-brand').getByRole('button',{name:'New brand kit',exact:true}).click();
+  await ws.locator('[data-brand=name]').fill('Bakery');
+  await ws.locator('[data-brand=font]').selectOption('Classic serif');
+  await ws.locator('[data-brand=textColor]').evaluate(el=>{el.value='#ffee00';el.dispatchEvent(new Event('change',{bubbles:true}));});
+  await ws.locator('[data-brand-font]').setInputFiles({name:'BakeryDisplay.ttf',mimeType:'font/ttf',buffer:Buffer.from('not really a font')});
+  await expect(ws.locator('[data-brand=font]')).toHaveValue('Uploaded');
+  expect(await page.evaluate(()=>window.EccoImageBrand.active())).toMatchObject({name:'Bakery',font:'Uploaded',fontName:'BakeryDisplay',textColor:'#ffee00',band:true});
+  await ws.locator('[data-brand=font]').selectOption('Classic serif');
+  await ws.locator('#iw-brand').getByRole('button',{name:'Done',exact:true}).click();
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
+  const words=ws.getByRole('group',{name:'Words on image 1'});
+  await words.getByLabel('Headline').fill('Fresh bread daily');await words.getByLabel('Price or offer').fill('$4.99');
+  // The preview is redrawn with the words; the caption gives the print size at 300 dpi.
+  await expect(ws.locator('img[data-preview]')).toHaveAttribute('src',/^blob:/);
+  await expect(ws.locator('[data-print]')).toHaveText('1 × 1 px · prints sharp up to 0 × 0 in');// the media stub is a 1 × 1 PNG
+  const zipOf=async label=>{await ws.locator('[data-input=exportFormat]').selectOption(label);const d=page.waitForEvent('download');await ws.getByRole('button',{name:'Download pictures',exact:true}).click();const got=await d;return {name:got.suggestedFilename(),text:(await readFile(await got.path())).toString('latin1')};};
+  const psd=await zipOf('psd');expect(psd.name).toBe('ecco-pictures-psd.zip');expect(psd.text).toContain('8BPS');expect(psd.text).toContain('\x07Picture');expect(psd.text).toContain('\x05Words');expect(psd.text).toContain('"dpi": 300');
+  const tif=await zipOf('tiff');expect(tif.name).toBe('ecco-pictures-tiff.zip');expect(tif.text).toContain('II*\x00');expect(tif.text).toContain('Brand: Bakery');
+  const png=await zipOf('png');expect(png.text).toContain('layers/01-');expect(png.text).toMatch(/layers\/01-[^\x00]*-words\.png/);expect(png.text).toContain('pHYs');expect(png.text).toContain('"headline": "Fresh bread daily"');
+  await ws.getByRole('button',{name:'Publish',exact:true}).click();
+  await expect(ws.getByRole('heading',{name:/published to Image Library/})).toBeVisible();
+  const up=await imageCalls(page,'images/upload');expect(up).toHaveLength(1);
+  const sent=await page.evaluate(b64=>{const b=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));return {dpi:window.EccoImageBrand.readDpi(b),meta:window.EccoImageBrand.readText(b)};},up[0].data);
+  expect(sent.dpi).toBe(300);expect(sent.meta).toMatchObject({Brand:'Bakery'});
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){

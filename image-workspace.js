@@ -28,11 +28,11 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,texts:{},exportFormat:'png',resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
-  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};if(!ws.notes||typeof ws.notes!=='object')ws.notes={};
+  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};if(!ws.notes||typeof ws.notes!=='object')ws.notes={};if(!ws.texts||typeof ws.texts!=='object')ws.texts={};
   wsStory=activeStory;modelOpen=false;return ws;
  }
  function save(){try{localStorage.setItem(key(wsStory),JSON.stringify(ws));}catch{}}
@@ -448,7 +448,10 @@
   if(ws.published)return '<section class="iw-published" role="status"><h2>'+ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library</h2><p class="help">You can pick them in step 1 next time.</p><div class="iw-row"><button type="button" class="secondary" data-act="open-library">Open Image Library</button><button type="button" class="secondary" data-act="again">Create more images</button></div></section>';
   if(!ws.selected.length)return '<p class="iw-blank help">Choose images in step 1 first.</p>';
   const kit=B.active(),logo=kit&&kit.logo&&record(kit.logo);
-  return '<div class="story-source-panel">'+(logo?'<label class="iw-check-row"><input type="checkbox" data-act="place-logo"'+(ws.placeLogo?' checked':'')+'> Place the '+esc(kit.name)+' logo ('+esc(kit.position.toLowerCase())+') on each picture</label>':'')+'<div class="iw-publish">'+ws.selected.map((id,i)=>'<figure>'+img(finalOf(id),'Image '+(i+1)+': '+title(id))+'<figcaption class="help">Image '+(i+1)+' · '+esc(title(finalOf(id)))+(ws.final[id]?' · enhanced':'')+'</figcaption></figure>').join('')+'</div></div>';
+  return '<div class="story-source-panel">'+(logo?'<label class="iw-check-row"><input type="checkbox" data-act="place-logo"'+(ws.placeLogo?' checked':'')+'> Place the '+esc(kit.name)+' logo ('+esc(kit.position.toLowerCase())+') on each picture</label>':'')+
+   '<div class="iw-publish">'+ws.selected.map((id,i)=>{const f=finalOf(id),t=textOf(f);return '<figure>'+img(f,'Image '+(i+1)+': '+title(id)).replace('<img ','<img data-preview="'+esc(f)+'" ')+'<figcaption class="help">Image '+(i+1)+' · '+esc(title(f))+(ws.final[id]?' · enhanced':'')+' · <span data-print="'+esc(f)+'"></span></figcaption>'+
+    '<div class="iw-words" role="group" aria-label="Words on image '+(i+1)+'"><label>Headline<input type="text" data-input="textHeadline" data-id="'+esc(f)+'" maxlength="80" value="'+esc(t.headline)+'" placeholder="Optional, for example: Fresh bread daily"></label><div class="iw-pair"><label>Price or offer<input type="text" data-input="textPrice" data-id="'+esc(f)+'" maxlength="30" value="'+esc(t.price)+'" placeholder="Optional, for example: $4.99"></label><label>Words place<select data-input="textPlace" data-id="'+esc(f)+'">'+B.TEXT_PLACES.map(v=>'<option'+(v===t.place?' selected':'')+'>'+v+'</option>').join('')+'</select></label></div></div></figure>';}).join('')+'</div>'+
+   '<div class="iw-pair"><label>Download as<select data-input="exportFormat"><option value="png"'+(ws.exportFormat==='png'?' selected':'')+'>PNG, 300 dpi (layers in a folder)</option><option value="psd"'+(ws.exportFormat==='psd'?' selected':'')+'>Photoshop PSD with layers, 300 dpi</option><option value="tiff"'+(ws.exportFormat==='tiff'?' selected':'')+'>TIFF for print, 300 dpi</option></select></label></div></div>';
  }
 
  /* ---------- frame ---------- */
@@ -472,16 +475,26 @@
    '<label>Never show<input type="text" data-brand="avoid" maxlength="300" value="'+esc(kit.avoid)+'" placeholder="For example: red, clutter, small text"></label>'+
    '<label>Logo<select data-brand="logo"><option value="">No logo</option>'+pics.map(a=>'<option value="'+esc(a.id)+'"'+(a.id===kit.logo?' selected':'')+'>'+esc(title(a.id))+'</option>').join('')+'</select></label>'+
    (kit.logo?'<div class="iw-pair"><label>Logo place<select data-brand="position">'+B.POSITIONS.map(v=>'<option'+(v===kit.position?' selected':'')+'>'+v+'</option>').join('')+'</select></label><label>Logo size<select data-brand="size">'+B.SIZES.map(v=>'<option'+(v===kit.size?' selected':'')+'>'+v+'</option>').join('')+'</select></label></div>':'<p class="help">Upload your logo in step 1 (Upload), then pick it here.</p>')+
-   '<p class="help">While this kit is on, new pictures use its colours and look, and the logo is placed on pictures you publish or download.</p>';
+   '<div class="iw-pair"><label>Font<select data-brand="font">'+B.FONTS.map(f=>'<option'+(f===kit.font?' selected':'')+'>'+f+'</option>').join('')+(kit.fontData?'<option value="Uploaded"'+(kit.font==='Uploaded'?' selected':'')+'>'+esc(kit.fontName||'Uploaded font')+'</option>':'')+'</select></label><label>Words colour<input type="color" data-brand="textColor" value="'+esc(kit.textColor)+'"></label></div>'+
+   '<div class="iw-row"><input type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" data-brand-font hidden><button type="button" class="secondary" data-act="brand-font">'+(kit.fontData?'Replace brand font':'Upload brand font')+'</button><label class="iw-check-row"><input type="checkbox" data-act="brand-band"'+(kit.band?' checked':'')+'> Soft band behind words</label></div>'+
+   '<p class="help">While this kit is on, new pictures use its colours and look; the logo and any headline or price are placed on pictures you publish or download, in the brand font.</p>';
   return '<section class="iw-model-settings" id="iw-brand" role="dialog" aria-labelledby="iw-brand-heading"><div class="iw-head"><h2 id="iw-brand-heading">Brand kit</h2><button type="button" class="secondary" data-act="brand" aria-label="Close brand kit">×</button></div>'+body+
    '<div class="iw-row iw-end">'+(kit?'<button type="button" class="secondary" data-act="brand-delete">Delete kit</button>':'')+'<button type="button" class="secondary" data-act="brand-new">New brand kit</button><button type="button" data-act="brand">Done</button></div></section>';
+ }
+ function brandFont(file){
+  const kit=B.active();if(!kit||!file)return;
+  if(!/\.(ttf|otf|woff2?)$/i.test(file.name)){notice('Choose a TTF, OTF, WOFF or WOFF2 font file.',true);return;}
+  if(file.size>B.FONT_LIMIT){notice('Choose a font file under 600 KB.',true);return;}
+  const r=new FileReader();r.onload=()=>{kit.fontData=String(r.result).split(',')[1]||'';kit.fontName=file.name.replace(/\.[^.]+$/,'');kit.font='Uploaded';B.save(kit);for(const u of Object.keys(previewCache))delete previewCache[u];draw(true);notice(kit.fontName+' is now the brand font.');};
+  r.onerror=()=>notice('The font could not be read.',true);r.readAsDataURL(file);
  }
  function brandInput(el){
   const k=el.dataset.brand,kit=B.active();
   if(k==='pick'){B.use(el.value);draw(true);return;}
   if(!kit)return;
   if(k==='color')kit.colors[+el.dataset.index]=el.value;else kit[k]=el.value;
-  B.save(kit);if(el.tagName==='SELECT')draw(true);else lastHtml='';
+  for(const u of Object.keys(previewCache))delete previewCache[u];
+  B.save(kit);if(el.tagName==='SELECT'||el.type==='color')draw(true);else lastHtml='';
  }
  function foot(){
   if(ws.step==='image')return '<div class="iw-foot"><span class="help">'+ws.selected.length+' selected. You can change them later.</span><button type="button" data-act="step" data-step="enhance"'+(ws.selected.length?'':' disabled')+'>Next: Enhance Image →</button></div>';
@@ -500,7 +513,7 @@
    const caret=focus&&typeof document.activeElement.selectionStart==='number'?[document.activeElement.selectionStart,document.activeElement.selectionEnd]:null;
    root.innerHTML=html;lastHtml=html;
    if(focus){const el=q('#image-workspace [data-input="'+focus+'"]')||q('#'+CSS.escape(focus));el?.focus();if(caret&&el&&typeof el.setSelectionRange==='function')try{el.setSelectionRange(caret[0],caret[1]);}catch{}}
-   window.scrollTo(0,scroll);placePins();
+   window.scrollTo(0,scroll);placePins();if(ws.step==='publish')previews();
   }
   paintJobs();
   if(typeof hydrateMedia==='function')hydrateMedia();
@@ -597,7 +610,7 @@
  function setZip(){
   const s=ws.set;return run('zip',async()=>{
    const files=[];let n=0;
-   for(const [i,p] of s.pages.entries()){if(!record(p.asset))continue;const b=await bytesOf(p.asset);files.push({name:String(i+1).padStart(2,'0')+'-'+J.safeName(p.text).slice(0,40)+(/jpe?g/.test(b.mime)?'.jpg':/webp/.test(b.mime)?'.webp':'.png'),bytes:b.bytes});n++;}
+   for(const [i,p] of s.pages.entries()){if(!record(p.asset))continue;const b=await bytesOf(p.asset);files.push({name:String(i+1).padStart(2,'0')+'-'+J.safeName(p.text).slice(0,40)+(/jpe?g/.test(b.mime)?'.jpg':/webp/.test(b.mime)?'.webp':'.png'),bytes:/png/.test(b.mime)?B.pngDpi(b.bytes,DPI):b.bytes});n++;}
    files.push({name:'pages.txt',bytes:new TextEncoder().encode(s.pages.map((p,i)=>'Page '+(i+1)+': '+p.text).join('\n')+'\n')});
    const url=URL.createObjectURL(new Blob([J.zip(files)],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download=J.safeName(s.name||'picture-set')+'.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
    notice(n+(n===1?' page':' pages')+' downloaded as a ZIP.');
@@ -609,8 +622,12 @@
   (async()=>{
    const pages=[];for(const [i,p] of s.pages.entries()){if(!record(p.asset))continue;const b=await bytesOf(p.asset);pages.push({n:i+1,text:p.text,url:URL.createObjectURL(new Blob([b.bytes],{type:b.mime}))});}
    w.document.open();
-   w.document.write('<!doctype html><html><head><title>'+esc(s.name||'Picture set')+'</title><style>@page{margin:12mm}body{margin:0;font-family:system-ui,sans-serif}section{page-break-after:always;display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px}img{max-width:100%;max-height:85vh}h1{font-size:20px}p{font-size:14px}</style></head><body>'+(s.name?'<h1>'+esc(s.name)+'</h1>':'')+pages.map(p=>'<section><img src="'+p.url+'" alt="Page '+p.n+'"><p>Page '+p.n+' · '+esc(p.text)+'</p></section>').join('')+'</body></html>');
-   w.document.close();setTimeout(()=>{try{w.focus();w.print();}catch{}},600);
+   w.document.write('<!doctype html><html><head><title>'+esc(s.name||'Picture set')+'</title><style>@page{margin:12mm}body{margin:0;font-family:system-ui,sans-serif}section{page-break-after:always;display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px}img{max-width:100%;height:auto}h1{font-size:20px}p{font-size:14px}</style></head><body>'+(s.name?'<h1>'+esc(s.name)+'</h1>':'')+pages.map(p=>'<section><img src="'+p.url+'" alt="Page '+p.n+'"><p>Page '+p.n+' · '+esc(p.text)+'</p></section>').join('')+'</body></html>');
+   w.document.close();
+   // 300 dpi print: each picture is set to its size in inches at 300 pixels per inch (never wider than the page).
+   await Promise.all([...w.document.images].map(im=>im.complete?null:new Promise(r=>{im.onload=im.onerror=r;})));
+   for(const im of w.document.images){if(im.naturalWidth){im.style.width=(im.naturalWidth/DPI)+'in';im.style.maxWidth='100%';im.style.maxHeight='none';im.dataset.dpi=String(DPI);}}
+   setTimeout(()=>{try{w.focus();w.print();}catch{}},600);
   })().catch(error=>{try{w.close();}catch{}notice(error.message,true);});
  }
  function setSave(){
@@ -632,6 +649,8 @@
   else if(a==='brand-color-add'){const k=B.active();if(k&&k.colors.length<5){k.colors.push('#336699');B.save(k);}}
   else if(a==='brand-color-remove'){const k=B.active();if(k){k.colors.splice(+button.dataset.index,1);B.save(k);}}
   else if(a==='place-logo')ws.placeLogo=!ws.placeLogo;
+  else if(a==='brand-font'){q('#image-workspace [data-brand-font]')?.click();return;}
+  else if(a==='brand-band'){const k=B.active();if(k){k.band=!k.band;B.save(k);}}
   else if(a==='download')return run('download',download);
   else if(a==='reset-model'){delete modelProfiles.settings[imageModel()];modelProfiles.selected.images='qwen-image-2512';saveModelProfiles();if(computes().some(g=>g.id==='serverless'))localStorage.setItem('ecco-compute-image','serverless');}
   else if(a==='pick')select(button.dataset.id);
@@ -719,31 +738,76 @@
  const logoOn=()=>{const k=B.active();return k&&k.logo&&record(k.logo)&&ws.placeLogo?k:null;};
  // A finished picture: the logo placed (when the kit is on) and how it was made written into the PNG.
  async function finished(id,kit){
-  const r=record(id)||{},b=await bytesOf(id);let bytes=b.bytes,mime=b.mime;
-  if(kit){const l=await bytesOf(kit.logo);bytes=await B.place(new Blob([bytes],{type:mime}),new Blob([l.bytes],{type:l.mime}),kit);mime='image/png';}
-  if(mime==='image/png')bytes=B.pngText(bytes,{Title:title(id),Prompt:r.prompt||r.settings?.prompt||'',Model:r.model||r.settings?.model||'',Seed:r.settings?.seed??r.seed??'',Brand:kit?kit.name:'',Software:'Ecco Studio'});
+  let bytes,mime;
+  if(kit||hasText(id)){const c=await compose(id);bytes=await B.pngOf(B.flatten(c.layers));mime='image/png';}else{const b=await bytesOf(id);bytes=b.bytes;mime=b.mime;}
+  if(mime==='image/png')bytes=B.pngDpi(B.pngText(bytes,meta(id,B.active()||kit)),DPI);
   return {bytes,mime};
  }
+ /* ---------- words, layers and print files (IMG-4.1, 4.2, 4.5, 3.6) ---------- */
+ const textOf=id=>{const t=ws.texts[id]||{};return {headline:t.headline||'',price:t.price||'',place:B.TEXT_PLACES.includes(t.place)?t.place:'Bottom'};};
+ const hasText=id=>{const t=textOf(id);return !!(t.headline.trim()||t.price.trim());};
+ const blobOf=b=>new Blob([b.bytes],{type:b.mime});
+ // Every layer of a finished picture (picture, words, logo) at full size.
+ async function compose(id){
+  const kit=B.active(),logo=logoOn(),o=await bytesOf(id);
+  return {source:o,layers:await B.layers(blobOf(o),{kit,logoBlob:logo?blobOf(await bytesOf(logo.logo)):null,text:hasText(id)?textOf(id):null})};
+ }
+ const DPI=300,inches=px=>Math.round(px/DPI*10)/10;
+ const previewCache={};let previewing=false;
+ // The pictures in Publish show exactly what will be published: logo and words drawn in the brand font.
+ async function previews(){
+  if(previewing)return;previewing=true;
+  try{
+   for(const im of all('#image-workspace img[data-preview]')){
+    const id=im.dataset.preview,key=id+'|'+JSON.stringify(B.active())+'|'+ws.placeLogo+'|'+JSON.stringify(textOf(id));
+    const note=q('#image-workspace [data-print="'+CSS.escape(id)+'"]');
+    if(!logoOn()&&!hasText(id)){if(im.dataset.key){im.removeAttribute('data-key');const r=record(id);if(r)im.src=media(r);}}
+    else if(im.dataset.key!==key){
+     if(!previewCache[key]){try{const c=await compose(id);previewCache[key]=URL.createObjectURL(new Blob([await B.pngOf(B.flatten(c.layers))],{type:'image/png'}));}catch{continue;}}
+     const now=q('#image-workspace img[data-preview="'+CSS.escape(id)+'"]');if(now){now.src=previewCache[key];now.dataset.key=key;}
+    }
+    const shown=q('#image-workspace img[data-preview="'+CSS.escape(id)+'"]');
+    const size=()=>{if(note&&shown?.naturalWidth)note.textContent=shown.naturalWidth+' × '+shown.naturalHeight+' px · prints sharp up to '+inches(shown.naturalWidth)+' × '+inches(shown.naturalHeight)+' in';};
+    if(shown?.complete)size();else shown?.addEventListener('load',size,{once:true});
+   }
+  }finally{previewing=false;}
+ }
+ const meta=(id,kit)=>{const r=record(id)||{};return {Title:title(id),Prompt:r.prompt||r.settings?.prompt||'',Model:r.model||r.settings?.model||'',Seed:r.settings?.seed??r.seed??'',Brand:kit?kit.name:'',Software:'Ecco Studio'};};
  async function download(){
+  if(ws.exportFormat==='psd'||ws.exportFormat==='tiff')return downloadPro(ws.exportFormat);
   const kit=logoOn(),files=[];
   const list=[];
   for(const [i,id] of ws.selected.map(finalOf).entries()){
    const f=await finished(id,kit),stem=String(i+1).padStart(2,'0')+'-'+J.safeName(title(id)).slice(0,40),r=record(id)||{},file=stem+(f.mime==='image/png'?'.png':/jpe?g/.test(f.mime)?'.jpg':'.webp');
    files.push({name:file,bytes:f.bytes});
    // Layers: the picture without the logo and the logo alone on a clear picture of the same size.
-   if(kit){const o=await bytesOf(id),l=await bytesOf(kit.logo);files.push({name:'layers/'+stem+'-picture'+(/jpe?g/.test(o.mime)?'.jpg':/webp/.test(o.mime)?'.webp':'.png'),bytes:o.bytes});files.push({name:'layers/'+stem+'-logo.png',bytes:await B.layer(new Blob([o.bytes],{type:o.mime}),new Blob([l.bytes],{type:l.mime}),kit)});}
-   list.push({file,title:title(id),prompt:r.prompt||r.settings?.prompt||'',model:r.model||r.settings?.model||'',seed:r.settings?.seed??r.seed??null,versions:[rootOf(id),...(ws.history[rootOf(id)]||[])].length,brand:kit?{name:kit.name,colors:kit.colors,logo_position:kit.position,logo_size:kit.size}:null,notes:noteList(id).map(n=>({x:n.x,y:n.y,where:where(n.x,n.y),text:n.text}))});
+   if(kit||hasText(id)){const c=await compose(id),o=c.source;files.push({name:'layers/'+stem+'-picture'+(/jpe?g/.test(o.mime)?'.jpg':/webp/.test(o.mime)?'.webp':'.png'),bytes:o.bytes});if(c.layers.logo)files.push({name:'layers/'+stem+'-logo.png',bytes:await B.pngOf(c.layers.logo)});if(c.layers.words)files.push({name:'layers/'+stem+'-words.png',bytes:await B.pngOf(c.layers.words)});}
+   list.push({file,title:title(id),prompt:r.prompt||r.settings?.prompt||'',model:r.model||r.settings?.model||'',seed:r.settings?.seed??r.seed??null,versions:[rootOf(id),...(ws.history[rootOf(id)]||[])].length,words:hasText(id)?textOf(id):null,dpi:DPI,brand:kit?{name:kit.name,colors:kit.colors,logo_position:kit.position,logo_size:kit.size}:null,notes:noteList(id).map(n=>({x:n.x,y:n.y,where:where(n.x,n.y),text:n.text}))});
   }
   files.push({name:'pictures.json',bytes:new TextEncoder().encode(JSON.stringify({made_with:'Ecco Studio',exported:new Date().toISOString(),pictures:list},null,2)+'\n')});
   const url=URL.createObjectURL(new Blob([J.zip(files)],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download='ecco-pictures.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   notice(list.length+(list.length===1?' picture':' pictures')+' downloaded'+(kit?' with the '+kit.name+' logo':'')+'.');
+ }
+ // PSD (layers: Picture, Words, Logo) or TIFF (flat, for print), each 300 dpi, one file per picture in a ZIP.
+ async function downloadPro(format){
+  const X=window.EccoImageExport,kit=logoOn(),files=[],list=[];
+  for(const [i,id] of ws.selected.map(finalOf).entries()){
+   const c=await compose(id),L=c.layers,flat=B.flatten(L),stem=String(i+1).padStart(2,'0')+'-'+J.safeName(title(id)).slice(0,40),m=meta(id,B.active());
+   let bytes;
+   if(format==='psd')bytes=X.psd({width:L.width,height:L.height,dpi:DPI,merged:B.rgba(flat),layers:[['Picture',L.picture],['Words',L.words],['Logo',L.logo]].filter(([,c])=>c).map(([name,c])=>({name,pixels:B.rgba(c)}))});
+   else bytes=X.tiff({width:L.width,height:L.height,dpi:DPI,pixels:B.rgba(flat),description:Object.entries(m).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>k+': '+v).join('\n'),software:''});
+   files.push({name:stem+'.'+format,bytes});list.push({file:stem+'.'+format,width:L.width,height:L.height,dpi:DPI,print_inches:[inches(L.width),inches(L.height)],layers:format==='psd'?['Picture',L.words&&'Words',L.logo&&'Logo'].filter(Boolean):null,...Object.fromEntries(Object.entries(m).map(([k,v])=>[k.toLowerCase(),v]))});
+  }
+  files.push({name:'pictures.json',bytes:new TextEncoder().encode(JSON.stringify({made_with:'Ecco Studio',exported:new Date().toISOString(),pictures:list},null,2)+'\n')});
+  const url=URL.createObjectURL(new Blob([J.zip(files)],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download='ecco-pictures-'+format+'.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  notice(list.length+(list.length===1?' picture':' pictures')+' downloaded as '+(format==='psd'?'layered PSD':'TIFF')+' at 300 dpi'+(kit?' with the '+kit.name+' logo':'')+'.');
  }
  async function publish(){
   const story=state.records.find(r=>r.kind==='story'&&r.id===activeStory),name=String(story?.title||'').replace(/\//g,'-').trim().slice(0,80);
   let folder=name?state.records.find(r=>r.kind==='image_folder'&&!r.deleted&&r.name===name):null;
   const ids=ws.selected.map(finalOf),kit=logoOn();
   for(let id of ids){
-   if(kit){const f=await finished(id,kit),made=await api('images/upload',{name:J.safeName(title(id)).slice(0,60)+'-'+J.safeName(kit.name)+'.png',data:base64(f.bytes),story_id:activeStory});if(made&&!state.records.some(r=>r.id===made.id))state.records.push({kind:'asset',media:'image',...made});unsaved([],[id]);id=made.id;}
+   if(kit||hasText(id)){const f=await finished(id,kit),made=await api('images/upload',{name:J.safeName(title(id)).slice(0,60)+'-'+J.safeName(kit?kit.name:'words')+'.png',data:base64(f.bytes),story_id:activeStory});if(made&&!state.records.some(r=>r.id===made.id))state.records.push({kind:'asset',media:'image',...made});unsaved([],[id]);id=made.id;}
    const r=record(id);if(!r||r.stage!=='prod')await api('approve',{asset_id:id});
    if(name){if(!folder)folder=await api('library/folders',{name});if(folder&&!folder.deleted)await api('library/save',{asset_id:id,folder_id:folder.id});}
   }
@@ -753,6 +817,7 @@
  function input(el){
   const k=el.dataset.input;
   if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles()));save();return;}
+  if(k==='textHeadline'||k==='textPrice'||k==='textPlace'){const id=el.dataset.id,t=ws.texts[id]||(ws.texts[id]={});t[{textHeadline:'headline',textPrice:'price',textPlace:'place'}[k]]=el.value;save();clearTimeout(input.timer);input.timer=setTimeout(previews,350);return;}
   if(INPUTS[k]){INPUTS[k](el.value);save();if(el.tagName==='SELECT'||k==='setPages'||k==='charName')draw();return;}
   ws[k]=el.value;save();
   if(k==='genPrompt'){const b=q('#image-workspace [data-act=generate]');if(b)b.disabled=!el.value.trim();const i=q('#image-workspace [data-act=ideas]');if(i&&!busy.ideas)i.disabled=!el.value.trim();}
@@ -793,6 +858,7 @@
   if(e.target.matches('[data-upload-file]')){upload(e.target.files);e.target.value='';}
   else if(e.target.dataset.setting)setting(e.target);
   else if(e.target.dataset.brand)brandInput(e.target);
+  else if(e.target.matches('[data-brand-font]')){brandFont(e.target.files?.[0]);e.target.value='';}
   else if(e.target.tagName==='SELECT'&&e.target.dataset.input)input(e.target);
  });
  document.addEventListener('keydown',e=>{
