@@ -186,3 +186,8 @@ body:not(.workspace-entry-mode) #page#page .lh .lh-pager-bottom button{padding:6
 .ms-chip.ms-exp{border-style:dashed;border-color:var(--ecco-theme-warning,#f0a35e)}
 .ms-chip.ms-listen{border-style:dashed;border-color:var(--ecco-theme-error,#ff6b6b)}
 @media(max-width:760px){.ms-row{grid-template-columns:1fr}}
+/* Characters › Create voice › From Model Sounds: the same slim rows, each chip with a Use link. */
+.ms-pick{margin-top:10px;display:grid;gap:8px}
+.ms-pick .ms-list{max-height:320px;overflow-y:auto}
+.ms-pair{display:inline-flex;align-items:center;gap:2px;margin-right:6px}
+.ms-use{padding:0 4px}
