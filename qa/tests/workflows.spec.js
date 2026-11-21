@@ -1500,6 +1500,12 @@ test('LIB-IMG-01 Image Library has no Add images tile; Upload images at the top 
  await expect(hub.locator('.lh-add')).toHaveCount(0);await expect(hub.getByText('Browse for files',{exact:true})).toHaveCount(0);
  expect(page.qaErrors).toEqual([]);
 });
+test('LIB-VID-01 Video Library has no Add video tile; Upload video at the top adds videos',async({page})=>{
+ await boot(page);const hub=await openLibrary(page,'video');await expect(hub.locator('.lh-card').first()).toBeVisible();
+ await expect(hub.getByRole('button',{name:'Upload video',exact:true})).toBeVisible();
+ await expect(hub.locator('.lh-add')).toHaveCount(0);await expect(hub.getByText('Browse for files',{exact:true})).toHaveCount(0);
+ expect(page.qaErrors).toEqual([]);
+});
 test('GEN-06 Image Generation starts by itself, shows the picture for review and saves it to Image Library only on Save',async({page})=>{
  await boot(page,{sourceFit:'picture'});await page.getByLabel('Story name (required)',{exact:true}).fill('Salt hill');await fillStoryDetail(page,'output','image');
  await pickImageStyle(page,'Watercolor');await page.getByRole('button',{name:/Next: Story Picture/}).click();
