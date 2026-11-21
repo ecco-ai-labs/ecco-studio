@@ -28,7 +28,7 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,texts:{},exportFormat:'png',sizes:{},resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,texts:{},exportFormat:'png',sizes:{},review:null,resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
@@ -464,14 +464,40 @@
  }
 
  /* ---------- step 3: Publish Images ---------- */
+ /* ---------- review links (IMG-4.4) ---------- */
+ // Share the pictures as a link; reviewers pin comments to spots; comments come back with the studio's state and can
+ // be added to each picture's notes, which "Fix these notes" sends to the edit model.
+ const reviewRecord=()=>ws.review?state.records.find(r=>r.kind==='review'&&r.id===ws.review.id):null;
+ const reviewLink=token=>new URL('review.html',location.href.split('#')[0].replace(/\?.*$/,'')).href+'#t='+token;
+ function reviewPane(){
+  const r=reviewRecord(),comments=r?.comments||[],added=new Set(ws.review?.added||[]),fresh=comments.filter(c=>!added.has(c.id));
+  if(!ws.review)return '<section class="pdf-review-box iw-review" aria-labelledby="iw-review-heading"><strong class="pdf-review-heading" id="iw-review-heading">Review</strong><p class="help">Share these pictures with a link. Reviewers do not need an account; they click a spot to comment. The link lasts 14 days.</p><div class="iw-row"><button type="button" class="secondary" data-act="review-share"'+(busy.review?' disabled aria-busy="true"':'')+'>'+(busy.review?spinner+' Making link…':'Share for review')+'</button></div></section>';
+  const pics=(r?.pictures||ws.review.pictures||[]),n=id=>pics.findIndex(p=>p.id===id)+1;
+  return '<section class="pdf-review-box iw-review" aria-labelledby="iw-review-heading"><strong class="pdf-review-heading" id="iw-review-heading">Review</strong>'+
+   (r?.closed?'<p class="help">This link is closed.</p>':'<label>Review link<input type="text" readonly data-review-link value="'+esc(reviewLink(ws.review.token))+'"></label><div class="iw-row"><button type="button" class="secondary" data-act="review-copy">Copy link</button><button type="button" class="secondary" data-act="review-close">Stop sharing</button></div>')+
+   '<p class="help">'+(comments.length?comments.length+(comments.length===1?' comment':' comments')+(fresh.length?', '+fresh.length+' new':''):'No comments yet. They appear here as reviewers add them.')+'</p>'+
+   (comments.length?'<ol class="iw-note-list">'+comments.map(c=>'<li><span>Image '+n(c.asset_id)+' · '+esc(where(c.x,c.y))+': '+esc(c.text)+' <span class="help">— '+esc(c.name)+'</span></span></li>').join('')+'</ol>':'')+
+   (fresh.length?'<div class="iw-row"><button type="button" data-act="review-notes">Add '+fresh.length+(fresh.length===1?' comment':' comments')+' to notes</button></div>':'')+'</section>';
+ }
+ async function reviewShare(){
+  const ids=ws.selected.map(finalOf),story=state.records.find(r=>r.kind==='story'&&r.id===activeStory);
+  const made=await api('review/create',{asset_ids:ids,title:String(story?.title||'Pictures for review').slice(0,120),story_id:activeStory});
+  ws.review={id:made.id,token:made.token,pictures:made.pictures,added:[]};await refresh();
+  try{await navigator.clipboard.writeText(reviewLink(made.token));notice('Review link copied. Send it to your reviewers.');}catch{notice('Review link ready. Copy it to send to your reviewers.');}
+ }
+ function reviewNotes(){
+  const r=reviewRecord();if(!r)return;const added=new Set(ws.review.added||[]);let n=0;
+  for(const c of r.comments||[]){if(added.has(c.id))continue;(ws.notes[c.asset_id]||(ws.notes[c.asset_id]=[])).push({x:c.x,y:c.y,text:c.text+(c.name&&c.name!=='Reviewer'?' ('+c.name+')':'')});added.add(c.id);n++;}
+  ws.review.added=[...added];notice(n+(n===1?' comment':' comments')+' added to notes. Go back to step 1 and choose Fix these notes on each picture.');
+ }
  function publishStep(){
-  if(ws.published)return '<section class="iw-published" role="status"><h2>'+ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library</h2><p class="help">You can pick them in step 1 next time.</p><div class="iw-row"><button type="button" class="secondary" data-act="open-library">Open Image Library</button><button type="button" class="secondary" data-act="again">Create more images</button></div></section>';
+  if(ws.published)return '<section class="iw-published" role="status"><h2>'+ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library</h2><p class="help">You can pick them in step 1 next time.</p><div class="iw-row"><button type="button" class="secondary" data-act="open-library">Open Image Library</button><button type="button" class="secondary" data-act="again">Create more images</button></div></section>'+(ws.review?reviewPane():'');
   if(!ws.selected.length)return '<p class="iw-blank help">Choose images in step 1 first.</p>';
   const kit=B.active(),logo=kit&&kit.logo&&record(kit.logo);
   return '<div class="story-source-panel">'+(logo?'<label class="iw-check-row"><input type="checkbox" data-act="place-logo"'+(ws.placeLogo?' checked':'')+'> Place the '+esc(kit.name)+' logo ('+esc(kit.position.toLowerCase())+') on each picture</label>':'')+
    '<div class="iw-publish">'+ws.selected.map((id,i)=>{const f=finalOf(id),t=textOf(f);return '<figure>'+img(f,'Image '+(i+1)+': '+title(id)).replace('<img ','<img data-preview="'+esc(f)+'" ')+'<figcaption class="help">Image '+(i+1)+' · '+esc(title(f))+(ws.final[id]?' · enhanced':'')+' · <span data-print="'+esc(f)+'"></span></figcaption>'+
     '<div class="iw-words" role="group" aria-label="Words on image '+(i+1)+'"><label>Headline<input type="text" data-input="textHeadline" data-id="'+esc(f)+'" maxlength="80" value="'+esc(t.headline)+'" placeholder="Optional, for example: Fresh bread daily"></label><div class="iw-pair"><label>Price or offer<input type="text" data-input="textPrice" data-id="'+esc(f)+'" maxlength="30" value="'+esc(t.price)+'" placeholder="Optional, for example: $4.99"></label><label>Words place<select data-input="textPlace" data-id="'+esc(f)+'">'+B.TEXT_PLACES.map(v=>'<option'+(v===t.place?' selected':'')+'>'+v+'</option>').join('')+'</select></label></div></div></figure>';}).join('')+'</div>'+
-   '<div class="iw-pair"><label>Download as<select data-input="exportFormat"><option value="png"'+(ws.exportFormat==='png'?' selected':'')+'>PNG, 300 dpi (layers in a folder)</option><option value="psd"'+(ws.exportFormat==='psd'?' selected':'')+'>Photoshop PSD with layers, 300 dpi</option><option value="tiff"'+(ws.exportFormat==='tiff'?' selected':'')+'>TIFF for print, 300 dpi</option></select></label></div></div>';
+   '<div class="iw-pair"><label>Download as<select data-input="exportFormat"><option value="png"'+(ws.exportFormat==='png'?' selected':'')+'>PNG, 300 dpi (layers in a folder)</option><option value="psd"'+(ws.exportFormat==='psd'?' selected':'')+'>Photoshop PSD with layers, 300 dpi</option><option value="tiff"'+(ws.exportFormat==='tiff'?' selected':'')+'>TIFF for print, 300 dpi</option></select></label></div>'+reviewPane()+'</div>';
  }
 
  /* ---------- frame ---------- */
@@ -669,6 +695,10 @@
   else if(a==='brand-color-add'){const k=B.active();if(k&&k.colors.length<5){k.colors.push('#336699');B.save(k);}}
   else if(a==='brand-color-remove'){const k=B.active();if(k){k.colors.splice(+button.dataset.index,1);B.save(k);}}
   else if(a==='place-logo')ws.placeLogo=!ws.placeLogo;
+  else if(a==='review-share')return run('review',reviewShare);
+  else if(a==='review-copy'){const v=q('#image-workspace [data-review-link]')?.value||'';navigator.clipboard?.writeText(v).then(()=>notice('Review link copied.'),()=>{q('#image-workspace [data-review-link]')?.select();notice('Press Ctrl+C or ⌘C to copy the link.');});return;}
+  else if(a==='review-close')return run('review',async()=>{await api('review/close',{review_id:ws.review.id});await refresh();notice('Review link closed. Comments so far are kept.');});
+  else if(a==='review-notes')reviewNotes();
   else if(a==='brand-font'){q('#image-workspace [data-brand-font]')?.click();return;}
   else if(a==='brand-band'){const k=B.active();if(k){k.band=!k.band;B.save(k);}}
   else if(a==='download')return run('download',download);

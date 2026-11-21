@@ -40,6 +40,7 @@ import web_origins
 import youtube_connection
 import voice_references
 import auto_series
+import image_review
 
 ALLOWED_ORIGIN = 'https://ecco-ai-labs.github.io'
 TOKEN_FILE = Path(os.getenv('ECCO_STORAGE_TOKEN_FILE', '/workspace/ecco-storage-private/access.key'))
@@ -64,6 +65,7 @@ WRITE_ROUTES = frozenset({
     '/api/trash/folder', '/api/trash/draft', '/api/trash/restore-draft',
     '/api/trash/empty', '/api/purge', '/api/characters', '/api/object-edits',
     '/api/training-requests', '/api/approve', '/api/director/update',
+    '/api/review/create', '/api/review/close',
 })
 
 def public_records(rows):
@@ -170,6 +172,17 @@ class Handler(legacy.Handler):
                 return self.send({'error': 'Invalid recording link.'}, 403)
         if path == '/healthz':
             return self.send({'ok': True, 'service': 'ecco-storage-api', 'gpu_required': False})
+        if path.startswith('/api/review/public/'):
+            # Review links (IMG-4.4): the token in the link is the only key, and opens only that review's pictures.
+            parts = path.split('/')
+            try:
+                if len(parts) == 5: return self.send(image_review.public(parts[4], vars(legacy)))
+                if len(parts) == 7 and parts[5] == 'media':
+                    file = image_review.media(parts[4], parts[6], vars(legacy))
+                    return self.send(file.read_bytes(), 200, mime=mimetypes.guess_type(file.name)[0] or 'image/png')
+                raise legacy.Problem('Not found', 404)
+            except legacy.Problem as exc:
+                return self.send({'error': exc.message}, exc.code)
         if not self.authorized(): return
         try:
             if path == '/api/youtube/playlists': return self.send(youtube_connection.playlists())
@@ -257,6 +270,19 @@ class Handler(legacy.Handler):
         path = urlsplit(self.path).path
         if google_signin.handle(self, path, self.allowed_origin): return
         if ecco_desk.handle(self, path, self.allowed_origin, legacy.DATA / 'studio.sqlite', self.access_key): return
+        if path.startswith('/api/review/public/') and path.endswith('/comment'):
+            if self.headers.get('Origin') not in web_origins.allowed_origins():
+                return self.send({'error': 'Origin denied'}, 403)
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+                if not 0 < length <= 8192: raise legacy.Problem('Request size invalid', 413)
+                body = json.loads(self.rfile.read(length))
+                if not isinstance(body, dict): raise legacy.Problem('Expected an object')
+                return self.send(image_review.comment(path.split('/')[4], body, vars(legacy)))
+            except legacy.Problem as exc:
+                return self.send({'error': exc.message}, exc.code)
+            except ValueError:
+                return self.send({'error': 'Expected JSON'}, 400)
         if not self.authorized(): return
         if path not in WRITE_ROUTES:
             return self.send({'error': 'This workspace action is not available on the storage service.'}, 409)
@@ -281,6 +307,8 @@ class Handler(legacy.Handler):
                 return self.send(youtube_connection.publish(body))
             if path.startswith('/api/ai/'):
                 return self.send(openai_assistant.handle(path, body, vars(legacy)))
+            if path == '/api/review/create': return self.send(image_review.create(body, vars(legacy)))
+            if path == '/api/review/close': return self.send(image_review.close(body, vars(legacy)))
             if path == '/api/library/rename': return self.send(library_rename.rename(body, vars(legacy)))
             if path == '/api/generation/stop': return self.send(generation_controls.stop(body, vars(legacy)))
             if path == '/api/gpu/request': return self.send(gpu_relay.submit(body))

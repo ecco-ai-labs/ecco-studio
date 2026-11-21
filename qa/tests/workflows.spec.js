@@ -785,6 +785,51 @@ test('IMG-L4-06 one picture to every platform size in one click: six Change shap
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L4-07 share for review: a link for the chosen pictures; reviewers\' pinned comments come back and become notes to fix',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await page.evaluate(()=>{const base=api;api=async(path,body)=>{
+    if(path==='review/create'){window.__qaCalls.push({path,body});const r={id:'qa-review-1',kind:'review',token:'T'.repeat(43),title:body.title,pictures:body.asset_ids.map(id=>({id,title:'Alpha image sample'})),comments:[],expires:Date.now()/1000+14*86400,closed:false};state.records.push(r);return {id:r.id,token:r.token,expires:r.expires,pictures:r.pictures};}
+    if(path==='review/close'){window.__qaCalls.push({path,body});state.records.find(r=>r.id===body.review_id).closed=true;return {id:body.review_id,closed:true};}
+    return base(path,body);};});
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
+  await ws.getByRole('button',{name:'Share for review',exact:true}).click();
+  expect((await imageCalls(page,'review/create'))[0]).toMatchObject({asset_ids:['qa-image-0'],story_id:'qa-story'});
+  await expect(ws.getByLabel('Review link')).toHaveValue(/\/review\.html#t=T{43}$/);
+  await expect(ws.getByText('No comments yet. They appear here as reviewers add them.')).toBeVisible();
+  // Two reviewers comment (they arrive with the studio's state).
+  await page.evaluate(()=>{const r=state.records.find(x=>x.id==='qa-review-1');r.comments=[{id:'c1',asset_id:'qa-image-0',x:.9,y:.1,text:'Logo too small',name:'Sam',created:1},{id:'c2',asset_id:'qa-image-0',x:.5,y:.9,text:'Price in yellow',name:'Reviewer',created:2}];window.EccoImageWorkspace.draw(true);});
+  await expect(ws.locator('.iw-review li')).toHaveText(['Image 1 · top right: Logo too small — Sam','Image 1 · bottom centre: Price in yellow — Reviewer']);
+  await ws.getByRole('button',{name:'Add 2 comments to notes',exact:true}).click();
+  await expect(ws.getByRole('button',{name:/comments to notes/})).toHaveCount(0);
+  await ws.getByRole('button',{name:'Stop sharing',exact:true}).click();await expect(ws.getByText('This link is closed.')).toBeVisible();
+  await ws.getByRole('button',{name:'← Back: Enhance Image',exact:true}).click();await ws.getByRole('button',{name:'← Back: Image',exact:true}).click();
+  await expect(ws.getByRole('group',{name:'Review notes'}).locator('li')).toHaveText(['top right: Logo too small (Sam)×','bottom centre: Price in yellow×']);
+  await expect(ws.getByRole('button',{name:'Fix these 2 notes',exact:true})).toBeVisible();
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
+test('REVIEW-01 the review page shows only the shared pictures; a click pins a comment that is sent with its spot; closed links say so',async({page})=>{
+  const token='R'.repeat(43),base='https://cb9x2l5ao7p3op-8888.proxy.runpod.net/api/review/public/'+token,posts=[];
+  const svg=await readFile(new URL('../fixtures/sample.svg',import.meta.url));
+  await page.route(base,r=>r.fulfill({json:{title:'Bakery ad',pictures:[{id:'p1',title:'Hero'}],comments:[{id:'c0',asset_id:'p1',x:.1,y:.1,text:'Love it',name:'Ana'}],expires:1900000000}}));
+  await page.route(base+'/media/p1',r=>r.fulfill({body:svg,contentType:'image/svg+xml'}));
+  await page.route(base+'/comment',r=>{const b=r.request().postDataJSON();posts.push(b);r.fulfill({json:{id:'c1',...b,name:b.name||'Reviewer',created:2}});});
+  await page.goto('/review.html#t='+token);
+  await expect(page.getByRole('heading',{name:'Bakery ad'})).toBeVisible();
+  const pic=page.getByRole('img',{name:'Picture 1: Hero'});await expect(pic).toHaveAttribute('src',/^blob:/);
+  await expect(page.locator('li')).toHaveText(['Ana · top left: Love it']);
+  const box=await pic.boundingBox();await page.mouse.click(box.x+box.width*.8,box.y+box.height*.85);
+  await page.locator('#rv-text').fill('Make the price bigger');await page.locator('#rv-name').fill('Sam');
+  await page.getByRole('button',{name:'Add comment',exact:true}).click();
+  await expect(page.locator('li')).toHaveText(['Ana · top left: Love it','Sam · bottom right: Make the price bigger']);
+  expect(posts).toHaveLength(1);expect(posts[0]).toMatchObject({asset_id:'p1',text:'Make the price bigger',name:'Sam'});expect(posts[0].x).toBeCloseTo(.8,1);expect(posts[0].y).toBeCloseTo(.85,1);
+  await expect(page.locator('.rv-pin')).toHaveCount(2);
+  // A closed link.
+  await page.unroute(base);await page.route(base,r=>r.fulfill({status:410,json:{error:'This review has been closed by its owner'}}));
+  await page.reload();await expect(page.getByRole('heading',{name:'This review is not available'})).toBeVisible();await expect(page.getByText('This review has been closed by its owner')).toBeVisible();
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){
