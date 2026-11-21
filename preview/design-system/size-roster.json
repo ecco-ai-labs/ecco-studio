@@ -1,0 +1,1736 @@
+{
+  "schemaVersion": 2,
+  "title": "Ecco Studio master size roster",
+  "approval": "2026-11-08: User approved these sizes through the size audit, two rounds of before/after mockups of 24 screens and per-row decisions. Element types are sized here once; every instance of a type takes these values.",
+  "howItWorks": [
+    "The size scale lists named sizes in categories (Title, Heading, Text, Control height, Icon, Image). Each element type picks a size by name (\"@heading-2\"); changing a size changes every element that uses it.",
+    "Each element entry names the selectors that belong to it. Entries are applied in order; when an element matches several, the later entry wins. Variants refine a type and inherit any size they leave empty.",
+    "Edit this file, then run: node scripts/size_roster.mjs. Never edit design-system/sizes.css by hand. Administrators can also edit sizes live in Studio > User Preferences > Look and Feel.",
+    "A new element whose type is already here needs no size of its own. A new kind of element must be added here (a type or a variant) with a size from the scale; the ROSTER-01 browser check fails otherwise."
+  ],
+  "units": "Sizes refer to the scale with \"@id\". A plain number of pixels is allowed for a one-off size; null leaves that property to the element's own styles.",
+  "types": [
+    {
+      "id": "body-text",
+      "name": "Body text",
+      "contractComponent": "text",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "body",
+        "p",
+        "li",
+        "span",
+        "strong",
+        "b",
+        "em",
+        "time",
+        "dd",
+        "dt",
+        ".source-text-preview",
+        ".avatar",
+        ".workspace-icon"
+      ],
+      "excludeInside": [
+        "button",
+        "summary",
+        "label",
+        "legend",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "select",
+        "textarea",
+        "[role=button]",
+        "[role=tab]",
+        "[role=option]",
+        "[role=menuitem]",
+        "small",
+        ".help",
+        ".hint",
+        ".lh-muted",
+        ".eyebrow",
+        ".lh-treehead",
+        "#ecco-error-message",
+        "#story-simple-error",
+        ".textLayer"
+      ],
+      "examples": [
+        "Draft saved in this browser",
+        "Starting allowance",
+        "2 images",
+        "Studios"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "help-text",
+      "name": "Help / caption text",
+      "contractComponent": "help-text",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".help",
+        ".hint",
+        "small",
+        ".lh-muted"
+      ],
+      "examples": [
+        "Publishing schedule: set in the last step.",
+        "Saved in this browser only."
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "eyebrow",
+      "name": "Eyebrow (small caps label)",
+      "contractComponent": "label",
+      "font": "@text-xs",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".eyebrow",
+        ".lh-treehead"
+      ],
+      "examples": [
+        "LABELS",
+        "ECCO DESK"
+      ],
+      "area": "Desk"
+    },
+    {
+      "id": "link",
+      "name": "Link",
+      "contractComponent": "link",
+      "font": "@text-xs",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "a"
+      ],
+      "examples": [
+        "← Ecco AI Labs Studio"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "table-cell",
+      "name": "Table text",
+      "contractComponent": "table-cell",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "td",
+        "th"
+      ],
+      "examples": [
+        "Video",
+        "Nov 14, 2023"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "error-text",
+      "name": "Error / status text",
+      "contractComponent": "error",
+      "font": "@text-medium",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#ecco-error-message",
+        "#story-simple-error"
+      ],
+      "examples": [
+        "Add a story name."
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "notice-message",
+      "name": "Notice message (status line under the header)",
+      "contractComponent": "error",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#notice"
+      ],
+      "examples": [
+        "2 images published to Image Library.",
+        "Pip saved as a character."
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "form-label",
+      "name": "Form label",
+      "contractComponent": "label",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "label",
+        "legend"
+      ],
+      "examples": [
+        "Story name (required)",
+        "What are you making? (required)"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "heading-h3",
+      "name": "Heading h3",
+      "contractComponent": "heading",
+      "font": "@heading-5",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "h3"
+      ],
+      "examples": [
+        "STORIES",
+        "500 credits"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "heading-h2",
+      "name": "Heading h2",
+      "contractComponent": "heading",
+      "font": "@heading-2",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "h2"
+      ],
+      "examples": [
+        "Your Story",
+        "All images",
+        "Generate With AI"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "heading-h1",
+      "name": "Heading h1 (page title)",
+      "contractComponent": "heading",
+      "font": "@heading-1",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "h1"
+      ],
+      "examples": [
+        "Model Garden",
+        "Image library",
+        "Notifications"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "text-input",
+      "name": "Input / dropdown field",
+      "contractComponent": "text-input",
+      "font": "@text-medium",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image])",
+        "select"
+      ],
+      "examples": [
+        "Story name",
+        "Search images",
+        "All types"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "textarea",
+      "name": "Multi-line text box",
+      "contractComponent": "textarea",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "textarea"
+      ],
+      "examples": [
+        "Write your story here",
+        "Describe how to improve the selected text"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "button",
+      "name": "Button",
+      "contractComponent": "button",
+      "font": "@text-regular",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "button",
+        "summary",
+        "[role=button]",
+        "input[type=button]",
+        "input[type=submit]",
+        "input[type=reset]"
+      ],
+      "examples": [
+        "Upload PDF",
+        "Next: Story and characters →",
+        "Choose story type ⌄"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "card",
+      "name": "Card (clickable tile)",
+      "contractComponent": "card",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".lh-card",
+        ".lh-add",
+        ".agent-card"
+      ],
+      "examples": [
+        "Zebra image sample",
+        "Add images",
+        "Tester Agent"
+      ],
+      "area": "Library pages"
+    },
+    {
+      "id": "icon-button",
+      "name": "Icon button",
+      "contractComponent": "icon-button",
+      "font": "@text-medium-large",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "button[aria-label]:has(> svg:only-child)",
+        "#connection-indicators button",
+        "#connection-indicators summary",
+        "#workspace-settings-controls > button",
+        "#workspace-settings-controls > details > summary[data-settings-icon]",
+        "#connection-panel-menu > summary",
+        "#studio-ai-button",
+        "#studio-publishing-icon",
+        "#activity-files-menu",
+        "#notification-bell",
+        "#workspace-discord",
+        "#workspace-support",
+        ".story-character-add",
+        ".pdf-ai-icon",
+        ".icon-button",
+        ".notification-create"
+      ],
+      "examples": [
+        "Notifications bell",
+        "Discord",
+        "Model Garden",
+        "+"
+      ],
+      "area": "Header",
+      "icon": "@icon-medium"
+    },
+    {
+      "id": "menu-option",
+      "name": "Menu / dropdown option",
+      "contractComponent": "menu-item",
+      "font": "@text-medium-large",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        ".workspace-menu-items button",
+        ".workspace-menu-items summary",
+        "#google-user-menu button",
+        "#education-how-to summary",
+        "#learning-days summary",
+        "[role=menuitem]",
+        "[role=option]"
+      ],
+      "examples": [
+        "Connections",
+        "Credit and Usage",
+        "How to"
+      ],
+      "area": "Menus"
+    },
+    {
+      "id": "tab",
+      "name": "Tab",
+      "contractComponent": "tab",
+      "font": "@text-medium-large",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "[role=tab]"
+      ],
+      "examples": [
+        "1. Story Details",
+        "Character 1",
+        "Notifications"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "sidebar-item",
+      "name": "Sidebar item",
+      "contractComponent": "navigation",
+      "font": "@text-regular",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "body > aside button",
+        "body > aside summary",
+        ".nav-item"
+      ],
+      "examples": [
+        "Library",
+        "1. Describe Your Story",
+        "Images 2",
+        "Overview"
+      ],
+      "area": "Left navigation",
+      "icon": "@icon-medium"
+    },
+    {
+      "id": "back-button",
+      "name": "Back button",
+      "contractComponent": "button",
+      "font": "@text-xl",
+      "height": "@control-large",
+      "width": null,
+      "selectors": [
+        "[data-screen-back]",
+        "#workspace-back",
+        ".ecco-back",
+        ".ecco-page-back",
+        ".pdf-tool-back",
+        "[data-tool-back]",
+        ".desk-back",
+        ".agent-back",
+        "[data-page-back]"
+      ],
+      "examples": [
+        "← Back"
+      ],
+      "area": "Header"
+    },
+    {
+      "id": "popup-close",
+      "name": "Popup close / minimize",
+      "contractComponent": "popup-close",
+      "font": null,
+      "height": "@control-medium",
+      "width": "@control-medium",
+      "selectors": [
+        ".ecco-popup-close",
+        ".ecco-popup-minimize"
+      ],
+      "examples": [
+        "Close popup",
+        "Minimize popup"
+      ],
+      "area": "Popups",
+      "icon": "@icon-small"
+    },
+    {
+      "id": "output-tile-text",
+      "name": "Output tile text",
+      "contractComponent": "radio",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#story-detail-output label > span"
+      ],
+      "examples": [
+        "Audio",
+        "Image",
+        "Video"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "library-chip-text",
+      "name": "Library section chip text",
+      "contractComponent": "navigation",
+      "font": "@text-medium",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-hub-nav [data-lib] > span"
+      ],
+      "examples": [
+        "Stories",
+        "Images"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "library-label-text",
+      "name": "Library label text",
+      "contractComponent": "navigation",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-hub-nav .lh-node span"
+      ],
+      "examples": [
+        "All images"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "option-description",
+      "name": "Dropdown option description",
+      "contractComponent": "dropdown-option",
+      "font": "@text-medium",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".story-choice-description"
+      ],
+      "examples": [
+        "One narrator reads the story."
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "list-row-title",
+      "name": "Library row title",
+      "contractComponent": "list-item",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".lh-name"
+      ],
+      "examples": [
+        "Zebra image sample"
+      ],
+      "area": "Library pages"
+    },
+    {
+      "id": "list-row-details",
+      "name": "Library row details",
+      "contractComponent": "list-item",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".lh-sub",
+        ".lh-lab"
+      ],
+      "examples": [
+        "No labels"
+      ],
+      "area": "Library pages"
+    },
+    {
+      "id": "default-badge",
+      "name": "Default badge",
+      "contractComponent": "badge",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".story-detail-default"
+      ],
+      "examples": [
+        "Default"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "welcome-subtitle",
+      "name": "Welcome subtitle",
+      "contractComponent": "text",
+      "font": "@title-sub",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#workspace-entry .entry-subtitle"
+      ],
+      "examples": [
+        "Studios"
+      ],
+      "area": "Welcome"
+    },
+    {
+      "id": "selection-heading",
+      "name": "Selected text heading",
+      "contractComponent": "heading",
+      "font": "@heading-3",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "span.pdf-review-heading"
+      ],
+      "examples": [
+        "Selected Text"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "agent-card-title",
+      "name": "Agent card title",
+      "contractComponent": "card",
+      "font": "@heading-3",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".agent-card strong"
+      ],
+      "examples": [
+        "Tester Agent"
+      ],
+      "area": "Desk"
+    },
+    {
+      "id": "agent-card-text",
+      "name": "Agent card text",
+      "contractComponent": "card",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".agent-card > span > span",
+        ".agent-open"
+      ],
+      "examples": [
+        "Check UX consistency"
+      ],
+      "area": "Desk"
+    },
+    {
+      "id": "list-thumbnail",
+      "name": "Library list thumbnail",
+      "contractComponent": "image",
+      "area": "Library pages",
+      "font": null,
+      "height": "@image-small",
+      "width": "@image-small",
+      "selectors": [
+        ".lh-row .lh-mini"
+      ],
+      "examples": [
+        "Thumbnail in list view"
+      ]
+    },
+    {
+      "id": "card-thumbnail",
+      "name": "Library card thumbnail",
+      "contractComponent": "image",
+      "area": "Library pages",
+      "font": null,
+      "height": "@image-medium",
+      "width": null,
+      "selectors": [
+        ".lh-card .lh-thumb"
+      ],
+      "examples": [
+        "Thumbnail in grid view"
+      ]
+    },
+    {
+      "id": "character-avatar",
+      "name": "Character avatar preview",
+      "contractComponent": "image",
+      "area": "Story Characters",
+      "font": null,
+      "height": 168,
+      "width": 168,
+      "selectors": [
+        ".story-cast-avatar"
+      ],
+      "examples": [
+        "Chosen avatar on the Characters step"
+      ]
+    },
+    {
+      "id": "status-marker",
+      "name": "Status marker",
+      "contractComponent": "status-indicator",
+      "area": "Story Characters",
+      "font": null,
+      "height": 10,
+      "width": 10,
+      "selectors": [
+        ".story-cast-status"
+      ],
+      "examples": [
+        "Not created / Created / Tested dot on a character tab"
+      ]
+    },
+    {
+      "id": "panel-title",
+      "name": "Panel title",
+      "contractComponent": "heading",
+      "font": "@heading-3",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".pdf-review-heading"
+      ],
+      "examples": [
+        "Document Preview",
+        "Selected Text",
+        "Improve with AI"
+      ],
+      "area": "Popups"
+    },
+    {
+      "id": "fine-print",
+      "name": "Fine print",
+      "contractComponent": "text",
+      "font": "@text-small",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#workspace-copyright"
+      ],
+      "examples": [
+        "© 2026 Ecco AI Labs India Pvt Ltd. All rights reserved."
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "header-group",
+      "name": "Header icon group",
+      "contractComponent": "text",
+      "font": null,
+      "height": "@control-large",
+      "width": null,
+      "selectors": [
+        "#connection-indicators",
+        "#workspace-community-controls",
+        "#workspace-settings-controls"
+      ],
+      "examples": [
+        "Storage · AI · Compute · YouTube",
+        "Discord · GitHub · Support · Notifications",
+        "Models · Settings · Files"
+      ],
+      "area": "Header"
+    },
+    {
+      "id": "desk-summary-card",
+      "name": "Desk summary card",
+      "contractComponent": "text",
+      "font": null,
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".metric",
+        ".bottom-cards > button"
+      ],
+      "examples": [
+        "Active requests",
+        "In progress",
+        "Resolved",
+        "Urgent",
+        "Made for your team"
+      ],
+      "area": "Desk",
+      "note": "Tall cards built as buttons. Listed so the Button height (30 px) does not squash them; their own Desk styles size them."
+    },
+    {
+      "id": "gpu-pod-tag",
+      "name": "GPU pod status tag",
+      "contractComponent": "badge",
+      "font": "@text-xs",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".gpu-pod-tag"
+      ],
+      "examples": [
+        "Stopped",
+        "Starting",
+        "Running · 42 min",
+        "Could not start",
+        "Always on"
+      ],
+      "area": "GPU connections"
+    },
+    {
+      "id": "gpu-pod-console",
+      "name": "GPU Studio console line",
+      "contractComponent": "code-log",
+      "font": "@text-small",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".gpu-pod-console li"
+      ],
+      "examples": [
+        "00:21:14 · RunPod refused to start ecco-b200-benchmark: …"
+      ],
+      "area": "GPU connections"
+    },
+    {
+      "id": "model-picker-row",
+      "name": "Model picker row",
+      "contractComponent": "dropdown-option",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".gq-row"
+      ],
+      "examples": [
+        "Qwen-Image-2512 · ●●●●○ High · ~1 min · Est. ~6 min"
+      ],
+      "area": "Story pages",
+      "note": "Two-line rows built as buttons (Select Model, owner-approved 20 Nov 2026). Listed so the Button height does not squash them."
+    },
+    {
+      "id": "queue-image-tab",
+      "name": "Generation image tab",
+      "contractComponent": "tab",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".gq-image-tab"
+      ],
+      "examples": [
+        "Image 1 · 42%"
+      ],
+      "area": "Story pages",
+      "note": "Tab with a name and a small progress bar (generation queue, owner-approved 20 Nov 2026). Listed so the Tab height does not squash it."
+    },
+    {
+      "id": "model-sound-chip",
+      "name": "Model Sounds play chip",
+      "contractComponent": "button",
+      "font": "@text-regular",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        ".ms-chip"
+      ],
+      "examples": [
+        "▶ EN",
+        "▶ Meow"
+      ],
+      "area": "Library pages",
+      "note": "Small play chips in Audio Library › Model Sounds (owner-approved mock, 21 Nov 2026)."
+    }
+  ],
+  "variants": [
+    {
+      "id": "button-hero",
+      "of": "button",
+      "name": "Welcome call to action",
+      "font": "@text-xl",
+      "height": "@control-large",
+      "width": null,
+      "selectors": [
+        "#entry-tell-story"
+      ],
+      "examples": [
+        "Tell Your Story"
+      ],
+      "area": "Welcome"
+    },
+    {
+      "id": "button-journey-step",
+      "of": "button",
+      "name": "Story landing step",
+      "font": "@text-large",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "#story-home-list button[data-story-destination]"
+      ],
+      "examples": [
+        "1. Describe Your Story"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "heading-h1-story",
+      "of": "heading-h1",
+      "name": "Story workspace title",
+      "font": "@title-main",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".story-simple-mode .workspace-ribbon h1"
+      ],
+      "examples": [
+        "Tell Your Story",
+        "story name"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "heading-h1-landing",
+      "of": "heading-h1",
+      "name": "Story landing title",
+      "font": "@title-main",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "main:has(#page > .workspace-home) #heading"
+      ],
+      "examples": [
+        "Tell Your Story"
+      ],
+      "area": "Library pages"
+    },
+    {
+      "id": "heading-h1-welcome",
+      "of": "heading-h1",
+      "name": "Welcome title",
+      "font": "@title-display",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#workspace-entry h1"
+      ],
+      "examples": [
+        "Ecco AI Labs Studios"
+      ],
+      "area": "Welcome"
+    },
+    {
+      "id": "heading-h2-drawer",
+      "of": "heading-h2",
+      "name": "Credits drawer title",
+      "font": "@heading-3",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#workspace-usage-drawer h2"
+      ],
+      "examples": [
+        "Credits and Usage"
+      ],
+      "area": "Menus"
+    },
+    {
+      "id": "text-display",
+      "of": "body-text",
+      "name": "Brand name and empty-state title",
+      "font": "@title-main",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".brand > div",
+        ".ecco-wordmark",
+        ".empty > strong"
+      ],
+      "examples": [
+        "ECCO AI Labs",
+        "Build your cast"
+      ],
+      "area": "Everywhere"
+    },
+    {
+      "id": "sidebar-group-header",
+      "of": "sidebar-item",
+      "name": "Sidebar section header",
+      "font": "@title-sub",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "#workspace-library-group > summary",
+        "#workspace-production-group > summary",
+        "#workspace-studios-group > summary"
+      ],
+      "examples": [
+        "Library",
+        "Tell Your Story"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "sidebar-step",
+      "of": "sidebar-item",
+      "name": "Sidebar story step",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#workspace-production-group button",
+        "#workspace-studios-group button",
+        "#workspace-voice-studio-node > summary"
+      ],
+      "examples": [
+        "1. Describe Your Story"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "sidebar-label-row",
+      "of": "sidebar-item",
+      "name": "Library label row",
+      "font": "@text-regular",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "#library-hub-nav .lh-node"
+      ],
+      "examples": [
+        "All images"
+      ],
+      "area": "Left navigation",
+      "icon": "@icon-small"
+    },
+    {
+      "id": "sidebar-new-label",
+      "of": "sidebar-item",
+      "name": "New label button",
+      "font": "@text-medium",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-hub-nav .lh-newbtn"
+      ],
+      "examples": [
+        "+ New label"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "eyebrow-labels",
+      "of": "eyebrow",
+      "name": "Library LABELS heading",
+      "font": "@text-xl",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-hub-nav .lh-treehead"
+      ],
+      "examples": [
+        "LABELS"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "button-header-menu",
+      "of": "button",
+      "name": "Header menus",
+      "font": "@text-medium-large",
+      "height": "@control-large",
+      "width": null,
+      "selectors": [
+        "#education-menu > summary",
+        "#google-user-name"
+      ],
+      "examples": [
+        "Education and Learning",
+        "Signed-in user name"
+      ],
+      "area": "Header"
+    },
+    {
+      "id": "button-library-landing",
+      "of": "button",
+      "name": "Library page item",
+      "font": "@text-medium-large",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#library-home-list button"
+      ],
+      "examples": [
+        "Story Library",
+        "Image Library"
+      ],
+      "area": "Library pages"
+    },
+    {
+      "id": "heading-h1-story-landing",
+      "of": "heading-h1",
+      "name": "Tell Your Story page title",
+      "font": "@heading-1",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "main:has(#story-home-list) #heading"
+      ],
+      "examples": [
+        "Tell Your Story"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "button-avatar-option",
+      "of": "button",
+      "name": "Avatar option",
+      "font": null,
+      "height": 72,
+      "width": 72,
+      "selectors": [
+        ".story-cast-option"
+      ],
+      "examples": [
+        "Generated avatar choice on the Characters step"
+      ],
+      "area": "Story Characters"
+    },
+    {
+      "id": "button-story-choice",
+      "of": "button",
+      "name": "Tell Your Story choice",
+      "font": "@title-sub",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        ".story-choice-actions .intent-trigger"
+      ],
+      "examples": [
+        "New Story",
+        "Existing Story",
+        "Go to Studio"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "label-expand",
+      "of": "icon-button",
+      "name": "Label expand box",
+      "font": "@text-medium-large",
+      "height": 16,
+      "width": 16,
+      "icon": null,
+      "selectors": [
+        "#library-hub-nav .lh-toggle"
+      ],
+      "examples": [
+        "+"
+      ],
+      "area": "Left navigation"
+    },
+    {
+      "id": "header-icon-button",
+      "of": "icon-button",
+      "name": "Header icon button",
+      "font": null,
+      "height": null,
+      "width": null,
+      "icon": null,
+      "selectors": [
+        "#connection-indicators button",
+        "#connection-indicators summary",
+        "#workspace-settings-controls > button",
+        "#workspace-settings-controls > details > summary[data-settings-icon]",
+        "#connection-panel-menu > summary",
+        "#studio-ai-button",
+        "#studio-publishing-icon",
+        "#activity-files-menu",
+        "#notification-bell",
+        "#workspace-discord",
+        "#workspace-support"
+      ],
+      "examples": [
+        "Storage",
+        "AI",
+        "YouTube",
+        "Discord",
+        "GitHub",
+        "Support",
+        "Notifications"
+      ],
+      "area": "Header"
+    },
+    {
+      "id": "story-upload-target",
+      "of": "button",
+      "name": "Upload PDF drop area",
+      "font": null,
+      "height": 220,
+      "width": null,
+      "selectors": [
+        "#page button.story-upload-target"
+      ],
+      "examples": [
+        "Upload PDF"
+      ],
+      "area": "Story pages"
+    },
+    {
+      "id": "story-gen-percent",
+      "of": "body-text",
+      "name": "Generation overall percent",
+      "font": "@title-display",
+      "height": null,
+      "width": null,
+      "selectors": [
+        ".story-gen-percent"
+      ],
+      "examples": [
+        "47%"
+      ],
+      "area": "Story Generation"
+    },
+    {
+      "id": "story-gen-frame",
+      "of": "button",
+      "name": "Generation frame tile",
+      "font": "@text-regular",
+      "height": 96,
+      "width": null,
+      "selectors": [
+        ".story-gen-frame"
+      ],
+      "examples": [
+        "148"
+      ],
+      "area": "Story Generation"
+    },
+    {
+      "id": "story-gen-image",
+      "of": "button",
+      "name": "Generation image tile",
+      "font": "@text-regular",
+      "height": 220,
+      "width": null,
+      "selectors": [
+        ".story-gen-image"
+      ],
+      "examples": [
+        "Generated image"
+      ],
+      "area": "Story Generation"
+    },
+    {
+      "id": "image-tile",
+      "of": "button",
+      "name": "Image tile",
+      "font": "@text-regular",
+      "height": 74,
+      "width": null,
+      "selectors": [
+        "#image-workspace button.iw-tile",
+        "#story-picture-library button.iw-tile"
+      ],
+      "examples": [
+        "Image Library thumbnail",
+        "Selected image"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "version-tile",
+      "of": "button",
+      "name": "Version tile (All versions strip)",
+      "font": "@text-regular",
+      "height": 54,
+      "width": 72,
+      "selectors": [
+        "#image-workspace .iw-history-strip button.iw-tile"
+      ],
+      "examples": [
+        "Original",
+        "Version 2"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "set-page-tile",
+      "of": "button",
+      "name": "Picture Set page tile",
+      "font": "@text-regular",
+      "height": 150,
+      "width": null,
+      "selectors": [
+        "#image-workspace .iw-page-media button.iw-tile"
+      ],
+      "examples": [
+        "Page 1 picture"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "voice-slot",
+      "of": "button",
+      "name": "Voice slot",
+      "font": "@text-regular",
+      "height": 74,
+      "width": null,
+      "selectors": [
+        "#voice-workspace button.vw-slot"
+      ],
+      "examples": [
+        "Selected voice",
+        "Generated voice"
+      ],
+      "area": "Voice Studio"
+    },
+    {
+      "id": "image-tile-remove",
+      "of": "button",
+      "name": "Remove image (×)",
+      "font": "@text-large",
+      "height": "@control-small",
+      "width": "@control-small",
+      "selectors": [
+        "#image-workspace button.iw-remove",
+        "#voice-workspace button.iw-remove",
+        "#story-picture-library button.iw-remove"
+      ],
+      "examples": [
+        "×"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "image-choice-chip",
+      "of": "button",
+      "name": "Enhancement choice",
+      "font": "@text-medium",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "#image-workspace button.iw-chip",
+        "#voice-workspace button.iw-chip"
+      ],
+      "examples": [
+        "Younger",
+        "Fog",
+        "Image 1"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "image-color-swatch",
+      "of": "button",
+      "name": "Color choice",
+      "font": null,
+      "height": "@control-small",
+      "width": "@control-small",
+      "selectors": [
+        "#image-workspace button.iw-swatch"
+      ],
+      "examples": [
+        "Hair color: Auburn"
+      ],
+      "area": "Create Images"
+    },
+    {
+      "id": "serverless-power-toggle",
+      "of": "button",
+      "name": "Serverless On/Off button",
+      "font": "@text-regular",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "#serverless-power-toggle"
+      ],
+      "examples": [
+        "On",
+        "Off"
+      ],
+      "area": "Header (GPU icon popup)"
+    },
+    {
+      "id": "serverless-auto-off-select",
+      "of": "text-input",
+      "name": "Serverless Auto-off choice",
+      "font": "@text-regular",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        "#serverless-auto-off"
+      ],
+      "examples": [
+        "30 min",
+        "Never"
+      ],
+      "area": "Header (GPU icon popup)"
+    },
+    {
+      "id": "serverless-auto-off-label",
+      "of": "form-label",
+      "name": "Serverless Auto-off label",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#serverless-auto-off-label"
+      ],
+      "examples": [
+        "Auto-off"
+      ],
+      "area": "Header (GPU icon popup)"
+    },
+    {
+      "id": "back-button-beside-next",
+      "of": "back-button",
+      "name": "Back beside Next",
+      "font": "@text-regular",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "#workspace-back[data-placement=\"actions\"]",
+        "[data-next-look]"
+      ],
+      "examples": [
+        "← Back"
+      ],
+      "area": "Navigation"
+    }
+  ],
+  "scale": [
+    {
+      "id": "title",
+      "name": "Title",
+      "kind": "font",
+      "tokens": [
+        {
+          "id": "title-display",
+          "name": "Display",
+          "value": 36
+        },
+        {
+          "id": "title-main",
+          "name": "Main title",
+          "value": 20
+        },
+        {
+          "id": "title-sub",
+          "name": "Subtitle",
+          "value": 15
+        }
+      ]
+    },
+    {
+      "id": "heading",
+      "name": "Heading",
+      "kind": "font",
+      "tokens": [
+        {
+          "id": "heading-1",
+          "name": "Heading 1",
+          "value": 20
+        },
+        {
+          "id": "heading-2",
+          "name": "Heading 2",
+          "value": 15
+        },
+        {
+          "id": "heading-3",
+          "name": "Heading 3",
+          "value": 14
+        },
+        {
+          "id": "heading-4",
+          "name": "Heading 4",
+          "value": 12
+        },
+        {
+          "id": "heading-5",
+          "name": "Heading 5",
+          "value": 11
+        }
+      ]
+    },
+    {
+      "id": "text",
+      "name": "Text",
+      "kind": "font",
+      "tokens": [
+        {
+          "id": "text-xl",
+          "name": "Extra large",
+          "value": 15
+        },
+        {
+          "id": "text-large",
+          "name": "Large",
+          "value": 14
+        },
+        {
+          "id": "text-medium-large",
+          "name": "Medium large",
+          "value": 12
+        },
+        {
+          "id": "text-medium",
+          "name": "Medium",
+          "value": 11
+        },
+        {
+          "id": "text-regular",
+          "name": "Regular",
+          "value": 10
+        },
+        {
+          "id": "text-small",
+          "name": "Small",
+          "value": 8.5
+        },
+        {
+          "id": "text-xs",
+          "name": "Extra small",
+          "value": 7
+        }
+      ]
+    },
+    {
+      "id": "control",
+      "name": "Control height",
+      "kind": "height",
+      "tokens": [
+        {
+          "id": "control-small",
+          "name": "Small",
+          "value": 25
+        },
+        {
+          "id": "control-medium",
+          "name": "Medium",
+          "value": 30
+        },
+        {
+          "id": "control-large",
+          "name": "Large",
+          "value": 40
+        }
+      ]
+    },
+    {
+      "id": "icon",
+      "name": "Icon",
+      "kind": "icon",
+      "tokens": [
+        {
+          "id": "icon-small",
+          "name": "Small",
+          "value": 14
+        },
+        {
+          "id": "icon-medium",
+          "name": "Medium",
+          "value": 16
+        },
+        {
+          "id": "icon-large",
+          "name": "Large",
+          "value": 20
+        }
+      ]
+    },
+    {
+      "id": "image",
+      "name": "Image",
+      "kind": "height",
+      "tokens": [
+        {
+          "id": "image-small",
+          "name": "Small",
+          "value": 24
+        },
+        {
+          "id": "image-medium",
+          "name": "Medium",
+          "value": 131
+        },
+        {
+          "id": "image-large",
+          "name": "Large",
+          "value": 200
+        }
+      ]
+    }
+  ],
+  "colors": {
+    "about": "Theme colors. Each theme sets these roles; a role a theme leaves out keeps Studio's built-in color (the Default theme uses them all). Generated into theme.js and glass-themes.css by scripts/size_roster.mjs.",
+    "roles": {
+      "background": {
+        "label": "Page Background",
+        "builtIn": "#17152f"
+      },
+      "surface": {
+        "label": "Panels and Popups",
+        "builtIn": "#252039"
+      },
+      "control": {
+        "label": "Buttons and Inputs",
+        "builtIn": "#302a54"
+      },
+      "text": {
+        "label": "Primary Text",
+        "builtIn": "#ffffff"
+      },
+      "contrast": {
+        "label": "Text on Accent",
+        "builtIn": "#211b33"
+      },
+      "muted": {
+        "label": "Secondary Text",
+        "builtIn": "#b1acc9"
+      },
+      "accent": {
+        "label": "Accent and Selection",
+        "builtIn": "#ffdc24"
+      },
+      "border": {
+        "label": "Borders",
+        "builtIn": "#51496f"
+      },
+      "error": {
+        "label": "Errors",
+        "builtIn": "#ff6b6b"
+      },
+      "success": {
+        "label": "Success",
+        "builtIn": "#7bcf9b"
+      },
+      "shadow": {
+        "label": "Shadows",
+        "builtIn": "#000000"
+      }
+    },
+    "themes": {
+      "default": {
+        "label": "Default",
+        "status": {
+          "connected": "#ffdc24",
+          "disconnected": "#ffffff"
+        },
+        "colors": {}
+      },
+      "ocean": {
+        "label": "Ocean",
+        "status": {
+          "connected": "#0064c8",
+          "disconnected": "#526577"
+        },
+        "colors": {
+          "background": "#cce7f3",
+          "surface": "rgba(255,255,255,.38)",
+          "control": "rgba(255,255,255,.30)",
+          "text": "#102b40",
+          "contrast": "#ffffff",
+          "muted": "#365369",
+          "accent": "#0064c8",
+          "border": "rgba(0,111,211,.48)",
+          "error": "#ac2323",
+          "success": "#176442",
+          "shadow": "#193d5b"
+        },
+        "glass": {
+          "colorScheme": "light",
+          "backdrop": "linear-gradient(180deg,#d9edf7 0%,#e4f2f8 100%)",
+          "solid": "#eef6fa",
+          "highlight": "#ffffff88",
+          "shadow": "#214b6920"
+        }
+      },
+      "dark-sky": {
+        "label": "Dark Sky",
+        "status": {
+          "connected": "#69c9ff",
+          "disconnected": "#b1c3d7"
+        },
+        "colors": {
+          "background": "#041629",
+          "surface": "rgba(18,48,78,.62)",
+          "control": "rgba(32,79,124,.40)",
+          "text": "#f1f7ff",
+          "contrast": "#06192c",
+          "muted": "#b4cde4",
+          "accent": "#69c9ff",
+          "border": "rgba(75,167,245,.60)",
+          "error": "#ff9898",
+          "success": "#8de1b4",
+          "shadow": "#000a19"
+        },
+        "glass": {
+          "colorScheme": "dark",
+          "backdrop": "radial-gradient(ellipse at 8% 24%,#18558999,transparent 50%),radial-gradient(ellipse at 80% 8%,#17558677,transparent 45%),linear-gradient(145deg,#061c32,#020e1b)",
+          "solid": "#102c48",
+          "highlight": "#99d5ff30",
+          "shadow": "#00081455"
+        }
+      },
+      "dark": {
+        "label": "Dark Mode",
+        "status": {
+          "connected": "#8bf0bc",
+          "disconnected": "#c3c3ca"
+        },
+        "colors": {
+          "background": "#0d0d0f",
+          "surface": "#242428",
+          "control": "#303035",
+          "text": "#f5f5f5",
+          "contrast": "#151517",
+          "muted": "#c3c3ca",
+          "accent": "#c7c7ce",
+          "border": "#b5b5bd",
+          "error": "#ff6b6b",
+          "success": "#7bcf9b",
+          "shadow": "#000000"
+        }
+      },
+      "forest": {
+        "label": "Forest",
+        "status": {
+          "connected": "#ffdc24",
+          "disconnected": "#ffffff"
+        },
+        "colors": {
+          "background": "#123d2a",
+          "surface": "#285a40",
+          "control": "#34714e",
+          "text": "#ffffff",
+          "contrast": "#123d2a",
+          "muted": "#d2e8d8",
+          "accent": "#ffffff",
+          "border": "rgba(255,255,255,.3)",
+          "error": "#ffb1ad",
+          "success": "#b7edbc",
+          "shadow": "#071e13"
+        }
+      },
+      "desert": {
+        "label": "Desert",
+        "status": {
+          "connected": "#3c2c20",
+          "disconnected": "#8c6844"
+        },
+        "colors": {
+          "background": "#dbc49a",
+          "surface": "#f4e6cb",
+          "control": "#ead6b2",
+          "text": "#3c2c20",
+          "contrast": "#fff6e5",
+          "muted": "#67513d",
+          "accent": "#6b4226",
+          "border": "#8c6844",
+          "error": "#a52424",
+          "success": "#2f633b",
+          "shadow": "#503b25"
+        }
+      }
+    }
+  },
+  "tooltips": {
+    "about": "Hover labels in the header (AI, Storage, GPU, Discord, GitHub, Support, Notifications, User Preferences …). fill, text and border name a color role from colors.roles, so they follow every theme. Connection tooltips show a dot in the theme's connected / not-connected color.",
+    "font": "@text-small",
+    "fill": "surface",
+    "text": "text",
+    "border": "border",
+    "dot": 7
+  }
+}

@@ -1,0 +1,1097 @@
+'use strict';
+/* Create Images for Your Story (owner-approved prototype, 2026-11-10).
+   Three steps: 1. Image (upload, Image Library or Generate with AI, then Improve with AI drafts),
+   2. Enhance Image (one tab per image; controls picked for what the image shows; choices are sent with
+   or without a prompt), 3. Publish Images (one Publish button). Model settings stay hidden behind a
+   button; Qwen and Serverless are the defaults. The Story workspace's Story Generation tab keeps its
+   own image form.
+   Image Level 2-3 build (21 Nov 2026, branch image-l5, owner approval 02:03 PT):
+   - Generate never locks: each press queues its pictures; every picture shows what it is doing (place in line,
+     starting a GPU worker, loading the model, step N of M), elapsed time, time left, and a Cancel button.
+   - Pictures per prompt (1-4) with different seeds; a saved Character can be put into a picture.
+   - Picture Set: one page per line, the same character on every page, redo one page, ZIP / PDF / save as a label.
+   - Save as character from a selected image; 6-view character sheet.
+   - ✦ Ideas rewrites a rough prompt into three picture descriptions.
+   - Pictures made here stay out of Image Library until saved or published (ecco-unsaved-images).
+   - The screen is only rewritten when what it shows changes; live progress updates in place. */
+(()=>{
+ const M=window.EccoImageWorkspaceModel,J=window.EccoImageJobs;
+ const EDIT_MODEL='qwen-image-edit-2511',LIMIT=3,DRAFTS=3,CHARACTERS=3,PAGE=60;
+ // How many pictures are sent to the server at once: the server says (config.image_parallel, Serverless workers), 6 otherwise.
+ const inFlight=()=>Math.max(1,Math.min(24,+state.config?.image_parallel||6));
+ const q=(s,r=document)=>r.querySelector(s),all=(s,r=document)=>[...r.querySelectorAll(s)];
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const key=story=>'ecco-image-workspace:'+story;
+ const TAB=Math.random().toString(36).slice(2);
+ let ws=null,wsStory=null,modelOpen=false,brandOpen=false,lastHtml='';const B=window.EccoImageBrand;const busy={};
+ let queueInfo={},queueAt=0,watching=false,ticker=0;
+
+ /* ---------- state ---------- */
+ const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,texts:{},exportFormat:'png',sizes:{},review:null,genRefs:[],refPicker:false,boards:{},pubMore:false,train:null,batches:[],batchName:'',batchText:'',batchStyle:'',batchShape:'',resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ function load(){
+  if(wsStory===activeStory&&ws)return ws;
+  let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
+  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};if(!ws.notes||typeof ws.notes!=='object')ws.notes={};if(!ws.texts||typeof ws.texts!=='object')ws.texts={};if(!ws.sizes||typeof ws.sizes!=='object')ws.sizes={};if(!Array.isArray(ws.genRefs))ws.genRefs=[];if(!ws.boards||typeof ws.boards!=='object')ws.boards={};if(!Array.isArray(ws.batches))ws.batches=[];
+  wsStory=activeStory;modelOpen=false;return ws;
+ }
+ function save(){try{localStorage.setItem(key(wsStory),JSON.stringify(ws));}catch{}}
+ const record=id=>state.records.find(r=>r.id===id&&r.kind==='asset'&&r.media==='image'&&!r.deleted);
+ const jobRecord=id=>id?state.records.find(r=>r.kind==='job'&&r.id===id):null;
+ const characters=()=>state.records.filter(r=>r.kind==='character'&&!r.deleted&&Array.isArray(r.image_ids)&&r.image_ids.length).sort((a,b)=>(b.created||0)-(a.created||0));
+ const character=id=>characters().find(c=>c.id===id);
+ const title=id=>{const r=record(id);return r?.title||r?.prompt?.split('\nVisual style:')[0]?.slice(0,60)||'Image';};
+ // Enhance offers the Popular styles as choices; Generate with AI lists every style by group.
+ const styles=()=>{const S=window.EccoImageStyles;return S?.groups?.find(g=>g[0]==='Popular')?.[1]||S?.names?.slice(0,8)||[];};
+ const styleGroups=()=>window.EccoImageStyles?.groups||[['Styles',window.EccoImageStyles?.names||[]]];
+ function tidy(){
+  ws.selected=ws.selected.filter(record).slice(0,LIMIT);ws.generated=ws.generated.filter(record);
+  for(const [id,f] of Object.entries(ws.final))if(!record(f))delete ws.final[id];
+  ws.active=Math.max(0,Math.min(ws.active,ws.selected.length-1));ws.enh=Math.max(0,Math.min(ws.enh,ws.selected.length-1));
+  ws.set.chars=(ws.set.chars||[]).filter(character).slice(0,CHARACTERS);if(ws.genCharacter&&!character(ws.genCharacter))ws.genCharacter='';
+  // Finished jobs older than a day leave the list; unfinished ones stay until they finish.
+  const day=Date.now()-864e5;ws.jobs=ws.jobs.filter(j=>!j.done||(j.finished||j.created||0)>day).slice(-60);
+ }
+ const finalOf=id=>ws.final[id]||id;
+ const ai=id=>ws.ai[id]||(ws.ai[id]={drafts:[],index:0});
+ const enh=id=>ws.enhance[id]||(ws.enhance[id]={type:'',analysis:null,choices:{},prompt:'',drafts:[],index:0,compare:'after'});
+ // Version history (IMG-2.6): every edit of a picture is kept under the picture it started from. The latest three show
+ // as Draft 1-3; older ones stay in All versions, so nothing is lost when a fourth edit is made.
+ const rootOf=id=>{for(const [root,list] of Object.entries(ws.history))if(list.includes(id))return root;return id;};
+ function keep(source,made){const root=rootOf(source),list=ws.history[root]||(ws.history[root]=[]);if(!list.includes(made))list.push(made);return root;}
+ function addDraft(d,made){d.drafts.push(made);while(d.drafts.length>DRAFTS)d.drafts.shift();d.index=d.drafts.length-1;}
+ function versions(id,act,current){
+  const root=rootOf(id),list=[root,...(ws.history[root]||[])].filter(record);if(list.length<2)return '';
+  return '<div class="iw-group iw-history"><span id="iw-hist-'+act+'">All versions<span class="help"> '+list.length+' · newest last</span></span><div class="iw-history-strip" role="group" aria-labelledby="iw-hist-'+act+'">'+list.map((v,i)=>'<button type="button" class="iw-tile" data-act="'+act+'" data-id="'+esc(v)+'" aria-pressed="'+(v===current)+'" aria-label="'+(i?'Version '+(i+1):'Original')+'">'+thumb(v)+'<span class="iw-badge">'+(i?i+1:'O')+'</span></button>').join('')+'</div></div>';
+ }
+
+ /* ---------- unsaved pictures (owner-approved, 16 Nov): out of Image Library until saved ---------- */
+ const UNSAVED='ecco-unsaved-images';
+ function unsaved(add,remove){
+  let list;try{list=JSON.parse(localStorage.getItem(UNSAVED))||[];}catch{list=[];}
+  const set=new Set(list);(add||[]).forEach(id=>set.add(id));(remove||[]).forEach(id=>set.delete(id));
+  try{localStorage.setItem(UNSAVED,JSON.stringify([...set].slice(-400)));}catch{}
+ }
+
+ /* ---------- model and compute ---------- */
+ function imageModel(){const id=modelProfiles.selected.images;return MODEL_CATALOG[id]&&!MODEL_CATALOG[id].pending&&MODEL_CATEGORIES.images.models.includes(id)?id:'qwen-image-2512';}
+ const computes=()=>window.EccoCompute?.choices()||[];
+ function computeId(){
+  const list=computes(),saved=localStorage.getItem('ecco-compute-image');
+  if(list.some(g=>g.id===saved))return saved;if(list.some(g=>g.id==='serverless'))return 'serverless';return list[0]?.id||'';
+ }
+ const computeName=()=>{const id=computeId();return window.EccoGPUPicker?.gpus.find(g=>g.id===id)?.name||'Not connected';};
+ const usesEdit=()=>ws.step==='image'&&((ws.src==='generate'&&ws.genCharacter)||(ws.src==='set'&&ws.set.chars.length));
+ const modelName=()=>usesEdit()?MODEL_CATALOG[EDIT_MODEL]?.name||'Qwen Image Edit':ws.step==='image'&&(ws.src==='generate'||ws.src==='set')||!ws.selected.length?MODEL_CATALOG[imageModel()].name:MODEL_CATALOG[EDIT_MODEL]?.name||'Qwen Image Edit';
+ // More picture shapes appear once the server lists them (state.config.image_sizes); until then the model's own sizes.
+ const shapeList=()=>J.shapes(MODEL_CATALOG[imageModel()].sizes,state.config?.image_sizes?.[imageModel()]);
+ // Fast mode (Lightning LoRA, 8 steps) is offered once the server reports it (state.config.image_fast); it is then the default.
+ const fastReady=model=>!!state.config?.image_fast?.[model];
+ const quality=()=>ws.genQuality||(fastReady(imageModel())?'fast':'best');
+ const qualitySelect=()=>fastReady(imageModel())||fastReady(EDIT_MODEL)?'<label>Quality<select data-input="genQuality"><option value="fast"'+(quality()==='fast'?' selected':'')+'>Fast · about 15 s</option><option value="best"'+(quality()==='best'?' selected':'')+'>Best · about 1 min</option></select></label>':'';
+ function requireCompute(){const gpu=computeId();if(!gpu)throw Error('Connect Serverless or a GPU in Compute first.');return gpu;}
+ async function waitFor(job){
+  const started=Date.now();
+  for(;;){
+   const next=await api('state'),done=next.records?.find(r=>r.kind==='job'&&r.id===job.id);
+   if(done&&['error','cancelled'].includes(done.status))throw Error(done.error||'Image generation stopped.');
+   if(done?.status==='done'){
+    await refresh(next);const ids=Array.isArray(done.result)?done.result:[done.result];
+    const made=state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted&&(r.job_id===job.id||ids.includes(r.id))).map(r=>r.id);
+    if(!made.length)throw Error('The job finished without an image.');return made;
+   }
+   if(Date.now()-started>600000)throw Error('The image is still generating. Check Activity before trying again.');
+   await new Promise(resolve=>setTimeout(resolve,2000));
+  }
+ }
+ /* ---------- house styles (IMG-5.1): your own pictures as the style for new ones ---------- */
+ // A house style is 1-3 pictures from Image Library. New pictures in a house style are made by the instruction-edit
+ // model with those pictures as references ("same look, new content"); the pictures' own content is not copied.
+ const HOUSE='ecco-house-styles';
+ const houses=()=>{try{const v=JSON.parse(localStorage.getItem(HOUSE)||'[]');return Array.isArray(v)?v.filter(h=>h&&h.id&&Array.isArray(h.refs)):[];}catch{return [];}};
+ const saveHouses=v=>{try{localStorage.setItem(HOUSE,JSON.stringify(v));}catch{}};
+ const house=style=>String(style||'').startsWith('house:')?houses().find(h=>'house:'+h.id===style)||null:null;
+ const houseRefs=h=>h?h.refs.filter(record):[];
+ const housePrompt=(prompt,h)=>'Make a completely new picture in exactly the visual style of the reference '+(h.refs.length>1?'pictures':'picture')+': the same colour palette, lighting, rendering, line work and texture. Do not copy the people, objects or layout of the reference. The new picture shows: '+String(prompt).trim();
+ // Trained house styles (IMG-5.1): a LoRA learned from 10-60 pictures on the style trainer. Value "lora:<training id>".
+ const trainings=()=>state.records.filter(r=>r.kind==='style_training'&&!r.deleted).sort((a,b)=>(b.created||0)-(a.created||0));
+ const trained=style=>{if(!String(style||'').startsWith('lora:'))return null;const r=trainings().find(t=>'lora:'+t.id===style);return r&&r.status==='ready'&&r.lora&&(state.config?.image_style_loras||[]).includes(r.lora)?r:null;};
+ const styled=(prompt,style)=>trained(style)?trained(style).trigger+', '+String(prompt).trim():house(style)?prompt:style&&window.EccoImageStyles?.get(style)?window.EccoImageStyles.prompt(prompt,style):prompt;
+ async function edit(ids,prompt,style){
+  const gpu=requireCompute(),config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings=modelSettings(EDIT_MODEL);
+  if(!config.generation_controls_version&&ids.length>1)throw Error('The connected GPU needs the multi-reference update to use several images. Your choices and prompt are saved.');
+  const full=styled(prompt,style);if(full.length>4000)throw Error('Keep the prompt and choices within 4,000 characters.');
+  const job=await api('image-edits',{gpu,asset_id:ids[0],asset_ids:ids,prompt:full,story_id:activeStory,...settings});
+  const made=await waitFor(job);unsaved(made);return made;
+ }
+ async function run(name,task){
+  if(busy[name])return;busy[name]=true;draw();
+  try{await task();}catch(error){notice(error.message,true);}finally{busy[name]=false;save();if(page==='images'&&q('#image-workspace'))draw();}
+ }
+
+ /* ---------- queued picture jobs ---------- */
+ // A job: {key,kind:'image'|'edit'|'sheet',target:'gen'|'set',page,path,payload,prompt,id,created,claimed,done,error,results}
+ const jobKey=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+ const liveJobs=()=>ws.jobs.filter(j=>!j.done);
+ // Build the request for one picture: a plain picture, or a picture with saved characters (instruction-edit model).
+ async function request(prompt,{style='',shape='',seed=null,chars=[],refs=[]}={}){
+  const gpu=requireCompute();
+  if(refs.length&&!chars.length&&!house(style)){
+   const config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(seed!=null)settings.seed=seed;if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
+   if(!config.generation_controls_version&&refs.length>1)throw Error('The connected GPU needs the multi-reference update to use several reference pictures.');
+   const full=B.prompt(refPrompt(styled(prompt,style),refs),B.active());if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
+   return {kind:'edit',path:'image-edits',payload:{gpu,asset_id:refs[0].id,asset_ids:refs.map(r=>r.id),prompt:full,story_id:activeStory,...settings}};
+  }
+  const h=house(style);
+  if(h){
+   if(chars.length)throw Error('Choose a character or a house style for now, not both.');
+   const refs=houseRefs(h);if(!refs.length)throw Error('The pictures in the house style '+h.name+' are no longer in Image Library.');
+   const config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(seed!=null)settings.seed=seed;if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
+   if(!config.generation_controls_version&&refs.length>1)throw Error('The connected GPU needs the multi-reference update to use a house style with several pictures.');
+   const full=B.prompt(housePrompt(prompt,h),B.active());if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
+   return {kind:'edit',path:'image-edits',payload:{gpu,asset_id:refs[0],asset_ids:refs,prompt:full,story_id:activeStory,...settings}};
+  }
+  if(chars.length){
+   const config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(seed!=null)settings.seed=seed;if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
+   if(!config.generation_controls_version&&chars.length>1)throw Error('The connected GPU needs the multi-reference update to use several characters.');
+   const full=B.prompt(styled(prompt,style),B.active());if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
+   return {kind:'edit',path:'image-edits',payload:{gpu,character_ids:chars,prompt:full,story_id:activeStory,...settings}};
+  }
+  const model=imageModel();await window.EccoCompute.validate(gpu,model);
+  const payload=modelPayload('images',gpu,model);if(shape&&(MODEL_CATALOG[model].sizes?.includes(shape)||state.config?.image_sizes?.[model]?.includes(shape)))payload.resolution=shape;
+  if(seed!=null)payload.seed=seed;if(quality()==='fast'&&fastReady(model))payload.quality='fast';
+  const t=trained(style);if(t){if(model!=='qwen-image-2512')throw Error('Trained house styles work with Qwen-Image-2512. Choose it in Model settings.');payload.style_lora=t.lora;}
+  const kit=B.active(),full=B.prompt(styled(prompt,style),kit);if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
+  return {kind:'image',path:'images',payload:{...payload,prompt:full,negative:B.negative(style?window.EccoImageStyles.negative('',style):'',kit)||'',story_id:activeStory}};
+ }
+ function queue(req,extra){const j={key:jobKey(),created:Date.now(),...req,...extra};ws.jobs.push(j);return j;}
+ async function submit(j){
+  j.claimed=TAB+':'+Date.now();save();
+  try{const job=await api(j.path,j.payload);j.id=job.id;j.claimed='';if(job&&!state.records.some(r=>r.id===job.id))state.records.push({kind:'job',...job});}
+  catch(error){j.claimed='';if(/queue is full|429|too many/i.test(error.message)){j.retryAt=Date.now()+8000;}else{j.done=true;j.finished=Date.now();j.error=error.message;notice(error.message,true);}}
+  save();
+ }
+ function pump(){
+  const flying=ws.jobs.filter(j=>!j.done&&(j.id||(j.claimed&&Date.now()-Number(j.claimed.split(':')[1])<30000))).length;
+  let room=inFlight()-flying;
+  for(const j of ws.jobs){
+   if(room<=0)break;
+   if(j.done||j.id||(j.claimed&&Date.now()-Number(j.claimed.split(':')[1])<30000)||(j.retryAt&&Date.now()<j.retryAt))continue;
+   room--;submit(j).then(async()=>{try{await refresh(await api('state'));}catch{}settle();watch();if(page==='images'&&q('#image-workspace'))draw();});
+  }
+ }
+ // A finished job puts its pictures where they belong: the Generate grid, a set page, or (sheet) the Generate grid.
+ function settle(){
+  let changed=false;
+  for(const j of ws.jobs){
+   if(j.done||!j.id)continue;
+   const r=jobRecord(j.id);if(!r)continue;
+   if(['failed','error','cancelled','interrupted'].includes(r.status)){j.done=true;j.finished=Date.now();j.error=r.status==='cancelled'?'Cancelled':(r.error||'Failed');changed=true;continue;}
+   if(r.status!=='done')continue;
+   const ids=Array.isArray(r.result)?r.result:[r.result];
+   const made=state.records.filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted&&(a.job_id===j.id||ids.includes(a.id))).sort((a,b)=>(a.created||0)-(b.created||0)).map(a=>a.id);
+   if(!made.length)continue;
+   j.done=true;j.finished=Date.now();j.results=made;j.seconds=r.seconds;changed=true;unsaved(made);
+   if(j.target==='sizes'){const d=ws.sizes[j.root]||(ws.sizes[j.root]={});d[j.size]=made[0];keep(j.source,made[0]);}
+   else if(j.target==='set'){const p=ws.set.pages[j.page];if(p&&p.key===j.key){if(p.asset)(p.history||(p.history=[])).push(p.asset);p.asset=made[0];}}
+   else{
+    ws.generated=[...made.slice().reverse(),...ws.generated.filter(id=>!made.includes(id))];
+    if(j.kind==='image'&&j.prompt)for(const id of made)queueCheck(id,j.prompt);
+    if(j.select&&ws.selected.length<LIMIT&&!ws.selected.includes(made[0])){ws.selected.push(made[0]);ws.active=ws.selected.length-1;ws.published=false;}
+   }
+  }
+  if(changed)save();return changed;
+ }
+ async function queuePlaces(){
+  if(Date.now()-queueAt<5000||!liveJobs().some(j=>j.id&&jobRecord(j.id)?.status==='queued'))return;
+  queueAt=Date.now();
+  try{const data=await api('queue?'+new URLSearchParams({owner:window.EccoAuth?.user?.email||'',offset:'0',limit:'50'}).toString());queueInfo={};for(const x of data.items||[])queueInfo[x.id]={place:x.place,wait_seconds:x.wait_seconds};}catch{}
+ }
+ // While pictures are being made, check the server every 2.5 seconds while the page is visible (the studio's own refresh runs every 3).
+ async function watch(){
+  if(watching)return;watching=true;
+  try{
+   while(ws&&liveJobs().length&&window.EccoStorage?.ready!==false){
+    pump();
+    if(!document.hidden){try{const next=await api('state');await refresh(next);}catch{}}
+    await queuePlaces();
+    if(settle()&&page==='images'&&q('#image-workspace'))draw();
+    paintJobs();
+    await new Promise(r=>setTimeout(r,2500));
+   }
+  }finally{watching=false;}
+ }
+ async function cancel(j){
+  if(!j.id){j.done=true;j.finished=Date.now();j.error='Cancelled';save();draw();return;}
+  const r=jobRecord(j.id);
+  try{if(r?.status==='queued'&&!r.started)await api('queue/cancel',{gpu:computeId()||'serverless',job_ids:[j.id]});else await api('generation/stop',{job_id:j.id});}
+  catch(error){notice('Could not cancel: '+error.message,true);return;}
+  j.cancelRequested=true;save();watch();
+ }
+ // Typical time, measured from this workspace's finished jobs of the same kind (Fast jobs measured separately).
+ const typicalSeconds=(kind,fast)=>{const jobs=state.records.filter(r=>r.kind==='job'),done=ws.jobs.filter(j=>j.done&&j.seconds&&!!j.payload?.quality===!!fast&&(j.kind==='image')===(kind==='image')).map(j=>({status:'done',seconds:j.seconds,created:j.created}));
+  return done.length>=2?J.typical(done,'',0):fast?(kind==='image'?15:30):J.typical(jobs,kind==='image'?'image':'edit',kind==='image'?65:150);};
+ // Live lines: written in place every second without redrawing the screen.
+ function paintJobs(){
+  for(const el of all('#image-workspace [data-job]')){
+   const j=ws.jobs.find(x=>x.key===el.dataset.job);if(!j)continue;
+   const r=jobRecord(j.id),s=j.error&&!r?{state:'failed',text:j.error,pct:null,elapsed:'',left:''}:!j.id&&!j.claimed?{state:'waiting',text:'Waiting its turn · '+inFlight()+' pictures are sent at a time',pct:null,elapsed:'',left:''}:J.stage(r||(j.id?{status:'queued',created:j.created/1000}:null),Date.now(),queueInfo[j.id],typicalSeconds(j.kind,j.payload?.quality==='fast'));
+   const text=q('[data-job-text]',el),time=q('[data-job-time]',el),bar=q('[data-job-bar]',el);
+   if(text&&text.textContent!==s.text)text.textContent=s.text;
+   const t=[s.elapsed&&s.state!=='done'?s.elapsed+' so far':s.elapsed,s.left].filter(Boolean).join(' · ').replace(/^(?=.)/,'· ');if(time&&time.textContent!==t)time.textContent=t;
+   if(bar){bar.classList.toggle('story-gen-indeterminate',s.pct==null&&!['done','failed','cancelled'].includes(s.state));bar.dataset.status=s.state==='done'?'done':['failed','cancelled'].includes(s.state)?'failed':'running';const fill=bar.firstElementChild;if(fill)fill.style.width=(s.pct==null?(s.state==='done'?100:0):s.pct)+'%';if(s.pct!=null)bar.setAttribute('aria-valuenow',String(s.pct));else bar.removeAttribute('aria-valuenow');}
+   el.dataset.state=s.state;
+   const stop=q('[data-act=cancel-job]',el);if(stop)stop.hidden=['done','failed','cancelled'].includes(s.state)||!!j.cancelRequested;
+  }
+ }
+ function jobCard(j,label){
+  return '<div class="iw-job" data-job="'+esc(j.key)+'"><div class="iw-head"><strong class="iw-job-name">'+esc(label)+'</strong><button type="button" class="secondary" data-act="cancel-job" data-key="'+esc(j.key)+'" aria-label="Cancel '+esc(label)+'">Cancel</button></div>'
+   +'<div class="story-gen-track story-gen-indeterminate" data-job-bar role="progressbar" aria-label="'+esc(label)+' progress" aria-valuemin="0" aria-valuemax="100"><span style="width:0%"></span></div>'
+   +'<p class="help" aria-live="polite"><span data-job-text></span> <span data-job-time></span></p></div>';
+ }
+
+ /* ---------- picture check (IMP-03): does the picture show what was asked? ---------- */
+ // The AI service's vision model looks at the finished picture and lists requested details it gets wrong
+ // (counts, colours, left/right, words). Misses come with Fix it (an instruction edit) and Try again (new seed).
+ const CHECK='You are checking a generated picture against the request in the text field. Look at the attached picture. List only requested details that are clearly wrong or missing: counts of things, colours, left/right/above/below positions, and any words that should appear. Ignore style and small details. Return the text field as JSON only: {"ok":true,"misses":[]} or {"ok":false,"misses":["short plain fix instruction", ...]} with at most 4 misses, each written as an instruction such as "Show three red cups, not two".';
+ function parseCheck(text){try{const v=JSON.parse(String(text).replace(/^```(?:json)?|```$/g,'').trim());const misses=Array.isArray(v.misses)?v.misses.map(m=>String(m).slice(0,160)).filter(Boolean).slice(0,4):[];return {ok:!!v.ok&&!misses.length,misses};}catch{return null;}}
+ const checking=new Set();
+ function queueCheck(id,prompt){
+  if(!ws.autoCheck||!window.EccoAI?.enabled||ws.checks[id]||checking.has(id))return;
+  ws.checks[id]={status:'checking',prompt};checking.add(id);
+  api('ai/enhance',{stage:'image',mode:'improve',story_id:null,reference_ids:[id],fields:[{id:'picture_check',text:String(prompt).split('\nVisual style:')[0].slice(0,3000),max_length:4000}],context:{instructions:CHECK},review_only:false})
+   .then(result=>{const r=parseCheck(result.revisions?.find(x=>x.id==='picture_check')?.text);ws.checks[id]=r?{status:r.ok?'ok':'misses',misses:r.misses,prompt}:{status:'unknown',prompt};})
+   .catch(()=>{ws.checks[id]={status:'unknown',prompt};})
+   .finally(()=>{checking.delete(id);save();if(page==='images'&&q('#image-workspace'))draw();});
+ }
+ async function fixPicture(id){
+  const c=ws.checks[id];if(!c?.misses?.length)return;
+  try{const gpu=requireCompute(),config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
+   const prompt='Fix this picture: '+c.misses.join('; ')+'. Keep everything else the same.';
+   queue({kind:'edit',path:'image-edits',payload:{gpu,asset_id:id,asset_ids:[id],prompt,story_id:activeStory,...settings}},{target:'gen',prompt:'Fix: '+c.misses[0]});c.status='fixing';}
+  catch(error){notice(error.message,true);return;}
+  save();pump();draw();watch();
+ }
+ async function retryPicture(id){
+  const c=ws.checks[id];if(!c?.prompt)return;
+  try{const req=await request(c.prompt,{style:ws.genStyle,shape:ws.genShape,seed:Math.floor(Math.random()*2147000000)});queue(req,{target:'gen',prompt:c.prompt});c.status='retried';}
+  catch(error){notice(error.message,true);return;}
+  save();pump();draw();watch();
+ }
+ function checksPane(){
+  const ids=ws.generated.slice(0,12).filter(id=>ws.checks[id]),list=ids.map(id=>[id,ws.checks[id]]);if(!list.length)return '';
+  const busy=list.filter(([,c])=>c.status==='checking').length,ok=list.filter(([,c])=>c.status==='ok').length,miss=list.filter(([,c])=>['misses','fixing','retried'].includes(c.status));
+  return '<div class="iw-checks" aria-live="polite"><p class="help">'+(busy?spinner+' Checking '+busy+(busy===1?' picture':' pictures')+' against your prompt… ':'')+(ok?'✓ '+ok+(ok===1?' picture matches':' pictures match')+' your prompt. ':'')+(miss.length?miss.length+(miss.length===1?' picture misses':' pictures miss')+' something:':'')+'</p>'
+   +miss.map(([id,c])=>{const done=c.status!=='misses';return '<div class="iw-check" data-check="'+esc(id)+'"><p>'+esc(title(id))+': '+esc(c.misses.join(' · '))+'</p>'+(done?'<p class="help">'+(c.status==='fixing'?'Fixing: the corrected picture appears above when it is ready.':'Trying again with a new seed: the new picture appears above.')+'</p>':'<div class="iw-row"><button type="button" class="secondary" data-act="fix-picture" data-id="'+esc(id)+'" aria-label="Fix it: '+esc(title(id))+'">Fix it</button><button type="button" class="secondary" data-act="retry-picture" data-id="'+esc(id)+'" aria-label="Try again: '+esc(title(id))+'">Try again</button></div>')+'</div>';}).join('')+'</div>';
+ }
+
+ /* ---------- small pieces ---------- */
+ const img=(id,alt,cls='')=>{const r=record(id);return '<img class="'+cls+'" data-asset="'+esc(id)+'" src="'+esc(r?media(r):'')+'" alt="'+esc(alt)+'">';};
+ // Tiles use the small thumbnail where the storage service offers one (blank tiles in the picker, live test 21 Nov).
+ const thumb=id=>{const r=record(id);const src=r?(typeof thumbURL==='function'?thumbURL(r):'')||media(r):'';return '<img data-thumb="'+esc(id)+'" src="'+esc(src)+'" alt="" loading="lazy">';};
+ const spinner='<span class="generation-spinner" aria-hidden="true"></span>';
+ const tab=(id,label,selected,act,extra='')=>'<button type="button" role="tab" id="'+id+'" aria-selected="'+selected+'" tabindex="'+(selected?0:-1)+'" data-act="'+act+'" '+extra+'>'+label+'</button>';
+ const drafts=(list,index,act)=>'<div class="pdf-ai-drafts iw-drafts" role="tablist" aria-label="Drafts">'+[0,1,2].map(i=>'<button type="button" role="tab" class="pdf-ai-draft-tab" aria-selected="'+(i===index)+'" tabindex="'+(i===index?0:-1)+'" data-filled="'+(!!list[i])+'" data-act="'+act+'" data-index="'+i+'">Draft '+(i+1)+'</button>').join('')+'</div>';
+ function tile(id,number,act){
+  const on=number>0;
+  return '<button type="button" class="iw-tile" data-act="'+act+'" data-id="'+esc(id)+'" aria-pressed="'+on+'" aria-label="'+esc(title(id))+(on?', selected '+number:'')+'">'+thumb(id)+(on?'<span class="iw-badge">'+number+'</span>':'')+'<span class="iw-cap help">'+esc(title(id))+'</span></button>';
+ }
+ const styleSelect=(input,value)=>{const own=houses(),ready=trainings().filter(t=>trained('lora:'+t.id));return '<label>Style<select data-input="'+input+'"><option value="">No style</option>'+(ready.length?'<optgroup label="Trained house styles">'+ready.map(t=>'<option value="lora:'+esc(t.id)+'"'+('lora:'+t.id===value?' selected':'')+'>'+esc(t.name)+'</option>').join('')+'</optgroup>':'')+(own.length?'<optgroup label="Your house styles">'+own.map(h=>'<option value="house:'+esc(h.id)+'"'+('house:'+h.id===value?' selected':'')+'>'+esc(h.name)+'</option>').join('')+'</optgroup>':'')+styleGroups().map(([g,list])=>'<optgroup label="'+esc(g)+'">'+list.map(s=>'<option value="'+esc(s)+'"'+(s===value?' selected':'')+'>'+esc(s)+'</option>').join('')+'</optgroup>').join('')+'</select></label>';};
+ const shapeSelect=(input,value,disabled)=>{const list=shapeList();return list.length?'<label>Shape<select data-input="'+input+'"'+(disabled?' disabled':'')+'>'+list.map(s=>'<option value="'+s.size+'"'+(s.size===value?' selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select></label>':'';};
+
+ /* ---------- step 1: Image ---------- */
+ /* ---------- up to 10 reference pictures (IMG-3.5) ---------- */
+ // The edit model reads 3 pictures. With more than 3, the first two go as they are and the rest are laid out on one
+ // labelled board (made in the browser, kept out of Image Library), so every reference reaches the model.
+ const REFS=10;
+ function refPrompt(prompt,refs){
+  const board=refs.find(r=>r.board),parts=refs.map((r,i)=>r.board?'Reference image '+(i+1)+' is a board of '+r.count+' more reference pictures, numbered '+r.first+' to '+(r.first+r.count-1):'Reference image '+(i+1)+' is reference picture '+(i+1));
+  return 'Use the people, characters, objects, places and look shown in the reference pictures. '+parts.join('. ')+'. '+(board?'Treat each picture on the board as its own reference; do not copy the board layout or its numbers. ':'')+'Make one new picture: '+String(prompt).trim();
+ }
+ async function referenceSet(ids){
+  ids=ids.slice(0,REFS);if(ids.length<=3)return ids.map(id=>({id}));
+  const rest=ids.slice(2),key=rest.join(',');
+  if(!(ws.boards[key]&&record(ws.boards[key]))){
+   const pics=await Promise.all(rest.map(async id=>{const b=await bytesOf(id);return createImageBitmap(new Blob([b.bytes],{type:b.mime}));}));
+   const cols=Math.ceil(Math.sqrt(pics.length)),rows=Math.ceil(pics.length/cols),cell=Math.floor(1536/cols),c=document.createElement('canvas');c.width=cell*cols;c.height=cell*rows;
+   const x=c.getContext('2d');x.fillStyle='#ffffff';x.fillRect(0,0,c.width,c.height);
+   pics.forEach((im,i)=>{const cx=(i%cols)*cell,cy=Math.floor(i/cols)*cell,s=Math.min((cell-16)/im.width,(cell-16)/im.height),w=im.width*s,h=im.height*s;x.drawImage(im,cx+(cell-w)/2,cy+(cell-h)/2,w,h);x.fillStyle='#111';x.fillRect(cx+6,cy+6,34,26);x.fillStyle='#fff';x.font='700 18px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(String(i+3),cx+23,cy+19);});
+   const made=await api('images/upload',{name:'reference-board.png',data:base64(await B.pngOf(c)),story_id:activeStory});
+   if(made&&!state.records.some(r=>r.id===made.id))state.records.push({kind:'asset',media:'image',...made});unsaved([made.id]);ws.boards[key]=made.id;save();
+  }
+  return [{id:ids[0]},{id:ids[1]},{id:ws.boards[key],board:true,first:3,count:rest.length}];
+ }
+ function refsPane(){
+  const chosen=ws.genRefs.filter(record),pick=ws.refPicker?libraryList().shown.slice(0,60):[];
+  return '<div class="iw-group" role="group" aria-label="Reference pictures"><span>Reference pictures<span class="help"> Optional · up to '+REFS+' · '+chosen.length+' chosen</span></span>'+
+   (chosen.length?'<div class="iw-grid iw-library">'+chosen.map((id,i)=>'<div class="iw-slot"><button type="button" class="iw-tile" data-act="ref-toggle" data-id="'+esc(id)+'" aria-pressed="true" aria-label="Reference '+(i+1)+': '+esc(title(id))+'">'+thumb(id)+'<span class="iw-badge">'+(i+1)+'</span></button></div>').join('')+'</div>':'')+
+   '<div class="iw-row"><button type="button" class="secondary" data-act="ref-picker" aria-expanded="'+!!ws.refPicker+'">'+(ws.refPicker?'Done choosing':'Choose reference pictures')+'</button>'+(chosen.length?'<button type="button" class="secondary" data-act="ref-clear">Clear references</button>':'')+'</div>'+
+   (ws.refPicker?'<div class="iw-grid iw-library" role="group" aria-label="Choose reference pictures">'+pick.map(a=>'<button type="button" class="iw-tile" data-act="ref-toggle" data-id="'+esc(a.id)+'" aria-pressed="'+ws.genRefs.includes(a.id)+'" aria-label="'+esc(title(a.id))+'">'+thumb(a.id)+(ws.genRefs.includes(a.id)?'<span class="iw-badge">'+(ws.genRefs.indexOf(a.id)+1)+'</span>':'')+'</button>').join('')+'</div><p class="help">Shows your newest '+pick.length+' pictures; use Search in Select from Image Library to find others.</p>':'')+
+   (chosen.length>3?'<p class="help">The model reads 3 pictures at a time: references 3 to '+chosen.length+' are sent together on one board.</p>':'')+'</div>';
+ }
+ /* ---------- train a house style (IMG-5.1) ---------- */
+ const TRAIN_MIN=10,TRAIN_MAX=60;
+ function trainPane(){
+  const list=trainings(),t=ws.train;
+  const rows=list.length?'<ul class="iw-note-list iw-trainings">'+list.map(r=>'<li><span><strong>'+esc(r.name)+'</strong> · '+r.asset_ids.length+' pictures · '+esc(r.status==='ready'?(trained('lora:'+r.id)?'Ready: pick it under Style':'Ready once the style file reaches the image workers'):r.status==='needs_trainer'?'Waiting: the style trainer is not connected yet':r.status==='failed'?'Stopped: '+(r.error||'training failed'):(r.progress||'Training'))+'</span></li>').join('')+'</ul>':'';
+  if(!t)return '<div class="iw-group" role="group" aria-label="Trained house styles"><span>Trained house styles<span class="help"> Learned from 20 to 50 of your pictures</span></span>'+rows+'<div class="iw-row"><button type="button" class="secondary" data-act="train-open">Train a house style</button></div></div>';
+  const pick=libraryList().shown.slice(0,120),busyTrain=busy.train;
+  return '<div class="iw-group iw-train" role="group" aria-label="Train a house style"><span>Train a house style<span class="help"> '+t.ids.length+' of '+TRAIN_MIN+'-'+TRAIN_MAX+' pictures chosen · 20 to 50 works best</span></span>'+
+   '<label>Style name<input type="text" data-input="trainName" maxlength="80" value="'+esc(t.name)+'" placeholder="For example: Our storybook watercolour"></label>'+
+   '<div class="iw-grid iw-library" role="group" aria-label="Pictures to learn from">'+pick.map(a=>{const n=t.ids.indexOf(a.id);return '<button type="button" class="iw-tile" data-act="train-toggle" data-id="'+esc(a.id)+'" aria-pressed="'+(n>=0)+'" aria-label="'+esc(title(a.id))+'">'+thumb(a.id)+(n>=0?'<span class="iw-badge">'+(n+1)+'</span>':'')+'</button>';}).join('')+'</div>'+
+   '<p class="help">Pick pictures that share the look you want (colour, light, brushwork), with varied subjects. Each picture is described by AI so the style, not the subjects, is learned. Training takes about 1 to 2 hours on a GPU; you can close Studio.</p>'+
+   (t.status?'<p class="help iw-status" role="status">'+esc(t.status)+'</p>':'')+
+   '<div class="iw-row"><button type="button" data-act="train-start"'+(t.ids.length>=TRAIN_MIN&&t.name.trim()&&!busyTrain?'':' disabled')+(busyTrain?' aria-busy="true"':'')+'>'+(busyTrain?spinner+' Preparing…':'Train style from '+t.ids.length+' pictures')+'</button><button type="button" class="secondary" data-act="train-cancel">Cancel</button></div>'+rows+'</div>';
+ }
+ async function trainStart(){
+  const t=ws.train;if(!t||t.ids.length<TRAIN_MIN)return;
+  const items=[];
+  for(const [i,id] of t.ids.entries()){
+   t.status='Describing picture '+(i+1)+' of '+t.ids.length+' (what is in it, not its style)';paintTrain();
+   let caption=title(id);
+   if(window.EccoAI?.enabled){try{const r=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,reference_ids:[id],fields:[{id:'style_caption',text:title(id),max_length:300}],context:{title:'',genre:'',language:'English',summary:JSON.stringify({output:'image'}),lines:[],instructions:'Describe what Reference image 1 shows in one plain sentence: the people, animals, objects, place and action. Do not describe the art style, colours, medium or lighting. Return only the sentence.'},review_only:false});const v=r.revisions?.find(x=>x.id==='style_caption')?.text;if(typeof v==='string'&&v.trim())caption=v.trim().slice(0,300);}catch{}}
+   items.push({asset_id:id,caption});
+  }
+  t.status='Sending to the style trainer';paintTrain();
+  const trigger=('eccostyle'+t.name.toLowerCase().replace(/[^a-z0-9]/g,'')).slice(0,24);
+  const made=await api('style-training',{gpu:requireCompute(),name:t.name.trim(),trigger,items,story_id:activeStory});
+  if(made&&!state.records.some(r=>r.id===made.id))state.records.push(made);await refresh();ws.train=null;
+  notice(made?.status==='needs_trainer'?'The style trainer is not connected yet. Your pictures and captions are saved and training starts once it is set up.':'Training '+t.name.trim()+'. It appears under Style when it is ready (about 1 to 2 hours).');
+ }
+ function paintTrain(){const el=q('#image-workspace .iw-train .iw-status');if(el)el.textContent=ws.train?.status||'';else draw(true);}
+ /* ---------- overnight batch (IMG-5.4): up to 2,000 pictures that keep being made with Studio closed ---------- */
+ const BATCH_MAX=2000;
+ const batchLines=text=>String(text||'').split(/\r?\n/).map(l=>l.replace(/^\s*\d+\s*[.):-]\s*/,'').trim()).filter(Boolean).slice(0,BATCH_MAX);
+ function batchJobs(b){const ids=new Set(b.jobIds);return state.records.filter(r=>r.kind==='job'&&ids.has(r.id));}
+ function batchPane(){
+  const lines=batchLines(ws.batchText),ready=!!state.config?.image_batch,fast=quality()==='fast',per=fast?15:60,par=inFlight();
+  const hours=lines.length?Math.max(0.1,Math.round(lines.length*per/par/360)/10):0;
+  return '<section class="pdf-review-box iw-batch" aria-labelledby="iw-batch-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-batch-heading">Overnight batch</strong><span class="help">Up to 2,000 pictures</span></div>'+
+   (ready?'':'<p class="help">Overnight batches need the Level 5 server install. Until then, use Picture Set (up to 24 pages).</p>')+
+   '<label>Batch name<input type="text" data-input="batchName" maxlength="80" value="'+esc(ws.batchName)+'" placeholder="For example: Catalogue spring 2027"></label>'+
+   '<div class="iw-head"><label for="iw-batch-lines">One picture per line</label><input type="file" accept=".txt,.csv,text/plain,text/csv" data-batch-file hidden><button type="button" class="secondary" data-act="batch-file">Load a .txt or .csv file</button></div>'+
+   '<textarea id="iw-batch-lines" data-input="batchText" rows="8" placeholder="A red sneaker on white&#10;A blue sneaker on white&#10;…">'+esc(ws.batchText)+'</textarea>'+
+   '<div class="iw-pair">'+styleSelect('batchStyle',ws.batchStyle)+shapeSelect('batchShape',ws.batchShape)+'</div>'+(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')+
+   '<p class="help" data-batch-count>'+(lines.length?lines.length.toLocaleString()+(lines.length===1?' picture':' pictures')+' · about '+hours+' hours with '+par+' at once ('+(fast?'Fast':'Best')+' quality)':'Paste lines or load a file.')+'</p>'+
+   '<button type="button" data-act="batch-send"'+(ready&&lines.length&&ws.batchName.trim()&&!busy.batch?'':' disabled')+(busy.batch?' aria-busy="true"':'')+'>'+(busy.batch?spinner+' Sending…':'Send '+lines.length.toLocaleString()+' pictures to the server')+'</button>'+
+   ws.batches.slice().reverse().map(b=>{const jobs=batchJobs(b),done=jobs.filter(j=>j.status==='done').length,failed=jobs.filter(j=>['failed','error','cancelled','interrupted'].includes(j.status)).length,left=b.total-done-failed,pct=b.total?Math.round((done+failed)/b.total*100):0,saved=b.saved||0;
+    return '<div class="iw-job" data-batch="'+esc(b.id)+'"><div class="iw-head"><strong class="iw-job-name">'+esc(b.name)+'</strong>'+(left>0&&b.sent>=b.total?'<button type="button" class="secondary" data-act="batch-cancel" data-id="'+esc(b.id)+'">Cancel the rest</button>':'')+'</div>'+
+     '<div class="story-gen-track" role="progressbar" aria-label="'+esc(b.name)+' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><span style="width:'+pct+'%"></span></div>'+
+     '<p class="help">'+(b.sent<b.total?'Sending '+b.sent.toLocaleString()+' of '+b.total.toLocaleString()+'… keep this page open until all are sent.':done.toLocaleString()+' of '+b.total.toLocaleString()+' made'+(failed?' · '+failed.toLocaleString()+' stopped':'')+(left>0?' · '+left.toLocaleString()+' waiting. You can close Studio: the server keeps going.':' · finished'))+'</p>'+
+     (done?'<div class="iw-row"><button type="button" class="secondary" data-act="batch-save" data-id="'+esc(b.id)+'"'+(busy['bsave:'+b.id]||saved>=done?' disabled':'')+'>'+(busy['bsave:'+b.id]?spinner+' Saving…':saved>=done?'Saved to Image Library':'Save '+(done-saved).toLocaleString()+' to Image Library under '+esc(b.name))+'</button></div>':'')+'</div>';}).join('')+'</section>';
+ }
+ async function batchSend(){
+  const lines=batchLines(ws.batchText),name=ws.batchName.trim();if(!lines.length||!name)return;
+  const style=ws.batchStyle;if(house(style))throw Error('House styles made from 1 to 3 pictures cannot be used in a batch. Use a trained house style or a preset style.');
+  const first=await request(lines[0],{style,shape:ws.batchShape});if(first.kind!=='image')throw Error('A batch makes plain pictures. Clear characters and references first.');
+  const shared={...first.payload};delete shared.prompt;delete shared.seed;
+  const chunk=Math.max(1,Math.min(250,+state.config.image_batch||250)),base=Math.floor(Math.random()*2147000000),kit=B.active();
+  const b={id:'batch-'+Date.now().toString(36),name,total:lines.length,sent:0,jobIds:[],created:Date.now(),saved:0,savedIds:[]};ws.batches.push(b);save();draw();
+  for(let i=0;i<lines.length;i+=chunk){
+   const items=lines.slice(i,i+chunk).map((l,k)=>({prompt:B.prompt(styled(l,style),kit),seed:base+i+k,index:i+k}));
+   const out=await api('image-batch',{batch_id:b.id,shared,items});b.jobIds.push(...(out.job_ids||[]));b.sent=Math.min(lines.length,i+items.length);save();draw();
+  }
+  ws.batchText='';await refresh();notice(name+': '+lines.length.toLocaleString()+' pictures are on the server queue. You can close Studio.');
+ }
+ async function batchSave(id){
+  const b=ws.batches.find(x=>x.id===id);if(!b)return;
+  let folder=state.records.find(r=>r.kind==='image_folder'&&!r.deleted&&r.name===b.name);if(!folder)folder=await api('library/folders',{name:b.name});
+  const done=new Set(b.savedIds||[]);
+  for(const j of batchJobs(b)){if(j.status!=='done')continue;for(const aid of (Array.isArray(j.result)?j.result:[j.result])){if(!aid||done.has(aid))continue;await api('library/save',{asset_id:aid,folder_id:folder.id});done.add(aid);b.savedIds=[...done];b.saved=done.size;if(done.size%25===0){save();paintBatch(b);}}}
+  b.saved=done.size;await refresh();notice(done.size.toLocaleString()+' pictures saved to Image Library under '+b.name+'.');
+ }
+ function paintBatch(){draw(true);}
+ function genPane(){
+  const count=Math.max(1,Math.min(J.MAX_VARIATIONS,+ws.genCount||1)),chars=characters(),char=character(ws.genCharacter);
+  const live=ws.jobs.filter(j=>j.target==='gen'&&!j.done);
+  const ideas=ws.ideas.length?'<div class="iw-group"><span id="iw-ideas-label">Ideas</span><div class="iw-ideas" role="group" aria-labelledby="iw-ideas-label">'+ws.ideas.map((t,i)=>'<div class="iw-idea"><p>'+esc(t)+'</p><button type="button" class="secondary" data-act="use-idea" data-index="'+i+'" aria-label="Use idea '+(i+1)+'">Use</button></div>').join('')+'</div></div>':'';
+  return '<section class="pdf-review-box" aria-labelledby="iw-gen-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-gen-heading">What should the image show?</strong><button type="button" class="pdf-ai-icon" data-act="ideas" aria-label="Write three picture ideas from this prompt" title="Ideas"'+(busy.ideas||!ws.genPrompt.trim()?' disabled':'')+'>'+(busy.ideas?spinner:'<span aria-hidden="true">✦</span>')+'</button></div>'
+   +'<textarea data-input="genPrompt" rows="6" maxlength="3000" aria-labelledby="iw-gen-heading" placeholder="For example: a lighthouse on a black cliff at night, a storm rolling in">'+esc(ws.genPrompt)+'</textarea>'+ideas
+   +'<div class="iw-pair">'+styleSelect('genStyle',ws.genStyle)+shapeSelect('genShape',ws.genShape,!!char)+'</div>'
+   +'<div class="iw-pair"><label>Pictures<select data-input="genCount">'+[1,2,3,4].map(n=>'<option value="'+n+'"'+(n===count?' selected':'')+'>'+n+'</option>').join('')+'</select></label>'
+   +'<label>Character<select data-input="genCharacter"><option value="">No character</option>'+chars.map(c=>'<option value="'+esc(c.id)+'"'+(c.id===ws.genCharacter?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></label></div>'
+   +(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')+refsPane()+trainPane()
+   +(char?'<p class="help">'+esc(char.name)+' keeps the same look. The shape follows the character picture.</p>':'')
+   +'<button type="button" data-act="generate"'+(ws.genPrompt.trim()?'':' disabled')+'>'+(count>1?'Generate '+count+' pictures':'Generate image')+'</button>'
+   +(live.length?'<div class="iw-jobs" aria-label="Pictures in progress">'+live.map((j,i)=>jobCard(j,'Picture '+(i+1)+' · '+String(j.prompt||'').slice(0,40))).join('')+'</div>':'')
+   +(ws.generated.length?'<p class="help">Click an image to select it.</p><div class="iw-grid">'+ws.generated.map(id=>tile(id,ws.selected.indexOf(id)+1,'pick')).join('')+'</div>':'')+checksPane()+'</section>';
+ }
+ function setPane(){
+  const s=ws.set,chars=characters(),lines=J.pages(s.pagesText),live=s.pages.some(p=>{const j=ws.jobs.find(x=>x.key===p.key);return j&&!j.done;});
+  const one=s.chars.length===1?character(s.chars[0]):null,made=s.pages.filter(p=>record(p.asset)).length;
+  return '<section class="pdf-review-box iw-set" aria-labelledby="iw-set-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-set-heading">Picture Set</strong><span class="help">'+(s.pages.length?made+' of '+s.pages.length+' pages ready':'One picture per line')+'</span></div>'
+   +'<label>Set name<input type="text" data-input="setName" maxlength="80" value="'+esc(s.name)+'" placeholder="For example: The Fox and the Lantern"></label>'
+   +'<div class="iw-group"><span id="iw-set-chars">Characters<span class="help"> Pick up to 3 · they look the same on every page</span></span>'+(chars.length?'<div class="iw-options" role="group" aria-labelledby="iw-set-chars">'+chars.map(c=>'<button type="button" class="iw-chip" data-act="set-char" data-id="'+esc(c.id)+'" aria-pressed="'+s.chars.includes(c.id)+'">'+esc(c.name)+'</button>').join('')+'</div>':'<p class="help">No characters yet. Select an image in Selected Images and choose Save as character.</p>')+'</div>'
+   +(one?'<div class="iw-row"><button type="button" class="secondary" data-act="sheet">Make '+esc(one.name)+' character sheet (6 views)</button></div>':'')
+   +'<div class="iw-pair">'+styleSelect('setStyle',s.style)+shapeSelect('setShape',s.shape,s.chars.length>0)+'</div>'+(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')
+   +'<div class="iw-head"><label for="iw-set-pages">Pages</label><button type="button" class="pdf-ai-icon" data-act="write-pages" aria-label="'+(scriptLike(s.pagesText)?'Turn the script into boards':'Write pages from the first line')+'" title="'+(scriptLike(s.pagesText)?'Turn into boards':'Write pages')+'"'+(busy.pages||!s.pagesText.trim()?' disabled':'')+'>'+(busy.pages?spinner:'<span aria-hidden="true">✦</span>')+'</button></div>'
+   +'<textarea id="iw-set-pages" data-input="setPages" rows="7" maxlength="6000" placeholder="One line per page, for example:&#10;The fox finds a lantern in the snow&#10;The fox follows the light into the forest&#10;Or write one idea, or paste a script, and press ✦">'+esc(s.pagesText)+'</textarea>'
+   +'<button type="button" data-act="make-set"'+(lines.length&&!live?'':' disabled')+'>'+(lines.length?'Generate '+lines.length+(lines.length===1?' page':' pages'):'Generate pages')+'</button>'
+   +(s.pages.length?'<div class="iw-set-pages">'+s.pages.map((p,i)=>{
+     const j=ws.jobs.find(x=>x.key===p.key),running=j&&!j.done,label='Page '+(i+1);
+     return '<figure class="iw-page" data-page="'+i+'"><div class="iw-page-media">'+(record(p.asset)?'<button type="button" class="iw-tile" data-act="pick" data-id="'+esc(p.asset)+'" aria-pressed="'+(ws.selected.includes(p.asset))+'" aria-label="'+esc(label)+': '+esc(p.text)+'">'+thumb(p.asset)+'<span class="iw-badge">'+(i+1)+'</span></button>':'<div class="iw-empty-slot help">'+esc(label)+'</div>')+'</div>'
+      +'<figcaption class="help">'+esc(label)+' · '+esc(p.text)+'</figcaption>'+(running?jobCard(j,label):j?.error&&!record(p.asset)?'<p class="help">'+esc(j.error)+'</p>':'')
+      +'<div class="iw-row"><button type="button" class="secondary" data-act="redo-page" data-index="'+i+'"'+(running?' disabled':'')+' aria-label="Redo '+esc(label)+'">Redo</button></div></figure>';
+    }).join('')+'</div>'
+    +'<div class="iw-row"><button type="button" class="secondary" data-act="set-zip"'+(made&&!busy.zip?'':' disabled')+'>'+(busy.zip?spinner+' Preparing…':'Download ZIP')+'</button><button type="button" class="secondary" data-act="set-pdf"'+(made?'':' disabled')+'>Print or save as PDF</button><button type="button" class="secondary" data-act="set-save"'+(made&&!busy.setSave?'':' disabled')+'>'+(busy.setSave?spinner+' Saving…':'Save set to Image Library')+'</button></div>':'')
+   +'</section>';
+ }
+ // Image Library at scale (IMG-5.3): the filtered list is worked out once per change of records, search or label,
+ // with label membership as one Set, and only PAGE tiles are drawn at a time (Show more adds the next PAGE).
+ let libMemo={key:'',images:[],shown:[]};
+ function libraryList(){
+  const recs=state.records,key=recs.length+'|'+(state.cursor??'')+'|'+(recs[recs.length-1]?.id||'')+'|'+ws.search.trim().toLowerCase()+'|'+ws.label+'|'+(localStorage.getItem(UNSAVED)||'');
+  if(libMemo.key===key&&libMemo.recs===recs&&Date.now()-libMemo.at<1500)return libMemo;
+  const images=[],saved=new Set(),inLabel=new Set();
+  for(const r of recs){if(r.deleted)continue;if(r.kind==='asset'&&r.media==='image')images.push(r);else if(r.kind==='library_item'){saved.add(r.asset_id);if(ws.label&&r.folder_id===ws.label)inLabel.add(r.asset_id);}}
+  images.sort((a,b)=>(b.created||0)-(a.created||0));
+  const term=ws.search.trim().toLowerCase();
+  // Pictures made in Image Generation stay out of Image Library until saved there (owner-approved mocks, 2026-11-16).
+  let hidden;try{hidden=new Set(JSON.parse(localStorage.getItem(UNSAVED))||[]);}catch{hidden=new Set();}
+  const shown=images.filter(a=>!(hidden.has(a.id)&&!saved.has(a.id))&&(!term||(a.title||a.prompt||'').toLowerCase().includes(term))&&(!ws.label||inLabel.has(a.id)));
+  libMemo={key,recs,images,shown,at:Date.now()};return libMemo;
+ }
+ function sourcePane(){
+  if(ws.src==='upload')return '<section class="pdf-review-box" aria-labelledby="iw-upload-heading"><strong class="pdf-review-heading" id="iw-upload-heading">Upload an Image</strong><input type="file" accept="image/png,image/jpeg,image/webp" multiple data-upload-file hidden><div class="story-upload-slot"><button type="button" class="story-upload-target" data-act="upload"'+(busy.upload?' disabled aria-busy="true"':'')+'>'+(busy.upload?spinner:'<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>')+(busy.upload?'Uploading…':'Upload Image')+'</button></div><p class="help">PNG, JPG or WebP, one or several at a time. Uploads are added to Selected Images and kept in Image Library.</p></section>';
+  if(ws.src==='generate')return genPane();
+  if(ws.src==='set')return setPane();
+  if(ws.src==='batch')return batchPane();
+  const {images,shown}=libraryList(),folders=state.records.filter(r=>r.kind==='image_folder'&&!r.deleted),more=shown.length-ws.libLimit;
+  return '<section class="pdf-review-box" aria-labelledby="iw-lib-heading"><strong class="pdf-review-heading" id="iw-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-input="search" value="'+esc(ws.search)+'" placeholder="Find an image"></label><label>Label<select data-input="label"><option value="">All images</option>'+folders.map(f=>'<option value="'+esc(f.id)+'"'+(f.id===ws.label?' selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></label></div><p class="help">Select up to 3 images. Click again to deselect. To merge pictures, pick the background first.</p>'+(shown.length?'<p class="help">'+(shown.length>ws.libLimit?'Showing '+ws.libLimit.toLocaleString()+' of '+shown.length.toLocaleString():shown.length.toLocaleString()+(shown.length===1?' image':' images'))+'</p><div class="iw-grid iw-library">'+shown.slice(0,ws.libLimit).map(a=>tile(a.id,ws.selected.indexOf(a.id)+1,'pick')).join('')+'</div>'+(more>0?'<div class="iw-row"><button type="button" class="secondary" data-act="lib-more">Show '+Math.min(PAGE,more)+' more</button></div>':''):'<p class="help">'+(images.length?'No images match.':'Image Library is empty. Upload or generate an image.')+'</p>')+'</section>';
+ }
+ /* ---------- review notes pinned to a spot (IMG-4.4) ---------- */
+ // A note is kept at a spot on the picture (fractions of its width and height); Fix these notes sends them, with
+ // where each one is, to the instruction-edit model. Notes go with the picture into Download pictures.
+ const where=(x,y)=>{const v=y<1/3?'top':y>2/3?'bottom':'middle',h=x<1/3?'left':x>2/3?'right':'centre';return v==='middle'&&h==='centre'?'centre':v==='middle'?h+' side':v+' '+h;};
+ const noteList=id=>ws.notes[id]||[];
+ function pins(id){
+  const list=noteList(id).map((n,i)=>({...n,i:i+1})),d=ws.noteDraft&&ws.noteDraft.id===id?[{...ws.noteDraft,i:noteList(id).length+1,draft:true}]:[];
+  return [...list,...d].map(n=>'<span class="iw-pin'+(n.draft?' iw-pin-draft':'')+'" data-x="'+n.x+'" data-y="'+n.y+'" aria-hidden="true">'+n.i+'</span>').join('');
+ }
+ function notesPane(id){
+  const list=noteList(id),d=ws.noteDraft&&ws.noteDraft.id===id?ws.noteDraft:null;
+  return '<div class="iw-notes" role="group" aria-label="Review notes"><p class="help">Click the picture to pin a note to a spot.</p>'+
+   (d?'<div class="iw-note-form"><label>Note '+(list.length+1)+' · '+esc(where(d.x,d.y))+'<input type="text" data-input="noteText" maxlength="300" value="'+esc(d.text||'')+'" placeholder="For example: make this sign say OPEN"></label><div class="iw-row"><button type="button" data-act="note-save"'+((d.text||'').trim()?'':' disabled')+'>Add note</button><button type="button" class="secondary" data-act="note-cancel">Cancel</button></div></div>':'')+
+   (list.length?'<ol class="iw-note-list">'+list.map((n,i)=>'<li><span>'+esc(where(n.x,n.y))+': '+esc(n.text)+'</span><button type="button" class="secondary" data-act="note-remove" data-index="'+i+'" aria-label="Remove note '+(i+1)+'">×</button></li>').join('')+'</ol><div class="iw-row"><button type="button" data-act="notes-fix"'+(busy.notes||busy.improve?' disabled':'')+(busy.notes?' aria-busy="true"':'')+'>'+(busy.notes?spinner+' Fixing…':'Fix '+(list.length===1?'this note':'these '+list.length+' notes'))+'</button></div>':'')+'</div>';
+ }
+ // Pins sit on the picture itself (object-fit: contain leaves bands), so they are placed once the picture has a size.
+ function placePins(){
+  for(const box of all('#image-workspace [data-pin]')){
+   const im=q('img',box);if(!im||!im.naturalWidth)continue;
+   const bw=box.clientWidth,bh=box.clientHeight,s=Math.min(bw/im.naturalWidth,bh/im.naturalHeight),w=im.naturalWidth*s,h=im.naturalHeight*s,ox=(bw-w)/2,oy=(bh-h)/2;
+   for(const p of all('.iw-pin',box)){p.style.left=(ox+(+p.dataset.x)*w)+'px';p.style.top=(oy+(+p.dataset.y)*h)+'px';}
+  }
+ }
+ function pinAt(box,e){
+  const im=q('img',box);if(!im||!im.naturalWidth)return;
+  const r=box.getBoundingClientRect(),s=Math.min(r.width/im.naturalWidth,r.height/im.naturalHeight),w=im.naturalWidth*s,h=im.naturalHeight*s,ox=(r.width-w)/2,oy=(r.height-h)/2;
+  const x=(e.clientX-r.left-ox)/w,y=(e.clientY-r.top-oy)/h;if(x<0||x>1||y<0||y>1)return;
+  ws.noteDraft={id:box.dataset.pin,x:Math.round(x*1000)/1000,y:Math.round(y*1000)/1000,text:''};save();draw();requestAnimationFrame(()=>q('#image-workspace [data-input=noteText]')?.focus());
+ }
+ const notesPrompt=list=>'Make these changes and keep everything else exactly the same: '+list.map((n,i)=>(i+1)+') in the '+where(n.x,n.y)+' of the picture: '+n.text.trim().replace(/[.;]+$/,'')).join('; ')+'.';
+ function selectedPane(){
+  const id=ws.selected[ws.active],f=ws.charForm;
+  return '<section class="pdf-review-box pdf-selected-label" aria-labelledby="iw-selected-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-selected-heading">Selected Images</strong><span class="help">'+ws.selected.length+' of 3</span></div><p class="help">Only these images go to Enhance Image.</p>'+
+   (id?'<div class="iw-preview" data-pin="'+esc(id)+'">'+img(id,'Image '+(ws.active+1)+': '+title(id))+pins(id)+'<span class="iw-cap help">Image '+(ws.active+1)+' · '+esc(title(id))+'</span></div>'+notesPane(id):'<p class="iw-blank help">Choose images from a tab on the left.</p>')+
+   '<div class="iw-grid">'+[0,1,2].map(i=>{const s=ws.selected[i];return s?'<div class="iw-slot">'+'<button type="button" class="iw-tile" data-act="show" data-index="'+i+'" aria-pressed="'+(i===ws.active)+'" aria-label="Show image '+(i+1)+': '+esc(title(s))+'">'+thumb(s)+'<span class="iw-badge">'+(i+1)+'</span></button><button type="button" class="iw-remove" data-act="remove" data-index="'+i+'" aria-label="Remove image '+(i+1)+'" title="Remove">×</button></div>':'<div class="iw-empty-slot help">Empty</div>';}).join('')+'</div>'+
+   (id?(f?'<div class="iw-character-form" role="group" aria-label="Save as character"><label>Character name<input type="text" data-input="charName" maxlength="100" value="'+esc(f.name)+'" placeholder="For example: Pip the fox"></label><label>What should stay the same<textarea data-input="charDesc" rows="3" maxlength="2000" placeholder="For example: a small red fox with a white chest, green scarf, amber eyes">'+esc(f.desc)+'</textarea></label><div class="iw-row"><button type="button" data-act="char-save"'+(f.name.trim()&&!busy.character?'':' disabled')+'>'+(busy.character?spinner+' Saving…':'Save character')+'</button><button type="button" class="secondary" data-act="char-cancel">Cancel</button></div></div>'
+    :ws.houseForm?'<div class="iw-character-form" role="group" aria-label="Save as house style"><label>House style name<input type="text" data-input="houseName" maxlength="60" value="'+esc(ws.houseForm.name)+'" placeholder="For example: Our storybook look"></label><p class="help">Uses the look of '+(ws.selected.length===1?'this picture':'these '+ws.selected.length+' pictures')+'. Pick it under Style when you generate.</p><div class="iw-row"><button type="button" data-act="house-save"'+(ws.houseForm.name.trim()?'':' disabled')+'>Save house style</button><button type="button" class="secondary" data-act="house-cancel">Cancel</button></div></div>'
+    :'<div class="iw-row"><button type="button" class="secondary" data-act="char-open">Save as character</button><button type="button" class="secondary" data-act="house-open">Save as house style</button></div>'):'')+
+   '</section>';
+ }
+ function improvePane(){
+  const id=ws.selected[ws.active],a=id?ai(id):{drafts:[],index:0},shown=a.drafts[a.index];
+  return '<section class="pdf-review-box" aria-labelledby="iw-ai-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-ai-heading">Improve with AI</strong><button type="button" class="pdf-ai-icon" data-act="improve" aria-label="Improve with AI" title="Improve with AI"'+(!id||busy.improve||!ws.aiPrompt.trim()?' disabled':'')+'>'+(busy.improve?spinner:'<span aria-hidden="true">✦</span>')+'</button></div><textarea data-input="aiPrompt" rows="6" maxlength="2000" aria-label="AI instructions" placeholder="Describe how to change the selected image…">'+esc(ws.aiPrompt)+'</textarea>'+(busy.improve?'<p class="help iw-status" role="status">'+spinner+' Changing the picture. This usually takes 1-3 minutes.</p>':'')+drafts(a.drafts,a.index,'ai-draft')+
+   (shown?'<div class="iw-preview iw-preview-small">'+img(shown,'Draft '+(a.index+1))+'<span class="iw-cap help">Draft '+(a.index+1)+'</span></div>':'<p class="iw-blank help">Your AI output will appear here. ✦ fills the next draft; every version is kept.</p>')+(id?versions(id,'version-use',id):'')+sizePane(id)+
+   '<div class="iw-row"><button type="button" data-act="use-ai"'+(shown?'':' disabled')+'>Use AI Image</button><button type="button" class="secondary" data-act="clear-ai"'+(shown?'':' disabled')+'>Clear AI Output</button></div></section>';
+ }
+ // Change shape (fill the new sides, keep the middle) and Make 4K: only when the server offers them.
+ // One picture to every platform size (IMG-4.3): one Change shape job per size, all queued at once.
+ const PLATFORMS=[['Instagram post 4:5','1104x1380'],['Instagram story 9:16','928x1664'],['YouTube 16:9','1664x928'],['Square post 1:1','1328x1328'],['Web banner 21:9','1568x672'],['Pinterest 2:3','1056x1584']];
+ async function allSizes(id){
+  const root=rootOf(id),done=ws.sizes[root]||(ws.sizes[root]={});
+  try{
+   const gpu=requireCompute();await window.EccoCompute.validate(gpu,EDIT_MODEL);const settings={...modelSettings(EDIT_MODEL)};if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
+   for(const [name,size] of PLATFORMS){if(done[size]&&record(done[size]))continue;queue({kind:'edit',path:'image-resize',payload:{gpu,asset_id:id,size,story_id:activeStory,...settings}},{target:'sizes',source:id,root,size,prompt:name});}
+  }catch(error){notice(error.message,true);return;}
+  save();pump();draw();watch();notice('Making '+PLATFORMS.length+' sizes. They appear under Every size as they finish.');
+ }
+ function sizesGrid(id){
+  const root=rootOf(id),done=ws.sizes[root]||{},jobs=ws.jobs.filter(j=>j.target==='sizes'&&j.root===root);
+  if(!jobs.length&&!Object.keys(done).length)return '';
+  return '<div class="iw-group"><span id="iw-sizes-'+esc(root)+'">Every size</span><div class="iw-set-pages" role="group" aria-labelledby="iw-sizes-'+esc(root)+'">'+PLATFORMS.map(([name,size])=>{
+   const a=done[size],j=jobs.filter(x=>x.size===size).pop(),running=j&&!j.done;
+   return '<figure class="iw-page"><div class="iw-page-media">'+(record(a)?'<button type="button" class="iw-tile" data-act="version-use" data-id="'+esc(a)+'" aria-pressed="'+(a===id)+'" aria-label="Use '+esc(name)+'">'+thumb(a)+'</button>':'<div class="iw-empty-slot help">'+esc(name)+'</div>')+'</div><figcaption class="help">'+esc(name)+' · '+size.replace('x',' × ')+'</figcaption>'+(running?jobCard(j,name):j?.error&&!record(a)?'<p class="help">'+esc(j.error)+'</p>':'')+'</figure>';
+  }).join('')+'</div></div>';
+ }
+ function sizePane(id){
+  const canShape=!!state.config?.image_resize,can4k=!!state.config?.image_upscale;if(!id||(!canShape&&!can4k))return '';
+  const list=shapeList(),r=record(id),now=r?.settings?.resize||r?.settings?.upscale||'',pick=ws.resizeShape||list.find(x=>x.size!==now)?.size||'';
+  return '<div class="iw-group iw-size-tools" role="group" aria-label="Shape and size"><span>Shape and size</span>'+
+   (canShape&&list.length?'<div class="iw-pair"><label>New shape<select data-input="resizeShape">'+list.map(x=>'<option value="'+x.size+'"'+(x.size===pick?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label><button type="button" class="secondary" data-act="resize"'+(busy.resize||busy.improve?' disabled':'')+(busy.resize?' aria-busy="true"':'')+'>'+(busy.resize?spinner+' Changing shape…':'Change shape')+'</button></div>':'')+
+   (can4k?'<button type="button" class="secondary" data-act="upscale"'+(busy.upscale?' disabled aria-busy="true"':'')+'>'+(busy.upscale?spinner+' Making 4K…':'Make a 4K copy')+'</button>':'')+
+   (canShape?'<button type="button" class="secondary" data-act="all-sizes"'+(ws.jobs.some(j=>j.target==='sizes'&&j.root===rootOf(id)&&!j.done)?' disabled':'')+'>Make every platform size ('+PLATFORMS.length+')</button>':'')+
+   '<p class="help">The new sides are drawn to match; the middle stays exactly as it is. Each result is a new version.</p>'+(canShape?sizesGrid(id):'')+'</div>';
+ }
+ function imageStep(){
+  const tabs=[['upload','Upload an Image'],['library','Select from Image Library'],['generate','Generate with AI'],['set','Picture Set'],['batch','Overnight batch']];
+  return '<div class="story-source-tabs" role="tablist" aria-label="Image source">'+tabs.map(([id,label])=>tab('iw-src-'+id,label,ws.src===id,'src','data-src="'+id+'" aria-controls="iw-src-panel"')).join('')+'</div>'+
+   '<div class="story-source-panel" role="tabpanel" id="iw-src-panel" aria-labelledby="iw-src-'+ws.src+'"><div class="pdf-selection-layout iw-layout">'+sourcePane()+selectedPane()+improvePane()+'</div></div>';
+ }
+
+ /* ---------- step 2: Enhance Image ---------- */
+ function controlsPane(id){
+  const e=enh(id);
+  if(busy['analyze:'+id])return '<p class="help iw-status">'+spinner+' Picking controls for this image…</p>';
+  if(!e.type)return '<div class="iw-group"><span id="iw-type-label">What does this image show?</span><div class="iw-options" role="group" aria-labelledby="iw-type-label">'+M.TYPE_IDS.map(t=>'<button type="button" class="iw-chip" data-act="type" data-type="'+t+'">'+M.TYPES[t].name+'</button>').join('')+'</div></div>';
+  return M.sections(e.type,styles()).map(s=>'<div class="iw-section"><h3>'+esc(s.title)+'</h3>'+s.groups.map(g=>{
+   const value=e.choices[g.key],picked=g.multi?(Array.isArray(value)?value:[]):value?[value]:[],labelId='iw-g-'+g.key;
+   return '<div class="iw-group"><span id="'+labelId+'">'+esc(g.label)+(picked.length?'<b>'+esc(picked.join(', '))+'</b>':'')+(g.multi?'<span class="help"> Pick any</span>':'')+'</span><div class="iw-options" role="group" aria-labelledby="'+labelId+'">'+g.options.map(o=>{
+    const n=M.optionName(o),on=picked.includes(n),sug=M.isSuggested(e.analysis,g.key,n);
+    return g.swatch?'<button type="button" class="iw-swatch'+(sug?' iw-suggested':'')+'" style="--iw-swatch:'+esc(o.hex)+'" data-act="choose" data-key="'+g.key+'" data-value="'+esc(n)+'" aria-pressed="'+on+'" aria-label="'+esc(n)+(sug?', suggested':'')+'" title="'+esc(n)+'"></button>'
+     :'<button type="button" class="iw-chip'+(sug?' iw-suggested':'')+'" data-act="choose" data-key="'+g.key+'" data-value="'+esc(n)+'" aria-pressed="'+on+'"'+(sug?' aria-description="Suggested"':'')+'>'+esc(n)+'</button>';
+   }).join('')+'</div></div>';
+  }).join('')+'</div>').join('');
+ }
+ function sent(id,number){
+  const e=enh(id),list=e.type?M.chosen(e.type,e.choices,styles()):[],prompt=e.prompt.trim();
+  const note=!list.length&&!prompt?'Pick a choice or write a prompt.':prompt&&list.length?'Your prompt and your choices are sent together.':prompt?'Only the prompt is sent.':'No prompt: your choices are sent on their own.';
+  return '<h3>Sent to generation</h3><span><span class="help">Image · </span>Image '+number+' · '+esc(title(id))+'</span><span><span class="help">Prompt · </span>'+esc(prompt||'None')+'</span><span><span class="help">Choices · </span>'+esc(list.map(c=>c.label+': '+c.value).join('; ')||'None')+'</span><p class="help">'+note+'</p>';
+ }
+ function enhanceStep(){
+  if(!ws.selected.length)return '<p class="iw-blank help">Choose images in step 1 first.</p>';
+  const id=ws.selected[ws.enh],number=ws.enh+1,e=enh(id),shown=e.drafts[e.index],before=e.compare==='before';
+  const can=e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles())&&!busy['enhance:'+id];
+  return '<div class="story-source-tabs" role="tablist" aria-label="Images to enhance">'+ws.selected.map((s,i)=>tab('iw-enh-'+i,'Image '+(i+1)+' · '+esc(title(s))+(ws.final[s]?' <span class="iw-done">✓</span>':''),i===ws.enh,'enh','data-index="'+i+'" aria-controls="iw-enh-panel"')).join('')+'</div>'+
+   '<div class="story-source-panel" role="tabpanel" id="iw-enh-panel" aria-labelledby="iw-enh-'+ws.enh+'"><div class="pdf-selection-layout iw-layout iw-enhance">'+
+   '<section class="pdf-review-box" aria-labelledby="iw-preview-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-preview-heading">Preview</strong><div class="iw-row" role="group" aria-label="Compare"><button type="button" class="secondary" data-act="compare" data-mode="before" aria-pressed="'+before+'">Before</button><button type="button" class="secondary" data-act="compare" data-mode="after" aria-pressed="'+!before+'">After</button></div></div>'+
+   '<div class="iw-preview">'+img(before?id:shown||finalOf(id),(before?'Before':'After')+': '+title(id))+'<span class="iw-cap help">'+(before?'Before':shown?'Draft '+(e.index+1):ws.final[id]?'Enhanced':'Original')+'</span></div>'+
+   drafts(e.drafts,e.index,'enh-draft')+'<p class="help">'+(e.drafts.length?'The latest '+e.drafts.length+(e.drafts.length===1?' draft is':' drafts are')+' shown; every version is kept below.':'Generate fills Draft 1. Each run fills the next draft; every version is kept.')+'</p>'+versions(id,'version-final',finalOf(id))+
+   '<div class="iw-row"><button type="button" data-act="use-draft"'+(shown?'':' disabled')+'>Use Draft '+(e.index+1)+' for Image '+number+'</button><button type="button" class="secondary" data-act="clear-drafts"'+(e.drafts.length?'':' disabled')+'>Clear drafts</button></div></section>'+
+   '<section class="pdf-review-box pdf-selected-label" aria-labelledby="iw-controls-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-controls-heading">Enhancements</strong>'+(e.type?'<div class="iw-row"><button type="button" class="secondary" data-act="suggest"'+(e.analysis&&Object.keys(e.analysis.suggestions).length?'':' disabled')+'>✦ Use suggestions</button><button type="button" class="secondary" data-act="clear-choices">Clear</button></div>':'')+'</div><p class="help">✦ marks a suggestion. Your choices are sent with or without a prompt.</p><div class="iw-controls">'+controlsPane(id)+'</div></section>'+
+   '<section class="pdf-review-box" aria-labelledby="iw-prompt-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-prompt-heading">AI Prompt</strong><span class="help">Optional</span></div><div class="iw-group"><span id="iw-refs-label">Refer to an image</span><div class="iw-options" role="group" aria-labelledby="iw-refs-label">'+ws.selected.map((s,i)=>'<button type="button" class="iw-chip" data-act="ref" data-index="'+i+'">Image '+(i+1)+'</button>').join('')+'</div></div>'+
+   '<textarea data-input="enhPrompt" rows="5" maxlength="2000" aria-labelledby="iw-prompt-heading" placeholder="For example: make this character look younger, or draw a photo album cover using Image 1 as the background and the character from Image 2 signing.">'+esc(e.prompt)+'</textarea>'+
+   '<div class="iw-sent" data-sent aria-live="polite">'+sent(id,number)+'</div><button type="button" data-act="enhance"'+(can?'':' disabled')+(busy['enhance:'+id]?' aria-busy="true"':'')+'>'+(busy['enhance:'+id]?spinner+' Generating…':e.drafts.length>=DRAFTS?'Generate another version':'Generate Draft '+(e.drafts.length+1))+'</button>'+(busy['enhance:'+id]?'<p class="help iw-status" role="status">Changing the picture. This usually takes 1-3 minutes.</p>':'')+'</section>'+
+   '</div></div>';
+ }
+
+ /* ---------- step 3: Publish Images ---------- */
+ /* ---------- review links (IMG-4.4) ---------- */
+ // Share the pictures as a link; reviewers pin comments to spots; comments come back with the studio's state and can
+ // be added to each picture's notes, which "Fix these notes" sends to the edit model.
+ const reviewRecord=()=>ws.review?state.records.find(r=>r.kind==='review'&&r.id===ws.review.id):null;
+ const reviewLink=token=>new URL('review.html',location.href.split('#')[0].replace(/\?.*$/,'')).href+'#t='+token;
+ function reviewPane(){
+  const r=reviewRecord(),comments=r?.comments||[],added=new Set(ws.review?.added||[]),fresh=comments.filter(c=>!added.has(c.id));
+  if(!ws.review)return '<section class="pdf-review-box iw-review" aria-labelledby="iw-review-heading"><strong class="pdf-review-heading" id="iw-review-heading">Review</strong><p class="help">Share these pictures with a link. Reviewers do not need an account; they click a spot to comment. The link lasts 14 days.</p><div class="iw-row"><button type="button" class="secondary" data-act="review-share"'+(busy.review?' disabled aria-busy="true"':'')+'>'+(busy.review?spinner+' Making link…':'Share for review')+'</button></div></section>';
+  const pics=(r?.pictures||ws.review.pictures||[]),n=id=>pics.findIndex(p=>p.id===id)+1;
+  return '<section class="pdf-review-box iw-review" aria-labelledby="iw-review-heading"><strong class="pdf-review-heading" id="iw-review-heading">Review</strong>'+
+   (r?.closed?'<p class="help">This link is closed.</p>':'<label>Review link<input type="text" readonly data-review-link value="'+esc(reviewLink(ws.review.token))+'"></label><div class="iw-row"><button type="button" class="secondary" data-act="review-copy">Copy link</button><button type="button" class="secondary" data-act="review-close">Stop sharing</button></div>')+
+   '<p class="help">'+(comments.length?comments.length+(comments.length===1?' comment':' comments')+(fresh.length?', '+fresh.length+' new':''):'No comments yet. They appear here as reviewers add them.')+'</p>'+
+   (comments.length?'<ol class="iw-note-list">'+comments.map(c=>'<li><span>Image '+n(c.asset_id)+' · '+esc(where(c.x,c.y))+': '+esc(c.text)+' <span class="help">— '+esc(c.name)+'</span></span></li>').join('')+'</ol>':'')+
+   (fresh.length?'<div class="iw-row"><button type="button" data-act="review-notes">Add '+fresh.length+(fresh.length===1?' comment':' comments')+' to notes</button></div>':'')+'</section>';
+ }
+ async function reviewShare(){
+  const ids=ws.selected.map(finalOf),story=state.records.find(r=>r.kind==='story'&&r.id===activeStory);
+  const made=await api('review/create',{asset_ids:ids,title:String(story?.title||'Pictures for review').slice(0,120),story_id:activeStory});
+  ws.review={id:made.id,token:made.token,pictures:made.pictures,added:[]};await refresh();
+  try{await navigator.clipboard.writeText(reviewLink(made.token));notice('Review link copied. Send it to your reviewers.');}catch{notice('Review link ready. Copy it to send to your reviewers.');}
+ }
+ function reviewNotes(){
+  const r=reviewRecord();if(!r)return;const added=new Set(ws.review.added||[]);let n=0;
+  for(const c of r.comments||[]){if(added.has(c.id))continue;(ws.notes[c.asset_id]||(ws.notes[c.asset_id]=[])).push({x:c.x,y:c.y,text:c.text+(c.name&&c.name!=='Reviewer'?' ('+c.name+')':'')});added.add(c.id);n++;}
+  ws.review.added=[...added];notice(n+(n===1?' comment':' comments')+' added to notes. Go back to step 1 and choose Fix these notes on each picture.');
+ }
+ function publishStep(){
+  if(ws.published)return '<section class="iw-published" role="status"><h2>'+ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library</h2><p class="help">You can pick them in step 1 next time.</p><div class="iw-row"><button type="button" class="secondary" data-act="open-library">Open Image Library</button><button type="button" class="secondary" data-act="again">Create more images</button></div></section>'+(ws.review?reviewPane():'');
+  if(!ws.selected.length)return '<p class="iw-blank help">Choose images in step 1 first.</p>';
+  const kit=B.active(),logo=kit&&kit.logo&&record(kit.logo),forced=!!(ws.review||ws.exportFormat!=='png'||ws.selected.some(id=>hasText(finalOf(id)))),more=forced||!!ws.pubMore;
+  return '<div class="story-source-panel">'+(logo?'<label class="iw-check-row"><input type="checkbox" data-act="place-logo"'+(ws.placeLogo?' checked':'')+'> Place the '+esc(kit.name)+' logo ('+esc(kit.position.toLowerCase())+') on each picture</label>':'')+
+   '<div class="iw-publish">'+ws.selected.map((id,i)=>{const f=finalOf(id),t=textOf(f);return '<figure>'+img(f,'Image '+(i+1)+': '+title(id)).replace('<img ','<img data-preview="'+esc(f)+'" ')+'<figcaption class="help">Image '+(i+1)+' · '+esc(title(f))+(ws.final[id]?' · enhanced':'')+' · <span data-print="'+esc(f)+'"></span></figcaption>'+(!more?'':
+    '<div class="iw-words" role="group" aria-label="Words on image '+(i+1)+'"><label>Headline<input type="text" data-input="textHeadline" data-id="'+esc(f)+'" maxlength="80" value="'+esc(t.headline)+'" placeholder="Optional, for example: Fresh bread daily"></label><div class="iw-pair"><label>Price or offer<input type="text" data-input="textPrice" data-id="'+esc(f)+'" maxlength="30" value="'+esc(t.price)+'" placeholder="Optional, for example: $4.99"></label><label>Words place<select data-input="textPlace" data-id="'+esc(f)+'">'+B.TEXT_PLACES.map(v=>'<option'+(v===t.place?' selected':'')+'>'+v+'</option>').join('')+'</select></label></div></div>')+'</figure>';}).join('')+'</div>'+
+   (forced?'':'<div class="iw-row"><button type="button" class="secondary" data-act="pub-more" aria-expanded="'+more+'">'+(more?'Hide more options':'More options: words, file type, review')+'</button></div>')+(!more?'</div>':
+   '<div class="iw-pair"><label>Download as<select data-input="exportFormat"><option value="png"'+(ws.exportFormat==='png'?' selected':'')+'>PNG, 300 dpi (layers in a folder)</option><option value="psd"'+(ws.exportFormat==='psd'?' selected':'')+'>Photoshop PSD with layers, 300 dpi</option><option value="tiff"'+(ws.exportFormat==='tiff'?' selected':'')+'>TIFF for print, 300 dpi</option></select></label></div>'+reviewPane()+'</div>');
+ }
+
+ /* ---------- frame ---------- */
+ function settingsBox(){
+  if(!modelOpen)return '';
+  const models=MODEL_CATEGORIES.images.models.filter(id=>MODEL_CATALOG[id]&&!MODEL_CATALOG[id].pending&&id!=='trellis-2'),model=imageModel(),s=modelSettings(model),gpus=computes(),gpu=computeId();
+  return '<section class="iw-model-settings" id="iw-model" role="dialog" aria-labelledby="iw-model-heading"><div class="iw-head"><h2 id="iw-model-heading">Model settings</h2><button type="button" class="secondary" data-act="model" aria-label="Close model settings">×</button></div>'+
+   '<label>Image model<select data-setting="model">'+models.map(id=>'<option value="'+id+'"'+(id===model?' selected':'')+'>'+esc(MODEL_CATALOG[id].name)+(id==='qwen-image-2512'?' (default)':'')+'</option>').join('')+'</select></label><p class="help">When an image or a character is used, '+esc(MODEL_CATALOG[EDIT_MODEL]?.name||'Qwen Image Edit')+' is used automatically.</p>'+
+   '<label>Compute<select data-setting="compute"'+(gpus.length?'':' disabled')+'>'+(gpus.length?gpus.map(g=>'<option value="'+esc(g.id)+'"'+(g.id===gpu?' selected':'')+'>'+esc(g.name)+(g.id==='serverless'?' (default)':'')+'</option>').join(''):'<option>Connect Serverless or a GPU in Compute</option>')+'</select></label>'+
+   '<div class="iw-pair iw-three"><label>Steps<input type="number" min="5" max="80" data-setting="steps" value="'+esc(s.steps)+'"></label><label>CFG<input type="number" min="1" max="15" step="0.5" data-setting="cfg" value="'+esc(s.cfg)+'"></label><label>Seed<input type="number" min="0" data-setting="seed" value="'+esc(s.seed)+'"></label></div>'+
+   '<div class="iw-row iw-end"><button type="button" class="secondary" data-act="reset-model">Reset to defaults</button><button type="button" data-act="model">Done</button></div></section>';
+ }
+ // Brand kit: colours and words go into new pictures; the logo is placed on published and downloaded pictures.
+ function brandBox(){
+  if(!brandOpen)return '';
+  const list=B.kits(),kit=B.active(),pics=state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted).sort((a,b)=>(b.created||0)-(a.created||0));
+  let body='<label>Brand kit<select data-brand="pick"><option value="">No brand kit</option>'+list.map(k=>'<option value="'+esc(k.id)+'"'+(kit&&k.id===kit.id?' selected':'')+'>'+esc(k.name)+'</option>').join('')+'</select></label>';
+  if(kit)body+='<label>Kit name<input type="text" data-brand="name" maxlength="60" value="'+esc(kit.name)+'"></label>'+
+   '<div class="iw-group"><span id="iw-brand-colors">Colours</span><div class="iw-options" role="group" aria-labelledby="iw-brand-colors">'+kit.colors.map((c,i)=>'<span class="iw-brand-color"><input type="color" data-brand="color" data-index="'+i+'" value="'+esc(c)+'" aria-label="Colour '+(i+1)+'"><button type="button" class="secondary" data-act="brand-color-remove" data-index="'+i+'" aria-label="Remove colour '+(i+1)+'">×</button></span>').join('')+(kit.colors.length<5?'<button type="button" class="secondary" data-act="brand-color-add">Add colour</button>':'')+'</div></div>'+
+   '<label>Brand look<input type="text" data-brand="use" maxlength="300" value="'+esc(kit.use)+'" placeholder="For example: bright, friendly, flat illustration"></label>'+
+   '<label>Never show<input type="text" data-brand="avoid" maxlength="300" value="'+esc(kit.avoid)+'" placeholder="For example: red, clutter, small text"></label>'+
+   '<label>Logo<select data-brand="logo"><option value="">No logo</option>'+pics.map(a=>'<option value="'+esc(a.id)+'"'+(a.id===kit.logo?' selected':'')+'>'+esc(title(a.id))+'</option>').join('')+'</select></label>'+
+   (kit.logo?'<div class="iw-pair"><label>Logo place<select data-brand="position">'+B.POSITIONS.map(v=>'<option'+(v===kit.position?' selected':'')+'>'+v+'</option>').join('')+'</select></label><label>Logo size<select data-brand="size">'+B.SIZES.map(v=>'<option'+(v===kit.size?' selected':'')+'>'+v+'</option>').join('')+'</select></label></div>':'<p class="help">Upload your logo in step 1 (Upload), then pick it here.</p>')+
+   '<div class="iw-pair"><label>Font<select data-brand="font">'+B.FONTS.map(f=>'<option'+(f===kit.font?' selected':'')+'>'+f+'</option>').join('')+(kit.fontData?'<option value="Uploaded"'+(kit.font==='Uploaded'?' selected':'')+'>'+esc(kit.fontName||'Uploaded font')+'</option>':'')+'</select></label><label>Words colour<input type="color" data-brand="textColor" value="'+esc(kit.textColor)+'"></label></div>'+
+   '<div class="iw-row"><input type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" data-brand-font hidden><button type="button" class="secondary" data-act="brand-font">'+(kit.fontData?'Replace brand font':'Upload brand font')+'</button><label class="iw-check-row"><input type="checkbox" data-act="brand-band"'+(kit.band?' checked':'')+'> Soft band behind words</label></div>'+
+   '<p class="help">While this kit is on, new pictures use its colours and look; the logo and any headline or price are placed on pictures you publish or download, in the brand font.</p>';
+  return '<section class="iw-model-settings" id="iw-brand" role="dialog" aria-labelledby="iw-brand-heading"><div class="iw-head"><h2 id="iw-brand-heading">Brand kit</h2><button type="button" class="secondary" data-act="brand" aria-label="Close brand kit">×</button></div>'+body+
+   '<div class="iw-row iw-end">'+(kit?'<button type="button" class="secondary" data-act="brand-delete">Delete kit</button>':'')+'<button type="button" class="secondary" data-act="brand-new">New brand kit</button><button type="button" data-act="brand">Done</button></div></section>';
+ }
+ function batchFile(file){
+  if(!file)return;if(file.size>2*1024*1024){notice('Choose a file under 2 MB.',true);return;}
+  file.text().then(t=>{
+   // CSV: the first column is the description (a header row named prompt/description is skipped).
+   const rows=/\.csv$/i.test(file.name)?t.split(/\r?\n/).map(r=>{const m=r.match(/^\s*"((?:[^"]|"")*)"|^([^,]*)/);return (m[1]!=null?m[1].replace(/""/g,'"'):m[2]||'').trim();}).filter((r,i)=>r&&!(i===0&&/^(prompt|description|text)$/i.test(r))):t.split(/\r?\n/);
+   ws.batchText=rows.join('\n');if(!ws.batchName)ws.batchName=file.name.replace(/\.[^.]+$/,'');save();draw(true);notice(batchLines(ws.batchText).length.toLocaleString()+' lines loaded from '+file.name+'.');
+  }).catch(()=>notice('The file could not be read.',true));
+ }
+ function brandFont(file){
+  const kit=B.active();if(!kit||!file)return;
+  if(!/\.(ttf|otf|woff2?)$/i.test(file.name)){notice('Choose a TTF, OTF, WOFF or WOFF2 font file.',true);return;}
+  if(file.size>B.FONT_LIMIT){notice('Choose a font file under 600 KB.',true);return;}
+  const r=new FileReader();r.onload=()=>{kit.fontData=String(r.result).split(',')[1]||'';kit.fontName=file.name.replace(/\.[^.]+$/,'');kit.font='Uploaded';B.save(kit);for(const u of Object.keys(previewCache))delete previewCache[u];draw(true);notice(kit.fontName+' is now the brand font.');};
+  r.onerror=()=>notice('The font could not be read.',true);r.readAsDataURL(file);
+ }
+ function brandInput(el){
+  const k=el.dataset.brand,kit=B.active();
+  if(k==='pick'){B.use(el.value);draw(true);return;}
+  if(!kit)return;
+  if(k==='color')kit.colors[+el.dataset.index]=el.value;else kit[k]=el.value;
+  for(const u of Object.keys(previewCache))delete previewCache[u];
+  B.save(kit);if(el.tagName==='SELECT'||el.type==='color')draw(true);else lastHtml='';
+ }
+ function foot(){
+  if(ws.step==='image')return '<div class="iw-foot"><span class="help">'+ws.selected.length+' selected. You can change them later.</span><button type="button" data-act="step" data-step="enhance"'+(ws.selected.length?'':' disabled')+'>Next: Enhance Image →</button></div>';
+  if(ws.step==='enhance')return '<div class="iw-foot"><button type="button" class="secondary" data-act="step" data-step="image">← Back: Image</button><button type="button" data-act="step" data-step="publish">Next: Publish Images →</button></div>';
+  return '<div class="iw-foot"><button type="button" class="secondary" data-act="step" data-step="enhance">← Back: Enhance Image</button>'+(ws.selected.length?'<button type="button" class="secondary" data-act="download"'+(busy.download?' aria-busy="true" disabled':'')+'>'+(busy.download?spinner+' Preparing…':'Download pictures')+'</button>':'')+(ws.published?'':'<button type="button" data-act="publish"'+(ws.selected.length&&!busy.publish?'':' disabled')+(busy.publish?' aria-busy="true"':'')+'>'+(busy.publish?spinner+' Publishing…':'Publish')+'</button>')+'</div>';
+ }
+ function draw(force){
+  const root=q('#page');if(!root||page!=='images')return;load();settle();tidy();
+  const steps=[['image','1. Image'],['enhance','2. Enhance Image'],['publish','3. Publish Images']];
+  const html='<div id="image-workspace" class="form"><div class="iw-steps" role="tablist" aria-label="Create images steps">'+steps.map(([id,label])=>tab('iw-step-'+id,label,ws.step===id,'step','data-step="'+id+'" aria-controls="iw-step-panel"')).join('')+'</div>'+
+   '<section class="panel form story-editor-panel" id="iw-step-panel" role="tabpanel" aria-labelledby="iw-step-'+ws.step+'"><div class="iw-settings" role="group" aria-label="Model"><span class="iw-pill">Model <b>'+esc(modelName())+'</b></span><span class="iw-pill">Compute <b>'+esc(computeName())+'</b></span><button type="button" class="secondary" data-act="model" aria-expanded="'+modelOpen+'"'+(modelOpen?' aria-controls="iw-model"':'')+'>Model settings</button>'+(()=>{const k=B.active();return '<button type="button" class="secondary" data-act="brand" aria-expanded="'+brandOpen+'"'+(brandOpen?' aria-controls="iw-brand"':'')+'>'+(k?'Brand kit · '+esc(k.name):'Brand kit')+'</button>';})()+settingsBox()+brandBox()+'</div>'+
+   (ws.step==='image'?imageStep():ws.step==='enhance'?enhanceStep():publishStep())+'</section>'+foot()+'</div>';
+  // Only rewrite the screen when what it shows has changed (the studio refreshes every 3 seconds).
+  if(force||html!==lastHtml||!q('#image-workspace',root)){
+   const scroll=window.scrollY,focus=document.activeElement?.closest?.('#image-workspace')?(document.activeElement.dataset.input||document.activeElement.id):'';
+   const caret=focus&&typeof document.activeElement.selectionStart==='number'?[document.activeElement.selectionStart,document.activeElement.selectionEnd]:null;
+   root.innerHTML=html;lastHtml=html;
+   if(focus){const el=q('#image-workspace [data-input="'+focus+'"]')||q('#'+CSS.escape(focus));el?.focus();if(caret&&el&&typeof el.setSelectionRange==='function')try{el.setSelectionRange(caret[0],caret[1]);}catch{}}
+   window.scrollTo(0,scroll);placePins();if(ws.step==='publish')previews();
+  }
+  paintJobs();
+  if(typeof hydrateMedia==='function')hydrateMedia();
+  if(liveJobs().length)watch();
+  if(!ticker)ticker=setInterval(()=>{if(page==='images'&&q('#image-workspace')&&ws&&liveJobs().length)paintJobs();},1000);
+  if(ws.step==='enhance'&&ws.selected.length){const id=ws.selected[ws.enh],e=enh(id);if(!e.type&&!e.tried&&!busy['analyze:'+id])analyze(id);}
+ }
+ function analyze(id){
+  const e=enh(id);e.tried=true;
+  if(!window.EccoAI?.enabled){save();draw();return;}
+  run('analyze:'+id,async()=>{
+   try{
+    const result=await api('ai/enhance',{stage:'image',mode:'generate',story_id:activeStory,reference_ids:[finalOf(id)],fields:[{id:'image_enhancement',text:JSON.stringify(M.catalog(styles())),max_length:12000}],context:{}});
+    const analysis=M.parseAnalysis(result.revisions?.[0]?.text,styles());e.analysis=analysis;e.type=analysis.type;
+   }catch(error){notice(error.message+' Choose what the image shows instead.',true);}
+  });
+ }
+
+ /* ---------- AI text helpers ---------- */
+ async function rewrite(id,idea,instructions){
+  if(!window.EccoAI?.enabled)throw Error('Connect AI in Connections to use ✦.');
+  const result=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,fields:[{id,text:idea,max_length:4000}],context:{title:'',genre:'',language:'English',summary:JSON.stringify({output:'image'}),lines:[],instructions},review_only:false});
+  const value=result.revisions?.find(r=>r.id===id)?.text;if(typeof value!=='string'||!value.trim())throw Error('AI returned nothing. Try again.');return value.trim();
+ }
+ const IDEA='Rewrite the idea as one vivid picture description of 1-3 sentences: who is in it, what they are doing, their expressions, the setting and the light. Keep every detail the person asked for, including counts, positions and any words to show. Do not name any art style. Return only the description. Do not ask questions.';
+ function ideas(){
+  const idea=ws.genPrompt.trim();if(!idea)return;
+  return run('ideas',async()=>{const out=[];for(let i=0;i<3;i++)out.push(await rewrite('picture_description',idea,IDEA+(i?' Make version '+(i+1)+' of 3 different in composition and camera angle.':'')));ws.ideas=out;});
+ }
+ // A script or a story passage (scene headings, dialogue, or long lines) becomes boards: one shot per line.
+ const scriptLike=t=>{const lines=String(t||'').split(/\n+/).filter(x=>x.trim());return /^\s*(INT|EXT|INT\/EXT)[.\s]/im.test(t)||/^\s*[A-Z][A-Z .'-]{1,30}:\s*\S/m.test(t)||lines.some(x=>x.trim().length>160)||(lines.length===1&&/[.!?]\s+\S.*[.!?]\s+\S/.test(lines[0]));};
+ function writeBoards(){
+  const s=ws.set,text=s.pagesText.trim();if(!text)return;
+  return run('pages',async()=>{
+   const out=await rewrite('storyboard_shots',text.slice(0,5800),'Turn this script or story into storyboard shots for a film. Return one line per shot, at most 24 lines, in story order. Start each line with the shot size (Wide shot, Medium shot, Close-up, Over-the-shoulder, Aerial), then who is in it, what they are doing, and where. Describe only what the camera sees. Keep character names the same. No numbering, no dialogue, no camera jargon beyond the shot size. Do not ask questions.');
+   const pages=J.pages(out).slice(0,J.MAX_PAGES);if(!pages.length)throw Error('AI returned no shots. Try again.');s.pagesText=pages.join('\n');if(!s.name)s.name='Storyboard';
+   notice(pages.length+' shots written. Check them, then press Generate.');
+  });
+ }
+ function writePages(){
+  const s=ws.set;if(scriptLike(s.pagesText))return writeBoards();
+  const lines=J.pages(s.pagesText),idea=lines[0]||'';if(!idea)return;
+  return run('pages',async()=>{
+   const text=await rewrite('set_pages',idea,'Write a picture book of 8 pages from this idea. Return exactly 8 lines, one per page, each one short picture description (who, doing what, where). Keep the same characters throughout. No numbering, no titles, no art style. Do not ask questions.');
+   const pages=J.pages(text);if(!pages.length)throw Error('AI returned no pages. Try again.');s.pagesText=pages.join('\n');if(!s.name)s.name=idea.slice(0,60);
+  });
+ }
+
+ /* ---------- actions ---------- */
+ function select(id){
+  const i=ws.selected.indexOf(id);
+  if(i>=0){ws.selected.splice(i,1);ws.active=Math.min(ws.active,Math.max(0,ws.selected.length-1));}
+  else if(ws.selected.length<LIMIT){ws.selected.push(id);ws.active=ws.selected.length-1;}
+  else{notice('Select up to 3 images. Remove one first.',true);return;}
+  ws.published=false;
+ }
+ async function queueGenerate(){
+  const prompt=ws.genPrompt.trim();if(!prompt)return;
+  const count=Math.max(1,Math.min(J.MAX_VARIATIONS,+ws.genCount||1)),chars=ws.genCharacter?[ws.genCharacter]:[];
+  const base=count>1?Math.floor(Math.random()*2147000000):null;
+  try{
+   const picks=ws.genRefs.filter(record);if(picks.length&&(chars.length||house(ws.genStyle)))throw Error('Choose reference pictures, a character or a house style for now, not more than one.');
+   const refs=picks.length?await referenceSet(picks):[];
+   for(let i=0;i<count;i++){
+    const seed=base==null?null:base+i,req=await request(prompt,{style:ws.genStyle,shape:ws.genShape,seed,chars,refs});
+    queue(req,{target:'gen',prompt,select:count===1});
+   }
+  }catch(error){notice(error.message,true);return;}
+  save();pump();draw();watch();
+ }
+ async function makeSet(){
+  const s=ws.set,lines=J.pages(s.pagesText);if(!lines.length)return;
+  const base=Math.floor(Math.random()*2147000000);
+  try{
+   s.pages=[];
+   for(let i=0;i<lines.length;i++){
+    const req=await request(lines[i],{style:s.style,shape:s.shape,seed:base+i,chars:s.chars});
+    const j=queue(req,{target:'set',page:i,prompt:lines[i]});s.pages.push({text:lines[i],key:j.key,asset:'',history:[]});
+   }
+  }catch(error){notice(error.message,true);}
+  save();pump();draw();watch();
+ }
+ async function redoPage(i){
+  const s=ws.set,p=s.pages[i];if(!p)return;
+  try{const req=await request(p.text,{style:s.style,shape:s.shape,seed:Math.floor(Math.random()*2147000000),chars:s.chars});const j=queue(req,{target:'set',page:i,prompt:p.text});p.key=j.key;}
+  catch(error){notice(error.message,true);return;}
+  save();pump();draw();watch();
+ }
+ async function sheet(){
+  const id=ws.set.chars[0],c=character(id);if(!c)return;
+  try{const gpu=requireCompute();await window.EccoCompute.validate(gpu,EDIT_MODEL);queue({kind:'sheet',path:'character-sheets',payload:{gpu,character_id:id,story_id:activeStory}},{target:'gen',prompt:c.name+' character sheet'});}
+  catch(error){notice(error.message,true);return;}
+  ws.src='generate';save();pump();draw();watch();notice('Making a 6-view sheet for '+c.name+'. The views appear in Generate with AI.');
+ }
+ async function bytesOf(id){const r=await api('media/'+id);return {bytes:new Uint8Array(r.buffer),mime:r.mime||'image/png'};}
+ function setZip(){
+  const s=ws.set;return run('zip',async()=>{
+   const files=[];let n=0;
+   for(const [i,p] of s.pages.entries()){if(!record(p.asset))continue;const b=await bytesOf(p.asset);files.push({name:String(i+1).padStart(2,'0')+'-'+J.safeName(p.text).slice(0,40)+(/jpe?g/.test(b.mime)?'.jpg':/webp/.test(b.mime)?'.webp':'.png'),bytes:/png/.test(b.mime)?B.pngDpi(b.bytes,DPI):b.bytes});n++;}
+   files.push({name:'pages.txt',bytes:new TextEncoder().encode(s.pages.map((p,i)=>'Page '+(i+1)+': '+p.text).join('\n')+'\n')});
+   const url=URL.createObjectURL(new Blob([J.zip(files)],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download=J.safeName(s.name||'picture-set')+'.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+   notice(n+(n===1?' page':' pages')+' downloaded as a ZIP.');
+  });
+ }
+ function setPdf(){
+  const s=ws.set,w=window.open('','_blank');if(!w){notice('Allow pop-ups for this site to print or save the set as a PDF.',true);return;}
+  w.document.write('<!doctype html><title>'+esc(s.name||'Picture set')+'</title><p>Preparing pages…</p>');
+  (async()=>{
+   const pages=[];for(const [i,p] of s.pages.entries()){if(!record(p.asset))continue;const b=await bytesOf(p.asset);pages.push({n:i+1,text:p.text,url:URL.createObjectURL(new Blob([b.bytes],{type:b.mime}))});}
+   w.document.open();
+   w.document.write('<!doctype html><html><head><title>'+esc(s.name||'Picture set')+'</title><style>@page{margin:12mm}body{margin:0;font-family:system-ui,sans-serif}section{page-break-after:always;display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px}img{max-width:100%;height:auto}h1{font-size:20px}p{font-size:14px}</style></head><body>'+(s.name?'<h1>'+esc(s.name)+'</h1>':'')+pages.map(p=>'<section><img src="'+p.url+'" alt="Page '+p.n+'"><p>Page '+p.n+' · '+esc(p.text)+'</p></section>').join('')+'</body></html>');
+   w.document.close();
+   // 300 dpi print: each picture is set to its size in inches at 300 pixels per inch (never wider than the page).
+   await Promise.all([...w.document.images].map(im=>im.complete?null:new Promise(r=>{im.onload=im.onerror=r;})));
+   for(const im of w.document.images){if(im.naturalWidth){im.style.width=(im.naturalWidth/DPI)+'in';im.style.maxWidth='100%';im.style.maxHeight='none';im.dataset.dpi=String(DPI);}}
+   setTimeout(()=>{try{w.focus();w.print();}catch{}},600);
+  })().catch(error=>{try{w.close();}catch{}notice(error.message,true);});
+ }
+ function setSave(){
+  const s=ws.set;return run('setSave',async()=>{
+   const name=String(s.name||'Picture set').replace(/\//g,'-').trim().slice(0,80);
+   let folder=state.records.find(r=>r.kind==='image_folder'&&!r.deleted&&r.name===name);if(!folder)folder=await api('library/folders',{name});
+   const ids=s.pages.map(p=>p.asset).filter(record);for(const id of ids)await api('library/save',{asset_id:id,folder_id:folder.id});
+   unsaved([],ids);await refresh();notice(ids.length+(ids.length===1?' page':' pages')+' saved to Image Library under '+name+'.');
+  });
+ }
+ function act(button){
+  const a=button.dataset.act,id=ws.selected[ws.step==='enhance'?ws.enh:ws.active];
+  if(a==='step'){ws.step=button.dataset.step;modelOpen=false;}
+  else if(a==='src')ws.src=button.dataset.src;
+  else if(a==='model'){modelOpen=!modelOpen;brandOpen=false;}
+  else if(a==='brand'){brandOpen=!brandOpen;modelOpen=false;}
+  else if(a==='brand-new'){const k=B.save({name:'Brand kit '+(B.kits().length+1),colors:[]});B.use(k.id);}
+  else if(a==='brand-delete'){const k=B.active();if(k)B.remove(k.id);}
+  else if(a==='brand-color-add'){const k=B.active();if(k&&k.colors.length<5){k.colors.push('#336699');B.save(k);}}
+  else if(a==='brand-color-remove'){const k=B.active();if(k){k.colors.splice(+button.dataset.index,1);B.save(k);}}
+  else if(a==='place-logo')ws.placeLogo=!ws.placeLogo;
+  else if(a==='review-share')return run('review',reviewShare);
+  else if(a==='review-copy'){const v=q('#image-workspace [data-review-link]')?.value||'';navigator.clipboard?.writeText(v).then(()=>notice('Review link copied.'),()=>{q('#image-workspace [data-review-link]')?.select();notice('Press Ctrl+C or ⌘C to copy the link.');});return;}
+  else if(a==='review-close')return run('review',async()=>{await api('review/close',{review_id:ws.review.id});await refresh();notice('Review link closed. Comments so far are kept.');});
+  else if(a==='review-notes')reviewNotes();
+  else if(a==='pub-more')ws.pubMore=!ws.pubMore;
+  else if(a==='brand-font'){q('#image-workspace [data-brand-font]')?.click();return;}
+  else if(a==='brand-band'){const k=B.active();if(k){k.band=!k.band;B.save(k);}}
+  else if(a==='download')return run('download',download);
+  else if(a==='reset-model'){delete modelProfiles.settings[imageModel()];modelProfiles.selected.images='qwen-image-2512';saveModelProfiles();if(computes().some(g=>g.id==='serverless'))localStorage.setItem('ecco-compute-image','serverless');}
+  else if(a==='pick')select(button.dataset.id);
+  else if(a==='show')ws.active=+button.dataset.index;
+  else if(a==='remove'){const i=+button.dataset.index;ws.selected.splice(i,1);ws.active=Math.min(ws.active,Math.max(0,ws.selected.length-1));ws.enh=0;ws.published=false;ws.charForm=null;}
+  else if(a==='upload'){q('#image-workspace [data-upload-file]')?.click();return;}
+  else if(a==='generate'){queueGenerate();return;}
+  else if(a==='cancel-job'){const j=ws.jobs.find(x=>x.key===button.dataset.key);if(j)cancel(j);return;}
+  else if(a==='ideas'){ideas();return;}
+  else if(a==='fix-picture'){fixPicture(button.dataset.id);return;}
+  else if(a==='retry-picture'){retryPicture(button.dataset.id);return;}
+  else if(a==='use-idea'){const t=ws.ideas[+button.dataset.index];if(t){ws.genPrompt=t;ws.ideas=[];}}
+  else if(a==='set-char'){const c=button.dataset.id,list=ws.set.chars;const i=list.indexOf(c);if(i>=0)list.splice(i,1);else if(list.length<CHARACTERS)list.push(c);else{notice('Pick up to 3 characters.',true);return;}}
+  else if(a==='make-set'){makeSet();return;}
+  else if(a==='redo-page'){redoPage(+button.dataset.index);return;}
+  else if(a==='write-pages'){writePages();return;}
+  else if(a==='sheet'){sheet();return;}
+  else if(a==='set-zip'){setZip();return;}
+  else if(a==='set-pdf'){setPdf();return;}
+  else if(a==='set-save'){setSave();return;}
+  else if(a==='char-open'){ws.charForm={name:'',desc:''};ws.houseForm=null;}
+  else if(a==='house-open'){ws.houseForm={name:''};ws.charForm=null;}
+  else if(a==='house-cancel')ws.houseForm=null;
+  else if(a==='house-save'){
+   const f=ws.houseForm;if(!f||!f.name.trim()||!ws.selected.length)return;
+   const h={id:'hs-'+Date.now().toString(36),name:f.name.trim().slice(0,60),refs:ws.selected.slice(0,3)},list=houses();list.push(h);saveHouses(list);
+   unsaved([],h.refs);ws.houseForm=null;ws.genStyle='house:'+h.id;notice(h.name+' saved as a house style. It is chosen under Style in Generate with AI.');
+  }
+  else if(a==='char-cancel')ws.charForm=null;
+  else if(a==='char-save'){
+   const f=ws.charForm,target=id;if(!f||!target||!f.name.trim())return;
+   return run('character',async()=>{const c=await api('characters',{asset_id:target,name:f.name.trim(),description:f.desc.trim()||f.name.trim(),story_id:activeStory});unsaved([],[target]);await refresh();ws.charForm=null;if(c?.id&&!ws.set.chars.includes(c.id)&&ws.set.chars.length<CHARACTERS)ws.set.chars.push(c.id);notice((c?.name||f.name.trim())+' saved as a character. Use it in Generate with AI or Picture Set.');});
+  }
+  else if(a==='improve'){
+   const prompt=ws.aiPrompt.trim(),target=id;if(!target||!prompt)return;
+   const d=ai(target);
+   return run('improve',async()=>{const ids=await edit([target],prompt,'');keep(target,ids[0]);addDraft(d,ids[0]);});
+  }
+  else if(a==='note-save'){const d=ws.noteDraft;if(d&&d.text.trim()){(ws.notes[d.id]||(ws.notes[d.id]=[])).push({x:d.x,y:d.y,text:d.text.trim()});ws.noteDraft=null;}}
+  else if(a==='note-cancel')ws.noteDraft=null;
+  else if(a==='lib-more')ws.libLimit+=PAGE;
+  else if(a==='note-remove'){const list=noteList(id);list.splice(+button.dataset.index,1);}
+  else if(a==='notes-fix'){
+   const target=id,list=noteList(target);if(!target||!list.length)return;const d=ai(target);
+   return run('notes',async()=>{const made=await edit([target],notesPrompt(list),'');keep(target,made[0]);addDraft(d,made[0]);ws.notes[made[0]]=[];notice('Notes sent. The result is the next draft under Improve with AI.');});
+  }
+  else if(a==='train-open')ws.train={name:'',ids:[],status:''};
+  else if(a==='train-cancel')ws.train=null;
+  else if(a==='train-toggle'){const t=ws.train,r=button.dataset.id;if(!t)return;const i=t.ids.indexOf(r);if(i>=0)t.ids.splice(i,1);else if(t.ids.length<TRAIN_MAX)t.ids.push(r);else{notice('Choose up to '+TRAIN_MAX+' pictures.',true);return;}}
+  else if(a==='train-start')return run('train',trainStart);
+  else if(a==='batch-file'){q('#image-workspace [data-batch-file]')?.click();return;}
+  else if(a==='batch-send')return run('batch',batchSend);
+  else if(a==='batch-save')return run('bsave:'+button.dataset.id,()=>batchSave(button.dataset.id));
+  else if(a==='batch-cancel')return run('bcancel',async()=>{const b=ws.batches.find(x=>x.id===button.dataset.id);if(!b)return;const waiting=batchJobs(b).filter(j=>j.status==='queued').map(j=>j.id);for(let i=0;i<waiting.length;i+=500)await api('queue/cancel',{job_ids:waiting.slice(i,i+500)});await refresh();notice(waiting.length.toLocaleString()+' waiting pictures cancelled. Finished ones are kept.');});
+  else if(a==='ref-picker')ws.refPicker=!ws.refPicker;
+  else if(a==='ref-clear')ws.genRefs=[];
+  else if(a==='ref-toggle'){const r=button.dataset.id,i=ws.genRefs.indexOf(r);if(i>=0)ws.genRefs.splice(i,1);else if(ws.genRefs.length<REFS)ws.genRefs.push(r);else{notice('Choose up to '+REFS+' reference pictures.',true);return;}}
+  else if(a==='all-sizes'){if(id)allSizes(id);return;}
+  else if(a==='resize'||a==='upscale'){
+   const target=id;if(!target)return;const d=ai(target);
+   return run(a,async()=>{
+    const gpu=requireCompute(),body={gpu,asset_id:target,story_id:activeStory};
+    if(a==='resize'){await window.EccoCompute.validate(gpu,EDIT_MODEL);const list=shapeList(),now=record(target)?.settings?.resize;body.size=ws.resizeShape||list.find(x=>x.size!==now)?.size;if(!body.size)throw Error('Choose a shape.');Object.assign(body,modelSettings(EDIT_MODEL));if(quality()==='fast'&&fastReady(EDIT_MODEL))body.quality='fast';}
+    const made=await waitFor(await api(a==='resize'?'image-resize':'image-upscale',body));unsaved(made);keep(target,made[0]);addDraft(d,made[0]);
+    notice(a==='resize'?'New shape ready as the next draft. Press Use AI Image to keep it.':'4K copy ready as the next draft. Press Use AI Image to keep it.');
+   });
+  }
+  else if(a==='ai-draft'){if(id)ai(id).index=+button.dataset.index;}
+  else if(a==='version-use'){const v=button.dataset.id;if(id&&v&&record(v)){keep(id,v);ws.selected[ws.active]=v;ws.published=false;}}
+  else if(a==='version-final'){const v=button.dataset.id;if(id&&v&&record(v)){if(v===rootOf(id)&&v===id)delete ws.final[id];else ws.final[id]=v;ws.published=false;enh(id).compare='after';}}
+  else if(a==='use-ai'){const d=ai(id),draft=d.drafts[d.index];if(draft){ws.selected[ws.active]=draft;ws.published=false;}}
+  else if(a==='clear-ai'){if(id)ws.ai[id]={drafts:[],index:0};}
+  else if(a==='enh')ws.enh=+button.dataset.index;
+  else if(a==='type'){const e=enh(id);e.type=button.dataset.type;e.choices={};}
+  else if(a==='choose'){const e=enh(id),g=M.groups(e.type,styles()).find(x=>x.key===button.dataset.key);if(g)e.choices=M.toggle(e.choices,g,button.dataset.value);}
+  else if(a==='suggest'){const e=enh(id);if(e.analysis)e.choices=JSON.parse(JSON.stringify(e.analysis.suggestions));}
+  else if(a==='clear-choices')enh(id).choices={};
+  else if(a==='ref'){const e=enh(id),label='Image '+(+button.dataset.index+1);e.prompt=(e.prompt&&!/\s$/.test(e.prompt)?e.prompt+' ':e.prompt)+label+' ';}
+  else if(a==='compare')enh(id).compare=button.dataset.mode;
+  else if(a==='enh-draft')enh(id).index=+button.dataset.index;
+  else if(a==='use-draft'){const e=enh(id),draft=e.drafts[e.index];if(draft){ws.final[id]=draft;ws.published=false;e.compare='after';}}
+  else if(a==='clear-drafts'){const e=enh(id);e.drafts=[];e.index=0;}
+  else if(a==='enhance'){
+   const e=enh(id),number=ws.enh+1,target=id;
+   if(!e.type||!M.canGenerate(e.prompt,e.type,e.choices,styles()))return;
+   const c=M.compose({number,type:e.type,prompt:e.prompt,choices:e.choices,styles:styles()});
+   const others=M.referenced(e.prompt,ws.selected.length).filter(n=>n!==number).map(n=>finalOf(ws.selected[n-1]));
+   const ids=[finalOf(target),...others].slice(0,LIMIT);
+   return run('enhance:'+target,async()=>{const made=await edit(ids,c.prompt,c.style);keep(target,made[0]);addDraft(e,made[0]);e.compare='after';});
+  }
+  else if(a==='publish')return run('publish',publish);
+  else if(a==='open-library'){window.EccoLibraryHub?.open('image');return;}
+  else if(a==='again'){const keep={jobs:ws.jobs.filter(j=>!j.done),set:ws.set};ws=fresh();Object.assign(ws,keep);}
+  save();draw();
+ }
+ const base64=bytes=>{let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(s);};
+ const logoOn=()=>{const k=B.active();return k&&k.logo&&record(k.logo)&&ws.placeLogo?k:null;};
+ // A finished picture: the logo placed (when the kit is on) and how it was made written into the PNG.
+ async function finished(id,kit){
+  let bytes,mime;
+  if(kit||hasText(id)){const c=await compose(id);bytes=await B.pngOf(B.flatten(c.layers));mime='image/png';}else{const b=await bytesOf(id);bytes=b.bytes;mime=b.mime;}
+  if(mime==='image/png')bytes=B.pngDpi(B.pngText(bytes,meta(id,B.active()||kit)),DPI);
+  return {bytes,mime};
+ }
+ /* ---------- words, layers and print files (IMG-4.1, 4.2, 4.5, 3.6) ---------- */
+ const textOf=id=>{const t=ws.texts[id]||{};return {headline:t.headline||'',price:t.price||'',place:B.TEXT_PLACES.includes(t.place)?t.place:'Bottom'};};
+ const hasText=id=>{const t=textOf(id);return !!(t.headline.trim()||t.price.trim());};
+ const blobOf=b=>new Blob([b.bytes],{type:b.mime});
+ // Every layer of a finished picture (picture, words, logo) at full size.
+ async function compose(id){
+  const kit=B.active(),logo=logoOn(),o=await bytesOf(id);
+  return {source:o,layers:await B.layers(blobOf(o),{kit,logoBlob:logo?blobOf(await bytesOf(logo.logo)):null,text:hasText(id)?textOf(id):null})};
+ }
+ const DPI=300,inches=px=>Math.round(px/DPI*10)/10;
+ const previewCache={};let previewing=false;
+ // The pictures in Publish show exactly what will be published: logo and words drawn in the brand font.
+ async function previews(){
+  if(previewing)return;previewing=true;
+  try{
+   for(const im of all('#image-workspace img[data-preview]')){
+    const id=im.dataset.preview,key=id+'|'+JSON.stringify(B.active())+'|'+ws.placeLogo+'|'+JSON.stringify(textOf(id));
+    const note=q('#image-workspace [data-print="'+CSS.escape(id)+'"]');
+    if(!logoOn()&&!hasText(id)){if(im.dataset.key){im.removeAttribute('data-key');const r=record(id);if(r)im.src=media(r);}}
+    else if(im.dataset.key!==key){
+     if(!previewCache[key]){try{const c=await compose(id);previewCache[key]=URL.createObjectURL(new Blob([await B.pngOf(B.flatten(c.layers))],{type:'image/png'}));}catch{continue;}}
+     const now=q('#image-workspace img[data-preview="'+CSS.escape(id)+'"]');if(now){now.src=previewCache[key];now.dataset.key=key;}
+    }
+    const shown=q('#image-workspace img[data-preview="'+CSS.escape(id)+'"]');
+    const size=()=>{if(note&&shown?.naturalWidth)note.textContent=shown.naturalWidth+' × '+shown.naturalHeight+' px · prints sharp up to '+inches(shown.naturalWidth)+' × '+inches(shown.naturalHeight)+' in';};
+    if(shown?.complete)size();else shown?.addEventListener('load',size,{once:true});
+   }
+  }finally{previewing=false;}
+ }
+ const meta=(id,kit)=>{const r=record(id)||{};return {Title:title(id),Prompt:r.prompt||r.settings?.prompt||'',Model:r.model||r.settings?.model||'',Seed:r.settings?.seed??r.seed??'',Brand:kit?kit.name:'',Software:'Ecco Studio'};};
+ async function download(){
+  if(ws.exportFormat==='psd'||ws.exportFormat==='tiff')return downloadPro(ws.exportFormat);
+  const kit=logoOn(),files=[];
+  const list=[];
+  for(const [i,id] of ws.selected.map(finalOf).entries()){
+   const f=await finished(id,kit),stem=String(i+1).padStart(2,'0')+'-'+J.safeName(title(id)).slice(0,40),r=record(id)||{},file=stem+(f.mime==='image/png'?'.png':/jpe?g/.test(f.mime)?'.jpg':'.webp');
+   files.push({name:file,bytes:f.bytes});
+   // Layers: the picture without the logo and the logo alone on a clear picture of the same size.
+   if(kit||hasText(id)){const c=await compose(id),o=c.source;files.push({name:'layers/'+stem+'-picture'+(/jpe?g/.test(o.mime)?'.jpg':/webp/.test(o.mime)?'.webp':'.png'),bytes:o.bytes});if(c.layers.logo)files.push({name:'layers/'+stem+'-logo.png',bytes:await B.pngOf(c.layers.logo)});if(c.layers.words)files.push({name:'layers/'+stem+'-words.png',bytes:await B.pngOf(c.layers.words)});}
+   list.push({file,title:title(id),prompt:r.prompt||r.settings?.prompt||'',model:r.model||r.settings?.model||'',seed:r.settings?.seed??r.seed??null,versions:[rootOf(id),...(ws.history[rootOf(id)]||[])].length,words:hasText(id)?textOf(id):null,dpi:DPI,brand:kit?{name:kit.name,colors:kit.colors,logo_position:kit.position,logo_size:kit.size}:null,notes:noteList(id).map(n=>({x:n.x,y:n.y,where:where(n.x,n.y),text:n.text}))});
+  }
+  files.push({name:'pictures.json',bytes:new TextEncoder().encode(JSON.stringify({made_with:'Ecco Studio',exported:new Date().toISOString(),pictures:list},null,2)+'\n')});
+  const url=URL.createObjectURL(new Blob([J.zip(files)],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download='ecco-pictures.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  notice(list.length+(list.length===1?' picture':' pictures')+' downloaded'+(kit?' with the '+kit.name+' logo':'')+'.');
+ }
+ // PSD (layers: Picture, Words, Logo) or TIFF (flat, for print), each 300 dpi, one file per picture in a ZIP.
+ async function downloadPro(format){
+  const X=window.EccoImageExport,kit=logoOn(),files=[],list=[];
+  for(const [i,id] of ws.selected.map(finalOf).entries()){
+   const c=await compose(id),L=c.layers,flat=B.flatten(L),stem=String(i+1).padStart(2,'0')+'-'+J.safeName(title(id)).slice(0,40),m=meta(id,B.active());
+   let bytes;
+   if(format==='psd')bytes=X.psd({width:L.width,height:L.height,dpi:DPI,merged:B.rgba(flat),layers:[['Picture',L.picture],['Words',L.words],['Logo',L.logo]].filter(([,c])=>c).map(([name,c])=>({name,pixels:B.rgba(c)}))});
+   else bytes=X.tiff({width:L.width,height:L.height,dpi:DPI,pixels:B.rgba(flat),description:Object.entries(m).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>k+': '+v).join('\n'),software:''});
+   files.push({name:stem+'.'+format,bytes});list.push({file:stem+'.'+format,width:L.width,height:L.height,dpi:DPI,print_inches:[inches(L.width),inches(L.height)],layers:format==='psd'?['Picture',L.words&&'Words',L.logo&&'Logo'].filter(Boolean):null,...Object.fromEntries(Object.entries(m).map(([k,v])=>[k.toLowerCase(),v]))});
+  }
+  files.push({name:'pictures.json',bytes:new TextEncoder().encode(JSON.stringify({made_with:'Ecco Studio',exported:new Date().toISOString(),pictures:list},null,2)+'\n')});
+  const url=URL.createObjectURL(new Blob([J.zip(files)],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download='ecco-pictures-'+format+'.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  notice(list.length+(list.length===1?' picture':' pictures')+' downloaded as '+(format==='psd'?'layered PSD':'TIFF')+' at 300 dpi'+(kit?' with the '+kit.name+' logo':'')+'.');
+ }
+ async function publish(){
+  const story=state.records.find(r=>r.kind==='story'&&r.id===activeStory),name=String(story?.title||'').replace(/\//g,'-').trim().slice(0,80);
+  let folder=name?state.records.find(r=>r.kind==='image_folder'&&!r.deleted&&r.name===name):null;
+  const ids=ws.selected.map(finalOf),kit=logoOn();
+  for(let id of ids){
+   if(kit||hasText(id)){const f=await finished(id,kit),made=await api('images/upload',{name:J.safeName(title(id)).slice(0,60)+'-'+J.safeName(kit?kit.name:'words')+'.png',data:base64(f.bytes),story_id:activeStory});if(made&&!state.records.some(r=>r.id===made.id))state.records.push({kind:'asset',media:'image',...made});unsaved([],[id]);id=made.id;}
+   const r=record(id);if(!r||r.stage!=='prod')await api('approve',{asset_id:id});
+   if(name){if(!folder)folder=await api('library/folders',{name});if(folder&&!folder.deleted)await api('library/save',{asset_id:id,folder_id:folder.id});}
+  }
+  unsaved([],ids);await refresh();ws.published=true;notice(ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library'+(kit?' with the '+kit.name+' logo':'')+'.');
+ }
+ const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';},resizeShape:v=>{ws.resizeShape=v;},trainName:v=>{if(ws.train){ws.train.name=v;const b=q('#image-workspace [data-act=train-start]');if(b&&!busy.train)b.disabled=!(ws.train.ids.length>=TRAIN_MIN&&v.trim());}},batchName:v=>{ws.batchName=v;const b=q('#image-workspace [data-act=batch-send]');if(b&&!busy.batch)b.disabled=!(state.config?.image_batch&&batchLines(ws.batchText).length&&v.trim());},batchStyle:v=>{ws.batchStyle=v;},batchShape:v=>{ws.batchShape=v;},houseName:v=>{if(ws.houseForm){ws.houseForm.name=v;const b=q('#image-workspace [data-act=house-save]');if(b)b.disabled=!v.trim();}},noteText:v=>{if(ws.noteDraft){ws.noteDraft.text=v;const b=q('#image-workspace [data-act=note-save]');if(b)b.disabled=!v.trim();}}};
+ function input(el){
+  const k=el.dataset.input;
+  if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles()));save();return;}
+  if(k==='batchText'){ws.batchText=el.value;save();clearTimeout(input.btimer);input.btimer=setTimeout(()=>draw(),400);return;}
+  if(k==='textHeadline'||k==='textPrice'||k==='textPlace'){const id=el.dataset.id,t=ws.texts[id]||(ws.texts[id]={});t[{textHeadline:'headline',textPrice:'price',textPlace:'place'}[k]]=el.value;save();clearTimeout(input.timer);input.timer=setTimeout(previews,350);return;}
+  if(INPUTS[k]){INPUTS[k](el.value);save();if(el.tagName==='SELECT'||k==='setPages'||k==='charName')draw();return;}
+  ws[k]=el.value;save();
+  if(k==='genPrompt'){const b=q('#image-workspace [data-act=generate]');if(b)b.disabled=!el.value.trim();const i=q('#image-workspace [data-act=ideas]');if(i&&!busy.ideas)i.disabled=!el.value.trim();}
+  if(k==='aiPrompt'&&!busy.improve){const b=q('#image-workspace [data-act=improve]');if(b)b.disabled=!ws.selected.length||!el.value.trim();}
+  if(k==='search'||k==='label')ws.libLimit=PAGE;
+  if(k==='search'||k==='label'||k==='genStyle'||k==='genShape')draw();
+ }
+ function setting(el){
+  const k=el.dataset.setting,model=imageModel();
+  if(k==='model'){modelProfiles.selected.images=el.value;saveModelProfiles();}
+  else if(k==='compute'){localStorage.setItem('ecco-compute-image',el.value);}
+  else{const n=Number(el.value);if(Number.isFinite(n)){modelProfiles.settings[model]={...modelProfiles.settings[model],[k]:n};saveModelProfiles();}}
+  draw();
+ }
+ async function upload(files){
+  files=[...(files||[])].filter(Boolean);if(!files.length)return;
+  const bad=files.filter(f=>!/^image\/(png|jpeg|webp)$/.test(f.type));
+  if(bad.length){notice(bad.length===files.length?'Choose a PNG, JPG or WebP image.':bad.length+' file(s) skipped: choose PNG, JPG or WebP images.',true);files=files.filter(f=>!bad.includes(f));if(!files.length)return;}
+  await run('upload',async()=>{
+   let full=0;
+   for(const file of files){
+    const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(Error('The image could not be read.'));r.readAsDataURL(file);});
+    const made=await api('images/upload',{name:file.name,data,story_id:activeStory});await refresh();
+    if(!state.records.some(r=>r.id===made.id))state.records.push(made);
+    if(ws.selected.length<LIMIT){ws.selected.push(made.id);ws.active=ws.selected.length-1;}else full++;
+   }
+   if(full)notice('Uploaded. Selected Images already has 3; remove one to use '+(full===1?'it':'the others')+'.',true);
+  });
+ }
+
+ /* ---------- wiring ---------- */
+ document.addEventListener('click',e=>{const b=e.target.closest?.('#image-workspace [data-act]');if(b&&!b.disabled){e.preventDefault();act(b);return;}const box=e.target.closest?.('#image-workspace [data-pin]');if(box&&e.target.tagName==='IMG')pinAt(box,e);});
+ document.addEventListener('load',e=>{if(e.target.tagName==='IMG'&&e.target.closest?.('#image-workspace [data-pin]'))placePins();},true);
+ window.addEventListener('resize',()=>placePins());
+ document.addEventListener('input',e=>{if(!e.target.closest?.('#image-workspace'))return;if(e.target.dataset.input&&e.target.tagName!=='SELECT')input(e.target);else if(e.target.dataset.brand&&e.target.tagName==='INPUT'&&e.target.type==='text')brandInput(e.target);});
+ document.addEventListener('change',e=>{
+  if(!e.target.closest?.('#image-workspace'))return;
+  if(e.target.matches('[data-upload-file]')){upload(e.target.files);e.target.value='';}
+  else if(e.target.dataset.setting)setting(e.target);
+  else if(e.target.dataset.brand)brandInput(e.target);
+  else if(e.target.matches('[data-batch-file]')){batchFile(e.target.files?.[0]);e.target.value='';}
+  else if(e.target.matches('[data-brand-font]')){brandFont(e.target.files?.[0]);e.target.value='';}
+  else if(e.target.tagName==='SELECT'&&e.target.dataset.input)input(e.target);
+ });
+ document.addEventListener('keydown',e=>{
+  const t=e.target.closest?.('#image-workspace [role=tab]');if(!t||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+  const tabs=all('[role=tab]',t.parentElement),i=tabs.indexOf(t),n=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+  e.preventDefault();tabs[n].click();const label=tabs[n].id;requestAnimationFrame(()=>q('#'+CSS.escape(label))?.focus());
+ });
+ // Two tabs show the same work: a change saved in one tab is picked up by the other (live test 21 Nov: tabs disagreed).
+ window.addEventListener('storage',e=>{if(!wsStory||e.key!==key(wsStory)||!e.newValue)return;try{const next=JSON.parse(e.newValue);if(next&&typeof next==='object'){ws={...fresh(),...next};ws.set={...freshSet(),...(ws.set||{})};if(page==='images'&&q('#image-workspace'))draw(true);}}catch{}});
+ document.addEventListener('ecco:gpu-connection-change',()=>{if(page==='images'&&q('#image-workspace'))draw();});
+ const storyMode=()=>window.EccoStoryWorkspace?.active||document.body.classList.contains('story-simple-mode');
+ // The new screen opens from the Create Images entry points: the left-nav step, the Story home list and
+ // the journey guide's Back/Next. Other flows that open the image page (refine an image, instruction
+ // edits, uploads, character handoff) keep the existing image form they fill in.
+ let entry=0,open=false;
+ const ENTRY='#workspace-image-studio-node,#workspace-production-group [data-page="images"],nav [data-page="images"],#story-home-list [data-story-destination="images"],#journey-guide [data-back],#journey-guide [data-next]';
+ document.addEventListener('click',e=>{if(e.target.closest?.(ENTRY))entry=Date.now();},true);
+ const previous=imagePage,navigateBefore=navigate;
+ navigate=function(target){if(target!=='images'){open=false;entry=0;lastHtml='';}return navigateBefore.apply(this,arguments);};
+ imagePage=function(){
+  const asked=Date.now()-entry<5000;entry=0;
+  if(asked){open=true;lastHtml='';}
+  if(storyMode()||!window.EccoImageWorkspaceModel||!window.EccoImageJobs||!open||refinementSource){open=false;return previous.apply(this,arguments);}
+  if(!state.storage_pending&&!stories().length){$('#page').innerHTML=empty('Start a new story','Choose + New story in the sidebar, or restore a story from Trash.');lastHtml='';return;}
+  draw();
+ };
+ /* ---------- sidebar: Studios › Image Studio (owner request 18 Nov 2026; moved out of Tell Your Story) ---------- */
+ function openStudio(step){
+  window.EccoStoryWorkspace?.leave?.();entry=Date.now();navigate('images');
+  if(step&&q('#image-workspace')){load();ws.step=step;save();draw();}
+  studioNode();
+ }
+ function studioNode(){
+  const box=q('#workspace-studios-group > .workspace-library-content');if(!box)return;
+  let node=q('#workspace-image-studio-node');
+  if(!node){
+   node=document.createElement('button');node.type='button';node.className='journey-step';node.id='workspace-image-studio-node';
+   node.innerHTML='<span aria-hidden="true">- </span>Image Studio';
+   node.addEventListener('click',()=>openStudio());
+  }
+  if(box.firstElementChild!==node)box.prepend(node);
+  node.classList.toggle('active',page==='images'&&!!q('#image-workspace'));
+ }
+ if(typeof names!=='undefined')names.images='Image Studio';
+ let nodeQueued=false;new MutationObserver(()=>{if(nodeQueued)return;nodeQueued=true;queueMicrotask(()=>{nodeQueued=false;studioNode();});}).observe(document.querySelector('aside')||document.body,{childList:true,subtree:true});
+ studioNode();
+ window.EccoImageWorkspace={draw,open:openStudio,get state(){return ws;}};
+})();
