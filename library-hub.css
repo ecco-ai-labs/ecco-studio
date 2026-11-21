@@ -170,3 +170,19 @@ body:not(.workspace-entry-mode) #page#page .lh .lh-pager-bottom button{padding:6
 .lh-viewer-actions{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .lh-viewer-confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%}
 @media(max-width:800px){.lh-viewer.lh-viewer-full{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;overflow:auto}.lh-viewer-full .lh-viewer-side{border-left:0;border-top:1px solid var(--ecco-theme-border,#4a4580)}}
+
+/* Model Sounds (owner-approved mock, 21 Nov 2026): one slim row per voice or sound, small play chips. Sizes from the roster. */
+.ms-list{border:1px solid var(--ecco-theme-border,#34316a);border-radius:8px;overflow:hidden}
+.ms-section{padding:6px 12px;background:var(--ecco-theme-control,#1a1838);color:var(--ecco-theme-muted,#a7a4c8);border-top:1px solid var(--ecco-theme-border,#34316a)}
+.ms-section:first-child{border-top:0}
+.ms-row{display:grid;grid-template-columns:minmax(140px,220px) minmax(0,1fr);gap:12px;align-items:center;padding:5px 12px;border-top:1px solid var(--ecco-theme-border,#34316a)}
+.ms-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-chips{display:flex;gap:4px;flex-wrap:wrap}
+.ms-chip{display:inline-flex;align-items:center;gap:4px;padding:0 8px 0 5px;border:1px solid var(--ecco-theme-border,#34316a);border-radius:999px;background:transparent;color:var(--ecco-theme-text,#e9e7f7);cursor:pointer}
+.ms-chip svg{width:9px;height:9px;fill:var(--ecco-theme-accent,#ffdc24)}
+.ms-chip:hover,.ms-chip:focus-visible{border-color:var(--ecco-theme-accent,#ffdc24);outline:none}
+.ms-chip.on{background:var(--ecco-theme-accent,#ffdc24);color:var(--ecco-theme-background,#1b1a3a);border-color:var(--ecco-theme-accent,#ffdc24)}
+.ms-chip.on svg{fill:var(--ecco-theme-background,#1b1a3a)}
+.ms-chip.ms-exp{border-style:dashed;border-color:var(--ecco-theme-warning,#f0a35e)}
+.ms-chip.ms-listen{border-style:dashed;border-color:var(--ecco-theme-error,#ff6b6b)}
+@media(max-width:760px){.ms-row{grid-template-columns:1fr}}

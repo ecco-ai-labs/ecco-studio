@@ -796,6 +796,23 @@
       ],
       "area": "Story pages",
       "note": "Tab with a name and a small progress bar (generation queue, owner-approved 20 Nov 2026). Listed so the Tab height does not squash it."
+    },
+    {
+      "id": "model-sound-chip",
+      "name": "Model Sounds play chip",
+      "contractComponent": "button",
+      "font": "@text-regular",
+      "height": "@control-small",
+      "width": null,
+      "selectors": [
+        ".ms-chip"
+      ],
+      "examples": [
+        "▶ EN",
+        "▶ Meow"
+      ],
+      "area": "Library pages",
+      "note": "Small play chips in Audio Library › Model Sounds (owner-approved mock, 21 Nov 2026)."
     }
   ],
   "variants": [

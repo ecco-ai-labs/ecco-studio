@@ -3232,5 +3232,14 @@
     "imageTabs": "One role=tab per picture of yours that is running plus your latest finished ones, only when more than one: 'Image N' and a small progress bar with % (Done in green). The chosen tab fills the screen. A Cancel \u2715 icon (pdf-icon-btn) leads the Image box tools while your picture runs.",
     "queuePopup": "dialog#generation-queue-dialog: title Queue; summary 'X of Y done \u00b7 N generating \u00b7 about T left' (model tab: '<model>: N waiting'); accent progress bar with %; one ribbon with tabs All (with your count) + one per model (no counts) and Search on the right; scrollable list of your waiting pictures only: drag handle (Alt+Up/Down), place in the whole line, name, model, Est. wait (Next for the first), Move to top, Cancel; 50 per page; Cancel All button. Users reorder and cancel only their own jobs; their jobs swap only among the places they already hold.",
     "noPause": "Serverless jobs cannot be paused, so there is no Pause or Resume."
+  },
+  "modelSounds": {
+    "type": "library-view",
+    "source": "library-hub.js (modelSoundRows, playModelSound), library-hub.css; scripts/model_sounds.py (generation, checks, labels)",
+    "approved": "Owner-approved mock, 2026-11-21 (https://claude.ai/artifact/HfjdBn55t5Bns38Hyzre9c)",
+    "sidebar": "One collapsed label 'Model Sounds' (nested labels: Human \u203a Male|Female \u203a voice \u203a language; Animals \u203a group \u203a animal \u203a sound; Others \u203a group \u203a thing \u203a sound).",
+    "allClips": "Model Sounds recordings never appear in 'All audio clips' or the Audio count; they show only inside Model Sounds labels.",
+    "rows": "One slim row per voice or sound (.ms-row): name, then small play chips (.ms-chip: play icon + language code or sound name). Click plays/stops; playing chip turns accent. Dashed orange = experimental (toddler); dashed red = needs a listen.",
+    "metadata": "Each recording carries model_sound: model, voice, language, settings, spoken text, label path, check results."
   }
 }
