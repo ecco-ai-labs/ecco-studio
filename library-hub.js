@@ -50,7 +50,7 @@
   let out=[];
   // A picture made in Image Generation joins the library only when Save is chosen there (owner-approved mocks, 2026-11-16).
   if(kind==='image'){const hidden=unsavedImages();out=records().filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted&&!(hidden.has(a.id)&&!byItem.has(a.id))).map(a=>({id:a.id,name:a.title&&(a.title!==a.prompt||a.settings?.model==='uploaded-image')?a.title:'Generated image',raw:a.title??'',type:extension(a.path)||'IMG',created:a.created,asset:a,cloud:true}));}
-  else if(kind==='audio')out=records().filter(a=>a.kind==='asset'&&a.media==='audio'&&!a.deleted).map(a=>({id:a.id,name:a.title||a.prompt||'Audio',raw:a.title??'',type:extension(a.path)||'AUDIO',created:a.created,asset:a,cloud:true}));
+  else if(kind==='audio')out=records().filter(a=>a.kind==='asset'&&a.media==='audio'&&!a.deleted).map(a=>({id:a.id,name:a.title||a.prompt||'Audio',raw:a.title??'',type:extension(a.path)||'AUDIO',created:a.created,asset:a,cloud:true,modelSound:Boolean(a.model_sound)}));
   else if(kind==='video')out=(window.EccoVideoLibrary?.assets()||[]).map(a=>({id:a.id,name:a.title||a.prompt||'Video',raw:a.title??'',type:extension(a.path)||'VIDEO',created:a.created,asset:a,cloud:true}));
   else if(kind==='story'){
    if(!state.storage_pending)out=stories().filter(s=>!s.deleted).map(s=>({id:s.id,name:s.title||'Untitled story',raw:s.title??'',type:'Story',created:s.created,cloud:true}));
@@ -64,14 +64,19 @@
  }
  const hook=(kind,it)=>kind==='story'?(it.local?' data-local-story-id="'+esc(it.id)+'"':' data-story-id="'+esc(it.id)+'"'):kind==='workflow'?' data-workflow-id="'+esc(it.id)+'"':' data-asset-id="'+esc(it.id)+'"';
  function visible(kind){
-  const s=ui[kind],all=items(kind),list=folders(kind);
+  const s=ui[kind],list=folders(kind),all=own(kind,items(kind));
   let out=all;
+  // Model Sounds (owner-approved mock, 21 Nov 2026) stay out of "All audio clips"; they show inside their own labels.
+  if(kind==='audio'&&modelSoundsOpen(kind))out=items(kind).filter(it=>it.modelSound);
   for(const id of s.filters){const f=list.find(x=>x.id===id);if(!f)continue;const ok=scope(kind,f);out=out.filter(it=>it.labels.some(l=>ok.has(l)));}
   if(s.type!=='all')out=out.filter(it=>it.type===s.type);
   const text=s.q.trim().toLowerCase();if(text)out=out.filter(it=>it.name.toLowerCase().includes(text));
   out=out.slice().sort((a,b)=>s.sort==='old'?(a.created||0)-(b.created||0):s.sort==='name'?a.name.localeCompare(b.name):s.sort==='namedesc'?b.name.localeCompare(a.name):(b.created||0)-(a.created||0));
   return {all,out,list};
  }
+ const MS='Model Sounds';
+ function modelSoundsOpen(kind){const s=ui[kind],list=folders(kind);return kind==='audio'&&s.filters.length>0&&s.filters.every(id=>(list.find(f=>f.id===id)?.name||'').split(' / ')[0]===MS);}
+ const own=(kind,list)=>kind==='audio'?list.filter(it=>!it.modelSound):list;
  const labelText=(it,list)=>{const names=it.labels.map(id=>list.find(f=>f.id===id)).filter(Boolean).map(leaf);return names.length?names.join(' · '):'No labels';};
  function count(kind,f,all,list){const ok=scope(kind,f);return all.filter(it=>it.labels.some(l=>ok.has(l))).length;}
 
@@ -284,6 +289,7 @@
   chips.innerHTML=filters.length?'<span class="lh-muted">Items with all of:</span>'+filters.map(f=>'<span class="lh-chip on">'+esc(leaf(f))+'<button type="button" data-act="chip-x" data-id="'+esc(f.id)+'" aria-label="Remove filter '+esc(path(f))+'">×</button></span>').join('')+'<button type="button" class="link" data-act="clear">Clear all</button>':'';
   root.querySelectorAll('[data-act=view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===s.view)));
   const box=root.querySelector('.lh-results'),p=pageInfo(kind,out.length),shown=out.slice(p.start,p.end);
+  if(kind==='audio'&&modelSoundsOpen(kind)&&out.length){box.innerHTML=modelSoundRows(out,list);details(kind,list);return;}
   if(!out.length){
    const searching=Boolean(s.q.trim()||s.type!=='all'||filters.length);
    box.innerHTML='<div class="lh-empty"><p>'+(searching?'Nothing matches your search and filters.':'Nothing here yet.')+'</p>'+(searching?'<button type="button" class="secondary" data-act="reset">Reset search and filters</button>':'')+'</div>';
@@ -296,6 +302,28 @@
   }
   details(kind,list);
   if(K.asset)hydrate();
+ }
+ // One slim row per voice or sound; each sample is a small chip with a play icon (language code for voices).
+ const LANG_CODE={English:'EN',Hindi:'HI',Spanish:'ES',French:'FR',German:'DE',Italian:'IT',Portuguese:'PT',Japanese:'JA',Chinese:'ZH',Korean:'KO',Russian:'RU',Tamil:'TA',Telugu:'TE',Bengali:'BN',Marathi:'MR',Gujarati:'GU',Kannada:'KN',Malayalam:'ML',Punjabi:'PA'};
+ const PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
+ function modelSoundRows(out,list){
+  const groups=new Map();
+  for(const it of out){const f=it.labels.map(id=>list.find(x=>x.id===id)).find(x=>x&&x.name.split(' / ')[0]===MS);if(!f)continue;
+   const parts=f.name.split(' / '),key=parts.slice(0,-1).join(' / ');if(!groups.has(key))groups.set(key,{name:parts.at(-2),section:parts.slice(1,-2).join(' › '),chips:[]});
+   const ms=it.asset.model_sound||{},check=ms.checks?.status;groups.get(key).chips.push({id:it.id,leaf:parts.at(-1),exp:ms.experimental,listen:check==='needs_listen',meta:[ms.model,ms.voice,ms.language].filter(Boolean).join(' · ')});}
+  let last='';
+  return '<div class="ms-list" role="list" aria-label="Model Sounds">'+[...groups.values()].sort((a,b)=>(a.section+a.name).localeCompare(b.section+b.name)).map(g=>{
+   const head=g.section!==last?(last=g.section,'<div class="ms-section" role="presentation">'+esc(g.section)+'</div>'):'';
+   return head+'<div class="ms-row" role="listitem"><span class="ms-name" title="'+esc(g.name)+'">'+esc(g.name)+'</span><span class="ms-chips">'+g.chips.sort((a,b)=>a.leaf.localeCompare(b.leaf)).map(c=>
+    '<button type="button" class="ms-chip'+(c.exp?' ms-exp':'')+(c.listen?' ms-listen':'')+'" data-act="ms-play" data-id="'+esc(c.id)+'" title="'+esc(c.leaf+' · '+c.meta+(c.listen?' · needs a listen':c.exp?' · experimental':''))+'" aria-label="Play '+esc(g.name+' · '+c.leaf)+'">'+PLAY+esc(LANG_CODE[c.leaf]||c.leaf)+'</button>').join('')+'</span></div>';}).join('')+'</div>';
+ }
+ let msAudio=null,msChip=null;
+ async function playModelSound(button){
+  if(msAudio){msAudio.pause();msChip?.classList.remove('on');}
+  if(msChip===button){msAudio=null;msChip=null;return;}
+  msChip=button;button.classList.add('on');
+  try{const url=await window.EccoStorage.mediaURL(button.dataset.id);if(msChip!==button)return;msAudio=new Audio(url);msAudio.onended=()=>{button.classList.remove('on');if(msChip===button){msChip=null;msAudio=null;}};await msAudio.play();}
+  catch(error){button.classList.remove('on');msChip=null;toast('This sample could not play: '+(error.message||error));}
  }
  function details(kind,list){
   const root=q('#page .lh'),aside=root.querySelector('.lh-details'),K=KINDS[kind],item=sel(kind);
@@ -334,11 +362,11 @@
  }
  function renderNav(){
   const nav=ensureNav();if(!nav||typeof state==='undefined'||!state)return;
-  const onPage=Boolean(PAGE_KIND[page]),s=ui[current],list=folders(current),all=items(current);
+  const onPage=Boolean(PAGE_KIND[page]),s=ui[current],list=folders(current),all=own(current,items(current));
   const rows=[];const walk=(p,d)=>{list.filter(f=>(parentOf(f,list)?.id||'')===p).forEach(f=>{rows.push({f,d});if(expanded.has(f.id))walk(f.id,d+1);});};walk('',0);
   const hasKids=f=>list.some(x=>x.name.startsWith(f.name+' / ')&&x.name.split(' / ').length===f.name.split(' / ').length+1);
   const topLevel=list.filter(f=>!f.name.includes(' / '));
-  const html='<nav aria-label="Libraries" class="lh-libs">'+ORDER.map(k=>'<button type="button" data-lib="'+k+'" aria-current="'+(onPage&&k===current?'page':'false')+'"><span>'+esc(KINDS[k].title)+'</span><small>'+items(k).length+'</small></button>').join('')+'</nav>'
+  const html='<nav aria-label="Libraries" class="lh-libs">'+ORDER.map(k=>'<button type="button" data-lib="'+k+'" aria-current="'+(onPage&&k===current?'page':'false')+'"><span>'+esc(KINDS[k].title)+'</span><small>'+own(k,items(k)).length+'</small></button>').join('')+'</nav>'
    +'<nav aria-label="Labels" class="lh-tree"><div class="lh-treehead">Labels</div>'
    +'<button type="button" class="lh-node" data-act="nav-all" aria-pressed="'+(onPage&&!s.filters.length)+'"><span class="lh-node-text"><span>All '+esc(KINDS[current].plural)+'</span></span><small>'+all.length+'</small></button>'
    +rows.map(({f,d})=>{const open=expanded.has(f.id),kids=hasKids(f),on=s.filters.includes(f.id);
@@ -378,6 +406,7 @@
   const b=event.target.closest('[data-act]');if(!b)return;
   const kind=root.dataset.kind,s=ui[kind],act=b.dataset.act;
   // Images open full size with their details (owner-approved mock, 11 November 2026); other kinds use the side panel.
+  if(act==='ms-play'){playModelSound(b);return;}
   if(act==='pick'&&kind==='image'){const item=items('image').find(it=>it.id===b.dataset.pick);if(item){s.sel='';menu=false;lightbox(item);}}
   else if(act==='pick'){s.sel=s.sel===b.dataset.pick?'':b.dataset.pick;menu=false;results();root.querySelector('[data-pick="'+cssq(b.dataset.pick)+'"]')?.focus();}
   else if(act==='view'){s.view=b.dataset.view;localStorage.setItem('ecco-library-view-'+kind,s.view);results();}

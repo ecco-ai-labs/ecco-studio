@@ -292,10 +292,12 @@ FOLDERS = {}
 
 
 def folder(path):
-    name = ' / '.join(path)
-    if name not in FOLDERS:
-        FOLDERS[name] = api('audio/folders', {'name': name[:80]})['id']
-    return FOLDERS[name]
+    """The label for a path; every parent label is made too, so the tree nests under one Model Sounds label."""
+    for n in range(1, len(path) + 1):
+        name = ' / '.join(path[:n])
+        if name not in FOLDERS:
+            FOLDERS[name] = api('audio/folders', {'name': name[:80]})['id']
+    return FOLDERS[' / '.join(path)]
 
 
 def db():
