@@ -28,11 +28,11 @@
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,texts:{},exportFormat:'png',sizes:{},review:null,genRefs:[],refPicker:false,boards:{},pubMore:false,resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,houseForm:null,libLimit:60,texts:{},exportFormat:'png',sizes:{},review:null,genRefs:[],refPicker:false,boards:{},pubMore:false,train:null,batches:[],batchName:'',batchText:'',batchStyle:'',batchShape:'',resizeShape:'',notes:{},noteDraft:null,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
-  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};if(!ws.notes||typeof ws.notes!=='object')ws.notes={};if(!ws.texts||typeof ws.texts!=='object')ws.texts={};if(!ws.sizes||typeof ws.sizes!=='object')ws.sizes={};if(!Array.isArray(ws.genRefs))ws.genRefs=[];if(!ws.boards||typeof ws.boards!=='object')ws.boards={};
+  ws={...fresh(),...(saved&&typeof saved==='object'?saved:{})};ws.set={...freshSet(),...(ws.set||{})};if(!Array.isArray(ws.jobs))ws.jobs=[];if(!ws.checks||typeof ws.checks!=='object')ws.checks={};if(!ws.history||typeof ws.history!=='object')ws.history={};if(!ws.notes||typeof ws.notes!=='object')ws.notes={};if(!ws.texts||typeof ws.texts!=='object')ws.texts={};if(!ws.sizes||typeof ws.sizes!=='object')ws.sizes={};if(!Array.isArray(ws.genRefs))ws.genRefs=[];if(!ws.boards||typeof ws.boards!=='object')ws.boards={};if(!Array.isArray(ws.batches))ws.batches=[];
   wsStory=activeStory;modelOpen=false;return ws;
  }
  function save(){try{localStorage.setItem(key(wsStory),JSON.stringify(ws));}catch{}}
@@ -113,7 +113,10 @@
  const house=style=>String(style||'').startsWith('house:')?houses().find(h=>'house:'+h.id===style)||null:null;
  const houseRefs=h=>h?h.refs.filter(record):[];
  const housePrompt=(prompt,h)=>'Make a completely new picture in exactly the visual style of the reference '+(h.refs.length>1?'pictures':'picture')+': the same colour palette, lighting, rendering, line work and texture. Do not copy the people, objects or layout of the reference. The new picture shows: '+String(prompt).trim();
- const styled=(prompt,style)=>house(style)?prompt:style&&window.EccoImageStyles?.get(style)?window.EccoImageStyles.prompt(prompt,style):prompt;
+ // Trained house styles (IMG-5.1): a LoRA learned from 10-60 pictures on the style trainer. Value "lora:<training id>".
+ const trainings=()=>state.records.filter(r=>r.kind==='style_training'&&!r.deleted).sort((a,b)=>(b.created||0)-(a.created||0));
+ const trained=style=>{if(!String(style||'').startsWith('lora:'))return null;const r=trainings().find(t=>'lora:'+t.id===style);return r&&r.status==='ready'&&r.lora&&(state.config?.image_style_loras||[]).includes(r.lora)?r:null;};
+ const styled=(prompt,style)=>trained(style)?trained(style).trigger+', '+String(prompt).trim():house(style)?prompt:style&&window.EccoImageStyles?.get(style)?window.EccoImageStyles.prompt(prompt,style):prompt;
  async function edit(ids,prompt,style){
   const gpu=requireCompute(),config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings=modelSettings(EDIT_MODEL);
   if(!config.generation_controls_version&&ids.length>1)throw Error('The connected GPU needs the multi-reference update to use several images. Your choices and prompt are saved.');
@@ -157,6 +160,7 @@
   const model=imageModel();await window.EccoCompute.validate(gpu,model);
   const payload=modelPayload('images',gpu,model);if(shape&&(MODEL_CATALOG[model].sizes?.includes(shape)||state.config?.image_sizes?.[model]?.includes(shape)))payload.resolution=shape;
   if(seed!=null)payload.seed=seed;if(quality()==='fast'&&fastReady(model))payload.quality='fast';
+  const t=trained(style);if(t){if(model!=='qwen-image-2512')throw Error('Trained house styles work with Qwen-Image-2512. Choose it in Model settings.');payload.style_lora=t.lora;}
   const kit=B.active(),full=B.prompt(styled(prompt,style),kit);if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
   return {kind:'image',path:'images',payload:{...payload,prompt:full,negative:B.negative(style?window.EccoImageStyles.negative('',style):'',kit)||'',story_id:activeStory}};
  }
@@ -292,7 +296,7 @@
   const on=number>0;
   return '<button type="button" class="iw-tile" data-act="'+act+'" data-id="'+esc(id)+'" aria-pressed="'+on+'" aria-label="'+esc(title(id))+(on?', selected '+number:'')+'">'+thumb(id)+(on?'<span class="iw-badge">'+number+'</span>':'')+'<span class="iw-cap help">'+esc(title(id))+'</span></button>';
  }
- const styleSelect=(input,value)=>{const own=houses();return '<label>Style<select data-input="'+input+'"><option value="">No style</option>'+(own.length?'<optgroup label="Your house styles">'+own.map(h=>'<option value="house:'+esc(h.id)+'"'+('house:'+h.id===value?' selected':'')+'>'+esc(h.name)+'</option>').join('')+'</optgroup>':'')+styleGroups().map(([g,list])=>'<optgroup label="'+esc(g)+'">'+list.map(s=>'<option value="'+esc(s)+'"'+(s===value?' selected':'')+'>'+esc(s)+'</option>').join('')+'</optgroup>').join('')+'</select></label>';};
+ const styleSelect=(input,value)=>{const own=houses(),ready=trainings().filter(t=>trained('lora:'+t.id));return '<label>Style<select data-input="'+input+'"><option value="">No style</option>'+(ready.length?'<optgroup label="Trained house styles">'+ready.map(t=>'<option value="lora:'+esc(t.id)+'"'+('lora:'+t.id===value?' selected':'')+'>'+esc(t.name)+'</option>').join('')+'</optgroup>':'')+(own.length?'<optgroup label="Your house styles">'+own.map(h=>'<option value="house:'+esc(h.id)+'"'+('house:'+h.id===value?' selected':'')+'>'+esc(h.name)+'</option>').join('')+'</optgroup>':'')+styleGroups().map(([g,list])=>'<optgroup label="'+esc(g)+'">'+list.map(s=>'<option value="'+esc(s)+'"'+(s===value?' selected':'')+'>'+esc(s)+'</option>').join('')+'</optgroup>').join('')+'</select></label>';};
  const shapeSelect=(input,value,disabled)=>{const list=shapeList();return list.length?'<label>Shape<select data-input="'+input+'"'+(disabled?' disabled':'')+'>'+list.map(s=>'<option value="'+s.size+'"'+(s.size===value?' selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select></label>':'';};
 
  /* ---------- step 1: Image ---------- */
@@ -325,6 +329,78 @@
    (ws.refPicker?'<div class="iw-grid iw-library" role="group" aria-label="Choose reference pictures">'+pick.map(a=>'<button type="button" class="iw-tile" data-act="ref-toggle" data-id="'+esc(a.id)+'" aria-pressed="'+ws.genRefs.includes(a.id)+'" aria-label="'+esc(title(a.id))+'">'+thumb(a.id)+(ws.genRefs.includes(a.id)?'<span class="iw-badge">'+(ws.genRefs.indexOf(a.id)+1)+'</span>':'')+'</button>').join('')+'</div><p class="help">Shows your newest '+pick.length+' pictures; use Search in Select from Image Library to find others.</p>':'')+
    (chosen.length>3?'<p class="help">The model reads 3 pictures at a time: references 3 to '+chosen.length+' are sent together on one board.</p>':'')+'</div>';
  }
+ /* ---------- train a house style (IMG-5.1) ---------- */
+ const TRAIN_MIN=10,TRAIN_MAX=60;
+ function trainPane(){
+  const list=trainings(),t=ws.train;
+  const rows=list.length?'<ul class="iw-note-list iw-trainings">'+list.map(r=>'<li><span><strong>'+esc(r.name)+'</strong> · '+r.asset_ids.length+' pictures · '+esc(r.status==='ready'?(trained('lora:'+r.id)?'Ready: pick it under Style':'Ready once the style file reaches the image workers'):r.status==='needs_trainer'?'Waiting: the style trainer is not connected yet':r.status==='failed'?'Stopped: '+(r.error||'training failed'):(r.progress||'Training'))+'</span></li>').join('')+'</ul>':'';
+  if(!t)return '<div class="iw-group" role="group" aria-label="Trained house styles"><span>Trained house styles<span class="help"> Learned from 20 to 50 of your pictures</span></span>'+rows+'<div class="iw-row"><button type="button" class="secondary" data-act="train-open">Train a house style</button></div></div>';
+  const pick=libraryList().shown.slice(0,120),busyTrain=busy.train;
+  return '<div class="iw-group iw-train" role="group" aria-label="Train a house style"><span>Train a house style<span class="help"> '+t.ids.length+' of '+TRAIN_MIN+'-'+TRAIN_MAX+' pictures chosen · 20 to 50 works best</span></span>'+
+   '<label>Style name<input type="text" data-input="trainName" maxlength="80" value="'+esc(t.name)+'" placeholder="For example: Our storybook watercolour"></label>'+
+   '<div class="iw-grid iw-library" role="group" aria-label="Pictures to learn from">'+pick.map(a=>{const n=t.ids.indexOf(a.id);return '<button type="button" class="iw-tile" data-act="train-toggle" data-id="'+esc(a.id)+'" aria-pressed="'+(n>=0)+'" aria-label="'+esc(title(a.id))+'">'+thumb(a.id)+(n>=0?'<span class="iw-badge">'+(n+1)+'</span>':'')+'</button>';}).join('')+'</div>'+
+   '<p class="help">Pick pictures that share the look you want (colour, light, brushwork), with varied subjects. Each picture is described by AI so the style, not the subjects, is learned. Training takes about 1 to 2 hours on a GPU; you can close Studio.</p>'+
+   (t.status?'<p class="help iw-status" role="status">'+esc(t.status)+'</p>':'')+
+   '<div class="iw-row"><button type="button" data-act="train-start"'+(t.ids.length>=TRAIN_MIN&&t.name.trim()&&!busyTrain?'':' disabled')+(busyTrain?' aria-busy="true"':'')+'>'+(busyTrain?spinner+' Preparing…':'Train style from '+t.ids.length+' pictures')+'</button><button type="button" class="secondary" data-act="train-cancel">Cancel</button></div>'+rows+'</div>';
+ }
+ async function trainStart(){
+  const t=ws.train;if(!t||t.ids.length<TRAIN_MIN)return;
+  const items=[];
+  for(const [i,id] of t.ids.entries()){
+   t.status='Describing picture '+(i+1)+' of '+t.ids.length+' (what is in it, not its style)';paintTrain();
+   let caption=title(id);
+   if(window.EccoAI?.enabled){try{const r=await api('ai/enhance',{stage:'storyboard',mode:'generate',story_id:null,reference_ids:[id],fields:[{id:'style_caption',text:title(id),max_length:300}],context:{title:'',genre:'',language:'English',summary:JSON.stringify({output:'image'}),lines:[],instructions:'Describe what Reference image 1 shows in one plain sentence: the people, animals, objects, place and action. Do not describe the art style, colours, medium or lighting. Return only the sentence.'},review_only:false});const v=r.revisions?.find(x=>x.id==='style_caption')?.text;if(typeof v==='string'&&v.trim())caption=v.trim().slice(0,300);}catch{}}
+   items.push({asset_id:id,caption});
+  }
+  t.status='Sending to the style trainer';paintTrain();
+  const trigger=('eccostyle'+t.name.toLowerCase().replace(/[^a-z0-9]/g,'')).slice(0,24);
+  const made=await api('style-training',{gpu:requireCompute(),name:t.name.trim(),trigger,items,story_id:activeStory});
+  if(made&&!state.records.some(r=>r.id===made.id))state.records.push(made);await refresh();ws.train=null;
+  notice(made?.status==='needs_trainer'?'The style trainer is not connected yet. Your pictures and captions are saved and training starts once it is set up.':'Training '+t.name.trim()+'. It appears under Style when it is ready (about 1 to 2 hours).');
+ }
+ function paintTrain(){const el=q('#image-workspace .iw-train .iw-status');if(el)el.textContent=ws.train?.status||'';else draw(true);}
+ /* ---------- overnight batch (IMG-5.4): up to 2,000 pictures that keep being made with Studio closed ---------- */
+ const BATCH_MAX=2000;
+ const batchLines=text=>String(text||'').split(/\r?\n/).map(l=>l.replace(/^\s*\d+\s*[.):-]\s*/,'').trim()).filter(Boolean).slice(0,BATCH_MAX);
+ function batchJobs(b){const ids=new Set(b.jobIds);return state.records.filter(r=>r.kind==='job'&&ids.has(r.id));}
+ function batchPane(){
+  const lines=batchLines(ws.batchText),ready=!!state.config?.image_batch,fast=quality()==='fast',per=fast?15:60,par=inFlight();
+  const hours=lines.length?Math.max(0.1,Math.round(lines.length*per/par/360)/10):0;
+  return '<section class="pdf-review-box iw-batch" aria-labelledby="iw-batch-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-batch-heading">Overnight batch</strong><span class="help">Up to 2,000 pictures</span></div>'+
+   (ready?'':'<p class="help">Overnight batches need the Level 5 server install. Until then, use Picture Set (up to 24 pages).</p>')+
+   '<label>Batch name<input type="text" data-input="batchName" maxlength="80" value="'+esc(ws.batchName)+'" placeholder="For example: Catalogue spring 2027"></label>'+
+   '<div class="iw-head"><label for="iw-batch-lines">One picture per line</label><input type="file" accept=".txt,.csv,text/plain,text/csv" data-batch-file hidden><button type="button" class="secondary" data-act="batch-file">Load a .txt or .csv file</button></div>'+
+   '<textarea id="iw-batch-lines" data-input="batchText" rows="8" placeholder="A red sneaker on white&#10;A blue sneaker on white&#10;…">'+esc(ws.batchText)+'</textarea>'+
+   '<div class="iw-pair">'+styleSelect('batchStyle',ws.batchStyle)+shapeSelect('batchShape',ws.batchShape)+'</div>'+(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')+
+   '<p class="help" data-batch-count>'+(lines.length?lines.length.toLocaleString()+(lines.length===1?' picture':' pictures')+' · about '+hours+' hours with '+par+' at once ('+(fast?'Fast':'Best')+' quality)':'Paste lines or load a file.')+'</p>'+
+   '<button type="button" data-act="batch-send"'+(ready&&lines.length&&ws.batchName.trim()&&!busy.batch?'':' disabled')+(busy.batch?' aria-busy="true"':'')+'>'+(busy.batch?spinner+' Sending…':'Send '+lines.length.toLocaleString()+' pictures to the server')+'</button>'+
+   ws.batches.slice().reverse().map(b=>{const jobs=batchJobs(b),done=jobs.filter(j=>j.status==='done').length,failed=jobs.filter(j=>['failed','error','cancelled','interrupted'].includes(j.status)).length,left=b.total-done-failed,pct=b.total?Math.round((done+failed)/b.total*100):0,saved=b.saved||0;
+    return '<div class="iw-job" data-batch="'+esc(b.id)+'"><div class="iw-head"><strong class="iw-job-name">'+esc(b.name)+'</strong>'+(left>0&&b.sent>=b.total?'<button type="button" class="secondary" data-act="batch-cancel" data-id="'+esc(b.id)+'">Cancel the rest</button>':'')+'</div>'+
+     '<div class="story-gen-track" role="progressbar" aria-label="'+esc(b.name)+' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><span style="width:'+pct+'%"></span></div>'+
+     '<p class="help">'+(b.sent<b.total?'Sending '+b.sent.toLocaleString()+' of '+b.total.toLocaleString()+'… keep this page open until all are sent.':done.toLocaleString()+' of '+b.total.toLocaleString()+' made'+(failed?' · '+failed.toLocaleString()+' stopped':'')+(left>0?' · '+left.toLocaleString()+' waiting. You can close Studio: the server keeps going.':' · finished'))+'</p>'+
+     (done?'<div class="iw-row"><button type="button" class="secondary" data-act="batch-save" data-id="'+esc(b.id)+'"'+(busy['bsave:'+b.id]||saved>=done?' disabled':'')+'>'+(busy['bsave:'+b.id]?spinner+' Saving…':saved>=done?'Saved to Image Library':'Save '+(done-saved).toLocaleString()+' to Image Library under '+esc(b.name))+'</button></div>':'')+'</div>';}).join('')+'</section>';
+ }
+ async function batchSend(){
+  const lines=batchLines(ws.batchText),name=ws.batchName.trim();if(!lines.length||!name)return;
+  const style=ws.batchStyle;if(house(style))throw Error('House styles made from 1 to 3 pictures cannot be used in a batch. Use a trained house style or a preset style.');
+  const first=await request(lines[0],{style,shape:ws.batchShape});if(first.kind!=='image')throw Error('A batch makes plain pictures. Clear characters and references first.');
+  const shared={...first.payload};delete shared.prompt;delete shared.seed;
+  const chunk=Math.max(1,Math.min(250,+state.config.image_batch||250)),base=Math.floor(Math.random()*2147000000),kit=B.active();
+  const b={id:'batch-'+Date.now().toString(36),name,total:lines.length,sent:0,jobIds:[],created:Date.now(),saved:0,savedIds:[]};ws.batches.push(b);save();draw();
+  for(let i=0;i<lines.length;i+=chunk){
+   const items=lines.slice(i,i+chunk).map((l,k)=>({prompt:B.prompt(styled(l,style),kit),seed:base+i+k,index:i+k}));
+   const out=await api('image-batch',{batch_id:b.id,shared,items});b.jobIds.push(...(out.job_ids||[]));b.sent=Math.min(lines.length,i+items.length);save();draw();
+  }
+  ws.batchText='';await refresh();notice(name+': '+lines.length.toLocaleString()+' pictures are on the server queue. You can close Studio.');
+ }
+ async function batchSave(id){
+  const b=ws.batches.find(x=>x.id===id);if(!b)return;
+  let folder=state.records.find(r=>r.kind==='image_folder'&&!r.deleted&&r.name===b.name);if(!folder)folder=await api('library/folders',{name:b.name});
+  const done=new Set(b.savedIds||[]);
+  for(const j of batchJobs(b)){if(j.status!=='done')continue;for(const aid of (Array.isArray(j.result)?j.result:[j.result])){if(!aid||done.has(aid))continue;await api('library/save',{asset_id:aid,folder_id:folder.id});done.add(aid);b.savedIds=[...done];b.saved=done.size;if(done.size%25===0){save();paintBatch(b);}}}
+  b.saved=done.size;await refresh();notice(done.size.toLocaleString()+' pictures saved to Image Library under '+b.name+'.');
+ }
+ function paintBatch(){draw(true);}
  function genPane(){
   const count=Math.max(1,Math.min(J.MAX_VARIATIONS,+ws.genCount||1)),chars=characters(),char=character(ws.genCharacter);
   const live=ws.jobs.filter(j=>j.target==='gen'&&!j.done);
@@ -334,7 +410,7 @@
    +'<div class="iw-pair">'+styleSelect('genStyle',ws.genStyle)+shapeSelect('genShape',ws.genShape,!!char)+'</div>'
    +'<div class="iw-pair"><label>Pictures<select data-input="genCount">'+[1,2,3,4].map(n=>'<option value="'+n+'"'+(n===count?' selected':'')+'>'+n+'</option>').join('')+'</select></label>'
    +'<label>Character<select data-input="genCharacter"><option value="">No character</option>'+chars.map(c=>'<option value="'+esc(c.id)+'"'+(c.id===ws.genCharacter?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></label></div>'
-   +(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')+refsPane()
+   +(qualitySelect()?'<div class="iw-pair">'+qualitySelect()+'</div>':'')+refsPane()+trainPane()
    +(char?'<p class="help">'+esc(char.name)+' keeps the same look. The shape follows the character picture.</p>':'')
    +'<button type="button" data-act="generate"'+(ws.genPrompt.trim()?'':' disabled')+'>'+(count>1?'Generate '+count+' pictures':'Generate image')+'</button>'
    +(live.length?'<div class="iw-jobs" aria-label="Pictures in progress">'+live.map((j,i)=>jobCard(j,'Picture '+(i+1)+' · '+String(j.prompt||'').slice(0,40))).join('')+'</div>':'')
@@ -379,6 +455,7 @@
   if(ws.src==='upload')return '<section class="pdf-review-box" aria-labelledby="iw-upload-heading"><strong class="pdf-review-heading" id="iw-upload-heading">Upload an Image</strong><input type="file" accept="image/png,image/jpeg,image/webp" multiple data-upload-file hidden><div class="story-upload-slot"><button type="button" class="story-upload-target" data-act="upload"'+(busy.upload?' disabled aria-busy="true"':'')+'>'+(busy.upload?spinner:'<span class="story-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>')+(busy.upload?'Uploading…':'Upload Image')+'</button></div><p class="help">PNG, JPG or WebP, one or several at a time. Uploads are added to Selected Images and kept in Image Library.</p></section>';
   if(ws.src==='generate')return genPane();
   if(ws.src==='set')return setPane();
+  if(ws.src==='batch')return batchPane();
   const {images,shown}=libraryList(),folders=state.records.filter(r=>r.kind==='image_folder'&&!r.deleted),more=shown.length-ws.libLimit;
   return '<section class="pdf-review-box" aria-labelledby="iw-lib-heading"><strong class="pdf-review-heading" id="iw-lib-heading">Image Library</strong><div class="iw-pair"><label>Search<input type="search" data-input="search" value="'+esc(ws.search)+'" placeholder="Find an image"></label><label>Label<select data-input="label"><option value="">All images</option>'+folders.map(f=>'<option value="'+esc(f.id)+'"'+(f.id===ws.label?' selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></label></div><p class="help">Select up to 3 images. Click again to deselect. To merge pictures, pick the background first.</p>'+(shown.length?'<p class="help">'+(shown.length>ws.libLimit?'Showing '+ws.libLimit.toLocaleString()+' of '+shown.length.toLocaleString():shown.length.toLocaleString()+(shown.length===1?' image':' images'))+'</p><div class="iw-grid iw-library">'+shown.slice(0,ws.libLimit).map(a=>tile(a.id,ws.selected.indexOf(a.id)+1,'pick')).join('')+'</div>'+(more>0?'<div class="iw-row"><button type="button" class="secondary" data-act="lib-more">Show '+Math.min(PAGE,more)+' more</button></div>':''):'<p class="help">'+(images.length?'No images match.':'Image Library is empty. Upload or generate an image.')+'</p>')+'</section>';
  }
@@ -457,7 +534,7 @@
    '<p class="help">The new sides are drawn to match; the middle stays exactly as it is. Each result is a new version.</p>'+(canShape?sizesGrid(id):'')+'</div>';
  }
  function imageStep(){
-  const tabs=[['upload','Upload an Image'],['library','Select from Image Library'],['generate','Generate with AI'],['set','Picture Set']];
+  const tabs=[['upload','Upload an Image'],['library','Select from Image Library'],['generate','Generate with AI'],['set','Picture Set'],['batch','Overnight batch']];
   return '<div class="story-source-tabs" role="tablist" aria-label="Image source">'+tabs.map(([id,label])=>tab('iw-src-'+id,label,ws.src===id,'src','data-src="'+id+'" aria-controls="iw-src-panel"')).join('')+'</div>'+
    '<div class="story-source-panel" role="tabpanel" id="iw-src-panel" aria-labelledby="iw-src-'+ws.src+'"><div class="pdf-selection-layout iw-layout">'+sourcePane()+selectedPane()+improvePane()+'</div></div>';
  }
@@ -562,6 +639,14 @@
    '<p class="help">While this kit is on, new pictures use its colours and look; the logo and any headline or price are placed on pictures you publish or download, in the brand font.</p>';
   return '<section class="iw-model-settings" id="iw-brand" role="dialog" aria-labelledby="iw-brand-heading"><div class="iw-head"><h2 id="iw-brand-heading">Brand kit</h2><button type="button" class="secondary" data-act="brand" aria-label="Close brand kit">×</button></div>'+body+
    '<div class="iw-row iw-end">'+(kit?'<button type="button" class="secondary" data-act="brand-delete">Delete kit</button>':'')+'<button type="button" class="secondary" data-act="brand-new">New brand kit</button><button type="button" data-act="brand">Done</button></div></section>';
+ }
+ function batchFile(file){
+  if(!file)return;if(file.size>2*1024*1024){notice('Choose a file under 2 MB.',true);return;}
+  file.text().then(t=>{
+   // CSV: the first column is the description (a header row named prompt/description is skipped).
+   const rows=/\.csv$/i.test(file.name)?t.split(/\r?\n/).map(r=>{const m=r.match(/^\s*"((?:[^"]|"")*)"|^([^,]*)/);return (m[1]!=null?m[1].replace(/""/g,'"'):m[2]||'').trim();}).filter((r,i)=>r&&!(i===0&&/^(prompt|description|text)$/i.test(r))):t.split(/\r?\n/);
+   ws.batchText=rows.join('\n');if(!ws.batchName)ws.batchName=file.name.replace(/\.[^.]+$/,'');save();draw(true);notice(batchLines(ws.batchText).length.toLocaleString()+' lines loaded from '+file.name+'.');
+  }).catch(()=>notice('The file could not be read.',true));
  }
  function brandFont(file){
   const kit=B.active();if(!kit||!file)return;
@@ -786,6 +871,14 @@
    const target=id,list=noteList(target);if(!target||!list.length)return;const d=ai(target);
    return run('notes',async()=>{const made=await edit([target],notesPrompt(list),'');keep(target,made[0]);addDraft(d,made[0]);ws.notes[made[0]]=[];notice('Notes sent. The result is the next draft under Improve with AI.');});
   }
+  else if(a==='train-open')ws.train={name:'',ids:[],status:''};
+  else if(a==='train-cancel')ws.train=null;
+  else if(a==='train-toggle'){const t=ws.train,r=button.dataset.id;if(!t)return;const i=t.ids.indexOf(r);if(i>=0)t.ids.splice(i,1);else if(t.ids.length<TRAIN_MAX)t.ids.push(r);else{notice('Choose up to '+TRAIN_MAX+' pictures.',true);return;}}
+  else if(a==='train-start')return run('train',trainStart);
+  else if(a==='batch-file'){q('#image-workspace [data-batch-file]')?.click();return;}
+  else if(a==='batch-send')return run('batch',batchSend);
+  else if(a==='batch-save')return run('bsave:'+button.dataset.id,()=>batchSave(button.dataset.id));
+  else if(a==='batch-cancel')return run('bcancel',async()=>{const b=ws.batches.find(x=>x.id===button.dataset.id);if(!b)return;const waiting=batchJobs(b).filter(j=>j.status==='queued').map(j=>j.id);for(let i=0;i<waiting.length;i+=500)await api('queue/cancel',{job_ids:waiting.slice(i,i+500)});await refresh();notice(waiting.length.toLocaleString()+' waiting pictures cancelled. Finished ones are kept.');});
   else if(a==='ref-picker')ws.refPicker=!ws.refPicker;
   else if(a==='ref-clear')ws.genRefs=[];
   else if(a==='ref-toggle'){const r=button.dataset.id,i=ws.genRefs.indexOf(r);if(i>=0)ws.genRefs.splice(i,1);else if(ws.genRefs.length<REFS)ws.genRefs.push(r);else{notice('Choose up to '+REFS+' reference pictures.',true);return;}}
@@ -906,10 +999,11 @@
   }
   unsaved([],ids);await refresh();ws.published=true;notice(ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library'+(kit?' with the '+kit.name+' logo':'')+'.');
  }
- const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';},resizeShape:v=>{ws.resizeShape=v;},houseName:v=>{if(ws.houseForm){ws.houseForm.name=v;const b=q('#image-workspace [data-act=house-save]');if(b)b.disabled=!v.trim();}},noteText:v=>{if(ws.noteDraft){ws.noteDraft.text=v;const b=q('#image-workspace [data-act=note-save]');if(b)b.disabled=!v.trim();}}};
+ const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';},resizeShape:v=>{ws.resizeShape=v;},trainName:v=>{if(ws.train){ws.train.name=v;const b=q('#image-workspace [data-act=train-start]');if(b&&!busy.train)b.disabled=!(ws.train.ids.length>=TRAIN_MIN&&v.trim());}},batchName:v=>{ws.batchName=v;const b=q('#image-workspace [data-act=batch-send]');if(b&&!busy.batch)b.disabled=!(state.config?.image_batch&&batchLines(ws.batchText).length&&v.trim());},batchStyle:v=>{ws.batchStyle=v;},batchShape:v=>{ws.batchShape=v;},houseName:v=>{if(ws.houseForm){ws.houseForm.name=v;const b=q('#image-workspace [data-act=house-save]');if(b)b.disabled=!v.trim();}},noteText:v=>{if(ws.noteDraft){ws.noteDraft.text=v;const b=q('#image-workspace [data-act=note-save]');if(b)b.disabled=!v.trim();}}};
  function input(el){
   const k=el.dataset.input;
   if(k==='enhPrompt'){const id=ws.selected[ws.enh],e=enh(id);e.prompt=el.value;const box=q('#image-workspace [data-sent]');if(box)box.innerHTML=sent(id,ws.enh+1);const b=q('#image-workspace [data-act=enhance]');if(b&&!busy['enhance:'+id])b.disabled=!(e.type&&M.canGenerate(e.prompt,e.type,e.choices,styles()));save();return;}
+  if(k==='batchText'){ws.batchText=el.value;save();clearTimeout(input.btimer);input.btimer=setTimeout(()=>draw(),400);return;}
   if(k==='textHeadline'||k==='textPrice'||k==='textPlace'){const id=el.dataset.id,t=ws.texts[id]||(ws.texts[id]={});t[{textHeadline:'headline',textPrice:'price',textPlace:'place'}[k]]=el.value;save();clearTimeout(input.timer);input.timer=setTimeout(previews,350);return;}
   if(INPUTS[k]){INPUTS[k](el.value);save();if(el.tagName==='SELECT'||k==='setPages'||k==='charName')draw();return;}
   ws[k]=el.value;save();
@@ -951,6 +1045,7 @@
   if(e.target.matches('[data-upload-file]')){upload(e.target.files);e.target.value='';}
   else if(e.target.dataset.setting)setting(e.target);
   else if(e.target.dataset.brand)brandInput(e.target);
+  else if(e.target.matches('[data-batch-file]')){batchFile(e.target.files?.[0]);e.target.value='';}
   else if(e.target.matches('[data-brand-font]')){brandFont(e.target.files?.[0]);e.target.value='';}
   else if(e.target.tagName==='SELECT'&&e.target.dataset.input)input(e.target);
  });

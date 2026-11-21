@@ -862,6 +862,65 @@ test('IMG-L3-08 up to 10 reference pictures: the first two go as they are, the r
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L5-04 train a house style from 20 pictures: each is described by AI, sent to the trainer, and once trained it is a style for new pictures',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await page.evaluate(()=>{for(let i=0;i<30;i++){state.records.push({id:'look-'+i,kind:'asset',media:'image',stage:'prod',story_id:'qa-story',title:'Look '+i,path:'qa/fixtures/sample.svg',created:1900000000+i});mediaCache.set('look-'+i,'/qa/fixtures/sample.svg');}
+    Object.defineProperty(window.EccoAI,'enabled',{get:()=>true,configurable:true});
+    const base=api;api=async(path,body)=>{
+      if(path==='ai/enhance'&&body.fields?.[0]?.id==='style_caption'){window.__qaCalls.push({path,body});return {revisions:[{id:'style_caption',text:'A scene from '+body.reference_ids[0]}]};}
+      if(path==='style-training'){window.__qaCalls.push({path,body});const r={id:'st-1',kind:'style_training',name:body.name,trigger:body.trigger,asset_ids:body.items.map(i=>i.asset_id),status:'running',progress:'Learning the style (1200 steps)',created:Date.now()/1000};state.records.push(r);return r;}
+      return base(path,body);};});
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await ws.getByRole('button',{name:'Train a house style',exact:true}).click();
+  const train=ws.getByRole('group',{name:'Train a house style'});
+  await train.getByLabel('Style name').fill('Spring Catalogue');
+  const grid=train.getByRole('group',{name:'Pictures to learn from'});
+  for(let i=0;i<20;i++)await grid.getByRole('button',{name:'Look '+i,exact:true}).click();
+  await expect(train).toContainText('20 of 10-60 pictures chosen');
+  await train.getByRole('button',{name:'Train style from 20 pictures',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'style-training').then(c=>c.length)).toBe(1);
+  const sent=(await imageCalls(page,'style-training'))[0];
+  expect(sent.items).toHaveLength(20);expect(sent.items[0]).toEqual({asset_id:'look-0',caption:'A scene from look-0'});expect(sent.name).toBe('Spring Catalogue');expect(sent.trigger).toBe('eccostylespringcatalogue');
+  expect((await page.evaluate(()=>window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='style_caption').length))).toBe(20);
+  const styles=ws.getByRole('group',{name:'Trained house styles'});await expect(styles).toContainText('Spring Catalogue · 20 pictures · Learning the style (1200 steps)');
+  await expect(ws.locator('[data-input=genStyle] optgroup[label="Trained house styles"]')).toHaveCount(0);
+  // Training finishes and the style file reaches the image workers.
+  await page.evaluate(()=>{const r=state.records.find(x=>x.id==='st-1');r.status='ready';r.lora='ecco-style-'+'c'.repeat(32)+'.safetensors';state.config.image_style_loras=[r.lora];window.EccoImageWorkspace.draw(true);});
+  await expect(styles).toContainText('Ready: pick it under Style');
+  await ws.locator('[data-input=genStyle]').selectOption('lora:st-1');
+  await ws.locator('[data-input=genPrompt]').fill('A linen jacket on a hanger');
+  await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'images').then(c=>c.length)).toBe(1);
+  const pic=(await imageCalls(page,'images'))[0];expect(pic.style_lora).toBe('ecco-style-'+'c'.repeat(32)+'.safetensors');expect(pic.prompt.startsWith('eccostylespringcatalogue, A linen jacket on a hanger')).toBe(true);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
+test('IMG-L5-05 overnight batch: 2,000 lines go to the server in chunks, progress comes from the server, and finished pictures save under the batch name',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await page.evaluate(()=>{state.config.image_batch=250;state.config.image_parallel=8;const base=api;let n=0;api=async(path,body)=>{
+    if(path==='queue/cancel'){window.__qaCalls.push({path,body});for(const id of body.job_ids){const j=state.records.find(r=>r.id===id);if(j)j.status='cancelled';}return {cancelled:body.job_ids.length};}
+    if(path==='image-batch'){window.__qaCalls.push({path,body:{batch_id:body.batch_id,shared:body.shared,count:body.items.length,first:body.items[0]}});const ids=body.items.map(()=>{const id='bj-'+(n++);state.records.push({id,kind:'job',status:'queued',batch_id:body.batch_id,created:1});return id;});return {batch_id:body.batch_id,job_ids:ids};}
+    return base(path,body);};});
+  await ws.getByRole('tab',{name:'Overnight batch',exact:true}).click();
+  await ws.locator('[data-batch-file]').setInputFiles({name:'catalogue.csv',mimeType:'text/csv',buffer:Buffer.from('prompt\n'+Array.from({length:2000},(_,i)=>'"Sneaker '+(i+1)+', on white"').join('\n'))});
+  await expect(ws.locator('[data-input=batchName]')).toHaveValue('catalogue');
+  await expect(ws.locator('[data-batch-count]')).toContainText('2,000 pictures · about 4.2 hours with 8 at once (Best quality)');
+  await ws.getByRole('button',{name:'Send 2,000 pictures to the server',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-batch').then(c=>c.length)).toBe(8);
+  const calls=await imageCalls(page,'image-batch');expect(calls.map(c=>c.count)).toEqual([250,250,250,250,250,250,250,250]);
+  expect(calls[0].first.prompt).toBe('Sneaker 1, on white');expect(calls[7].first.index).toBe(1750);expect(calls[0].shared.prompt).toBeUndefined();expect(calls[0].shared.story_id).toBe('qa-story');
+  const card=ws.locator('[data-batch]');await expect(card).toContainText('0 of 2,000 made · 2,000 waiting. You can close Studio: the server keeps going.');
+  // The server finishes some overnight.
+  await page.evaluate(()=>{for(let i=0;i<30;i++){const j=state.records.find(r=>r.id==='bj-'+i);j.status='done';j.result='bimg-'+i;state.records.push({id:'bimg-'+i,kind:'asset',media:'image',stage:'dev',story_id:'qa-story',title:'Sneaker '+i,path:'qa/fixtures/sample.svg',created:2});mediaCache.set('bimg-'+i,'/qa/fixtures/sample.svg');}state.records.find(r=>r.id==='bj-30').status='failed';window.EccoImageWorkspace.draw(true);});
+  await expect(card).toContainText('30 of 2,000 made · 1 stopped · 1,969 waiting');
+  await card.getByRole('button',{name:'Save 30 to Image Library under catalogue',exact:true}).click();
+  await expect(card.getByRole('button',{name:'Saved to Image Library',exact:true})).toBeVisible();
+  expect(await imageCalls(page,'library/save')).toHaveLength(30);
+  await card.getByRole('button',{name:'Cancel the rest',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'queue/cancel').then(c=>c.flatMap(b=>b.job_ids).length)).toBe(1969);
+  await expect(card).toContainText('30 of 2,000 made · 1,970 stopped · finished');
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){
