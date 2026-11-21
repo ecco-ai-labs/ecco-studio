@@ -6,7 +6,8 @@ from urllib.error import HTTPError
 ROOT = Path(os.getenv('ECCO_GPU_RELAY_ROOT', '/workspace/ecco-gpu-relay'))
 # 'serverless' is the always-on RunPod Serverless bridge (serverless/serverless_studio.py on the storage pod).
 GPUS = ('p7lc6fqjuosti3', 'io8sphjo10kbuy', '1muqctw9bxvguu', 'sup07jsgh2evnf', 'serverless')
-ROUTES = frozenset(('images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel'))
+ROUTES = frozenset(('images','videos','image-edits','character-sheets','director/create','director/regenerate','video-jobs/cancel',
+                    'queue/move','queue/cancel','queue/cancel-all'))
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temp = path.with_name(path.name+'.'+uuid.uuid4().hex+'.tmp')

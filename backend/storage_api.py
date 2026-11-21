@@ -29,6 +29,7 @@ import longcat_progress
 import audio_video_sequence
 import generation_controls
 import gpu_relay
+import gen_queue
 import runpod_pods
 import serverless_power
 import openai_assistant
@@ -191,6 +192,13 @@ class Handler(legacy.Handler):
             if path == '/api/character-studio/status': return self.send(character_studio.status())
             if path.startswith('/api/frame-editor/'): return self.send(frame_editor.handle_get(path, vars(legacy)))
             if path == '/api/gpu/status': return self.send(gpu_relay.status())
+            # Generation queue (owner-approved 20 Nov 2026): the signed-in user's waiting pictures, 50 at a time.
+            if path == '/api/queue':
+                q = parse_qs(urlsplit(self.path).query)
+                one = lambda k, d='': q.get(k, [d])[0]
+                return self.send(gen_queue.page(one('owner'), one('model'), one('search'), int(one('offset', '0') or 0),
+                                                int(one('limit', '50') or 50), path=legacy.DATA / 'studio.sqlite'))
+            if path == '/api/image-models': return self.send(gen_queue.models_status(path=legacy.DATA / 'studio.sqlite'))
             if path == '/api/gpu/pods':
                 try: return self.send(runpod_pods.pods())
                 except runpod_pods.PodError as exc: raise legacy.Problem(exc.message, exc.code)
