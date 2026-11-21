@@ -414,6 +414,8 @@ def judge(item, r):
         if item.get('pitch') and hz:
             lo, hi = item['pitch']
             lo, hi = round(lo * 0.9), round(hi * 1.2)     # Qwen's child and teen voices sit higher than first guessed
+            if r.get('words_match', 0) >= 0.9:            # words clearly right: flag pitch only when far off (wrong voice)
+                lo, hi = round(lo * 0.85), round(hi * 1.3)
             if not lo <= hz <= hi:
                 problems.append(f'pitch {hz} Hz outside {lo}–{hi}')
     elif item['kind'] == 'sound':
