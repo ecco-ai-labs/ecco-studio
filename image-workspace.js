@@ -21,12 +21,12 @@
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const key=story=>'ecco-image-workspace:'+story;
  const TAB=Math.random().toString(36).slice(2);
- let ws=null,wsStory=null,modelOpen=false,lastHtml='';const busy={};
+ let ws=null,wsStory=null,modelOpen=false,brandOpen=false,lastHtml='';const B=window.EccoImageBrand;const busy={};
  let queueInfo={},queueAt=0,watching=false,ticker=0;
 
  /* ---------- state ---------- */
  const freshSet=()=>({name:'',pagesText:'',chars:[],style:'',shape:'',pages:[]});
- const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
+ const fresh=()=>({step:'image',src:'library',selected:[],active:0,enh:0,generated:[],ai:{},aiPrompt:'',genPrompt:'',genStyle:'',genShape:'',genCount:1,genCharacter:'',genQuality:'',placeLogo:true,ideas:[],checks:{},autoCheck:true,history:{},search:'',label:'',enhance:{},final:{},published:false,jobs:[],set:freshSet(),charForm:null});
  function load(){
   if(wsStory===activeStory&&ws)return ws;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(key(activeStory))||'null');}catch{}
@@ -125,14 +125,14 @@
   if(chars.length){
    const config=await window.EccoCompute.validate(gpu,EDIT_MODEL),settings={...modelSettings(EDIT_MODEL)};if(seed!=null)settings.seed=seed;if(quality()==='fast'&&fastReady(EDIT_MODEL))settings.quality='fast';
    if(!config.generation_controls_version&&chars.length>1)throw Error('The connected GPU needs the multi-reference update to use several characters.');
-   const full=styled(prompt,style);if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
+   const full=B.prompt(styled(prompt,style),B.active());if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
    return {kind:'edit',path:'image-edits',payload:{gpu,character_ids:chars,prompt:full,story_id:activeStory,...settings}};
   }
   const model=imageModel();await window.EccoCompute.validate(gpu,model);
   const payload=modelPayload('images',gpu,model);if(shape&&(MODEL_CATALOG[model].sizes?.includes(shape)||state.config?.image_sizes?.[model]?.includes(shape)))payload.resolution=shape;
   if(seed!=null)payload.seed=seed;if(quality()==='fast'&&fastReady(model))payload.quality='fast';
-  const full=styled(prompt,style);if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
-  return {kind:'image',path:'images',payload:{...payload,prompt:full,negative:style?window.EccoImageStyles.negative('',style):'',story_id:activeStory}};
+  const kit=B.active(),full=B.prompt(styled(prompt,style),kit);if(full.length>4000)throw Error('Keep the description within 4,000 characters.');
+  return {kind:'image',path:'images',payload:{...payload,prompt:full,negative:B.negative(style?window.EccoImageStyles.negative('',style):'',kit)||'',story_id:activeStory}};
  }
  function queue(req,extra){const j={key:jobKey(),created:Date.now(),...req,...extra};ws.jobs.push(j);return j;}
  async function submit(j){
@@ -377,7 +377,8 @@
  function publishStep(){
   if(ws.published)return '<section class="iw-published" role="status"><h2>'+ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library</h2><p class="help">You can pick them in step 1 next time.</p><div class="iw-row"><button type="button" class="secondary" data-act="open-library">Open Image Library</button><button type="button" class="secondary" data-act="again">Create more images</button></div></section>';
   if(!ws.selected.length)return '<p class="iw-blank help">Choose images in step 1 first.</p>';
-  return '<div class="story-source-panel"><div class="iw-publish">'+ws.selected.map((id,i)=>'<figure>'+img(finalOf(id),'Image '+(i+1)+': '+title(id))+'<figcaption class="help">Image '+(i+1)+' · '+esc(title(finalOf(id)))+(ws.final[id]?' · enhanced':'')+'</figcaption></figure>').join('')+'</div></div>';
+  const kit=B.active(),logo=kit&&kit.logo&&record(kit.logo);
+  return '<div class="story-source-panel">'+(logo?'<label class="iw-check-row"><input type="checkbox" data-act="place-logo"'+(ws.placeLogo?' checked':'')+'> Place the '+esc(kit.name)+' logo ('+esc(kit.position.toLowerCase())+') on each picture</label>':'')+'<div class="iw-publish">'+ws.selected.map((id,i)=>'<figure>'+img(finalOf(id),'Image '+(i+1)+': '+title(id))+'<figcaption class="help">Image '+(i+1)+' · '+esc(title(finalOf(id)))+(ws.final[id]?' · enhanced':'')+'</figcaption></figure>').join('')+'</div></div>';
  }
 
  /* ---------- frame ---------- */
@@ -390,16 +391,38 @@
    '<div class="iw-pair iw-three"><label>Steps<input type="number" min="5" max="80" data-setting="steps" value="'+esc(s.steps)+'"></label><label>CFG<input type="number" min="1" max="15" step="0.5" data-setting="cfg" value="'+esc(s.cfg)+'"></label><label>Seed<input type="number" min="0" data-setting="seed" value="'+esc(s.seed)+'"></label></div>'+
    '<div class="iw-row iw-end"><button type="button" class="secondary" data-act="reset-model">Reset to defaults</button><button type="button" data-act="model">Done</button></div></section>';
  }
+ // Brand kit: colours and words go into new pictures; the logo is placed on published and downloaded pictures.
+ function brandBox(){
+  if(!brandOpen)return '';
+  const list=B.kits(),kit=B.active(),pics=state.records.filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted).sort((a,b)=>(b.created||0)-(a.created||0));
+  let body='<label>Brand kit<select data-brand="pick"><option value="">No brand kit</option>'+list.map(k=>'<option value="'+esc(k.id)+'"'+(kit&&k.id===kit.id?' selected':'')+'>'+esc(k.name)+'</option>').join('')+'</select></label>';
+  if(kit)body+='<label>Kit name<input type="text" data-brand="name" maxlength="60" value="'+esc(kit.name)+'"></label>'+
+   '<div class="iw-group"><span id="iw-brand-colors">Colours</span><div class="iw-options" role="group" aria-labelledby="iw-brand-colors">'+kit.colors.map((c,i)=>'<span class="iw-brand-color"><input type="color" data-brand="color" data-index="'+i+'" value="'+esc(c)+'" aria-label="Colour '+(i+1)+'"><button type="button" class="secondary" data-act="brand-color-remove" data-index="'+i+'" aria-label="Remove colour '+(i+1)+'">×</button></span>').join('')+(kit.colors.length<5?'<button type="button" class="secondary" data-act="brand-color-add">Add colour</button>':'')+'</div></div>'+
+   '<label>Brand look<input type="text" data-brand="use" maxlength="300" value="'+esc(kit.use)+'" placeholder="For example: bright, friendly, flat illustration"></label>'+
+   '<label>Never show<input type="text" data-brand="avoid" maxlength="300" value="'+esc(kit.avoid)+'" placeholder="For example: red, clutter, small text"></label>'+
+   '<label>Logo<select data-brand="logo"><option value="">No logo</option>'+pics.map(a=>'<option value="'+esc(a.id)+'"'+(a.id===kit.logo?' selected':'')+'>'+esc(title(a.id))+'</option>').join('')+'</select></label>'+
+   (kit.logo?'<div class="iw-pair"><label>Logo place<select data-brand="position">'+B.POSITIONS.map(v=>'<option'+(v===kit.position?' selected':'')+'>'+v+'</option>').join('')+'</select></label><label>Logo size<select data-brand="size">'+B.SIZES.map(v=>'<option'+(v===kit.size?' selected':'')+'>'+v+'</option>').join('')+'</select></label></div>':'<p class="help">Upload your logo in step 1 (Upload), then pick it here.</p>')+
+   '<p class="help">While this kit is on, new pictures use its colours and look, and the logo is placed on pictures you publish or download.</p>';
+  return '<section class="iw-model-settings" id="iw-brand" role="dialog" aria-labelledby="iw-brand-heading"><div class="iw-head"><h2 id="iw-brand-heading">Brand kit</h2><button type="button" class="secondary" data-act="brand" aria-label="Close brand kit">×</button></div>'+body+
+   '<div class="iw-row iw-end">'+(kit?'<button type="button" class="secondary" data-act="brand-delete">Delete kit</button>':'')+'<button type="button" class="secondary" data-act="brand-new">New brand kit</button><button type="button" data-act="brand">Done</button></div></section>';
+ }
+ function brandInput(el){
+  const k=el.dataset.brand,kit=B.active();
+  if(k==='pick'){B.use(el.value);draw(true);return;}
+  if(!kit)return;
+  if(k==='color')kit.colors[+el.dataset.index]=el.value;else kit[k]=el.value;
+  B.save(kit);if(el.tagName==='SELECT')draw(true);else lastHtml='';
+ }
  function foot(){
   if(ws.step==='image')return '<div class="iw-foot"><span class="help">'+ws.selected.length+' selected. You can change them later.</span><button type="button" data-act="step" data-step="enhance"'+(ws.selected.length?'':' disabled')+'>Next: Enhance Image →</button></div>';
   if(ws.step==='enhance')return '<div class="iw-foot"><button type="button" class="secondary" data-act="step" data-step="image">← Back: Image</button><button type="button" data-act="step" data-step="publish">Next: Publish Images →</button></div>';
-  return '<div class="iw-foot"><button type="button" class="secondary" data-act="step" data-step="enhance">← Back: Enhance Image</button>'+(ws.published?'':'<button type="button" data-act="publish"'+(ws.selected.length&&!busy.publish?'':' disabled')+(busy.publish?' aria-busy="true"':'')+'>'+(busy.publish?spinner+' Publishing…':'Publish')+'</button>')+'</div>';
+  return '<div class="iw-foot"><button type="button" class="secondary" data-act="step" data-step="enhance">← Back: Enhance Image</button>'+(ws.selected.length?'<button type="button" class="secondary" data-act="download"'+(busy.download?' aria-busy="true" disabled':'')+'>'+(busy.download?spinner+' Preparing…':'Download pictures')+'</button>':'')+(ws.published?'':'<button type="button" data-act="publish"'+(ws.selected.length&&!busy.publish?'':' disabled')+(busy.publish?' aria-busy="true"':'')+'>'+(busy.publish?spinner+' Publishing…':'Publish')+'</button>')+'</div>';
  }
  function draw(force){
   const root=q('#page');if(!root||page!=='images')return;load();settle();tidy();
   const steps=[['image','1. Image'],['enhance','2. Enhance Image'],['publish','3. Publish Images']];
   const html='<div id="image-workspace" class="form"><div class="iw-steps" role="tablist" aria-label="Create images steps">'+steps.map(([id,label])=>tab('iw-step-'+id,label,ws.step===id,'step','data-step="'+id+'" aria-controls="iw-step-panel"')).join('')+'</div>'+
-   '<section class="panel form story-editor-panel" id="iw-step-panel" role="tabpanel" aria-labelledby="iw-step-'+ws.step+'"><div class="iw-settings" role="group" aria-label="Model"><span class="iw-pill">Model <b>'+esc(modelName())+'</b></span><span class="iw-pill">Compute <b>'+esc(computeName())+'</b></span><button type="button" class="secondary" data-act="model" aria-expanded="'+modelOpen+'"'+(modelOpen?' aria-controls="iw-model"':'')+'>Model settings</button>'+settingsBox()+'</div>'+
+   '<section class="panel form story-editor-panel" id="iw-step-panel" role="tabpanel" aria-labelledby="iw-step-'+ws.step+'"><div class="iw-settings" role="group" aria-label="Model"><span class="iw-pill">Model <b>'+esc(modelName())+'</b></span><span class="iw-pill">Compute <b>'+esc(computeName())+'</b></span><button type="button" class="secondary" data-act="model" aria-expanded="'+modelOpen+'"'+(modelOpen?' aria-controls="iw-model"':'')+'>Model settings</button>'+(()=>{const k=B.active();return '<button type="button" class="secondary" data-act="brand" aria-expanded="'+brandOpen+'"'+(brandOpen?' aria-controls="iw-brand"':'')+'>'+(k?'Brand kit · '+esc(k.name):'Brand kit')+'</button>';})()+settingsBox()+brandBox()+'</div>'+
    (ws.step==='image'?imageStep():ws.step==='enhance'?enhanceStep():publishStep())+'</section>'+foot()+'</div>';
   // Only rewrite the screen when what it shows has changed (the studio refreshes every 3 seconds).
   if(force||html!==lastHtml||!q('#image-workspace',root)){
@@ -521,7 +544,14 @@
   const a=button.dataset.act,id=ws.selected[ws.step==='enhance'?ws.enh:ws.active];
   if(a==='step'){ws.step=button.dataset.step;modelOpen=false;}
   else if(a==='src')ws.src=button.dataset.src;
-  else if(a==='model')modelOpen=!modelOpen;
+  else if(a==='model'){modelOpen=!modelOpen;brandOpen=false;}
+  else if(a==='brand'){brandOpen=!brandOpen;modelOpen=false;}
+  else if(a==='brand-new'){const k=B.save({name:'Brand kit '+(B.kits().length+1),colors:[]});B.use(k.id);}
+  else if(a==='brand-delete'){const k=B.active();if(k)B.remove(k.id);}
+  else if(a==='brand-color-add'){const k=B.active();if(k&&k.colors.length<5){k.colors.push('#336699');B.save(k);}}
+  else if(a==='brand-color-remove'){const k=B.active();if(k){k.colors.splice(+button.dataset.index,1);B.save(k);}}
+  else if(a==='place-logo')ws.placeLogo=!ws.placeLogo;
+  else if(a==='download')return run('download',download);
   else if(a==='reset-model'){delete modelProfiles.settings[imageModel()];modelProfiles.selected.images='qwen-image-2512';saveModelProfiles();if(computes().some(g=>g.id==='serverless'))localStorage.setItem('ecco-compute-image','serverless');}
   else if(a==='pick')select(button.dataset.id);
   else if(a==='show')ws.active=+button.dataset.index;
@@ -580,15 +610,31 @@
   else if(a==='again'){const keep={jobs:ws.jobs.filter(j=>!j.done),set:ws.set};ws=fresh();Object.assign(ws,keep);}
   save();draw();
  }
+ const base64=bytes=>{let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(s);};
+ const logoOn=()=>{const k=B.active();return k&&k.logo&&record(k.logo)&&ws.placeLogo?k:null;};
+ // A finished picture: the logo placed (when the kit is on) and how it was made written into the PNG.
+ async function finished(id,kit){
+  const r=record(id)||{},b=await bytesOf(id);let bytes=b.bytes,mime=b.mime;
+  if(kit){const l=await bytesOf(kit.logo);bytes=await B.place(new Blob([bytes],{type:mime}),new Blob([l.bytes],{type:l.mime}),kit);mime='image/png';}
+  if(mime==='image/png')bytes=B.pngText(bytes,{Title:title(id),Prompt:r.prompt||r.settings?.prompt||'',Model:r.model||r.settings?.model||'',Seed:r.settings?.seed??r.seed??'',Brand:kit?kit.name:'',Software:'Ecco Studio'});
+  return {bytes,mime};
+ }
+ async function download(){
+  const kit=logoOn(),files=[];
+  for(const [i,id] of ws.selected.map(finalOf).entries()){const f=await finished(id,kit);files.push({name:String(i+1).padStart(2,'0')+'-'+J.safeName(title(id)).slice(0,40)+(f.mime==='image/png'?'.png':/jpe?g/.test(f.mime)?'.jpg':'.webp'),bytes:f.bytes});}
+  const url=URL.createObjectURL(new Blob([J.zip(files)],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download='ecco-pictures.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  notice(files.length+(files.length===1?' picture':' pictures')+' downloaded'+(kit?' with the '+kit.name+' logo':'')+'.');
+ }
  async function publish(){
   const story=state.records.find(r=>r.kind==='story'&&r.id===activeStory),name=String(story?.title||'').replace(/\//g,'-').trim().slice(0,80);
   let folder=name?state.records.find(r=>r.kind==='image_folder'&&!r.deleted&&r.name===name):null;
-  const ids=ws.selected.map(finalOf);
-  for(const id of ids){
-   const r=record(id);if(r&&r.stage!=='prod')await api('approve',{asset_id:id});
+  const ids=ws.selected.map(finalOf),kit=logoOn();
+  for(let id of ids){
+   if(kit){const f=await finished(id,kit),made=await api('images/upload',{name:J.safeName(title(id)).slice(0,60)+'-'+J.safeName(kit.name)+'.png',data:base64(f.bytes),story_id:activeStory});if(made&&!state.records.some(r=>r.id===made.id))state.records.push({kind:'asset',media:'image',...made});unsaved([],[id]);id=made.id;}
+   const r=record(id);if(!r||r.stage!=='prod')await api('approve',{asset_id:id});
    if(name){if(!folder)folder=await api('library/folders',{name});if(folder&&!folder.deleted)await api('library/save',{asset_id:id,folder_id:folder.id});}
   }
-  unsaved([],ids);await refresh();ws.published=true;notice(ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library.');
+  unsaved([],ids);await refresh();ws.published=true;notice(ws.selected.length+(ws.selected.length===1?' image':' images')+' published to Image Library'+(kit?' with the '+kit.name+' logo':'')+'.');
  }
  const INPUTS={charName:v=>{ws.charForm&&(ws.charForm.name=v);},charDesc:v=>{ws.charForm&&(ws.charForm.desc=v);},setName:v=>{ws.set.name=v;},setPages:v=>{ws.set.pagesText=v;},setStyle:v=>{ws.set.style=v;},setShape:v=>{ws.set.shape=v;},genCount:v=>{ws.genCount=Math.max(1,Math.min(4,+v||1));},genCharacter:v=>{ws.genCharacter=v;},genQuality:v=>{ws.genQuality=v==='best'?'best':'fast';}};
  function input(el){
@@ -625,11 +671,12 @@
 
  /* ---------- wiring ---------- */
  document.addEventListener('click',e=>{const b=e.target.closest?.('#image-workspace [data-act]');if(b&&!b.disabled){e.preventDefault();act(b);}});
- document.addEventListener('input',e=>{if(e.target.closest?.('#image-workspace')&&e.target.dataset.input&&e.target.tagName!=='SELECT')input(e.target);});
+ document.addEventListener('input',e=>{if(!e.target.closest?.('#image-workspace'))return;if(e.target.dataset.input&&e.target.tagName!=='SELECT')input(e.target);else if(e.target.dataset.brand&&e.target.tagName==='INPUT'&&e.target.type==='text')brandInput(e.target);});
  document.addEventListener('change',e=>{
   if(!e.target.closest?.('#image-workspace'))return;
   if(e.target.matches('[data-upload-file]')){upload(e.target.files);e.target.value='';}
   else if(e.target.dataset.setting)setting(e.target);
+  else if(e.target.dataset.brand)brandInput(e.target);
   else if(e.target.tagName==='SELECT'&&e.target.dataset.input)input(e.target);
  });
  document.addEventListener('keydown',e=>{

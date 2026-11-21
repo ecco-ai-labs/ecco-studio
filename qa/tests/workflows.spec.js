@@ -571,6 +571,48 @@ test('IMG-L4-01 every edit is kept: the latest three show as drafts, All version
   expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
   expect(page.qaErrors).toEqual([]);
 });
+test('IMG-L4-02 brand kit: colours and words go into new pictures; publish and download place the logo and write how each picture was made',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await page.evaluate(()=>{localStorage.removeItem('ecco-brand-kits');const base=api;api=async(path,body)=>{
+    if(path==='images/upload'){window.__qaCalls.push({path,body});const a={id:'qa-up-'+window.__qaCalls.length,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:body.name,path:'qa/fixtures/sample.svg',created:1700009000};state.records.push(a);mediaCache.set(a.id,'/'+a.path);return a;}
+    if(path==='approve'){window.__qaCalls.push({path,body});return {ok:true};}
+    return base(path,body);};});
+  await ws.getByRole('button',{name:'Brand kit',exact:true}).click();
+  const kit=ws.locator('#iw-brand');await expect(kit).toBeVisible();
+  await kit.getByRole('button',{name:'New brand kit',exact:true}).click();
+  await ws.locator('[data-brand=name]').fill('Acme');
+  await ws.getByRole('button',{name:'Add colour',exact:true}).click();await ws.getByRole('button',{name:'Add colour',exact:true}).click();
+  await ws.locator('[data-brand=color][data-index="0"]').evaluate(el=>{el.value='#ff6600';el.dispatchEvent(new Event('change',{bubbles:true}));});
+  await ws.locator('[data-brand=use]').fill('bright flat illustration');
+  await ws.locator('[data-brand=avoid]').fill('clutter, small text');
+  await ws.locator('[data-brand=logo]').selectOption('qa-image-0');
+  await ws.locator('[data-brand=position]').selectOption('Top left');
+  await ws.locator('#iw-brand').getByRole('button',{name:'Done',exact:true}).click();
+  await expect(ws.getByRole('button',{name:'Brand kit · Acme',exact:true})).toBeVisible();
+  const saved=await page.evaluate(()=>window.EccoImageBrand.active());expect(saved).toMatchObject({name:'Acme',colors:['#ff6600','#336699'],logo:'qa-image-0',position:'Top left'});
+  // New pictures carry the kit.
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await ws.locator('[data-input=genPrompt]').fill('A shop front at dawn');
+  await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  const sent=(await imageCalls(page,'images'))[0];
+  expect(sent.prompt).toContain('Brand colours: #ff6600, #336699');expect(sent.prompt).toContain('Brand look: bright flat illustration');expect(sent.negative).toContain('clutter, small text');
+  // Publish: the logo is placed on a copy, which is what gets approved.
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
+  await expect(ws.getByText('Place the Acme logo (top left) on each picture')).toBeVisible();
+  const download=page.waitForEvent('download');await ws.getByRole('button',{name:'Download pictures',exact:true}).click();
+  expect((await download).suggestedFilename()).toBe('ecco-pictures.zip');
+  await ws.getByRole('button',{name:'Publish',exact:true}).click();
+  await expect(ws.getByRole('heading',{name:/published to Image Library/})).toBeVisible();
+  const up=await imageCalls(page,'images/upload');expect(up).toHaveLength(1);expect(up[0].name).toMatch(/Acme\.png$/);
+  const meta=await page.evaluate(b64=>window.EccoImageBrand.readText(Uint8Array.from(atob(b64),c=>c.charCodeAt(0))),up[0].data);
+  expect(meta).toMatchObject({Brand:'Acme',Software:'Ecco Studio'});
+  const approved=(await imageCalls(page,'approve')).map(b=>b.asset_id);expect(approved).toContain('qa-up-'+(await page.evaluate(()=>window.__qaCalls.findIndex(c=>c.path==='images/upload')+1)));
+  expect(approved).not.toContain('qa-image-0');
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){

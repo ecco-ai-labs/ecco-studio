@@ -94,3 +94,7 @@
 :is(#image-workspace) .iw-check p{margin:0;line-height:1.5}
 :is(#image-workspace) .iw-history-strip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
 :is(#image-workspace) .iw-history-strip .iw-tile{flex:0 0 72px;width:72px;height:54px}
+/* Brand kit (Image Level 4) */
+#image-workspace .iw-brand-color{display:inline-flex;align-items:center;gap:4px}
+#image-workspace .iw-brand-color input[type=color]{inline-size:44px;padding:2px;border-radius:8px}
+#image-workspace .iw-check-row{display:flex;align-items:center;gap:8px;margin-block-end:12px}
