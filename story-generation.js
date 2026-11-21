@@ -315,7 +315,7 @@
    +'<div class="story-gen-image-actions"><button type="button" data-image-publish'+(ready&&mode!=='running'?'':' disabled')+'>Next: Publish</button></div>';
   paintImages(host);
   host.onclick=e=>{const tab=e.target.closest('[data-gen-tab]');if(tab){activeJob=tab.dataset.genTab;imageSig='';update();return;}
-   const stop=e.target.closest('[data-image-act=cancel]');if(stop&&snap?.key){stop.disabled=true;api('queue/cancel',{job_ids:[snap.key]}).catch(error=>window.EccoErrors?.show(error,{title:'The image could not be cancelled'})).finally(()=>{imageSig='';setTimeout(update,500);});return;}
+   const stop=e.target.closest('[data-image-act=cancel]');if(stop&&snap?.key){stop.disabled=true;api('queue/cancel',{gpu:'serverless',job_ids:[snap.key]}).catch(error=>window.EccoErrors?.show(error,{title:'The image could not be cancelled'})).finally(()=>{imageSig='';setTimeout(update,500);});return;}
    const pick=e.target.closest('[data-image]');if(pick){chosenImage=pick.dataset.image;imageSig='';update();return;}
    const b=e.target.closest('[data-image-act],[data-image-publish]');if(!b||b.disabled)return;const a=list.find(x=>x.id===chosenImage);
    if(b.hasAttribute('data-image-publish'))return publish();if(!a)return;
