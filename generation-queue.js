@@ -89,13 +89,15 @@
    if(e.key==='ArrowUp'&&i>0)act('queue/move',{job_id:rows[i].dataset.id,before_id:rows[i-1].dataset.id});else if(e.key==='ArrowDown'&&i<rows.length-1)act('queue/move',{job_id:rows[i+1].dataset.id,before_id:rows[i].dataset.id});});
   return dialog;
  }
- async function act(path,body){if(view.busy)return;view.busy=true;try{await api(path,body);}catch(error){window.EccoErrors?.show(error,{title:'The queue could not be changed'});}finally{view.busy=false;}load();}
+ async function act(path,body){if(view.busy)return;view.busy=true;try{await api(path,{gpu:'serverless',...body});}catch(error){window.EccoErrors?.show(error,{title:'The queue could not be changed'});}finally{view.busy=false;}load();}
  async function open(){
   if(!ready()){window.EccoStorage?.open?.();return;}
   const d=ensureDialog();view.offset=0;if(!d.open)d.showModal();await load();clearInterval(poll);poll=setInterval(()=>{if(!d.open)return clearInterval(poll);if(!view.busy&&!view.drag)load();},4000);
  }
+ let loadSeq=0;
  async function load(){
-  const d=ensureDialog();let data;try{data=await page();}catch(error){d.querySelector('[data-gq-summary]').textContent=error.message;return;}
+  const d=ensureDialog(),seq=++loadSeq;let data;try{data=await page();}catch(error){if(seq===loadSeq)d.querySelector('[data-gq-summary]').textContent=error.message;return;}
+  if(seq!==loadSeq)return;
   view.data=data;const list=await models();
   const mine=data.mine||{},total=(mine.waiting||0)+(mine.running||0)+(mine.done||0),pct=total?Math.round(100*(mine.done||0)/total):0;
   d.querySelector('[data-gq-summary]').textContent=view.tab==='All'?(mine.done||0).toLocaleString()+' of '+total.toLocaleString()+' done · '+(mine.running||0)+' generating · about '+wait(data.last_wait_seconds).replace('~','')+' left'
@@ -105,7 +107,7 @@
   // Tabs: All with your count, then one per model in the list (no counts).
   const tabs=[['All','All '+(mine.waiting||0).toLocaleString()],...list.map(m=>[m.id,m.name])];
   d.querySelector('[data-gq-tabs]').innerHTML=tabs.map(([id,label])=>'<button type="button" role="tab" class="gq-tab" data-gq-tab="'+esc(id)+'" aria-selected="'+(view.tab===id)+'" tabindex="'+(view.tab===id?0:-1)+'">'+esc(label)+'</button>').join('');
-  d.querySelectorAll('[data-gq-tab]').forEach(b=>b.onclick=()=>{view.tab=b.dataset.gqTab;view.offset=0;load();});
+  d.querySelectorAll('[data-gq-tab]').forEach(b=>b.onclick=()=>{view.tab=b.dataset.gqTab;view.offset=0;d.querySelectorAll('[data-gq-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));load();});
   const rows=d.querySelector('[data-gq-list]');
   rows.innerHTML=data.items.map(x=>'<li class="gq-item" data-id="'+esc(x.id)+'" draggable="true"><span class="gq-grip" tabindex="0" role="button" aria-label="Reorder '+esc(x.name)+' (Alt+Up or Alt+Down)" title="Drag to reorder">⋮⋮</span><span class="gq-place help">'+(x.place||'')+'</span><span class="gq-title" title="'+esc(x.name)+'">'+esc(x.name)+'</span><span class="gq-model help" title="'+esc(x.model_name)+'">'+esc(x.model_name)+'</span><span class="gq-eta help">'+(x.place===1?'Next':'Est. '+esc(wait(x.wait_seconds).replace('~','')))+'</span>'
    +'<span class="gq-acts"><button type="button" class="icon-button" data-gq-act="top" aria-label="Move to top" title="Move to top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 4h14M12 20V9M7 13l5-5 5 5"/></svg></button><button type="button" class="icon-button" data-gq-act="cancel" aria-label="Remove from the queue" title="Cancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span></li>').join('');
