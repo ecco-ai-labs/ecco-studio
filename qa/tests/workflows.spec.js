@@ -2613,3 +2613,18 @@ test('GPU-SERVERLESS-04 Auto-off in the GPU popup offers 30 min (default) and Ne
  expect(size.height).toBeLessThanOrEqual(26);expect(size.font).toBeLessThanOrEqual(11);
  expect(page.qaErrors).toEqual([]);
 });
+
+test('ERR-POPUP-01 a storage blip shows one pop-up, and closing it does not reveal a backlog of the same problem',async({page})=>{
+ await boot(page);
+ await page.evaluate(()=>{for(const m of ['Cannot reach storage','Storage request failed (HTTP 502)','Storage did not respond','Storage request failed (HTTP 503)','Cannot reach storage'])window.EccoErrors.show(m);});
+ const pop=page.locator('#ecco-error-popup');
+ await expect(pop).toBeVisible();
+ await expect(pop).toContainText('Studio could not reach your saved workspace.');
+ await pop.locator('button.ecco-popup-close').click();
+ await page.waitForTimeout(300);
+ await expect(pop).toBeHidden();
+ // A different problem queued behind it is still shown once.
+ await page.evaluate(()=>{window.EccoErrors.show('Cannot reach storage');window.EccoErrors.show('CUDA out of memory');});
+ await page.waitForTimeout(200);
+ await expect(pop).toContainText('ran out of memory');
+});
