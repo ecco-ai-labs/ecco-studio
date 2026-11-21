@@ -45,12 +45,27 @@ def source(request, directory):
 CLAP = 'laion/clap-htsat-unfused'
 
 
+def cache_ok(name):
+    """True when the cached model in HF_HOME has a readable config.json (the worker's copy can arrive broken)."""
+    root = Path(os.environ.get('HF_HOME', '')) / 'hub' / name / 'snapshots'
+    try:
+        return any(json.loads((snap / 'config.json').read_text()) for snap in root.iterdir())
+    except (OSError, ValueError):
+        return False
+
+
+def online_copy(repo):
+    """Download a fresh copy into this worker's /tmp (once per worker) and return its folder."""
+    os.environ.update(HF_HUB_OFFLINE='0', TRANSFORMERS_OFFLINE='0', HF_HUB_ENABLE_HF_TRANSFER='0')
+    from huggingface_hub import snapshot_download
+    return snapshot_download(repo, cache_dir='/tmp/ecco-hf')
+
+
 def classify(request, path, output):
     labels = [str(x)[:120] for x in request.get('labels') or [] if str(x).strip()][:64]
     if len(labels) < 2:
         raise SystemExit('Sound check needs at least two labels.')
-    os.environ['HF_HUB_OFFLINE'] = '0'
-    os.environ['TRANSFORMERS_OFFLINE'] = '0'
+    local = online_copy(CLAP)
     import soundfile as sf
     import numpy as np
     from transformers import pipeline
@@ -60,7 +75,7 @@ def classify(request, path, output):
     if rate != 48000:  # CLAP expects 48 kHz
         idx = np.linspace(0, len(audio) - 1, int(len(audio) * 48000 / rate))
         audio = np.interp(idx, np.arange(len(audio)), audio).astype('float32')
-    scorer = pipeline('zero-shot-audio-classification', model=CLAP, device=0)
+    scorer = pipeline('zero-shot-audio-classification', model=local, device=0)
     scores = scorer(audio, candidate_labels=labels)
     temporary = output.with_suffix('.tmp')
     temporary.write_text(json.dumps({'scores': [{'label': s['label'], 'score': round(float(s['score']), 4)} for s in scores],
@@ -79,10 +94,13 @@ def main():
     path = source(request, args.request.parent)
     if request['model'] == CLAP:
         return classify(request, path, args.output)
+    model = 'openai/whisper-large-v3-turbo'
+    if not cache_ok('models--openai--whisper-large-v3-turbo'):
+        model = online_copy(model)
     import soundfile as sf
     import torch
     from transformers import pipeline
-    transcribe = pipeline('automatic-speech-recognition', model='openai/whisper-large-v3-turbo',
+    transcribe = pipeline('automatic-speech-recognition', model=model,
                           torch_dtype=torch.float16, device='cuda', chunk_length_s=30, batch_size=8)
     audio, rate = sf.read(str(path), dtype='float32')
     if audio.ndim > 1:
