@@ -356,5 +356,10 @@
     "area": "Video Library: no Add video tile (owner request, 2026-11-20)",
     "mode": "fixture",
     "scope": "LIB-VID-01. The grid view of Video Library has no dashed Add video / Browse for files tile at the end; Upload video at the top adds videos. Audio and Story Library keep their tile."
+  },
+  {
+    "area": "Image Generation: Starting GPU worker… while the worker starts (owner request, 2026-11-21)",
+    "mode": "fixture",
+    "scope": "GEN-10. Before the first drawing step the left box shows a spinner with Starting GPU worker… (no worker lines yet) or Loading the model… (worker reported in), or Waiting in the queue… while still in line; the picture box shows a spinner with Starting Generation…; after 2 minutes a line explains a GPU is waking up. Both go away at the first step."
   }
 ]
