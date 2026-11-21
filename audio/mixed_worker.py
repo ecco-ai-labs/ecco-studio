@@ -88,7 +88,9 @@ def synthesize(request, output, runtime):
                     speech_progress(output, completed + count, len(segments))
                 time.sleep(1)
             if process.returncode:
-                raise RuntimeError(model + ' failed; no partial recording was saved. See its worker log.')
+                # Serverless deletes the job folder afterwards, so carry the child's own error out with ours.
+                tail = (directory / 'worker.log').read_bytes()[-3000:].decode('utf-8', 'replace').strip()
+                raise RuntimeError(model + ' failed; no partial recording was saved.' + ('\n--- ' + model + ' worker log ---\n' + tail if tail else ''))
         timeline = read(directory / 'output.timeline.json', [])
         if len(timeline) != len(items):
             raise RuntimeError(model + ' returned an incomplete passage timeline.')

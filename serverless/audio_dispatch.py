@@ -106,7 +106,11 @@ def run_job(qw, request, d, pod, client=rp, volume=None):
         if (d / 'cancel.json').exists():
             qw.write(d / 'status.json', {'status': 'cancelled', 'progress': 'Stopped by user'})
         else:
-            qw.write(d / 'status.json', {'status': 'error', 'error': str(error)[:1500] or 'Serverless audio generation failed.'})
+            status = {'status': 'error', 'error': str(error)[:1500] or 'Serverless audio generation failed.'}
+            if getattr(error, 'log', ''):
+                status['log'] = error.log
+                (d / 'worker.log').write_text(error.log)  # same place a pod worker leaves its log
+            qw.write(d / 'status.json', status)
     finally:
         if staged is not None:
             try:

@@ -6,7 +6,7 @@ from unittest import TestCase
 from unittest.mock import patch
 from audio_schema import validate, required_models, performance_direction
 from audio_queue import request_ready
-from mixed_worker import stitch
+from mixed_worker import stitch, synthesize
 
 
 class MixedVoices(TestCase):
@@ -82,3 +82,14 @@ class MixedVoices(TestCase):
             self.assertIn(value,direction)
         self.assertNotIn('UNSELECTED',direction)
         self.assertEqual(r['lines'][0]['text'],'The door opened.')
+
+    def test_failed_model_log_travels_with_the_error(self):
+        # Serverless deletes the job folder, so the child's own log must come out inside the error (21 Nov 2026).
+        import sys
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp)/'output.wav'
+            fail=[sys.executable,'-c','import sys; print("Traceback: kokoro could not load voice af_heart"); sys.exit(3)']
+            with patch('queue_worker.worker_command',lambda child,directory:(fail,{})):
+                with self.assertRaises(RuntimeError) as caught:
+                    synthesize(self.request(),out,Path(tmp))
+            self.assertIn('could not load voice af_heart',str(caught.exception))
