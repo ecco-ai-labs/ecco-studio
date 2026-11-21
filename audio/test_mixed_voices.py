@@ -26,6 +26,16 @@ class MixedVoices(TestCase):
             with self.assertRaises(ValueError):
                 validate({'lines': [{'text': 'Test', 'model': model, 'language': language, 'voice': voice}]})
 
+    def test_one_model_for_every_line_is_a_single_model_job(self):
+        # Every character switched to Qwen3-TTS while Model Settings still says Chatterbox (21 Nov 2026).
+        r = validate({'model': 'chatterbox', 'compute': 'a100', 'pause': .35,
+                      'lines': [{'text': 'Hello there.', 'language': 'English', 'model': 'qwen3-tts', 'voice': 'warm-host-f'},
+                                {'text': 'Hi.', 'language': 'English', 'model': 'qwen3-tts', 'voice': 'warm-host-f'}]})
+        self.assertEqual(r['model'], 'qwen3-tts')
+        self.assertNotIn('mixed_models_version', r)
+        self.assertNotIn('exaggeration', r)
+        self.assertEqual(required_models(r), {'qwen3-tts'})
+
     def test_no_union_of_different_workers_or_silent_gpu_fallback(self):
         r = self.request()
         workers = [dict(compute='cpu',pod='testcpu',instance_routing_version=1,mixed_models_version=1,models=['kokoro']),
