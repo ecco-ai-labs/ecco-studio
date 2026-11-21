@@ -388,6 +388,130 @@ test('IMG-create falls back to choosing the image type when AI is off',async({pa
   await expect(page.locator('#image-form')).toBeVisible();await expect(page.locator('#image-workspace')).toHaveCount(0);
   expect(page.qaErrors).toEqual([]);
 });
+// Image Level 3 (21 Nov 2026, branch image-l5): queued jobs with live progress, variations, characters, picture sets.
+// Jobs are held in a synthetic queue so each stage can be shown; nothing reaches a GPU.
+async function holdImageJobs(page){
+  await page.evaluate(()=>{
+    const base=api,now=()=>Date.now()/1000;window.__held=[];
+    api=async(path,body)=>{
+      if(path==='images'||path==='image-edits'||path==='character-sheets'){
+        window.__qaCalls.push({path,body});const n=window.__qaCalls.length,job={id:'qa-held-'+n,kind:'job',status:'queued',created:now(),label:path==='images'?'Generate Qwen-Image-2512 image':'Instruction edit / compose scene',story_id:body.story_id};
+        state.records.push(job);window.__held.push({job,body,path});return {id:job.id,status:'queued'};
+      }
+      if(path.startsWith('queue?')){window.__qaCalls.push({path,body});return {items:window.__held.filter(h=>h.job.status==='queued').map((h,i)=>({id:h.job.id,place:i+2,wait_seconds:90}))};}
+      if(path==='queue/cancel'){window.__qaCalls.push({path,body});for(const id of body.job_ids){const j=state.records.find(r=>r.id===id);if(j){j.status='cancelled';}}return {cancelled:body.job_ids.length};}
+      if(path==='characters'){window.__qaCalls.push({path,body});const c={id:'qa-char-'+window.__qaCalls.length,kind:'character',name:body.name,description:body.description,image_ids:[body.asset_id],created:now()};state.records.push(c);return c;}
+      if(path.startsWith('media/')){window.__qaCalls.push({path,body});return {buffer:Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='),c=>c.charCodeAt(0)).buffer,mime:'image/png'};}
+      return base(path,body);
+    };
+    // Finish a held job: one picture per job, like the server.
+    window.__finish=(i)=>{const h=window.__held[i],n='qa-out-'+i,a={id:n,kind:'asset',media:'image',stage:'dev',story_id:h.body.story_id,title:'Made '+i,prompt:h.body.prompt||'sheet',path:'qa/fixtures/sample.svg',job_id:h.job.id,created:1700003000+i};
+      state.records.push(a);mediaCache.set(n,'/'+a.path);Object.assign(h.job,{status:'done',result:n,seconds:61,started:h.job.created+1});};
+  });
+}
+test('IMG-L3-01 Generate never locks: pictures queue, show their stage, time left and Cancel; variations get different seeds',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await ws.locator('[data-input=genPrompt]').fill('A fox reading under a lamp');
+  await ws.locator('[data-input=genCount]').selectOption('3');
+  await ws.getByRole('button',{name:'Generate 3 pictures',exact:true}).click();
+  const jobs=ws.locator('.iw-job');await expect(jobs).toHaveCount(3);
+  const seeds=(await imageCalls(page,'images')).map(b=>b.seed);expect(new Set(seeds).size).toBe(3);
+  // Waiting jobs show their place in line and an estimate; Generate is still available for another prompt.
+  await expect(jobs.first()).toContainText(/Waiting in line · place 2|Next in line/);await expect(jobs.first()).toContainText(/left/);
+  await expect(ws.getByRole('button',{name:'Generate 3 pictures',exact:true})).toBeEnabled();
+  // A running job shows the sampler step and a bar.
+  await page.evaluate(()=>{const j=window.__held[0].job;j.status='running';j.started=Date.now()/1000-20;j.progress='20/50';});
+  await expect(jobs.first()).toContainText('Drawing the picture · step 20 of 50');
+  await expect(jobs.first().getByRole('progressbar')).toHaveAttribute('aria-valuenow','40');
+  // Cancel a waiting picture: it leaves the line.
+  await jobs.nth(2).getByRole('button',{name:/^Cancel/}).click();
+  await expect.poll(()=>imageCalls(page,'queue/cancel')).toEqual([{gpu:'serverless',job_ids:[await page.evaluate(()=>window.__held[2].job.id)]}]);
+  await page.evaluate(()=>{window.__finish(0);window.__finish(1);});
+  await expect(ws.locator('.iw-job')).toHaveCount(0,{timeout:8000});
+  await expect(ws.locator('#iw-src-panel .iw-grid').first().locator('.iw-tile')).toHaveCount(2);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
+test('IMG-L3-02 Save as character, then put the character in a new picture',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await ws.getByRole('button',{name:'Alpha image sample',exact:true}).click();
+  await ws.getByRole('button',{name:'Save as character',exact:true}).click();
+  const save=ws.getByRole('button',{name:'Save character',exact:true});await expect(save).toBeDisabled();
+  await ws.getByLabel('Character name',{exact:true}).fill('Pip');await ws.getByLabel('What should stay the same',{exact:true}).fill('A small red fox with a green scarf');
+  await save.click();
+  await expect.poll(()=>imageCalls(page,'characters')).toEqual([{asset_id:'qa-image-0',name:'Pip',description:'A small red fox with a green scarf',story_id:'qa-story'}]);
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await ws.locator('[data-input=genCharacter]').selectOption({label:'Pip'});
+  await expect(ws.locator('.iw-settings')).toContainText('Qwen Image Edit');await expect(ws.locator('[data-input=genShape]')).toBeDisabled();
+  await ws.locator('[data-input=genPrompt]').fill('Pip skating on a frozen pond');
+  await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.map(b=>b.character_ids))).toEqual([[await page.evaluate(()=>state.records.find(r=>r.kind==='character').id)]]);
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
+test('IMG-L3-03 Picture Set: one page per line with the same character, redo one page, ZIP and save as a label',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');await holdImageJobs(page);
+  await page.evaluate(()=>state.records.push({id:'qa-char-pip',kind:'character',name:'Pip',description:'Red fox',image_ids:['qa-image-0'],created:1700000500}));
+  await ws.getByRole('tab',{name:'Picture Set',exact:true}).click();
+  await ws.getByLabel('Set name',{exact:true}).fill('Pip and the Lantern');
+  await ws.getByRole('button',{name:'Pip',exact:true}).click();await expect(ws.getByRole('button',{name:'Pip',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(ws.getByRole('button',{name:/Make Pip character sheet/})).toBeVisible();
+  await ws.locator('[data-input=setPages]').fill('1. Pip finds a lantern\n2. Pip follows the light\n3. Pip comes home');
+  await ws.getByRole('button',{name:'Generate 3 pages',exact:true}).click();
+  const calls=await imageCalls(page,'image-edits');expect(calls.map(c=>c.prompt)).toEqual(['Pip finds a lantern','Pip follows the light','Pip comes home']);
+  expect(calls.every(c=>c.character_ids?.[0]==='qa-char-pip')).toBe(true);expect(new Set(calls.map(c=>c.seed)).size).toBe(3);
+  await expect(ws.locator('.iw-page')).toHaveCount(3);await expect(ws.locator('.iw-page .iw-job')).toHaveCount(3);
+  await page.evaluate(()=>{window.__finish(0);window.__finish(1);window.__finish(2);});
+  await expect(ws.locator('.iw-page img[data-thumb]')).toHaveCount(3,{timeout:8000});await expect(ws).toContainText('3 of 3 pages ready');
+  // Redo page 2 only.
+  await ws.getByRole('button',{name:'Redo Page 2',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'image-edits').then(c=>c.length)).toBe(4);expect((await imageCalls(page,'image-edits'))[3].prompt).toBe('Pip follows the light');
+  await page.evaluate(()=>window.__finish(3));await expect(ws.locator('.iw-page').nth(1).locator('img')).toHaveAttribute('data-thumb','qa-out-3',{timeout:8000});
+  await expect(ws.locator('.iw-page').nth(0).locator('img')).toHaveAttribute('data-thumb','qa-out-0');
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  // ZIP holds the three pages and a list of page texts.
+  const [download]=await Promise.all([page.waitForEvent('download'),ws.getByRole('button',{name:'Download ZIP',exact:true}).click()]);
+  expect(download.suggestedFilename()).toBe('Pip-and-the-Lantern.zip');
+  const zipped=await readFile(await download.path());expect(zipped.readUInt32LE(0)).toBe(0x04034b50);expect(zipped.readUInt16LE(zipped.length-12)).toBe(4);
+  await ws.getByRole('button',{name:'Save set to Image Library',exact:true}).click();
+  await expect.poll(()=>imageCalls(page,'library/folders')).toEqual([{name:'Pip and the Lantern'}]);
+  await expect.poll(()=>imageCalls(page,'library/save').then(c=>c.map(b=>b.asset_id))).toEqual(['qa-out-0','qa-out-3','qa-out-2']);
+  expect(page.qaErrors).toEqual([]);
+});
+test('IMG-L3-04 the screen is not rewritten while nothing changes; new pictures stay out of Image Library until published',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await ws.getByRole('tab',{name:'Select from Image Library',exact:true}).click();
+  await page.evaluate(()=>{window.__wsNode=document.querySelector('#image-workspace');});
+  await page.waitForTimeout(7000);
+  expect(await page.evaluate(()=>document.querySelector('#image-workspace')===window.__wsNode)).toBe(true);
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  await ws.locator('[data-input=genPrompt]').fill('A lighthouse at night');await ws.getByRole('button',{name:'Generate image',exact:true}).click();
+  await expect(ws.locator('.pdf-selected-label')).toContainText('1 of 3');
+  const made=await page.evaluate(()=>window.EccoImageWorkspace.state.selected[0]);
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-unsaved-images')||'[]'))).toContain(made);
+  await ws.getByRole('button',{name:'Next: Enhance Image →',exact:true}).click();await ws.getByRole('button',{name:'Next: Publish Images →',exact:true}).click();
+  await ws.getByRole('button',{name:'Publish',exact:true}).click();await expect(ws.getByRole('heading',{name:'1 image published to Image Library'})).toBeVisible();
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ecco-unsaved-images')||'[]'))).not.toContain(made);
+  expect(page.qaErrors).toEqual([]);
+});
+test('IMG-L3-05 ✦ Ideas turns a rough prompt into three picture descriptions; ✦ in Picture Set writes pages from one idea',async({page})=>{
+  const ws=await openCreateImages(page,'qa-story');
+  await page.evaluate(()=>{const base=api;api=async(path,body)=>{const id=body?.fields?.[0]?.id;if(path==='ai/enhance'&&id==='picture_description'){window.__qaCalls.push({path,body});const n=window.__qaCalls.filter(c=>c.body?.fields?.[0]?.id==='picture_description').length;return {revisions:[{id,text:'Idea '+n+': '+body.fields[0].text}]};}
+    if(path==='ai/enhance'&&id==='set_pages'){window.__qaCalls.push({path,body});return {revisions:[{id,text:'1. A fox wakes\n2. The fox walks\n3. The fox sleeps'}]};}return base(path,body);};});
+  await ws.getByRole('tab',{name:'Generate with AI',exact:true}).click();
+  const ideas=ws.getByRole('button',{name:'Write three picture ideas from this prompt',exact:true});await expect(ideas).toBeDisabled();
+  await ws.locator('[data-input=genPrompt]').fill('fox in snow');await ideas.click();
+  await expect(ws.locator('.iw-idea')).toHaveCount(3);await expect(ws.locator('.iw-idea').first()).toContainText('Idea 1: fox in snow');
+  await ws.getByRole('button',{name:'Use idea 2',exact:true}).click();await expect(ws.locator('[data-input=genPrompt]')).toHaveValue('Idea 2: fox in snow');await expect(ws.locator('.iw-idea')).toHaveCount(0);
+  await ws.getByRole('tab',{name:'Picture Set',exact:true}).click();
+  await ws.locator('[data-input=setPages]').fill('A fox who cannot sleep');await ws.getByRole('button',{name:'Write pages from the first line',exact:true}).click();
+  await expect(ws.locator('[data-input=setPages]')).toHaveValue('A fox wakes\nThe fox walks\nThe fox sleeps');
+  await expect(ws.getByRole('button',{name:'Generate 3 pages',exact:true})).toBeEnabled();await expect(ws.getByLabel('Set name',{exact:true})).toHaveValue('A fox who cannot sleep');
+  expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+  expect(page.qaErrors).toEqual([]);
+});
 // Voice Studio (owner-approved mock, 15 November 2026): the Create Images screen with Voice wording, opened from
 // the sidebar tree Studios › Voice Studio.
 async function openVoiceStudio(page){

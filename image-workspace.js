@@ -16,7 +16,7 @@
    - The screen is only rewritten when what it shows changes; live progress updates in place. */
 (()=>{
  const M=window.EccoImageWorkspaceModel,J=window.EccoImageJobs;
- const EDIT_MODEL='qwen-image-edit-2511',LIMIT=3,DRAFTS=3,IN_FLIGHT=4,CHARACTERS=3;
+ const EDIT_MODEL='qwen-image-edit-2511',LIMIT=3,DRAFTS=3,IN_FLIGHT=6,CHARACTERS=3;
  const q=(s,r=document)=>r.querySelector(s),all=(s,r=document)=>[...r.querySelectorAll(s)];
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const key=story=>'ecco-image-workspace:'+story;
@@ -188,10 +188,10 @@
  function paintJobs(){
   for(const el of all('#image-workspace [data-job]')){
    const j=ws.jobs.find(x=>x.key===el.dataset.job);if(!j)continue;
-   const r=jobRecord(j.id),s=j.error&&!r?{state:'failed',text:j.error,pct:null,elapsed:'',left:''}:J.stage(r||(j.id?{status:'queued',created:j.created/1000}:null),Date.now(),queueInfo[j.id],typicalSeconds(j.kind));
+   const r=jobRecord(j.id),s=j.error&&!r?{state:'failed',text:j.error,pct:null,elapsed:'',left:''}:!j.id&&!j.claimed?{state:'waiting',text:'Waiting its turn · '+IN_FLIGHT+' pictures are sent at a time',pct:null,elapsed:'',left:''}:J.stage(r||(j.id?{status:'queued',created:j.created/1000}:null),Date.now(),queueInfo[j.id],typicalSeconds(j.kind));
    const text=q('[data-job-text]',el),time=q('[data-job-time]',el),bar=q('[data-job-bar]',el);
    if(text&&text.textContent!==s.text)text.textContent=s.text;
-   const t=[s.elapsed&&s.state!=='done'?s.elapsed+' so far':s.elapsed,s.left].filter(Boolean).join(' · ');if(time&&time.textContent!==t)time.textContent=t;
+   const t=[s.elapsed&&s.state!=='done'?s.elapsed+' so far':s.elapsed,s.left].filter(Boolean).join(' · ').replace(/^(?=.)/,'· ');if(time&&time.textContent!==t)time.textContent=t;
    if(bar){bar.classList.toggle('story-gen-indeterminate',s.pct==null&&!['done','failed','cancelled'].includes(s.state));bar.dataset.status=s.state==='done'?'done':['failed','cancelled'].includes(s.state)?'failed':'running';const fill=bar.firstElementChild;if(fill)fill.style.width=(s.pct==null?(s.state==='done'?100:0):s.pct)+'%';if(s.pct!=null)bar.setAttribute('aria-valuenow',String(s.pct));else bar.removeAttribute('aria-valuenow');}
    el.dataset.state=s.state;
    const stop=q('[data-act=cancel-job]',el);if(stop)stop.hidden=['done','failed','cancelled'].includes(s.state)||!!j.cancelRequested;
@@ -221,7 +221,7 @@
  function genPane(){
   const count=Math.max(1,Math.min(J.MAX_VARIATIONS,+ws.genCount||1)),chars=characters(),char=character(ws.genCharacter);
   const live=ws.jobs.filter(j=>j.target==='gen'&&!j.done);
-  const ideas=ws.ideas.length?'<div class="iw-group"><span id="iw-ideas-label">Ideas</span><div class="iw-ideas" role="group" aria-labelledby="iw-ideas-label">'+ws.ideas.map((t,i)=>'<button type="button" class="iw-chip iw-idea" data-act="use-idea" data-index="'+i+'">'+esc(t)+'</button>').join('')+'</div></div>':'';
+  const ideas=ws.ideas.length?'<div class="iw-group"><span id="iw-ideas-label">Ideas</span><div class="iw-ideas" role="group" aria-labelledby="iw-ideas-label">'+ws.ideas.map((t,i)=>'<div class="iw-idea"><p>'+esc(t)+'</p><button type="button" class="secondary" data-act="use-idea" data-index="'+i+'" aria-label="Use idea '+(i+1)+'">Use</button></div>').join('')+'</div></div>':'';
   return '<section class="pdf-review-box" aria-labelledby="iw-gen-heading"><div class="iw-head"><strong class="pdf-review-heading" id="iw-gen-heading">What should the image show?</strong><button type="button" class="pdf-ai-icon" data-act="ideas" aria-label="Write three picture ideas from this prompt" title="Ideas"'+(busy.ideas||!ws.genPrompt.trim()?' disabled':'')+'>'+(busy.ideas?spinner:'<span aria-hidden="true">✦</span>')+'</button></div>'
    +'<textarea data-input="genPrompt" rows="6" maxlength="3000" aria-labelledby="iw-gen-heading" placeholder="For example: a lighthouse on a black cliff at night, a storm rolling in">'+esc(ws.genPrompt)+'</textarea>'+ideas
    +'<div class="iw-pair">'+styleSelect('genStyle',ws.genStyle)+shapeSelect('genShape',ws.genShape,!!char)+'</div>'

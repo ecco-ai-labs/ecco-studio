@@ -152,6 +152,22 @@
       "area": "Everywhere"
     },
     {
+      "id": "notice-message",
+      "name": "Notice message (status line under the header)",
+      "contractComponent": "error",
+      "font": "@text-regular",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#notice"
+      ],
+      "examples": [
+        "2 images published to Image Library.",
+        "Pip saved as a character."
+      ],
+      "area": "Everywhere"
+    },
+    {
       "id": "form-label",
       "name": "Form label",
       "contractComponent": "label",
