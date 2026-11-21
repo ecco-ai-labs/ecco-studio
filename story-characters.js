@@ -158,6 +158,31 @@
   const model=currentAudioModel(c);
   return window.EccoAudioStudio.sample({...c,model:model?.id},text,{title});
  }
+ // Pre-made voices from Audio Library › Model Sounds, filtered by the character's language. One row per voice type.
+ const LANG_CODE={English:'EN',Hindi:'HI',Spanish:'ES',French:'FR',German:'DE',Italian:'IT',Portuguese:'PT',Japanese:'JA',Chinese:'ZH',Korean:'KO',Russian:'RU',Tamil:'TA',Telugu:'TE',Bengali:'BN',Marathi:'MR',Gujarati:'GU',Kannada:'KN',Malayalam:'ML',Punjabi:'PA'};
+ function modelSoundVoices(){return (typeof state!=='undefined'&&state?.records||[]).filter(r=>r.kind==='asset'&&r.media==='audio'&&!r.deleted&&r.model_sound?.voice&&r.model_sound.lines);}
+ function modelSoundPicker(c,index){
+  const box=element('div',{className:'ms-pick',role:'group','aria-label':'Model Sounds voices'}),all=modelSoundVoices();
+  const langs=[...new Set(all.map(r=>r.model_sound.language))];let lang=langs.includes(c.language)?c.language:'';
+  const select=element('select',{'aria-label':'Language'});select.append(new Option('All languages',''),...langs.map(l=>new Option(l,l)));select.value=lang;
+  const list=element('div',{className:'ms-list'});
+  let audio=null,playing=null;
+  const draw=()=>{list.replaceChildren();const groups=new Map();
+   for(const r of all.filter(r=>!lang||r.model_sound.language===lang)){const ms=r.model_sound,key=(ms.sex?ms.sex+' · ':'')+ms.voice_type;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);}
+   if(!groups.size){list.append(element('p',{className:'help',text:'No Model Sounds voices in this language yet.'}));return;}
+   for(const [name,rows] of [...groups].sort((a,b)=>a[0].localeCompare(b[0]))){
+    const chips=element('span',{className:'ms-chips'});
+    for(const r of rows.sort((a,b)=>a.model_sound.language.localeCompare(b.model_sound.language))){const ms=r.model_sound;
+     const play=element('button',{type:'button',className:'ms-chip','aria-label':'Play '+name+' · '+ms.language,title:ms.model+' · '+ms.voice,html:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>'+(LANG_CODE[ms.language]||ms.language)});
+     play.onclick=async()=>{if(audio){audio.pause();playing?.classList.remove('on');}if(playing===play){playing=null;return;}playing=play;play.classList.add('on');try{audio=new Audio(await mediaURL(r.id));audio.onended=()=>play.classList.remove('on');await audio.play();}catch(error){play.classList.remove('on');ctx.message(error.message,true);}};
+     const use=button('Use',()=>{c.model=ms.model;c.voice=ms.voice;c.language=ms.language;if(ms.direction)c.delivery=ms.direction;c.voice_sample=r.id;c.voiceChosen=true;c.modelChosen=true;c.tested=false;
+      c.voice_source={asset_id:r.id,name:name+' · '+ms.language,path:ms.path,settings:ms.settings||{}};ctx.changed();drawCreate(c,index);refreshStatus();ctx.status((c.name||'This character')+' now uses '+name+' · '+ms.language+' from Model Sounds.');},'link ms-use');
+     chips.append(element('span',{className:'ms-pair'},play,use));}
+    list.append(element('div',{className:'ms-row'},element('span',{className:'ms-name',text:name}),chips));}
+  };
+  select.onchange=()=>{lang=select.value;draw();};
+  box.append(element('label',{className:'ms-lang'},'Language ',select),list);draw();return box;
+ }
  // After a model change, choose a voice from that model that fits the character and isn't used by anyone else.
  function fitVoice(c){
   if(designable(currentAudioModel(c))&&!designed(c)){c.voice=DESIGN;c.voiceChosen=false;return;}
@@ -202,11 +227,13 @@
    catch(error){done();ctx.message(error.message,true);}
   },created?'secondary':'');
   go.dataset.castGenerate='voice';
-  create.append(suggestion,row,go);
+  // Model Sounds (owner-approved 21 Nov 2026): pick a pre-made voice; its model, voice, language and settings carry over.
+  const fromSamples=button('From Model Sounds',()=>{const open=!create.querySelector('.ms-pick');create.querySelector('.ms-pick')?.remove();if(open)create.append(modelSoundPicker(c,index));},'link');
+  create.append(suggestion,row,go,fromSamples);
   if(created){
    const player=element('audio',{controls:true,preload:'metadata','aria-label':'Voice sample for '+(c.name||'this character')});
    mediaURL(c.voice_sample).then(url=>{if(player.isConnected)player.src=url;}).catch(()=>{});
-   create.append(element('p',{className:'help story-cast-ready',text:'Voice ready · made with '+(model?.name||'the selected model')}),player);
+   create.append(element('p',{className:'help story-cast-ready',text:c.voice_source?'From Model Sounds · '+c.voice_source.name+' · '+(model?.name||''):'Voice ready · made with '+(model?.name||'the selected model')}),player);
   }
   const test=element('section',{className:'story-cast-step form','aria-labelledby':'story-cast-test-title'},element('h3',{id:'story-cast-test-title',text:'Test'}));
   // Test line (owner 2026-11-15): editable, defaults to "Hello, my name is <name>."

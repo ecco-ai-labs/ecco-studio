@@ -3240,6 +3240,7 @@
     "sidebar": "One collapsed label 'Model Sounds' (nested labels: Human \u203a Male|Female \u203a voice \u203a language; Animals \u203a group \u203a animal \u203a sound; Others \u203a group \u203a thing \u203a sound).",
     "allClips": "Model Sounds recordings never appear in 'All audio clips' or the Audio count; they show only inside Model Sounds labels.",
     "rows": "One slim row per voice or sound (.ms-row): name, then small play chips (.ms-chip: play icon + language code or sound name). Click plays/stops; playing chip turns accent. Dashed orange = experimental (toddler); dashed red = needs a listen.",
-    "metadata": "Each recording carries model_sound: model, voice, language, settings, spoken text, label path, check results."
+    "metadata": "Each recording carries model_sound: model, voice, language, settings, spoken text, label path, check results.",
+    "useInCharacters": "Characters > Create voice: a From Model Sounds link opens the same slim rows filtered by the character language; each chip plays, and Use sets the character model, voice, language and direction from the sample and keeps it as the voice sample (shown as From Model Sounds - <voice> - <model>)."
   }
 }
