@@ -606,11 +606,16 @@ def voice_bank(config):
         base = dict(dataset='ai4bharat/indicvoices_r') if path == '/splits' else dict(dataset='ai4bharat/indicvoices_r', config=config, split='train')
         url = 'https://datasets-server.huggingface.co' + path + '?' + urllib.parse.urlencode(dict(base, **params))
         request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
-        try:
-            with urllib.request.urlopen(request, timeout=120) as response:
-                return json.loads(response.read())
-        except urllib.error.HTTPError as exc:
-            raise RuntimeError(f'{exc.code}: ' + exc.read().decode(errors='replace')[:400]) from None
+        for attempt in range(8):            # the viewer answers 500 "index is loading" until its index is warm
+            try:
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    return json.loads(response.read())
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode(errors='replace')[:400]
+                if exc.code >= 500 and 'loading' in body and attempt < 7:
+                    time.sleep(20)
+                    continue
+                raise RuntimeError(f'{exc.code}: ' + body) from None
 
     summary = {}
     try:
