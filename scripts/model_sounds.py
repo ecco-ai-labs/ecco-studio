@@ -452,7 +452,10 @@ def judge(item, r):
             if not lo <= hz <= hi:
                 problems.append(f'pitch {hz} Hz outside {lo}–{hi}')
     elif item['kind'] == 'sound':
-        if r.get('clap_top') is not None and item['clap'] not in r['clap_top']:
+        thing = item.get('meta', {}).get('name', '').lower()
+        same_thing = thing and any(label.startswith(thing + ' ') for label in r.get('clap_top') or [])
+        # CLAP often swaps sister labels (calf -> 'cow moo', chatter -> 'monkey screech'); the right animal/thing is enough
+        if r.get('clap_top') is not None and item['clap'] not in r['clap_top'] and not same_thing:
             problems.append('sounds like ' + (r['clap_top'][0] if r['clap_top'] else 'something else'))
         if len(str(r.get('heard', '')).split()) >= 4:
             problems.append('contains speech')
