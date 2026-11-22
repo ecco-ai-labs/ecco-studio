@@ -376,5 +376,10 @@
     "area": "Image, Audio and Video library labels",
     "mode": "browser",
     "scope": "LIB-image-labels, LIB-audio-labels and LIB-video-labels: no breadcrumb, heading/count, 'Items with all of' chips or Rename/Delete label links above the results; Upload stays. Every label and sub-label in the sidebar has a ⋮ menu with Rename label and Remove label; Escape closes it; Rename opens the rename dialog and renames; Remove sends trash/folder for that label only. The top and bottom pagers do not show at 60 items or fewer. LIB-image-01, LIB-audio-01 and LIB-video-01 check the heading and count are absent. Story and Workflow keep their heading. Synthetic records; no live storage writes. LIB-tree and LIB-filter check the Image Library has no breadcrumb or chips; clicking a selected label again or All images clears the filter."
+  },
+  {
+    "area": "Story Characters: Voice Library casting and compact cast list",
+    "mode": "browser",
+    "scope": "STORY-30b: with Model Sounds voices in the library, the AI pick casts the Narrator (Expressive storyteller) as Grandmother (Qwen3), and the two unspecified-gender adults as Man (30s–40s) and Woman (30s–40s) (Kokoro) — mixed models, three different voices; the voice reads in plain words; the AI pick tooltip names the Voice Library; the voice's direction is saved with the character; Narration style sits in the Narrator's row; the list spans the panel and each row stays one line (< 90 px). STORY-30 keeps the earlier list behaviour (Hear, Change, Narration style, Next). Synthetic records; live generation not exercised."
   }
 ]

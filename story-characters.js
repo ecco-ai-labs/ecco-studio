@@ -324,21 +324,30 @@
  const STYLES=[['Expressive storyteller','Big changes in pace and feeling, pauses for effect.'],['Rich and measured','Steady, deep, unhurried.'],['Clear and warm','Even pace, friendly, easy to follow.'],['Bright and brisk','Crisp, confident, quick.'],['Intimate and quiet','Close, soft, slow.']];
  const defaultStyle=d=>['news'].includes(d.type)?'Bright and brisk':['documentary'].includes(d.type)?'Rich and measured':['teaching','training','presentation'].includes(d.type)?'Clear and warm':['storybook','audio-drama'].includes(d.type)?'Expressive storyteller':'Clear and warm';
  const isNarrator=c=>/narrat|storyteller/i.test((c.role||'')+' '+(c.name||''));
- function voiceLabel(c){const m=currentAudioModel(c),v=(m?.voices||[]).find(x=>x.id===c.voice);return (v?.name||c.voice||'No voice yet')+(m?' · '+m.name:'');}
+ // A Voice Library pick reads in plain words, e.g. "Man (30s–40s) · Kokoro" (owner-approved mock, 22 Nov 2026).
+ const shortModel=m=>String(m?.name||m?.id||'').replace(/-\d+(\.\d+)?[MB]$/i,'');
+ function voiceLabel(c){const m=currentAudioModel(c),lib=c.libraryPick;
+  if(lib&&lib.voice===c.voice&&lib.model===(c.model||m?.id))return lib.voice_type+(m?' · '+shortModel(m):'');
+  const v=(m?.voices||[]).find(x=>x.id===c.voice);return (v?.name||c.voice||'No voice yet')+(m?' · '+m.name:'');}
  function roster(){
   const {data,root}=ctx,list=element('div',{className:'story-cast-roster',role:'list','aria-label':'Cast'});
   if(!data.narrationStyle)data.narrationStyle=defaultStyle(data);
   data.cast.forEach((c,index)=>{
    const row=element('div',{className:'story-cast-row',role:'listitem'});
-   const who=element('div',{className:'story-cast-who'},element('b',{text:c.name||'Character '+(index+1)}),element('span',{className:'help',text:[c.role,c.gender&&c.gender!=='Unspecified'?c.gender:'',c.age_group].filter(Boolean).join(' · ')}));
-   const voice=element('span',{className:'help story-cast-voice',text:perEpisode(c)?'Picked for each episode':voiceLabel(c)});if(!perEpisode(c)&&c.voice&&!c.voiceChosen)voice.append(element('span',{className:'story-cast-ai-pick',title:'Picked by AI from story type, language, genre and audience',text:'✦ AI pick'}));
+   // Compact row (owner-approved mock, 22 Nov 2026): name and a one-line role, gender · age (Narration style for the
+   // narrator), voice, play, Change.
+   const roleLine=element('span',{className:'help story-cast-role',text:c.role||''});if(c.role)roleLine.title=c.role;
+   const who=element('div',{className:'story-cast-who'},element('b',{text:c.name||'Character '+(index+1)}),roleLine);
+   const meta=element('span',{className:'help story-cast-meta',text:[c.gender&&c.gender!=='Unspecified'?c.gender:'',c.age_group].filter(Boolean).join(' · ')});
+   const voice=element('span',{className:'help story-cast-voice'},element('span',{className:'story-cast-voice-name',text:perEpisode(c)?'Picked for each episode':voiceLabel(c)}));if(!perEpisode(c)&&c.voice&&!c.voiceChosen)voice.append(element('span',{className:'story-cast-ai-pick',title:c.libraryPick?'Cast by AI from your Voice Library to fit this character’s role, gender and age':'Picked by AI from story type, language, genre and audience',text:'✦ AI pick'}));
    const player=element('audio',{preload:'none',hidden:true,'aria-label':'Voice sample for '+(c.name||'character')});
    const hear=playButton('Hear '+(c.name||'this voice'),async()=>{const done=setBusy(hear);try{let url=c.voice_sample?await mediaURL(c.voice_sample):voiceTests.get('roster|'+c.id+'|'+c.model+'|'+c.voice);if(!url){url=(await voiceSample(c,sampleText(c),'Character voice · '+(c.name||'Character'))).url;voiceTests.set('roster|'+c.id+'|'+c.model+'|'+c.voice,url);}player.src=url;player.hidden=false;await player.play().catch(()=>{});}catch(error){ctx.message(error.message,true);}finally{done();}});
    hear.disabled=perEpisode(c)||!c.voice;
    const change=button('Change',()=>{data.activeCharacter=c.id;data.castDetail=true;ctx.persist();ctx.redraw();});change.setAttribute('aria-label','Change '+(c.name||'character')+'’s voice');
-   row.append(who,voice,hear,change,player);
+   let middle=meta;
    if(isNarrator(c)){const style=element('select',{'aria-label':'Narration style'});for(const [n] of STYLES)style.add(new Option(n,n));style.value=data.narrationStyle;style.onchange=()=>{data.narrationStyle=style.value;ctx.changed();};
-    row.append(element('label',{className:'story-cast-style help'},document.createTextNode('Narration style'),style));}
+    middle=element('label',{className:'story-cast-style help'},document.createTextNode('Narration style'),style);}
+   row.append(who,middle,voice,hear,change,player);
    list.append(row);
   });
   root.append(list);
@@ -346,12 +355,15 @@
  function render(context){
   ctx=context;const {data,root}=ctx;
   // Characters without a voice yet (the starter Host/Guest or Narrator) get their own voices too.
-  if(!visual()&&data.cast.some(c=>!c.voice)){window.EccoStoryVoices?.assign(data.cast,ctx.audioModel());ctx.persist();}
+  // Voice Library casting (22 Nov 2026): AI-picked voices from before are cast again from the library once.
+  const recast=c=>!c.voiceChosen&&!c.perEpisode&&c.libraryChecked!==data.language&&window.EccoVoiceLibrary?.has(data.language);
+  if(!visual()&&data.cast.some(c=>!c.voice||recast(c))){window.EccoStoryVoices?.assign(data.cast,ctx.audioModel());ctx.persist();}
   if(seriesOpen())for(const c of data.cast)if(c.perEpisode===undefined)c.perEpisode=/guest|celebrit|interviewee/i.test((c.name||'')+' '+(c.role||''));
   const selected=Math.max(0,data.cast.findIndex(c=>c.id===data.activeCharacter));data.activeCharacter=data.cast[selected]?.id;
   drawTabs(selected);
   const compact=!visual()&&!data.castDetail&&data.cast.length>0,tabs=q('[data-character-tabs]',q('#page'));if(tabs)(tabs.closest('.story-cast-bar')||tabs).hidden=compact;
-  if(compact){root.removeAttribute('aria-labelledby');root.replaceChildren();roster();refreshStatus();return;}
+  root.classList.toggle('story-cast-compact',compact);
+  if(compact){root.classList.remove('story-cast-voice-first');root.removeAttribute('aria-labelledby');root.replaceChildren();roster();refreshStatus();return;}
   root.setAttribute('aria-labelledby','story-character-tab-'+selected);root.replaceChildren();
   const c=data.cast[selected];
   if(!c){
