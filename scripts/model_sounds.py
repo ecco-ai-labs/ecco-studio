@@ -271,6 +271,37 @@ def clap_label(thing, variant):
     return f'{thing.lower()} {variant.lower()}'
 
 
+# ---------------------------------------------------------------- voice bank (real IndicVoices-R speakers, see voice_bank.py)
+ROLE_WORDS = {'Hindi': {('Female', 'Teacher'): 'एक शिक्षिका', ('Male', 'Teacher'): 'एक शिक्षक',
+                        ('Female', 'News anchor'): 'एक समाचार वाचिका', ('Male', 'News anchor'): 'एक समाचार वाचक',
+                        ('Female', 'Storyteller'): 'एक कहानीकार', ('Male', 'Storyteller'): 'एक कहानीकार',
+                        ('Female', 'Young mother'): 'एक युवा माँ', ('Male', 'Young father'): 'एक युवा पिता',
+                        ('Female', 'Shopkeeper'): 'एक दुकानदार', ('Male', 'Shopkeeper'): 'एक दुकानदार',
+                        ('Female', 'Grandmother'): 'एक दादी', ('Male', 'Grandfather'): 'एक दादा'}}
+
+
+def bank_items():
+    try:
+        bank = json.loads((HOME / 'voice_bank.json').read_text())
+    except (OSError, ValueError):
+        return []
+    items = []
+    for entry in bank.values():
+        sex, label, lang = entry['sex'], entry['label'], entry['language']
+        words = ROLE_WORDS.get(lang, {}).get((sex, label))
+        if not words or lang not in TEMPLATE:
+            continue
+        text = TEMPLATE[lang].format(words)
+        voice = 'ref:' + entry['ref']
+        items.append({'key': f'human:{sex}:{label}:{lang}', 'kind': 'speech', 'path': [ROOT, 'Human', sex, label, lang],
+                      'title': f'{label} · {lang}', 'expect': text, 'language': lang, 'pitch': None, 'experimental': False,
+                      'body': {'model': 'indicf5', 'compute': COMPUTE, 'genre': 'Podcast', 'pause': 0, 'title': f'Model Sounds · {label} · {lang}',
+                               'lines': [{'text': text, 'voice': voice, 'language': lang, 'model': 'indicf5'}]},
+                      'meta': {'grid': 'Human', 'voice_type': label, 'sex': sex, 'language': lang, 'model': 'indicf5', 'voice': voice,
+                               'text': text, 'experimental': False, 'source': entry.get('source')}})
+    return items
+
+
 # ---------------------------------------------------------------- plan
 def plan():
     items = []
@@ -290,6 +321,7 @@ def plan():
                           'body': {'model': model, 'compute': COMPUTE, 'genre': 'Podcast', 'pause': 0, 'title': f"Model Sounds · {label.split(' / ')[-1]} · {lang}", 'lines': [line]},
                           'meta': {'grid': 'Human', 'voice_type': label.split(' / ')[-1], 'sex': sex, 'language': lang, 'model': model, 'voice': voice,
                                    'direction': direction, 'text': text, 'experimental': exp}})
+    items += bank_items()
     for group, animals in ANIMALS.items():
         labels = [clap_label(a, v) for a, vs in animals.items() for v in vs]
         for animal, variants in animals.items():
