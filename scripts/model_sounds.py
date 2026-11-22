@@ -478,12 +478,33 @@ def roman(text):
     return re.sub(r'[^\w ]','',s)
 
 
+URDU = {'ب': 'b', 'پ': 'p', 'ت': 't', 'ٹ': 't', 'ث': 's', 'ج': 'j', 'چ': 'c', 'ح': '', 'خ': 'k', 'د': 'd', 'ڈ': 'd', 'ذ': 'j', 'ر': 'r',
+        'ڑ': 'r', 'ز': 'j', 'ژ': 'j', 'س': 's', 'ش': 's', 'ص': 's', 'ض': 'j', 'ط': 't', 'ظ': 'j', 'غ': 'g', 'ف': 'p', 'ق': 'k', 'ک': 'k',
+        'ك': 'k', 'گ': 'g', 'ل': 'l', 'م': 'm', 'ن': 'n', 'ں': 'n', 'ه': '', 'ہ': '', 'ھ': '', 'ۃ': '', ' ': ' '}
+
+
+def skeleton(text):
+    """Consonants only: Urdu script writes no short vowels, and Whisper often writes Hindi speech in Urdu letters."""
+    out = []
+    for ch in text:
+        if ch in URDU:
+            out.append(URDU[ch])
+        elif '\u0600' <= ch <= '\u06ff':
+            continue                                  # alif, waw, ye and marks are vowels here
+        else:
+            out.append(roman(ch))
+    word = ''.join(out).lower().replace('z', 'j').replace('f', 'p').replace('q', 'k')
+    return re.sub(r'[aeiouyvwh\W_]', '', word)
+
+
 def similar(a, b):
     """Word match; Whisper often writes Indian languages in a neighbouring script, so also compare by sound."""
     plain = difflib.SequenceMatcher(None, norm(a), norm(b)).ratio()
     ra, rb = roman(a).replace(' ', ''), roman(b).replace(' ', '')
     sound = difflib.SequenceMatcher(None, ra, rb).ratio() if ra and rb else 0
-    return round(max(plain, sound), 2)
+    sa, sb = skeleton(a), skeleton(b)
+    bones = difflib.SequenceMatcher(None, sa, sb).ratio() if len(sa) > 5 and len(sb) > 5 else 0
+    return round(max(plain, sound, bones), 2)
 
 
 def trim(path, seconds):
@@ -529,7 +550,7 @@ def judge(item, r):
     speech = item['kind'] == 'speech'
     if r.get('mean_db', 0) < (-55 if speech else -60):
         problems.append('silent')
-    if speech and r.get('peak_db', -10) >= -0.01:        # sound effects are often normalised to full scale
+    if speech and r.get('peak_db', -10) >= -0.01 and r.get('mean_db', -30) > -14:   # IndicF5 normalises to full scale; flag only loud, squashed audio
         problems.append('clipped')
     if speech:
         if not 1.0 <= r.get('seconds', 0) <= 9.0:       # Japanese, Tamil, Gujarati and Malayalam lines run longer
