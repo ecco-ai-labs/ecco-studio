@@ -661,6 +661,58 @@ def voice_bank(config):
     step_result('voice-bank', config=config, summary=summary, roles=roles)
 
 
+def voice_bank_wide(config, per_group=12):
+    """Distinct clear, natural-paced speakers for every sex and age group, spread across districts (owner: diversity first)."""
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    token = os.environ.get('HF_TOKEN', '').strip()
+    if not token or token.startswith('{{'):
+        raise SystemExit('HF_TOKEN is not set on this endpoint.')
+
+    def get(path, **params):
+        url = 'https://datasets-server.huggingface.co' + path + '?' + urllib.parse.urlencode(dict(dataset='ai4bharat/indicvoices_r', config=config, split='train', **params))
+        request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
+        for attempt in range(8):
+            try:
+                with urllib.request.urlopen(request, timeout=150) as response:
+                    return json.loads(response.read())
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode(errors='replace')[:300]
+                if exc.code >= 500 and attempt < 7:
+                    time.sleep(20)
+                    continue
+                raise RuntimeError(f'{exc.code}: ' + body) from None
+
+    groups = {}
+    for gender in ('Female', 'Male'):
+        for age in ('18-30', '30-45', '45-60', '60+'):
+            age_clause = '"age_group" = \'%s\'' % age if age != '60+' else '"age_group" <> \'18-30\' AND "age_group" <> \'30-45\' AND "age_group" <> \'45-60\''
+            clause = f'"gender" = \'{gender}\' AND {age_clause} AND "duration" >= 6 AND "duration" <= 14 AND "snr" > 45 AND "c50" > 48 AND "speaking_rate" > 10'
+            picks, seen, districts = [], set(), {}
+            try:
+                for offset in (0, 100):
+                    rows = get('/filter', where=clause, orderby='"snr" DESC', length=100, offset=offset).get('rows', [])
+                    for item in rows:
+                        row = item.get('row', {})
+                        sid, district = row.get('speaker_id'), row.get('district')
+                        audio = row.get('audio') or []
+                        src = audio[0].get('src') if isinstance(audio, list) and audio and isinstance(audio[0], dict) else None
+                        if not src or sid in seen or districts.get(district, 0) >= 3:
+                            continue
+                        seen.add(sid)
+                        districts[district] = districts.get(district, 0) + 1
+                        picks.append({k: row.get(k) for k in ('speaker_id', 'gender', 'age_group', 'occupation', 'district', 'state', 'snr', 'c50',
+                                                              'speaking_rate', 'utterance_pitch_mean', 'duration', 'text')} | {'audio': src, 'row': item.get('row_idx')})
+                    if len(picks) >= per_group or len(rows) < 100:
+                        break
+            except Exception as exc:
+                groups[f'{gender}|{age}'] = {'error': str(exc)[:300]}
+                continue
+            groups[f'{gender}|{age}'] = picks[:per_group]
+    step_result('voice-bank-wide', config=config, groups=groups)
+
+
 def main(steps):
     failures = 0
     for item in steps:
@@ -683,6 +735,8 @@ def main(steps):
                 indic_parler()  # rebuild:indic-parler lets the deployed handler (which predates this step) run it
             elif name == 'svara-tts' or (name == 'rebuild' and argument == 'svara-tts'):
                 svara_tts()  # likewise rebuild:svara-tts
+            elif name == 'rebuild' and argument.startswith('voice-bank-wide-'):
+                voice_bank_wide(argument[len('voice-bank-wide-'):])   # many distinct speakers per sex and age group
             elif name == 'rebuild' and argument.startswith('voice-bank-'):
                 voice_bank(argument[len('voice-bank-'):])   # e.g. rebuild:voice-bank-hindi (finds speakers; installs nothing)
             elif name == 'rebuild':

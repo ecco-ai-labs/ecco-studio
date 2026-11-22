@@ -290,14 +290,19 @@ def bank_items():
         if not isinstance(entry, dict):
             continue
         sex, label, lang = entry['sex'], entry['label'], entry['language']
-        words = ROLE_WORDS.get(lang, {}).get((sex, label))
-        if not words or lang not in TEMPLATE:
-            continue
-        text = TEMPLATE[lang].format(words)
+        if entry.get('path'):                       # many-speaker voices (build-wide): own path, title and line
+            text, path, title = entry['text'], entry['path'], entry['title']
+            key = 'human:' + ':'.join([sex] + path[3:]) + ':' + lang
+        else:
+            words = ROLE_WORDS.get(lang, {}).get((sex, label))
+            if not words or lang not in TEMPLATE:
+                continue
+            text, path, title = TEMPLATE[lang].format(words), [ROOT, 'Human', sex, label, lang], f'{label} · {lang}'
+            key = f'human:{sex}:{label}:{lang}'
         voice = 'ref:' + entry['ref']
-        items.append({'key': f'human:{sex}:{label}:{lang}', 'kind': 'speech', 'path': [ROOT, 'Human', sex, label, lang],
-                      'title': f'{label} · {lang}', 'expect': text, 'language': lang, 'pitch': None, 'experimental': False,
-                      'body': {'model': 'indicf5', 'compute': COMPUTE, 'genre': 'Podcast', 'pause': 0, 'title': f'Model Sounds · {label} · {lang}',
+        items.append({'key': key, 'kind': 'speech', 'path': path,
+                      'title': title, 'expect': text, 'language': lang, 'pitch': None, 'experimental': False,
+                      'body': {'model': 'indicf5', 'compute': COMPUTE, 'genre': 'Podcast', 'pause': 0, 'title': f'Model Sounds · {title}',
                                'lines': [{'text': text, 'voice': voice, 'language': lang, 'model': 'indicf5'}]},
                       'meta': {'grid': 'Human', 'voice_type': label, 'sex': sex, 'language': lang, 'model': 'indicf5', 'voice': voice,
                                'text': text, 'experimental': False, 'source': entry.get('source')}})
