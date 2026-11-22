@@ -585,16 +585,17 @@ def sound(model):
 # Finds real speakers in AI4Bharat IndicVoices-R (CC-BY-4.0, gated: needs HF_TOKEN on the endpoint) for role voices
 # such as a Hindi teacher or grandmother. Returns metadata and short-lived audio links only; nothing is stored here.
 VOICE_BANK_ROLES = {
-    'Teacher': ("\"occupation\" ILIKE '%teach%'", None),
-    'News anchor': ("\"age_group\" IN ('18-30','30-45')", '"c50" DESC'),
-    'Storyteller': ("\"age_group\" IN ('30-45','45-60')", '"utterance_pitch_std" DESC'),
+    'Teacher': ("(\"occupation\" LIKE '%eacher%' OR \"occupation\" LIKE '%EACHER%')", None),
+    'News anchor': ("(\"age_group\" = '18-30' OR \"age_group\" = '30-45')", '"c50" DESC'),
+    'Storyteller': ("(\"age_group\" = '30-45' OR \"age_group\" = '45-60')", '"utterance_pitch_std" DESC'),
     'Young parent': ("\"age_group\" = '18-30'", None),
-    'Shopkeeper': ("(\"occupation\" ILIKE '%shop%' OR \"occupation\" ILIKE '%business%' OR \"occupation\" ILIKE '%vendor%')", None),
-    'Grandparent': ("\"age_group\" NOT IN ('18-30','30-45','45-60')", None),
+    'Shopkeeper': ("(\"occupation\" LIKE '%hop%' OR \"occupation\" LIKE '%usiness%' OR \"occupation\" LIKE '%endor%')", None),
+    'Grandparent': ("\"age_group\" <> '18-30' AND \"age_group\" <> '30-45' AND \"age_group\" <> '45-60'", None),
 }
 
 
 def voice_bank(config):
+    import urllib.error
     import urllib.parse
     import urllib.request
     token = os.environ.get('HF_TOKEN', '').strip()
@@ -602,12 +603,23 @@ def voice_bank(config):
         raise SystemExit('HF_TOKEN is not set on this endpoint.')
 
     def get(path, **params):
-        url = 'https://datasets-server.huggingface.co' + path + '?' + urllib.parse.urlencode(dict(dataset='ai4bharat/indicvoices_r', config=config, split='train', **params))
+        base = dict(dataset='ai4bharat/indicvoices_r') if path == '/splits' else dict(dataset='ai4bharat/indicvoices_r', config=config, split='train')
+        url = 'https://datasets-server.huggingface.co' + path + '?' + urllib.parse.urlencode(dict(base, **params))
         request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
-        with urllib.request.urlopen(request, timeout=120) as response:
-            return json.loads(response.read())
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                return json.loads(response.read())
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(f'{exc.code}: ' + exc.read().decode(errors='replace')[:400]) from None
 
     summary = {}
+    try:
+        splits = get('/splits').get('splits', [])
+        names = sorted({x.get('config') for x in splits})
+        config = next((n for n in names if n.lower() == config.lower()), config)
+        summary['configs'] = names
+    except Exception as exc:
+        summary['splits_error'] = str(exc)[:300]
     try:
         for column in get('/statistics').get('statistics', []):
             if column.get('column_name') in ('age_group', 'scenario', 'occupation', 'gender', 'district'):
@@ -618,7 +630,7 @@ def voice_bank(config):
     roles = {}
     for role, (where, order) in VOICE_BANK_ROLES.items():
         for gender in ('Female', 'Male'):
-            clause = f'"gender" = \'{gender}\' AND "duration" BETWEEN 6 AND 14 AND "snr" > 45 AND ' + where
+            clause = f'"gender" = \'{gender}\' AND "duration" >= 6 AND "duration" <= 14 AND "snr" > 45 AND ' + where
             try:
                 rows = get('/filter', where=clause, orderby=order or '"snr" DESC', length=100).get('rows', [])
             except Exception as exc:
