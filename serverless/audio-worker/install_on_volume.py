@@ -584,13 +584,15 @@ def sound(model):
 # ---------------------------------------------------------------- voice bank (22 Nov 2026)
 # Finds real speakers in AI4Bharat IndicVoices-R (CC-BY-4.0, gated: needs HF_TOKEN on the endpoint) for role voices
 # such as a Hindi teacher or grandmother. Returns metadata and short-lived audio links only; nothing is stored here.
+# Owner feedback 22 Nov: first picks were too slow / read-out, grandparents did not sound old, one had echo.
+# So: clear rooms only (c50), natural pace for adults, slower and more varied pitch for grandparents.
 VOICE_BANK_ROLES = {
-    'Teacher': ("(\"occupation\" LIKE '%eacher%' OR \"occupation\" LIKE '%EACHER%')", None),
+    'Teacher': ("(\"occupation\" LIKE '%eacher%' OR \"occupation\" LIKE '%EACHER%') AND \"speaking_rate\" > 13", None),
     'News anchor': ("(\"age_group\" = '18-30' OR \"age_group\" = '30-45')", '"c50" DESC'),
-    'Storyteller': ("(\"age_group\" = '30-45' OR \"age_group\" = '45-60') AND \"utterance_pitch_std\" > 30", None),
-    'Young parent': ("\"age_group\" = '18-30'", None),
-    'Shopkeeper': ("(\"occupation\" LIKE '%hop%' OR \"occupation\" LIKE '%usiness%' OR \"occupation\" LIKE '%endor%')", None),
-    'Grandparent': ("\"age_group\" <> '18-30' AND \"age_group\" <> '30-45' AND \"age_group\" <> '45-60'", None),
+    'Storyteller': ("(\"age_group\" = '30-45' OR \"age_group\" = '45-60') AND \"utterance_pitch_std\" > 30 AND \"speaking_rate\" > 13", None),
+    'Young parent': ("\"age_group\" = '18-30' AND \"speaking_rate\" > 14", None),
+    'Shopkeeper': ("(\"occupation\" LIKE '%hop%' OR \"occupation\" LIKE '%usiness%' OR \"occupation\" LIKE '%endor%') AND \"speaking_rate\" > 13", None),
+    'Grandparent': ("\"age_group\" <> '18-30' AND \"age_group\" <> '30-45' AND \"age_group\" <> '45-60' AND \"utterance_pitch_std\" > 35", None),
 }
 
 
@@ -635,7 +637,7 @@ def voice_bank(config):
     roles = {}
     for role, (where, order) in VOICE_BANK_ROLES.items():
         for gender in ('Female', 'Male'):
-            clause = f'"gender" = \'{gender}\' AND "duration" >= 6 AND "duration" <= 14 AND "snr" > 45 AND ' + where
+            clause = f'"gender" = \'{gender}\' AND "duration" >= 6 AND "duration" <= 14 AND "snr" > 45 AND "c50" > 50 AND ' + where
             try:
                 rows = get('/filter', where=clause, orderby=order or '"snr" DESC', length=100).get('rows', [])
             except Exception as exc:
@@ -653,7 +655,7 @@ def voice_bank(config):
                 seen.add(row.get('speaker_id'))
                 picks.append({k: row.get(k) for k in ('speaker_id', 'gender', 'age_group', 'occupation', 'district', 'state', 'scenario', 'task_name',
                                                       'snr', 'c50', 'speaking_rate', 'utterance_pitch_mean', 'duration', 'text')} | {'audio': src, 'row': item.get('row_idx')})
-                if len(picks) >= 4:
+                if len(picks) >= 8:
                     break
             roles[f'{role}|{gender}'] = picks
     step_result('voice-bank', config=config, summary=summary, roles=roles)

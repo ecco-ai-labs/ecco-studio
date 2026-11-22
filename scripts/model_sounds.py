@@ -287,6 +287,8 @@ def bank_items():
         return []
     items = []
     for entry in bank.values():
+        if not isinstance(entry, dict):
+            continue
         sex, label, lang = entry['sex'], entry['label'], entry['language']
         words = ROLE_WORDS.get(lang, {}).get((sex, label))
         if not words or lang not in TEMPLATE:
