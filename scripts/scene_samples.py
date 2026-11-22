@@ -36,9 +36,9 @@ SCENES = [
         ('Grandfather', 'Male', "Quiet. One bus a day, and everyone waved."),
         ('Young woman (20s)', 'Female', "Now there are three coffee shops on his street!")]),
     ('Teaching', 'Podcast', [
-        ('Teacher', 'Female', "Good morning, class. Today we'll learn why the sky looks blue. Sunlight holds many colours, and blue light scatters the most.")]),
+        ('Teacher', 'Female', "Good morning, class. Today we'll learn why the sky looks blue. Sunlight holds every colour of the rainbow, and tiny bits of air scatter blue light the most.")]),
     ('News', 'Podcast', [
-        ('News anchor', 'Male', "Good evening. The city council has approved a new riverside park. Work begins next spring, and it should open in two years.")]),
+        ('News anchor', 'Male', "Good evening. The city council has approved a new riverside park, with walking trails and a playground. Work begins next spring, and it should open in two years.")]),
     ('Narrated Story', 'Story Book Reading', [
         ('Grandmother', 'Female', "Deep in the forest, Mia found an owl sitting on her bicycle."),
         ('Girl (about 9)', 'Female', "Excuse me, that's my seat!"),
@@ -50,17 +50,17 @@ SCENES = [
         ('Young woman (20s)', 'Female', "Not me. I was upstairs."),
         ('Teen boy', 'Male', "I saw someone with a torch, near the stairs.")]),
     ('Training', 'Podcast', [
-        ('Young man (20s)', 'Male', "Before you lift a box, plant your feet apart, bend your knees and keep your back straight. Lift with your legs, not your back.")]),
+        ('Young man (20s)', 'Male', "Before you lift a heavy box, plant your feet shoulder-width apart, bend your knees and keep your back straight. Hold it close, and lift with your legs, not your back.")]),
     ('Presentation', 'Podcast', [
-        ('Woman (30s–40s)', 'Female', "Thank you all for coming. This quarter, our team cut delivery times by twenty percent. Let me show you how we did it.")]),
+        ('Woman (30s–40s)', 'Female', "Good morning, and thank you all for coming. This quarter, our team cut delivery times by twenty percent. Let me walk you through exactly how we did it.")]),
     ('Marketing', 'Podcast', [
         ('Boy (about 10)', 'Male', "Mum, these pancakes are amazing!"),
         ('News anchor', 'Female', "Sunny Morning pancake mix. Fluffy pancakes in five minutes. Find it at your local store today.")]),
     ('Ambient', 'Story Book Reading', [
         ('Wise elder', 'Male', "Breathe in slowly. Feel the cool air. Now breathe out, and let your shoulders soften. Listen to the quiet around you.")]),
     ('Custom', 'Podcast', [
-        ('Teen girl', 'Female', "Grandpa, will you teach me your famous mango pickle?"),
-        ('Grandfather', 'Male', "Only if you promise to keep the recipe in the family!")]),
+        ('Teen girl', 'Female', "Grandpa, will you teach me how to make your famous mango pickle this weekend?"),
+        ('Grandfather', 'Male', "Only if you promise to keep the secret recipe in the family forever!")]),
 ]
 
 
@@ -146,8 +146,17 @@ def file(item, asset, results, status):
     ms.api('audio/labels', {'asset_id': asset['id'], 'title': item['title'], 'folder_ids': [ms.folder([LABEL])]})
 
 
-def run(only=None):
+def run(only=None, redo=()):
     state = load_state()
+    for story in redo:
+        old = state.pop('scene:' + story, {})
+        for take in old.get('takes', []):
+            try:
+                ms.api('audio/labels', {'asset_id': take['asset_id'], 'title': (ms.record(take['asset_id']) or {}).get('title') or story, 'folder_ids': []})
+            except RuntimeError as exc:
+                print('could not unlabel', take['asset_id'], exc, flush=True)
+        state.setdefault('replaced', []).extend(t['asset_id'] for t in old.get('takes', []))
+    write_state(state)
     todo = [(i, 1) for i in plan() if (not only or only.lower() in i['key'].lower()) and state.get(i['key'], {}).get('status') not in ('passed', 'needs_listen')]
     print(f'{len(todo)} scenes to make', flush=True)
     flight = {}
@@ -218,12 +227,13 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('cmd', choices=['run', 'plan', 'report'])
     p.add_argument('--only')
+    p.add_argument('--redo', default='', help='comma-separated story types to make again')
     a = p.parse_args()
     if a.cmd == 'plan':
         for i in plan():
             print(i['title'], json.dumps(i['cast'], ensure_ascii=False), '|', i['expect'], '| words', len(i['expect'].split()))
     elif a.cmd == 'run':
-        run(a.only)
+        run(a.only, [x.strip() for x in a.redo.split(',') if x.strip()])
     else:
         report()
 
