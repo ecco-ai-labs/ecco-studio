@@ -33,7 +33,7 @@
  const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback;}catch{return fallback;}};
  const ui=Object.fromEntries(ORDER.map(k=>[k,{filters:[],q:'',type:'all',sort:'new',view:localStorage.getItem('ecco-library-view-'+k)==='grid'?'grid':'list',sel:'',page:1}]));
  const expanded=new Set(read('ecco-library-hub-open',[]));
- let current='image',menu=false,newOpen=false,newParent='',toastTimer=null,renaming=null;
+ let current='image',menu=false,labelMenu='',newOpen=false,newParent='',toastTimer=null,renaming=null;
 
  /* ---------- data ---------- */
  const labelsReady=kind=>Boolean(storage().library_labels)||kind==='image'||kind==='audio';
@@ -260,17 +260,20 @@
   root.querySelector('.lh-results')?.scrollIntoView({block:'start',behavior:'instant'});
   (root.querySelector(focus==='next'?'.lh-pager [data-act=page-next]:not(:disabled)':focus==='prev'?'.lh-pager [data-act=page-prev]:not(:disabled)':'.lh-pager [aria-current=page]')||root.querySelector('.lh-pager [aria-current=page]'))?.focus();
  }
+ /* Audio and Video libraries (owner-approved mock, 21 November 2026): no breadcrumb, heading, filter chips or
+    Rename/Delete links above the results. Each label in the sidebar has a ⋮ menu with Rename label and Remove label. */
+ const PLAIN={audio:true,video:true};
  function shell(kind){
   const K=KINDS[kind],s=ui[kind],{all}=visible(kind),types=[...new Set(all.map(i=>i.type))].sort();
   if(s.type!=='all'&&!types.includes(s.type))s.type='all';
   q('#page').innerHTML='<div class="lh" data-kind="'+kind+'">'
-   +'<div class="lh-top"><nav class="lh-crumb" aria-label="Breadcrumb"></nav><button type="button" class="lh-primary" data-act="upload">'+esc(K.upload)+'</button></div>'
-   +'<div class="lh-head"><h2 class="lh-title"></h2><div class="lh-meta"><span class="lh-count" role="status"></span><span class="lh-label-tools"></span></div></div>'
+   +'<div class="lh-top">'+(PLAIN[kind]?'':'<nav class="lh-crumb" aria-label="Breadcrumb"></nav>')+'<button type="button" class="lh-primary" data-act="upload">'+esc(K.upload)+'</button></div>'
+   +(PLAIN[kind]?'':'<div class="lh-head"><h2 class="lh-title"></h2><div class="lh-meta"><span class="lh-count" role="status"></span><span class="lh-label-tools"></span></div></div>')
    +'<div class="lh-tools"><label class="sr" for="lh-search">Search '+esc(K.plural)+'</label><input id="lh-search" type="search" placeholder="Search '+esc(K.plural)+'" value="'+esc(s.q)+'">'
    +'<label class="sr" for="lh-type">Type</label><select id="lh-type"><option value="all">All types</option>'+types.map(t=>'<option value="'+esc(t)+'"'+(t===s.type?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select>'
    +'<label class="sr" for="lh-sort">Sort by</label><select id="lh-sort"><option value="new"'+(s.sort==='new'?' selected':'')+'>Newest first</option><option value="old"'+(s.sort==='old'?' selected':'')+'>Oldest first</option><option value="name"'+(s.sort==='name'?' selected':'')+'>Name A to Z</option><option value="namedesc"'+(s.sort==='namedesc'?' selected':'')+'>Name Z to A</option></select>'
    +'<div class="lh-seg" role="group" aria-label="View"><button type="button" data-act="view" data-view="grid">Grid</button><button type="button" data-act="view" data-view="list">List</button></div></div>'
-   +'<div class="lh-chips" hidden></div>'
+   +(PLAIN[kind]?'':'<div class="lh-chips" hidden></div>')
    +'<div class="lh-body"><div class="lh-results"></div><aside class="lh-details" aria-label="Details" hidden></aside></div></div>';
  }
  function results(){
@@ -279,6 +282,7 @@
   const filters=s.filters.map(id=>list.find(f=>f.id===id)).filter(Boolean);
   s.filters=filters.map(f=>f.id);
   const title=filters.length?filters.map(leaf).join(' + '):'All '+K.plural;
+  if(!PLAIN[kind]){
   root.querySelector('.lh-title').textContent=title;
   const crumb=root.querySelector('.lh-crumb');crumb.hidden=!filters.length;
   crumb.innerHTML='<button type="button" data-act="clear" class="'+(filters.length?'link':'now')+'"'+(filters.length?'':' aria-current="page"')+'>'+esc(K.title)+'</button>'+(filters.length?'<span aria-hidden="true">›</span><span class="now">'+esc(filters.length===1?path(filters[0]):filters.map(leaf).join(' + '))+'</span>':'');
@@ -287,6 +291,7 @@
   tools.innerHTML=filters.length===1&&labelsReady(kind)?'<button type="button" class="link" data-act="rename-label">Rename label</button><button type="button" class="link" data-act="delete-label">Delete label</button>':'';
   const chips=root.querySelector('.lh-chips');chips.hidden=!filters.length;
   chips.innerHTML=filters.length?'<span class="lh-muted">Items with all of:</span>'+filters.map(f=>'<span class="lh-chip on">'+esc(leaf(f))+'<button type="button" data-act="chip-x" data-id="'+esc(f.id)+'" aria-label="Remove filter '+esc(path(f))+'">×</button></span>').join('')+'<button type="button" class="link" data-act="clear">Clear all</button>':'';
+  }
   root.querySelectorAll('[data-act=view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===s.view)));
   const box=root.querySelector('.lh-results'),p=pageInfo(kind,out.length),shown=out.slice(p.start,p.end);
   if(kind==='audio'&&modelSoundsOpen(kind)&&out.length){box.innerHTML=modelSoundRows(out,list);details(kind,list);return;}
@@ -371,7 +376,10 @@
    +'<button type="button" class="lh-node" data-act="nav-all" aria-pressed="'+(onPage&&!s.filters.length)+'"><span class="lh-node-text"><span>All '+esc(KINDS[current].plural)+'</span></span><small>'+all.length+'</small></button>'
    +rows.map(({f,d})=>{const open=expanded.has(f.id),kids=hasKids(f),on=s.filters.includes(f.id);
      return '<div class="lh-trow" style="padding-left:'+(d*16)+'px">'+(kids?'<button type="button" class="lh-toggle" data-act="nav-toggle" data-id="'+esc(f.id)+'" aria-expanded="'+open+'" aria-label="'+(open?'Collapse ':'Expand ')+esc(path(f))+'"><span aria-hidden="true">'+(open?'−':'+')+'</span></button>':'<span class="lh-spacer"></span>')
-      +'<button type="button" class="lh-node" data-act="nav-label" data-id="'+esc(f.id)+'" aria-pressed="'+on+'" title="'+esc(path(f))+'"><span class="lh-node-text"><span>'+esc(leaf(f))+'</span></span><small>'+count(current,f,all,list)+'</small></button></div>';}).join('')
+      +'<button type="button" class="lh-node" data-act="nav-label" data-id="'+esc(f.id)+'" aria-pressed="'+on+'" title="'+esc(path(f))+'"><span class="lh-node-text"><span>'+esc(leaf(f))+'</span></span><small>'+count(current,f,all,list)+'</small></button>'
+      +(PLAIN[current]&&labelsReady(current)?'<button type="button" class="lh-more" data-act="nav-more" data-id="'+esc(f.id)+'" aria-haspopup="menu" aria-expanded="'+(labelMenu===f.id)+'" aria-label="More options for '+esc(path(f))+'" id="lh-more-'+esc(f.id)+'"><span aria-hidden="true">⋮</span></button>'
+       +(labelMenu===f.id?'<div class="lh-more-menu" role="menu" aria-label="Options for '+esc(path(f))+'"><button type="button" role="menuitem" data-act="nav-rename" data-id="'+esc(f.id)+'">Rename label</button><button type="button" role="menuitem" data-act="nav-remove" data-id="'+esc(f.id)+'">Remove label</button></div>':''):'')
+      +'</div>';}).join('')
    +(labelsReady(current)?(newOpen?'<form class="lh-new" data-form="new-label"><label for="lh-new-name">Label name</label><input id="lh-new-name" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Villains"><label for="lh-new-parent">Inside</label><select id="lh-new-parent"><option value="">Top level</option>'+topLevel.map(f=>'<option value="'+esc(f.name)+'"'+(f.name===newParent?' selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select><button type="button" class="link" data-act="new-cancel">Cancel</button></form>':'<button type="button" class="lh-newbtn" data-act="new-open">+ New label</button>'):'<p class="lh-muted lh-pad">Labels for '+esc(KINDS[current].plural)+' need the storage service update.</p>')
    +'</nav>';
   const key=html;if(nav.dataset.key===key)return;nav.dataset.key=key;
@@ -390,7 +398,12 @@
    else if(act==='nav-toggle'){const id=b.dataset.id;expanded.has(id)?expanded.delete(id):expanded.add(id);localStorage.setItem('ecco-library-hub-open',JSON.stringify([...expanded]));renderNav();}
    else if(act==='new-open'){newOpen=true;newParent=ui[current].filters.length===1?(folders(current).find(f=>f.id===ui[current].filters[0])?.name||''):'';renderNav();q('#lh-new-name')?.focus();}
    else if(act==='new-cancel'){newOpen=false;renderNav();}
+   else if(act==='nav-more'){labelMenu=labelMenu===b.dataset.id?'':b.dataset.id;renderNav();(q('.lh-more-menu [role=menuitem]')||q('#lh-more-'+cssq(b.dataset.id)))?.focus();}
+   else if(act==='nav-rename'){const f=folders(current).find(x=>x.id===b.dataset.id);labelMenu='';renderNav();if(f)renameLabelDialog(current,f);}
+   else if(act==='nav-remove'){const kind=current,f=folders(kind).find(x=>x.id===b.dataset.id);labelMenu='';renderNav();if(f)guard(async()=>{await api('trash/folder',{id:f.id});ui[kind].filters=ui[kind].filters.filter(x=>x!==f.id);ui[kind].page=1;await reload();toast('Label moved to Trash. You can restore it.');renderNav();if(PAGE_KIND[page])results();});}
   });
+  document.addEventListener('click',event=>{if(labelMenu&&!event.target.closest('.lh-more,.lh-more-menu')){labelMenu='';renderNav();}});
+  nav.addEventListener('keydown',event=>{if(event.key==='Escape'&&labelMenu){const id=labelMenu;labelMenu='';renderNav();q('#lh-more-'+cssq(id))?.focus();}});
   nav.addEventListener('submit',event=>{
    const form=event.target.closest('[data-form=new-label]');if(!form)return;event.preventDefault();
    const name=form.querySelector('#lh-new-name').value,parent=form.querySelector('#lh-new-parent').value;

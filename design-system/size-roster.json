@@ -1103,6 +1103,22 @@
       "area": "Left navigation"
     },
     {
+      "id": "label-more",
+      "of": "icon-button",
+      "name": "Label options button",
+      "font": "@text-medium-large",
+      "height": 20,
+      "width": 20,
+      "icon": null,
+      "selectors": [
+        "#library-hub-nav .lh-more"
+      ],
+      "examples": [
+        "⋮"
+      ],
+      "area": "Left navigation"
+    },
+    {
       "id": "header-icon-button",
       "of": "icon-button",
       "name": "Header icon button",
