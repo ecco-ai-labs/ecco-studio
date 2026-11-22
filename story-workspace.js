@@ -950,14 +950,78 @@
   const ready=window.EccoAudioCompute?.readyNow?.(),fits=(window.EccoAudioModels||[]).filter(m=>!m.pending&&(!m.languages||m.languages.includes(language)));
   return fits.filter(m=>!ready||ready.includes(m.id));
  }
+ // AI pick from the Voice Library (owner-approved mock, 22 Nov 2026): each character is cast from Audio Library ›
+ // Model Sounds by role, gender, age, story type and narration style, in the story's language. Models may be mixed.
+ // The voice keeps its own direction (it fills Delivery only when Delivery is empty or still the earlier pick's).
+ // Characters the library cannot voice keep the model voice pick below.
+ const ANIMAL=/\b(animal|dog|puppy|cat|kitten|owl|fox|bear|rabbit|bunny|mouse|lion|tiger|monkey|elephant|bird|parrot|crow|frog|duck|cow|horse|pig|goat|sheep|wolf|squirrel|turtle|tortoise|fish|dragon)\b/i;
+ function libraryVoices(language){
+  return (typeof state!=='undefined'&&state?.records||[]).filter(r=>r.kind==='asset'&&r.media==='audio'&&!r.deleted&&r.model_sound?.voice&&r.model_sound.lines&&r.model_sound.language===language);
+ }
+ function castWants(c,sex,story,style){
+  const text=(c.role||'')+' '+(c.name||''),F=sex==='Female',kid=(f,m)=>F?f:m,age=String(c.age_group||'');
+  if(ANIMAL.test(text))return [[/grump|grouch|cranky|grumbl/i.test(text)?'Grumpy animal friend':/shy|timid|quiet|nervous/i.test(text)?'Shy animal friend':'Cheerful animal friend','Animal'],['Cheerful animal friend','Animal'],['Shy animal friend','Animal'],['Grumpy animal friend','Animal']];
+  const adult=[[kid('Woman (30s–40s)','Man (30s–40s)'),sex],[kid('Young woman (20s)','Young man (20s)'),sex]];
+  const narrator=/narrat|storyteller/i.test(text);
+  if(narrator||/\b(host|presenter|anchor|reporter|newsreader|interviewer|teacher|instructor|trainer|coach|guide|lecturer|professor)\b/i.test(text)){
+   const role=narrator?'':text;
+   if(/news/.test(story)||/anchor|reporter|newsreader/i.test(role))return [['News anchor',sex],['Documentary narrator',sex],...adult];
+   if(/documentary/.test(story)&&narrator)return [['Documentary narrator',sex],['News anchor',sex],...adult];
+   if(/teaching|training|presentation/.test(story)||/teacher|instructor|trainer|lecturer|professor|coach/i.test(role))return [...(F?[['Teacher',sex]]:[]),['Documentary narrator',sex],...adult];
+   if(/podcast|interview/.test(story)||/host|presenter|interviewer/i.test(role))return [['Podcast host',sex],...adult];
+   if(narrator){
+    if(/Rich and measured/.test(style))return [['Documentary narrator',sex],[kid('Grandmother','Grandfather'),sex],...adult];
+    if(/Bright and brisk/.test(style))return [['News anchor',sex],...adult,['Podcast host',sex]];
+    if(/Clear and warm/.test(style))return [...adult,['Podcast host',sex],['Documentary narrator',sex]];
+    return [[kid('Grandmother','Grandfather'),sex],['Documentary narrator',sex],...adult];
+   }
+  }
+  if(/child/i.test(age)||/\b(toddler|baby|child|kid|girl|boy|daughter|son)\b/i.test(text)&&!/teen|adult|older/i.test(age)){
+   if(/\b(toddler|baby)\b/i.test(text))return [[kid('Toddler girl (about 3)','Toddler boy (about 3)'),sex],[kid('Girl (about 5)','Boy (about 6)'),sex]];
+   if(/\b(little|young|small|tiny)\b/i.test(text))return [[kid('Girl (about 5)','Boy (about 6)'),sex],[kid('Girl (about 9)','Boy (about 10)'),sex]];
+   return [[kid('Girl (about 9)','Boy (about 10)'),sex],[kid('Girl (about 5)','Boy (about 6)'),sex]];
+  }
+  if(/teen/i.test(age)||/\bteen/i.test(text))return [[kid('Teen girl','Teen boy'),sex],[kid('Young woman (20s)','Young man (20s)'),sex]];
+  if(/older/i.test(age)||/\b(grand(mother|father|ma|pa)|granny|elder|old (man|woman)|sage|guru)\b/i.test(text)){
+   const wise=/\b(wise|sage|guru|elder|mentor)\b/i.test(text)&&!F?[['Wise elder','Male']]:[];
+   return [...wise,[kid('Grandmother','Grandfather'),sex],...(F?[]:[['Wise elder','Male']]),...adult];
+  }
+  if(/\b(young|student|college|20s|teenager)\b/i.test(text))return [adult[1],adult[0]];
+  return adult;
+ }
+ function castFromLibrary(cast){
+  const language=data.language,pool=libraryVoices(language);if(!pool.length)return new Set();
+  const ready=new Set(voiceModels(language).map(m=>m.id)),usable=r=>!ready.size||ready.has(r.model_sound.model);
+  const story=String(data.type||''),style=data.narrationStyle||(story==='news'?'Bright and brisk':story==='documentary'?'Rich and measured':/storybook|audio-drama/.test(story)?'Expressive storyteller':'Clear and warm');
+  const find=(type,sex)=>{const rows=pool.filter(r=>usable(r)&&r.model_sound.voice_type===type&&(sex==='Animal'?r.model_sound.grid==='Animals':r.model_sound.sex===sex));return rows.find(r=>r.model_sound.checks?.status==='passed')||rows[0];};
+  const taken=new Set(cast.filter(c=>c.voiceChosen).map(c=>(c.model||'')+'|'+c.voice)),done=new Set();let alternate=0;
+  for(const c of cast){
+   if(c.voiceChosen||c.perEpisode)continue;
+   const known=genderOf(c),sex=known||(alternate++%2?'Male':'Female'),wants=castWants(c,sex,story,style);
+   if(!known)wants.push(...castWants(c,sex==='Male'?'Female':'Male',story,style));
+   const r=wants.map(([t,s])=>find(t,s)).find(r=>r&&!taken.has(r.model_sound.model+'|'+r.model_sound.voice));
+   c.libraryChecked=language;
+   if(!r)continue;
+   const ms=r.model_sound,before=c.libraryPick;
+   c.model=ms.model;c.voice=ms.voice;
+   if(ms.direction&&(!c.delivery||before&&c.delivery===before.direction))c.delivery=ms.direction;
+   if(!c.voice_sample||before&&c.voice_sample===before.asset_id)c.voice_sample=r.id;
+   c.libraryPick={asset_id:r.id,voice_type:ms.voice_type,sex:ms.sex||'',model:ms.model,voice:ms.voice,direction:ms.direction||''};
+   taken.add(ms.model+'|'+ms.voice);done.add(c);
+  }
+  return done;
+ }
+ window.EccoVoiceLibrary={has:language=>libraryVoices(language).length>0};
  function assignVoices(cast,model){
+  const cast0=cast,fromLibrary=castFromLibrary(cast0);cast=cast0.filter(c=>!fromLibrary.has(c));
+  for(const c of cast)if(!c.voiceChosen&&c.libraryPick){if(c.voice_sample===c.libraryPick.asset_id)delete c.voice_sample;if(c.delivery===c.libraryPick.direction)delete c.delivery;delete c.libraryPick;}
   const need=cast.filter(c=>!c.voiceChosen).length,language=data.language;let short=0;
   // Voice quality (owner report 2026-11-09): use the best-sounding model the workers can run for this language.
   // The grid (M.voiceModelRank) picks by Story Type, Genre and Language; models the user chose are kept.
   const options=voiceModels(language),rank=M.voiceModelRank(data.type,data.genre,language),score=m=>{const i=rank.indexOf(m.id);return i<0?rank.length:i;};
   const most=Math.max(0,...options.map(m=>voicePool(m,language).length)),enough=m=>voicePool(m,language).length>=Math.min(need,most);
   const ranked=[...options].sort((a,b)=>score(a)-score(b)),chosen=ranked.find(enough)||ranked[0]||model;
-  const used=new Set(cast.filter(c=>c.voiceChosen).map(c=>(c.model||chosen.id)+'|'+c.voice));let alternate=0;
+  const used=new Set([...cast.filter(c=>c.voiceChosen),...fromLibrary].map(c=>(c.model||chosen.id)+'|'+c.voice));let alternate=0;
   for(const c of cast){
    if(c.voiceChosen)continue;
    const m=c.modelChosen?(window.EccoAudioModels||[]).find(x=>x.id===c.model)||chosen:chosen;if(!c.modelChosen)c.model=m.id;

@@ -2076,6 +2076,35 @@ test('STORY-29 Changing a character’s Audio model picks a fitting voice from t
  expect(page.qaErrors).toEqual([]);
 });
 
+// Owner-approved mock (22 Nov 2026): AI pick casts from the Voice Library (Model Sounds), models may be mixed, and the
+// cast list is one full-width list with one compact row per character.
+test('STORY-30b AI pick casts each character from the Voice Library in one compact full-width list',async({page})=>{
+ await boot(page,{sourceFit:'cast'});
+ await page.evaluate(()=>{const lib=(id,sex,type,model,voice,direction)=>({id:'qa-ms-'+id,kind:'asset',media:'audio',title:type+' · English',created:1700000000,
+   model_sound:{grid:'Human',voice_type:type,sex,language:'English',model,voice,direction,lines:[{text:'Hello',voice,model,direction}],checks:{status:'passed'}}});
+  state.records.push(lib('gm','Female','Grandmother','qwen3-tts','storyteller-f','A warm grandmother telling a story.'),lib('man','Male','Man (30s–40s)','kokoro','am_adam',''),
+   lib('woman','Female','Woman (30s–40s)','kokoro','af_heart',''),lib('yman','Male','Young man (20s)','kokoro','am_michael',''));});
+ await page.getByLabel('Story name (required)',{exact:true}).fill('Library cast');await fillStoryDetail(page,'output','audio');
+ await page.locator('#story-detail-type-button').click();await page.locator('#story-detail-type-panel [data-choice-mode=once][data-choice-value=audio-drama]').click();await fillStoryDetail(page,'genre','Adventure');
+ await page.getByRole('button',{name:'Next: Story Script',exact:true}).click();await page.getByRole('tab',{name:'Write Yourself',exact:true}).click();
+ await page.getByRole('dialog',{name:'Write Yourself',exact:true}).locator('[data-selected]').fill('Narrator: On the edge of the world stood a lighthouse.\n\nAli: What is this?\n\nMorgiana: A map!');
+ await page.locator('.story-simple-actions [data-next]').click();
+ const rows=page.locator('.story-cast-row');await expect(rows).toHaveCount(3);
+ const voices=await rows.locator('.story-cast-voice-name').allTextContents();
+ expect(voices[0]).toMatch(/^Grandmother · Qwen3/);
+ expect(voices.slice(1).some(v=>/^Man \(30s–40s\) · Kokoro$/.test(v))).toBe(true);expect(voices.slice(1).some(v=>/^Woman \(30s–40s\) · Kokoro$/.test(v))).toBe(true);
+ expect(new Set(voices).size).toBe(3);
+ await expect(rows.first().locator('.story-cast-ai-pick')).toHaveAttribute('title',/Voice Library/);
+ // Narration style sits in the Narrator's own row; every row is one line across the full panel.
+ await expect(rows.first().getByRole('combobox',{name:'Narration style',exact:true})).toBeVisible();
+ const panel=await page.locator('[data-cast-panel]').boundingBox(),list=await page.locator('.story-cast-roster').boundingBox();
+ expect(list.width).toBeGreaterThan(panel.width*0.85);
+ for(const r of await rows.all()){const box=await r.boundingBox();expect(box.height).toBeLessThan(90);}
+ const saved=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>localStorage.getItem(k).includes('simple_workspace')&&localStorage.getItem(k).includes('Library cast'));return JSON.parse(localStorage.getItem(k));});
+ const cast=JSON.stringify(saved);expect(cast).toContain('storyteller-f');expect(cast).toContain('A warm grandmother telling a story.');
+ expect(page.qaErrors).toEqual([]);
+});
+
 // Automatic flow (owner-approved mock 2026-11-09): a short cast list with Hear and Change; narration style for the narrator.
 test('STORY-30 Characters opens on a short cast list: voices picked, Hear and Change, narration style, Next without creating samples',async({page})=>{
  await boot(page,{sourceFit:'cast'});await page.getByLabel('Story name (required)',{exact:true}).fill('Lantern');await fillStoryDetail(page,'output','audio');

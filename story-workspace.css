@@ -333,13 +333,21 @@ body.story-simple-mode .workspace-ribbon #heading{grid-column:1;grid-row:3;min-w
 
 /* Short cast list (automatic flow, owner-approved 2026-11-09). Layout only; sizes come from the roster. */
 #page .story-cast-bar[hidden]{display:none}
-.story-cast-roster{display:flex;flex-direction:column;gap:6px}
-.story-cast-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,2fr) auto auto;gap:10px;align-items:center;border:1px solid var(--line,rgba(255,255,255,.15));border-radius:8px;padding:8px 10px}
-.story-cast-who{display:flex;flex-direction:column;gap:2px}
-.story-cast-style{grid-column:1/-1;display:flex;gap:8px;align-items:center}
+/* Compact cast list (owner-approved mock, 22 Nov 2026): one full-width list, one row per character. Layout only. */
+.story-cast-body.story-cast-compact{display:block;border:0}
+.story-cast-roster{display:flex;flex-direction:column;border:1px solid var(--ecco-theme-border,#51496f);border-radius:10px;overflow:hidden}
+.story-cast-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,210px) minmax(0,300px) auto auto;gap:14px;align-items:center;padding:8px 14px;border-top:1px solid var(--ecco-theme-border,#51496f)}
+.story-cast-row:first-child{border-top:0}
+.story-cast-who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.story-cast-role{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.story-cast-style{display:flex;flex-direction:column;gap:2px;min-width:0}
+.story-cast-style select{width:100%;min-width:0}
+.story-cast-voice{display:flex;align-items:center;gap:8px;min-width:0}
+.story-cast-voice-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.story-cast-voice .story-cast-ai-pick{margin-left:0;flex:none}
 .story-cast-row audio{grid-column:1/-1}
 .story-cast-row audio[hidden]{display:none}
-@media(max-width:900px){.story-cast-row{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:900px){.story-cast-row{grid-template-columns:minmax(0,1fr) auto auto}.story-cast-who,.story-cast-meta,.story-cast-style,.story-cast-voice{grid-column:1/-1}}
 /* Automatic episodes (story-auto.js): layout only. */
 .story-auto{margin-top:14px}
 .story-auto .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
