@@ -587,7 +587,7 @@ def sound(model):
 VOICE_BANK_ROLES = {
     'Teacher': ("(\"occupation\" LIKE '%eacher%' OR \"occupation\" LIKE '%EACHER%')", None),
     'News anchor': ("(\"age_group\" = '18-30' OR \"age_group\" = '30-45')", '"c50" DESC'),
-    'Storyteller': ("(\"age_group\" = '30-45' OR \"age_group\" = '45-60')", '"utterance_pitch_std" DESC'),
+    'Storyteller': ("(\"age_group\" = '30-45' OR \"age_group\" = '45-60') AND \"utterance_pitch_std\" > 30", None),
     'Young parent': ("\"age_group\" = '18-30'", None),
     'Shopkeeper': ("(\"occupation\" LIKE '%hop%' OR \"occupation\" LIKE '%usiness%' OR \"occupation\" LIKE '%endor%')", None),
     'Grandparent': ("\"age_group\" <> '18-30' AND \"age_group\" <> '30-45' AND \"age_group\" <> '45-60'", None),
