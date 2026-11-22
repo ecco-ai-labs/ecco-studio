@@ -2,7 +2,9 @@
 /* In-tab screen history. Back never substitutes the welcome screen for a missing entry. */
 (()=>{
  const q=s=>document.querySelector(s),stack=[];
- let current=null,restoring=false,queued=false;
+ let current=null,restoring=false,queued=false,local=null;
+ // A screen with its own inner steps (Image Studio: picture → start) can take Back first: {can(),back()}.
+ const localCan=()=>{try{return !!local?.can();}catch{return false;}};
  const key=()=>[page,activeStory,['library','audio-library','workflow-detail','workflow-library','story-library-detail'].includes(page)?q('#page h2')?.textContent:''].join('|');
  function capture(){return {key:key(),page,title:document.title,context:page==='support'?null:window.EccoWorkspaceUI?.capturePopupContext({navigation:true})};}
  function reset(){for(const entry of stack)entry.context?.dispose();stack.length=0;current=null;update();}
@@ -13,6 +15,7 @@
   current=capture();update();
  }
  function back(){
+  if(localCan()){local.back();update();return true;}
   const entry=stack.pop();if(!entry){update();return false;}
   restoring=true;window.EccoDesk?.close();
   document.querySelectorAll('.workspace-menu[open]').forEach(menu=>{menu.open=false;});
@@ -43,13 +46,13 @@
   const styled=local||(row?b:null);
   if(styled&&next){const look=getComputedStyle(next);for(const p of NEXT_LOOK)styled.style.setProperty(p,look.getPropertyValue(p),'important');styled.dataset.nextLook='';}
   if(b&&!styled){for(const p of NEXT_LOOK)b.style.removeProperty(p);delete b.dataset.nextLook;}
-  if(b){if(row&&!local)b.dataset.placement='actions';else delete b.dataset.placement;b.hidden=page==='welcome'||!!local;b.disabled=!stack.length;}
-  for(const control of document.querySelectorAll('[data-screen-back]'))control.disabled=!stack.length;
+  if(b){if(row&&!local)b.dataset.placement='actions';else delete b.dataset.placement;b.hidden=page==='welcome'||!!local;b.disabled=!stack.length&&!localCan();}
+  for(const control of document.querySelectorAll('[data-screen-back]'))control.disabled=!stack.length&&!localCan();
  }
  // Capture edits and focus before a click changes the current view, including direct library routes.
  document.addEventListener('click',()=>{if(!restoring&&page!=='welcome'&&(!current||current.key===key()))current=capture();},true);
  new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;remember();});}).observe(document.body,{childList:true,subtree:true});
  document.addEventListener('ecco:auth-change',reset);
- window.EccoNavigation={back,reset,get depth(){return stack.length;}};
+ window.EccoNavigation={back,reset,setLocalBack(handler){local=handler||null;update();},get depth(){return stack.length;}};
  remember();
 })();

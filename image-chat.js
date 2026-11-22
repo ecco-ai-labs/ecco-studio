@@ -139,6 +139,7 @@
    '<div class="ic-box"><textarea id="ic-words" rows="1" aria-label="What should change?" placeholder="What should change?">'+esc(s.draft)+'</textarea>'+round('Send','send','→','ic-go')+'</div></div></div>';
  }
  function draw(force){
+  if(!backReady&&window.EccoNavigation?.setLocalBack){backReady=true;window.EccoNavigation.setLocalBack(localBack);}
   const root=q('#page');if(!root||page!=='images'||!open)return;
   if(s.phase==='work'&&!s.versions.length)s.phase='start';
   const camera=cam?'<div class="ic-camera" role="dialog" aria-label="Camera"><video id="ic-cam" playsinline muted></video><div class="ic-row"><button type="button" class="ic-tool" data-ic="snap">Take picture</button><button type="button" class="ic-tool" data-ic="camclose">Cancel</button></div></div>':'';
@@ -193,5 +194,11 @@
  function openChat(){window.EccoStoryWorkspace?.leave?.();entry=Date.now();navigate('images');}
  // The Studios entry now opens this screen; the old workspace stays reachable for its own tools.
  const old=window.EccoImageWorkspace;if(old){const oldOpen=old.open;old.open=function(){open=false;return oldOpen.apply(this,arguments);};}
+ // Back on the picture screen returns to the start screen with the current picture attached as the photo, so
+ // nothing is lost; on the start screen Back leaves Image Studio as before (owner request, 22 Nov 2026).
+ // navigation-history.js loads after this file, so Back is registered on the first draw.
+ const localBack={can:()=>open&&page==='images'&&s.phase==='work'&&!busy&&!!q('#image-chat'),
+  back(){const v=cur();camStop();Object.assign(s,{phase:'start',photo:v?.id||'',versions:[],view:0,dot:null,compare:false,draft:'',error:''});save();draw(true);}};
+ let backReady=false;
  window.EccoImageChat={open:openChat,draw,get state(){return s;},get busy(){return busy;},helpers:HELPERS};
 })();
