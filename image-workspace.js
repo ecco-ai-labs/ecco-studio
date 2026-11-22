@@ -337,7 +337,7 @@
    node.addEventListener('click',()=>openStudio());
   }
   if(box.firstElementChild!==node)box.prepend(node);
-  node.classList.toggle('active',page==='images'&&!!q('#image-workspace'));
+  node.classList.toggle('active',page==='images'&&!!q('#image-workspace,#image-chat'));
  }
  if(typeof names!=='undefined')names.images='Image Studio';
  let nodeQueued=false;new MutationObserver(()=>{if(nodeQueued)return;nodeQueued=true;queueMicrotask(()=>{nodeQueued=false;studioNode();});}).observe(document.querySelector('aside')||document.body,{childList:true,subtree:true});
