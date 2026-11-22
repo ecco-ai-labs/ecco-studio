@@ -581,6 +581,67 @@ def sound(model):
                 revision=read_json(volume_base / 'manifest.json', {}).get('model_revision'))
 
 
+# ---------------------------------------------------------------- voice bank (22 Nov 2026)
+# Finds real speakers in AI4Bharat IndicVoices-R (CC-BY-4.0, gated: needs HF_TOKEN on the endpoint) for role voices
+# such as a Hindi teacher or grandmother. Returns metadata and short-lived audio links only; nothing is stored here.
+VOICE_BANK_ROLES = {
+    'Teacher': ("\"occupation\" ILIKE '%teach%'", None),
+    'News anchor': ("\"age_group\" IN ('18-30','30-45')", '"c50" DESC'),
+    'Storyteller': ("\"age_group\" IN ('30-45','45-60')", '"utterance_pitch_std" DESC'),
+    'Young parent': ("\"age_group\" = '18-30'", None),
+    'Shopkeeper': ("(\"occupation\" ILIKE '%shop%' OR \"occupation\" ILIKE '%business%' OR \"occupation\" ILIKE '%vendor%')", None),
+    'Grandparent': ("\"age_group\" NOT IN ('18-30','30-45','45-60')", None),
+}
+
+
+def voice_bank(config):
+    import urllib.parse
+    import urllib.request
+    token = os.environ.get('HF_TOKEN', '').strip()
+    if not token or token.startswith('{{'):
+        raise SystemExit('HF_TOKEN is not set on this endpoint.')
+
+    def get(path, **params):
+        url = 'https://datasets-server.huggingface.co' + path + '?' + urllib.parse.urlencode(dict(dataset='ai4bharat/indicvoices_r', config=config, split='train', **params))
+        request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
+        with urllib.request.urlopen(request, timeout=120) as response:
+            return json.loads(response.read())
+
+    summary = {}
+    try:
+        for column in get('/statistics').get('statistics', []):
+            if column.get('column_name') in ('age_group', 'scenario', 'occupation', 'gender', 'district'):
+                freq = (column.get('column_statistics') or {}).get('frequencies') or {}
+                summary[column['column_name']] = dict(sorted(freq.items(), key=lambda kv: -kv[1])[:40])
+    except Exception as exc:
+        summary['error'] = str(exc)[:300]
+    roles = {}
+    for role, (where, order) in VOICE_BANK_ROLES.items():
+        for gender in ('Female', 'Male'):
+            clause = f'"gender" = \'{gender}\' AND "duration" BETWEEN 6 AND 14 AND "snr" > 45 AND ' + where
+            try:
+                rows = get('/filter', where=clause, orderby=order or '"snr" DESC', length=100).get('rows', [])
+            except Exception as exc:
+                roles[f'{role}|{gender}'] = {'error': str(exc)[:300]}
+                continue
+            seen, picks = set(), []
+            for item in rows:
+                row = item.get('row', {})
+                if row.get('speaker_id') in seen:
+                    continue
+                audio = row.get('audio') or []
+                src = audio[0].get('src') if isinstance(audio, list) and audio and isinstance(audio[0], dict) else None
+                if not src:
+                    continue
+                seen.add(row.get('speaker_id'))
+                picks.append({k: row.get(k) for k in ('speaker_id', 'gender', 'age_group', 'occupation', 'district', 'state', 'scenario', 'task_name',
+                                                      'snr', 'c50', 'speaking_rate', 'utterance_pitch_mean', 'duration', 'text')} | {'audio': src, 'row': item.get('row_idx')})
+                if len(picks) >= 4:
+                    break
+            roles[f'{role}|{gender}'] = picks
+    step_result('voice-bank', config=config, summary=summary, roles=roles)
+
+
 def main(steps):
     failures = 0
     for item in steps:
@@ -603,6 +664,8 @@ def main(steps):
                 indic_parler()  # rebuild:indic-parler lets the deployed handler (which predates this step) run it
             elif name == 'svara-tts' or (name == 'rebuild' and argument == 'svara-tts'):
                 svara_tts()  # likewise rebuild:svara-tts
+            elif name == 'rebuild' and argument.startswith('voice-bank-'):
+                voice_bank(argument[len('voice-bank-'):])   # e.g. rebuild:voice-bank-hindi (finds speakers; installs nothing)
             elif name == 'rebuild':
                 rebuild(argument)
             elif name == 'voxcpm2':
