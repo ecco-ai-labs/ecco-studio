@@ -66,7 +66,22 @@ def judge(item, r):
     return problems
 
 
+_finish = ms.finish
+
+
+def finish(item, job, attempt, state, digests):
+    """A remake can't fix "same audio as …": two library voices that render identically (Toddler girl and Girl 5
+    both use Qwen3 girl-5, and the toddler direction doesn't change it) give the same audio every time. File it
+    for a listen straight away instead of spending a second job (found 21 Nov 2026)."""
+    asset = ms.record(job['asset_id'])
+    dup = digests.get(asset['sha256'])
+    if dup and dup != item['key'] and attempt == 1:
+        attempt = 2
+    return _finish(item, job, attempt, state, digests)
+
+
 ms.plan = plan
+ms.finish = finish
 ms.judge = judge
 ms.ROOT = ROOT
 
