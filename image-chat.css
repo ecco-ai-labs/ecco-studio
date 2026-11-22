@@ -4,7 +4,7 @@
 #image-chat h1{margin:0 0 6px;font-family:Georgia,'Times New Roman',serif;font-weight:500;color:var(--ecco-theme-text,#f1edff);text-align:center}
 #image-chat .ic-box{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--ecco-theme-border,#454065);border-radius:999px;background:var(--ecco-theme-surface,#242147);box-shadow:0 10px 30px #0005}
 #image-chat .ic-box:focus-within{border-color:var(--ecco-theme-accent,#ffdc24)}
-#image-chat .ic-box textarea{flex:1 1 auto;min-width:0;resize:none;border:0;outline:0;background:transparent;color:var(--ecco-theme-text,#f1edff);padding:8px 6px;line-height:1.4;box-shadow:none}
+#image-chat .ic-box textarea{flex:1 1 auto;min-width:0;min-height:0;field-sizing:content;max-block-size:8lh;resize:none;align-self:center;border:0;outline:0;background:transparent;color:var(--ecco-theme-text,#f1edff);padding:8px 6px;line-height:1.4;box-shadow:none}
 #image-chat .ic-box textarea::placeholder{color:var(--ecco-theme-muted,#8d87ab)}
 #image-chat button.ic-round{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:50%;border:1px solid var(--ecco-theme-border,#454065);background:var(--ecco-theme-control,#302a54);color:var(--ecco-theme-text,#f1edff);box-shadow:none}
 #image-chat button.ic-round.ic-go{border:0;background:var(--ecco-theme-accent,#ffdc24);color:#211b3c;font-weight:700}
