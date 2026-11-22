@@ -1386,6 +1386,117 @@
         "← Back"
       ],
       "area": "Navigation"
+    },
+    {
+      "id": "image-chat-title",
+      "of": "heading-h1",
+      "name": "Image Studio start title",
+      "font": "@title-display",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#image-chat h1"
+      ],
+      "examples": [
+        "What are we making?"
+      ],
+      "area": "Image Studio"
+    },
+    {
+      "id": "image-chat-box",
+      "of": "textarea",
+      "name": "Image Studio words box",
+      "font": "@text-xl",
+      "height": null,
+      "width": null,
+      "selectors": [
+        "#image-chat .ic-box textarea"
+      ],
+      "examples": [
+        "Describe it, or add a photo"
+      ],
+      "area": "Image Studio"
+    },
+    {
+      "id": "image-chat-round",
+      "of": "button",
+      "name": "Image Studio round button",
+      "font": "@text-xl",
+      "height": "@control-large",
+      "width": "@control-large",
+      "selectors": [
+        "#image-chat button.ic-round"
+      ],
+      "examples": [
+        "+",
+        "Camera",
+        "Go"
+      ],
+      "area": "Image Studio"
+    },
+    {
+      "id": "image-chat-chip",
+      "of": "button",
+      "name": "Image Studio helper and suggestion chip",
+      "font": "@text-medium",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "#image-chat button.ic-chip"
+      ],
+      "examples": [
+        "Poster",
+        "Make it night"
+      ],
+      "area": "Image Studio"
+    },
+    {
+      "id": "image-chat-tool",
+      "of": "button",
+      "name": "Image Studio picture tool",
+      "font": "@text-medium",
+      "height": "@control-medium",
+      "width": null,
+      "selectors": [
+        "#image-chat button.ic-tool"
+      ],
+      "examples": [
+        "Undo",
+        "Before / after",
+        "Download"
+      ],
+      "area": "Image Studio"
+    },
+    {
+      "id": "image-chat-version",
+      "of": "button",
+      "name": "Image Studio version tile",
+      "font": "@text-regular",
+      "height": 54,
+      "width": 72,
+      "selectors": [
+        "#image-chat button.ic-ver"
+      ],
+      "examples": [
+        "Original",
+        "2"
+      ],
+      "area": "Image Studio"
+    },
+    {
+      "id": "image-chat-remove",
+      "of": "button",
+      "name": "Image Studio remove photo",
+      "font": "@text-regular",
+      "height": "@image-small",
+      "width": "@image-small",
+      "selectors": [
+        "#image-chat button.ic-x"
+      ],
+      "examples": [
+        "×"
+      ],
+      "area": "Image Studio"
     }
   ],
   "scale": [
