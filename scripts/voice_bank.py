@@ -89,6 +89,20 @@ HINDI_PLACE = {'Balaghat': 'बालाघाट', 'Bhadohi': 'भदोही'
                'Patna': 'पटना', 'Lucknow': 'लखनऊ', 'Indore': 'इंदौर', 'Muzaffarpur': 'मुज़फ़्फ़रपुर', 'Gaya': 'गया', 'Ajmer': 'अजमेर'}
 
 
+def merge_wide(config):
+    """Join the per-group hub results (voice-bank-hub-<config>-*.json) into voice-bank-wide-<config>.json."""
+    groups = {}
+    for part in sorted(ms.HOME.glob(f'voice-bank-hub-{config}-*.json')):
+        result = json.loads(part.read_text())
+        for step in result.get('steps', []):
+            if isinstance(step.get('groups'), dict):
+                groups.update(step['groups'])
+            elif step.get('error'):
+                print(part.name, step['error'][:200], flush=True)
+    (ms.HOME / f'voice-bank-wide-{config}.json').write_text(json.dumps({'steps': [{'groups': groups}]}, ensure_ascii=False))
+    print({k: len(v) for k, v in groups.items()})
+
+
 def build_wide(config):
     """Many speakers: Model Sounds › Human › <sex> › Hindi voices › <age> › <language>, one sample each saying where they are from."""
     result = json.loads((ms.HOME / f'voice-bank-wide-{config}.json').read_text())
@@ -107,8 +121,11 @@ def build_wide(config):
             if bank_key in bank:
                 continue
             try:
-                with urllib.request.urlopen(pick['audio'], timeout=120) as response:
-                    raw = response.read()
+                if pick.get('audio_b64'):
+                    raw = base64.b64decode(pick['audio_b64'])
+                else:
+                    with urllib.request.urlopen(pick['audio'], timeout=120) as response:
+                        raw = response.read()
                 title = f'{language} {sex.lower()} {n:02d} · {age} · {district}'
                 upload = ms.api('audio/upload', {'data': base64.b64encode(raw).decode(), 'name': 'Voice bank source · ' + title})
                 ref = ms.api('audio/voices/create', {'asset_id': upload['id'], 'character': title[:80], 'language': language,
@@ -168,6 +185,8 @@ def reject(keys):
 if __name__ == '__main__':
     if len(sys.argv) == 3 and sys.argv[1] == 'build':
         build(sys.argv[2].lower())
+    elif len(sys.argv) == 3 and sys.argv[1] == 'merge-wide':
+        merge_wide(sys.argv[2].lower())
     elif len(sys.argv) == 3 and sys.argv[1] == 'build-wide':
         build_wide(sys.argv[2].lower())
     elif len(sys.argv) > 2 and sys.argv[1] == 'reject':

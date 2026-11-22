@@ -730,6 +730,74 @@ def voice_bank_wide(config, per_group=12):
     step_result('voice-bank-wide', config=config, groups=groups, page_errors=groups_errors)
 
 
+def voice_bank_hub(config, gender, age, per_group=12):
+    """Speakers for one sex and age group, read straight from the dataset's parquet files on the Hub (the dataset
+    viewer API kept answering "server is busier than usual"). Only metadata columns are read for every row; audio is
+    read only for the chosen rows, cut to mono MP3 and returned inline (about 12 clips per job)."""
+    import base64
+    import importlib
+    token = os.environ.get('HF_TOKEN', '').strip()
+    if not token or token.startswith('{{'):
+        raise SystemExit('HF_TOKEN is not set on this endpoint.')
+    age = {'60plus': '60+'}.get(age, age)
+    extra = Path('/tmp/voice-bank-libs')
+    sys.path.insert(0, str(extra))
+    for module, package in (('pyarrow', 'pyarrow'), ('huggingface_hub', 'huggingface_hub')):
+        try:
+            importlib.import_module(module)
+        except ImportError:
+            run([sys.executable, '-m', 'pip', 'install', '-q', '--target', extra, package])
+    import pyarrow.parquet as pq
+    from huggingface_hub import HfFileSystem
+    fs = HfFileSystem(token=token)
+    root = 'datasets/ai4bharat/indicvoices_r'
+    files = sorted(f for f in fs.find(root) if f.endswith('.parquet') and config.lower() in [p.lower() for p in f.split('/')]
+                   and '/test' not in f.lower())
+    if not files:
+        files = sorted(f for f in fs.find(root) if f.endswith('.parquet') and config.lower() in f.lower() and 'test' not in f.rsplit('/', 1)[-1].lower())
+    columns = ['speaker_id', 'gender', 'age_group', 'occupation', 'district', 'state', 'duration', 'snr', 'c50', 'speaking_rate',
+               'utterance_pitch_mean', 'text']
+    seen, districts, picks = set(), {}, []
+    for path in files:
+        pf = pq.ParquetFile(fs.open(path, 'rb', block_size=2 ** 20))
+        names = set(pf.schema_arrow.names)
+        table = pf.read(columns=[c for c in columns if c in names]).to_pylist()
+        sizes = [pf.metadata.row_group(i).num_rows for i in range(pf.metadata.num_row_groups)]
+        for index, row in enumerate(table):
+            row_age = row.get('age_group') if row.get('age_group') in ('18-30', '30-45', '45-60') else '60+'
+            sid, district = row.get('speaker_id'), (row.get('district') or '').strip()
+            if row.get('gender') != gender or row_age != age or sid in seen or districts.get(district, 0) >= 3:
+                continue
+            try:
+                ok = 6 <= float(row.get('duration') or 0) <= 14 and float(row.get('snr') or 0) > 45 and float(row.get('c50') or 0) > 48 \
+                    and float(row.get('speaking_rate') or 0) > 10
+            except (TypeError, ValueError):
+                ok = False
+            if not ok:
+                continue
+            seen.add(sid)
+            districts[district] = districts.get(district, 0) + 1
+            group, offset = 0, index
+            while offset >= sizes[group]:
+                offset -= sizes[group]
+                group += 1
+            audio = pf.read_row_group(group, columns=['audio']).column('audio')[offset].as_py()
+            raw = audio.get('bytes') if isinstance(audio, dict) else None
+            if not raw:
+                continue
+            with tempfile.TemporaryDirectory() as temp:
+                source, target = Path(temp) / 'in', Path(temp) / 'out.mp3'
+                source.write_bytes(raw)
+                subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(source), '-ac', '1', '-ar', '24000', '-b:a', '64k', str(target)], check=True)
+                clip = base64.b64encode(target.read_bytes()).decode()
+            picks.append({k: row.get(k) for k in columns} | {'age_group': age, 'file': path.rsplit('/', 1)[-1], 'row': index, 'audio_b64': clip})
+            if len(picks) >= per_group:
+                break
+        if len(picks) >= per_group:
+            break
+    step_result('voice-bank-wide', config=config, files=len(files), groups={f'{gender}|{age}': picks})
+
+
 def main(steps):
     failures = 0
     for item in steps:
@@ -752,6 +820,8 @@ def main(steps):
                 indic_parler()  # rebuild:indic-parler lets the deployed handler (which predates this step) run it
             elif name == 'svara-tts' or (name == 'rebuild' and argument == 'svara-tts'):
                 svara_tts()  # likewise rebuild:svara-tts
+            elif name == 'rebuild' and argument.startswith('voice-bank-hub-'):
+                voice_bank_hub(*argument[len('voice-bank-hub-'):].split('__'))   # e.g. voice-bank-hub-hindi__Female__60plus
             elif name == 'rebuild' and argument.startswith('voice-bank-wide-'):
                 voice_bank_wide(argument[len('voice-bank-wide-'):])   # many distinct speakers per sex and age group
             elif name == 'rebuild' and argument.startswith('voice-bank-'):
