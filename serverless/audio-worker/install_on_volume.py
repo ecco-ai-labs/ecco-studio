@@ -684,33 +684,50 @@ def voice_bank_wide(config, per_group=12):
                     continue
                 raise RuntimeError(f'{exc.code}: ' + body) from None
 
-    groups = {}
-    for gender in ('Female', 'Male'):
-        for age in ('18-30', '30-45', '45-60', '60+'):
-            age_clause = '"age_group" = \'%s\'' % age if age != '60+' else '"age_group" <> \'18-30\' AND "age_group" <> \'30-45\' AND "age_group" <> \'45-60\''
-            clause = f'"gender" = \'{gender}\' AND {age_clause} AND "duration" >= 6 AND "duration" <= 14 AND "snr" > 45 AND "c50" > 48 AND "speaking_rate" > 10'
-            picks, seen, districts = [], set(), {}
-            try:
-                for offset in (0, 100):
-                    rows = get('/filter', where=clause, orderby='"snr" DESC', length=100, offset=offset).get('rows', [])
-                    for item in rows:
-                        row = item.get('row', {})
-                        sid, district = row.get('speaker_id'), row.get('district')
-                        audio = row.get('audio') or []
-                        src = audio[0].get('src') if isinstance(audio, list) and audio and isinstance(audio[0], dict) else None
-                        if not src or sid in seen or districts.get(district, 0) >= 3:
-                            continue
-                        seen.add(sid)
-                        districts[district] = districts.get(district, 0) + 1
-                        picks.append({k: row.get(k) for k in ('speaker_id', 'gender', 'age_group', 'occupation', 'district', 'state', 'snr', 'c50',
-                                                              'speaking_rate', 'utterance_pitch_mean', 'duration', 'text')} | {'audio': src, 'row': item.get('row_idx')})
-                    if len(picks) >= per_group or len(rows) < 100:
-                        break
-            except Exception as exc:
-                groups[f'{gender}|{age}'] = {'error': str(exc)[:300]}
+    # Filtered queries time out on the viewer ("server is busier than usual"), so read plain pages of rows spread
+    # across the whole split and filter here.
+    first = get('/rows', offset=0, length=1)
+    total = int(first.get('num_rows_total') or 0) or 30000
+    step = max(100, total // 120)
+    groups, seen, districts = {}, set(), {}
+    want = {f'{g}|{a}': [] for g in ('Female', 'Male') for a in ('18-30', '30-45', '45-60', '60+')}
+    errors = 0
+    for offset in range(0, total, step):
+        try:
+            rows = get('/rows', offset=offset, length=100).get('rows', [])
+        except Exception as exc:
+            errors += 1
+            if errors > 10:
+                break
+            continue
+        for item in rows:
+            row = item.get('row', {})
+            sid, district, gender = row.get('speaker_id'), (row.get('district') or '').strip(), row.get('gender')
+            age = row.get('age_group')
+            age = age if age in ('18-30', '30-45', '45-60') else '60+'
+            key = f'{gender}|{age}'
+            if key not in want or sid in seen or len(want[key]) >= per_group:
                 continue
-            groups[f'{gender}|{age}'] = picks[:per_group]
-    step_result('voice-bank-wide', config=config, groups=groups)
+            try:
+                ok = 6 <= float(row.get('duration') or 0) <= 14 and float(row.get('snr') or 0) > 45 and float(row.get('c50') or 0) > 48 \
+                    and float(row.get('speaking_rate') or 0) > 10
+            except (TypeError, ValueError):
+                ok = False
+            if not ok or districts.get((key, district), 0) >= 3:
+                continue
+            audio = row.get('audio') or []
+            src = audio[0].get('src') if isinstance(audio, list) and audio and isinstance(audio[0], dict) else None
+            if not src:
+                continue
+            seen.add(sid)
+            districts[(key, district)] = districts.get((key, district), 0) + 1
+            want[key].append({k: row.get(k) for k in ('speaker_id', 'gender', 'age_group', 'occupation', 'district', 'state', 'snr', 'c50',
+                                                      'speaking_rate', 'utterance_pitch_mean', 'duration', 'text')} | {'audio': src, 'row': item.get('row_idx')})
+        if all(len(v) >= per_group for v in want.values()):
+            break
+    groups = want
+    groups_errors = errors
+    step_result('voice-bank-wide', config=config, groups=groups, page_errors=groups_errors)
 
 
 def main(steps):
