@@ -209,7 +209,40 @@ OTHERS = {
 MUSIC = {'Mood': ['Happy', 'Sad', 'Suspense', 'Adventure', 'Lullaby', 'Funny'], 'Moments': ['Intro', 'Outro', 'Transition', 'Victory']}
 
 
+# Clearer wording for sounds the first pass got wrong (21 Nov): name what it is and what must not be in it.
+CLEARER = {
+    ('Owl', 'Screech owl'): "A screech owl's eerie trembling whinny call at night, a single owl, no other birds.",
+    ('Peacock', 'Call'): "A peacock's loud piercing 'may-awe' call outdoors, a single bird, no people.",
+    ('Chicken', 'Cluck'): "A hen clucking softly, bok-bok-bok, in a farmyard, no ducks, no other animals.",
+    ('Goat', 'Bleat'): "A goat bleating, a nasal 'meh-eh-eh', a single goat, no cows.",
+    ('Cat', 'Purr'): "A cat purring contentedly right next to the microphone, a soft continuous rumbling purr.",
+    ('Dog', 'Growl'): "A dog growling low and menacing, close up, loud and clear, no barking.",
+    ('Crocodile', 'Growl'): "A crocodile's deep guttural hiss and growl at the water's edge, no frogs, no insects.",
+    ('Crocodile', 'Splash'): "A large crocodile lunging into a river with a heavy splash, no frogs, no insects.",
+    ('Deer', 'Bark'): "A deer's sharp alarm bark in a forest, short single barks, no other animals.",
+    ('Hyena', 'Laugh'): "A hyena's high-pitched cackling laugh on the savanna at night, a single hyena.",
+    ('Tiger', 'Roar'): "A tiger's deep, powerful roar, close up, a single big cat, no other animals.",
+    ('Tiger', 'Chuff'): "A tiger chuffing: soft, friendly puffing snorts through the nose, close up.",
+    ('Thunder', 'Close crack'): "Lightning strikes close by: a sudden loud sharp crack, then a thunder boom. No rain, no fire.",
+    ('Thunder', 'Rolling'): "Deep rolling thunder rumbling across the sky, a long low rumble, no wind.",
+    ('Storm', 'Thunderstorm'): "A thunderstorm: loud thunder claps over heavy rain.",
+    ('Boat', 'Motor'): "An outboard boat motor running on open water, engine putt-putt and water splashing.",
+    ('Metro', 'Arrival'): "A subway train arriving at an underground platform, rushing air and squealing brakes, no announcements, no voices.",
+    ('Plane', 'Fly over'): "A jet airplane flying overhead outdoors, its roaring engine passing by, no voices, no announcements.",
+    ('Train', 'Station arrival'): "A train pulling into a station, brakes hissing and squealing, no announcements, no voices.",
+    ('School', 'Playground'): "A school playground at recess: children laughing, shouting and running in the distance, no clear words.",
+    ('Temple and church', 'Bell'): "A large temple bell struck once, a deep ringing bong that slowly fades, no people, no chanting.",
+    ('Temple and church', 'Conch'): "A conch shell blown in a temple, one long deep horn-like blast, no people.",
+    ('Clock', 'Alarm'): "An old mechanical alarm clock ringing, a fast metallic bell clatter.",
+    ('Clock', 'Chime'): "A grandfather clock chiming the hour, slow resonant gongs.",
+    ('Kitchen', 'Dishes'): "Ceramic dishes and plates clinking and stacking in a kitchen sink.",
+    ('Water', 'Tap running'): "A kitchen tap running water into a steel sink, a steady stream, clearly audible.",
+}
+
+
 def describe(thing, variant):
+    if (thing, variant) in CLEARER:
+        return CLEARER[(thing, variant)] + ' One realistic sound effect, no music.'
     return f'{variant} — {thing}. One clear, realistic sound effect, close up, no music, no voices.'
 
 
@@ -545,6 +578,13 @@ def file_sample(item, asset, results, entry, digests):
         asset['deleted'] = False
         asset.pop('deleted_reason', None)
         save(asset)
+        previous = entry.pop('previous', None)
+        if previous and previous != asset['id']:          # a clearer remake replaces the old sample
+            old_asset = record(previous)
+            if old_asset:
+                old_asset['deleted'] = True
+                old_asset['deleted_reason'] = 'Model Sounds: replaced by a clearer remake'
+                save(old_asset)
         api('audio/labels', {'asset_id': asset['id'], 'title': item['title'], 'folder_ids': [folder(item['path'])]})
 
 
@@ -600,6 +640,8 @@ def run(limit=None, only=None):
                 if attempt == 1:
                     queue_.append((item, 2))
                     entry['status'] = 'remake'
+                elif entry.get('previous'):
+                    entry.update(status='needs_listen', asset_id=entry.pop('previous'))
                 else:
                     entry.update(status='failed', error=(job.get('error') or 'timed out')[:300])
                 print(item['key'], 'job', job['status'], (job.get('error') or '')[:120], flush=True)
@@ -607,6 +649,20 @@ def run(limit=None, only=None):
     pool.shutdown(wait=True)
     write_state(state)
     report()
+
+
+def redo():
+    """Queue a fresh make (two tries) for needs-a-listen sounds that now have clearer wording."""
+    state, count = load_state(), 0
+    for item in plan():
+        entry = state.get(item['key'], {})
+        meta = item.get('meta', {})
+        if item['kind'] == 'sound' and entry.get('status') == 'needs_listen' and (meta.get('name'), meta.get('variant')) in CLEARER:
+            entry.update(status='redo', previous=entry.get('asset_id'))
+            count += 1
+            print(item['key'], flush=True)
+    write_state(state)
+    print('queued again', count)
 
 
 def rejudge():
@@ -651,7 +707,7 @@ def report():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('plan', 'run', 'report', 'rejudge'))
+    parser.add_argument('command', choices=('plan', 'run', 'report', 'rejudge', 'redo'))
     parser.add_argument('--limit', type=int)
     parser.add_argument('--only', help='only keys containing this text (for a small test)')
     args = parser.parse_args()
@@ -667,5 +723,7 @@ if __name__ == '__main__':
         run(args.limit, args.only)
     elif args.command == 'rejudge':
         rejudge()
+    elif args.command == 'redo':
+        redo()
     else:
         report()
