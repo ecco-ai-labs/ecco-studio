@@ -85,7 +85,7 @@ def plan():
     for story, genre, turns in SCENES:
         lines, cast = [], {}
         for who, sex, text in turns:
-            v = voices.get((who, sex))
+            v = voices.get((who, sex)) or next((x for (vt, s), x in voices.items() if s == sex and str(vt).startswith(who)), None)
             if not v:
                 raise SystemExit(f'No English Voice Library voice for {who} ({sex})')
             line = {'text': text, 'voice': v['voice'], 'language': 'English', 'model': v['model'], 'emotion': 'neutral'}
