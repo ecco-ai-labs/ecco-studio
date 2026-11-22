@@ -50,7 +50,9 @@ LOCK = threading.RLock()
 # ---------------------------------------------------------------- human voices
 QWEN_LANGS = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Japanese', 'Chinese', 'Korean', 'Russian']
 INDIC = ['Tamil', 'Telugu', 'Bengali', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi']
-LANGS = QWEN_LANGS[:1] + ['Hindi'] + QWEN_LANGS[1:] + INDIC
+# More Indian languages (22 Nov): adult woman and man only, one voice each.
+EXTRA_INDIC = {'Assamese': 'svara-tts', 'Maithili': 'svara-tts', 'Nepali': 'svara-tts', 'Urdu': 'indic-mio', 'Odia': 'indic-mio'}
+LANGS = QWEN_LANGS[:1] + ['Hindi'] + QWEN_LANGS[1:] + INDIC + list(EXTRA_INDIC)
 
 TEMPLATE = {
     'English': 'Hello, I am {}. How do you like my voice?',
@@ -64,6 +66,11 @@ TEMPLATE = {
     'Korean': '안녕하세요, 저는 {}입니다. 제 목소리 어떠세요?',
     'Russian': 'Здравствуйте, я {}. Как вам мой голос?',
     'Hindi': 'नमस्ते, मैं {} हूँ। आपको मेरी आवाज़ कैसी लगी?',
+    'Urdu': 'السلام علیکم، میں {} ہوں۔ آپ کو میری آواز کیسی لگی؟',
+    'Odia': 'ନମସ୍କାର, ମୁଁ {}। ଆପଣଙ୍କୁ ମୋ ସ୍ୱର କେମିତି ଲାଗିଲା?',
+    'Assamese': 'নমস্কাৰ, মই {}। আপোনাক মোৰ মাতটো কেনে লাগিল?',
+    'Maithili': 'प्रणाम, हम {} छी। अहाँकेँ हमर आवाज केहन लागल?',
+    'Nepali': 'नमस्ते, म {} हुँ। तपाईंलाई मेरो आवाज कस्तो लाग्यो?',
     'Tamil': 'வணக்கம், நான் {}. என் குரல் உங்களுக்குப் பிடித்திருக்கிறதா?',
     'Telugu': 'నమస్కారం, నేను {}. నా గొంతు మీకు ఎలా ఉంది?',
     'Bengali': 'নমস্কার, আমি {}। আমার কণ্ঠস্বর আপনার কেমন লাগছে?',
@@ -109,6 +116,11 @@ WHO = {
 # Hindi and the Indian languages: adults only (young woman, young man, woman, man).
 WHO_ADULT = {
     'Hindi': ['एक युवती', 'एक युवक', 'एक महिला', 'एक आदमी'],
+    'Urdu': ['ایک نوجوان لڑکی', 'ایک نوجوان', 'ایک خاتون', 'ایک آدمی'],
+    'Odia': ['ଜଣେ ଯୁବତୀ', 'ଜଣେ ଯୁବକ', 'ଜଣେ ମହିଳା', 'ଜଣେ ପୁରୁଷ'],
+    'Assamese': ['এগৰাকী গাভৰু', 'এজন ডেকা', 'এগৰাকী মহিলা', 'এজন পুৰুষ'],
+    'Maithili': ['एकटा युवती', 'एकटा युवक', 'एकटा स्त्री', 'एकटा पुरुख'],
+    'Nepali': ['एक युवती', 'एक युवक', 'एक महिला', 'एक पुरुष'],
     'Tamil': ['ஒரு இளம் பெண்', 'ஒரு இளைஞன்', 'ஒரு பெண்', 'ஒரு ஆண்'],
     'Telugu': ['ఒక యువతిని', 'ఒక యువకుడిని', 'ఒక మహిళను', 'ఒక పురుషుడిని'],
     'Bengali': ['একজন তরুণী', 'একজন তরুণ', 'একজন মহিলা', 'একজন পুরুষ'],
@@ -154,6 +166,15 @@ ROWS = [
 def human_voice(row, lang):
     """(model, voice) for one row and language, or None when no model in the Model Garden can make it."""
     label, sex, who, qwen = row[0], row[1], row[2], row[3]
+    if lang in EXTRA_INDIC:
+        if who not in ('woman', 'man'):
+            return None
+        model = EXTRA_INDIC[lang]
+        if model == 'svara-tts':
+            return model, lang.lower() + ('-female' if sex == 'Female' else '-male')
+        return model, 'en_female' if sex == 'Female' else 'en_male'
+    if who == 'woman' and lang == 'Punjabi':
+        return 'indicf5', 'pan_f'          # Svara's Punjabi woman came out garbled twice; IndicF5 has a native Punjabi voice
     if who in ADULT_KEYS:
         if lang in INDIC:
             return 'svara-tts', lang.lower() + ('-female' if sex == 'Female' else '-male')
