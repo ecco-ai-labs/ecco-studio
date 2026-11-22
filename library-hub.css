@@ -191,3 +191,11 @@ body:not(.workspace-entry-mode) #page#page .lh .lh-pager-bottom button{padding:6
 .ms-pick .ms-list{max-height:320px;overflow-y:auto}
 .ms-pair{display:inline-flex;align-items:center;gap:2px;margin-right:6px}
 .ms-use{padding:0 4px}
+/* Label ⋮ menu in the sidebar (Audio and Video libraries, 21 November 2026). Sizes come from the roster (label-more, menu-option). */
+.lh-trow{position:relative}
+.lh-more{flex:none;padding:0;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--ecco-theme-muted,#c9c5ea);line-height:1;cursor:pointer;display:grid;place-items:center;opacity:.7}
+.lh-trow:hover .lh-more,.lh-more:focus-visible,.lh-more[aria-expanded=true]{opacity:1;color:var(--ecco-theme-text,#f2f0ff)}
+.lh-more:hover{background:rgba(255,255,255,.08)}
+.lh-more-menu{position:absolute;right:0;top:100%;z-index:30;display:flex;flex-direction:column;min-width:150px;padding:4px;border:1px solid var(--ecco-theme-border,#3a3568);border-radius:8px;background:var(--panel,#1d1a3b);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.lh-more-menu button{text-align:left;padding:6px 10px;border:0;border-radius:5px;background:transparent;color:var(--ecco-theme-text,#f2f0ff);cursor:pointer}
+.lh-more-menu button:hover,.lh-more-menu button:focus-visible{background:rgba(255,255,255,.08)}
