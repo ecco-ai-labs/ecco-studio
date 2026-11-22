@@ -207,11 +207,13 @@ for(const kind of ['story','image','audio','video','workflow']){
   test(`LIB-${kind}-01 opens the new screen with List default, tools, count and details panel`,async({page})=>{
     await boot(page);await page.evaluate(()=>{state.config.storage.library_labels=1;storyControls();});const hub=await openLibrary(page,kind,{keepView:true});
     await expect(page.locator('#story-workspace-header')).toBeHidden();
-    await expect(hub.locator('.lh-title')).toHaveText('All '+({story:'stories',image:'images',audio:'audio clips',video:'videos',workflow:'workflows'}[kind]));
+    // Audio and Video have no heading, count, breadcrumb or chips above the results (owner-approved mock, 21 November 2026).
+    if(kind==='audio'||kind==='video'){for(const c of ['.lh-title','.lh-count','.lh-crumb','.lh-chips','.lh-label-tools'])await expect(hub.locator(c)).toHaveCount(0);}
+    else await expect(hub.locator('.lh-title')).toHaveText('All '+({story:'stories',image:'images',audio:'audio clips',video:'videos',workflow:'workflows'}[kind]));
     await expect(hub.locator('[data-act=view][data-view=list]')).toHaveAttribute('aria-pressed','true');await expect(hub.locator('.lh-headrow')).toBeVisible();
     await expect(hub.getByRole('searchbox')).toBeVisible();
     await expect(hub.locator('#lh-type')).toBeVisible();await expect(hub.locator('#lh-sort')).toBeVisible();
-    await expect(hub.locator('.lh-count')).toHaveText(/^\d+ /);
+    if(kind!=='audio'&&kind!=='video')await expect(hub.locator('.lh-count')).toHaveText(/^\d+ /);
     const card=hub.locator('.lh-row[data-pick]').first();await expect(card).toBeVisible();
     await expect(hub.locator('.lh-details')).toBeHidden();
     await card.click();
@@ -602,6 +604,45 @@ test('LIB-filter multiple labels use AND, show chips, and clearing restores ever
   await hub.getByRole('button',{name:'Clear all'}).click();await expect(hub.locator('.lh-chips')).toBeHidden();
   await expect(hub.locator('.lh-title')).toHaveText('All images');
 });
+for(const kind of ['audio','video']){
+  test(`LIB-${kind}-labels ⋮ menu renames and removes labels; no breadcrumb, heading or chips; pager only past 60 items`,async({page})=>{
+    await boot(page);
+    await page.evaluate(async kind=>{
+      state.config.storage.library_labels=1;state.config.storage.rename_available=true;
+      state.records.push({id:'qa-'+kind+'-news',kind:kind+'_folder',name:'News '+kind,created:1700005000},
+        {id:'qa-'+kind+'-news-day',kind:kind+'_folder',name:'News '+kind+' / Daily',created:1700005001},
+        {id:'qa-'+kind+'-l0',kind:'library_item',asset_id:'qa-'+kind+'-0',folder_id:'qa-'+kind+'-news-day',created:1700005000});
+      window.__qaCalls=[];const original=api;
+      api=async(path,body)=>{window.__qaCalls.push({path,body});
+        if(path==='trash/folder'){const r=state.records.find(x=>x.id===body.id);if(r)r.deleted=true;return {};}
+        if(path==='library/rename'){const r=state.records.find(x=>x.id===body.id);r.name=body.name;r.title=body.name;return {};}
+        return original(path,body);};
+      await refresh();storyControls();
+    },kind);
+    const hub=await openLibrary(page,kind),tree=page.locator('#library-hub-nav .lh-tree');
+    await tree.getByRole('button',{name:'Expand News '+kind}).click();
+    await tree.locator('.lh-node',{hasText:'Daily'}).click();
+    for(const c of ['.lh-title','.lh-count','.lh-crumb','.lh-chips','.lh-label-tools'])await expect(hub.locator(c)).toHaveCount(0);
+    await expect(hub.getByText('Items with all of:')).toHaveCount(0);
+    await expect(hub.getByRole('button',{name:'Rename label'})).toHaveCount(0);
+    await expect(hub.locator('.lh-pager')).toHaveCount(0);
+    await expect(hub.locator('.lh-primary[data-act=upload]')).toBeVisible();
+    // Every label and sub-label has its own ⋮ menu.
+    await expect(tree.locator('.lh-more')).toHaveCount(2);
+    const more=tree.getByRole('button',{name:'More options for News '+kind+' › Daily'});
+    await more.click();await expect(more).toHaveAttribute('aria-expanded','true');
+    const menu=tree.getByRole('menu');
+    await expect(menu.getByRole('menuitem')).toHaveText(['Rename label','Remove label']);
+    await page.keyboard.press('Escape');await expect(tree.getByRole('menu')).toHaveCount(0);
+    await more.click();await tree.getByRole('menuitem',{name:'Rename label'}).click();
+    const dialog=page.locator('dialog.lh-dialog');await expect(dialog.locator('input')).toHaveValue('Daily');
+    await dialog.locator('input').fill('Morning');await dialog.getByRole('button',{name:'Save'}).click();
+    await expect(tree.locator('.lh-node',{hasText:'Morning'})).toBeVisible();
+    await tree.getByRole('button',{name:'More options for News '+kind,exact:true}).click();
+    await tree.getByRole('menuitem',{name:'Remove label'}).click();
+    await expect.poll(()=>page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='trash/folder').map(c=>c.body.id))).toEqual(['qa-'+kind+'-news']);
+  });
+}
 test('LIB-label-edit image details add, remove and rename; each item can carry several labels — details panel adds, removes and renames; each item can carry several labels',async({page})=>{
   await boot(page);await seedLabels(page);const hub=await openLibrary(page,'image');
   await page.evaluate(()=>{
