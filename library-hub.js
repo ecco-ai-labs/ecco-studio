@@ -260,9 +260,9 @@
   root.querySelector('.lh-results')?.scrollIntoView({block:'start',behavior:'instant'});
   (root.querySelector(focus==='next'?'.lh-pager [data-act=page-next]:not(:disabled)':focus==='prev'?'.lh-pager [data-act=page-prev]:not(:disabled)':'.lh-pager [aria-current=page]')||root.querySelector('.lh-pager [aria-current=page]'))?.focus();
  }
- /* Audio and Video libraries (owner-approved mock, 21 November 2026): no breadcrumb, heading, filter chips or
+ /* Image, Audio and Video libraries (owner-approved mock, 21 November 2026; Image added the same night): no breadcrumb, heading, filter chips or
     Rename/Delete links above the results. Each label in the sidebar has a ⋮ menu with Rename label and Remove label. */
- const PLAIN={audio:true,video:true};
+ const PLAIN={image:true,audio:true,video:true};
  function shell(kind){
   const K=KINDS[kind],s=ui[kind],{all}=visible(kind),types=[...new Set(all.map(i=>i.type))].sort();
   if(s.type!=='all'&&!types.includes(s.type))s.type='all';

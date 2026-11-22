@@ -373,8 +373,8 @@
     "scope": "ERR-POPUP-01: repeated storage failures (different HTTP codes, same known issue) show one pop-up; closing it reveals no backlog; a different queued problem still shows once."
   },
   {
-    "area": "Audio and Video library labels",
+    "area": "Image, Audio and Video library labels",
     "mode": "browser",
-    "scope": "LIB-audio-labels and LIB-video-labels: no breadcrumb, heading/count, 'Items with all of' chips or Rename/Delete label links above the results; Upload stays. Every label and sub-label in the sidebar has a ⋮ menu with Rename label and Remove label; Escape closes it; Rename opens the rename dialog and renames; Remove sends trash/folder for that label only. The top and bottom pagers do not show at 60 items or fewer. LIB-audio-01 and LIB-video-01 check the heading and count are absent. Image, Story and Workflow keep their heading. Synthetic records; no live storage writes."
+    "scope": "LIB-image-labels, LIB-audio-labels and LIB-video-labels: no breadcrumb, heading/count, 'Items with all of' chips or Rename/Delete label links above the results; Upload stays. Every label and sub-label in the sidebar has a ⋮ menu with Rename label and Remove label; Escape closes it; Rename opens the rename dialog and renames; Remove sends trash/folder for that label only. The top and bottom pagers do not show at 60 items or fewer. LIB-image-01, LIB-audio-01 and LIB-video-01 check the heading and count are absent. Story and Workflow keep their heading. Synthetic records; no live storage writes. LIB-tree and LIB-filter check the Image Library has no breadcrumb or chips; clicking a selected label again or All images clears the filter."
   }
 ]

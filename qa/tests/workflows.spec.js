@@ -208,12 +208,12 @@ for(const kind of ['story','image','audio','video','workflow']){
     await boot(page);await page.evaluate(()=>{state.config.storage.library_labels=1;storyControls();});const hub=await openLibrary(page,kind,{keepView:true});
     await expect(page.locator('#story-workspace-header')).toBeHidden();
     // Audio and Video have no heading, count, breadcrumb or chips above the results (owner-approved mock, 21 November 2026).
-    if(kind==='audio'||kind==='video'){for(const c of ['.lh-title','.lh-count','.lh-crumb','.lh-chips','.lh-label-tools'])await expect(hub.locator(c)).toHaveCount(0);}
+    if(kind==='image'||kind==='audio'||kind==='video'){for(const c of ['.lh-title','.lh-count','.lh-crumb','.lh-chips','.lh-label-tools'])await expect(hub.locator(c)).toHaveCount(0);}
     else await expect(hub.locator('.lh-title')).toHaveText('All '+({story:'stories',image:'images',audio:'audio clips',video:'videos',workflow:'workflows'}[kind]));
     await expect(hub.locator('[data-act=view][data-view=list]')).toHaveAttribute('aria-pressed','true');await expect(hub.locator('.lh-headrow')).toBeVisible();
     await expect(hub.getByRole('searchbox')).toBeVisible();
     await expect(hub.locator('#lh-type')).toBeVisible();await expect(hub.locator('#lh-sort')).toBeVisible();
-    if(kind!=='audio'&&kind!=='video')await expect(hub.locator('.lh-count')).toHaveText(/^\d+ /);
+    if(kind!=='image'&&kind!=='audio'&&kind!=='video')await expect(hub.locator('.lh-count')).toHaveText(/^\d+ /);
     const card=hub.locator('.lh-row[data-pick]').first();await expect(card).toBeVisible();
     await expect(hub.locator('.lh-details')).toBeHidden();
     await card.click();
@@ -589,22 +589,20 @@ test('LIB-tree boxed +/− toggles expand nested labels and counts include neste
   await expect(tree.locator('.lh-node',{hasText:'Kids'}).locator('small')).toHaveText('1');
   await tree.locator('.lh-node',{hasText:'People'}).click();
   await expect(hub.locator('.lh-card')).toHaveCount(2);
-  await expect(hub.locator('.lh-crumb')).toContainText('People');
+  await expect(hub.locator('.lh-crumb')).toHaveCount(0);
 });
-test('LIB-filter multiple labels use AND, show chips, and clearing restores everything',async({page})=>{
+test('LIB-filter multiple labels use AND; no chips; All images restores everything',async({page})=>{
   await boot(page);await seedLabels(page);const hub=await openLibrary(page,'image');
   const tree=page.locator('#library-hub-nav .lh-tree');
   await tree.locator('.lh-node',{hasText:'People'}).click();await expect(hub.locator('.lh-card')).toHaveCount(2);
   await tree.locator('.lh-node',{hasText:'Pets'}).click();
   await expect(hub.locator('.lh-card')).toHaveCount(1);
   await expect(hub.locator('.lh-card .lh-name')).toHaveText('Zebra image sample');
-  await expect(hub.locator('.lh-chips')).toContainText('Items with all of:');
-  await expect(hub.locator('.lh-chips .lh-chip')).toHaveCount(2);
-  await hub.getByRole('button',{name:'Remove filter Pets'}).click();await expect(hub.locator('.lh-card')).toHaveCount(2);
-  await hub.getByRole('button',{name:'Clear all'}).click();await expect(hub.locator('.lh-chips')).toBeHidden();
-  await expect(hub.locator('.lh-title')).toHaveText('All images');
+  await expect(hub.locator('.lh-chips')).toHaveCount(0);
+  await tree.locator('.lh-node',{hasText:'Pets'}).click();await expect(hub.locator('.lh-card')).toHaveCount(2);
+  await tree.locator('.lh-node',{hasText:'All images'}).click();await expect(hub.locator('.lh-title')).toHaveCount(0);
 });
-for(const kind of ['audio','video']){
+for(const kind of ['image','audio','video']){
   test(`LIB-${kind}-labels ⋮ menu renames and removes labels; no breadcrumb, heading or chips; pager only past 60 items`,async({page})=>{
     await boot(page);
     await page.evaluate(async kind=>{
