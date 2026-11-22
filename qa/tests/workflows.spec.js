@@ -305,19 +305,97 @@ async function openCreateImages(page,story){
     window.EccoCompute={...window.EccoCompute,choices:()=>[{id:'serverless',name:'Serverless'}],requireReady:()=>ready,validate:async()=>ready};
     Object.defineProperty(window.EccoAI,'enabled',{get:()=>true});
   },story);
-  // Create Images now opens from Studios › Image Studio (owner request 18 Nov 2026), not Tell Your Story.
-  await page.locator('#workspace-image-studio-node').click();
+  // Studios › Image Studio opens the new Image Studio (owner request 21 Nov 2026); the three-step workspace and its
+  // tools stay reachable through EccoImageWorkspace.open(), which these checks use.
+  await page.evaluate(()=>window.EccoImageWorkspace.open());
   const ws=page.locator('#image-workspace');await expect(ws).toBeVisible();return ws;
 }
 const imageCalls=(page,path)=>page.evaluate(p=>window.__qaCalls.filter(c=>c.path===p).map(c=>c.body),path);
-test('IMG-STUDIO-01 Studios lists "- Image Studio" and "- Voice Studio"; Image Studio opens the Create Images screen',async({page})=>{
+test('IMG-STUDIO-01 Studios lists "- Image Studio" and "- Voice Studio"; Image Studio opens the new Image Studio',async({page})=>{
  await boot(page);
  expect((await page.locator('#workspace-production-group .journey-step:not([hidden])').allTextContents()).some(t=>/Create (Images|Audio|Videos)/.test(t))).toBe(false);
  await expect(page.locator('#workspace-studios-group > .workspace-library-content > button')).toHaveText(['- Image Studio','- Voice Studio']);
  await page.locator('#workspace-image-studio-node').click();
- await expect(page.locator('#image-workspace')).toBeVisible();await expect(page.locator('#heading')).toHaveText('Image Studio');
+ await expect(page.locator('#image-chat')).toBeVisible();await expect(page.locator('#heading')).toHaveText('Image Studio');
  await expect(page.locator('#workspace-image-studio-node')).toHaveClass(/active/);
- await expect(page.getByRole('tab',{name:'1. Image',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'What are we making?',exact:true})).toBeVisible();await expect(page.locator('#image-workspace')).toHaveCount(0);
+ expect(page.qaErrors).toEqual([]);
+});
+async function openImageChat(page){
+ await boot(page,{landing:true});
+ await page.evaluate(()=>{activeStory='qa-story';localStorage.removeItem('ecco-image-chat');
+  const ready={model_settings_version:1,generation_controls_version:1,models_ready:{}};
+  window.EccoCompute={...window.EccoCompute,choices:()=>[{id:'serverless',name:'Serverless'}],requireReady:()=>ready,validate:async()=>ready};
+  const inner=api;api=async(path,body)=>{if(path==='images/upload'){window.__qaCalls.push({path,body});const r={id:'qa-photo-'+window.__qaCalls.length,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:body.name,path:'qa/fixtures/sample.svg',created:1700000000};state.records.push(r);mediaCache.set(r.id,'/'+r.path);return r;}return inner(path,body);};});
+ await page.locator('#workspace-image-studio-node').click();
+ const ic=page.locator('#image-chat');await expect(ic).toBeVisible();return ic;
+}
+test('IMG-CHAT-01 words first: one box draws the picture, then each message edits the clean original with every change so far',async({page})=>{
+ const ic=await openImageChat(page);
+ await expect(ic.getByRole('heading',{name:'What are we making?'})).toBeVisible();
+ await ic.getByRole('button',{name:'Go',exact:true}).click();await expect(ic.getByRole('alert')).toContainText('Type what you want, or add a photo.');
+ await ic.getByLabel('What are we making?').fill('A girl in a meadow');await ic.getByLabel('What are we making?').press('Enter');
+ await expect(ic.getByLabel('What should change?')).toBeVisible();
+ const first=(await imageCalls(page,'images'))[0];expect(first.prompt).toBe('A girl in a meadow');expect(first.resolution).toBe('1664x928');expect(first.story_id).toBe('qa-story');
+ const original=await page.evaluate(()=>window.EccoImageChat.state.versions[0].id);
+ await ic.getByLabel('What should change?').fill('Make her a redhead');await ic.getByRole('button',{name:'Send',exact:true}).click();
+ await expect(ic.getByRole('list',{name:'Your changes'}).locator('li')).toHaveText(['Make her a redhead']);
+ await ic.getByRole('button',{name:'Make it night',exact:true}).click();
+ await expect(ic.getByRole('list',{name:'Your changes'}).locator('li')).toHaveText(['Make her a redhead','Make it night']);
+ const edits=await imageCalls(page,'image-edits');expect(edits).toHaveLength(2);
+ for(const e of edits){expect(e.asset_id).toBe(original);expect(e.asset_ids).toEqual([original]);expect(e.gpu).toBe('serverless');}
+ expect(edits[1].prompt).toContain('1. Make her a redhead\n2. Make it night');expect(edits[1].prompt).toContain('keep everything else exactly the same');
+ // Versions, before/after and undo.
+ const strip=ic.getByRole('group',{name:'Versions'});await expect(strip.locator('button')).toHaveCount(3);
+ await expect(strip.getByRole('button',{name:'Version 3: Make it night'})).toHaveAttribute('aria-pressed','true');
+ await ic.getByRole('button',{name:'Before / after',exact:true}).click();await expect(ic.locator('.ic-pic img')).toHaveAttribute('data-asset',original);
+ await ic.getByRole('button',{name:'Before / after',exact:true}).click();
+ await ic.getByRole('button',{name:'Undo',exact:true}).click();await expect(strip.locator('button')).toHaveCount(2);
+ // Editing from an older version drops the later ones; the new edit still starts from the original.
+ await strip.getByRole('button',{name:'Original'}).click();await ic.getByLabel('What should change?').fill('Blue dress');await ic.getByLabel('What should change?').press('Enter');
+ await expect(ic.getByRole('list',{name:'Your changes'}).locator('li')).toHaveText(['Blue dress']);
+ const last=(await imageCalls(page,'image-edits')).at(-1);expect(last.asset_id).toBe(original);expect(last.prompt).toContain('1. Blue dress');expect(last.prompt).not.toContain('redhead');
+ // Save to Image Library approves the picture shown.
+ await ic.getByRole('button',{name:'Save to Image Library',exact:true}).click();await expect(ic.getByRole('button',{name:'Saved ✓',exact:true})).toBeVisible();
+ expect((await imageCalls(page,'approve')).at(-1).asset_id).toBe(await page.evaluate(()=>window.EccoImageChat.state.versions.at(-1).id));
+ expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
+ // New picture goes back to the start screen.
+ await ic.getByRole('button',{name:'New picture',exact:true}).click();await expect(ic.getByRole('heading',{name:'What are we making?'})).toBeVisible();
+ expect(page.qaErrors).toEqual([]);
+});
+test('IMG-CHAT-02 tap the picture to aim a change at one spot',async({page})=>{
+ const ic=await openImageChat(page);
+ await ic.getByLabel('What are we making?').fill('A dog on a beach');await ic.getByRole('button',{name:'Go',exact:true}).click();
+ const pic=ic.locator('.ic-pic img');await expect(pic).toBeVisible();const b=await pic.boundingBox();
+ await page.mouse.click(b.x+b.width*0.85,b.y+b.height*0.15);await expect(ic.locator('.ic-dot')).toHaveCount(1);await expect(ic).toContainText('Next change goes to the top right');
+ await ic.getByLabel('What should change?').fill('Add a red kite');await ic.getByLabel('What should change?').press('Enter');
+ await expect(ic.locator('.ic-dot')).toHaveCount(0);
+ expect((await imageCalls(page,'image-edits')).at(-1).prompt).toContain('1. Add a red kite (only in the top right of the picture)');
+ expect(page.qaErrors).toEqual([]);
+});
+test('IMG-CHAT-03 photo first, and optional helpers change the prompt, shape and what is needed',async({page})=>{
+ const ic=await openImageChat(page);
+ const helpers=ic.getByRole('group',{name:'Helpers'});
+ await expect(helpers.locator('button')).toHaveText(['Poster','Ad campaign','Comic','Movie frames','Storybook','Product photos','Photo retouch','Headshots']);
+ // Poster: tall by default, its own fields and placeholder; the words are expanded before they go to the model.
+ await helpers.getByRole('button',{name:'Poster',exact:true}).click();
+ await expect(ic.getByLabel('What are we making?')).toHaveAttribute('placeholder','What is the poster for?');
+ await expect(ic.getByRole('group',{name:'Shape'}).getByRole('button',{name:'Tall',exact:true})).toHaveAttribute('aria-pressed','true');
+ await ic.getByLabel('Title').fill('Grand Opening');
+ await ic.getByLabel('What are we making?').fill('Our ramen restaurant');await ic.getByRole('button',{name:'Go',exact:true}).click();
+ await expect(ic.getByLabel('What should change?')).toBeVisible();
+ const poster=(await imageCalls(page,'images')).at(-1);expect(poster.resolution).toBe('928x1664');expect(poster.prompt).toContain('Our ramen restaurant. Poster layout');expect(poster.prompt).toContain('"Grand Opening"');
+ // Retouch needs a photo; with one, the first message edits the photo itself.
+ await ic.getByRole('button',{name:'New picture',exact:true}).click();
+ await helpers.getByRole('button',{name:'Photo retouch',exact:true}).click();
+ await ic.getByLabel('What are we making?').fill('Brighter sky');await ic.getByRole('button',{name:'Go',exact:true}).click();
+ await expect(ic.getByRole('alert')).toContainText('Photo retouch starts from your photo');
+ await ic.locator('#ic-file').setInputFiles({name:'photo.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});await expect(ic.getByRole('img',{name:'Your photo'})).toBeVisible();
+ const photo=await page.evaluate(()=>window.EccoImageChat.state.photo);expect(photo).toMatch(/^qa-photo-/);
+ await ic.getByRole('button',{name:'Go',exact:true}).click();await expect(ic.getByRole('list',{name:'Your changes'}).locator('li')).toHaveText(['Brighter sky']);
+ const e=(await imageCalls(page,'image-edits')).at(-1);expect(e.asset_id).toBe(photo);expect(e.prompt).toContain('keep faces, identity and composition');expect(e.prompt).toContain('1. Brighter sky');
+ await expect(ic.getByRole('group',{name:'Versions'}).getByRole('button',{name:'Original'})).toBeVisible();
+ expect((await page.evaluate(rosterAudit)).problems).toEqual([]);
  expect(page.qaErrors).toEqual([]);
 });
 test('IMG-create three steps: choose, enhance with type-specific controls, publish',async({page})=>{
@@ -2199,6 +2277,7 @@ const rosterScreens={
  'Characters step video':async page=>openCharacters(page,'video'),
  'Story type menu':async page=>{await boot(page);await page.locator('#story-detail-type-button').click();},
  'Image library':async page=>{await boot(page);await openLibrary(page,'image');},
+ 'Image Studio':async page=>{await openImageChat(page);await page.locator('#image-chat').getByRole('button',{name:'Poster',exact:true}).click();},
  'Model Garden':async page=>{await boot(page);await page.getByRole('button',{name:'Model Garden',exact:true}).click();await expect(page.locator('#models-form')).toBeVisible();},
  'Purchase credits':async page=>{await boot(page);await page.locator('#google-user-menu>summary').click();await page.getByRole('button',{name:'Credit and Usage',exact:true}).click();await page.getByRole('button',{name:'Purchase Additional Credits',exact:true}).click();await expect(page.locator('dialog[open].credits-dialog')).toBeVisible();},
  'Desk notifications':async page=>{await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());await page.goto('/desk/index.html?__qa=1');await page.getByRole('button',{name:'Notifications',exact:true}).click();await expect(page.getByRole('tablist',{name:'Notification categories'})).toBeVisible();},
