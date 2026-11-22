@@ -82,6 +82,60 @@ def build(config):
     print('voice bank:', len(bank), 'voices')
 
 
+AGE_LABEL = {'18-30': 'Age 18–30', '30-45': 'Age 30–45', '45-60': 'Age 45–60', '60+': 'Age 60+'}
+FROM_LINE = {'Hindi': 'नमस्ते, मैं {} से हूँ। आपको मेरी आवाज़ कैसी लगी?'}
+HINDI_PLACE = {'Balaghat': 'बालाघाट', 'Bhadohi': 'भदोही', 'Bhopal': 'भोपाल', 'Darbhanga': 'दरभंगा', 'Gwalior': 'ग्वालियर', 'Jaipur': 'जयपुर',
+               'Jodhpur': 'जोधपुर', 'Karauli': 'करौली', 'Katni': 'कटनी', 'Mirzapur': 'मिर्ज़ापुर', 'Sonbhadra': 'सोनभद्र', 'Varanasi': 'वाराणसी',
+               'Patna': 'पटना', 'Lucknow': 'लखनऊ', 'Indore': 'इंदौर', 'Muzaffarpur': 'मुज़फ़्फ़रपुर', 'Gaya': 'गया', 'Ajmer': 'अजमेर'}
+
+
+def build_wide(config):
+    """Many speakers: Model Sounds › Human › <sex> › Hindi voices › <age> › <language>, one sample each saying where they are from."""
+    result = json.loads((ms.HOME / f'voice-bank-wide-{config}.json').read_text())
+    step = next(s for s in result.get('steps', []) if 'groups' in s)
+    language = config.capitalize()
+    bank = load_bank()
+    used = {e.get('source', {}).get('speaker_id') for e in bank.values() if isinstance(e, dict)} | set(bank.get('_rejected_speakers', []))
+    for key, picks in step['groups'].items():
+        if not isinstance(picks, list):
+            print(key, picks, flush=True)
+            continue
+        sex, age = key.split('|')
+        for n, pick in enumerate((p for p in picks if p.get('speaker_id') not in used), 1):
+            district = (pick.get('district') or 'India').strip()
+            bank_key = f'{sex}:{language} voices:{AGE_LABEL[age]}:{n:02d}:{language}'
+            if bank_key in bank:
+                continue
+            try:
+                with urllib.request.urlopen(pick['audio'], timeout=120) as response:
+                    raw = response.read()
+                title = f'{language} {sex.lower()} {n:02d} · {age} · {district}'
+                upload = ms.api('audio/upload', {'data': base64.b64encode(raw).decode(), 'name': 'Voice bank source · ' + title})
+                ref = ms.api('audio/voices/create', {'asset_id': upload['id'], 'character': title[:80], 'language': language,
+                                                    'transcript': (pick.get('text') or '')[:600], 'source': 'upload', 'consent': True, 'clean': True})
+            except Exception as exc:
+                print(bank_key, 'failed', str(exc)[:120], flush=True)
+                continue
+            source = {'dataset': ATTRIBUTION, 'speaker_id': pick.get('speaker_id'), 'row': pick.get('row'), 'age_group': age,
+                      'occupation': pick.get('occupation'), 'district': district, 'state': pick.get('state'), 'snr': pick.get('snr'),
+                      'speaking_rate': pick.get('speaking_rate'), 'pitch': pick.get('utterance_pitch_mean')}
+            with ms.LOCK:
+                for rid, hide in ((upload['id'], True), (ref['id'], False)):
+                    asset = ms.record(rid)
+                    if asset:
+                        asset['model_sound'] = {'voice_bank_source': True, 'source': source}
+                        if hide:
+                            asset['deleted'], asset['deleted_reason'] = True, 'Voice bank: source clip (the trimmed reference is kept)'
+                        ms.save(asset)
+            used.add(pick.get('speaker_id'))
+            bank[bank_key] = {'ref': ref['id'], 'sex': sex, 'label': f'{language} voices', 'language': language, 'source': source, 'made': time.time(),
+                              'path': [ms.ROOT, 'Human', sex, f'{language} voices', AGE_LABEL[age], f'{n:02d} · {district}'],
+                              'title': f'{sex} {n:02d} · {age} · {district}', 'text': FROM_LINE[language].format(HINDI_PLACE.get(district, district) if language == 'Hindi' else district)}
+            BANK.write_text(json.dumps(bank, ensure_ascii=False, indent=1))
+            print(bank_key, district, pick.get('occupation'), flush=True)
+    print('voice bank:', sum(1 for v in bank.values() if isinstance(v, dict)), 'voices')
+
+
 def aged(raw):
     with tempfile.TemporaryDirectory() as d:
         src, out = Path(d) / 'in.wav', Path(d) / 'out.wav'
@@ -114,6 +168,8 @@ def reject(keys):
 if __name__ == '__main__':
     if len(sys.argv) == 3 and sys.argv[1] == 'build':
         build(sys.argv[2].lower())
+    elif len(sys.argv) == 3 and sys.argv[1] == 'build-wide':
+        build_wide(sys.argv[2].lower())
     elif len(sys.argv) > 2 and sys.argv[1] == 'reject':
         reject(sys.argv[2:])
     else:
