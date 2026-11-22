@@ -373,6 +373,20 @@ test('IMG-CHAT-02 tap the picture to aim a change at one spot',async({page})=>{
  expect((await imageCalls(page,'image-edits')).at(-1).prompt).toContain('1. Add a red kite (only in the top right of the picture)');
  expect(page.qaErrors).toEqual([]);
 });
+test('IMG-CHAT-04 Back on the picture screen returns to the start screen with the picture attached; Back on the start screen leaves Image Studio',async({page})=>{
+ const ic=await openImageChat(page);
+ const before=await page.evaluate(()=>window.EccoNavigation.depth);
+ await ic.getByLabel('What are we making?').fill('A girl in a meadow');await ic.getByRole('button',{name:'Go',exact:true}).click();
+ await ic.getByLabel('What should change?').fill('Blue dress');await ic.getByLabel('What should change?').press('Enter');
+ await expect(ic.getByRole('list',{name:'Your changes'}).locator('li')).toHaveText(['Blue dress']);
+ const last=await page.evaluate(()=>window.EccoImageChat.state.versions.at(-1).id);
+ const back=page.locator('#workspace-back');await expect(back).toBeEnabled();await back.click();
+ await expect(ic.getByRole('heading',{name:'What are we making?'})).toBeVisible();await expect(page.locator('#heading')).toHaveText('Image Studio');
+ await expect(ic.getByRole('img',{name:'Your photo'})).toHaveAttribute('data-asset',last);
+ expect(await page.evaluate(()=>window.EccoNavigation.depth)).toBe(before);
+ await back.click();await expect(page.locator('#image-chat')).toHaveCount(0);
+ expect(page.qaErrors).toEqual([]);
+});
 test('IMG-CHAT-03 photo first, and optional helpers change the prompt, shape and what is needed',async({page})=>{
  const ic=await openImageChat(page);
  const helpers=ic.getByRole('group',{name:'Helpers'});
