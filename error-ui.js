@@ -6,9 +6,15 @@
   const issue=window.EccoErrorKnowledge?.lookup(message);
   if(!options.logged)window.EccoErrorLog?.record(message,{source:'popup',knowledge_issue:issue?.id||null,possible_cause:issue?.cause||null});options={...options,logged:true};
   message=String(message?.message||message||'Something went wrong. Please try again.');
-  if(message===lastMessage && (dialog?.open || Date.now()-lastAt<2500))return;
-  lastMessage=message;lastAt=Date.now();
-  if(dialog?.open){pending.push([message,{...options,issue}]);return;}
+  // One pop-up per kind of problem (owner report 21 Nov 2026): a storage blip used to queue one pop-up per failed
+  // request (HTTP 502, then 503, then "did not respond"…), so closing one showed the next for minutes after it recovered.
+  // The same known issue (or the same text) is not shown again while open or for 30 s, and a waiting pop-up older
+  // than 30 s is dropped instead of shown.
+  const key=issue?.id||message;
+  if(key===lastMessage && (dialog?.open || Date.now()-lastAt<30000))return;
+  if(pending.some(([,o])=>o.key===key))return;
+  if(dialog?.open){pending.push([message,{...options,issue,key,at:Date.now()}]);return;}
+  lastMessage=key;lastAt=Date.now();
   if(!dialog){
    dialog=document.createElement('dialog');dialog.id='ecco-error-popup';
    dialog.setAttribute('aria-labelledby','ecco-error-title');
@@ -16,7 +22,8 @@
    dialog.innerHTML='<h2 id="ecco-error-title">Unable to complete action</h2><p id="ecco-error-message" role="alert"></p><div data-cause hidden><strong>Possible cause</strong><p id="ecco-error-cause"></p></div><div data-steps hidden><strong>What you can do next</strong><ul id="ecco-error-steps"></ul></div><div class="row"><button type="button" data-retry hidden></button><button type="button" data-close>Close</button></div>';
    document.body.append(dialog);
    dialog.querySelector('[data-close]').onclick=()=>dialog.close();
-   dialog.addEventListener('close',()=>{if(pending.length){const [text,opts]=pending.shift();lastMessage='';show(text,opts);}});
+   dialog.addEventListener('close',()=>{while(pending.length&&Date.now()-pending[0][1].at>30000)pending.shift();
+    if(pending.length){const [text,opts]=pending.shift();show(text,opts);}});
   }
   dialog.querySelector('h2').textContent=options.title||'Unable to complete action';
   const explanation=issue||options.issue;

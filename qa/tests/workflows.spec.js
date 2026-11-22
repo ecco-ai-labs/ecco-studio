@@ -1905,6 +1905,18 @@ test('GEN-03 a generation error pops up with what to do next and opens Model Set
  await popup.getByRole('button',{name:'Open Model Settings',exact:true}).click();await expect(page.locator('#story-gen-settings')).toBeVisible();await expect(page.locator('#story-gen-settings #audio-form')).toBeAttached();
  await expect(page.locator('[data-gen-chip]')).toHaveText('Needs attention');await expect(page.getByRole('button',{name:'Generate again',exact:true})).toBeVisible();
 });
+test('GEN-09 Audio Generation has the same Queue as Image Generation: waiting recordings in order, Cancel, no reordering (owner final mocks 2026-11-21)',async({page})=>{
+ await audioToGeneration(page);
+ await page.evaluate(()=>{window.qaAudioQueue={items:[{id:'aq1',place:1,name:'Two Clocks · Episode 2',model:'voxcpm2',model_name:'voxcpm2',wait_seconds:60},{id:'aq2',place:2,name:'Deep Field · Pulsars',model:'qwen3-tts',model_name:'qwen3-tts',wait_seconds:120}]};});
+ const queue=page.locator('[data-gen-queue]');await expect(queue).toBeVisible();await queue.click();
+ const d=page.locator('#generation-queue-dialog');await expect(d).toBeVisible();await expect(d).toHaveAttribute('data-kind','audio');
+ await expect(d.locator('.gq-title')).toHaveText(['Two Clocks · Episode 2','Deep Field · Pulsars']);await expect(d.locator('.gq-model').first()).toHaveText('VoxCPM2');
+ await expect(d.getByRole('button',{name:'Move to top'}).first()).toBeHidden();
+ await d.getByRole('tab',{name:'Qwen3-TTS'}).click();await expect(d.locator('.gq-title')).toHaveText(['Deep Field · Pulsars']);await d.getByRole('tab',{name:/^All/}).click();
+ await d.locator('[data-id=aq1]').getByRole('button',{name:'Remove from the queue'}).click();await expect(d.locator('.gq-title')).toHaveText(['Deep Field · Pulsars']);
+ expect(await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='generation/stop').map(c=>c.body.job_id))).toEqual(['aq1']);
+ expect(page.qaErrors).toEqual([]);
+});
 test('GEN-04 Audio Generation has no Model Settings button, like Image Generation (owner final mocks 2026-11-21)',async({page})=>{
  await audioToGeneration(page);await expect(page.locator('[data-gen-chip]')).toBeVisible();
  await expect(page.locator('[data-gen-settings]')).toBeHidden();await expect(page.getByRole('button',{name:/^Model Settings/})).toHaveCount(0);
@@ -2484,8 +2496,15 @@ test('STORY-26 Screen Play: numbered lines take labels (sound, how, interjection
  // A label can be removed from a line with its ×.
  await library.locator('.story-label[data-label-kind=how][data-label="softly"]').dragTo(lines.getByRole('textbox',{name:'Line 1',exact:true}),{targetPosition:{x:4,y:12}});
  await lines.getByRole('textbox',{name:'Line 1',exact:true}).getByRole('button',{name:'Remove label softly',exact:true}).click();await expect(lines.getByRole('textbox',{name:'Line 1',exact:true}).locator('.story-label')).toHaveCount(0);
+ // Opening: Music then Text from Audio Library; the Text recording is sent to be joined before the first line.
+ const opening=page.locator('[data-open-close=opening]');await opening.getByLabel('Include opening',{exact:true}).check();
+ const pick=opening.getByLabel('Opening item 2 from Audio Library',{exact:true}),first=await pick.locator('option').nth(1).getAttribute('value');
+ expect(first).toBeTruthy();await pick.selectOption(first);await expect(opening.getByLabel('Opening item 2 type',{exact:true})).toHaveValue('text');
+ await opening.getByRole('button',{name:'Add to opening',exact:true}).click();await expect(opening.locator('.story-open-close-item')).toHaveCount(3);
  await page.locator('.story-simple-actions [data-next]').click();await expect(page.locator('#story-generation')).toBeVisible();await expect(page.locator('#audio-form')).toBeAttached();
  const draft=await page.evaluate(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('ecco-audio-draft:'));return JSON.parse(localStorage.getItem(k));});
+ expect(draft.bookends).toEqual({before:[first],after:[]});
+ const sent=await page.evaluate(()=>window.__qaCalls.filter(c=>c.path==='audio/generate').at(-1)?.body);if(sent)expect(sent.bookends).toEqual({before:[first],after:[]});
  expect(draft.sound_design).toMatchObject({enabled:true});expect(draft.sound_design.cues.find(c=>c.name==='door opening')).toMatchObject({kind:'effect',start:1});
  const last=draft.lines.find(l=>/I will help/.test(l.text));expect(last.performance).toMatchObject({emotion:'whisper',manual:true,direction:'laughs'});expect(last.text).not.toContain('laughs');
  expect(draft.lines[0].performance?.direction||'').not.toContain('softly');
@@ -3204,4 +3223,19 @@ test('GPU-SERVERLESS-04 Auto-off in the GPU popup offers 30 min (default) and Ne
  const size=await select.evaluate(e=>({height:e.getBoundingClientRect().height,font:parseFloat(getComputedStyle(e).fontSize)}));
  expect(size.height).toBeLessThanOrEqual(26);expect(size.font).toBeLessThanOrEqual(11);
  expect(page.qaErrors).toEqual([]);
+});
+
+test('ERR-POPUP-01 a storage blip shows one pop-up, and closing it does not reveal a backlog of the same problem',async({page})=>{
+ await boot(page);
+ await page.evaluate(()=>{for(const m of ['Cannot reach storage','Storage request failed (HTTP 502)','Storage did not respond','Storage request failed (HTTP 503)','Cannot reach storage'])window.EccoErrors.show(m);});
+ const pop=page.locator('#ecco-error-popup');
+ await expect(pop).toBeVisible();
+ await expect(pop).toContainText('Studio could not reach your saved workspace.');
+ await pop.locator('button.ecco-popup-close').click();
+ await page.waitForTimeout(300);
+ await expect(pop).toBeHidden();
+ // A different problem queued behind it is still shown once.
+ await page.evaluate(()=>{window.EccoErrors.show('Cannot reach storage');window.EccoErrors.show('CUDA out of memory');});
+ await page.waitForTimeout(200);
+ await expect(pop).toContainText('ran out of memory');
 });

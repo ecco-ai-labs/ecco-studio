@@ -19,6 +19,10 @@
     window.__qaCalls.push({path,body});
     if(window.__qaHold&&path==='ai/enhance')await window.__qaHold;
     if(path==='state')return state;
+    // Audio Queue (final mocks, 21 Nov 2026): tests set window.qaAudioQueue; Cancel is /api/generation/stop.
+    if(path.startsWith('audio/queue?')){const q=window.qaAudioQueue||{items:[],models:[]},p=new URLSearchParams(path.split('?')[1]),items=q.items.filter(x=>(!p.get('model')||x.model===p.get('model'))&&(!p.get('search')||x.name.toLowerCase().includes(p.get('search').toLowerCase())));
+     return {items,total:items.length,parallel:2,offset:0,limit:50,models:q.models||[...new Set(q.items.map(x=>x.model))],reorder:false,mine:{waiting:q.items.length,running:q.running||0,done:q.done||0},last_wait_seconds:q.items.length*60};}
+    if(path==='generation/stop'&&window.qaAudioQueue){window.qaAudioQueue.items=window.qaAudioQueue.items.filter(x=>x.id!==body.job_id);return {status:'cancelled'};}
     // Create Images: synthetic jobs finish at once; nothing reaches a GPU.
     if((path==='images'||path==='image-edits'||path==='image-resize'||path==='image-upscale')&&!window.qaImageRequests){
       const n=window.__qaCalls.length,asset={id:'qa-made-'+n,kind:'asset',media:'image',stage:'dev',story_id:body.story_id,title:({images:'Generated ','image-resize':'Reshaped ','image-upscale':'4K '}[path]||'Edited ')+n,prompt:body.prompt,settings:path==='image-resize'?{resize:body.size}:path==='image-upscale'?{upscale:'3840x2160'}:undefined,path:'qa/fixtures/sample.svg',job_id:'qa-job-'+n,created:1700001000+n};

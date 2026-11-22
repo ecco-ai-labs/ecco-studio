@@ -1,0 +1,877 @@
+'use strict';
+/* Enhances the existing Studio controls; keeps their API and event handlers. */
+(()=>{
+ const q=s=>document.querySelector(s);
+ const expansion=new Map();
+ let selectedVideoId='';
+ let welcomePending=true;
+ let selectedJourneyStory; // No story has been explicitly chosen on initial load.
+ let newStoryStarted=false;
+ const readStory=key=>readStoryData(key);
+ const localTrashItems=()=>readStory('ecco-local-library-trash').items||[];
+ function trashLocalItem(kind,id,title,data){const items=localTrashItems().filter(item=>!(item.kind===kind&&item.id===id));items.push({kind,id,title,data});localStorage.setItem('ecco-local-library-trash',JSON.stringify({items}));}
+ function libraryCard({id,title,detail='',kind='story',open,remove,compact=false}){
+  const item=document.createElement('article');item.className=compact?'text-library-row':'card text-library-card';item.dataset.libraryId=id;
+  const button=document.createElement('button');button.type='button';button.className='text-library-open';button.setAttribute('aria-label','Open '+title);
+  const icon=kind==='workflow'?'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M6 9v9h9M9 6h9v9"/>':'<path d="M3 4h7a3 3 0 0 1 3 3v14a4 4 0 0 0-4-2H3V4Zm18 0h-5a3 3 0 0 0-3 3v14a4 4 0 0 1 4-2h4V4Z"/>';
+  button.innerHTML='<span class="text-library-preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'+icon+'</svg></span><span class="text-library-caption"><strong></strong><small></small></span>';
+  button.querySelector('strong').textContent=title;button.querySelector('small').textContent=detail;
+  button.onclick=()=>{const library=compact?button.closest('.workspace-library'):null;open();if(library){library.querySelectorAll('.text-library-open.selected').forEach(node=>node.classList.remove('selected'));const row=[...library.querySelectorAll('.text-library-row')].find(node=>node.dataset.libraryId===id);row?.querySelector('.text-library-open').classList.add('selected');}};
+  const deletion=document.createElement('button');deletion.type='button';deletion.className='secondary workspace-delete text-library-delete';deletion.textContent='×';deletion.setAttribute('aria-label','Delete '+title);deletion.title='Move '+title+' to Trash';deletion.onclick=async()=>{deletion.disabled=true;try{await remove();}catch(error){window.EccoErrors?.show(error);}finally{deletion.disabled=false;}};
+  item.append(button,deletion);return item;
+ }
+ async function deleteStory(id){
+  await api('stories/archive',{story_id:id});
+  if(activeStory===id){activeStory='';localStorage.removeItem('ecco-active-story');draft={...defaultDraft,scenes:[]};selectedJourneyStory=undefined;newStoryStarted=false;}
+  await refresh();storyControls();libraryOverview('story');notice('Story moved to Trash.');
+ }
+ function deleteLocalStory(id){
+  const saved=localStoryDrafts().find(item=>item.id===id);if(!saved)return;
+  const localId=saved.localDraftId||(id==='pending'?crypto.randomUUID():id);trashLocalItem('story-draft',localId,saved.title,saved);
+  localStorage.removeItem('ecco-story-setup:'+localId);
+  const pending=readStory('ecco-new-story-draft');
+  if(id==='pending'||pending.localDraftId===localId){localStorage.removeItem('ecco-new-story-draft');localStorage.removeItem('ecco-board-new-draft');if(!activeStory){draft={...defaultDraft,scenes:[]};selectedJourneyStory=undefined;newStoryStarted=false;}}
+  storyControls();libraryOverview('story');notice('Draft moved to Trash.');
+ }
+ function localStoryDrafts(){
+  const rows=[];
+  for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key.startsWith('ecco-story-setup:'))continue;const saved=readStory(key);if(!saved.cloudId&&(saved.preparationDraft||saved.title||saved.summary||saved.sourceText||saved.boardDraft?.scenes?.length))rows.push({id:key.slice('ecco-story-setup:'.length),...saved});}
+  const pending=readStory('ecco-new-story-draft'),board=readStory('ecco-board-new-draft');
+  if(!pending.cloudId&&(pending.preparationDraft||pending.title||pending.summary||pending.sourceText||board.story||board.scenes?.length)){
+   const current={...pending,id:'pending',title:pending.title||board.title||'Untitled draft',boardDraft:board};
+   const duplicate=rows.findIndex(row=>row.id===pending.localDraftId);if(duplicate>=0)rows.splice(duplicate,1);rows.push(current);
+  }
+  return rows;
+ }
+ function preserveNewStoryDraft(force=false){
+  if(activeStory&&!force)return;
+  const saved=readStory('ecco-new-story-draft'),board=readStory('ecco-board-new-draft');
+  if(saved.cloudId||!(saved.preparationDraft||saved.title||saved.summary||saved.sourceText||board.story||board.scenes?.length))return;
+  const id=saved.localDraftId||crypto.randomUUID(),data={...saved,localDraftId:id,title:saved.title||board.title||'Untitled draft',boardDraft:board};
+  localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));
+ }
+ function startNewStory(intent,{landing=false}={}){
+  window.EccoStoryWorkspace?.leave();
+  if(typeof intent?.id!=='string')intent=null;
+  welcomePending=false;
+  sessionStorage.setItem('ecco-guided-mode',intent?'on':'off');
+  preserveNewStoryDraft(true);if(activeStory)persistDraft();activeStory='';localStorage.removeItem('ecco-active-story');
+  const fresh=window.EccoStoryWorkspaceModel?.fresh({type:intent?.id||'',output:intent?.format||''});
+  localStorage.setItem('ecco-new-story-draft',JSON.stringify({...(fresh?{simple_workspace:fresh}:{}),...(intent?{workflow_id:intent.id,story_format:intent.format,...(intent.seed||{})}:{}),localDraftId:crypto.randomUUID()}));draft={...defaultDraft,scenes:[]};persistDraft();
+  selectedJourneyStory=undefined;newStoryStarted=true;storyControls();navigate(landing?'story-home':'story-setup');
+ }
+ function openStory(id){
+  window.EccoStoryWorkspace?.leave();
+  welcomePending=false;
+  sessionStorage.setItem('ecco-guided-mode','on');
+  if(!stories().some(story=>story.id===id))return;
+  preserveNewStoryDraft();if(activeStory||newStoryStarted)persistDraft();activeStory=id;localStorage.setItem('ecco-active-story',id);draft=loadDraft();selectedJourneyStory=id;lastSignature='';
+  storyControls();if(window.EccoStoryWorkspace){window.EccoStoryWorkspace.open();return;}const savedStep=localStorage.getItem('ecco-story-page:'+id);const allowed=window.EccoStoryJourneys?.steps([])||[];navigate(allowed.some(s=>s[0]===savedStep)?savedStep:'board');productionGroup();journeyGuide();
+ }
+ function workspaceStart(){
+  if(!window.EccoAuth?.user)return;
+  page='empty';document.body.classList.remove('workspace-entry-mode');document.body.classList.add('story-choice-mode');q('#heading').textContent='';
+  const choices=document.createElement('section');choices.id='story-choice-screen';choices.setAttribute('aria-label','Story choices');
+  const source=q('#workspace-entry .entry-logo-motion')||q('#workspace-entry .entry-logo');
+  if(source)choices.append(source.cloneNode(true));
+  const actions=document.createElement('div');actions.className='story-choice-actions';
+  const create=document.createElement('button');create.type='button';create.textContent='Create a New Story';create.onclick=()=>{document.body.classList.remove('story-choice-mode');startNewStory();};
+  const resume=document.createElement('button');resume.type='button';resume.textContent='Continue with an Existing Story';resume.onclick=()=>{document.body.classList.remove('story-choice-mode');navigate('story-library');};
+  actions.append(create,resume);choices.append(actions);q('#page').replaceChildren(choices);
+  window.EccoStoryJourneys?.mount(actions,{studio:()=>{document.body.classList.remove('story-choice-mode');navigate('story-home');},start:startNewStory,rows:()=>[...stories().map(s=>({...s,...readStory('ecco-story-description:'+s.id),id:s.id})),...localStoryDrafts().map(s=>({...s,local:true}))],open:item=>{if(item.local)storySetupPage(item.id);else openStory(item.id);}});
+  document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
+ }
+ function selectionToolbar(body,name,button){const selected=body.querySelector('.tree-folder.selected');if(!selected||!button)return;const row=document.createElement('div');row.className='library-selected-row';selected.before(row);row.append(selected);button.hidden=false;button.className='secondary asset-icon workspace-delete';button.textContent='×';button.title='Move '+name+' to Trash';button.setAttribute('aria-label','Delete '+name);row.append(button);}
+ const records=()=>typeof state!=='undefined'&&state?state.records:[];
+ // Keep the library overview, sidebar and reference picker on the same saved videos.
+ const videoLibraryAssets=()=>{const storyIds=new Set(stories().map(story=>story.id));return records().filter(r=>r.kind==='asset'&&r.media==='video'&&r.stage==='prod'&&!r.deleted&&storyIds.has(r.story_id||LEGACY_STORY));};
+ window.EccoVideoLibrary={assets:videoLibraryAssets};
+ const html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const folderList=()=>records().filter(r=>r.kind==='image_folder'&&!r.deleted).sort((a,b)=>a.created-b.created||a.id.localeCompare(b.id));
+ const labelsFor=id=>{const ids=new Set(records().filter(r=>r.kind==='library_item'&&r.asset_id===id&&!r.deleted).map(r=>r.folder_id));return folderList().filter(f=>ids.has(f.id));};
+ function disclosure(title,key){const d=document.createElement('details');d.className='workspace-library';d.open=expansion.get(key)===true;d.innerHTML=`<summary><span class="library-symbol" aria-hidden="true"></span><span>${title}</span></summary><div class="workspace-library-content"></div>`;d.addEventListener('toggle',()=>expansion.set(key,d.open));return d;}
+ function createFolder(after,parentName=''){let d=q('#workspace-folder-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-folder-dialog';document.body.append(d);}d.innerHTML='<form class="form"><h2>Create new label</h2><label>Label name<input name="name" required maxlength="80" autocomplete="off"></label><label>Parent label<select name="parent"><option value="">None (top level)</option>'+folderList().map(f=>'<option value="'+html(f.name)+'" '+(f.name===parentName?'selected':'')+'>'+html(f.name.replaceAll(' / ',' → '))+'</option>').join('')+'</select></label><p role="status"></p><div class="row"><button type="submit">Create label</button><button type="button" class="secondary">Cancel</button></div></form>';d.querySelector('[type=button]').onclick=()=>d.close();d.querySelector('form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('[type=submit]');b.disabled=true;try{if(!e.target.elements.name.value.trim())throw Error('Enter a label name.');if([e.target.elements.parent.value,e.target.elements.name.value.trim()].filter(Boolean).join(' / ').length>80)throw Error('The full label path must be 80 characters or fewer.');if(e.target.elements.name.value.includes('/'))throw Error('Use the parent selector to create nested labels.');const folder=await api('library/folders',{name:[e.target.elements.parent.value,e.target.elements.name.value.trim()].filter(Boolean).join(' / ')});if(folder.deleted)throw Error('A library with this name is in Trash. Restore it or choose another name.');await refresh();d.close();modernize();if(after)after(folder);}catch(err){window.EccoErrors?.show(err);d.querySelector('[role=status]').textContent=err.message;}finally{b.disabled=false;}};d.showModal();d.querySelector('input').focus();}
+ function labelDialog(id){const asset=records().find(a=>a.id===id);if(!asset)return;let d=q('#workspace-label-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-label-dialog';document.body.append(d);}const selected=new Set(labelsFor(id).map(f=>f.id));d.innerHTML='<form class="form"><div class="section-head"><h2>Add labels</h2><button type="button" class="secondary small" data-create>Create new label</button></div><label>Image name<input name="image_name" maxlength="160" required value="'+html(asset.title&&(asset.title!==asset.prompt||asset.settings?.model==='uploaded-image')?asset.title:'')+'" placeholder="e.g. Pankaj cartoon portrait"></label><p class="help">Choose labels to organize this image in your library.</p><div class="workspace-label-options">'+(folderList().map(f=>`<label class="workspace-label-option"><input type="checkbox" name="labels" value="${f.id}" ${selected.has(f.id)?'checked disabled':''}><span>${html(f.name)}</span>${selected.has(f.id)?'<small>Added</small>':''}</label>`).join('')||'<p>Create your first label.</p>')+'</div><p role="status"></p><div class="row"><button type="submit">Save name & labels</button><button type="button" class="secondary" data-close>Cancel</button></div></form>';d.querySelector('[data-close]').onclick=()=>d.close();d.querySelector('[data-create]').onclick=()=>createFolder(()=>{d.close();labelDialog(id);});d.querySelector('form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('[type=submit]');b.disabled=true;try{const name=e.target.elements.image_name.value.trim();if(!name)throw Error('Enter an image name.');const folderIds=[...new Set([...selected,...new FormData(e.target).getAll('labels')])];if(!folderIds.length)throw Error('Choose at least one label.');for(const fid of folderIds){const saved=await api('library/save',{asset_id:id,folder_id:fid,title:name});if(saved.image_title!==name)throw Error('Labels saved, but image naming needs the Studio service to reload its update. Your name has not been saved yet.');}await refresh();d.close();modernize();notice('Image name and labels saved.');}catch(err){window.EccoErrors?.show(err);d.querySelector('[role=status]').textContent=err.message;}finally{b.disabled=false;}};d.showModal();}
+ function uploadDialog(onUploaded){if(typeof onUploaded!=='function')onUploaded=null;let d=q('#workspace-upload-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-upload-dialog';document.body.append(d);}d.innerHTML='<form class="form"><h2>Upload image</h2><label>Picture or object image<input type="file" name="image" accept="image/png,image/jpeg,image/webp" required></label><p class="help">PNG, JPEG or WebP · up to 12 MB and 20 megapixels. Your original upload is preserved when you edit a copy.</p><input type="hidden" name="next" value="label"><p role="status"></p><div class="row"><button type="submit">Upload image</button><button type="button" class="secondary">Cancel</button></div></form>';d.querySelector('[type=button]').onclick=()=>d.close();d.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,file=form.elements.image.files[0],button=form.querySelector('[type=submit]'),status=form.querySelector('[role=status]');if(!file)return;if(file.size>12*1024*1024){status.textContent='Choose an image no larger than 12 MB.';window.EccoErrors?.show(status.textContent);return;}button.disabled=true;status.textContent='Uploading image…';try{const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onerror=()=>reject(Error('Could not read this file.'));r.onload=()=>resolve(String(r.result).split(',')[1]);r.readAsDataURL(file);});const asset=await api('images/upload',{name:file.name,data,story_id:activeStory});await refresh();d.close();if(onUploaded){onUploaded(asset);return;}navigate('images');modernize();if(form.elements.next.value==='edit')editImageDialog(asset.id);else labelDialog(asset.id);notice('Image uploaded. Add labels to keep it in your library.');}catch(err){window.EccoErrors?.show(err);status.textContent=err.message;}finally{button.disabled=false;}};d.showModal();}
+ function imageTree(){
+  const box=q('#image-library-nav'),select=q('#library-folder-nav');if(!box||!select)return;
+  const assets=records().filter(a=>a.kind==='asset'&&a.media==='image'&&!a.deleted);
+  const links=records().filter(r=>r.kind==='library_item'&&!r.deleted);
+  const signature=JSON.stringify([folderList().map(f=>[f.id,f.name,f.created]),select.value,assets.map(a=>[a.id,a.title,a.created]),links.map(r=>[r.asset_id,r.folder_id])]);
+  if(box.dataset.workspaceSignature===signature&&box.querySelector('.workspace-library'))return;
+  const previous=box.querySelector('.workspace-library');
+  const wasOpen=previous?.open;
+  box.dataset.workspaceSignature=signature;
+  for(const el of [...box.children])if(!el.classList.contains('workspace-library'))el.hidden=true;
+  previous?.remove();
+  const d=disclosure('Image Library','ecco-image-library-tree-v2');if(wasOpen!==undefined)d.open=wasOpen;
+  const body=d.querySelector('.workspace-library-content');
+  const openFolder=id=>{select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));imageTree();};
+  const folders=folderList(),byName=new Map(folders.map(f=>[f.name,f]));
+  const parentOf=f=>byName.get(f.name.split(' / ').slice(0,-1).join(' / '));
+  function appendFolder(folder,container){
+   const group=document.createElement('div');group.className='tree-label-group';
+   const row=document.createElement('div');row.className='tree-branch-row';
+   const children=document.createElement('div');children.className='tree-branch-children';
+   const nested=folders.filter(f=>parentOf(f)?.id===folder.id);
+   const ids=new Set(links.filter(r=>r.folder_id===folder.id).map(r=>r.asset_id));
+   const images=assets.filter(a=>ids.has(a.id)).sort((a,b)=>a.created-b.created);
+   row.dataset.libraryMarker=nested.length?'+':'−';
+   const key='label:'+folder.id;
+   if(nested.length){
+    const toggle=document.createElement('button');toggle.type='button';toggle.className='tree-branch-toggle';toggle.textContent='▸';
+    const sync=()=>{const open=expansion.get(key)===true;children.hidden=!open;row.dataset.libraryMarker=open?'−':'+';toggle.textContent=open?'−':'+';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',(open?'Collapse ':'Expand ')+folder.name);};
+    toggle.onclick=()=>{expansion.set(key,expansion.get(key)!==true);sync();};sync();row.append(toggle);
+   }else{const spacer=document.createElement('span');spacer.className='tree-branch-spacer';row.append(spacer);}
+   const label=document.createElement('button');label.type='button';label.className='tree-folder';
+   label.textContent=parentOf(folder)?folder.name.split(' / ').at(-1):folder.name.replaceAll(' / ',' → ');label.title=folder.name.replaceAll(' / ',' → ');label.classList.toggle('selected',folder.id===select.value);
+   label.onclick=()=>openFolder(folder.id);row.append(label);group.append(row,children);
+   for(const child of nested)appendFolder(child,children);
+
+   container.append(group);
+  }
+  for(const folder of folders.filter(f=>!parentOf(f)))appendFolder(folder,body);
+  const create=document.createElement('button');create.type='button';create.className='tree-create';create.textContent='New Label';
+  create.onclick=()=>createFolder(folder=>{const parts=folder.name.split(' / ');for(let i=1;i<parts.length;i++){const parent=folderList().find(f=>f.name===parts.slice(0,i).join(' / '));if(parent)expansion.set('label:'+parent.id,true);}box.dataset.workspaceSignature='';imageTree();const current=q('#image-library-nav .workspace-library');if(current)current.open=true;},folderList().find(f=>f.id===select.value)?.name||'');body.append(create);
+  const selected=folderList().find(f=>f.id===select.value);if(selected){const remove=document.createElement('button');remove.type='button';remove.onclick=()=>{action(async()=>{await api('trash/folder',{id:selected.id});select.value='all';select.dispatchEvent(new Event('change',{bubbles:true}));await refresh();modernize();});};selectionToolbar(body,selected.name,remove);}
+  box.append(d);
+  let upload=q('.workspace-upload');if(!upload){upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload Image';upload.onclick=uploadDialog;}upload.hidden=false;body.append(upload);
+ }
+ function storyTree(){
+  const box=q('.project'),select=q('#story-picker');if(!box||!select||box.querySelector('.workspace-library'))return;
+  const remove=q('#delete-story');if(remove)remove.onclick=()=>action(async()=>{await api('stories/archive',{story_id:activeStory});await refresh();draft=loadDraft();navigate('images');notice('Story moved to Trash.');});const d=disclosure('Story Library','ecco-story-library-expanded'),body=d.querySelector('.workspace-library-content');
+  for(const el of [...box.children])el.hidden=true;
+  const storyRecords=records().filter(r=>r.kind==='story'&&!r.deleted);
+  const options=[...select.options].filter(option=>option.value).sort((a,b)=>(storyRecords.find(r=>r.id===a.value)?.created||0)-(storyRecords.find(r=>r.id===b.value)?.created||0));
+  const selected=options.find(o=>o.value===select.value);
+  for(const option of options){const item=libraryCard({id:option.value,title:option.textContent,compact:true,open:()=>openStory(option.value),remove:()=>deleteStory(option.value)});const b=item.querySelector('.text-library-open');b.classList.add('tree-folder');b.classList.toggle('selected',option.value===select.value);body.append(item);}
+  const localStories=localStoryDrafts();
+  for(const story of localStories){
+   const item=libraryCard({id:story.id,title:story.title,detail:'Draft',compact:true,open:()=>{document.body.classList.remove('workspace-entry-mode');storySetupPage(story.id);librarySelection();},remove:()=>deleteLocalStory(story.id)});item.querySelector('.text-library-open').classList.add('tree-folder');body.append(item);
+  }
+  box.append(d);
+ }
+
+
+ function imageReferencePicker(){
+  const form=q('#image-form'),model=q('#job-model');if(!form||form.dataset.generationStudio||!model||q('#studio-reference-image'))return;
+  const saved=new Set(records().filter(r=>r.kind==='library_item'&&!r.deleted).map(r=>r.asset_id));
+  const images=records().filter(r=>r.kind==='asset'&&r.media==='image'&&!r.deleted&&saved.has(r.id));
+  const area=document.createElement('div');area.innerHTML='<label>Use image<select id="studio-reference-image"><option value="">None — create a new image</option>'+images.map(a=>'<option value="'+html(a.id)+'">'+html((labelsFor(a.id).map(f=>f.name).join(', ')||'Library')+' / '+(a.title||'Untitled image'))+'</option>').join('')+'</select></label><img class="refine-preview" hidden alt="Selected reference image"><p class="help" data-reference-help hidden></p>';
+  model.closest('label').after(area);
+  const select=area.querySelector('select'),preview=area.querySelector('img'),help=area.querySelector('p'),button=form.querySelector('#generate-image')||form.querySelector('button[type="submit"]');
+  const originalModel=model.value,originalText=button.textContent;
+  select.hidden=true;
+  const choose=document.createElement('button');choose.type='button';choose.className='secondary';choose.textContent='Browse Image Library';select.closest('label').append(choose);
+  const clear=document.createElement('button');clear.type='button';clear.className='small secondary';clear.textContent='Remove reference';clear.hidden=true;area.append(clear);
+  clear.onclick=()=>{select.value='';select.onchange();choose.textContent='Browse Image Library';clear.hidden=true;};
+  choose.onclick=()=>{
+   let dialog=q('#studio-library-picker');if(!dialog){dialog=document.createElement('dialog');dialog.id='studio-library-picker';document.body.append(dialog);}
+   dialog.innerHTML='<div class="form"><div class="section-head"><h2>Image Library</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Open a label and select an image to use as your reference.</p><div data-library-tree></div></div>';
+   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+   const folders=folderList(),byName=new Map(folders.map(f=>[f.name,f]));
+   const parentOf=f=>byName.get(f.name.split(' / ').slice(0,-1).join(' / '));
+   const links=records().filter(r=>r.kind==='library_item'&&!r.deleted);
+   const append=(folder,container)=>{
+    const group=document.createElement('details');group.className='workspace-library';group.open=true;
+    const summary=document.createElement('summary');summary.textContent=parentOf(folder)?folder.name.split(' / ').at(-1):folder.name;group.append(summary);
+    const body=document.createElement('div');body.className='workspace-library-content';group.append(body);
+    for(const child of folders.filter(f=>parentOf(f)?.id===folder.id))append(child,body);
+    const ids=new Set(links.filter(l=>l.folder_id===folder.id).map(l=>l.asset_id));
+    const items=images.filter(a=>ids.has(a.id)).sort((a,b)=>a.created-b.created);
+    for(const asset of items){
+     const item=document.createElement('button');item.type='button';item.className='secondary';item.setAttribute('aria-label','Use '+(asset.title||'Untitled image'));
+     const thumb=document.createElement('img');thumb.src=media(asset);thumb.alt='';thumb.width=100;thumb.height=100;thumb.loading='lazy';
+     const name=document.createElement('span');name.textContent=asset.title||'Untitled image';item.append(thumb,name);
+     item.onclick=()=>{select.value=asset.id;select.onchange();choose.textContent='Change image · '+(asset.title||'Selected image');clear.hidden=false;dialog.close();};body.append(item);
+    }
+    if(!items.length&&!folders.some(f=>parentOf(f)?.id===folder.id)){const empty=document.createElement('p');empty.className='help';empty.textContent='No images in this label.';body.append(empty);}
+    container.append(group);
+   };
+   for(const folder of folders.filter(f=>!parentOf(f)))append(folder,dialog.querySelector('[data-library-tree]'));
+   dialog.showModal();
+  };
+  select.onchange=()=>{
+   const asset=images.find(a=>a.id===select.value);preview.hidden=!asset;help.hidden=!asset;
+   model.disabled=false;
+   for(const option of model.options){if(option.dataset.originalDisabled===undefined)option.dataset.originalDisabled=String(option.disabled);option.disabled=asset?option.value!=='qwen-image-edit-2511':option.dataset.originalDisabled==='true';}
+   if(asset){
+    if(!model.querySelector('option[value="qwen-image-edit-2511"]')){const o=document.createElement('option');o.value='qwen-image-edit-2511';o.textContent='Qwen Image Edit · reference image';model.append(o);}
+    model.value='qwen-image-edit-2511';preview.src=media(asset);
+    help.textContent='Qwen Image Edit is the only reference-editing model currently connected. Other models are unavailable for this operation. Describe your changes below; the original is preserved.';
+    button.textContent='Generate edited image';
+   }else{model.value=originalModel;preview.removeAttribute('src');button.textContent=originalText;}
+   document.dispatchEvent(new Event('ecco-reference-change'));
+  };
+  form.addEventListener('submit',async e=>{
+   if(!select.value)return;e.preventDefault();e.stopImmediatePropagation();
+   const asset=records().find(a=>a.id===select.value&&!a.deleted);if(!asset){notice('This reference is no longer available.',true);return;}
+   if(!state.config.models_ready?.['qwen-image-edit-2511']){notice('Qwen Image Edit is not ready on this GPU.',true);return;}
+   const prompt=form.elements.prompt.value.trim();if(!prompt)return;
+   if(button.disabled)return;
+   const story=activeStory;
+   submittingImages.add(story);localStorage.removeItem('ecco-image-job:'+story);
+   setGenerationBusy(button,true,'Submitting…','Generate edited image');
+   const status=form.querySelector('#image-status');
+   if(status)status.textContent='Sending your reference-image edit…';
+   try{const job=await api('image-edits',{asset_id:asset.id,story_id:story,prompt});
+    localStorage.setItem('ecco-image-job:'+story,job.id);submittingImages.delete(story);
+    await refresh();notice('Reference edit queued. Your original image is preserved.');
+   }catch(err){submittingImages.delete(story);if(button.isConnected)setGenerationBusy(button,false,'','Generate edited image');if(status?.isConnected)status.textContent=err.message;notice(err.message,true);}
+  },true);
+ }
+
+ function imageLabels(){document.querySelectorAll('[data-approve]').forEach(b=>{const asset=records().find(r=>r.id===b.dataset.approve);if(asset?.media==='video')b.textContent='Approve & add to Video Library';});document.querySelectorAll('[data-trash]').forEach(b=>{b.textContent='×';b.classList.add('workspace-delete');});document.querySelectorAll('[data-library-save]').forEach(b=>{const id=b.dataset.librarySave;b.textContent='+ Add label';b.onclick=()=>labelDialog(id);const card=b.closest('.card');if(!card)return;let chips=card.querySelector('.workspace-labels');if(!chips){chips=document.createElement('div');chips.className='workspace-labels';b.closest('.actions').before(chips);}const signature=JSON.stringify(labelsFor(id).map(f=>[f.id,f.name]));if(chips.dataset.signature!==signature){chips.dataset.signature=signature;chips.innerHTML=labelsFor(id).map(f=>`<span class="workspace-label">${html(f.name)}</span>`).join('');}});}
+
+ function billingAmount(value,estimate=false){return typeof value==='number'&&Number.isFinite(value)?(estimate?'~':'')+'$'+value.toFixed(2):'Unavailable';}
+ function updateBillingDrawer(){
+  const drawer=q('#workspace-billing-drawer');if(!drawer)return;
+  const config=state?.config||{},session=config.session_cost,billing=config.billing;
+  drawer.querySelector('[data-session-cost]').textContent='GPU Costs for this session: '+billingAmount(session?.estimated_usd,true);
+  drawer.querySelector('[data-balance]').textContent='Total Cost: '+billingAmount(billing?.last_success?billing.total_spent_usd:undefined);
+ }
+ let billingTrigger=null;
+ function billingDrawer(open,sourceTrigger,fromHover=false){
+  if(open&&fromHover&&(q('#workspace-usage-drawer')||q('#workspace-billing-drawer:not([hidden])')))return;
+  const trigger=sourceTrigger||billingTrigger||q('button[data-category="Billing"]'),account=trigger?.closest('.workspace-menu-items');if(!account||!trigger)return;
+  let drawer=q('#workspace-billing-drawer');
+  if(!drawer){drawer=document.createElement('div');drawer.id='workspace-billing-drawer';drawer.setAttribute('role','region');drawer.setAttribute('aria-label','Billing');drawer.hidden=true;drawer.inert=true;drawer.innerHTML='<button type="button" class="billing-refresh" aria-label="Refresh costs" title="Refresh costs"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 18 17"/></svg></button><p data-session-cost></p><p data-balance></p><small class="billing-refresh-status" role="status" hidden></small>';account.append(drawer);
+   drawer.querySelector('.billing-refresh').onclick=async e=>{
+    e.preventDefault();e.stopPropagation();
+    const button=e.currentTarget,status=drawer.querySelector('.billing-refresh-status');
+    if(button.disabled)return;
+    button.disabled=true;button.setAttribute('aria-busy','true');status.hidden=true;status.textContent='';status.title='';
+    try{const latest=await api('state');await refresh(latest,true);updateBillingDrawer();const billing=latest.config?.billing;if(billing?.last_error)throw Error(billing.last_error);}
+    catch(error){status.hidden=false;status.textContent=error.message||'Could not refresh. Try again.';status.title=status.textContent;}
+    finally{button.disabled=false;button.removeAttribute('aria-busy');}
+   };
+   const style=document.createElement('style');style.textContent='[data-category="Account"] .workspace-menu-items{overflow:visible}#workspace-billing-drawer{display:flex!important;position:absolute;left:auto;right:100%;top:0;width:100%;min-height:100%;border:1px solid #48405c;border-radius:9px;box-shadow:0 12px 32px #0006;box-sizing:border-box;padding:10px 34px 10px 10px;flex-direction:column;justify-content:center;gap:8px;background:var(--panel,#252039);z-index:2;transform:translateX(0);visibility:visible;clip-path:inset(0 0 0 0);transition:clip-path .2s ease,visibility .2s}#workspace-billing-drawer[hidden]{clip-path:inset(0 0 0 100%);visibility:hidden;pointer-events:none}#workspace-billing-drawer p{font-size:calc(13px - 2pt);line-height:1.4;margin:0;color:#fff!important}#workspace-billing-drawer .billing-refresh{position:absolute;right:8px;top:8px;display:grid;place-items:center;width:24px;height:24px;min-height:0;padding:3px;color:#fff!important;background:transparent;border:0;border-radius:4px}#workspace-billing-drawer .billing-refresh:hover{background:#ffffff20}#workspace-billing-drawer .billing-refresh[aria-busy] svg{animation:billing-spin 1s linear infinite}#workspace-billing-drawer .billing-refresh-status{color:#ff6b6b!important;font-size:calc(11px - 2pt)}#workspace-billing-drawer .billing-refresh-status[hidden]{display:none}@keyframes billing-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#workspace-billing-drawer{transition:none}#workspace-billing-drawer .billing-refresh svg{animation:none!important}}';document.head.append(style);
+  }
+  if(open){
+   window.EccoCredits?.closeUsage();
+   if(billingTrigger&&billingTrigger!==trigger)billingTrigger.setAttribute('aria-expanded','false');
+   billingTrigger=trigger;if(drawer.parentElement!==account)account.append(drawer);
+   if(!account.dataset.billingDrawerBound){
+    account.dataset.billingDrawerBound='true';
+    account.addEventListener('keydown',e=>{if((e.key==='Escape'||e.key==='ArrowRight')&&!drawer.hidden&&drawer.parentElement===account){e.preventDefault();e.stopPropagation();billingDrawer(false);billingTrigger?.focus();}});
+    account.addEventListener('focusout',e=>{if(drawer.parentElement===account&&e.relatedTarget&&!account.closest('details')?.contains(e.relatedTarget))billingDrawer(false);});
+    account.closest('details')?.addEventListener('toggle',()=>{if(!account.closest('details').open&&drawer.parentElement===account)billingDrawer(false);});
+   }
+  }
+  updateBillingDrawer();drawer.hidden=!open;drawer.inert=!open;trigger.setAttribute('aria-expanded',String(open));
+ }
+ window.EccoBilling={open:(trigger,{hover=false}={})=>billingDrawer(true,trigger,hover),close:()=>billingDrawer(false)};
+ function ribbon(){const header=q('main > header'),right=header?.querySelector('.header-right');if(!right)return;header.classList.add('workspace-ribbon');if(!q('#workspace-menus')){const menus=document.createElement('div');menus.id='workspace-menus';for(const name of ['Account','Activity']){const d=document.createElement('details');d.className='workspace-menu';d.dataset.category=name;d.innerHTML=`<summary>${name==='Account'?'Account and Billing':name==='Activity'?'Settings':name}<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items"></div>`;d.addEventListener('toggle',()=>{if(d.open)menus.querySelectorAll('details').forEach(other=>{if(other!==d)other.open=false;});});menus.append(d);}right.append(menus);}const account=q('[data-category="Account"] .workspace-menu-items');if(account&&!q('[data-category="Billing"]')){const billing=document.createElement('button');billing.type='button';billing.className='secondary';billing.dataset.category='Billing';billing.textContent='Billing';billing.setAttribute('aria-controls','workspace-billing-drawer');billing.setAttribute('aria-expanded','false');billing.onclick=()=>billingDrawer(true,billing);billing.addEventListener('pointerenter',()=>billingDrawer(true,billing,true));account.append(billing);}const target=name=>q(`[data-category="${name}"] .workspace-menu-items`);const move=(node,name)=>{if(node&&node.parentElement!==target(name))target(name).append(node);};if(typeof powerButton!=='undefined')powerButton.hidden=true;updateBillingDrawer();move(q('#reconnect-gpu'),'Account');move(q('#open-comfyui'),'Activity');const activityToggle=q('#toggle-activity');if(activityToggle){activityToggle.hidden=true;const activityPanel=q('#activity-panel');if(activityPanel&&activityToggle.parentElement!==activityPanel)activityPanel.append(activityToggle);}q('#workspace-menus').querySelectorAll('button,a').forEach(el=>{if(el.dataset.ribbonClose)return;el.dataset.ribbonClose='1';el.addEventListener('click',()=>{if(el.closest('#learning-days')||el.dataset.category==='Billing'||el.dataset.userFlyout||el.closest('#workspace-usage-drawer,#workspace-billing-drawer'))return;const menu=el.closest('.workspace-menu');if(menu)menu.open=false;});});}
+ let hardwareVerifiedAt=0;
+ function acceleratorDisplay(){
+  const hardware=typeof state!=='undefined'?state?.config?.accelerator:null;
+  const fresh=hardwareVerifiedAt&&Date.now()-hardwareVerifiedAt<45000;
+  const names=hardware?.status==='detected'?hardware.devices.map(d=>d.name):[];
+  const isConnected=typeof gpuConnected==='function'&&gpuConnected();
+  const text=!isConnected?'Accelerator not connected':(fresh&&names.length?names.join(' + '):'Accelerator')+' · Connected';
+  let badge=q('#connected-accelerator');const header=q('main > header .header-right');
+  if(!badge&&header){badge=document.createElement('span');badge.id='connected-accelerator';badge.className='badge';badge.setAttribute('role','img');header.prepend(badge);}
+  if(badge){badge.classList.toggle('accelerator-connected',Boolean(isConnected));if(!badge.querySelector('svg'))badge.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></svg>';badge.setAttribute('aria-label',isConnected?'GPU connected':'GPU not connected');}
+  const form=q('#video-form');let status=q('#video-accelerator');
+  if(form&&!form.dataset.generationStudio&&!status){status=document.createElement('p');status.id='video-accelerator';status.className='help';status.setAttribute('role','status');form.prepend(status);}
+  if(status)status.textContent=text;
+ }
+ if(typeof api==='function'){const previous=api;api=async function(path,...args){try{const result=await previous.call(this,path,...args);if(path==='state')hardwareVerifiedAt=Date.now();return result;}catch(error){if(path==='state'){hardwareVerifiedAt=0;acceleratorDisplay();}throw error;}};}
+ if(typeof navigate==='function'){const previous=navigate;navigate=function(...args){if(args[0]!==page)notice('');if(args[0]==='welcome'||(welcomePending&&args[0]==='images')){welcomePending=false;welcomePage();return;}document.body.classList.remove('workspace-entry-mode');if(args[0]==='story-home'){storyHome();return;}if(args[0]==='journey-preview'){welcomePending=false;journeyPreview();return;}if(args[0]==='story-collections'){welcomePending=false;window.EccoStoryCollections.show();return;}if(args[0]==='story-setup'){welcomePending=false;storySetupPage();return;}if(args[0]==='story-library'){welcomePending=false;libraryOverview('story');return;}if(args[0]==='empty'){workspaceStart();return;}if(args[0]==='board'&&!activeStory&&!newStoryStarted){workspaceStart();return;}const result=previous.apply(this,args);imageReferencePicker();acceleratorDisplay();return result;};}
+ setInterval(acceleratorDisplay,5000);
+
+ function librarySelection(){
+  const selectors={'library-home':'#workspace-library-group > summary','library':'#image-library-nav > details > summary','video-library':'#workspace-video-library > summary','audio-library':'#workspace-audio-library > summary','story-library':'.project > details > summary','story-library-detail':'.project > details > summary','workflow-library':'#workflow-library > summary','workflow-detail':'#workflow-library > summary'};
+  const selected=selectors[page];
+  document.querySelectorAll('#workspace-library-group summary').forEach(el=>{
+   const active=!!selected&&el.matches(selected);el.classList.toggle('active',active);
+   if(active)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');
+  });
+  const storyHeading=q('#workspace-production-group > summary');if(storyHeading){const active=page==='story-home';storyHeading.classList.toggle('active',active);if(active)storyHeading.setAttribute('aria-current','page');else storyHeading.removeAttribute('aria-current');}
+  const start=q('#workspace-new-story');if(start)start.classList.toggle('active',page==='story-setup');
+ }
+
+ function uploadStoryDialog(){
+  let d=q('#story-library-upload-dialog');if(!d){d=document.createElement('dialog');d.id='story-library-upload-dialog';document.body.append(d);}
+  d.innerHTML='<form class="form"><h2>Upload story</h2><label>Story name<input name="title" maxlength="160" required></label><label>Story file<input name="file" type="file" accept=".txt,.md,text/plain,text/markdown" required></label><p class="help">Upload a text or Markdown story, up to 4,000 characters.</p><p role="status"></p><div class="row"><button type="submit">Upload</button><button type="button" class="secondary">Cancel</button></div></form>';
+  const form=d.querySelector('form'),status=d.querySelector('[role="status"]');
+  form.elements.file.onchange=()=>{const file=form.elements.file.files[0];if(file&&!form.elements.title.value)form.elements.title.value=file.name.replace(/\.[^.]+$/,'');};
+  d.querySelector('[type="button"]').onclick=()=>d.close();
+  form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('[type="submit"]'),file=form.elements.file.files[0];if(!file)return;button.disabled=true;
+   try{if(file.size>32000)throw Error('Choose a text story up to 4,000 characters.');const summary=await file.text();if(!summary.trim()||summary.length>4000)throw Error('The story must contain 1–4,000 characters.');
+    status.textContent='Saving story…';await api('stories',{title:form.elements.title.value.trim(),summary});await refresh();q('.project .workspace-library')?.remove();storyTree();d.close();libraryOverview('story');notice('Story uploaded.');
+   }catch(error){window.EccoErrors?.show(error);status.textContent='Could not upload story: '+error.message;}finally{button.disabled=false;}
+  };d.showModal();
+ }
+ const homeIcons={story:'<path d="M5 3h10l4 4v14H5ZM14 3v5h5M8 12h8M8 16h8"/>',image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 17 6-6 5 5 3-3 4 4"/>',audio:'<path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="16" rx="3" ry="3"/>',video:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 8 6 4-6 4Z"/>',workflow:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M6 9v9h9M9 6h9v9"/>'};
+ function homeList(id,choices){
+  const chooser=document.createElement('section');chooser.className='workspace-home '+id;chooser.setAttribute('aria-labelledby','heading');
+  const list=document.createElement('ul');list.id=id+'-list';list.className='workspace-home-list';list.setAttribute('aria-labelledby','heading');
+  for(const {key,title,icon,run,destination}of choices){
+   const item=document.createElement('li'),button=document.createElement('button');button.type='button';button.dataset[destination]=key;
+   button.setAttribute('aria-label','Open '+title);
+   button.innerHTML='<svg class="workspace-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+homeIcons[icon]+'</svg><span class="workspace-home-name"></span>';
+   button.querySelector('.workspace-home-name').textContent=title;button.onclick=run;item.append(button);list.append(item);
+  }
+  chooser.append(list);q('#page').replaceChildren(chooser);
+ }
+ function homePage(target,title){
+  window.EccoStoryWorkspace?.leave();welcomePending=false;
+  document.body.classList.remove('workspace-entry-mode','story-choice-mode');q('#workspace-entry')?.remove();
+  notice('');page=target;q('#heading').textContent=title;
+  document.querySelectorAll('nav button.active').forEach(button=>button.classList.remove('active'));
+ }
+ function libraryHome(){
+  homePage('library-home','Library');
+  const choices=[['story','Story Library','.project > details > summary'],['image','Image Library','#image-library-nav > details > summary'],['audio','Audio Library','#workspace-audio-library > summary'],['video','Video Library','#workspace-video-library > summary'],['workflow','Workflow Library','#workflow-library > summary']];
+  homeList('library-home',choices.map(([kind,title,selector])=>({key:kind,title,icon:kind,destination:'libraryDestination',run:()=>{
+   if(window.EccoLibraryHub){q('#workspace-library-group').open=true;window.EccoLibraryHub.open(kind);return;}
+   const summary=q(selector);if(!summary)return;q('#workspace-library-group').open=true;summary.click();summary.closest('details').open=true;librarySelection();summary.focus({preventScroll:true});summary.scrollIntoView({block:'nearest'});
+  }})));
+  journeyGuide();librarySelection();
+ }
+ function storyHome(){
+  homePage('story-home','Tell Your Story');sessionStorage.setItem('ecco-guided-mode','off');productionGroup();
+  const icons={'story-setup':'story',board:'workflow',audio:'audio',images:'image',render:'video','journey-preview':'video'};
+  // StoryBoard Your Story (old full Studio editor) and Publish Your Story (now part of Describe Your Story) are not listed.
+  homeList('story-home',currentJourneySteps().filter(([target])=>!['board','journey-preview'].includes(target)).map(([target,title])=>({key:target,title:journeyLabels[target]||title,icon:icons[target],destination:'storyDestination',run:()=>{
+   const group=q('#workspace-production-group'),button=group?.querySelector('[data-page="'+target+'"]');if(!button)return;if(target==='board'&&!activeStory)newStoryStarted=true;group.open=true;button.click();button.focus({preventScroll:true});
+  }})));
+  journeyGuide();librarySelection();
+ }
+ function libraryOverview(kind){
+  if(window.EccoLibraryHub?.open)return window.EccoLibraryHub.open(kind);
+  window.EccoStoryWorkspace?.leave();
+  document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();
+  notice('');page=kind+'-library';q('#heading').textContent=kind==='video'?'Video Library':'Story Library';
+  document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));
+  if(kind==='video'){
+   const list=videoLibraryAssets();
+   q('#page').innerHTML='<div class="section-head"><h2>Video Library</h2><div class="row"><label class="library-view-label"><select id="video-library-view" aria-label="Video library view"><option value="list">List</option><option value="small">Small icons</option><option value="large">Large icons</option></select></label><button type="button" id="video-library-upload" class="secondary">Upload</button></div></div><div id="video-library-gallery" class="cards">'+(list.map(card).join('')||'<p class="help">No saved videos.</p>')+'</div>';
+   window.EccoPublishingMedia?.mountLibrary('video');q('#video-library-upload').onclick=uploadVideoDialog;wireCards();
+  }else{
+   q('#page').innerHTML='<div class="section-head"><h2>Story Library</h2><div class="row"><label class="library-view-label"><select id="story-library-view" aria-label="Story library view"><option value="list">List</option><option value="small">Small icons</option><option value="large">Large icons</option></select></label><button type="button" id="story-library-upload" class="secondary">Upload</button></div></div><div id="story-library-list" class="cards text-library-gallery"></div>';
+   const list=q('#story-library-list'),collections=readStory('ecco-story-collections-v1'),groups=new Map((collections.collections||[]).map(group=>[group.id,group.name]));
+   const entries=stories().map(story=>({...story,collection:groups.get(collections.members?.[story.id])||'Unassigned'}));
+   const add=(entry,local=false)=>{const item=libraryCard({id:entry.id,title:entry.title,detail:local?'Draft':entry.collection,open:()=>{if(local)storySetupPage(entry.id);else openStory(entry.id);librarySelection();},remove:()=>local?deleteLocalStory(entry.id):deleteStory(entry.id)});item.querySelector('.text-library-open').dataset[local?'localStoryId':'storyId']=entry.id;list.append(item);};
+   for(const name of [...new Set(entries.map(entry=>entry.collection))]){const heading=document.createElement('h3');heading.textContent=name;list.append(heading);entries.filter(entry=>entry.collection===name).forEach(entry=>add(entry));}
+   const drafts=localStoryDrafts();if(drafts.length){const heading=document.createElement('h3');heading.textContent='Drafts';list.append(heading);drafts.forEach(entry=>add(entry,true));}
+   if(!entries.length&&!drafts.length)list.innerHTML='<p class="help">'+(state.storage_pending?'Connect storage to see your saved stories.':'No saved stories.')+'</p>';
+   const create=document.createElement('button');create.type='button';create.className='secondary';create.textContent='New Story';create.onclick=startNewStory;q('#story-library-upload').before(create);
+  }
+  const view=q('#'+kind+'-library-view'),gallery=q(kind==='video'?'#video-library-gallery':'#story-library-list');
+  const applyView=()=>{gallery.classList.remove('library-small','library-large','library-list');gallery.classList.add('library-'+view.value);localStorage.setItem('ecco-'+kind+'-library-view',view.value);};
+  view.value='list';view.onchange=applyView;applyView();
+  if(kind==='story')q('#story-library-upload').onclick=uploadStoryDialog;
+  librarySelection();
+ }
+ document.addEventListener('click',event=>{
+  const summary=event.target.closest('summary');if(!summary)return;
+  if(summary.matches('#workspace-library-group > summary'))libraryHome();
+  else if(summary.matches('#workspace-production-group > summary'))navigate('story-home');
+  else if(summary.matches('#image-library-nav > details > summary'))navigate('library');
+  else if(summary.matches('#workspace-video-library > summary'))libraryOverview('video');
+  else if(summary.matches('#workspace-audio-library > summary'))navigate('audio-library');
+  else if(summary.matches('.project > details > summary'))libraryOverview('story');
+  librarySelection();
+ });
+ new MutationObserver(librarySelection).observe(document.body,{childList:true,subtree:true});
+ const selectionStyle=document.createElement('style');selectionStyle.textContent='#workspace-library-group summary.active{color:var(--accent,#ffdc24)!important;background:#38305e;border-radius:6px;box-shadow:inset 3px 0 var(--accent,#ffdc24)}';document.head.append(selectionStyle);
+ function libraryGroup(){
+  const image=q('#image-library-nav'),story=q('.project');if(!image||!story)return;
+  let group=q('#workspace-library-group');
+  if(!group){group=disclosure('Library','ecco-library-group-expanded');group.id='workspace-library-group';image.before(group);}
+  const content=group.querySelector('.workspace-library-content');
+  if(image.parentElement!==content)content.append(image);if(story.parentElement!==content)content.append(story);
+  const trash=q('#workspace-trash'),footer=q('.side-bottom');if(trash&&footer&&trash.nextElementSibling!==footer)footer.before(trash);
+ }
+ function publishMenu(){
+  const video=videoLibraryAssets().find(r=>r.id===selectedVideoId);
+  if(video){persistDraft();activeStory=video.story_id||LEGACY_STORY;localStorage.setItem('ecco-active-story',activeStory);draft=loadDraft();lastSignature='';storyControls();}
+  navigate('publish');
+  const select=q('#publish-form [name="asset_id"]');
+  if(select&&video){select.value=video.id;select.dispatchEvent(new Event('change'));}
+ }
+ function uploadVideoDialog(){
+  let d=q('#workspace-upload-video-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-upload-video-dialog';document.body.append(d);}
+  d.innerHTML='<form class="form"><h2>Upload Video</h2><label>Video<input name="video" type="file" accept="video/mp4,video/webm,.mp4,.webm" required></label><p class="help">MP4 or WebM · up to 12 MB.</p><label>Story<select name="story_id">'+stories().map(story=>'<option value="'+html(story.id)+'" '+(story.id===activeStory?'selected':'')+'>'+html(story.title)+'</option>').join('')+'</select></label><video controls style="width:100%;max-height:260px" hidden></video><label class="inline-check"><input name="reviewed" type="checkbox" required><span>I have reviewed this finished video and approve adding it to Video Library.</span></label><p role="status"></p><div class="row"><button type="submit">Upload Video</button><button type="button" class="secondary">Cancel</button></div></form>';
+  let objectURL;const preview=d.querySelector('video');d.querySelector('[name="video"]').onchange=e=>{if(objectURL)URL.revokeObjectURL(objectURL);const file=e.target.files[0];preview.hidden=!file;if(file){objectURL=URL.createObjectURL(file);preview.src=objectURL;}d.querySelector('[name="reviewed"]').checked=false;};
+  d.onclose=()=>{preview.pause();if(objectURL)URL.revokeObjectURL(objectURL);};d.querySelector('[type="button"]').onclick=()=>d.close();
+  d.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,file=form.elements.video.files[0],button=form.querySelector('[type="submit"]'),status=form.querySelector('[role="status"]');if(!file)return;if(file.size>12*1024*1024){status.textContent='Choose a video no larger than 12 MB.';window.EccoErrors?.show(status.textContent);return;}button.disabled=true;status.textContent='Uploading video…';try{const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('Could not read video.'));reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.readAsDataURL(file);});const asset=await api('images/upload',{media:'video',name:file.name,data,story_id:form.elements.story_id.value,reviewed:form.elements.reviewed.checked});selectedVideoId=asset.id;await refresh();d.close();videoLibrary();q('#workspace-video-library').open=true;notice('Video uploaded to Video Library.');}catch(error){window.EccoErrors?.show(error);status.textContent=error.message;}finally{button.disabled=false;}};
+  d.showModal();
+ }
+ function videoLibrary(){
+  const group=q('#workspace-library-group .workspace-library-content');if(!group)return;
+  let library=q('#workspace-video-library');if(!library){library=disclosure('Video Library','ecco-video-library');library.id='workspace-video-library';group.append(library);}const story=q('.project');if(story&&library.nextElementSibling!==story)story.before(library);
+  const list=videoLibraryAssets();
+  if(!list.some(v=>v.id===selectedVideoId))selectedVideoId='';
+  const signature=JSON.stringify(list.map(v=>[v.id,v.title,v.upload_state]));if(library.dataset.signature===signature+selectedVideoId)return;library.dataset.signature=signature+selectedVideoId;
+  const body=library.querySelector('.workspace-library-content');body.replaceChildren();
+  const upload=document.createElement('button');upload.type='button';upload.className='workspace-upload tree-upload secondary';upload.textContent='Upload Video';upload.onclick=uploadVideoDialog;body.append(upload);
+  if(!list.length){const empty=document.createElement('p');empty.className='help';empty.textContent='Reviewed and approved videos appear here.';body.append(empty);}
+  const choices=document.createElement('div');choices.className='video-publish-choices';choices.setAttribute('role','radiogroup');choices.setAttribute('aria-label','Video to publish on YouTube');body.append(choices);
+  for(const video of list){
+   const row=document.createElement('div');row.className='video-publish-row';
+   const label=document.createElement('label');label.className='video-publish-choice';
+   const radio=document.createElement('input');radio.type='radio';radio.name='youtube-library-video';radio.value=video.id;radio.checked=video.id===selectedVideoId;
+   const title=document.createElement('span');title.textContent=video.title||'Untitled video';label.append(radio,title);row.append(label);
+   radio.onchange=()=>{if(!radio.checked)return;selectedVideoId=video.id;library.dataset.signature=signature+selectedVideoId;publish.disabled=false;publish.title='Publish '+(video.title||'selected video');};
+   const remove=document.createElement('button');remove.type='button';remove.className='workspace-delete';remove.textContent='×';remove.setAttribute('aria-label','Delete video '+(video.title||'Untitled video'));remove.onclick=()=>action(async()=>{await api('trash',{asset_id:video.id});if(selectedVideoId===video.id)selectedVideoId='';await refresh();videoLibrary();notice('Video moved to Trash.');});row.append(remove);choices.append(row);
+  }
+  const footer=document.createElement('div');footer.id='workspace-youtube-row';
+  const publish=document.createElement('button');publish.id='workspace-youtube';publish.type='button';publish.className='secondary tree-upload';publish.textContent='Publish';publish.disabled=!selectedVideoId;publish.title=selectedVideoId?'Publish the selected video':'Select one video to publish';publish.onclick=()=>{if(!selectedVideoId)return;publishMenu();};footer.append(publish);body.append(footer);
+ }
+
+ function storySetupPage(savedId){
+  if(window.EccoStoryWorkspace)return window.EccoStoryWorkspace.openSetup(savedId);
+  if(!savedId&&!activeStory&&!newStoryStarted){startNewStory();return;}
+  const localSelection=savedId==='pending'?{...readStory('ecco-new-story-draft'),boardDraft:readStory('ecco-board-new-draft')}:savedId?readStory('ecco-story-setup:'+savedId):null;
+  if(savedId){preserveNewStoryDraft();persistDraft();newStoryStarted=true;}
+  page='story-setup';
+  q('#workspace-entry')?.remove();
+  q('#heading').textContent='Describe your story';
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.id==='workspace-new-story'));
+  const key=savedId&&savedId!=='pending'?'ecco-story-setup:'+savedId:activeStory&&!savedId?'ecco-story-description:'+activeStory:'ecco-new-story-draft';
+  let saved=localSelection||storyDescription();
+  if(!savedId&&activeStory){
+   const record=stories().find(story=>story.id===activeStory),board=loadDraft();
+   if(!saved.audio_preparation&&record?.audio_preparation){const p=record.audio_preparation;saved={...saved,audio_preparation:JSON.stringify(p),story_format:'audio',genre:p.genre,audio_audience:p.audience,audio_language:p.language,audio_tone:p.tone,audio_language_style:p.language_style,audio_language_style_instructions:p.language_style_instructions,sourceText:p.source_text||'',audio_source_scope:p.source_scope,audio_source_name:p.source_name,audio_source_pages:JSON.stringify(p.source_pages||[]),audio_source_selection:p.source_selection};}
+   saved={...saved,cloudId:activeStory,story_format:saved.story_format||board.story_format,title:board.title||record?.title||'',summary:saved.summary??record?.summary??''};
+  }
+  saved.story_format=['audio','video'].includes(saved.story_format)?saved.story_format:(saved.cloudId?'video':'');
+  localStorage.setItem(key,JSON.stringify(saved));
+  activeStory=saved.cloudId||'';localStorage.setItem('ecco-active-story',activeStory);
+  const localBoard=savedId?saved.boardDraft:readStory('ecco-board-new-draft');
+  draft=activeStory?loadDraft():{...(localBoard||defaultDraft),story_id:'',title:saved.title||'',story:saved.sourceText||saved.summary||localBoard?.story||'',scenes:structuredClone(localBoard?.scenes||[])};draft.story_format=saved.story_format;persistDraft();
+  if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(saved));
+  const genres=['News','Romantic','Horror','Scientific','Science Fiction','Documentary','Educational','Animation','Action','Adventure','Comedy','Drama','Fantasy','Mystery','Thriller','Other'];
+  q('#page').innerHTML='<form id="story-setup-form" class="form"><label data-story-format>Story Format<select name="story_format" required><option value="">Choose Audio or Video</option><option value="audio">Audio</option><option value="video">Video</option></select></label><label>Story Title<input name="title" maxlength="160" required placeholder="Enter your story title"></label><label>Genre<select name="genre"><option value="">Select a genre</option>'+genres.map(g=>'<option>'+g+'</option>').join('')+'</select></label><label>Story Idea / Summary<textarea name="summary" maxlength="4000" placeholder="Describe your story, characters and setting"></textarea></label><div class="row"><button type="submit">Save & Continue to Storyboard</button></div><p role="status" data-story-status></p></form>';
+  const form=q('#story-setup-form'),status=form.querySelector('[data-story-status]');form.dataset.draftKey=key;
+  for(const name of ['story_format','title','genre','summary'])form.elements[name].value=saved[name]||'';
+  if(savedId)selectedJourneyStory=activeStory;
+  // Restoring draft text is not a format choice in a new browser session.
+  if(saved.workflow_id)selectedJourneyStory=activeStory;else if(selectedJourneyStory!==activeStory)form.elements.story_format.value='';
+  window.EccoStoryJourneys?.setup(form,saved);
+  const save=event=>{if(!form.isConnected)return saved;if(event?.target===form.elements.summary&&form.elements.sourceText&&!form.elements.audio_preparation?.value)form.elements.sourceText.value='';const data=Object.fromEntries(new FormData(form));if(form.dataset.preparationDraft==='true'||saved.preparationDraft)data.preparationDraft=true;if(saved.cloudId)data.cloudId=saved.cloudId;if(saved.localDraftId)data.localDraftId=saved.localDraftId;if(saved.parent_story_id)data.parent_story_id=saved.parent_story_id;if(saved.source_asset_ids)data.source_asset_ids=saved.source_asset_ids;if(!activeStory)localStorage.setItem('ecco-new-story-draft',JSON.stringify(data));localStorage.setItem(key,JSON.stringify(data));draft.title=data.title||'';draft.story=(data.audio_preparation?data.summary:data.sourceText||data.summary)||'';draft.story_format=data.story_format;persistDraft();if(event?.target===form.elements.story_format){window.EccoAudioJourney?.mountSetup();selectedJourneyStory=activeStory;productionGroup();journeyGuide();}status.textContent='';return data;};
+  form.addEventListener('input',save);form.addEventListener('change',save);
+  form.onsubmit=async event=>{
+   event.preventDefault();
+   const button=form.querySelector('[type="submit"]');if(button.disabled||!form.reportValidity())return;
+   let data=save();try{data=window.EccoAudioJourney?.collectSetup(form,data)||data;}catch(error){status.textContent=error.message;return;}
+   const targetStory=activeStory,targetDraft=structuredClone(draft),idleLabel=button.textContent;
+   setGenerationBusy(button,true,'Saving Story…',idleLabel);status.textContent='';
+   try{
+    const created=saved.cloudId&&!data.audio_preparation?{id:saved.cloudId}:await api('stories',{title:data.title,summary:data.summary,...(data.audio_preparation?{story_id:saved.cloudId||null,audio_preparation:JSON.parse(data.audio_preparation)}:{})});
+    if(!created?.id)throw Error('Storage did not confirm the saved story. Your draft is preserved.');
+    const confirmed={...state.records.find(r=>r.id===created.id),...created,kind:'story',title:data.title,summary:data.summary};
+    state.records=[...state.records.filter(r=>r.id!==created.id),confirmed];
+    data.cloudId=created.id;saved=data;
+    let nextDraft={...targetDraft,story_id:created.id,title:data.title,story:data.sourceText||data.summary,story_format:data.story_format};
+    nextDraft=window.EccoAudioJourney?.handoff(data,created.id,nextDraft)||nextDraft;
+    localStorage.setItem('ecco-story-description:'+created.id,JSON.stringify(data));
+    localStorage.setItem('ecco-board-draft:'+created.id,JSON.stringify(nextDraft));
+    if(data.sourceText)localStorage.setItem('ecco-story-source:'+created.id,data.sourceText);
+    window.EccoStoryCollections.assign(created.id,data.collection_id);
+    const id=savedId&&savedId!=='pending'?savedId:data.localDraftId||crypto.randomUUID();
+    localStorage.setItem('ecco-story-setup:'+id,JSON.stringify(data));
+    const savedStories=JSON.parse(localStorage.getItem('ecco-saved-story-setups')||'[]').filter(story=>story.id!==id);
+    localStorage.setItem('ecco-saved-story-setups',JSON.stringify(savedStories));savedId=id;
+    const stillEditing=form.isConnected&&activeStory===targetStory;
+    if(stillEditing){localStorage.setItem(key,JSON.stringify(data));activeStory=created.id;selectedJourneyStory=activeStory;localStorage.setItem('ecco-active-story',activeStory);draft=nextDraft;persistDraft();}
+    if(!stillEditing||!form.isConnected||activeStory!==created.id)return;
+    q('.project .workspace-library')?.remove();storyTree();status.textContent='Story saved.';navigate(data.story_format==='audio'&&data.audio_preparation?'audio':window.EccoStoryJourneys?.steps([])?.[1]?.[0]||'board');
+    // The acknowledged record is already available. Normal workspace polling refreshes the rest in the background.
+   }catch(error){window.EccoErrors?.show(error);status.textContent='Could not save story: '+error.message;}
+
+   finally{setGenerationBusy(button,false,'',idleLabel);}
+  };
+ }
+
+ const journeyLabels={'story-setup':'Describe Your Story',board:'StoryBoard Your Story',audio:'Create Audio for Your Story',images:'Create Images for Your Story',render:'Create Videos for Your Story','journey-preview':'Publish Your Story'};
+ const journeySteps=[
+  ['story-setup','Describe your story','Give your story a name and a short description.'],
+  ['board','Review the storyboard','Split your story into scenes, then review the action and dialogue.'],
+  ['audio','Create voices and sound','Prepare dialogue or narration for each scene and preview the audio.'],
+  ['images','Choose scene images','Choose or make images, enhance them, then publish them.'],
+  ['render','Animate and sync','Animate your scene images. For dialogue, select LongCat, one image and a recording from Audio Library.'],
+  ['journey-preview','Publish Your Story','Review generated clips, download them, or open publishing. Full-film assembly and audio mixing are not connected yet.']
+ ];
+ function storyFormat(){
+  const field=q('#story-setup-form [name=story_format]');if(field)return field.value;
+  const read=key=>{try{return JSON.parse(localStorage.getItem(key)||'{}');}catch{return {};}};
+  const saved=read(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');
+  const board=read(activeStory?'ecco-board-draft:'+activeStory:'ecco-board-new-draft');
+  const value=(!activeStory&&saved.cloudId?'':saved.story_format)||board.story_format;
+  return ['audio','video'].includes(value)?value:activeStory?'video':'';
+ }
+ // Tell Your Story keeps only Describe Your Story (owner requests 18 Nov 2026): Create Images moved to
+ // Studios › Image Studio, and the old Create Audio / Create Videos workflows are no longer listed.
+ function currentJourneySteps(){return storyJourneySteps().filter(([target])=>target==='story-setup');}
+ function storyJourneySteps(){const saved=readStory(activeStory?'ecco-story-description:'+activeStory:'ecco-new-story-draft');if(saved.simple_workspace&&(!saved.cloudId||saved.cloudId===activeStory)){const output=saved.simple_workspace.output;return journeySteps.filter(([target])=>output==='audio'?!['images','render'].includes(target):output==='image'?!['audio','render'].includes(target):true);}if(sessionStorage.getItem('ecco-guided-mode')==='off')return journeySteps;const tailored=window.EccoStoryJourneys?.steps(null);if(tailored)return tailored;return selectedJourneyStory===activeStory&&storyFormat()==='audio'?journeySteps.slice(0,3):journeySteps;}
+ function journeyPreview(){navigate('publish');}
+ function productionGroup(){
+  const steps=currentJourneySteps().filter(([target])=>!['board','journey-preview'].includes(target)); // no StoryBoard or Publish entries, as on Tell Your Story
+  const nav=q('nav[aria-label="Production stages"]');if(!nav)return;
+  let group=q('#workspace-production-group');
+  if(!group){group=disclosure('Tell Your Story','ecco-production-expanded');group.id='workspace-production-group';group.classList.add('story-journey');nav.append(group);}
+  const body=group.querySelector('.workspace-library-content');
+  for(const button of [...nav.querySelectorAll('button[data-page]')]){
+   const target=button.dataset.page;
+   if(['characters','review','publish'].includes(target)){button.remove();continue;}
+   if(target==='models'){const activity=q('[data-category="Activity"] .workspace-menu-items');if(activity){button.hidden=false;button.textContent='Models & Settings';activity.prepend(button);}continue;}
+   if(target!=='story-collections'&&!steps.some(step=>step[0]===target))button.hidden=true;
+  }
+  body.querySelector('[data-page="story-collections"]')?.remove();
+  steps.forEach(([target,title],i)=>{
+   let button=target==='story-setup'?q('#workspace-new-story'):body.querySelector('button[data-page="'+target+'"]')||nav.querySelector('button[data-page="'+target+'"]');
+   if(!button){button=document.createElement('button');button.type='button';button.dataset.page=target;button.onclick=()=>navigate(target);}
+   if(target==='story-setup')button.id='workspace-new-story';
+   for(const duplicate of nav.querySelectorAll('button[data-page="'+target+'"]'))if(duplicate!==button)duplicate.remove();
+   button.hidden=false;button.classList.add('journey-step');
+   // A plain "-" before each entry, no numbers (owner request 18 Nov 2026).
+   const name=window.EccoStoryJourneys?.current()?title:journeyLabels[target]||title.replace(/\b[a-z]/g,c=>c.toUpperCase()),label='- '+name;if(button.textContent!==label){button.textContent='';const dash=document.createElement('span');dash.setAttribute('aria-hidden','true');dash.textContent='- ';button.append(dash,name);}
+   button.classList.toggle('active',page===target||(target==='board'&&page==='director')||(target==='journey-preview'&&page==='publish'));
+   if(button.parentElement!==body||[...body.querySelectorAll('.journey-step')].filter(step=>!step.hidden)[i]!==button)body.append(button);
+  });
+  q('#model-nav')?.setAttribute('hidden','');q('#workspace-publish')?.remove();
+ }
+ function journeyGuide(){
+  // The step guide still walks the whole journey; only the sidebar and home list are trimmed.
+  const steps=storyJourneySteps(),format=storyFormat();
+  const root=q('#page');if(!root)return;
+  let guide=q('#journey-guide');if(!guide){guide=document.createElement('section');guide.id='journey-guide';root.before(guide);}
+  const index=steps.findIndex(step=>step[0]===page||(step[0]==='board'&&page==='director'));
+  root.classList.toggle('story-journey-fields',index>=0||page==='story-collections'||page==='publish');
+  // Image Studio is a studio now, not a journey step: no step guide on it (owner request 18 Nov 2026).
+  const studio=page==='images'&&!!window.EccoImageWorkspace;
+  guide.hidden=index<0||studio||document.body.classList.contains('workspace-entry-mode');if(index<0||studio)return;
+  const step=steps[index],signature=page+':'+activeStory+':'+format+':'+steps.length;
+  if(guide.dataset.signature===signature)return;guide.dataset.signature=signature;
+  guide.innerHTML='<div><small>STEP '+(index+1)+' OF '+steps.length+'</small><h2>'+step[1]+'</h2><p>'+step[2]+'</p></div><div class="journey-actions">'+(index?'<button type="button" class="secondary" data-back>Back</button>':'')+(index<steps.length-1?'<button type="button" class="secondary" data-next>Next: '+steps[index+1][1]+'</button>':'')+'</div>';
+  guide.querySelector('[data-back]')?.addEventListener('click',()=>navigate(steps[index-1][0]));
+  guide.querySelector('[data-next]')?.addEventListener('click',()=>{if(page==='story-setup'){q('#story-setup-form')?.requestSubmit();return;}if(window.EccoJourneyFlow&&window.EccoStoryJourneys?.current()){window.EccoJourneyFlow.advance(steps[index+1][0],guide.querySelector('[data-next]'));return;}navigate(steps[index+1][0]);});
+  if(format==='video'&&index===1){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent=page==='director'?'Manual storyboard editor':'AI storyboard & previews';button.onclick=()=>navigate(page==='director'?'board':'director');guide.querySelector('.journey-actions').append(button);}
+  if(format==='video'&&step[0]==='images'){const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent='Assign images to scenes';button.onclick=()=>navigate('board');guide.querySelector('.journey-actions').append(button);}
+ }
+
+ const learningTopics=[{"id":"workflow","title":"Story to Finished Media","sections":[["Six Steps","New Story and Go to Studio open Tell Your Story with the workflow options. Describe Your Story opens Details, Story, Characters, Script, Generate and Publish in one workspace. Choose Existing Story to resume saved work."],["Details","Enter Story Name, Output (Audio, Image or Video), Story Type, Genre, audience age group, language and optional location. Drafts save in this browser; Generate requires connected workspace storage."],["Story","Choose Upload PDF, Generate With AI or Write Yourself. Story Type, Genre / Topic, Audience and Language sit above the tabs and also update Details. Improve with AI keeps three drafts; choose one and select Use AI Text. Generate Script turns the text into a turn-by-turn script for review."],["Characters","Edit names, voices, accents and appearances, or select Recommend with AI."],["Script","Review or edit the applied script. For multiple speakers use Name: spoken words, separated by blank lines."],["Generate","The selected studio opens in the Story Generation step with the script and characters prepared. Expand Advanced for model and technical controls. Video offers Prepare Audio and Prepare Images here. Click Generate explicitly, watch real progress, then review the result. Return to earlier tabs without deleting finished outputs."],["Publish or Continue a Series","Download images or audio from their previews. For supported videos, approve the result and choose Publish to select a destination and publishing time. Recurring stories offer Start next episode / chapter with retained settings and blank content; this does not enable an automatic schedule."]]},{"id":"connections","title":"Sign-in and Connections","sections":[["Connect Each Service","Open + on the connection control panel, then Connections. Sign-in identifies you; Storage loads the workspace; AI supports writing and research; GPU supplies available image/video compute. YouTube authorization is separate. Browsing saved work does not require a GPU, but workspace storage must be reachable."],["Persistent Connections","Saved sign-in and storage access survive refresh and browser restart in the same browser profile. Saved GPU choices are retained through temporary outages and checked again for readiness. Clearing browser data, using a different browser/device or revoking access can require reconnection. Persistence cannot keep a stopped machine available."],["Choose the Correct Compute","Connections → GPU lists instances by accelerator class. Select the intended instance and connect it. A running RunPod pod still needs a responding generation service and relay. Use the displayed availability and details rather than assuming that power-on means ready. Audio also supports registered CPU instances in its Compute dropdown."],["Disconnect Deliberately","Open + → Disconnect and select the service. For GPU, choose the instance in the matching accelerator menu. Disconnecting one service leaves other saved connections alone. Disconnecting a GPU does not stop the rented pod or cancel an accepted job; use Stop for generation cancellation."]]},{"id":"sources","title":"Upload, Select and Save Drafts","sections":[["Choose Your Source","Use Upload in Describe Your Story, or Upload Paper / Text inside Generate with AI. Open Preview & Select. PDF pages scroll continuously; resize the preview and selected-text areas as needed. Use the file close control to clear the preview."],["Select Pages, Passages or a Chapter","Highlight passages or select physical PDF page ranges. Find Chapter with AI locates and verifies chapter boundaries; review the chapter title, pages and extracted text before Apply. Distinct selections append in selection order. Edit unwanted text out of Selected Source Text; Find and Replace changes that selected text, not the PDF."],["Control What Goes to AI","Review the selected source before Read Source or Apply. Audio source selection currently accepts up to 20,000 characters; this is separate from PDF page count and spoken-script limits. Chapter location may inspect the outline and boundary pages. Narrative generation uses the applied excerpts, not every story in the book."],["Minimize and Resume","Minimize keeps the open popup stack and fields in this tab. Resume popups restores it after you visit another screen or Connections. To survive refresh, use Save Draft in preparation or source selection, then Resume Saved Draft or Resume Saved Selection. These drafts and uploaded source files are browser-local; save the completed story to workspace storage for durable reuse."]]},{"id":"audio","title":"AI Scripts, Characters and Voices","sections":[["Source → Questions → Characters → Script","Generate with AI follows these four steps. Choose genre, audience, language, Language Style and Tone; answer clarifications and optionally describe Opening and Closing. Leave a bookend blank to omit it. Interface instructions stay English while the spoken script uses the chosen language."],["Plan Characters and Turns","Review character count, names, roles and speaking styles before generation. Save Characters stores a reusable cast in this browser. Number of Turns is editable. If AI returns a different count, review the retained draft and explicitly continue with that count or adjust and regenerate."],["Review and Improve the Final Script","Final Script contains the Spoken script overview followed by numbered turns. Generate with AI creates a proposal; Improve with AI works on the highlighted passage. Review the suggested replacement and Apply it. Existing recordings do not change when you edit text: generate again to hear the revision."],["Assign and Preview Voices","Choose an available model and expand its settings. Additional Controls has a tab per character for supported voice, language/accent, style, emotion, pitch, speed and pause settings. Preview voices before a full run. Available voices and controls depend on the model and installed worker; a listed model is not a promise that every voice or language is ready."],["Select CPU or GPU and Generate","In Compute, select the intended registered CPU instance or connected GPU. CPU entries show their name, capacity and readiness. An unavailable selected instance is retained; the app must not silently send work elsewhere. Check the Final Script, Generate once, and watch Progress. Review the result and save its name and labels in Audio Library."]]},{"id":"sounds","title":"Sound Effects, Music and Progress","sections":[["Add Sound at the Right Turn","In Final Script, use Add Sound beside a numbered turn. Give the cue a unique name and choose effect, ambience or background music. Attach an existing Audio Library file, upload one, or describe and generate a sound. Expand the cue for settings and timing; preview it before the final recording."],["AI-Assisted Sound Preparation","With music and effects enabled, Generate audio prepares missing sound assets before speech and mixing. An enabled plan without cues first requests AI suggestions. Existing assigned sounds are preserved. Generated sounds need a ready, qualified sound model on the selected compute; unavailable capabilities produce an error instead of silently dropping the soundtrack."],["Set Timing and Mix","Use passage timing or an exact After These Words trigger. Choose volume, fades, looping for background beds and softening during speech. Review cue timing again after editing the script. Music & Effects remains available for editing the overall sound plan."],["Read Real Progress","Progress shows the actual generation stage. Speech uses worker counts such as Generating Speech: 1 of 14 passages complete; before counts arrive, the indicator is indeterminate. Sound generation and final mixing have their own statuses. Confirmed sound jobs can resume polling after interruption; check Activity before retrying an uncertain submission."]]},{"id":"images-video","title":"Images and Video Assembly","sections":[["Generate or Edit an Image","Choose model and compute; expand Settings only when needed. Select reference images from Image Library and check the selected thumbnails. Describe what to preserve and what to change, or use a prompt for a new image. Generate/Improve with AI helps prepare the prompt; it does not itself run image generation."],["Review Image Controls and Results","Object controls apply to the selected reference and object, such as a person or vehicle. Check the composed prompt in Final Script. Progress tracks the current request; Review displays its generated output. Use Image Library for previously saved images rather than treating the current-session preview as the whole library."],["Build Video from Reviewed Assets","In Video Studio, choose the model, images/avatar, audio and shots for the selected story. Review the audio script and shot breakdown in Final Script. Set durations so the selected shots cover the full speech, including pauses; the total duration display helps compare them. Lip sync and assembly depend on the selected video workflow and model."],["Edit and Monitor Shots","Select exactly one shot when using the shared Shot Controls button. Camera/framing/motion controls belong to visual output. Progress contains clip status and sequence controls; use Pause or Stop after next clip when offered. Review the resulting clips or assembled video before approval. Start with a short test: longer or stitched output does not guarantee continuity."]]},{"id":"libraries","title":"Libraries and Workspace Drive","sections":[["Browse Labels and All Content","Expand Library, then Story, Image, Audio, Video or Workflow Library. Select a root or parent label to browse its included content. Labels organize reusable assets. Use each library’s main-page actions to create labels, upload supported media, rename or manage selected items."],["Sort, Search and Filter","Use the controls at the right of the library header to filter text, choose recent items or media stage, and sort by date, name or supported file size. The count shows visible versus total items. Clear the filter if an expected item is hidden."],["Use List View and Metadata","Switch between available views. List view keeps media actions and adds creation time, model/status, and size or duration where available. A dash means the metadata is unavailable; it is not a zero-length file. Preview the selected item before reusing or publishing it."],["Delete, Restore and Find Files","Use the selected item’s delete control to move supported items to Trash. Open Trash near the bottom of the left navigation to restore items or permanently empty it. Settings → Workspace Drive provides file access. Deleting a library item and stopping a generation are different actions."]]},{"id":"workflows","title":"Workflow Automation","sections":[["Start from a Successful Recording","Use Workflow Library to build an audio workflow from a reviewed result. Keep source instructions, scene/turn planning, script adaptation, voice/model/compute settings and schedule explicit. Edit the relevant flowchart step when changing a single setting."],["Choose Fresh or Finite Content","Fresh News researches new items each run; podcast topic/paper and book-chapter workflows reuse their configured source. For a book, set the chapter progression and finite run count. For recurring news, choose the intended recurrence and research time range. Check the schedule timezone explicitly, for example 05:00 Asia/Kolkata."],["Save, Test and Enable","Save Workflow stores a paused definition. Run Now tests it without changing an existing schedule. Review Run History and the saved audio before Enable Schedule. Pause Schedule stops future scheduled runs. Edits do not replace the server definition until saved; scheduling requires the workspace service to advertise runner support."],["Know the Automation Boundary","The selected compute must be available at run time; a schedule does not provision a GPU or switch machines automatically. This audio workflow saves recordings; publishing is a separate step. Enabled sound-cue plans currently require individual-recording review and are not supported by scheduled audio workflows."]]},{"id":"publishing","title":"YouTube and Publishing","sections":[["Connect the Destination","Manage YouTube through + → Connections. Authorize the intended channel and verify its displayed name and identity. If setup is required, complete it there. Other platform tabs may be visible but remain unavailable until their connection and upload services are implemented."],["Choose Reviewed Videos","Open Publish and select YouTube. The production-video chooser can open Video or Audio Library with multi-select, Select all, Clear selection and Add selected. YouTube upload requires an eligible approved video; choosing audio does not automatically convert it to video. Check each selected item and its publishing title."],["Set Visibility, Playlists and Schedule","Review description, audience and visibility. Schedule reveals a future date/time using your browser’s local timezone. Optional playlists require playlist access enabled in Connections; choose an existing playlist or explicitly create one. Verify the destination and upload confirmation before Publish."],["Confirm the Result","Publishing shows a spinner and real queued/running status. Review the per-item attempt and Activity entry; use the YouTube link after the server confirms an uploaded video ID. A playlist warning can mean upload succeeded but playlist insertion failed. Do not upload again merely to fix that warning or an uncertain response."]]},{"id":"models","title":"Model Configuration Options","sections":[["Availability and Defaults","Choose the model for the task and verify that it is ready on the selected compute. A catalog entry or UI option does not mean its runtime is installed. Start from the model defaults and change one setting at a time."],["Prompt, Reference and Seed","Attach reference media through the library picker; mentioning a picture in text does not attach it. Describe subject, action, setting and intended changes. Use negative prompts only where supported. Keep model, seed and settings fixed for comparisons, while allowing for variation across runtimes."],["Quality, Memory and Duration","Higher image size, more sampling steps and longer clips can increase memory use and generation time. More steps or stronger guidance do not guarantee quality. Respect the selected model’s displayed size, duration, reference and language limits; test a short sample before a long production."]]},{"id":"activity","title":"Activity, Stop and Debugging","sections":[["Open Activity, Logs and Errors","Use the arrow at the workspace edge to open the sliding panel. Activity shows jobs and connection checks; Debugging shows request and result details; Errors records failures with available time, action, user and diagnostic context. Find the specific job ID rather than judging completion from a closed popup."],["Stop a Generation","Use Stop beside Generate in Image, Audio or Video Studio. It stops the current generation and prevents remaining preparation from launching more jobs. Stopping… means cancellation is awaiting confirmation. Completed media and drafts are retained. If Stop fails, read the error and retry; closing a popup, refreshing or Disconnect is not cancellation."],["Recover Without Duplicate Work","After an accepted job, monitor its status instead of generating again. If the response is uncertain, inspect Activity and the relevant library before resubmitting. Save drafts before refresh. Check story selection, labels, filters and Trash when work appears missing."],["Separate Connection and Model Errors","For storage, use + → Connections → Storage; a rejected key differs from an unreachable service. For GPU, inspect instance readiness and relay details even if RunPod shows it running. For model failures, check the worker error, selected model and supported settings. Do not paste credentials or Authorization headers into logs or tickets."]]},{"id":"support-learning","title":"Support, Notifications and Personal Settings","sections":[["Ask for Support and Track Replies","Use the headset to open a ticket with the failing action, timestamp and job ID. Keep replies in that ticket so separate issues retain separate histories. A headset count and highlighted ticket indicate unread support replies. Open the conversation and read the latest reply; closing its popup does not close the issue."],["Online Support and Issue Status","Online support joins a queue and becomes live when an available agent accepts it. The configured hours are 7 AM–11:59 PM Pacific. Outside live support, use ticket replies. Close issue resolves the issue while preserving history; Reopen issue lets you resume it. Availability and email delivery depend on the configured support service."],["Read Product Notifications","Open the bell beside the community/support controls. Unread announcements are bold. Click an announcement to mark it read: its bold styling clears and the unread count falls. The badge disappears when none remain. Announcement read state is scoped to your signed-in identity in this browser; support-ticket unread counts are separate."],["Choose a Theme and Review Usage","User Preferences → Themes offers Default, Dark Mode, Forest, Desert, Ocean and Dark Sky. Presets change colors while retaining controls and layout. Connected icons use the theme’s connected accent. The signed-in user menu provides Credit and Usage and Billing; review the displayed balance and costs rather than treating them as a guaranteed final provider bill."],["Maintain Your Learning Log","Expand Education and Learning → Learning Log. Add days and checklist activities, rename a day through its three-dot menu, and click activity text to edit it. Check a task to strike it through as complete. The Learning Log is a personal checklist, not a workflow scheduler."]]}];
+ function learningPage(id){
+  const topic=learningTopics.find(t=>t.id===id)||learningTopics[0];
+  page='education';document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();q('#heading').textContent='Education and Learning';q('#education-menu').open=false;
+  document.querySelectorAll('nav button.active').forEach(b=>b.classList.remove('active'));
+  q('#page').innerHTML='<section class="education-guide"><p class="eyebrow">USER GUIDE</p><h2>'+html(topic.title)+'</h2><div class="row">'+learningTopics.map(t=>'<button type="button" class="secondary" data-learning="'+t.id+'" aria-pressed="'+(t.id===id)+'">'+html(t.title)+'</button>').join('')+'</div>'+topic.sections.map((s,i)=>'<details class="panel" style="margin-top:16px" '+(!i?'open':'')+'><summary>'+html(s[0])+'</summary><p style="line-height:1.7">'+html(s[1])+'</p></details>').join('')+'<p class="help">This guide will grow as features and lessons are added.</p></section>';
+  q('#page').querySelectorAll('[data-learning]').forEach(b=>b.onclick=()=>learningPage(b.dataset.learning));journeyGuide();librarySelection();
+ }
+ function developmentPlanner(){
+  page='education';document.body.classList.remove('workspace-entry-mode');q('#workspace-entry')?.remove();q('#heading').textContent='Development planner';q('#education-menu').open=false;
+  const key='ecco-development-plan';let plan={title:'My development plan',steps:[]},message='';
+  try{const data=JSON.parse(localStorage.getItem(key)||'null');if(data&&typeof data.title==='string'&&Array.isArray(data.steps))plan={title:data.title,steps:data.steps.filter(s=>s&&typeof s.text==='string').map(s=>({text:s.text,done:!!s.done}))};}catch{message='The saved plan could not be read.';}
+  const save=()=>{try{localStorage.setItem(key,JSON.stringify(plan));message='Saved in this browser.';}catch{message='Could not save. Keep this page open and copy your steps before leaving.';}};
+  const render=()=>{
+   q('#page').innerHTML='<section class="form" id="development-planner"><h2>Development planner</h2><p class="help">Saved in this browser only. Plans are not synced across devices or shared with your workspace.</p><label>Plan name<input id="plan-title" maxlength="160" value="'+html(plan.title)+'"></label><form id="plan-add" class="row"><label style="flex:1">Next step<input name="step" maxlength="300" required placeholder="e.g. Review the opening scene"></label><button type="submit">Add step</button></form><p>'+plan.steps.filter(s=>s.done).length+' of '+plan.steps.length+' steps complete</p><ol>'+plan.steps.map((s,i)=>'<li class="panel" style="margin-bottom:10px"><label class="inline-check"><input type="checkbox" data-done="'+i+'" '+(s.done?'checked':'')+'><span>'+html(s.text)+'</span></label><div class="row"><button type="button" class="secondary" data-up="'+i+'" '+(!i?'disabled':'')+' aria-label="Move step '+(i+1)+' up">↑</button><button type="button" class="secondary" data-down="'+i+'" '+(i===plan.steps.length-1?'disabled':'')+' aria-label="Move step '+(i+1)+' down">↓</button><button type="button" class="secondary" data-remove="'+i+'" aria-label="Remove step '+(i+1)+'">×</button></div></li>').join('')+'</ol><p role="status">'+html(message)+'</p></section>';
+   q('#plan-title').onchange=e=>{plan.title=e.target.value;save();q('#development-planner [role=status]').textContent=message;};
+   q('#plan-add').onsubmit=e=>{e.preventDefault();const text=e.target.elements.step.value.trim();if(!text)return;plan.steps.push({text,done:false});save();render();q('#plan-add input').focus();};
+   q('#development-planner').querySelectorAll('[data-done]').forEach(b=>b.onchange=()=>{plan.steps[+b.dataset.done].done=b.checked;save();render();});
+   for(const [name,offset] of [['up',-1],['down',1]])q('#development-planner').querySelectorAll('[data-'+name+']').forEach(b=>b.onclick=()=>{const i=+b.dataset[name],j=i+offset;if(j<0||j>=plan.steps.length)return;[plan.steps[i],plan.steps[j]]=[plan.steps[j],plan.steps[i]];save();render();});
+   q('#development-planner').querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{plan.steps.splice(+b.dataset.remove,1);save();render();});
+  };render();journeyGuide();librarySelection();
+ }
+
+
+
+ function dayChecklists(body){
+  if(body.querySelector('#learning-days'))return;
+  const key='ecco-learning-days';let days,message='';
+  try{days=JSON.parse(localStorage.getItem(key)||'null');}catch{}
+  if(!Array.isArray(days)||!days.length)days=[{name:'Day 1',items:['Generate an image','Approve an image','Save a storyboard','Render a video','Connect GitHub','Connect YouTube'].map(text=>({text,done:false}))}];
+  days=days.filter(d=>d&&typeof d.name==='string'&&Array.isArray(d.items)).map(d=>({name:d.name,items:d.items.filter(i=>i&&typeof i.text==='string').map(i=>({text:i.text,done:!!i.done}))}));
+  if(!days.length)days=[{name:'Day 1',items:[]}];
+  const root=document.createElement('details');root.id='learning-days';root.className='education-tree';root.innerHTML='<summary>Learning Log</summary><div class="education-tree-body"></div>';body.append(root);
+  const content=root.querySelector('div'),opened=new Set();
+  const save=()=>{try{localStorage.setItem(key,JSON.stringify(days));message='Saved in this browser.';}catch{message='Could not save. Keep this page open and copy your checklist.';}};
+  const render=()=>{
+   content.innerHTML=days.map((day,d)=>'<details class="learning-day" data-day="'+d+'" '+(opened.has(d)?'open':'')+'><summary><span>'+html(day.name)+'</span><button type="button" class="learning-day-menu" data-rename-day="'+d+'" aria-label="Rename '+html(day.name)+'" title="Rename day">⋮</button></summary><div class="learning-activities">'+day.items.map((item,i)=>'<div class="learning-task"><input type="checkbox" data-day-check="'+d+':'+i+'" aria-label="Complete '+html(item.text)+'" '+(item.done?'checked':'')+'><button type="button" class="learning-task-text" data-day-edit="'+d+':'+i+'" aria-label="Edit task: '+html(item.text)+'" title="Edit task">'+html(item.text)+'</button><input type="text" data-day-text="'+d+':'+i+'" aria-label="Edit checklist item" maxlength="300" value="'+html(item.text)+'" hidden></div>').join('')+'<form data-add-item="'+d+'" class="learning-add-task"><input name="item" maxlength="300" required aria-label="New activity for '+html(day.name)+'" placeholder="New activity"><button type="submit">+ Add</button></form></div></details>').join('')+'<button type="button" id="learning-add-day">+ Add Day</button><p class="help" role="status">'+html(message||'Saved in this browser only.')+'</p>';
+   content.querySelectorAll('[data-day]').forEach(d=>d.ontoggle=()=>{const i=+d.dataset.day;if(d.open)opened.add(i);else opened.delete(i);});
+   content.querySelector('#learning-add-day').onclick=()=>{days.push({name:'Day '+(days.length+1),items:[]});opened.add(days.length-1);save();render();};
+   content.querySelectorAll('[data-rename-day]').forEach(button=>button.onclick=event=>{
+    event.preventDefault();event.stopPropagation();const i=+button.dataset.renameDay;
+    let dialog=q('#learning-rename-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='learning-rename-dialog';document.body.append(dialog);}
+    dialog.innerHTML='<form class="form"><h3>Rename day</h3><label>Day name<input name="name" maxlength="80" required></label><p role="status"></p><div class="row"><button type="submit">Save</button><button type="button" class="secondary">Cancel</button></div></form>';
+    const form=dialog.querySelector('form');form.elements.name.value=days[i].name;
+    dialog.querySelector('[type=button]').onclick=()=>dialog.close();
+    form.onsubmit=e=>{e.preventDefault();const name=form.elements.name.value.trim();if(!name){dialog.querySelector('[role=status]').textContent='Enter a day name.';return;}days[i].name=name;save();render();dialog.close();};
+    dialog.onclose=()=>content.querySelector('[data-rename-day="'+i+'"]')?.focus();
+    dialog.showModal();form.elements.name.focus();form.elements.name.select();
+   });
+   content.querySelectorAll('[data-day-check]').forEach(b=>b.onchange=()=>{const [d,i]=b.dataset.dayCheck.split(':').map(Number);days[d].items[i].done=b.checked;save();content.querySelector('[role=status]').textContent=message;});
+   content.querySelectorAll('[data-day-edit]').forEach(button=>{
+    const [d,i]=button.dataset.dayEdit.split(':').map(Number),input=button.nextElementSibling,checkbox=button.previousElementSibling,item=days[d].items[i];
+    const finish=(commit,returnFocus=false)=>{
+     if(input.hidden)return;
+     const text=input.value.trim();
+     if(commit&&text&&text!==item.text){item.text=text;save();content.querySelector('[role=status]').textContent=message;}
+     input.value=item.text;button.textContent=item.text;button.setAttribute('aria-label','Edit task: '+item.text);checkbox.setAttribute('aria-label','Complete '+item.text);
+     input.hidden=true;button.hidden=false;if(returnFocus)button.focus();
+    };
+    button.onclick=()=>{button.hidden=true;input.hidden=false;input.focus();input.select();};
+    input.onblur=()=>finish(true);
+    input.onkeydown=event=>{if(event.key==='Enter'||event.key==='Escape'){event.preventDefault();event.stopPropagation();finish(event.key==='Enter',true);}};
+   });
+   content.querySelectorAll('[data-add-item]').forEach(form=>form.onsubmit=e=>{e.preventDefault();const d=+form.dataset.addItem,text=form.elements.item.value.trim();if(!text)return;days[d].items.push({text,done:false});opened.add(d);save();render();});
+  };render();
+ }
+
+ function educationMenu(){
+  const menus=q('#workspace-menus'),list=q('#checklist');if(!menus||!list)return;
+  let menu=q('#education-menu');if(!menu){menu=document.createElement('details');menu.id='education-menu';menu.className='workspace-menu';menu.innerHTML='<summary>Education and Learning<span aria-hidden="true">⌄</span></summary><div class="workspace-menu-items education-content"><h3>Day 1 checklist</h3></div>';menu.addEventListener('toggle',()=>{if(menu.open)menus.querySelectorAll('details').forEach(other=>{if(other!==menu)other.open=false;});});menus.append(menu);}
+  const body=menu.querySelector('.education-content');
+
+  if(!body.querySelector('.education-links')){const links=document.createElement('div');links.className='education-links';const how=document.createElement('details');how.className='education-tree';how.id='education-how-to';how.innerHTML='<summary>How to</summary><div class="education-tree-body"></div>';links.append(how);const howBody=how.querySelector('div');for(const topic of learningTopics){const group=document.createElement('details');group.className='education-tree';const summary=document.createElement('summary');summary.textContent=topic.title;group.append(summary);const children=document.createElement('div');children.className='education-tree-body';topic.sections.forEach((section,index)=>{const b=document.createElement('button');b.type='button';b.textContent='− '+section[0];b.onclick=()=>{learningPage(topic.id);q('#page').querySelectorAll('.education-guide details').forEach((d,i)=>d.open=i===index);};children.append(b);});group.append(children);howBody.append(group);}body.prepend(links);}
+  if(list.parentElement!==body){const heading=list.parentElement.querySelector('.eyebrow');if(heading)heading.remove();body.append(list);}
+  list.hidden=true;const oldHeading=body.querySelector('h3');if(oldHeading)oldHeading.hidden=true;dayChecklists(body);
+ }
+ function welcomePage(){
+  page='welcome';document.body.classList.add('workspace-entry-mode');
+  let entry=q('#workspace-entry');
+  if(entry?.querySelector('#entry-continue-story')){entry.remove();entry=null;}
+  if(!entry){
+   entry=document.createElement('section');entry.id='workspace-entry';entry.setAttribute('aria-label','Ecco AI Labs Studios');
+   const logo=q('aside .brand img')||q('aside img'),brand=document.createElement('img');brand.className='entry-logo';brand.src=logo?.src||'logo-transparent.png';brand.alt='Ecco AI Labs logo';
+   const title=document.createElement('h1');title.innerHTML='Ecco AI Labs<span class="entry-subtitle">Studios</span>';
+   const choices=document.createElement('div');choices.className='row';choices.style.cssText='display:flex;flex-wrap:wrap;justify-content:center;gap:12px';
+   const create=document.createElement('button');create.id='entry-tell-story';create.type='button';create.textContent='Tell Your Story';
+   const resume=document.createElement('button');resume.id='entry-continue-story';resume.type='button';resume.className='secondary';resume.textContent='Continue with current story';resume.style.cssText='font-size:calc(15px - 2pt);padding:11px 28px;border-radius:8px';
+   choices.append(create);
+   const copyright=document.createElement('p');copyright.className='entry-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';
+   entry.append(brand,title,choices,copyright);document.body.append(entry);
+  }
+  q('#entry-tell-story').onclick=()=>{welcomePending=false;document.body.classList.remove('workspace-entry-mode');navigate('empty');};
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+ }
+ document.addEventListener('click',e=>{if(e.target.closest('button'))welcomePending=false;},true);
+ function creditsDialog(){let d=q('#workspace-credits-dialog');if(!d){d=document.createElement('dialog');d.id='workspace-credits-dialog';document.body.append(d);}d.innerHTML='<div class="form"><div class="section-head"><h2>Credits &amp; Usage</h2><button type="button" class="secondary" data-close>Close</button></div><p class="help">Your generation allowance and usage.</p><dl class="credits-details"><dt>Starting allowance</dt><dd>500 credits per user</dd><dt>Available balance</dt><dd>Available after sign-in is connected</dd><dt>Credits used</dt><dd>Not tracked yet</dd><dt>Renewal</dt><dd>Not configured</dd></dl><p role="status">Per-user quotas are not active yet. Google Workspace sign-in and server-side credit tracking must be connected before credits can be granted or deducted.</p></div>';d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();}
+ function accountCredits(){const menu=q('[data-category="Account"] .workspace-menu-items');if(!menu||q('#workspace-credits'))return;const b=document.createElement('button');b.id='workspace-credits';b.type='button';b.textContent='Credits & Usage';b.onclick=()=>{menu.closest('details').open=false;creditsDialog();};menu.prepend(b);}
+ function modernize(){const footer=q('.side-bottom');if(footer&&!q('#workspace-copyright')){const copyright=document.createElement('p');copyright.id='workspace-copyright';copyright.textContent='© '+new Date().getFullYear()+' Ecco AI Labs India Pvt Ltd. All rights reserved.';footer.append(copyright);}document.title='Ecco AI Labs Studios';if(typeof names!=='undefined')for(const key of Object.keys(names))names[key]=names[key].replace(/\bstudio\b/gi,'Studios').replace(/\b(Image|Video) Studios\b/g,'$1 Studio');document.querySelectorAll('aside small,aside span,aside p').forEach(el=>{if(!el.children.length&&el.textContent.trim().toLowerCase()==='production studio')el.textContent='Studios';});ribbon();accountCredits();imageReferencePicker();imageTree();storyTree();libraryGroup();productionGroup();educationMenu();videoLibrary();imageLabels();acceleratorDisplay();}
+ if(typeof storyControls==='function'){const previous=storyControls;storyControls=function(...args){const result=previous.apply(this,args);const picker=q('#story-picker'),selectStory=picker?.onchange;if(selectStory)picker.onchange=function(event){const selected=selectStory.call(this,event);selectedJourneyStory=activeStory||undefined;productionGroup();journeyGuide();if(activeStory&&storyFormat()==='audio')navigate('board');return selected;};modernize();return result;};}
+ if(typeof wireCards==='function'){const previous=wireCards;wireCards=function(...args){const result=previous.apply(this,args);imageLabels();return result;};}
+ document.addEventListener('click',e=>{document.querySelectorAll('.workspace-menu[open]').forEach(d=>{if(!e.composedPath().includes(d))d.open=false;});});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.workspace-menu[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus();});});
+ function capturePopupContext({navigation=false}={}){
+  const restoreWorkspace=window.EccoStoryWorkspace?.captureContext();
+  const root=q('#page'),nodes=[...root.childNodes],heading=q('#heading').textContent,origin={page,activeStory,draft,refinementSource,savedBoard,newStoryStarted,selectedJourneyStory},pending=readStory('ecco-new-story-draft');
+  const pageAttrs={role:root.getAttribute('role'),label:root.getAttribute('aria-labelledby')},focus=document.activeElement,scroll=window.scrollY;
+  const modes=['workspace-entry-mode','story-choice-mode'].filter(name=>document.body.classList.contains(name));let parking=null;
+  return {
+   suspend(){if(parking||!nodes.some(node=>node.parentNode===root))return;parking=document.createElement('div');parking.hidden=true;parking.dataset.popupPage='';document.body.append(parking);parking.append(...nodes);},
+   restore(){
+    if(!parking&&!navigation)return;preserveNewStoryDraft();if(activeStory)persistDraft();if(navigation)window.EccoStoryWorkspace?.leave();
+    page=origin.page;activeStory=origin.activeStory;draft=origin.draft;refinementSource=origin.refinementSource;savedBoard=origin.savedBoard;newStoryStarted=origin.newStoryStarted;selectedJourneyStory=origin.selectedJourneyStory;
+    if(!activeStory&&pending.localDraftId&&readStory('ecco-new-story-draft').localDraftId!==pending.localDraftId)localStorage.setItem('ecco-new-story-draft',JSON.stringify(pending));
+    localStorage.setItem('ecco-active-story',activeStory);root.replaceChildren(...nodes);parking?.remove();parking=null;
+    document.body.classList.remove('workspace-entry-mode','story-choice-mode');document.body.classList.add(...modes);q('#heading').textContent=heading;
+    restoreWorkspace?.();document.querySelectorAll('[data-page]').forEach(button=>button.classList.toggle('active',button.dataset.page===page));productionGroup();journeyGuide();librarySelection();
+    if(navigation){for(const [key,value]of [['role',pageAttrs.role],['aria-labelledby',pageAttrs.label]]){if(value===null)root.removeAttribute(key);else root.setAttribute(key,value);}if(focus?.isConnected&&!focus.closest('[hidden]'))focus.focus({preventScroll:true});window.scrollTo(0,scroll);}
+   },
+   dispose(){if(parking){parking.remove();parking=null;}}
+  };
+ }
+ window.EccoWorkspaceUI={capturePopupContext,journeyStepIds:()=>storyJourneySteps().map(([target])=>target).filter(target=>!['board','journey-preview'].includes(target)),openLocalStory:storySetupPage,refreshJourney(){productionGroup();journeyGuide();},openLibrary(kind){if(kind==='video')libraryOverview('video');else if(kind==='audio')navigate('audio-library');},labelDialog,createFolder,uploadDialog,uploadVideoDialog,uploadStoryDialog,deleteStory,deleteLocalStory,localStoryDrafts,libraryCard,localTrashItems,trashLocalItem,openStory,startNewStory,preserveNewStoryDraft,persistWorkingDraft(){if(activeStory||newStoryStarted)persistDraft();},selectJourneyStory(id){selectedJourneyStory=id||undefined;productionGroup();journeyGuide();}};
+ const journeyObserver=new MutationObserver(()=>{productionGroup();journeyGuide();});journeyObserver.observe(q('#page'),{childList:true});journeyObserver.observe(q('nav'),{childList:true,subtree:true});
+ modernize();welcomePage();
+})();
+(()=>{
+ const icon='<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></svg>';
+ const deleted=()=>state.records.filter(r=>r.deleted&&!r.purged&&['story','board','board_draft','asset','image_folder','audio_folder'].includes(r.kind));
+ function trashIcon(){
+  const footer=document.querySelector('.side-bottom');if(!footer)return;
+  let controls=document.querySelector('#workspace-community-controls');
+  if(!controls){controls=document.createElement('div');controls.id='workspace-community-controls';controls.setAttribute('role','group');controls.setAttribute('aria-label','Community and source code');const connections=document.querySelector('#connection-indicators');if(connections)connections.after(controls);else document.querySelector('main > header .header-right').append(controls);}
+  let b=document.querySelector('#workspace-trash');if(!b){b=document.createElement('button');b.id='workspace-trash';b.type='button';b.className='secondary asset-icon';b.title='Trash';b.setAttribute('aria-label','Trash');b.innerHTML=icon;b.onclick=()=>navigate('trash');}if(b.nextElementSibling!==footer)footer.before(b);
+  if(!document.querySelector('#workspace-discord')){const discord=document.createElement('button');discord.type='button';discord.id='workspace-discord';discord.className='secondary asset-icon';discord.title='Discord';discord.setAttribute('aria-label','Discord');discord.setAttribute('aria-haspopup','dialog');discord.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52l-.6 1.23a18.4 18.4 0 0 0-5.66 0l-.61-1.23a19.7 19.7 0 0 0-4.89 1.52C.58 8.96-.26 13.43.16 17.84a19.8 19.8 0 0 0 6 3.03l1.23-2.01-1.93-.93.47-.37a14.15 14.15 0 0 0 12.14 0l.47.37-1.93.93 1.23 2.01a19.8 19.8 0 0 0 6-3.03c.5-5.11-.85-9.54-3.52-13.47ZM8.02 15.33c-1.18 0-2.15-1.09-2.15-2.43s.95-2.44 2.15-2.44 2.17 1.1 2.15 2.44c0 1.34-.95 2.43-2.15 2.43Zm7.96 0c-1.18 0-2.15-1.09-2.15-2.43s.95-2.44 2.15-2.44 2.17 1.1 2.15 2.44c0 1.34-.95 2.43-2.15 2.43Z"/></svg>';discord.onclick=()=>{let dialog=document.querySelector('#education-discord-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='education-discord-dialog';dialog.setAttribute('aria-label','Discord');dialog.innerHTML='<div class="form"><h2>Discord</h2><span class="badge pending">Not connected</span></div>';document.body.append(dialog);dialog.addEventListener('close',()=>discord.focus());}dialog.showModal();};controls.append(discord);}
+  if(!document.querySelector('#workspace-github')){const github=document.createElement('a');github.id='workspace-github';github.className='secondary asset-icon';github.href='https://github.com/ecco-ai-labs/ecco-studio';github.target='_blank';github.rel='noopener noreferrer';github.title='GitHub';github.setAttribute('aria-label','GitHub — Studio repository (opens in new tab)');github.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.24c-3.34.73-4.04-1.42-4.04-1.42-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.09 1.84 1.23 1.84 1.23 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.31-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.31-.53-1.53.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.87.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.22.69.83.58A12 12 0 0 0 12 .5Z"/></svg>';controls.append(github);}
+  const old=document.querySelector('#view-trash');if(old)old.hidden=true;
+ }
+
+ function positionCommunity(){const controls=document.querySelector('#workspace-community-controls'),connections=document.querySelector('#connection-indicators');if(controls&&connections&&connections.nextElementSibling!==controls)connections.after(controls);}
+ new MutationObserver(positionCommunity).observe(document.body,{childList:true,subtree:true});
+ const oldStories=storyControls;storyControls=function(...args){const r=oldStories.apply(this,args);trashIcon();return r;};
+ const oldBoards=renderSavedBoards;renderSavedBoards=function(...args){const r=oldBoards.apply(this,args);document.querySelectorAll('[data-load-board]').forEach(load=>{const id=load.dataset.loadBoard;const record=state.records.find(r=>r.id===id);if(record?.deleted){load.parentElement.remove();return;}if(load.parentElement.querySelector('[data-delete-board]'))return;const b=document.createElement('button');b.type='button';b.className='small secondary';b.dataset.deleteBoard=id;b.setAttribute('aria-label','Delete storyboard '+record?.title);b.title='Move revision to Trash';b.textContent='×';b.classList.add('workspace-delete');b.onclick=()=>action(async()=>{await api('trash/board',{id});notice('Storyboard revision moved to Trash.');});load.after(b);});return r;};
+ trashPage=function(){const items=deleted();document.querySelector('#page').innerHTML='<div class="section-head"><h2>Trash · all stories</h2><button id="empty-workspace-trash" class="secondary" '+(!items.length?'disabled':'')+'>Empty Trash ('+items.length+')</button></div><p class="help">Restore deleted items here. Empty Trash permanently removes the listed items and their local files; references to deleted images are removed from saved storyboards and characters. External copies and backups are unaffected.</p><div id="trash-items">'+items.map(r=>'<article class="panel section-head"><div><strong>'+esc(r.title||r.prompt||r.name||'Untitled image')+'</strong><p class="help">'+esc(r.kind==='board_draft'?'Current storyboard':r.kind==='board'?'Saved storyboard':r.kind==='asset'?(r.media||'Image'):r.kind)+'</p></div><button class="secondary" data-restore-item="'+r.id+'">Restore</button></article>').join('')+'</div>'+(items.length?'':'<p>Trash is empty.</p>');
+ document.querySelectorAll('[data-restore-item]').forEach(b=>b.onclick=()=>action(async()=>{const r=items.find(r=>r.id===b.dataset.restoreItem);if(r.kind==='story')await api('stories/archive',{story_id:r.id,restore:true});else if(r.kind==='asset')await api('trash',{asset_id:r.id,restore:true});else if(r.kind==='image_folder'||r.kind==='audio_folder')await api('trash/folder',{id:r.id,restore:true});else if(r.kind==='board')await api('trash/board',{id:r.id,restore:true});else{const key='ecco-board-draft:'+r.story_id;const existing=JSON.parse(localStorage.getItem(key)||'null');if(existing&&(existing.scenes?.length||existing.story)){await api('trash/draft',{story_id:r.story_id,draft:existing});}const restored=await api('trash/restore-draft',{id:r.id});localStorage.setItem(key,JSON.stringify(restored.draft));if(activeStory===r.story_id)draft=restored.draft;}notice('Restored.');}));
+ document.querySelector('#empty-workspace-trash').onclick=()=>{if(!confirm('Permanently delete all '+items.length+' items shown in Trash? Their local files and image references will be removed. This cannot be undone.'))return;action(async()=>{const result=await api('trash/empty',{ids:items.map(r=>r.id),confirmed:true});notice(result.purged_count+' items permanently deleted.');});};
+ };
+ trashIcon();
+})();
+
+/* Browser-owned drafts and workflows use the same reversible Trash view. */
+(()=>{
+ const previous=trashPage;
+ trashPage=function(...args){
+  const result=previous.apply(this,args),items=window.EccoWorkspaceUI.localTrashItems();if(!items.length)return result;
+  const section=document.createElement('section');section.className='form';section.innerHTML='<h3>Saved in this browser</h3>';
+  for(const item of items){const row=document.createElement('article');row.className='panel section-head';const label=document.createElement('strong');label.textContent=item.title;const restore=document.createElement('button');restore.type='button';restore.className='secondary';restore.textContent='Restore';restore.setAttribute('aria-label','Restore '+item.title);restore.onclick=()=>{
+   if(item.kind==='workflow'){const drafts=JSON.parse(localStorage.getItem('ecco-workflow-drafts')||'[]').filter(draft=>draft.id!==item.id);drafts.push(item.data);localStorage.setItem('ecco-workflow-drafts',JSON.stringify(drafts));}
+   else{const id=crypto.randomUUID();localStorage.setItem('ecco-story-setup:'+id,JSON.stringify({...item.data,id,localDraftId:id}));}
+   localStorage.setItem('ecco-local-library-trash',JSON.stringify({items:window.EccoWorkspaceUI.localTrashItems().filter(other=>other.id!==item.id||other.kind!==item.kind)}));storyControls();trashPage();notice('Restored.');
+  };row.append(label,restore);section.append(row);}
+  document.querySelector('#page').append(section);document.querySelector('#empty-workspace-trash').textContent='Empty workspace Trash';return result;
+ };
+})();
+
+/* Activity drawer edge control. */
+(()=>{
+ const panel=document.querySelector('#activity-panel'),original=document.querySelector('#toggle-activity'),close=document.querySelector('#close-activity');
+ if(!panel||!original||!close||document.querySelector('#activity-edge-arrow'))return;
+ const arrow=document.createElement('button');arrow.id='activity-edge-arrow';arrow.type='button';arrow.setAttribute('aria-controls','activity-panel');document.body.append(arrow);
+ const sync=()=>{const open=!panel.hidden;panel.inert=!open;arrow.textContent=open?'→':'←';arrow.title=open?'Close Activity, Logs and Errors':'Open Activity, Logs and Errors';arrow.setAttribute('aria-label',arrow.title);arrow.setAttribute('aria-expanded',String(open));arrow.classList.toggle('drawer-open',open);};
+ arrow.onclick=()=>{panel.hidden=!panel.hidden;original.setAttribute('aria-expanded',String(!panel.hidden));sync();};close.textContent='→';close.title='Close Activity, Logs and Errors';close.setAttribute('aria-label','Close Activity, Logs and Errors');close.onclick=()=>{panel.hidden=true;original.setAttribute('aria-expanded','false');sync();arrow.focus();};
+ new MutationObserver(sync).observe(panel,{attributes:true,attributeFilter:['hidden']});sync();
+ const style=document.createElement('style');style.textContent=`
+ #toggle-activity{display:none!important}
+ #activity-panel{display:block!important;position:fixed;top:0;right:0;bottom:0;width:min(480px,calc(100vw - 48px));box-sizing:border-box;z-index:90;transform:translateX(0);visibility:visible;transition:transform .25s ease,visibility .25s;overflow-y:auto}
+ #activity-panel[hidden]{display:block!important;transform:translateX(100%);visibility:hidden;pointer-events:none}
+ #activity-edge-arrow{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:91;width:40px;height:64px;padding:0;border-radius:10px 0 0 10px;font-size:calc(25px - 2pt);background:#38305e;color:#eeebf5;border:1px solid #70658c;transition:right .25s ease}
+ #activity-edge-arrow.drawer-open{right:min(480px,calc(100vw - 48px))}
+ body.workspace-entry-mode #activity-edge-arrow,body.workspace-entry-mode #activity-panel{display:none!important}
+ @media(prefers-reduced-motion:reduce){#activity-panel,#activity-edge-arrow{transition:none}}
+ `;document.head.append(style);
+})();
+
+
+/* Compose image instructions from the visible form for both creation and edits. */
+(()=>{
+ const fields=[
+  ['background','Background',['Family room','Studio backdrop','Garden','City street','Beach','Transparent background']],
+  ['posture','Posture',['Standing','Sitting','Lying down','Walking','Running','Jumping']],
+  ['age','Age',['Young','Adult','Older adult']],
+  ['gender','Gender',['Female','Male','Androgynous']],
+  ['ethnicity','Ethnicity',['South Asian','East Asian','Southeast Asian','Middle Eastern','Black / African','White / European','Latino / Hispanic','Mixed heritage']]
+ ];
+ const q=s=>document.querySelector(s);
+ function values(){const form=q('#image-form');if(!form)return {};const out={};for(const [key] of fields)out[key]=form.elements['image_'+key]?.value.trim()||'';return out;}
+ function genre(){const e=q('#image-style')||q('#image-form [name="image_style"]');if(!e||!e.value)return '';const label=e.selectedOptions?.[0]?.textContent?.trim()||e.value;return /as described|unspecified|keep original/i.test(label)?'':label;}
+ function compose(prompt,reference,style,settings){
+  const lines=[];
+  if(reference)lines.push('Edit the supplied reference image. The prompt and every selected control describe changes to this image, not an unrelated new image. Keep the same main subject, recognizable identity and species, except for changes explicitly requested below. Preserve unspecified details.');
+  if(prompt.trim())lines.push('Requested scene or changes: '+prompt.trim());
+  const looks={'3D animation':'Stylized three-dimensional animated-film rendering, sculpted rounded forms, expressive features, physically shaded materials and cinematic lighting','Cartoon':'Hand-drawn cartoon illustration with simplified shapes, expressive outlines and flat or cel-shaded colors','Origami':'Folded-paper art with visible creases, geometric paper planes and paper texture','Clay / claymation':'Handmade clay figures, tactile clay surfaces and stop-motion miniature-set lighting','Human / realistic portrait':'Anatomically realistic human portrait with natural skin texture and lifelike lighting','Photographic':'Photorealistic photography with natural textures and believable camera optics','Anime':'Japanese anime illustration with clean line art and cel shading','Watercolor':'Watercolor painting with translucent washes and visible paper texture','Oil painting':'Traditional oil painting with visible brushwork and rich pigments','Pixel art':'Pixel art with a limited palette and crisp deliberate pixel shapes'};
+  if(style)lines.push('Required visual style / genre: '+style+'. '+(looks[style]||'')+'. Apply this style to the entire image, including the subject and background.');
+  for(const [key,label] of fields)if(settings[key])lines.push(label+': '+settings[key]+'.');
+  if(settings.gender||settings.ethnicity)lines.push('Apply gender and ethnicity instructions only to human subjects; do not change an animal into a person.');
+  if(settings.age)lines.push('Interpret age appropriately for the subject species.');
+  lines.push('Use the selected controls as explicit requirements, overriding conflicting descriptions of those attributes in the free-text prompt.');
+  return lines.join('\n');
+ }
+ function preview(){const form=q('#image-form'),output=q('#image-effective-prompt');if(!form||!output)return;const reference=!!q('#studio-reference-image')?.value;output.value=compose(form.elements.prompt.value,reference,genre(),values());}
+ function mount(){
+  const form=q('#image-form');if(!form||form.dataset.generationStudio||q('#image-scene-controls'))return;
+  const section=document.createElement('fieldset');section.id='image-scene-controls';
+  const legend=document.createElement('legend');legend.textContent='Scene controls';section.append(legend);
+  const hint=document.createElement('p');hint.className='help';hint.textContent='Leave a box blank to keep the original detail, or leave it unspecified for a new image. Choose a suggestion or type your own.';section.append(hint);
+  for(const [key,title,options] of fields){const label=document.createElement('label');label.textContent=title;const input=document.createElement('input');input.name='image_'+key;input.placeholder='Keep original / unspecified';input.setAttribute('list','image-options-'+key);input.autocomplete='off';const list=document.createElement('datalist');list.id='image-options-'+key;for(const value of options){const option=document.createElement('option');option.value=value;list.append(option);}label.append(input,list);section.append(label);}
+  const anchor=(q('#image-style')||form.elements.prompt)?.closest('label');if(anchor)anchor.after(section);else form.prepend(section);
+  const details=document.createElement('details');details.id='image-prompt-preview';const summary=document.createElement('summary');summary.textContent='Instructions sent to the model';const output=document.createElement('textarea');output.id='image-effective-prompt';output.readOnly=true;output.rows=8;output.setAttribute('aria-label','Instructions sent to the model');details.append(summary,output);section.after(details);
+  form.addEventListener('input',preview);form.addEventListener('change',preview);form.addEventListener('click',()=>queueMicrotask(preview));preview();
+ }
+ if(typeof api==='function'){const previous=api;api=async function(path,payload,...rest){if((path==='images'||path==='image-edits')&&payload&&q('#image-form')&&!q('#image-form').dataset.generationStudio){const settings=values(),style=genre();payload={...payload,prompt:compose(String(payload.prompt||''),path==='image-edits'||!!payload.source_asset_id,style,settings)};}return previous.call(this,path,payload,...rest);};}
+ const observer=new MutationObserver(()=>{mount();});observer.observe(q('#page')||document.body,{childList:true,subtree:true});mount();
+ document.addEventListener('ecco-reference-change',preview);
+ window.EccoImageInstructions={compose};
+})();
+
+/* Reveal Activity, Logs and Errors at the right edge without reserving page space. */
+(()=>{
+ const arrow=document.querySelector('#activity-edge-arrow');
+ if(!arrow)return;
+ document.body.append(arrow);
+ const style=document.createElement('style');
+ style.textContent=`
+ body > #activity-edge-arrow{position:fixed;right:0;top:50%;width:34px;height:48px;min-width:34px;padding:0;border-radius:8px 0 0 8px;font-size:calc(21px - 2pt);color:var(--accent,#ffdc24);transform:translate(110%,-50%);opacity:0;pointer-events:none;transition:transform .2s ease,opacity .2s ease,right .25s ease}
+ body > #activity-edge-arrow.edge-near,body > #activity-edge-arrow.drawer-open,body > #activity-edge-arrow:focus-visible{transform:translate(0,-50%);opacity:1;pointer-events:auto}
+ body > #activity-edge-arrow.drawer-open{right:min(480px,calc(100vw - 48px))}
+ body > #activity-edge-arrow.has-active-jobs{width:56px}
+ @media(hover:none),(pointer:coarse){body > #activity-edge-arrow{transform:translate(0,-50%);opacity:.65;pointer-events:auto}body > #activity-edge-arrow.drawer-open{opacity:1}}
+ @media(prefers-reduced-motion:reduce){body > #activity-edge-arrow{transition:none}}
+ `;
+ document.head.append(style);
+ document.addEventListener('pointermove',event=>{
+  if(event.pointerType==='touch')return;
+  const threshold=arrow.classList.contains('edge-near')?76:16;
+  arrow.classList.toggle('edge-near',event.clientX>=document.documentElement.clientWidth-threshold);
+ },{passive:true});
+ document.documentElement.addEventListener('pointerleave',()=>arrow.classList.remove('edge-near'));
+})();
+
+/* Collapsible image control sections; edits clear only old completion notices. */
+(()=>{
+ const expansion=new Map();
+ function mount(){
+  const form=document.querySelector('#image-form');if(!form||form.dataset.generationStudio||form.dataset.collapsibleControls)return;
+  if(!form.querySelector('#image-scene-controls'))return;
+  form.dataset.collapsibleControls='1';
+  const children=[...form.children],heading=form.querySelector('h2');
+  const group=(title,key,nodes)=>{const present=nodes.filter(Boolean);if(!present.length)return;const details=document.createElement('details');details.className='image-control-section';details.open=expansion.get(key)??true;const summary=document.createElement('summary');summary.textContent=title;const body=document.createElement('div');body.className='image-control-body';details.append(summary,body);present[0].before(details);for(const node of present)body.append(node);details.addEventListener('toggle',()=>expansion.set(key,details.open));};
+  const at=children.indexOf(heading);if(at>0)group('Model & reference image','model',children.slice(0,at));
+  {const style=form.querySelector('#image-style')?.closest('label'),scene=form.querySelector('#image-scene-controls');const trigger=document.createElement('button');trigger.type='button';trigger.className='secondary';trigger.textContent='Scene controls';trigger.setAttribute('aria-haspopup','dialog');const dialog=document.createElement('dialog');dialog.className='scene-controls-dialog';dialog.setAttribute('aria-label','Scene controls');const body=document.createElement('div');body.className='form';const title=document.createElement('h2');title.textContent='Scene controls';const close=document.createElement('button');close.type='button';close.textContent='Done';body.append(title);(style||scene).before(trigger);if(style)body.append(style);body.append(scene,close);dialog.append(body);form.append(dialog);trigger.onclick=()=>dialog.showModal();close.onclick=()=>dialog.close();dialog.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName!=='BUTTON'){e.preventDefault();dialog.close();}});const count=()=>{const n=[...scene.querySelectorAll('input')].filter(i=>i.value.trim()).length;trigger.textContent='Scene controls'+(n?' · '+n+' selected':'');};dialog.addEventListener('input',count);}
+  group('Image prompt','prompt',[form.elements.prompt?.closest('label'),form.querySelector('#image-prompt-preview')]);
+  group('Advanced settings','advanced',[form.elements.negative?.closest('label'),form.elements.steps?.closest('.row'),form.elements.seed?.closest('label')]);
+  heading?.remove();
+  const clear=()=>{const key='ecco-image-job:'+activeStory,id=localStorage.getItem(key),job=state?.records.find(r=>r.kind==='job'&&r.id===id);if(job&&['done','failed','cancelled'].includes(job.status)){localStorage.removeItem(key);const status=form.querySelector('#image-status');if(status)status.textContent='';}};
+  form.addEventListener('input',clear);form.addEventListener('change',clear);
+ }
+ new MutationObserver(mount).observe(document.querySelector('#page')||document.body,{childList:true,subtree:true});mount();
+})();
+
+/* Visible background work and prompt-assistant connection status. */
+(()=>{
+ function update(){
+  const active=typeof state!=='undefined'&&(window.EccoPublishingStatus?.jobs()||state?.records||[]).filter(r=>r.kind==='job'&&['submitting','queued','running'].includes(r.status))||[];
+  for(const arrow of document.querySelectorAll('#activity-edge-arrow,#toggle-activity.activity-edge-toggle')){
+   const busy=active.length>0;arrow.classList.toggle('has-active-jobs',busy);let dots=arrow.querySelector('.activity-working-dots');if(busy&&!dots){dots=document.createElement('span');dots.className='activity-working-dots';dots.setAttribute('aria-hidden','true');dots.textContent='...';arrow.append(dots);}if(!busy&&dots)dots.remove();arrow.title=busy?active.length+' generation job(s) queued or running':'Activity, Logs and Errors';
+  }
+  for(const job of document.querySelectorAll('#jobs .job')){const status=[...job.querySelectorAll('.detail')].find(e=>/^(running|queued)$/.test(e.textContent.trim()));if(status&&!status.querySelector('.job-working-dots')){const dots=document.createElement('span');dots.className='job-working-dots';dots.textContent=' ...';dots.setAttribute('aria-hidden','true');status.append(dots);}}
+ }
+ setInterval(update,1000);update();
+})();
+
+/* Keep animated branding scoped to the welcome screen. */
+(()=>{function mount(){const logo=document.querySelector('#workspace-entry .entry-logo');if(!logo||logo.parentElement.classList.contains('entry-logo-motion'))return;const motion=document.createElement('div');motion.className='entry-logo-motion';logo.before(motion);motion.append(logo);for(let i=0;i<48;i++){const dot=document.createElement('span');dot.className='entry-logo-particle';dot.setAttribute('aria-hidden','true');motion.append(dot);}}new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});mount();})();
+
+/* Job diagnostics: explicit job input/output evidence, never raw configuration. */
+(()=>{
+ const q=s=>document.querySelector(s),safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ let captured={};try{captured=JSON.parse(localStorage.getItem('ecco-job-debug')||'{}');}catch{}let chosen='',signature='';
+ const oldApi=api;api=async function(path,payload,...rest){if(!['images','image-edits','videos','render'].includes(path)||!payload)return oldApi.call(this,path,payload,...rest);const submission={prompt:q('#image-form #image-effective-prompt')?.value||payload.prompt||'',model:payload.model||q('#job-model')?.value||'',reference_ids:payload.asset_ids||[payload.asset_id||payload.source_asset_id].filter(Boolean),submitted_at:Date.now()};const result=await oldApi.call(this,path,payload,...rest);if(result?.id){captured[result.id]=submission;const ids=Object.keys(captured);for(const id of ids.slice(0,Math.max(0,ids.length-30)))delete captured[id];try{localStorage.setItem('ecco-job-debug',JSON.stringify(captured));}catch{}}return result;};
+ function renderContent(){const root=q('#ecco-debug-view');if(!root||root.hidden||typeof state==='undefined'||!state)return;const jobs=(window.EccoPublishingStatus?.jobs()||state.records.filter(r=>r.kind==='job')).sort((a,b)=>b.created-a.created).slice(0,30);if(!jobs.some(j=>j.id===chosen))chosen=jobs[0]?.id||'';const job=jobs.find(j=>j.id===chosen),asset=job&&state.records.find(a=>a.kind==='asset'&&(a.id===job.asset_id||a.id===job.result||a.job_id===job.id)),input=captured[chosen],refIds=asset?.settings?.reference_ids||input?.reference_ids||[],refs=refIds.map(id=>state.records.find(a=>a.id===id)).filter(Boolean);const sig=JSON.stringify({jobs:jobs.map(j=>[j.id,j.label,j.status]),chosen,job:job&&{id:job.id,status:job.status,progress:job.progress,error:job.error,seconds:job.seconds,model:job.model,request:job.request,result:job.result,asset_id:job.asset_id},asset,input,refs});if(sig===signature)return;signature=sig;
+ if(job?.source_kind==='audio_job'||job?.kind==='audio_job'){
+  root.innerHTML='<label>Inspect job<select id="ecco-debug-job">'+jobs.map(j=>'<option value="'+safe(j.id)+'" '+(j.id===chosen?'selected':'')+'>'+safe((j.label||j.title||'Job')+' · '+j.status)+'</option>').join('')+'</select></label><h3>Audio Generation</h3><dl class="debug-facts">'+Object.entries({'Job ID':job.id,'Status':job.status,'Progress':job.progress||'No worker update yet','Model':job.model||job.request?.model,'Compute':(job.request?.compute||job.compute||'Not recorded').toUpperCase(),'Created':new Date(job.created*1000).toLocaleString(),'Output ID':job.asset_id||job.asset_ids?.join(', ')||'No output yet'}).map(([key,value])=>'<dt>'+safe(key)+'</dt><dd>'+safe(value||'—')+'</dd>').join('')+'</dl>'+(job.error?'<p class="debug-error">'+safe(job.error)+'</p>':'')+'<h3>Spoken Script</h3><textarea readonly rows="8" aria-label="Submitted audio script">'+safe(job.request?.lines?.map(line=>line.text).join('\n\n')||asset?.prompt||'Script not recorded for this job.')+'</textarea>';
+  q('#ecco-debug-job').onchange=e=>{chosen=e.target.value;signature='';render();};return;
+ }
+ if(job?.operation==='youtube.publish'){
+  root.innerHTML='<label>Inspect job<select id="ecco-debug-job">'+jobs.map(j=>'<option value="'+safe(j.id)+'" '+(j.id===chosen?'selected':'')+'>'+safe((j.label||'Job')+' · '+j.status)+'</option>').join('')+'</select></label><h3>YouTube publishing</h3><dl class="debug-facts">'+Object.entries({'Job / request ID':job.id,'Video':asset?.title||job.publishing_attempt?.title,'Asset ID':job.asset_id,'Channel':job.channel_id,'Status':job.status,'Progress':job.progress,'Visibility':job.visibility,'Playlist':job.playlist_id||'None','YouTube video ID':job.result||'Not returned'}).map(([key,value])=>'<dt>'+safe(key)+'</dt><dd>'+safe(value||'—')+'</dd>').join('')+'</dl>'+(job.error?'<p class="debug-error">'+safe(job.error)+'</p>':'');
+  q('#ecco-debug-job').onchange=e=>{chosen=e.target.value;signature='';render();};return;
+ }
+ root.innerHTML='<label>Inspect job<select id="ecco-debug-job">'+jobs.map(j=>'<option value="'+safe(j.id)+'" '+(j.id===chosen?'selected':'')+'>'+safe(new Date(j.created*1000).toLocaleTimeString()+' · '+(j.label||j.title||j.model||'Generation')+' · '+j.status)+'</option>').join('')+'</select></label>'+(job?'<dl class="debug-facts"><dt>Job ID</dt><dd>'+safe(job.id)+'</dd><dt>Status</dt><dd>'+safe(job.status)+'</dd><dt>Progress</dt><dd>'+safe(job.progress||'—')+'</dd><dt>Model</dt><dd>'+safe(job.model||job.request?.model||asset?.settings?.model||input?.model||'Not recorded for this job')+'</dd><dt>Elapsed</dt><dd>'+safe(job.seconds===undefined?'—':job.seconds.toFixed(1)+' seconds')+'</dd><dt>Output ID</dt><dd>'+safe(asset?.id||job.result||'No output yet')+'</dd></dl>'+(job.error?'<p class="debug-error">'+safe(job.error)+'</p>':'')+'<h3>Reference image sent</h3>'+(refs.length?refs.map(a=>'<figure><img class="debug-image" src="'+safe(media(a))+'" alt="Reference: '+safe(a.title||a.id)+'"><figcaption>'+safe(a.title||a.id)+' · '+safe(a.id)+'</figcaption></figure>').join(''):'<p class="help">'+(input&&!refIds.length?'No reference image recorded in this submission.':'Reference details unavailable for this job.')+'</p>')+'<h3>Submitted prompt</h3><textarea readonly rows="8" aria-label="Submitted prompt">'+safe(asset?.prompt||input?.prompt||'Prompt not recorded for this older job. New submissions will capture it here.')+'</textarea><h3>Output preview</h3>'+(asset?.media==='image'?'<img class="debug-image" src="'+safe(media(asset))+'" alt="Generated output">':asset?.media==='video'?'<video class="debug-image" src="'+safe(media(asset))+'" controls preload="metadata"></video>':'<p class="help">No output asset available.</p>')+(asset?.settings?'<h3>Recorded generation settings</h3><pre>'+safe(JSON.stringify(asset.settings,null,2))+'</pre>':''):'<p>No generation jobs yet.</p>');q('#ecco-debug-job').onchange=e=>{chosen=e.target.value;signature='';render();};
+ }
+ function render(){const root=q('#ecco-debug-view');if(!root||root.hidden)return;if(window.EccoActivityView.readingSelection(root)||(root.contains(document.activeElement)&&document.activeElement.tagName==='TEXTAREA')||(document.activeElement?.id==='ecco-debug-job'&&signature))return;window.EccoActivityView.preserveReading(root,renderContent);}
+ function mount(){const panel=q('#activity-panel'),jobs=q('#jobs');if(!panel||!jobs||q('#ecco-activity-tabs'))return;const tabs=document.createElement('div');tabs.id='ecco-activity-tabs';tabs.className='row';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Activity panel views');tabs.innerHTML='<button type="button" role="tab" aria-selected="true" aria-controls="jobs">Activity</button><button type="button" role="tab" aria-selected="false" aria-controls="ecco-debug-view" class="secondary">Debugging</button>';const root=document.createElement('section');root.id='ecco-debug-view';root.hidden=true;root.setAttribute('role','tabpanel');jobs.before(tabs);jobs.after(root);for(const button of tabs.children)button.onclick=()=>{const debugging=button.textContent==='Debugging';jobs.hidden=debugging;root.hidden=!debugging;for(const b of tabs.children){b.setAttribute('aria-selected',String(b===button));b.classList.toggle('secondary',b!==button);}render();};}
+ new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});setInterval(render,1000);mount();
+})();
+
+/* Accelerator color reflects its actual connection state. */
+(()=>{const style=document.createElement('style');style.textContent=`
+#connected-accelerator{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;background:transparent!important;color:#fff!important;border:0;box-shadow:none;cursor:default;flex:none}
+#connected-accelerator.accelerator-connected{color:var(--accent,#ffdc24)!important}
+#connected-accelerator:focus-visible{outline:2px solid #eeebf5;outline-offset:3px}
+`;document.head.append(style);})();
+
+
+
+
+
+
+
+
+
+
+

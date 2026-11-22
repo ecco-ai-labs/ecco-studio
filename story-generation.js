@@ -169,8 +169,11 @@
    q('[data-next-episode]',root).onclick=()=>ctx.nextEpisode?.();
   }
   q('[data-gen-settings]',root).textContent='Model Settings · '+LABEL[ctx.kind];q('[data-gen-settings]',root).hidden=ctx.kind==='image'||ctx.kind==='audio';
+  {const qb=q('[data-gen-queue]',root);if(qb&&(qb.dataset.kind||'image')!==ctx.kind)qb.remove();}
   if(ctx.kind==='image'&&window.EccoQueue&&!q('[data-gen-queue]',root)){window.EccoQueue.queueButton(q('.story-gen-actions',root));window.EccoQueue.parallel().then(n=>{queueParallel=n;});}
-  q('[data-gen-queue]',root)?.toggleAttribute('hidden',ctx.kind!=='image');
+  // Audio has the same Queue button (owner final mocks, 21 Nov 2026); it lists waiting audio recordings.
+  if(ctx.kind==='audio'&&window.EccoQueue&&!q('[data-gen-queue]',root))window.EccoQueue.queueButton(q('.story-gen-actions',root),{kind:'audio'});
+  q('[data-gen-queue]',root)?.toggleAttribute('hidden',ctx.kind!=='image'&&ctx.kind!=='audio');
   q('[data-next-episode]',root).hidden=!ctx.recurring;
   settingsDrawer(page);
   for(const child of [...page.children])if(child!==root&&child.id!=='story-gen-settings'&&child.id!=='story-simple-publishing'&&child.tagName!=='DIALOG'&&!child.hidden){child.hidden=true;child.dataset.storyGenHidden='';}

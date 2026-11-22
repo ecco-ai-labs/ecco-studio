@@ -6,7 +6,7 @@ from unittest import TestCase
 from unittest.mock import patch
 from audio_schema import validate, required_models, performance_direction
 from audio_queue import request_ready
-from mixed_worker import stitch
+from mixed_worker import stitch, synthesize
 
 
 class MixedVoices(TestCase):
@@ -25,6 +25,16 @@ class MixedVoices(TestCase):
         for model, language, voice in [('kokoro', 'Hindi', 'af_heart'), ('indic-parler', 'Tamil', 'hindi-rohit'), ('bad', 'English', 'default')]:
             with self.assertRaises(ValueError):
                 validate({'lines': [{'text': 'Test', 'model': model, 'language': language, 'voice': voice}]})
+
+    def test_one_model_for_every_line_is_a_single_model_job(self):
+        # Every character switched to Qwen3-TTS while Model Settings still says Chatterbox (21 Nov 2026).
+        r = validate({'model': 'chatterbox', 'compute': 'a100', 'pause': .35,
+                      'lines': [{'text': 'Hello there.', 'language': 'English', 'model': 'qwen3-tts', 'voice': 'warm-host-f'},
+                                {'text': 'Hi.', 'language': 'English', 'model': 'qwen3-tts', 'voice': 'warm-host-f'}]})
+        self.assertEqual(r['model'], 'qwen3-tts')
+        self.assertNotIn('mixed_models_version', r)
+        self.assertNotIn('exaggeration', r)
+        self.assertEqual(required_models(r), {'qwen3-tts'})
 
     def test_no_union_of_different_workers_or_silent_gpu_fallback(self):
         r = self.request()
@@ -72,3 +82,31 @@ class MixedVoices(TestCase):
             self.assertIn(value,direction)
         self.assertNotIn('UNSELECTED',direction)
         self.assertEqual(r['lines'][0]['text'],'The door opened.')
+
+    def test_failed_model_log_travels_with_the_error(self):
+        # Serverless deletes the job folder, so the child's own log must come out inside the error (21 Nov 2026).
+        import sys
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp)/'output.wav'
+            fail=[sys.executable,'-c','import sys; print("Traceback: kokoro could not load voice af_heart"); sys.exit(3)']
+            with patch('queue_worker.worker_command',lambda child,directory:(fail,{})):
+                with self.assertRaises(RuntimeError) as caught:
+                    synthesize(self.request(),out,Path(tmp))
+            self.assertIn('could not load voice af_heart',str(caught.exception))
+
+    def test_linked_script_imports_from_the_folder_it_was_started_from(self):
+        # Serverless: /workspace/ecco-audio/mixed_worker.py is a link to the volume copy (21 Nov 2026).
+        import os, subprocess, sys
+        here=Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as tmp:
+            for f in here.iterdir():
+                if f.is_file():
+                    os.symlink(f,Path(tmp)/f.name)
+            Path(tmp,'queue_worker.py').unlink()
+            Path(tmp,'queue_worker.py').write_text("def worker_command(child, directory):\n    raise SystemExit('linked-folder queue_worker')\n")
+            req=Path(tmp)/'request.json'
+            import json
+            req.write_text(json.dumps(self.request()))
+            Path(tmp,'out').mkdir()
+            run=subprocess.run([sys.executable,str(Path(tmp)/'mixed_worker.py'),'--request',str(req),'--output',str(Path(tmp)/'out'/'output.wav'),'--runtime',tmp],capture_output=True,text=True,cwd='/')
+            self.assertIn('linked-folder queue_worker',run.stderr+run.stdout)

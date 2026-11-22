@@ -28,7 +28,7 @@ def category(tag, attrs):
 def generate():
     # Include authored React surfaces; generated .mjs bundles are represented by
     # their TSX and CSS inputs rather than indexing a minified duplicate.
-    files = sorted(p for p in ROOT.rglob('*') if p.suffix in ('.js','.css','.html','.tsx') and not any(x in p.relative_to(ROOT).parts for x in ('.git','node_modules','design-system','scripts','tests')))
+    files = sorted(p for p in ROOT.rglob('*') if p.suffix in ('.js','.css','.html','.tsx') and not any(x in p.relative_to(ROOT).parts for x in ('.git','node_modules','design-system','scripts','tests','preview')))
     result = {'schemaVersion':1,'coverage':'Static source declarations, creation calls and style evidence. Not computed styles or a runtime DOM census. Dynamic expressions retained; repeated instances represented by their template.','sources':[], 'objects':[], 'styleBlocks':[], 'propertyAssignments':[]}
     for p in files:
         source = p.read_text(); name = p.relative_to(ROOT).as_posix()

@@ -55,3 +55,5 @@
 .gq-image-tab .story-gen-track{height:4px}
 .gq-image-tab[data-done] .story-gen-track>span{background:var(--ecco-theme-success,#7bcf9b)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Audio Queue (owner final mocks, 21 Nov 2026): audio recordings cannot be reordered. */
+.gq-dialog[data-kind=audio] [data-gq-act=top],.gq-dialog[data-kind=audio] .gq-grip{display:none}

@@ -1,0 +1,1481 @@
+// Generated from audio/model_catalog.json; keep both in sync.
+window.EccoAudioModels = [
+  {
+    "id": "indic-mio",
+    "name": "Simple Audio Model",
+    "license": "Apache-2.0",
+    "languages": [
+      "Hindi",
+      "Urdu",
+      "English",
+      "Tamil",
+      "Punjabi",
+      "Assamese",
+      "Bengali",
+      "Bodo",
+      "Dogri",
+      "Gujarati",
+      "Kannada",
+      "Kashmiri",
+      "Konkani",
+      "Maithili",
+      "Malayalam",
+      "Manipuri",
+      "Marathi",
+      "Nepali",
+      "Odia",
+      "Sanskrit",
+      "Santali",
+      "Sindhi",
+      "Telugu"
+    ],
+    "voices": [
+      {
+        "id": "en_female",
+        "name": "Voice A · feminine"
+      },
+      {
+        "id": "en_male",
+        "name": "Voice B · masculine"
+      },
+      {
+        "id": "jp_female",
+        "name": "Voice C · feminine · Japanese source"
+      },
+      {
+        "id": "jp_male",
+        "name": "Voice D · masculine · Japanese source"
+      }
+    ],
+    "emotions": true
+  },
+  {
+    "id": "chatterbox",
+    "name": "Chatterbox Multilingual",
+    "license": "MIT",
+    "languages": [
+      "Arabic",
+      "Danish",
+      "German",
+      "Greek",
+      "English",
+      "Spanish",
+      "Finnish",
+      "French",
+      "Hebrew",
+      "Hindi",
+      "Italian",
+      "Japanese",
+      "Korean",
+      "Malay",
+      "Dutch",
+      "Norwegian",
+      "Polish",
+      "Portuguese",
+      "Russian",
+      "Swedish",
+      "Swahili",
+      "Turkish",
+      "Chinese"
+    ],
+    "language_codes": {
+      "Arabic": "ar",
+      "Danish": "da",
+      "German": "de",
+      "Greek": "el",
+      "English": "en",
+      "Spanish": "es",
+      "Finnish": "fi",
+      "French": "fr",
+      "Hebrew": "he",
+      "Hindi": "hi",
+      "Italian": "it",
+      "Japanese": "ja",
+      "Korean": "ko",
+      "Malay": "ms",
+      "Dutch": "nl",
+      "Norwegian": "no",
+      "Polish": "pl",
+      "Portuguese": "pt",
+      "Russian": "ru",
+      "Swedish": "sv",
+      "Swahili": "sw",
+      "Turkish": "tr",
+      "Chinese": "zh"
+    },
+    "voices": [
+      {
+        "id": "default",
+        "name": "Model default"
+      },
+      {
+        "id": "kan_f",
+        "name": "Kannada · feminine",
+        "file": "KAN_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "mar_f",
+        "name": "Marathi 1 · feminine",
+        "file": "MAR_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "mar_f2",
+        "name": "Marathi 2 · feminine",
+        "file": "MAR_F_WIKI_00001.wav"
+      },
+      {
+        "id": "mar_m",
+        "name": "Marathi · masculine",
+        "file": "MAR_M_WIKI_00001.wav"
+      },
+      {
+        "id": "pan_f",
+        "name": "Punjabi 1 · feminine",
+        "file": "PAN_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "pan_f2",
+        "name": "Punjabi 2 · feminine",
+        "file": "PAN_F_HAPPY_00002.wav"
+      },
+      {
+        "id": "tam_f",
+        "name": "Tamil · feminine",
+        "file": "TAM_F_HAPPY_00001.wav"
+      }
+    ],
+    "emotions": false,
+    "expressiveness": true
+  },
+  {
+    "id": "indicf5",
+    "name": "IndicF5",
+    "license": "MIT",
+    "languages": [
+      "Assamese",
+      "Bengali",
+      "Gujarati",
+      "Hindi",
+      "Kannada",
+      "Malayalam",
+      "Marathi",
+      "Odia",
+      "Punjabi",
+      "Tamil",
+      "Telugu"
+    ],
+    "voices": [
+      {
+        "id": "kan_f",
+        "name": "Kannada · feminine",
+        "file": "KAN_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "mar_f",
+        "name": "Marathi 1 · feminine",
+        "file": "MAR_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "mar_f2",
+        "name": "Marathi 2 · feminine",
+        "file": "MAR_F_WIKI_00001.wav"
+      },
+      {
+        "id": "mar_m",
+        "name": "Marathi · masculine",
+        "file": "MAR_M_WIKI_00001.wav"
+      },
+      {
+        "id": "pan_f",
+        "name": "Punjabi 1 · feminine",
+        "file": "PAN_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "pan_f2",
+        "name": "Punjabi 2 · feminine",
+        "file": "PAN_F_HAPPY_00002.wav"
+      },
+      {
+        "id": "tam_f",
+        "name": "Tamil · feminine",
+        "file": "TAM_F_HAPPY_00001.wav"
+      }
+    ],
+    "emotions": false
+  },
+  {
+    "id": "kokoro",
+    "name": "Kokoro-82M",
+    "license": "Apache-2.0",
+    "languages": [
+      "English",
+      "Hindi",
+      "Spanish",
+      "French",
+      "Portuguese",
+      "Italian",
+      "Japanese",
+      "Chinese"
+    ],
+    "voices": [
+      {
+        "id": "af_heart",
+        "name": "Heart · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_alloy",
+        "name": "Alloy · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_aoede",
+        "name": "Aoede · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_bella",
+        "name": "Bella · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_jessica",
+        "name": "Jessica · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_kore",
+        "name": "Kore · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_nicole",
+        "name": "Nicole · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_nova",
+        "name": "Nova · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_river",
+        "name": "River · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_sarah",
+        "name": "Sarah · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "af_sky",
+        "name": "Sky · feminine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_adam",
+        "name": "Adam · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_echo",
+        "name": "Echo · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_eric",
+        "name": "Eric · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_fenrir",
+        "name": "Fenrir · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_liam",
+        "name": "Liam · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_michael",
+        "name": "Michael · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_onyx",
+        "name": "Onyx · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_puck",
+        "name": "Puck · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "am_santa",
+        "name": "Santa · masculine · American",
+        "language": "English",
+        "code": "a"
+      },
+      {
+        "id": "bf_alice",
+        "name": "Alice · feminine · British",
+        "language": "English",
+        "code": "b"
+      },
+      {
+        "id": "bf_emma",
+        "name": "Emma · feminine · British",
+        "language": "English",
+        "code": "b"
+      },
+      {
+        "id": "bf_isabella",
+        "name": "Isabella · feminine · British",
+        "language": "English",
+        "code": "b"
+      },
+      {
+        "id": "bf_lily",
+        "name": "Lily · feminine · British",
+        "language": "English",
+        "code": "b"
+      },
+      {
+        "id": "bm_daniel",
+        "name": "Daniel · masculine · British",
+        "language": "English",
+        "code": "b"
+      },
+      {
+        "id": "bm_fable",
+        "name": "Fable · masculine · British",
+        "language": "English",
+        "code": "b"
+      },
+      {
+        "id": "bm_george",
+        "name": "George · masculine · British",
+        "language": "English",
+        "code": "b"
+      },
+      {
+        "id": "bm_lewis",
+        "name": "Lewis · masculine · British",
+        "language": "English",
+        "code": "b"
+      },
+      {
+        "id": "hf_alpha",
+        "name": "Alpha · feminine",
+        "language": "Hindi",
+        "code": "h"
+      },
+      {
+        "id": "hf_beta",
+        "name": "Beta · feminine",
+        "language": "Hindi",
+        "code": "h"
+      },
+      {
+        "id": "hm_omega",
+        "name": "Omega · masculine",
+        "language": "Hindi",
+        "code": "h"
+      },
+      {
+        "id": "hm_psi",
+        "name": "Psi · masculine",
+        "language": "Hindi",
+        "code": "h"
+      },
+      {
+        "id": "jf_alpha",
+        "name": "Alpha · feminine",
+        "language": "Japanese",
+        "code": "j"
+      },
+      {
+        "id": "jf_gongitsune",
+        "name": "Gongitsune · feminine",
+        "language": "Japanese",
+        "code": "j"
+      },
+      {
+        "id": "jf_nezumi",
+        "name": "Nezumi · feminine",
+        "language": "Japanese",
+        "code": "j"
+      },
+      {
+        "id": "jf_tebukuro",
+        "name": "Tebukuro · feminine",
+        "language": "Japanese",
+        "code": "j"
+      },
+      {
+        "id": "jm_kumo",
+        "name": "Kumo · masculine",
+        "language": "Japanese",
+        "code": "j"
+      },
+      {
+        "id": "zf_xiaobei",
+        "name": "Xiaobei · feminine",
+        "language": "Chinese",
+        "code": "z"
+      },
+      {
+        "id": "zf_xiaoni",
+        "name": "Xiaoni · feminine",
+        "language": "Chinese",
+        "code": "z"
+      },
+      {
+        "id": "zf_xiaoxiao",
+        "name": "Xiaoxiao · feminine",
+        "language": "Chinese",
+        "code": "z"
+      },
+      {
+        "id": "zf_xiaoyi",
+        "name": "Xiaoyi · feminine",
+        "language": "Chinese",
+        "code": "z"
+      },
+      {
+        "id": "zm_yunjian",
+        "name": "Yunjian · masculine",
+        "language": "Chinese",
+        "code": "z"
+      },
+      {
+        "id": "zm_yunxi",
+        "name": "Yunxi · masculine",
+        "language": "Chinese",
+        "code": "z"
+      },
+      {
+        "id": "zm_yunxia",
+        "name": "Yunxia · masculine",
+        "language": "Chinese",
+        "code": "z"
+      },
+      {
+        "id": "zm_yunyang",
+        "name": "Yunyang · masculine",
+        "language": "Chinese",
+        "code": "z"
+      },
+      {
+        "id": "ef_dora",
+        "name": "Dora · feminine",
+        "language": "Spanish",
+        "code": "e"
+      },
+      {
+        "id": "em_alex",
+        "name": "Alex · masculine",
+        "language": "Spanish",
+        "code": "e"
+      },
+      {
+        "id": "em_santa",
+        "name": "Santa · masculine",
+        "language": "Spanish",
+        "code": "e"
+      },
+      {
+        "id": "ff_siwis",
+        "name": "Siwis · feminine",
+        "language": "French",
+        "code": "f"
+      },
+      {
+        "id": "if_sara",
+        "name": "Sara · feminine",
+        "language": "Italian",
+        "code": "i"
+      },
+      {
+        "id": "im_nicola",
+        "name": "Nicola · masculine",
+        "language": "Italian",
+        "code": "i"
+      },
+      {
+        "id": "pf_dora",
+        "name": "Dora · feminine",
+        "language": "Portuguese",
+        "code": "p"
+      },
+      {
+        "id": "pm_alex",
+        "name": "Alex · masculine",
+        "language": "Portuguese",
+        "code": "p"
+      },
+      {
+        "id": "pm_santa",
+        "name": "Santa · masculine",
+        "language": "Portuguese",
+        "code": "p"
+      }
+    ],
+    "emotions": false
+  },
+  {
+    "id": "voxcpm2",
+    "name": "VoxCPM2",
+    "license": "Apache-2.0",
+    "languages": [
+      "Arabic",
+      "Burmese",
+      "Chinese",
+      "Danish",
+      "Dutch",
+      "English",
+      "Finnish",
+      "French",
+      "German",
+      "Greek",
+      "Hebrew",
+      "Hindi",
+      "Indonesian",
+      "Italian",
+      "Japanese",
+      "Khmer",
+      "Korean",
+      "Lao",
+      "Malay",
+      "Norwegian",
+      "Polish",
+      "Portuguese",
+      "Russian",
+      "Spanish",
+      "Swahili",
+      "Swedish",
+      "Tagalog",
+      "Thai",
+      "Turkish",
+      "Vietnamese"
+    ],
+    "voices": [
+      {
+        "id": "kan_f",
+        "name": "Kannada · feminine",
+        "file": "KAN_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "mar_f",
+        "name": "Marathi 1 · feminine",
+        "file": "MAR_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "mar_f2",
+        "name": "Marathi 2 · feminine",
+        "file": "MAR_F_WIKI_00001.wav"
+      },
+      {
+        "id": "mar_m",
+        "name": "Marathi · masculine",
+        "file": "MAR_M_WIKI_00001.wav"
+      },
+      {
+        "id": "pan_f",
+        "name": "Punjabi 1 · feminine",
+        "file": "PAN_F_HAPPY_00001.wav"
+      },
+      {
+        "id": "pan_f2",
+        "name": "Punjabi 2 · feminine",
+        "file": "PAN_F_HAPPY_00002.wav"
+      },
+      {
+        "id": "tam_f",
+        "name": "Tamil · feminine",
+        "file": "TAM_F_HAPPY_00001.wav"
+      }
+    ],
+    "emotions": false,
+    "voice_direction": true
+  },
+  {
+    "id": "indic-parler",
+    "name": "Indic Parler-TTS",
+    "license": "Apache-2.0",
+    "languages": [
+      "Assamese",
+      "Bengali",
+      "Bodo",
+      "Dogri",
+      "English",
+      "Gujarati",
+      "Hindi",
+      "Kannada",
+      "Konkani",
+      "Maithili",
+      "Malayalam",
+      "Manipuri",
+      "Marathi",
+      "Nepali",
+      "Odia",
+      "Sanskrit",
+      "Santali",
+      "Sindhi",
+      "Tamil",
+      "Telugu",
+      "Urdu",
+      "Punjabi",
+      "Chhattisgarhi",
+      "Kashmiri"
+    ],
+    "experimental_languages": [
+      "Punjabi",
+      "Chhattisgarhi",
+      "Kashmiri"
+    ],
+    "voices": [
+      {
+        "id": "assamese-amit",
+        "name": "Amit",
+        "speaker": "Amit",
+        "language": "Assamese"
+      },
+      {
+        "id": "assamese-sita",
+        "name": "Sita",
+        "speaker": "Sita",
+        "language": "Assamese"
+      },
+      {
+        "id": "assamese-poonam",
+        "name": "Poonam",
+        "speaker": "Poonam",
+        "language": "Assamese"
+      },
+      {
+        "id": "assamese-rakesh",
+        "name": "Rakesh",
+        "speaker": "Rakesh",
+        "language": "Assamese"
+      },
+      {
+        "id": "bengali-arjun",
+        "name": "Arjun",
+        "speaker": "Arjun",
+        "language": "Bengali"
+      },
+      {
+        "id": "bengali-aditi",
+        "name": "Aditi",
+        "speaker": "Aditi",
+        "language": "Bengali"
+      },
+      {
+        "id": "bengali-tapan",
+        "name": "Tapan",
+        "speaker": "Tapan",
+        "language": "Bengali"
+      },
+      {
+        "id": "bengali-rashmi",
+        "name": "Rashmi",
+        "speaker": "Rashmi",
+        "language": "Bengali"
+      },
+      {
+        "id": "bengali-arnav",
+        "name": "Arnav",
+        "speaker": "Arnav",
+        "language": "Bengali"
+      },
+      {
+        "id": "bengali-riya",
+        "name": "Riya",
+        "speaker": "Riya",
+        "language": "Bengali"
+      },
+      {
+        "id": "bodo-bikram",
+        "name": "Bikram",
+        "speaker": "Bikram",
+        "language": "Bodo"
+      },
+      {
+        "id": "bodo-maya",
+        "name": "Maya",
+        "speaker": "Maya",
+        "language": "Bodo"
+      },
+      {
+        "id": "bodo-kalpana",
+        "name": "Kalpana",
+        "speaker": "Kalpana",
+        "language": "Bodo"
+      },
+      {
+        "id": "chhattisgarhi-bhanu",
+        "name": "Bhanu",
+        "speaker": "Bhanu",
+        "language": "Chhattisgarhi"
+      },
+      {
+        "id": "chhattisgarhi-champa",
+        "name": "Champa",
+        "speaker": "Champa",
+        "language": "Chhattisgarhi"
+      },
+      {
+        "id": "dogri-karan",
+        "name": "Karan",
+        "speaker": "Karan",
+        "language": "Dogri"
+      },
+      {
+        "id": "english-thoma",
+        "name": "Thoma",
+        "speaker": "Thoma",
+        "language": "English"
+      },
+      {
+        "id": "english-mary",
+        "name": "Mary",
+        "speaker": "Mary",
+        "language": "English"
+      },
+      {
+        "id": "english-swapna",
+        "name": "Swapna",
+        "speaker": "Swapna",
+        "language": "English"
+      },
+      {
+        "id": "english-dinesh",
+        "name": "Dinesh",
+        "speaker": "Dinesh",
+        "language": "English"
+      },
+      {
+        "id": "english-meera",
+        "name": "Meera",
+        "speaker": "Meera",
+        "language": "English"
+      },
+      {
+        "id": "english-jatin",
+        "name": "Jatin",
+        "speaker": "Jatin",
+        "language": "English"
+      },
+      {
+        "id": "english-aakash",
+        "name": "Aakash",
+        "speaker": "Aakash",
+        "language": "English"
+      },
+      {
+        "id": "english-sneha",
+        "name": "Sneha",
+        "speaker": "Sneha",
+        "language": "English"
+      },
+      {
+        "id": "english-kabir",
+        "name": "Kabir",
+        "speaker": "Kabir",
+        "language": "English"
+      },
+      {
+        "id": "english-tisha",
+        "name": "Tisha",
+        "speaker": "Tisha",
+        "language": "English"
+      },
+      {
+        "id": "english-chingkhei",
+        "name": "Chingkhei",
+        "speaker": "Chingkhei",
+        "language": "English"
+      },
+      {
+        "id": "english-thoiba",
+        "name": "Thoiba",
+        "speaker": "Thoiba",
+        "language": "English"
+      },
+      {
+        "id": "english-priya",
+        "name": "Priya",
+        "speaker": "Priya",
+        "language": "English"
+      },
+      {
+        "id": "english-tarun",
+        "name": "Tarun",
+        "speaker": "Tarun",
+        "language": "English"
+      },
+      {
+        "id": "english-gauri",
+        "name": "Gauri",
+        "speaker": "Gauri",
+        "language": "English"
+      },
+      {
+        "id": "english-nisha",
+        "name": "Nisha",
+        "speaker": "Nisha",
+        "language": "English"
+      },
+      {
+        "id": "english-raghav",
+        "name": "Raghav",
+        "speaker": "Raghav",
+        "language": "English"
+      },
+      {
+        "id": "english-kavya",
+        "name": "Kavya",
+        "speaker": "Kavya",
+        "language": "English"
+      },
+      {
+        "id": "english-ravi",
+        "name": "Ravi",
+        "speaker": "Ravi",
+        "language": "English"
+      },
+      {
+        "id": "english-vikas",
+        "name": "Vikas",
+        "speaker": "Vikas",
+        "language": "English"
+      },
+      {
+        "id": "english-riya",
+        "name": "Riya",
+        "speaker": "Riya",
+        "language": "English"
+      },
+      {
+        "id": "gujarati-yash",
+        "name": "Yash",
+        "speaker": "Yash",
+        "language": "Gujarati"
+      },
+      {
+        "id": "gujarati-neha",
+        "name": "Neha",
+        "speaker": "Neha",
+        "language": "Gujarati"
+      },
+      {
+        "id": "hindi-rohit",
+        "name": "Rohit",
+        "speaker": "Rohit",
+        "language": "Hindi"
+      },
+      {
+        "id": "hindi-divya",
+        "name": "Divya",
+        "speaker": "Divya",
+        "language": "Hindi"
+      },
+      {
+        "id": "hindi-aman",
+        "name": "Aman",
+        "speaker": "Aman",
+        "language": "Hindi"
+      },
+      {
+        "id": "hindi-rani",
+        "name": "Rani",
+        "speaker": "Rani",
+        "language": "Hindi"
+      },
+      {
+        "id": "kannada-suresh",
+        "name": "Suresh",
+        "speaker": "Suresh",
+        "language": "Kannada"
+      },
+      {
+        "id": "kannada-anu",
+        "name": "Anu",
+        "speaker": "Anu",
+        "language": "Kannada"
+      },
+      {
+        "id": "kannada-chetan",
+        "name": "Chetan",
+        "speaker": "Chetan",
+        "language": "Kannada"
+      },
+      {
+        "id": "kannada-vidya",
+        "name": "Vidya",
+        "speaker": "Vidya",
+        "language": "Kannada"
+      },
+      {
+        "id": "malayalam-anjali",
+        "name": "Anjali",
+        "speaker": "Anjali",
+        "language": "Malayalam"
+      },
+      {
+        "id": "malayalam-anju",
+        "name": "Anju",
+        "speaker": "Anju",
+        "language": "Malayalam"
+      },
+      {
+        "id": "malayalam-harish",
+        "name": "Harish",
+        "speaker": "Harish",
+        "language": "Malayalam"
+      },
+      {
+        "id": "manipuri-laishram",
+        "name": "Laishram",
+        "speaker": "Laishram",
+        "language": "Manipuri"
+      },
+      {
+        "id": "manipuri-ranjit",
+        "name": "Ranjit",
+        "speaker": "Ranjit",
+        "language": "Manipuri"
+      },
+      {
+        "id": "marathi-sanjay",
+        "name": "Sanjay",
+        "speaker": "Sanjay",
+        "language": "Marathi"
+      },
+      {
+        "id": "marathi-sunita",
+        "name": "Sunita",
+        "speaker": "Sunita",
+        "language": "Marathi"
+      },
+      {
+        "id": "marathi-nikhil",
+        "name": "Nikhil",
+        "speaker": "Nikhil",
+        "language": "Marathi"
+      },
+      {
+        "id": "marathi-radha",
+        "name": "Radha",
+        "speaker": "Radha",
+        "language": "Marathi"
+      },
+      {
+        "id": "marathi-varun",
+        "name": "Varun",
+        "speaker": "Varun",
+        "language": "Marathi"
+      },
+      {
+        "id": "marathi-isha",
+        "name": "Isha",
+        "speaker": "Isha",
+        "language": "Marathi"
+      },
+      {
+        "id": "nepali-amrita",
+        "name": "Amrita",
+        "speaker": "Amrita",
+        "language": "Nepali"
+      },
+      {
+        "id": "odia-manas",
+        "name": "Manas",
+        "speaker": "Manas",
+        "language": "Odia"
+      },
+      {
+        "id": "odia-debjani",
+        "name": "Debjani",
+        "speaker": "Debjani",
+        "language": "Odia"
+      },
+      {
+        "id": "punjabi-divjot",
+        "name": "Divjot",
+        "speaker": "Divjot",
+        "language": "Punjabi"
+      },
+      {
+        "id": "punjabi-gurpreet",
+        "name": "Gurpreet",
+        "speaker": "Gurpreet",
+        "language": "Punjabi"
+      },
+      {
+        "id": "sanskrit-aryan",
+        "name": "Aryan",
+        "speaker": "Aryan",
+        "language": "Sanskrit"
+      },
+      {
+        "id": "tamil-kavitha",
+        "name": "Kavitha",
+        "speaker": "Kavitha",
+        "language": "Tamil"
+      },
+      {
+        "id": "tamil-jaya",
+        "name": "Jaya",
+        "speaker": "Jaya",
+        "language": "Tamil"
+      },
+      {
+        "id": "telugu-prakash",
+        "name": "Prakash",
+        "speaker": "Prakash",
+        "language": "Telugu"
+      },
+      {
+        "id": "telugu-lalitha",
+        "name": "Lalitha",
+        "speaker": "Lalitha",
+        "language": "Telugu"
+      },
+      {
+        "id": "telugu-kiran",
+        "name": "Kiran",
+        "speaker": "Kiran",
+        "language": "Telugu"
+      },
+      {
+        "id": "konkani-described",
+        "name": "Described voice",
+        "language": "Konkani"
+      },
+      {
+        "id": "maithili-described",
+        "name": "Described voice",
+        "language": "Maithili"
+      },
+      {
+        "id": "santali-described",
+        "name": "Described voice",
+        "language": "Santali"
+      },
+      {
+        "id": "sindhi-described",
+        "name": "Described voice",
+        "language": "Sindhi"
+      },
+      {
+        "id": "urdu-described",
+        "name": "Described voice",
+        "language": "Urdu"
+      },
+      {
+        "id": "kashmiri-described",
+        "name": "Described voice",
+        "language": "Kashmiri"
+      }
+    ],
+    "emotions": false,
+    "voice_direction": true
+  },
+  {
+    "id": "svara-tts",
+    "name": "Svara TTS",
+    "license": "Apache-2.0",
+    "languages": [
+      "Hindi",
+      "English",
+      "Tamil",
+      "Punjabi",
+      "Assamese",
+      "Bengali",
+      "Bodo",
+      "Dogri",
+      "Gujarati",
+      "Kannada",
+      "Maithili",
+      "Malayalam",
+      "Marathi",
+      "Nepali",
+      "Sanskrit",
+      "Telugu"
+    ],
+    "voices": [
+      {
+        "id": "hindi-female",
+        "name": "Hindi · feminine",
+        "language": "Hindi",
+        "speaker": "Hindi (Female)"
+      },
+      {
+        "id": "hindi-male",
+        "name": "Hindi · masculine",
+        "language": "Hindi",
+        "speaker": "Hindi (Male)"
+      },
+      {
+        "id": "english-female",
+        "name": "English · feminine",
+        "language": "English",
+        "speaker": "English (Female)"
+      },
+      {
+        "id": "english-male",
+        "name": "English · masculine",
+        "language": "English",
+        "speaker": "English (Male)"
+      },
+      {
+        "id": "tamil-female",
+        "name": "Tamil · feminine",
+        "language": "Tamil",
+        "speaker": "Tamil (Female)"
+      },
+      {
+        "id": "tamil-male",
+        "name": "Tamil · masculine",
+        "language": "Tamil",
+        "speaker": "Tamil (Male)"
+      },
+      {
+        "id": "punjabi-female",
+        "name": "Punjabi · feminine",
+        "language": "Punjabi",
+        "speaker": "Punjabi (Female)"
+      },
+      {
+        "id": "punjabi-male",
+        "name": "Punjabi · masculine",
+        "language": "Punjabi",
+        "speaker": "Punjabi (Male)"
+      },
+      {
+        "id": "assamese-female",
+        "name": "Assamese · feminine",
+        "language": "Assamese",
+        "speaker": "Assamese (Female)"
+      },
+      {
+        "id": "assamese-male",
+        "name": "Assamese · masculine",
+        "language": "Assamese",
+        "speaker": "Assamese (Male)"
+      },
+      {
+        "id": "bengali-female",
+        "name": "Bengali · feminine",
+        "language": "Bengali",
+        "speaker": "Bengali (Female)"
+      },
+      {
+        "id": "bengali-male",
+        "name": "Bengali · masculine",
+        "language": "Bengali",
+        "speaker": "Bengali (Male)"
+      },
+      {
+        "id": "bodo-female",
+        "name": "Bodo · feminine",
+        "language": "Bodo",
+        "speaker": "Bodo (Female)"
+      },
+      {
+        "id": "bodo-male",
+        "name": "Bodo · masculine",
+        "language": "Bodo",
+        "speaker": "Bodo (Male)"
+      },
+      {
+        "id": "dogri-female",
+        "name": "Dogri · feminine",
+        "language": "Dogri",
+        "speaker": "Dogri (Female)"
+      },
+      {
+        "id": "dogri-male",
+        "name": "Dogri · masculine",
+        "language": "Dogri",
+        "speaker": "Dogri (Male)"
+      },
+      {
+        "id": "gujarati-female",
+        "name": "Gujarati · feminine",
+        "language": "Gujarati",
+        "speaker": "Gujarati (Female)"
+      },
+      {
+        "id": "gujarati-male",
+        "name": "Gujarati · masculine",
+        "language": "Gujarati",
+        "speaker": "Gujarati (Male)"
+      },
+      {
+        "id": "kannada-female",
+        "name": "Kannada · feminine",
+        "language": "Kannada",
+        "speaker": "Kannada (Female)"
+      },
+      {
+        "id": "kannada-male",
+        "name": "Kannada · masculine",
+        "language": "Kannada",
+        "speaker": "Kannada (Male)"
+      },
+      {
+        "id": "maithili-female",
+        "name": "Maithili · feminine",
+        "language": "Maithili",
+        "speaker": "Maithili (Female)"
+      },
+      {
+        "id": "maithili-male",
+        "name": "Maithili · masculine",
+        "language": "Maithili",
+        "speaker": "Maithili (Male)"
+      },
+      {
+        "id": "malayalam-female",
+        "name": "Malayalam · feminine",
+        "language": "Malayalam",
+        "speaker": "Malayalam (Female)"
+      },
+      {
+        "id": "malayalam-male",
+        "name": "Malayalam · masculine",
+        "language": "Malayalam",
+        "speaker": "Malayalam (Male)"
+      },
+      {
+        "id": "marathi-female",
+        "name": "Marathi · feminine",
+        "language": "Marathi",
+        "speaker": "Marathi (Female)"
+      },
+      {
+        "id": "marathi-male",
+        "name": "Marathi · masculine",
+        "language": "Marathi",
+        "speaker": "Marathi (Male)"
+      },
+      {
+        "id": "nepali-female",
+        "name": "Nepali · feminine",
+        "language": "Nepali",
+        "speaker": "Nepali (Female)"
+      },
+      {
+        "id": "nepali-male",
+        "name": "Nepali · masculine",
+        "language": "Nepali",
+        "speaker": "Nepali (Male)"
+      },
+      {
+        "id": "sanskrit-female",
+        "name": "Sanskrit · feminine",
+        "language": "Sanskrit",
+        "speaker": "Sanskrit (Female)"
+      },
+      {
+        "id": "sanskrit-male",
+        "name": "Sanskrit · masculine",
+        "language": "Sanskrit",
+        "speaker": "Sanskrit (Male)"
+      },
+      {
+        "id": "telugu-female",
+        "name": "Telugu · feminine",
+        "language": "Telugu",
+        "speaker": "Telugu (Female)"
+      },
+      {
+        "id": "telugu-male",
+        "name": "Telugu · masculine",
+        "language": "Telugu",
+        "speaker": "Telugu (Male)"
+      }
+    ],
+    "emotions": true,
+    "compute": [
+      "a100",
+      "b200"
+    ]
+  },
+  {
+    "id": "qwen3-tts",
+    "name": "Qwen3-TTS (described voices)",
+    "license": "Apache-2.0",
+    "languages": [
+      "English",
+      "Chinese",
+      "Japanese",
+      "Korean",
+      "German",
+      "French",
+      "Russian",
+      "Portuguese",
+      "Spanish",
+      "Italian"
+    ],
+    "voices": [
+      {
+        "id": "warm-host-f",
+        "name": "Warm host · 30s · feminine",
+        "description": "Female, early 30s, warm and bright American voice, natural conversational pace, smiling tone, clear articulation, podcast host"
+      },
+      {
+        "id": "curious-host-m",
+        "name": "Curious host · 30s · masculine",
+        "description": "Male, mid 30s, friendly American baritone, curious and upbeat, relaxed conversational pace"
+      },
+      {
+        "id": "expert-m",
+        "name": "Expert guest · 40s · masculine",
+        "description": "Male, late 40s, calm and thoughtful British voice, measured pace, authoritative but kind"
+      },
+      {
+        "id": "expert-f",
+        "name": "Expert guest · 40s · feminine",
+        "description": "Female, mid 40s, confident Indian-English voice, articulate, warm and precise"
+      },
+      {
+        "id": "news-anchor-f",
+        "name": "News anchor · feminine",
+        "description": "Female, 40s, polished neutral news-anchor voice, crisp diction, steady confident pace"
+      },
+      {
+        "id": "news-anchor-m",
+        "name": "News anchor · masculine",
+        "description": "Male, 40s, deep polished broadcast voice, authoritative, steady pace, neutral accent"
+      },
+      {
+        "id": "documentary-m",
+        "name": "Documentary narrator · masculine",
+        "description": "Male, 50s, rich resonant narrator voice, slow and awe-filled, intimate close-microphone delivery"
+      },
+      {
+        "id": "documentary-f",
+        "name": "Documentary narrator · feminine",
+        "description": "Female, 50s, soft velvety British narrator, unhurried, gentle sense of wonder"
+      },
+      {
+        "id": "storyteller-f",
+        "name": "Storyteller · grandmother · feminine",
+        "description": "Female, around 70 years old, warm grandmotherly voice, slow cosy storytelling pace, gentle smile"
+      },
+      {
+        "id": "storyteller-m",
+        "name": "Storyteller · grandfather · masculine",
+        "description": "Male, around 70 years old, kind gravelly voice, slow and twinkly, bedtime-story warmth"
+      },
+      {
+        "id": "girl-5",
+        "name": "Child · girl about 5 · feminine",
+        "description": "Little girl around 5 years old, high bright voice, giggly and excited, speaks a little fast with childlike wonder",
+        "sample": "Look, look! A butterfly landed on my nose! Can we follow it, please?"
+      },
+      {
+        "id": "boy-6",
+        "name": "Child · boy about 6 · masculine",
+        "description": "Little boy around 6 years old, high clear voice, curious and bouncy, occasionally breathless with excitement",
+        "sample": "I found a big shiny rock! Do you think it is a dinosaur egg?"
+      },
+      {
+        "id": "girl-9",
+        "name": "Child · girl about 9 · feminine",
+        "description": "Girl around 9 years old, confident and chatty, clear young voice, playful"
+      },
+      {
+        "id": "boy-10",
+        "name": "Child · boy about 10 · masculine",
+        "description": "Boy around 10 years old, earnest and adventurous, clear young voice"
+      },
+      {
+        "id": "teen-f",
+        "name": "Teenager · girl · feminine",
+        "description": "Female, 16 years old, lively and expressive, slightly sarcastic humour, natural modern speech"
+      },
+      {
+        "id": "teen-m",
+        "name": "Teenager · boy · masculine",
+        "description": "Male, 16 years old, voice recently broken, relaxed and casual, a bit shy at first"
+      },
+      {
+        "id": "young-adult-f",
+        "name": "Young woman, 20s · feminine",
+        "description": "Female, early 20s, energetic and friendly, quick natural speech, upbeat"
+      },
+      {
+        "id": "young-adult-m",
+        "name": "Young man, 20s · masculine",
+        "description": "Male, mid 20s, laid-back friendly voice, easy-going and warm"
+      },
+      {
+        "id": "wise-elder-m",
+        "name": "Wise old character · masculine",
+        "description": "Male, very old, slow deep voice with gentle wisdom, pauses thoughtfully, a soft chuckle in it"
+      },
+      {
+        "id": "cheerful-animal",
+        "name": "Cheerful animal friend",
+        "description": "Bright, bouncy, slightly squeaky cartoon-like voice, always cheerful and kind, for a small woodland animal",
+        "sample": "Good morning, friends! What a perfectly splendid day for an adventure!"
+      },
+      {
+        "id": "grumpy-animal",
+        "name": "Grumpy animal friend",
+        "description": "Low, grumbly, slow voice with a soft heart underneath, for a grumpy but lovable large woodland animal",
+        "sample": "Hmph. Fine. I suppose I could come along. But only for a little while."
+      },
+      {
+        "id": "shy-animal",
+        "name": "Shy animal friend",
+        "description": "Small, soft, hesitant voice, a little nervous, sweet and gentle, for a timid little animal",
+        "sample": "Um, hello. I, I hope it is okay if I sit here with you."
+      },
+      {
+        "id": "teacher-f",
+        "name": "Teacher · feminine",
+        "description": "Female, 30s, clear encouraging teacher voice, patient and warm, explains slowly"
+      },
+      {
+        "id": "coach-m",
+        "name": "Coach · masculine",
+        "description": "Male, 30s, energetic motivating voice, punchy and positive"
+      }
+    ],
+    "emotions": false,
+    "voice_direction": true,
+    "voice_design": true,
+    "compute": [
+      "a100",
+      "b200"
+    ]
+  }
+];

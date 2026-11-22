@@ -1,4 +1,12 @@
 """Render each model once in isolation, restore passage order, then mix once."""
+import os
+import sys
+# Serverless links these scripts from the network volume into /workspace/ecco-audio, where each job's voice
+# environments are unpacked. Python puts the link's *target* folder (the volume) first on sys.path, so
+# queue_worker looked for the environments there and every mixed story failed with "Install and verify the
+# selected model runtime on this worker." (found 21 Nov 2026). Import from the folder the script was started from.
+if sys.argv and os.path.basename(sys.argv[0]) == 'mixed_worker.py':
+    sys.path.insert(0, os.path.dirname(os.path.abspath(sys.argv[0])))
 import argparse
 import json
 from pathlib import Path
@@ -88,7 +96,9 @@ def synthesize(request, output, runtime):
                     speech_progress(output, completed + count, len(segments))
                 time.sleep(1)
             if process.returncode:
-                raise RuntimeError(model + ' failed; no partial recording was saved. See its worker log.')
+                # Serverless deletes the job folder afterwards, so carry the child's own error out with ours.
+                tail = (directory / 'worker.log').read_bytes()[-3000:].decode('utf-8', 'replace').strip()
+                raise RuntimeError(model + ' failed; no partial recording was saved.' + ('\n--- ' + model + ' worker log ---\n' + tail if tail else ''))
         timeline = read(directory / 'output.timeline.json', [])
         if len(timeline) != len(items):
             raise RuntimeError(model + ' returned an incomplete passage timeline.')

@@ -1,0 +1,26 @@
+/* Voice Studio. The screen itself uses image-workspace.css (same panes as Create Images); these rules cover
+   what only voices need, and the sidebar tree Studios › Voice Studio. Sizes come from design-system/size-roster.json. */
+
+/* Sidebar: Studios sits below Tell Your Story with the same gap; Voice Studio is an indented tree node. */
+#workspace-studios-group{margin-top:14px}
+#workspace-production-group[open]+#workspace-studios-group{margin-top:21.5px}
+#workspace-studios-group>.workspace-library-content{padding:0;border:0}
+#workspace-voice-studio-node{margin:0}
+#workspace-voice-studio-node>summary{display:flex!important;align-items:center;gap:8px;padding:7px 8px 7px 14px;margin:3px 0;border-radius:6px;list-style:none;cursor:pointer;color:var(--muted,#b8b4c5)}
+#workspace-voice-studio-node>summary::-webkit-details-marker{display:none}
+#workspace-voice-studio-node>summary::before{display:none!important}
+#workspace-voice-studio-node>summary>.library-symbol{display:inline-block;flex:0 0 12px;width:12px;text-align:center}
+#workspace-voice-studio-node>.workspace-library-content{padding:0 0 0 34px;border:0}
+#workspace-voice-studio-node.active>summary{color:var(--accent,#ffdc24)}
+
+/* Screen */
+#voice-workspace button.vw-slot{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:2px;width:100%;margin:0;padding:6px 8px;box-sizing:border-box;border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px;background:var(--ecco-theme-control,#29233f);color:var(--ecco-theme-text,#f1edff);text-align:left;box-shadow:none;overflow:hidden}
+#voice-workspace button.vw-slot[aria-pressed=true]{border:2px solid var(--ecco-theme-accent,#ffdc24)}
+#voice-workspace .vw-slot .vw-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#voice-workspace .vw-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+#voice-workspace .vw-preview{display:flex;flex-direction:column;gap:8px;box-sizing:border-box;padding:12px;border:1px solid var(--ecco-theme-border,#51496f);border-radius:6px;background:var(--ecco-theme-background,#1b1839)}
+#voice-workspace .vw-preview audio,#voice-workspace .vw-publish audio{width:100%}
+#voice-workspace .vw-mic{color:#ff6b6b}
+#voice-workspace .vw-new-label{display:flex;flex-direction:column;gap:5px;max-width:420px;margin-top:8px}
+#voice-workspace .vw-publish{margin-top:14px}
+#voice-workspace .vw-publish figure{padding:12px;border:1px solid var(--ecco-theme-border,#51496f);border-radius:8px;background:var(--ecco-theme-background,#1b1839)}

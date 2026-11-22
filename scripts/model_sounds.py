@@ -209,7 +209,40 @@ OTHERS = {
 MUSIC = {'Mood': ['Happy', 'Sad', 'Suspense', 'Adventure', 'Lullaby', 'Funny'], 'Moments': ['Intro', 'Outro', 'Transition', 'Victory']}
 
 
+# Clearer wording for sounds the first pass got wrong (21 Nov): name what it is and what must not be in it.
+CLEARER = {
+    ('Owl', 'Screech owl'): "A screech owl's eerie trembling whinny call at night, a single owl, no other birds.",
+    ('Peacock', 'Call'): "A peacock's loud piercing 'may-awe' call outdoors, a single bird, no people.",
+    ('Chicken', 'Cluck'): "A hen clucking softly, bok-bok-bok, in a farmyard, no ducks, no other animals.",
+    ('Goat', 'Bleat'): "A goat bleating, a nasal 'meh-eh-eh', a single goat, no cows.",
+    ('Cat', 'Purr'): "A cat purring contentedly right next to the microphone, a soft continuous rumbling purr.",
+    ('Dog', 'Growl'): "A dog growling low and menacing, close up, loud and clear, no barking.",
+    ('Crocodile', 'Growl'): "A crocodile's deep guttural hiss and growl at the water's edge, no frogs, no insects.",
+    ('Crocodile', 'Splash'): "A large crocodile lunging into a river with a heavy splash, no frogs, no insects.",
+    ('Deer', 'Bark'): "A deer's sharp alarm bark in a forest, short single barks, no other animals.",
+    ('Hyena', 'Laugh'): "A hyena's high-pitched cackling laugh on the savanna at night, a single hyena.",
+    ('Tiger', 'Roar'): "A tiger's deep, powerful roar, close up, a single big cat, no other animals.",
+    ('Tiger', 'Chuff'): "A tiger chuffing: soft, friendly puffing snorts through the nose, close up.",
+    ('Thunder', 'Close crack'): "Lightning strikes close by: a sudden loud sharp crack, then a thunder boom. No rain, no fire.",
+    ('Thunder', 'Rolling'): "Deep rolling thunder rumbling across the sky, a long low rumble, no wind.",
+    ('Storm', 'Thunderstorm'): "A thunderstorm: loud thunder claps over heavy rain.",
+    ('Boat', 'Motor'): "An outboard boat motor running on open water, engine putt-putt and water splashing.",
+    ('Metro', 'Arrival'): "A subway train arriving at an underground platform, rushing air and squealing brakes, no announcements, no voices.",
+    ('Plane', 'Fly over'): "A jet airplane flying overhead outdoors, its roaring engine passing by, no voices, no announcements.",
+    ('Train', 'Station arrival'): "A train pulling into a station, brakes hissing and squealing, no announcements, no voices.",
+    ('School', 'Playground'): "A school playground at recess: children laughing, shouting and running in the distance, no clear words.",
+    ('Temple and church', 'Bell'): "A large temple bell struck once, a deep ringing bong that slowly fades, no people, no chanting.",
+    ('Temple and church', 'Conch'): "A conch shell blown in a temple, one long deep horn-like blast, no people.",
+    ('Clock', 'Alarm'): "An old mechanical alarm clock ringing, a fast metallic bell clatter.",
+    ('Clock', 'Chime'): "A grandfather clock chiming the hour, slow resonant gongs.",
+    ('Kitchen', 'Dishes'): "Ceramic dishes and plates clinking and stacking in a kitchen sink.",
+    ('Water', 'Tap running'): "A kitchen tap running water into a steel sink, a steady stream, clearly audible.",
+}
+
+
 def describe(thing, variant):
+    if (thing, variant) in CLEARER:
+        return CLEARER[(thing, variant)] + ' One realistic sound effect, no music.'
     return f'{variant} — {thing}. One clear, realistic sound effect, close up, no music, no voices.'
 
 
@@ -277,15 +310,20 @@ def sound_item(path, thing, variant, labels):
 def api(path, body=None, method=None):
     request = urllib.request.Request(BASE + '/api/' + path, data=None if body is None else json.dumps(body).encode(), method=method,
                                      headers={'Authorization': 'Bearer ' + TOKEN.read_text().strip(), 'Content-Type': 'application/json'})
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as exc:
+    for wait in (5, 15, 30, 60, 120, 0):               # the storage service restarts itself now and then
         try:
-            message = json.load(exc).get('error') or str(exc)
-        except Exception:
-            message = str(exc)
-        raise RuntimeError(f'{exc.code}: {message}') from None
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            try:
+                message = json.load(exc).get('error') or str(exc)
+            except Exception:
+                message = str(exc)
+            raise RuntimeError(f'{exc.code}: {message}') from None
+        except (urllib.error.URLError, ConnectionError) as exc:   # refused/reset: nothing was received
+            if not wait or 'refused' not in str(exc).lower() and not isinstance(exc, ConnectionRefusedError):
+                raise
+            time.sleep(wait)
 
 
 FOLDERS = {}
@@ -356,8 +394,36 @@ def norm(text):
     return ''.join(ch for ch in text if unicodedata.category(ch)[0] in 'LNM')
 
 
+def roman(text):
+    """Rough sound spelling for Indic scripts so the same words in another script still compare."""
+    out=[]
+    for ch in text:
+        try: name=unicodedata.name(ch)
+        except ValueError: out.append(ch); continue
+        m=re.match(r'(DEVANAGARI|BENGALI|GURMUKHI|GUJARATI|ORIYA|TAMIL|TELUGU|KANNADA|MALAYALAM) (LETTER|VOWEL SIGN|SIGN) (.+)',name)
+        if not m: out.append(ch); continue
+        kind,val=m.group(2),m.group(3)
+        if kind=='SIGN':
+            if val=='VIRAMA' and out and out[-1].endswith('a'): out[-1]=out[-1][:-1]
+            elif val in ('ANUSVARA','CANDRABINDU','TIPPI','BINDI'): out.append('n')
+            continue
+        val=val.split()[0].lower()
+        val={'vocalic':'r'}.get(val,val)
+        val=val.replace('h','') if len(val)>2 else val   # kha/kh→ka: Tamil has no aspirates
+        val=re.sub(r'(aa|ii|uu|ee|oo)', lambda m:m.group(1)[0], val)
+        if kind=='VOWEL SIGN' and out and out[-1].endswith('a'): out[-1]=out[-1][:-1]
+        out.append(val)
+    s=''.join(out).lower()
+    s=s.replace('h','')                  # aspiration differs most between scripts
+    return re.sub(r'[^\w ]','',s)
+
+
 def similar(a, b):
-    return round(difflib.SequenceMatcher(None, norm(a), norm(b)).ratio(), 2)
+    """Word match; Whisper often writes Indian languages in a neighbouring script, so also compare by sound."""
+    plain = difflib.SequenceMatcher(None, norm(a), norm(b)).ratio()
+    ra, rb = roman(a).replace(' ', ''), roman(b).replace(' ', '')
+    sound = difflib.SequenceMatcher(None, ra, rb).ratio() if ra and rb else 0
+    return round(max(plain, sound), 2)
 
 
 def trim(path, seconds):
@@ -397,6 +463,38 @@ def listen(asset_path, sha, labels=None):
     raise RuntimeError('listen-back timed out')
 
 
+def judge(item, r):
+    """Problems from the measurements (thresholds tuned 21 Nov after the first pass flagged normal samples)."""
+    problems = []
+    speech = item['kind'] == 'speech'
+    if r.get('mean_db', 0) < (-55 if speech else -60):
+        problems.append('silent')
+    if speech and r.get('peak_db', -10) >= -0.01:        # sound effects are often normalised to full scale
+        problems.append('clipped')
+    if speech:
+        if not 1.0 <= r.get('seconds', 0) <= 9.0:       # Japanese, Tamil, Gujarati and Malayalam lines run longer
+            problems.append(f"length {r.get('seconds')}s")
+        if r.get('words_match', 1) < 0.55:
+            problems.append(f"words do not match ({r.get('words_match')})")
+        hz = r.get('pitch_hz')
+        if item.get('pitch') and hz:
+            lo, hi = item['pitch']
+            lo, hi = round(lo * 0.9), round(hi * 1.2)     # Qwen's child and teen voices sit higher than first guessed
+            if r.get('words_match', 0) >= 0.9:            # words clearly right: flag pitch only when far off (wrong voice)
+                lo, hi = round(lo * 0.85), round(hi * 1.3)
+            if not lo <= hz <= hi:
+                problems.append(f'pitch {hz} Hz outside {lo}–{hi}')
+    elif item['kind'] == 'sound':
+        thing = item.get('meta', {}).get('name', '').lower()
+        same_thing = thing and any(label.startswith(thing + ' ') for label in r.get('clap_top') or [])
+        # CLAP often swaps sister labels (calf -> 'cow moo', chatter -> 'monkey screech'); the right animal/thing is enough
+        if r.get('clap_top') is not None and item['clap'] not in r['clap_top'] and not same_thing:
+            problems.append('sounds like ' + (r['clap_top'][0] if r['clap_top'] else 'something else'))
+        if len(str(r.get('heard', '')).split()) >= 4:
+            problems.append('contains speech')
+    return problems
+
+
 def check(item, asset):
     path = DATA / asset['path']
     if item.get('seconds'):
@@ -406,37 +504,19 @@ def check(item, asset):
     seconds = round(len(samples) / 8000, 2)
     asset['duration'] = asset['seconds'] = seconds
     mean, peak = levels(path)
-    results, problems = {'seconds': seconds, 'mean_db': mean, 'peak_db': peak}, []
-    if mean < -45:
-        problems.append('silent')
-    if peak >= -0.05:
-        problems.append('clipped')
+    results = {'seconds': seconds, 'mean_db': mean, 'peak_db': peak}
     if item['kind'] == 'speech':
-        if not 1.0 <= seconds <= 5.5:
-            problems.append(f'length {seconds}s')
         heard = listen(path, asset['sha256']).get('text', '')
-        score = similar(heard, item['expect'])
-        results.update(heard=heard[:300], words_match=score)
-        if score < 0.55:
-            problems.append(f'words do not match ({score})')
+        results.update(heard=heard[:300], words_match=similar(heard, item['expect']))
         if item.get('pitch'):
-            hz = pitch(samples)
-            results['pitch_hz'] = hz
-            lo, hi = item['pitch']
-            if hz and not lo <= hz <= hi:
-                problems.append(f'pitch {hz} Hz outside {lo}–{hi}')
-    else:
-        if item['kind'] == 'sound':
-            scores = listen(path, asset['sha256'], item['clap_labels']).get('scores', [])
-            top = [s['label'] for s in scores[:3]]
-            results.update(clap_top=top, clap_score=next((s['score'] for s in scores if s['label'] == item['clap']), 0))
-            if item['clap'] not in top:
-                problems.append('sounds like ' + (top[0] if top else 'something else'))
-            heard = listen(path, asset['sha256']).get('text', '').strip()
-            if len(heard.split()) >= 4:
-                problems.append('contains speech')
-                results['heard'] = heard[:200]
-    results['problems'] = problems
+            results['pitch_hz'] = pitch(samples)
+    elif item['kind'] == 'sound':
+        scores = listen(path, asset['sha256'], item['clap_labels']).get('scores', [])
+        results.update(clap_top=[s['label'] for s in scores[:3]], clap_score=next((s['score'] for s in scores if s['label'] == item['clap']), 0))
+        heard = listen(path, asset['sha256']).get('text', '').strip()
+        if len(heard.split()) >= 4:
+            results['heard'] = heard[:200]
+    results['problems'] = judge(item, results)
     return results
 
 
@@ -480,6 +560,13 @@ def finish(item, job, attempt, state, digests):
             asset['deleted_reason'] = 'Model Sounds remake: ' + '; '.join(results['problems'])
             save(asset)
             return False
+        file_sample(item, asset, results, entry, digests)
+        return True
+
+
+def file_sample(item, asset, results, entry, digests):
+    """Label a checked sample and save its metadata (status passed or needs_listen)."""
+    if True:
         status = 'needs_listen' if results['problems'] else 'passed'
         entry['status'] = status
         digests[asset['sha256']] = item['key']
@@ -488,9 +575,17 @@ def finish(item, job, attempt, state, digests):
         asset['model_sound'] = {**item['meta'], 'path': item['path'], 'settings': {k: settings.get(k) for k in
                                 ('model', 'seed', 'duration', 'kind', 'sample_rate', 'channels', 'genre', 'worker_compute') if k in settings},
                                 'lines': settings.get('lines'), 'checks': {'status': status, **results}, 'made': time.time()}
+        asset['deleted'] = False
+        asset.pop('deleted_reason', None)
         save(asset)
+        previous = entry.pop('previous', None)
+        if previous and previous != asset['id']:          # a clearer remake replaces the old sample
+            old_asset = record(previous)
+            if old_asset:
+                old_asset['deleted'] = True
+                old_asset['deleted_reason'] = 'Model Sounds: replaced by a clearer remake'
+                save(old_asset)
         api('audio/labels', {'asset_id': asset['id'], 'title': item['title'], 'folder_ids': [folder(item['path'])]})
-        return True
 
 
 def run(limit=None, only=None):
@@ -545,6 +640,8 @@ def run(limit=None, only=None):
                 if attempt == 1:
                     queue_.append((item, 2))
                     entry['status'] = 'remake'
+                elif entry.get('previous'):
+                    entry.update(status='needs_listen', asset_id=entry.pop('previous'))
                 else:
                     entry.update(status='failed', error=(job.get('error') or 'timed out')[:300])
                 print(item['key'], 'job', job['status'], (job.get('error') or '')[:120], flush=True)
@@ -552,6 +649,45 @@ def run(limit=None, only=None):
     pool.shutdown(wait=True)
     write_state(state)
     report()
+
+
+def redo():
+    """Queue a fresh make (two tries) for needs-a-listen sounds that now have clearer wording."""
+    state, count = load_state(), 0
+    for item in plan():
+        entry = state.get(item['key'], {})
+        meta = item.get('meta', {})
+        if item['kind'] == 'sound' and entry.get('status') == 'needs_listen' and (meta.get('name'), meta.get('variant')) in CLEARER:
+            entry.update(status='redo', previous=entry.get('asset_id'))
+            count += 1
+            print(item['key'], flush=True)
+    write_state(state)
+    print('queued again', count)
+
+
+def rejudge():
+    """Judge earlier samples again with the current thresholds, from their stored measurements (no new audio)."""
+    state, by_key, digests, changed = load_state(), {i['key']: i for i in plan()}, {}, 0
+    for key, entry in state.items():
+        item = by_key.get(key)
+        if not item or entry.get('status') not in ('remake', 'needs_listen') or not entry.get('results') or not entry.get('asset_id'):
+            continue
+        results = dict(entry['results'])
+        if item['kind'] == 'speech' and results.get('heard'):
+            results['words_match'] = similar(results['heard'], item['expect'])
+        results['problems'] = judge(item, results)
+        if results['problems'] and entry['status'] == 'remake':
+            continue
+        asset = record(entry['asset_id'])
+        if not asset:
+            continue
+        entry.update(results=results)
+        with LOCK:
+            file_sample(item, asset, results, entry, digests)
+        changed += 1
+        print(key, entry['status'], flush=True)
+    write_state(state)
+    print('re-judged', changed)
 
 
 def report():
@@ -571,7 +707,7 @@ def report():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('plan', 'run', 'report'))
+    parser.add_argument('command', choices=('plan', 'run', 'report', 'rejudge', 'redo'))
     parser.add_argument('--limit', type=int)
     parser.add_argument('--only', help='only keys containing this text (for a small test)')
     args = parser.parse_args()
@@ -585,5 +721,9 @@ if __name__ == '__main__':
             print(i['key'], '|', i.get('expect') or i['body'].get('description'))
     elif args.command == 'run':
         run(args.limit, args.only)
+    elif args.command == 'rejudge':
+        rejudge()
+    elif args.command == 'redo':
+        redo()
     else:
         report()

@@ -183,6 +183,14 @@ def validate(body):
         result['character_controls_version'] = 1
     if len(clean) > 80 or sum(len(line['text']) for line in clean) > 4000:
         result['long_form_version'] = 1
+    # One speech model for every line (e.g. all characters switched to Qwen3-TTS while Model Settings still says
+    # Chatterbox): record it as a single-model job instead of a mixed one. Mixed jobs take the slower mixed worker
+    # path, which fails on Serverless today ("Speech inference failed", 21 Nov 2026).
+    line_models = {line.get('model', model_id) for line in clean}
+    if len(line_models) == 1 and model_id not in line_models:
+        model_id = result['model'] = line_models.pop()
+        if model_id != 'chatterbox':
+            result.pop('exaggeration', None)
     if required_models(result) != {model_id}:
         result['mixed_models_version'] = 1
     refs = sorted({line['voice'][4:] for line in clean if line['voice'].startswith('ref:')})

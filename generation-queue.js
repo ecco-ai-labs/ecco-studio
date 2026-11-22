@@ -52,17 +52,20 @@
  }
 
  // ---------- Queue pop-up ----------
- const view={tab:'All',search:'',offset:0,data:null,busy:false,drag:null};
+ // kind 'audio' (owner final mocks, 21 Nov 2026): the same pop-up lists waiting audio recordings from /api/audio/queue.
+ // Audio jobs go to RunPod as soon as they are sent, so they cannot be reordered (no Move to top or drag); Cancel stops one.
+ const view={tab:'All',search:'',offset:0,data:null,busy:false,drag:null,kind:'image'};
  let dialog=null,poll=0;
- function queueButton(host){
-  const b=document.createElement('button');b.type='button';b.className='secondary gq-queue';b.dataset.genQueue='';b.innerHTML='Queue <span class="gq-count" data-gq-count hidden></span>';
-  b.onclick=open;host.prepend(b);refreshCount(b);return b;
+ function queueButton(host,{kind='image'}={}){
+  const b=document.createElement('button');b.type='button';b.className='secondary gq-queue';b.dataset.genQueue='';b.dataset.kind=kind;b.innerHTML='Queue <span class="gq-count" data-gq-count hidden></span>';
+  b.onclick=()=>open(kind);host.prepend(b);refreshCount(b);return b;
  }
  async function refreshCount(b){
   if(!b?.isConnected||!ready())return;
-  try{const data=await page({offset:0,limit:1,model:'',search:''});const n=data.mine?.waiting||0,c=b.querySelector('[data-gq-count]');c.textContent=n.toLocaleString();c.hidden=!n;b.setAttribute('aria-label','Queue'+(n?', '+n+' waiting':''));}catch{}
+  try{const data=await page({offset:0,limit:1,model:'',search:'',kind:b.dataset.kind||'image'});const n=data.mine?.waiting||0,c=b.querySelector('[data-gq-count]');c.textContent=n.toLocaleString();c.hidden=!n;b.setAttribute('aria-label','Queue'+(n?', '+n+' waiting':''));}catch{}
  }
- function page({offset=view.offset,limit=50,model=view.tab==='All'?'':view.tab,search=view.search}={}){
+ function page({offset=view.offset,limit=50,model=view.tab==='All'?'':view.tab,search=view.search,kind=view.kind}={}){
+  if(kind==='audio')return api('audio/queue?'+new URLSearchParams({model,search,offset:String(offset),limit:String(limit)}).toString());
   return api('queue?'+new URLSearchParams({owner:me(),model,search,offset:String(offset),limit:String(limit)}).toString());
  }
  function ensureDialog(){
@@ -75,12 +78,12 @@
   document.body.append(dialog);
   const search=dialog.querySelector('[data-gq-search]');let t=0;
   search.oninput=()=>{clearTimeout(t);t=setTimeout(()=>{view.search=search.value.trim();view.offset=0;load();},250);};
-  dialog.querySelector('[data-gq-cancel-all]').onclick=async()=>{if(!view.data?.mine?.waiting)return;await act('queue/cancel-all',{});};
+  dialog.querySelector('[data-gq-cancel-all]').onclick=async()=>{if(!view.data?.mine?.waiting)return;if(view.kind==='audio'){const all=await page({offset:0,limit:50,model:'',search:''});for(const x of all.items||[])await act('generation/stop',{job_id:x.id},{reload:false});return load();}await act('queue/cancel-all',{});};
   dialog.addEventListener('close',()=>{clearInterval(poll);poll=0;document.querySelectorAll('[data-gen-queue]').forEach(refreshCount);});
   const list=dialog.querySelector('[data-gq-list]');
   list.addEventListener('click',e=>{const b=e.target.closest('[data-gq-act]');if(!b)return;const id=b.closest('[data-id]').dataset.id;
-   if(b.dataset.gqAct==='top')act('queue/move',{job_id:id,top:true});else act('queue/cancel',{job_ids:[id]});});
-  list.addEventListener('dragstart',e=>{const row=e.target.closest('[data-id]');if(!row)return;view.drag=row.dataset.id;e.dataTransfer.effectAllowed='move';row.classList.add('gq-dragging');});
+   if(b.dataset.gqAct==='top')act('queue/move',{job_id:id,top:true});else if(view.kind==='audio')act('generation/stop',{job_id:id});else act('queue/cancel',{job_ids:[id]});});
+  list.addEventListener('dragstart',e=>{const row=e.target.closest('[data-id]');if(!row||view.kind==='audio')return;view.drag=row.dataset.id;e.dataTransfer.effectAllowed='move';row.classList.add('gq-dragging');});
   list.addEventListener('dragend',e=>{e.target.closest('[data-id]')?.classList.remove('gq-dragging');list.querySelectorAll('.gq-over').forEach(x=>x.classList.remove('gq-over'));});
   list.addEventListener('dragover',e=>{const row=e.target.closest('[data-id]');if(!row||!view.drag)return;e.preventDefault();list.querySelectorAll('.gq-over').forEach(x=>x!==row&&x.classList.remove('gq-over'));row.classList.add('gq-over');});
   list.addEventListener('drop',e=>{const row=e.target.closest('[data-id]');if(!row||!view.drag)return;e.preventDefault();const from=view.drag;view.drag=null;if(from!==row.dataset.id)act('queue/move',{job_id:from,before_id:row.dataset.id});});
@@ -89,16 +92,17 @@
    if(e.key==='ArrowUp'&&i>0)act('queue/move',{job_id:rows[i].dataset.id,before_id:rows[i-1].dataset.id});else if(e.key==='ArrowDown'&&i<rows.length-1)act('queue/move',{job_id:rows[i+1].dataset.id,before_id:rows[i].dataset.id});});
   return dialog;
  }
- async function act(path,body){if(view.busy)return;view.busy=true;try{await api(path,{gpu:'serverless',...body});}catch(error){window.EccoErrors?.show(error,{title:'The queue could not be changed'});}finally{view.busy=false;}load();}
- async function open(){
+ async function act(path,body,{reload=true}={}){if(view.busy)return;view.busy=true;try{await api(path,view.kind==='audio'?body:{gpu:'serverless',...body});}catch(error){window.EccoErrors?.show(error,{title:'The queue could not be changed'});}finally{view.busy=false;}if(reload)load();}
+ async function open(kind){
   if(!ready()){window.EccoStorage?.open?.();return;}
-  const d=ensureDialog();view.offset=0;if(!d.open)d.showModal();await load();clearInterval(poll);poll=setInterval(()=>{if(!d.open)return clearInterval(poll);if(!view.busy&&!view.drag)load();},4000);
+  const d=ensureDialog();if(typeof kind==='string'&&kind!==view.kind){view.kind=kind;view.tab='All';view.search='';d.querySelector('[data-gq-search]').value='';}view.offset=0;d.dataset.kind=view.kind;d.querySelector('[data-gq-list]').setAttribute('aria-label',view.kind==='audio'?'Your waiting recordings':'Your waiting pictures');d.querySelector('.gq-progress [role=progressbar]').setAttribute('aria-label',view.kind==='audio'?'Your recordings done':'Your pictures done');if(!d.open)d.showModal();await load();clearInterval(poll);poll=setInterval(()=>{if(!d.open)return clearInterval(poll);if(!view.busy&&!view.drag)load();},4000);
  }
  let loadSeq=0;
  async function load(){
   const d=ensureDialog(),seq=++loadSeq;let data;try{data=await page();}catch(error){if(seq===loadSeq)d.querySelector('[data-gq-summary]').textContent=error.message;return;}
   if(seq!==loadSeq)return;
-  view.data=data;const list=await models();
+  view.data=data;const list=view.kind==='audio'?(window.EccoAudioModels||[]).filter(m=>(data.models||[]).includes(m.id)).map(m=>({id:m.id,name:m.name})):await models();
+  if(view.kind==='audio')data.items.forEach(x=>{x.model_name=list.find(m=>m.id===x.model)?.name||x.model_name;});
   const mine=data.mine||{},total=(mine.waiting||0)+(mine.running||0)+(mine.done||0),pct=total?Math.round(100*(mine.done||0)/total):0;
   d.querySelector('[data-gq-summary]').textContent=view.tab==='All'?(mine.done||0).toLocaleString()+' of '+total.toLocaleString()+' done · '+(mine.running||0)+' generating · about '+wait(data.last_wait_seconds).replace('~','')+' left'
    :view.tab+': '+data.total.toLocaleString()+' waiting';
