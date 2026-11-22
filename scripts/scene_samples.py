@@ -152,7 +152,7 @@ def run(only=None, redo=()):
         old = state.pop('scene:' + story, {})
         for take in old.get('takes', []):
             try:
-                ms.api('audio/labels', {'asset_id': take['asset_id'], 'title': (ms.record(take['asset_id']) or {}).get('title') or story, 'folder_ids': []})
+                ms.api('library/labels/remove', {'library': 'audio', 'item_id': take['asset_id'], 'folder_id': ms.folder([LABEL])})
             except RuntimeError as exc:
                 print('could not unlabel', take['asset_id'], exc, flush=True)
         state.setdefault('replaced', []).extend(t['asset_id'] for t in old.get('takes', []))
