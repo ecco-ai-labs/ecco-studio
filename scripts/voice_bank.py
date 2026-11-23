@@ -83,10 +83,21 @@ def build(config):
 
 
 AGE_LABEL = {'18-30': 'Age 18–30', '30-45': 'Age 30–45', '45-60': 'Age 45–60', '60+': 'Age 60+'}
-FROM_LINE = {'Hindi': 'नमस्ते, मैं {} से हूँ। आपको मेरी आवाज़ कैसी लगी?'}
+FROM_LINE = {'Hindi': 'नमस्ते, मैं {} से हूँ। आपको मेरी आवाज़ कैसी लगी?',
+             # IndicF5 has no Urdu; spoken Urdu and Hindi share sounds, so the Urdu line is written in Devanagari for the model
+             'Urdu': 'आदाब, मैं {} से हूँ। आपको मेरी आवाज़ कैसी लगी?'}
+FROM_LINE_NO_PLACE = {'Hindi': 'नमस्ते, आपको मेरी आवाज़ कैसी लगी?', 'Urdu': 'आदाब, आपको मेरी आवाज़ कैसी लगी?'}
+TTS_LANGUAGE = {'Urdu': 'Hindi'}
 HINDI_PLACE = {'Balaghat': 'बालाघाट', 'Bhadohi': 'भदोही', 'Bhopal': 'भोपाल', 'Darbhanga': 'दरभंगा', 'Gwalior': 'ग्वालियर', 'Jaipur': 'जयपुर',
                'Jodhpur': 'जोधपुर', 'Karauli': 'करौली', 'Katni': 'कटनी', 'Mirzapur': 'मिर्ज़ापुर', 'Sonbhadra': 'सोनभद्र', 'Varanasi': 'वाराणसी',
-               'Patna': 'पटना', 'Lucknow': 'लखनऊ', 'Indore': 'इंदौर', 'Muzaffarpur': 'मुज़फ़्फ़रपुर', 'Gaya': 'गया', 'Ajmer': 'अजमेर'}
+               'Patna': 'पटना', 'Lucknow': 'लखनऊ', 'Indore': 'इंदौर', 'Muzaffarpur': 'मुज़फ़्फ़रपुर', 'Gaya': 'गया', 'Ajmer': 'अजमेर',
+               'Hyderabad': 'हैदराबाद', 'Aurangabad': 'औरंगाबाद', 'Rampur': 'रामपुर', 'Aligarh': 'अलीगढ़', 'Moradabad': 'मुरादाबाद',
+               'Srinagar': 'श्रीनगर', 'Malegaon': 'मालेगांव', 'Gulbarga': 'गुलबर्गा', 'Kalaburagi': 'कलबुर्गी', 'Bidar': 'बीदर',
+               'Kurnool': 'कुर्नूल', 'Nanded': 'नांदेड़', 'Kolkata': 'कोलकाता', 'Mumbai': 'मुंबई', 'Delhi': 'दिल्ली', 'Bijapur': 'बीजापुर',
+               'Vijayapura': 'विजयपुरा', 'Hubli': 'हुबली', 'Dharwad': 'धारवाड़', 'Mysore': 'मैसूर', 'Bangalore': 'बैंगलोर', 'Bengaluru': 'बेंगलुरु',
+               'Saharanpur': 'सहारनपुर', 'Meerut': 'मेरठ', 'Bareilly': 'बरेली', 'Azamgarh': 'आज़मगढ़', 'Kishanganj': 'किशनगंज',
+               'Purnia': 'पूर्णिया', 'Murshidabad': 'मुर्शिदाबाद', 'Nagpur': 'नागपुर', 'Pune': 'पुणे', 'Thane': 'ठाणे', 'Raichur': 'रायचूर',
+               'Anantnag': 'अनंतनाग', 'Baramulla': 'बारामूला', 'Jammu': 'जम्मू', 'Poonch': 'पुंछ', 'Rajouri': 'राजौरी', 'Kupwara': 'कुपवाड़ा'}
 
 
 def merge_wide(config):
@@ -147,7 +158,8 @@ def build_wide(config):
             used.add(pick.get('speaker_id'))
             bank[bank_key] = {'ref': ref['id'], 'sex': sex, 'label': f'{language} voices', 'language': language, 'source': source, 'made': time.time(),
                               'path': [ms.ROOT, 'Human', sex, f'{language} voices', AGE_LABEL[age], f'{n:02d} · {district}'],
-                              'title': f'{sex} {n:02d} · {age} · {district}', 'text': FROM_LINE[language].format(HINDI_PLACE.get(district, district) if language == 'Hindi' else district)}
+                              'title': f'{sex} {n:02d} · {age} · {district}', 'tts_language': TTS_LANGUAGE.get(language, language),
+                              'text': FROM_LINE[language].format(HINDI_PLACE[district]) if district in HINDI_PLACE else FROM_LINE_NO_PLACE[language]}
             BANK.write_text(json.dumps(bank, ensure_ascii=False, indent=1))
             print(bank_key, district, pick.get('occupation'), flush=True)
     print('voice bank:', sum(1 for v in bank.values() if isinstance(v, dict)), 'voices')
