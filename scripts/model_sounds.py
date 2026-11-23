@@ -303,7 +303,7 @@ def bank_items():
         items.append({'key': key, 'kind': 'speech', 'path': path,
                       'title': title, 'expect': text, 'language': lang, 'pitch': None, 'experimental': False,
                       'body': {'model': 'indicf5', 'compute': COMPUTE, 'genre': 'Podcast', 'pause': 0, 'title': f'Model Sounds · {title}',
-                               'lines': [{'text': text, 'voice': voice, 'language': lang, 'model': 'indicf5'}]},
+                               'lines': [{'text': text, 'voice': voice, 'language': entry.get('tts_language', lang), 'model': 'indicf5'}]},
                       'meta': {'grid': 'Human', 'voice_type': label, 'sex': sex, 'language': lang, 'model': 'indicf5', 'voice': voice,
                                'text': text, 'experimental': False, 'source': entry.get('source')}})
     return items
