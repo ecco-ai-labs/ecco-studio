@@ -798,6 +798,53 @@ def voice_bank_hub(config, gender, age, per_group=12):
     step_result('voice-bank-wide', config=config, files=len(files), groups={f'{gender}|{age}': picks})
 
 
+ORPHEUS_URDU_LINE = 'ہم کو معلوم ہے جنت کی حقیقت لیکن، دل کے خوش رکھنے کو غالبؔ یہ خیال اچھا ہے'
+ORPHEUS_URDU_CODE = r'''
+import json, sys, torch, soundfile
+from snac import SNAC
+from transformers import AutoModelForCausalLM, AutoTokenizer
+sys.path.insert(0, sys.argv[4])
+import svara_codec as c
+weights, snac_dir, out = sys.argv[1], sys.argv[2], sys.argv[3]
+text = json.loads(sys.argv[5])
+tok = AutoTokenizer.from_pretrained(weights)
+model = AutoModelForCausalLM.from_pretrained(weights, torch_dtype=torch.bfloat16).to('cuda').eval()
+snac = SNAC(**json.load(open(snac_dir + '/config.json')))
+snac.load_state_dict(torch.load(snac_dir + '/pytorch_model.bin', map_location='cpu'))
+snac = snac.to('cuda').eval()
+for take, temp in enumerate((0.6, 0.7), 1):
+    ids = [c.START_OF_HUMAN, c.BOS, *tok.encode(text, add_special_tokens=False), c.END_OF_TEXT, c.END_OF_HUMAN]
+    prompt = torch.tensor([ids], device='cuda')
+    gen = model.generate(prompt, attention_mask=torch.ones_like(prompt), max_new_tokens=2400, do_sample=True, temperature=temp,
+                         top_p=0.95, repetition_penalty=1.1, eos_token_id=c.END_OF_SPEECH)
+    codes = c.snac_codes(gen[0, prompt.shape[1]:].tolist())
+    with torch.no_grad():
+        audio = snac.decode([torch.tensor([x], device='cuda') for x in codes])
+    soundfile.write(out + '-%d.wav' % take, audio.squeeze().float().cpu().numpy(), c.SAMPLE_RATE)
+'''
+
+
+def orpheus_urdu_test():
+    """One-off listening test: mahwizzzz/orpheus-urdu-tts (MIT; Orpheus 3B fine-tuned on Urdu audiobooks) reads a
+    Ghalib couplet. Weights go to local disk only (nothing is installed or marked ready); two takes return inline."""
+    import base64
+    python = build_venv('svara-tts-venv', SVARA_PACKAGES)
+    snac_dir = VOL / 'models' / 'svara-tts' / 'snac'
+    if not (snac_dir / 'pytorch_model.bin').is_file():
+        snac_dir = Path(tempfile.mkdtemp(prefix='snac-'))
+        download(python, 'hubertsiuzdak/snac_24khz', snac_dir, ['config.json', 'pytorch_model.bin'])
+    weights = Path(tempfile.mkdtemp(prefix='orpheus-urdu-'))
+    revision = download(python, 'mahwizzzz/orpheus-urdu-tts', weights, ['*.json', '*.safetensors', 'tokenizer*', '*.model', '*.txt', '*.md'])
+    out = Path(tempfile.mkdtemp(prefix='orpheus-out-')) / 'take'
+    run([python, '-c', ORPHEUS_URDU_CODE, weights, snac_dir, out, SRC / 'audio', json.dumps(ORPHEUS_URDU_LINE)], env=clean_env(), timeout=1800)
+    takes = []
+    for wav in sorted(out.parent.glob('take-*.wav')):
+        mp3 = wav.with_suffix('.mp3')
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(wav), '-ac', '1', '-b:a', '64k', str(mp3)], check=True)
+        takes.append(base64.b64encode(mp3.read_bytes()).decode())
+    step_result('orpheus-urdu-test', revision=revision, takes=takes)
+
+
 def main(steps):
     failures = 0
     for item in steps:
@@ -820,6 +867,8 @@ def main(steps):
                 indic_parler()  # rebuild:indic-parler lets the deployed handler (which predates this step) run it
             elif name == 'svara-tts' or (name == 'rebuild' and argument == 'svara-tts'):
                 svara_tts()  # likewise rebuild:svara-tts
+            elif name == 'rebuild' and argument == 'orpheus-urdu-test':
+                orpheus_urdu_test()   # one-off Urdu listening test; installs nothing
             elif name == 'rebuild' and argument.startswith('voice-bank-hub-'):
                 voice_bank_hub(*argument[len('voice-bank-hub-'):].split('__'))   # e.g. voice-bank-hub-hindi__Female__60plus
             elif name == 'rebuild' and argument.startswith('voice-bank-wide-'):
